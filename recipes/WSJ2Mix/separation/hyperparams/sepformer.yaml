@@ -2,67 +2,39 @@
 # Model: SepFormer for source separation
 # https://arxiv.org/abs/2010.13154
 #
-# Dataset : WSJ0-2mix
+# Dataset : WSJ0-mix
 # ################################
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-experiment_name: 1-sepformer
-output_folder: !ref results/<experiment_name>/<seed>
-save_folder: !ref <output_folder>/save
+
+# Data params
+wsj0mixpath: '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
+output_folder: !ref results/sepformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
-data_folder: ../../../samples/audio_samples/sourcesep_samples
+save_folder: !ref <output_folder>/save
+tr_csv: !ref <save_folder>/wsj_tr.csv
+cv_csv: !ref <save_folder>/wsj_cv.csv
+tt_csv: !ref <save_folder>/wsj_tt.csv
+
+# Experiment params
 auto_mix_prec: True
 device: 'cuda:0'
-
 test_only: False
-num_spks: 2
-minimal: True
+num_spks: 2 # set to 3 for wsj0-3mix
+sentence_sorting: random
+progressbar: True
+save_audio: True # Save estimated sources on disk
+audio_to_save: 10 # Saves only N audio files
+sample_rate: 8000
 
-# Neural Parameters
+# Training parameters
 N_epochs: 200
 N_batch: 1
 lr: 0.00015
-train_onthefly: False
-loss_fn: 'sisnr'
-progressbar: True
-# The path for wsj0-mix data
-# wsj0mixpath: !PLACEHOLDER
-# The path for the folder which contains wsj0 folder.
-# This is used only if the wsj0-mix is not already ready to be used.
-# e.g. '/network/tmp1/subakany/wsj0-mix/'
-#
-wsj0mixpath: '/network/tmp1/subakany/wsj0-mix/2speakers/'
-tr_csv: 'wsj_tr.csv'
-cv_csv: 'wsj_cv.csv'
-tt_csv: 'wsj_tt.csv'
-sentence_sorting: random
-early_stopping_with_patience: -1
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <tr_csv>
-    batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
-    csv_read: [mix_wav, s1_wav, s2_wav]
-    replacements:
-        $data_folder: !ref <data_folder>
-val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <cv_csv>
-    batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
-    csv_read: [mix_wav, s1_wav, s2_wav]
-    replacements:
-        $data_folder: !ref <data_folder>
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <tt_csv>
-    batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
-    csv_read: [mix_wav, s1_wav, s2_wav]
-    replacements:
-        $data_folder: !ref <data_folder>
-
+clip_grad_norm: 5
 loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
 # if True, the training sequences are cut to a specified length
 limit_training_signal_len: False
@@ -70,43 +42,60 @@ limit_training_signal_len: False
 # the signal length of training sequences
 training_signal_len: 32000
 
-use_waveformdrop: False
+
+# Augment parameters
+use_wavedrop: False
 use_speedperturb: False
-speedperturb_block: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 1.0
-    drop_freq_prob: 0.0
-    drop_chunk_prob: 0.0
-    sample_rate: 8000
-    speeds: [95, 100, 105]
+use_rand_shift: False
+min_shift: -8000
+max_shift: 8000
 
-waveformdrop_block: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 0.0
-    drop_freq_prob: 1.0
-    drop_chunk_prob: 1.0
-    sample_rate: 8000
-
+# Neural parameters
 N_encoder_out: 256
 out_channels: 256
 kernel_size: 16
 kernel_stride: 8
 
+# Dataloaders
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <tr_csv>
+    batch_size: !ref <N_batch>
+    sentence_sorting: !ref <sentence_sorting>
+    csv_read: [mix_wav, s1_wav, s2_wav] # add s3_wav for wsj3mix
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <cv_csv>
+    batch_size: !ref <N_batch>
+    sentence_sorting: !ref <sentence_sorting>
+    csv_read: [mix_wav, s1_wav, s2_wav] # add s3_wav for wsj3mix
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <tt_csv>
+    batch_size: 1 # must be 1 for a correct eval
+    sentence_sorting: !ref <sentence_sorting>
+    csv_read: [mix_wav, s1_wav, s2_wav] # add s3_wav for wsj3mix
+
+speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 1.0
+    drop_freq_prob: 0.0
+    drop_chunk_prob: 0.0
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 0.0
+    drop_freq_prob: 1.0
+    drop_chunk_prob: 1.0
+    sample_rate: !ref <sample_rate>
+
+
 Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
 
-# cem: when we run the models let's comment out unused blocks.
-#
-# All are provided to give an idea on what's available
-#
-# PTtf: !new:speechbrain.lobes.models.dual_pathrnn.PytorchTransformerBlock
-#    out_channels: !ref <out_channels>
-#    num_layers: 1
-#    nhead: 8
-#    d_ffn: 2048
-#    dropout: 0
-#
+
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -115,7 +104,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -124,6 +113,7 @@ SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
+    num_spks: !ref <num_spks>
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
     num_layers: 2
@@ -145,14 +135,19 @@ optimizer: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0
 
+loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
+
 lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
     patience: 2
 
-clip_grad_norm: 5
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
+
+modules:
+    encoder: !ref <Encoder>
+    decoder: !ref <Decoder>
+    masknet: !ref <MaskNet>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -160,11 +155,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         encoder: !ref <Encoder>
         decoder: !ref <Decoder>
         masknet: !ref <MaskNet>
-        # optimizer: !ref <optimizer>
         counter: !ref <epoch_counter>
         lr_scheduler: !ref <lr_scheduler>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-    # summary_fns:
-    #    SISNR: !name:speechbrain.utils.train_logger.summarize_error_rate
