@@ -1,113 +1,102 @@
+"""Datasets load individual data points (examples)
+
+Authors
+  * Samuele Cornell 2020
+  * Aku Rouhe 2020
+"""
+
 from torch.utils.data import Dataset
+from speechbrain.utils.data_pipeline import DataPipeline
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class SegmentedDataset(Dataset):
-    """
-    SegmentedDataset handles pre-segmented datasets.
+class DynamicItemDataset(Dataset):
+    """Dataset that reads, wrangles and produces dicts
 
-    It takes in input a dict in which each entry is a single example.
-    The example in its turn is represented by using a dict:
-    e.g. {"wav_file": "/path/to/helloworld.wav" "words": ["hello", "world"]}.
+    Each data point dict provides some items (by key), for example a path to a
+    wavefile with the key "wav_file". When a data point is fetched from this
+    Dataset, more items are produced dynamically, based on pre-existing items
+    and other dynamic created items. For example, a dynamic item could take the
+    wavfile path and load the audio from disk.
 
-    in data_fields a list of elements which one wants to be returned by this dataset class __getitem__
-    method must be specifies e.g. data_fields = ["wav_file", "words"].
-    Corresponding data_transformation can be specified for each element we want to return.
-    Note that transformations include also reading data from a file:
-    e.g. {"wav_file": read_wav} where read_wav is a suitable function we provide in data_io.py.
+    The dynamic items can depend on other dynamic items: a suitable evaluation
+    order is used automatically,  as long as there are no circular dependencies.
 
-    Finally the specified elements are transformed an returned from __getitem__
-    in a dict where the keys corresponds to the data_fields entried e.g. "wav_file".
+    A specified list of keys is collected in the output dict. These can be items
+    in the original data or dynamic items. If some dynamic items are not
+    requested, nor depended on by other requested items, they won't be computed.
+    So for example if a user simply wants to iterate over the text, the
+    time-consuming audio loading can be skipped.
 
+    About the format:
+    Takes a dict of dicts as the collection of data points to read/wrangle.
+    The top level keys are data point IDs.
+    Each data point (example) dict should have the same keys, corresponding to
+    different items in that data point.
 
-     ---------
-    Examples : dict
-        Dictionary containing single examples (e.g. utterances).
-    data_fields: (list, tuple)
-        The class to use for updating the modules' parameters.
-    data_transforms : dict
-        Dictionary where data transforms for each field is specified.
-    discard_longer: (int, optional)
-        whether to discard examples (e.g. wave files ) longer than specified here.
-        NOTE: when this option is used, examples must have a length attribute.
-        Also be sure that the value here is consistent with the length attribute
-        e.g. both are seconds or both are samples.
-    discard_shorter : (int, optional)
-        whether to discard examples (e.g. wave files ) shorter than specified here.
-        NOTE: when this option is used, examples must have a length attribute.
-        Also be sure that the value here is consistent with the length attribute
-        e.g. both are seconds or both are samples.
-    select_n_examples : (int, optional)
-        select only the first utterances as specified here, useful for debugging and
-        running quick tests.
+    Altogether the data collection could look like this:
+    >>> data = {
+    ...  "spk1utt1": {
+    ...      "wav_file": "/path/to/spk1utt1.wav",
+    ...      "text": ["hello world"],
+    ...      "speaker": "spk1",
+    ...      },
+    ...  "spk1utt2": {
+    ...      "wav_file": "/path/to/spk1utt2.wav",
+    ...      "text": ["how are you world"],
+    ...      "speaker": "spk1",
+    ...      }
+    ... }
+
+    NOTE
+    ----
+        The top level key, the data point id, is implicitly added as an item
+        in the data point, with the key "id"
+
+    Each dynamic item is configured by three things: a key, a func, and a list
+    of argkeys. The key should be unique among all the items (dynamic or not) in
+    each data point. The func is any callable, and it returns the dynamic item's
+    value. The callable is called with the values of other items as specified
+    by the argkeys list (as positional args, passed in the order specified by
+    argkeys).
+
+    The dynamic_items configuration could look like this:
+    >>> import torch
+    >>> dynamic_items = {
+    ...  "wav": {
+    ...      "func": lambda l: torch.Tensor(l),
+    ...      "argkeys": ["wav_loaded"] },
+    ...  "wav_loaded": {
+    ...      "func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
+    ...      "argkeys": ["wav_file"] },
+    ...  "words": {
+    ...      "func": lambda t: t.split(),
+    ...      "argkeys": ["text"] }, }
+
+    Arguments
+    ---------
+    data : dict
+        Dictionary containing single data points (e.g. utterances).
+    dynamic_items : dict, optional
+        Configuration for the dynamic items produced when fetchin an example.
+        Nested dict with the format (in YAML notation):
+        <key>:
+            func: <callable> # To be called
+            argkeys: <list> # keys of args, either other funcs or in data
+        <key2>: ...
+    output_keys : list, optional
+        List of keys (either directly available in data or dynamic items)
+        to include in the output dict when data points are fetched.
     """
 
     def __init__(
-        self,
-        examples: dict,
-        data_transforms,
-        discard_longer=None,
-        discard_shorter=None,
-        select_n_examples=None,
+        self, data, dynamic_elements=None, output_keys=None,
     ):
 
-        self.data_transforms = data_transforms
-
-        if not isinstance(self.data_transforms, list):
-            raise TypeError(
-                "data_transforms should be a list, got {}".format(
-                    type(self.data_transforms)
-                )
-            )
-        for k in self.data_transforms:
-            if not callable(k):
-                raise ValueError(
-                    "Each element in data_transforms dict must be callable"
-                )
-
-        if select_n_examples:
-            prev_len = len(list(examples.keys()))
-            examples = {
-                k: v
-                for i, (k, v) in enumerate(examples.items())
-                if i < select_n_examples
-            }
-            logger.warning(
-                "Retaining only {} of {} examples because of select_n_examples option.".format(
-                    select_n_examples, prev_len
-                )
-            )
-
-        if discard_shorter:
-            if "length" not in examples[list(examples.keys())[0]].keys():
-                raise KeyError(
-                    "If discard_shorter option wants to be used, "
-                    "each example must have a 'length' key containing the length of the example."
-                )
-
-            examples = {
-                k: v
-                for k, v in examples.items()
-                if examples[k]["length"] >= discard_shorter
-            }
-
-        if discard_longer:
-            if "length" not in examples[list(examples.keys())[0]].keys():
-                raise KeyError(
-                    "If discard_shorter option wants to be used, "
-                    "each example must have a 'length' key containing the length of the example."
-                )
-
-            examples = {
-                k: v
-                for k, v in examples.items()
-                if examples[k]["length"] <= discard_longer
-            }
-
-        self.examples = examples
         self.ex_ids = list(self.examples.keys())
+        self.pipeline = DataPipeline()
 
     def __len__(self):
         return len(self.ex_ids)
