@@ -66,6 +66,7 @@ class GlobalLayerNorm(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            of size [N, C, K, S] or [N, C, L]
         """
         # x = N x C x K x S or N x C x L
         # N x 1 x 1
@@ -123,6 +124,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
         Arguments
         ---------
         x : torch.Tensor
+            size [N, C, K, S] or [N, C, L]
         """
         # x: N x C x K x S or N x C x L
         # N x K x S x C
@@ -162,7 +164,7 @@ class Encoder(nn.Module):
     ---------
     kernel_size: int
         Length of filters.
-    out_channels: int
+    in_channels: int
         Number of  input channels.
     out_channels: int
         Number of output channels.
@@ -194,18 +196,21 @@ class Encoder(nn.Module):
         Arguments
         ---------
         x: torch.Tensor
-                Input tensor with dimensionality [B, T],
-                where B is batch size and T is time.
+                Input tensor with dimensionality [B, L],
         Return
         --------
         x: torch.Tensor
-              Encoded tensor with dimensionality [B, C, T_out],
-              where T_out is the number of time steps.
+              Encoded tensor with dimensionality [B, N, T_out],
+
+        where B = Batchsize
+              L = Number of timepoints
+              N = Number of filters
+              T_out = Number of timepoints at the output of the encoder
         """
-        # B x T -> B x 1 x T
+        # B x L -> B x 1 x L
         if self.in_channels == 1:
             x = torch.unsqueeze(x, dim=1)
-        # B x 1 x T -> B x C x T_out
+        # B x 1 x L -> B x N x T_out
         x = self.conv1d(x)
         x = F.relu(x)
 
@@ -214,6 +219,16 @@ class Encoder(nn.Module):
 
 class Decoder(nn.ConvTranspose1d):
     """A decoder layer that consists of ConvTranspose1d.
+
+    Arguments
+    ---------
+    kernel_size: int
+        Length of filters.
+    in_channels: int
+        Number of  input channels.
+    out_channels: int
+        Number of output channels.
+
 
     Example
     ---------
@@ -234,6 +249,9 @@ class Decoder(nn.ConvTranspose1d):
         ---------
         x: torch.Tensor
                 Input tensor with dimensionality [B, N, L],
+                where, B = Batchsize,
+                       N = number of filters
+                       L = time points
         """
 
         if x.dim() not in [2, 3]:
@@ -290,13 +308,13 @@ class FastTransformerBlock(nn.Module):
     reformer_bucket_size: int
         bucket size for reformer.
 
-    #Example
-    #-------
-    #>>> x = torch.randn(10, 100, 64)
-    #>>> block = FastTransformerBlock('linear', 64)
-    #>>> x = block(x)
-    #>>> x.shape
-    #torch.Size([10, 100, 64])
+    Example
+    -------
+    >>> x = torch.randn(10, 100, 64)
+    >>> block = FastTransformerBlock('linear', 64)
+    >>> x = block(x)
+    >>> x.shape
+    torch.Size([10, 100, 64])
     """
 
     def __init__(
@@ -335,6 +353,10 @@ class FastTransformerBlock(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
         """
         if self.attention_type == "reformer":
 
@@ -396,6 +418,10 @@ class PyTorchPositionalEncoding(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
         """
         x = x + self.pe[: x.size(0), :]
         return self.dropout(x)
@@ -462,6 +488,11 @@ class PytorchTransformerBlock(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
+
         """
         if self.pos_encoder is not None:
             x = self.pos_encoder(x)
@@ -548,6 +579,11 @@ class SBTransformerBlock(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
+
         """
         if self.use_positional_encoding:
             pos_enc = self.pos_enc(x)
@@ -577,8 +613,10 @@ class SBRNNBlock(nn.Module):
     Example
     ---------
     >>> x = torch.randn(10, 100, 64)
-    >>> rnn = SBRNNBlock(64, 100, 1)
+    >>> rnn = SBRNNBlock(64, 100, 1, bidirectional=True)
     >>> x = rnn(x)
+    >>> x[0].shape
+    torch.Size([10, 100, 200])
     """
 
     def __init__(
@@ -601,6 +639,17 @@ class SBRNNBlock(nn.Module):
         )
 
     def forward(self, x):
+        """Returns the transformed output.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
+        """
+
         return self.mdl(x)
 
 
@@ -623,8 +672,10 @@ class DPTNetBlock(nn.Module):
     Examples
     --------
         >>> encoder_layer = DPTNetBlock(d_model=512, nhead=8)
-        >>> src = torch.rand(10, 32, 512)
+        >>> src = torch.rand(10, 100, 512)
         >>> out = encoder_layer(src)
+        >>> out.shape
+        torch.Size([10, 100, 512])
     """
 
     def __init__(
@@ -659,19 +710,16 @@ class DPTNetBlock(nn.Module):
         super(DPTNetBlock, self).__setstate__(state)
 
     def forward(self, src):
-        ## type: (Tensor, Optional[Tensor], Optional[Tensor]) -> Tensor
         """Pass the input through the encoder layer.
 
         Arguments
         ---------
-        src: torch.nn.module
-            Sequence to the encoder layer (required).
-        src_mask: torch.nn.module
-            Mask for the src sequence (optional).
-        src_key_padding_mask: torch.nn.module
-            Mask for the src keys per batch (optional).
-        Shape: torch.shape
-            see the docs in Transformer class.
+        src : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
+
         """
         src2 = self.self_attn(
             src, src, src, attn_mask=None, key_padding_mask=None
@@ -762,10 +810,16 @@ class Dual_Computation_Block(nn.Module):
         x : torch.Tensor
             Input tensor of dimension [B, N, K, S]
 
+
         Return
         ---------
         out: torch.Tensor
-            Output tensor of dimension [Spks, B, N, K, S]
+            Output tensor of dimension [B, N, K, S]
+
+        where, B = Batchsize,
+               N = number of filters
+               K = time points in each chunk
+               S = the number of chunks
         """
         B, N, K, S = x.shape
         # intra RNN
@@ -917,6 +971,18 @@ class Dual_Path_Model(nn.Module):
         ---------
         x : torch.Tensor
             input tensor of dimension [B, N, L].
+
+            [B, L, N]
+
+        Return
+        ------
+        out: torch.Tensor
+            Output tensor of dimension [spks, B, N, L]
+
+        where, spks = Number of speakers
+               B = Batchsize,
+               N = number of filters
+               L = the number of time points
         """
 
         # [B, N, L]
@@ -966,6 +1032,10 @@ class Dual_Path_Model(nn.Module):
             Hop size.
         input: torch.Tensor
             Tensor of size [B, N, L].
+
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
         """
         B, N, L = input.shape
         P = K // 2
@@ -993,6 +1063,12 @@ class Dual_Path_Model(nn.Module):
         -------
            output: torch.tensor
                 Tensor with dim [B, N, K, S].
+
+        where, B = Batchsize,
+               N = number of filters
+               K = time points in each chunk
+               S = the number of chunks
+               L = the number of time points
         """
         B, N, L = input.shape
         P = K // 2
@@ -1020,6 +1096,13 @@ class Dual_Path_Model(nn.Module):
         -------
            output: torch.tensor
                 Tensor with dim [B, N, L].
+
+        where, B = Batchsize,
+               N = number of filters
+               K = time points in each chunk
+               S = the number of chunks
+               L = the number of time points
+
         """
         B, N, K, S = input.shape
         P = K // 2
