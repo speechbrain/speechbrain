@@ -132,8 +132,9 @@ For using DDP, you should consider using `torch.distributed.launch` for setting 
 The common pattern for using MultiGPU training with DDP (on single machine with 4 GPUs):
 ```
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch=True
+python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
 ```
+Try to switch DDP backend if you have issues with `nccl`.
 
 #### With multiple machines (suppose you have 2 servers with 2 GPUs):
 ```
