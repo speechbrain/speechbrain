@@ -6,7 +6,6 @@ These determine the order of iteration through a dataset.
 import torch
 import logging
 from torch.utils.data.sampler import RandomSampler, Sampler
-from speechbrain.data_io.datasets import SegmentedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +115,7 @@ class OrderedSampler(Sampler[int]):
     """
 
     def __init__(
-        self, data_source: SegmentedDataset, sorting="ascending",
+        self, data_source, sorting="ascending",
     ):
         if sorting not in ["descending", "ascending"]:
             raise ValueError('Sorting must be in ["descending", "ascending"]')
