@@ -310,11 +310,11 @@ class FastTransformerBlock(nn.Module):
 
     Example
     -------
-    >>> x = torch.randn(10, 100, 64)
-    >>> block = FastTransformerBlock('linear', 64)
-    >>> x = block(x)
-    >>> x.shape
-    torch.Size([10, 100, 64])
+    # >>> x = torch.randn(10, 100, 64)
+    # >>> block = FastTransformerBlock('linear', 64)
+    # >>> x = block(x)
+    # >>> x.shape
+    # torch.Size([10, 100, 64])
     """
 
     def __init__(
