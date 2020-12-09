@@ -256,6 +256,7 @@ class MaskNet(nn.Module):
         est_mask : Tensor
             shape is [M, K, C, N]
         """
+        mixture_w = mixture_w.permute(0, 2, 1)
         M, K, N = mixture_w.size()
         y = self.layer_norm(mixture_w)
         y = self.bottleneck_conv1x1(y)
@@ -266,6 +267,10 @@ class MaskNet(nn.Module):
         score = score.contiguous().reshape(
             M, K, self.C, N
         )  # [M, K, C*N] -> [M, K, C, N]
+
+        # [M, K, C, N] -> [C, M, N, K]
+        score = score.permute(2, 0, 3, 1)
+
         if self.mask_nonlinear == "softmax":
             est_mask = F.softmax(score, dim=2)
         elif self.mask_nonlinear == "relu":
