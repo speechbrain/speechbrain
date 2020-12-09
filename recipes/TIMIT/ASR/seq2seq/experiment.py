@@ -201,7 +201,7 @@ if __name__ == "__main__":
     # allow the subprocess:0 to run the I/O
     # using sb.ensure_first_or_completed(run_opts)
     # others subprocess !=0 will wait until I/O processing is done.
-    torch.distributed.barrier()
+    sb.ddp_barrier()
 
     # Collect index to label conversion dict for decoding
     train_set = hparams["train_loader"]()
