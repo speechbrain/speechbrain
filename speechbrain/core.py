@@ -146,7 +146,7 @@ def parse_arguments(arg_list):
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
     parser.add_argument(
-        "--local_rank", type=int, default=0, help="Rank on local machine",
+        "--local_rank", type=int, help="Rank on local machine",
     )
     parser.add_argument(
         "--device",
@@ -256,7 +256,7 @@ def _convert_to_yaml(overrides):
 
 
 def ensure_first_or_completed(run_opts):
-    if run_opts["local_rank"] == 0:
+    if "local_rank" not in run_opts.items() or run_opts["local_rank"] == 0:
         return True
     return False
 
