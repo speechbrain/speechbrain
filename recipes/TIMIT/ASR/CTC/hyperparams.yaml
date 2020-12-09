@@ -57,11 +57,9 @@ dev_examples: !apply:speechbrain.data_io.data_io.load_json
 test_examples: !apply:speechbrain.data_io.data_io.load_json
     json_path: !ref <data_folder>/test.json
 
-label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
-    data_collections: [!ref <train_examples>, !ref <dev_examples>]
-    supervision: phn
+label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.load_from_yaml
+    state_path: encoder_state.pkl
     blank_encoding: !ref <blank_index>
-    sup_transform: !name:speechbrain.utils.data_utils.split_by_whitespace
 
 text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     - !name:speechbrain.utils.data_utils.split_by_whitespace

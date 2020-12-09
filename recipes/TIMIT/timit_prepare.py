@@ -9,7 +9,7 @@ Authors
 """
 
 import os
-import json
+import csv
 import logging
 from speechbrain.utils.data_utils import get_all_files
 
@@ -638,7 +638,7 @@ def create_csv(
         csv_lines.append(csv_line)
 
     # Writing the csv lines
-    _write_json(csv_lines, csv_file)
+    _write_csv(csv_lines, csv_file)
     msg = "\t%s sucessfully created!" % (csv_file)
     logger.debug(msg)
 
@@ -709,27 +709,17 @@ def get_phoneme_lists(phn_file, phn_set):
     return phonemes, ends
 
 
-def _write_json(csv_lines, json_file):
+def _write_csv(csv_lines, csv_file):
     """
-    Writes on the specified json_file the given lines.
+    Writes on the specified csv_file the given csv_files.
     """
+    with open(csv_file, mode="w") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
 
-    json_examples = {}
-
-    for line in csv_lines:
-        json_examples[line["ID"]] = {
-            "wav": line["wav"],
-            "spk_id": line["spk_id"],
-            "phn": line["phn"],
-            "length": int(line["duration"] * 16000),
-            "words": line["wrd"],
-        }
-
-    import ipdb
-
-    ipdb.set_trace()
-    with open(json_file, "w") as f:
-        json.dump(json_examples, f, indent=4)
+        for line in csv_lines:
+            csv_writer.writerow(line)
 
 
 def _check_timit_folders(uppercase, data_folder):

@@ -7,11 +7,20 @@ To run this recipe, do the following:
 Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
+ * Samuele Cornell 2020
+ * Aku Rouhe 2020
 """
+import logging
 import os
 import sys
 import torch
 import speechbrain as sb
+from speechbrain.data_io.encoders import CTCTextEncoder
+from speechbrain.utils.data_utils import split_by_whitespace
+from speechbrain.data_io.data_io import load_json
+from speechbrain.data_io.legacy import csv_to_json
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -114,28 +123,53 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, overrides, args = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
+    if args["stage"] <= 0:
 
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
+        logger.info("Preparing data")
+        prepare_timit(
+            data_folder=args["data_folder"],
+            splits=["train", "dev", "test"],
+            save_folder=args["data_folder"],
+        )
 
-    asr_brain = ASR_Brain(
-        hparams["modules"],
-        hparams["opt_class"],
-        hparams,
-        checkpointer=hparams["checkpointer"],
-    )
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        hparams["train_loader"],
-        hparams["valid_loader"],
-    )
+        for csv in ["train.csv", "dev.csv", "test.csv"]:
+            csv_to_json(os.path.join(args["data_folder"], csv))
 
-    asr_brain.evaluate(hparams["test_loader"], min_key="PER")
+    if args["stage"] <= 1:
+
+        logger.info("Preparing label dictionary")
+        train_data = load_json(os.path.join(args["data_folder"], "train.json"))
+        valid_data = load_json(os.path.join(args["data_folder"], "dev.json"))
+
+        encoder = CTCTextEncoder()
+        encoder.fit([train_data, valid_data], "phn", split_by_whitespace)
+        encoder.save("encoder_state.pkl")
+
+    if args["stage"] <= 2:
+
+        logger.info("Training System")
+        with open(hparams_file) as fin:
+            hparams = sb.load_extended_yaml(fin, overrides)
+
+        # Create experiment directory
+        sb.create_experiment_directory(
+            experiment_directory=hparams["output_folder"],
+            hyperparams_to_save=hparams_file,
+            overrides=overrides,
+        )
+
+        asr_brain = ASR_Brain(
+            hparams["modules"],
+            hparams["opt_class"],
+            hparams,
+            checkpointer=hparams["checkpointer"],
+        )
+        asr_brain.fit(
+            asr_brain.hparams.epoch_counter,
+            hparams["train_loader"],
+            hparams["valid_loader"],
+        )
+
+        asr_brain.evaluate(hparams["test_loader"], min_key="PER")

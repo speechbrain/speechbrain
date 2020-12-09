@@ -149,6 +149,10 @@ def parse_arguments(arg_list):
         "--data_folder", help="A folder containing the data used for training",
     )
     parser.add_argument(
+        "--stage",
+        help="Stage argument which specifies the stage one wants to run in experiment.py",
+    )
+    parser.add_argument(
         "--save_folder",
         help="A folder for storing checkpoints that allow restoring "
         "progress for testing or re-starting training.",
@@ -185,6 +189,11 @@ def parse_arguments(arg_list):
         yaml_overrides = parsed_args["yaml_overrides"]
         del parsed_args["yaml_overrides"]
 
+    stage = -1
+    if parsed_args["stage"] is not None:
+        stage = int(parsed_args["stage"])
+        del parsed_args["stage"]
+
     # Only return non-empty items
     items = {k: v for k, v in parsed_args.items() if v is not None}
 
@@ -195,7 +204,9 @@ def parse_arguments(arg_list):
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
-    return param_file, yaml_stream.getvalue()
+    items.update({"stage": stage})
+
+    return param_file, yaml_stream.getvalue(), items
 
 
 class Stage(Enum):
