@@ -650,7 +650,7 @@ class SBRNNBlock(nn.Module):
                    L = time points
         """
 
-        return self.mdl(x)
+        return self.mdl(x)[0]
 
 
 class DPTNetBlock(nn.Module):
@@ -799,8 +799,23 @@ class Dual_Computation_Block(nn.Module):
 
         # Linear
         if linear_layer_after_inter_intra:
-            self.intra_linear = Linear(out_channels, input_size=out_channels)
-            self.inter_linear = Linear(out_channels, input_size=out_channels)
+            if isinstance(intra_mdl, SBRNNBlock):
+                self.intra_linear = Linear(
+                    out_channels, input_size=2 * out_channels
+                )
+            else:
+                self.intra_linear = Linear(
+                    out_channels, input_size=out_channels
+                )
+
+            if isinstance(inter_mdl, SBRNNBlock):
+                self.inter_linear = Linear(
+                    out_channels, input_size=2 * out_channels
+                )
+            else:
+                self.inter_linear = Linear(
+                    out_channels, input_size=out_channels
+                )
 
     def forward(self, x):
         """Returns the output tensor.
