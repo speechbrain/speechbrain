@@ -407,3 +407,20 @@ class CTCTextEncoder(TextEncoder):
         if unk_token is not None:
             enc.add_unk(unk_encoding, unk_token)
         return enc
+
+    @classmethod
+    def load_from_yaml(
+        cls,
+        state_path,
+        blank_encoding=0,
+        blank_token="<blank>",
+        unk_encoding=1,
+        unk_token=None,
+    ):
+        enc = cls()
+
+        enc.load(state_path)
+        enc.add_blank(blank_encoding, blank_token)
+        if unk_token is not None:
+            enc.add_unk(unk_encoding, unk_token)
+        return enc
