@@ -615,7 +615,7 @@ class SBRNNBlock(nn.Module):
     >>> x = torch.randn(10, 100, 64)
     >>> rnn = SBRNNBlock(64, 100, 1, bidirectional=True)
     >>> x = rnn(x)
-    >>> x[0].shape
+    >>> x.shape
     torch.Size([10, 100, 200])
     """
 
