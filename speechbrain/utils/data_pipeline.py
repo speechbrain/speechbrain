@@ -109,7 +109,7 @@ class DataPipeline:
             self.dg.add_edge(key, depended)
         self._exec_order = None
 
-    def set_output_keys(self, *keys):
+    def set_output_keys(self, keys):
         """Use this to change the output keys
 
         Also re-evaluates execution order.
@@ -118,8 +118,8 @@ class DataPipeline:
 
         Arguments
         ---------
-        *keys : str
-            Variable number of keys (str) to produce in output.
+        keys : list
+            List of of keys (str) to produce in output.
         """
         self.output_keys = keys
         self._exec_order = None
@@ -161,6 +161,12 @@ class DataPipeline:
         for key in self._dynamic_item_keys:
             if key in data:
                 raise ValueError(f"Dynamic item key {key} appears in data")
+        # If a key in data is requested as an output key, it might not exist
+        # in the dependency graph yet. It's safe to add it here implicitly,
+        # since we know that the key is found in data.
+        for output_key in self.output_keys:
+            if output_key in data and output_key not in self.dg:
+                self.dg.add_node(output_key)
         self._exec_order = list(
             self.dg.get_evaluation_order(selected_keys=self.output_keys)
         )

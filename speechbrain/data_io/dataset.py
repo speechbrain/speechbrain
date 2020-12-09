@@ -7,6 +7,7 @@ Authors
 
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
+from speechbrain.data_io.data_io import load_data_json, load_data_csv
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,12 +41,12 @@ class DynamicItemDataset(Dataset):
     >>> data = {
     ...  "spk1utt1": {
     ...      "wav_file": "/path/to/spk1utt1.wav",
-    ...      "text": ["hello world"],
+    ...      "text": "hello world",
     ...      "speaker": "spk1",
     ...      },
     ...  "spk1utt2": {
     ...      "wav_file": "/path/to/spk1utt2.wav",
-    ...      "text": ["how are you world"],
+    ...      "text": "how are you world",
     ...      "speaker": "spk1",
     ...      }
     ... }
@@ -75,6 +76,40 @@ class DynamicItemDataset(Dataset):
     ...      "func": lambda t: t.split(),
     ...      "argkeys": ["text"] }, }
 
+    With these, different views of the data can be loaded:
+    >>> from speechbrain.data_io.dataloader import SaveableDataLoader
+    >>> dataset = DynamicItemDataset(data, dynamic_items)
+    >>> #Note: SaveableDataLoader has speechbrain.data_io.batch.PaddedBatch
+    >>> # as default collate_fn
+    >>> dataloader = SaveableDataLoader(dataset, batch_size=2)
+    >>> # First, create encoding for words:
+    >>> dataset.set_output_keys(["words"])
+    >>> encoding = {}
+    >>> next_id = 1
+    >>> for batch in dataloader:
+    ...     for sent in batch.words:
+    ...         for word in sent:
+    ...             if word not in encoding:
+    ...                 encoding[word] = next_id
+    ...                 next_id += 1
+    >>> # Next, add an encoded words_tensor dynamic item:
+    >>> dataset.add_dynamic_item(
+    ...     key = "words_encoded",
+    ...     func = lambda ws: torch.tensor([encoding[w] for w in ws],
+    ...             dtype=torch.long),
+    ...     argkeys = ["words"])
+    >>> # Now we can get word and audio tensors:
+    >>> dataset.set_output_keys(["id", "wav", "words_encoded"])
+    >>> batch = next(iter(dataloader))
+    >>> batch.id
+    ['spk1utt1', 'spk1utt2']
+    >>> batch.wav  # +ELLIPSIS
+    PaddedData(data=tensor([[0.4700, 1.1200, ...
+    >>> batch.words_encoded
+    PaddedData(data=tensor([[1, 2, 0, 0],
+            [3, 4, 5, 2]]), lengths=tensor([0.5000, 1.0000]))
+
+
     Arguments
     ---------
     data : dict
@@ -94,26 +129,60 @@ class DynamicItemDataset(Dataset):
     def __init__(
         self, data, dynamic_elements=None, output_keys=None,
     ):
-
-        self.ex_ids = list(self.examples.keys())
-        self.pipeline = DataPipeline()
+        self.data = data
+        self.data_ids = list(self.data.keys())
+        static_keys = self.data[self.data_ids[0]]
+        if "id" in static_keys:
+            raise ValueError("The key 'id' is reserved for the data point id.")
+        self.pipeline = DataPipeline.from_configuration(
+            dynamic_elements, output_keys
+        )
 
     def __len__(self):
-        return len(self.ex_ids)
+        return len(self.data_ids)
 
-    def __getitem__(self, item):
-        ex_id = self.ex_ids[item]
-        c_ex = self.examples[ex_id]
-        out = {"id": ex_id}
+    def __getitem__(self, index):
+        data_id = self.data_ids[index]
+        data_point = self.data[data_id]
+        data_point["id"] = data_id
+        return self.pipeline.compute_outputs(data_point)
 
-        for k in c_ex.keys():
-            for t_pipeline in self.data_transforms:
-                if t_pipeline.target == k:
-                    pip_name = t_pipeline.name
-                    out[pip_name] = t_pipeline(c_ex[k])
+    def add_dynamic_item(self, key, func, argkeys):
+        """
+        Arguments
+        ---------
+        key : str
+            Unique key
+        func : callable
+            To be called
+        argkeys : list
+            List of keys. When func is called, each key is resolved to
+            either an entry in the data or the output of another dynamic_item.
+            The func is then called with these as positional arguments,
+            in the same order as specified here.
+        """
+        self.pipeline.add_dynamic_item(key, func, argkeys)
 
-        return out
+    def set_output_keys(self, keys):
+        """Use this to change the output keys
+
+        Arguments
+        ---------
+        keys : list
+            List of of keys (str) to produce in output.
+        """
+        self.pipeline.set_output_keys(keys)
 
     @classmethod
-    def from_extended_yaml(cls, examples, data_transforms, **kwargs):
-        return cls(examples, data_transforms, **kwargs)
+    def from_json(
+        cls, json_path, replacements={}, dynamic_items=None, output_keys=None
+    ):
+        data = load_data_json(json_path, replacements)
+        return cls(data, dynamic_items, output_keys)
+
+    @classmethod
+    def from_csv(
+        cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
+    ):
+        data = load_data_csv(csv_path, replacements)
+        return cls(data, dynamic_items, output_keys)

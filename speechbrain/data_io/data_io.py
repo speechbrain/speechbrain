@@ -20,6 +20,7 @@ import csv
 import time
 import torchaudio
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +46,13 @@ def _recursive_format(data, replacements):
             # If not dict, list or str, do nothing
 
 
-def load_json(json_path, replacements={}):
+def load_data_json(json_path, replacements={}):
     """Loads JSON and recursively formats string values
 
     Arguments
     ----------
     json_path : str
-        Path to json file
+        Path to CSV file
     replacements : dict
         Optional dict:
         e.g. {"data_folder": "/home/speechbrain/data"}
@@ -64,15 +65,15 @@ def load_json(json_path, replacements={}):
 
     Example
     -------
-    >>> json_spec = '''
-    ... { "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+    >>> json_spec = '''{
+    ...   "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
     ...   "ex2": {"files": [{"spk1": "{ROOT}/ex2.wav"}, {"spk2": "{ROOT}/ex2.wav"}], "id": 2}
     ... }
     ... '''
     >>> tmpfile = getfixture('tmpdir') / "test.json"
     >>> with open(tmpfile, "w") as fo:
     ...     _ = fo.write(json_spec)
-    >>> data = load_json(tmpfile, {"ROOT": "/home"})
+    >>> data = load_data_json(tmpfile, {"ROOT": "/home"})
     >>> data["ex1"]["files"][0]
     '/home/mic1/ex1.wav'
     >>> data["ex2"]["files"][1]["spk2"]
@@ -84,6 +85,78 @@ def load_json(json_path, replacements={}):
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
     return out_json
+
+
+def _replacer(match, replacements):
+    print(match[0])
+    print(replacements[match[0]])
+    return replacements[match[0]]
+
+
+def load_data_csv(csv_path, replacements={}):
+    """Loads CSV and formats string values
+
+    Uses the SpeechBrain legacy CSV data format, where the CSV must have an
+    'ID' field.
+    If there is a field called duration, it is interpreted as a float.
+    The rest of the fields are left as they are (legacy _format and _opts fields
+    are not used to load the data in any special way).
+
+    Bash-like string replacements with $to_replace are supported.
+
+    Arguments
+    ----------
+    csv_path : str
+        Path to CSV file
+    replacements : dict
+        Optional dict:
+        e.g. {"data_folder": "/home/speechbrain/data"}
+        This is used to recursively format all string values in the data
+
+    Returns
+    -------
+    dict
+        JSON data with replacements applied
+
+    Example
+    -------
+    >>> csv_spec = '''ID,duration,wav_path
+    ... utt1,1.45,$data_folder/utt1.wav
+    ... utt2,2.0,$data_folder/utt2.wav
+    ... '''
+    >>> tmpfile = getfixture("tmpdir") / "test.csv"
+    >>> with open(tmpfile, "w") as fo:
+    ...     _ = fo.write(csv_spec)
+
+    """
+    with open(csv_path, newline="") as csvfile:
+        result = {}
+        reader = csv.DictReader(csvfile)
+        variable_finder = re.compile(r"\$[\w.]+")
+        for row in reader:
+            try:
+                data_id = row["ID"]
+                del row["ID"]  # This is used as a key in result, instead.
+            except KeyError:
+                raise KeyError(
+                    "CSV has to have an 'ID' field, with unique ids"
+                    " for all data points"
+                )
+            if data_id in result:
+                raise ValueError(f"Duplicate id: {data_id}")
+            if "duration" in row:
+                row["duration"] = float(row["duration"])
+
+            for key, value in row.items():
+                try:
+                    row[key] = variable_finder.sub("asdf", value)
+                except KeyError:
+                    raise KeyError(
+                        f"The item {value} requires replacements "
+                        "which were not supplied."
+                    )
+            result[data_id] = row
+    return result
 
 
 def read_audio(waveforms_obj):
