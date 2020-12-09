@@ -178,19 +178,30 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
+    # If distributed_launch=True then
+    # create ddp_group with the right communication protocol
+    sb.ddp_init_group(run_opts)
 
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
-    )
+    if sb.ensure_first_or_completed(run_opts):
+        # Create experiment directory
+        sb.create_experiment_directory(
+            experiment_directory=hparams["output_folder"],
+            hyperparams_to_save=hparams_file,
+            overrides=overrides,
+        )
+
+        # Prepare data
+        prepare_timit(
+            data_folder=hparams["data_folder"],
+            splits=["train", "dev", "test"],
+            save_folder=hparams["data_folder"],
+        )
+
+    # if multiple subprocess is used then
+    # allow the subprocess:0 to run the I/O
+    # using sb.ensure_first_or_completed(run_opts)
+    # others subprocess !=0 will wait until I/O processing is done.
+    torch.distributed.barrier()
 
     # Collect index to label conversion dict for decoding
     train_set = hparams["train_loader"]()
