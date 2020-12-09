@@ -115,10 +115,10 @@ class Separation(sb.Brain):
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
-                self.inifinite_loss_found += 1
+                self.nonfinite_count += 1
                 logger.info(
                     "infinite loss! it happened {} times so far - skipping this batch".format(
-                        self.inifinite_loss_found
+                        self.nonfinite_count
                     )
                 )
                 loss.data = torch.tensor(0).to(self.device)
