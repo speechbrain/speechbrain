@@ -197,10 +197,10 @@ class MaskNet(nn.Module):
     ---------
     >>> N, B, H, P, X, R, C = 11, 12, 2, 5, 3, 1, 2
     >>> MaskNet = MaskNet(N, B, H, P, X, R, C)
-    >>> mixture_w = torch.randn(10, 100, 11)
+    >>> mixture_w = torch.randn(10, 11, 100)
     >>> est_mask = MaskNet(mixture_w)
     >>> est_mask.shape
-    torch.Size([10, 100, 2, 11])
+    torch.Size([2, 10, 11, 100])
     """
 
     def __init__(
