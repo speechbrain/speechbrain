@@ -225,38 +225,26 @@ class ASR(sb.Brain):
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
         if hasattr(self.hparams, "tok_mdl_file"):
-            try:
-                if sb.if_main_process():
-                    download_file(
-                        source=self.hparams.tok_mdl_file,
-                        dest=save_model_path,
-                        replace_existing=True,
-                    )
-            finally:
-                sb.ddp_barrier()
+            download_file(
+                source=self.hparams.tok_mdl_file,
+                dest=save_model_path,
+                replace_existing=True,
+            )
             self.hparams.tokenizer.sp.load(save_model_path)
 
         if hasattr(self.hparams, "tok_voc_file"):
-            try:
-                if sb.if_main_process():
-                    download_file(
-                        source=self.hparams.tok_voc_file,
-                        dest=save_vocab_path,
-                        replace_existing=True,
-                    )
-            finally:
-                sb.ddp_barrier()
+            download_file(
+                source=self.hparams.tok_voc_file,
+                dest=save_vocab_path,
+                replace_existing=True,
+            )
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        try:
-            if sb.if_main_process():
-                download_file(self.hparams.lm_ckpt_file, save_model_path)
-        finally:
-            sb.ddp_barrier()
+        download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
