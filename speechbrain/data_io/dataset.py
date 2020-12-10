@@ -148,7 +148,8 @@ class DynamicItemDataset(Dataset):
         return self.pipeline.compute_outputs(data_point)
 
     def add_dynamic_item(self, key, func, argkeys):
-        """
+        """Makes a new dynamic item available on the dataset.
+
         Arguments
         ---------
         key : str
@@ -166,6 +167,9 @@ class DynamicItemDataset(Dataset):
     def set_output_keys(self, keys):
         """Use this to change the output keys
 
+        These are the keys that are actually evaluated when a data point
+        is fetched from the dataset.
+
         Arguments
         ---------
         keys : list
@@ -177,6 +181,7 @@ class DynamicItemDataset(Dataset):
     def from_json(
         cls, json_path, replacements={}, dynamic_items=None, output_keys=None
     ):
+        """Load a data prep JSON file and create a Dataset based on it."""
         data = load_data_json(json_path, replacements)
         return cls(data, dynamic_items, output_keys)
 
@@ -184,5 +189,6 @@ class DynamicItemDataset(Dataset):
     def from_csv(
         cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
     ):
+        """Load a data prep CSV file and create a Dataset based on it."""
         data = load_data_csv(csv_path, replacements)
         return cls(data, dynamic_items, output_keys)
