@@ -7,12 +7,17 @@ Authors
 import torch
 import logging
 from speechbrain.nnet.quaternion_networks.quaternion_ops import (
-    quaternion_linear,
+    affect_init,
+    unitary_init,
+    quaternion_init,
+    quaternion_linear_op,
     check_quaternion_input,
-    quaternion_linear_autograd,
+    quaternion_linear_rotation_op,
+    QuaternionLinearCustomBackward,
 )
 
 logger = logging.getLogger(__name__)
+
 
 class QuaternionLinear(torch.nn.Module):
     """ This function implements a fully connected quaternion-valued
@@ -51,8 +56,26 @@ class QuaternionLinear(torch.nn.Module):
         Default: True.
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
-
+        memory consumption. It is also 2x slower. This only works with
+        spinor = False.
+    spinor: bool, optional
+        Default: False.
+        When True, the layer will be turned into a spinor layer. More precisely
+        W*x will be turned into W*x*W-1. The input x will be rotated by W such
+        as in a spinor neural network. However, x MUST be a quaternion with
+        the real part equal to zero. (0 + xi + yj + zk). Indeed, the rotation
+        operation only acts on the vector part. Note that W will always be
+        normalized before the rotation to ensure the quaternion algebra.
+        More details in: "Quaternion neural networks", Parcollet T.
+    vector_scale: bool, optional
+        Default: False.
+        The vector_scale is only used when spinor = True. In the context of a
+        spinor neural network, multiple rotations of the input vector x are
+        performed and summed. Hence, the norm of the output vector always
+        increases with the number of layers, making the neural network instable
+        with deep configurations. The vector_scale parameters are learnable
+        parameters that acts like gates by multiplying the output vector with
+        a small trainable parameter.
 
     Example
     -------
@@ -70,37 +93,71 @@ class QuaternionLinear(torch.nn.Module):
         bias=True,
         init_criterion="glorot",
         weight_init="quaternion",
-        autograd=True
+        autograd=True,
+        spinor=False,
+        vector_scale=False,
     ):
         super().__init__()
         self.n_neurons = n_neurons
         self.bias = bias
         self.init_criterion = init_criterion
         self.weight_init = weight_init
+        self.autograd = autograd
+        self.spinor = spinor
+        self.vector_scale = vector_scale
 
         # Check the quaternion_valued form of the input
         check_quaternion_input(input_shape)
 
-        # Computing the complex dimensionality of the input
+        # Computing the quaternion dimensionality of the input
         self.in_features = input_shape[-1] // 4
         self.out_features = self.n_neurons
 
-        if autograd:
-            self.linear = quaternion_linear_autograd(
-                self.in_features,
-                self.out_features,
-                self.bias,
-                self.init_criterion,
-                self.weight_init,
+        # Defining the weights
+        self.r_weight = torch.nn.Parameter(
+            torch.Tensor(self.in_features, self.out_features)
+        )
+        self.i_weight = torch.nn.Parameter(
+            torch.Tensor(self.in_features, self.out_features)
+        )
+        self.j_weight = torch.nn.Parameter(
+            torch.Tensor(self.in_features, self.out_features)
+        )
+        self.k_weight = torch.nn.Parameter(
+            torch.Tensor(self.in_features, self.out_features)
+        )
+
+        # Spinor specific parameters
+        if self.spinor and self.vector_scale:
+            self.scale_param = torch.nn.Parameter(
+                torch.Tensor(self.in_features, self.out_features).to(
+                    self.device
+                )
             )
         else:
-            self.linear = quaternion_linear(
-                self.in_features,
-                self.out_features,
-                self.bias,
-                self.init_criterion,
-                self.weight_init,
+            self.scale_param = None
+
+        if self.bias:
+            self.b = torch.nn.Parameter(
+                torch.Tensor(4 * n_neurons).to(self.device)
             )
+        else:
+            self.b = None
+
+        # Managing the weight initialization and bias
+        self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
+            self.weight_init
+        ]
+
+        # Initialise the weights
+        affect_init(
+            self.r_weight,
+            self.i_weight,
+            self.j_weight,
+            self.k_weight,
+            self.winit,
+            init_criterion,
+        )
 
     def forward(self, x):
         """Returns the linear transformation of input tensor.
@@ -110,6 +167,35 @@ class QuaternionLinear(torch.nn.Module):
         x : torch.Tensor
             input to transform linearly.
         """
-        wx = self.linear(x)
 
-        return wx
+        if self.autograd:
+            if self.spinor:
+                out = quaternion_linear_rotation_op(
+                    x,
+                    self.r_weight,
+                    self.i_weight,
+                    self.j_weight,
+                    self.k_weight,
+                    self.bias,
+                    self.scale_param,
+                )
+            else:
+                out = quaternion_linear_op(
+                    x,
+                    self.r_weight,
+                    self.i_weight,
+                    self.j_weight,
+                    self.k_weight,
+                    self.bias,
+                )
+        else:
+            out = QuaternionLinearCustomBackward.apply(
+                x,
+                self.r_weight,
+                self.i_weight,
+                self.j_weight,
+                self.k_weight,
+                self.bias,
+            )
+
+        return out
