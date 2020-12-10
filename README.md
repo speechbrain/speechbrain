@@ -138,16 +138,16 @@ Try to switch DDP backend if you have issues with `nccl`.
 
 #### With multiple machines (suppose you have 2 servers with 2 GPUs):
 ```
-# Server 1
+# Machine 1
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=0 --master_addr server_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=0 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
 
-# Server 2
+# Machine 2
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=1 --master_addr server_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
 ```
-Server 1 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=0`, and subprocess2: with `local_rank=1`, `rank=1`).
-Server 2 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=2`, and subprocess2: with `local_rank=1`, `rank=3`).
+Machine 1 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=0`, and subprocess2: with `local_rank=1`, `rank=1`).
+Machine 2 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=2`, and subprocess2: with `local_rank=1`, `rank=3`).
 
 In this way, the current DDP group will contain 4 GPUs.
 
