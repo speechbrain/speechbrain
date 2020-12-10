@@ -13,6 +13,7 @@ import collections.abc
 import torch
 import tqdm
 import pathlib
+import speechbrain as sb
 
 
 def undo_padding(batch, lengths):
@@ -256,34 +257,42 @@ def recursive_update(d, u, must_match=False):
 def download_file(
     source, dest, unpack=False, dest_unpack=None, replace_existing=False
 ):
-    class DownloadProgressBar(tqdm.tqdm):
-        def update_to(self, b=1, bsize=1, tsize=None):
-            if tsize is not None:
-                self.total = tsize
-            self.update(b * bsize - self.n)
+    try:
+        if sb.if_main_process():
 
-    # Create the destination directory if it doesn't exist
-    dest_dir = pathlib.Path(dest).resolve().parent
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    if "http" not in source:
-        shutil.copyfile(source, dest)
+            class DownloadProgressBar(tqdm.tqdm):
+                def update_to(self, b=1, bsize=1, tsize=None):
+                    if tsize is not None:
+                        self.total = tsize
+                    self.update(b * bsize - self.n)
 
-    elif not os.path.isfile(dest) or (
-        os.path.isfile(dest) and replace_existing
-    ):
-        print(f"Downloading {source} to {dest}")
-        with DownloadProgressBar(
-            unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
-        ) as t:
-            urllib.request.urlretrieve(
-                source, filename=dest, reporthook=t.update_to
-            )
-    else:
-        print("Destination path is not empty. Skipping download")
+            # Create the destination directory if it doesn't exist
+            dest_dir = pathlib.Path(dest).resolve().parent
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            if "http" not in source:
+                shutil.copyfile(source, dest)
 
-    # Unpack if necessary
-    if unpack:
-        if dest_unpack is None:
-            dest_unpack = os.path.dirname(dest)
-        print(f"Extracting {dest} to {dest_unpack}")
-        shutil.unpack_archive(dest, dest_unpack)
+            elif not os.path.isfile(dest) or (
+                os.path.isfile(dest) and replace_existing
+            ):
+                print(f"Downloading {source} to {dest}")
+                with DownloadProgressBar(
+                    unit="B",
+                    unit_scale=True,
+                    miniters=1,
+                    desc=source.split("/")[-1],
+                ) as t:
+                    urllib.request.urlretrieve(
+                        source, filename=dest, reporthook=t.update_to
+                    )
+            else:
+                print("Destination path is not empty. Skipping download")
+
+            # Unpack if necessary
+            if unpack:
+                if dest_unpack is None:
+                    dest_unpack = os.path.dirname(dest)
+                print(f"Extracting {dest} to {dest_unpack}")
+                shutil.unpack_archive(dest, dest_unpack)
+    finally:
+        sb.ddp_barrier()

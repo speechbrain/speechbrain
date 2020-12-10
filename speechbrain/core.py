@@ -314,10 +314,20 @@ def ddp_init_group(run_opts):
             if not torch.distributed.is_gloo_available():
                 logger.info("GLOO is not supported in your machine.")
                 raise ValueError("GLOO is not supported in your machine.")
-        else:
+        elif run_opts["distributed_backend"] == "mpi":
             if not torch.distributed.is_mpi_available():
                 logger.info("MPI is not supported in your machine.")
                 raise ValueError("MPI is not supported in your machine.")
+        else:
+            logger.info(
+                run_opts["distributed_backend"]
+                + " communcation protocol doesn't exist."
+            )
+            raise ValueError(
+                run_opts["distributed_backend"]
+                + " communcation protocol doesn't exist."
+            )
+
         torch.distributed.init_process_group(
             backend=run_opts["distributed_backend"], rank=rank,
         )
