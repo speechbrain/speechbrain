@@ -69,26 +69,28 @@ def prepare_librispeech(
     >>> save_folder = 'librispeech_prepared'
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
-    if sb.if_main_process():
-        data_folder = data_folder
-        splits = splits
-        save_folder = save_folder
-        select_n_sentences = select_n_sentences
-        conf = {
-            "select_n_sentences": select_n_sentences,
-        }
+    try:
+        if sb.if_main_process():
+            data_folder = data_folder
+            splits = splits
+            save_folder = save_folder
+            select_n_sentences = select_n_sentences
+            conf = {
+                "select_n_sentences": select_n_sentences,
+            }
 
-        # Other variables
-        # Saving folder
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
+            # Other variables
+            # Saving folder
+            if not os.path.exists(save_folder):
+                os.makedirs(save_folder)
 
-        save_opt = os.path.join(save_folder, OPT_FILE)
+            save_opt = os.path.join(save_folder, OPT_FILE)
 
-        # Check if this phase is already done (if so, skip it)
-        if skip(splits, save_folder, conf):
-            logger.info("Skipping preparation, completed in previous run.")
-        else:
+            # Check if this phase is already done (if so, skip it)
+            if skip(splits, save_folder, conf):
+                logger.info("Skipping preparation, completed in previous run.")
+                return
+
             # Additional checks to make sure the data folder contains Librispeech
             check_librispeech_folders(data_folder, splits)
 
@@ -135,7 +137,8 @@ def prepare_librispeech(
 
             # saving options
             save_pkl(conf, save_opt)
-    sb.ddp_barrier()
+    finally:
+        sb.ddp_barrier()
 
 
 def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):

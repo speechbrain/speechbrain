@@ -81,47 +81,49 @@ def prepare_timit(
     >>> save_folder = 'TIMIT_prepared'
     >>> prepare_timit(data_folder, splits, save_folder)
     """
-    # all writing command must be done with the main_process
-    if sb.if_main_process():
-        conf = {
-            "data_folder": data_folder,
-            "splits": splits,
-            "kaldi_ali_tr": kaldi_ali_tr,
-            "kaldi_ali_dev": kaldi_ali_dev,
-            "kaldi_ali_test": kaldi_ali_test,
-            "save_folder": save_folder,
-            "phn_set": phn_set,
-            "uppercase": uppercase,
-        }
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            conf = {
+                "data_folder": data_folder,
+                "splits": splits,
+                "kaldi_ali_tr": kaldi_ali_tr,
+                "kaldi_ali_dev": kaldi_ali_dev,
+                "kaldi_ali_test": kaldi_ali_test,
+                "save_folder": save_folder,
+                "phn_set": phn_set,
+                "uppercase": uppercase,
+            }
 
-        # Getting speaker dictionary
-        dev_spk, test_spk = _get_speaker()
+            # Getting speaker dictionary
+            dev_spk, test_spk = _get_speaker()
 
-        # Avoid calibration sentences
-        avoid_sentences = ["sa1", "sa2"]
+            # Avoid calibration sentences
+            avoid_sentences = ["sa1", "sa2"]
 
-        # Setting file extension.
-        extension = [".wav"]
+            # Setting file extension.
+            extension = [".wav"]
 
-        # Checking TIMIT_uppercase
-        if uppercase:
-            avoid_sentences = [item.upper() for item in avoid_sentences]
-            extension = [item.upper() for item in extension]
-            dev_spk = [item.upper() for item in dev_spk]
-            test_spk = [item.upper() for item in test_spk]
+            # Checking TIMIT_uppercase
+            if uppercase:
+                avoid_sentences = [item.upper() for item in avoid_sentences]
+                extension = [item.upper() for item in extension]
+                dev_spk = [item.upper() for item in dev_spk]
+                test_spk = [item.upper() for item in test_spk]
 
-        # Setting the save folder
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
-        # Setting ouput files
-        save_opt = os.path.join(save_folder, OPT_FILE)
-        save_csv_train = os.path.join(save_folder, TRAIN_CSV)
-        save_csv_dev = os.path.join(save_folder, DEV_CSV)
-        save_csv_test = os.path.join(save_folder, TEST_CSV)
-        # Check if this phase is already done (if so, skip it)
-        if skip(splits, save_folder, conf):
-            logger.debug("Skipping preparation, completed in previous run.")
-        else:
+            # Setting the save folder
+            if not os.path.exists(save_folder):
+                os.makedirs(save_folder)
+            # Setting ouput files
+            save_opt = os.path.join(save_folder, OPT_FILE)
+            save_csv_train = os.path.join(save_folder, TRAIN_CSV)
+            save_csv_dev = os.path.join(save_folder, DEV_CSV)
+            save_csv_test = os.path.join(save_folder, TEST_CSV)
+            # Check if this phase is already done (if so, skip it)
+            if skip(splits, save_folder, conf):
+                logger.debug("Skipping preparation, completed in previous run.")
+                return
+
             # Additional checks to make sure the data folder contains TIMIT
             _check_timit_folders(uppercase, data_folder)
             msg = "\tCreating csv file for the TIMIT Dataset.."
@@ -202,8 +204,9 @@ def prepare_timit(
                 )
             # saving options
             save_pkl(conf, save_opt)
-    # wait for main_process if ddp is used
-    sb.ddp_barrier()
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
 
 
 def _get_phonemes():
