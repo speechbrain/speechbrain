@@ -133,21 +133,23 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-            if sb.if_main_process():
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={
-                        "loss": stage_loss,
-                        "ctc_loss": self.ctc_metrics.summarize("average"),
-                        "seq_loss": self.seq_metrics.summarize("average"),
-                        "PER": per,
-                    },
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": per}, min_keys=["PER"]
-                )
-            sb.ddp_barrier()
+            try:
+                if sb.if_main_process():
+                    self.hparams.train_logger.log_stats(
+                        stats_meta={"epoch": epoch, "lr": old_lr},
+                        train_stats={"loss": self.train_loss},
+                        valid_stats={
+                            "loss": stage_loss,
+                            "ctc_loss": self.ctc_metrics.summarize("average"),
+                            "seq_loss": self.seq_metrics.summarize("average"),
+                            "PER": per,
+                        },
+                    )
+                    self.checkpointer.save_and_keep_only(
+                        meta={"PER": per}, min_keys=["PER"]
+                    )
+            finally:
+                sb.ddp_barrier()
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(

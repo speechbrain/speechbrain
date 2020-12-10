@@ -199,17 +199,18 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
-            if sb.if_main_process():
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
-                )
-            sb.ddp_barrier()
+            try:
+                if sb.if_main_process():
+                    self.hparams.train_logger.log_stats(
+                        stats_meta={"epoch": epoch, "lr": old_lr},
+                        train_stats=self.train_stats,
+                        valid_stats=stage_stats,
+                    )
+                    self.checkpointer.save_and_keep_only(
+                        meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                    )
+            finally:
+                sb.ddp_barrier()
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -224,32 +225,38 @@ class ASR(sb.Brain):
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
         if hasattr(self.hparams, "tok_mdl_file"):
-            if sb.if_main_process():
-                download_file(
-                    source=self.hparams.tok_mdl_file,
-                    dest=save_model_path,
-                    replace_existing=True,
-                )
-            sb.ddp_barrier()
+            try:
+                if sb.if_main_process():
+                    download_file(
+                        source=self.hparams.tok_mdl_file,
+                        dest=save_model_path,
+                        replace_existing=True,
+                    )
+            finally:
+                sb.ddp_barrier()
             self.hparams.tokenizer.sp.load(save_model_path)
 
         if hasattr(self.hparams, "tok_voc_file"):
-            if sb.if_main_process():
-                download_file(
-                    source=self.hparams.tok_voc_file,
-                    dest=save_vocab_path,
-                    replace_existing=True,
-                )
-            sb.ddp_barrier()
+            try:
+                if sb.if_main_process():
+                    download_file(
+                        source=self.hparams.tok_voc_file,
+                        dest=save_vocab_path,
+                        replace_existing=True,
+                    )
+            finally:
+                sb.ddp_barrier()
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        if sb.if_main_process():
-            download_file(self.hparams.lm_ckpt_file, save_model_path)
-        sb.ddp_barrier()
+        try:
+            if sb.if_main_process():
+                download_file(self.hparams.lm_ckpt_file, save_model_path)
+        finally:
+            sb.ddp_barrier()
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
