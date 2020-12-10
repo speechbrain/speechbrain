@@ -79,6 +79,8 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         Path where to load from
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
+    device : str
+        Torch device, where to map the loaded parameters.
 
     Returns
     -------

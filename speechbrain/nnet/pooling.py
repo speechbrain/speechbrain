@@ -276,7 +276,7 @@ class StatisticsPooling(nn.Module):
             mean = torch.stack(mean)
             std = torch.stack(std)
 
-        gnoise = self._get_gauss_noise(mean.size())
+        gnoise = self._get_gauss_noise(mean.size(), device=mean.device)
         gnoise = gnoise
         mean += gnoise
         std = std + self.eps
@@ -287,7 +287,7 @@ class StatisticsPooling(nn.Module):
 
         return pooled_stats
 
-    def _get_gauss_noise(self, shape_of_tensor):
+    def _get_gauss_noise(self, shape_of_tensor, device="cpu"):
         """Returns a tensor of epsilon Gaussian noise
 
         Arguments
@@ -295,7 +295,7 @@ class StatisticsPooling(nn.Module):
         shape_of_tensor : tensor
             It represents the size of tensor for making Gaussian noise.
         """
-        gnoise = torch.randn(shape_of_tensor)
+        gnoise = torch.randn(shape_of_tensor, device=device)
         gnoise -= torch.min(gnoise)
         gnoise /= torch.max(gnoise)
         gnoise = self.eps * ((1 - 9) * gnoise + 9)

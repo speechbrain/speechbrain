@@ -3,6 +3,7 @@
 Authors
  * Ju-Chieh Chou 2020
  * Jianyuan Zhong 2020
+ * Loren Lugosch 2020
 """
 
 import torch
@@ -224,6 +225,80 @@ class LocationAwareAttention(nn.Module):
         context = self.mlp_out(context)
 
         return context, attn
+
+
+class KeyValueAttention(nn.Module):
+    """ This class implements a single-headed key-value attention module for seq2seq
+    learning. Ref: "Attention Is All You Need" by Vaswani et al., sec. 3.2.1
+
+    Arguments
+    ---------
+    enc_dim : int
+        Size of the encoder feature vectors from which keys and values are computed.
+    dec_dim : int
+        Size of the decoder feature vectors from which queries are computed.
+    attn_dim : int
+        Size of the attention feature.
+    output_dim : int
+        Size of the output context vector.
+
+    Example
+    -------
+    >>> enc_tensor = torch.rand([4, 10, 20])
+    >>> enc_len = torch.ones([4]) * 10
+    >>> dec_tensor = torch.rand([4, 25])
+    >>> net = KeyValueAttention(enc_dim=20, dec_dim=25, attn_dim=30, output_dim=5)
+    >>> out_tensor, out_weight = net(enc_tensor, enc_len, dec_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(self, enc_dim, dec_dim, attn_dim, output_dim):
+        super(KeyValueAttention, self).__init__()
+
+        self.key_linear = nn.Linear(enc_dim, attn_dim)
+        self.query_linear = nn.Linear(dec_dim, attn_dim)
+        self.value_linear = nn.Linear(enc_dim, output_dim)
+        self.scaling = torch.sqrt(torch.tensor(attn_dim).float())
+
+        # reset the encoder states, lengths and masks
+        self.reset()
+
+    def reset(self):
+        """Reset the memory in the attention module.
+        """
+        self.values = None
+        self.keys = None
+        self.mask = None
+
+    def forward(self, enc_states, enc_len, dec_states):
+        """Returns the output of the attention module.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The tensor to be attended.
+        enc_len : torch.Tensor
+            The real length (without padding) of enc_states for each sentence.
+        dec_states : torch.Tensor
+            The query tensor.
+
+        """
+
+        if self.keys is None:
+
+            self.keys = self.key_linear(enc_states)
+            self.values = self.value_linear(enc_states)
+            self.mask = length_to_mask(
+                enc_len, max_len=enc_states.size(1), device=enc_states.device
+            ).unsqueeze(2)
+
+        query = self.query_linear(dec_states).unsqueeze(2)
+        scores = torch.matmul(self.keys, query) / self.scaling
+        scores = scores.masked_fill(self.mask == 0, -np.inf)
+        normalized_scores = scores.softmax(1).transpose(1, 2)
+        out = torch.matmul(normalized_scores, self.values).squeeze(1)
+        return out, normalized_scores
 
 
 class MultiheadAttention(nn.Module):
