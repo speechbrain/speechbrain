@@ -139,19 +139,45 @@ class DataPipeline:
         if self._exec_order is None:
             self._prepare_run(data)
         intermediate = {}
-        for key, edges, conf in self._exec_order:
-            if key in data:
+        for compute_key, edges, conf in self._exec_order:
+            if compute_key in data:
                 continue
             # It is a dynamic_item, so conf is a DynamicItemConf, which we can unpack:
             func, argkeys = conf
             args = [
-                data[key] if key in data else intermediate[key]
-                for key in argkeys
+                data[argkey] if argkey in data else intermediate[argkey]
+                for argkey in argkeys
             ]
-            intermediate[key] = func(*args)
+            intermediate[compute_key] = func(*args)
         return {
-            key: data[key] if key in data else intermediate[key]
-            for key in self.output_keys
+            outkey: data[outkey] if outkey in data else intermediate[outkey]
+            for outkey in self.output_keys
+        }
+
+    def compute_specific(self, keys, data):
+        """Compute output of specific item, without changing output_keys"""
+        # If a key in data is requested as an output key, it might not exist
+        # in the dependency graph yet. It's safe to add it here implicitly,
+        # since we know that the key is found in data.
+        for output_key in keys:
+            if output_key in data and output_key not in self.dg:
+                self.dg.add_node(output_key)
+        intermediate = {}
+        for compute_key, edges, conf in self.dg.get_evaluation_order(
+            selected_keys=keys
+        ):
+            if compute_key in data:
+                continue
+            # It is a dynamic_item, so conf is a DynamicItemConf, which we can unpack:
+            func, argkeys = conf
+            args = [
+                data[argkey] if argkey in data else intermediate[argkey]
+                for argkey in argkeys
+            ]
+            intermediate[compute_key] = func(*args)
+        return {
+            outkey: data[outkey] if outkey in data else intermediate[outkey]
+            for outkey in keys
         }
 
     def __call__(self, data):

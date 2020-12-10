@@ -5,7 +5,7 @@ Authors
   * Aku Rouhe 2020
 """
 
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.data_io.data_io import load_data_json, load_data_csv
 import logging
@@ -176,6 +176,80 @@ class DynamicItemDataset(Dataset):
             List of of keys (str) to produce in output.
         """
         self.pipeline.set_output_keys(keys)
+
+    def filtered_view(
+        self, key_min_value={}, key_max_value={}, key_test={}, first_n=None,
+    ):
+        """Get a torch.utils.data.Subset of the data that pass all filters
+
+        Arguments
+        ---------
+        key_min_value : dict
+            Map from key (in data or in dynamic items) to limit, will only keep
+            data_point if data_point[key] >= limit
+        key_max_value : dict
+            Map from key (in data or in dynamic items) to limit, will only keep
+            data_point if data_point[key] <= limit
+        key_test : dict
+            Map from key (in data or in dynamic items) to func, will only keep
+            data_point if bool(func(data_point[key])) == True
+        first_n : None, int
+            If not None, only keep first_n filtered data_points. Meant for
+            debuggging.
+
+        Returns
+        -------
+        torch.utils.data.Subset
+            Subset points to this dataset, but only yields the the data points
+            which pass all specified filters
+
+        NOTE
+        ----
+        The original dataset still controlls e.g. the output keys! The Subset is
+        only a shallow view!
+
+        NOTE
+        ----
+        Temporarily changes the output keys!
+        """
+
+        def combined_filter(computed):
+            for key, limit in key_min_value.items():
+                # NOTE: docstring promises >= so using that.
+                # Mathematically could also use < for nicer syntax, but
+                # maybe with some super special weird edge case some one can
+                # depend on the >= operator
+                if computed[key] >= limit:
+                    continue
+                return False
+            for key, limit in key_max_value.items():
+                if computed[key] <= limit:
+                    continue
+                return False
+            for key, func in key_test.items():
+                if bool(func(computed[key])):
+                    continue
+                return False
+            return True
+
+        saved_output_keys = self.pipeline.output_keys
+        filtering_keys = (
+            set(key_min_value.keys())
+            | set(key_max_value.keys())
+            | set(key_test.keys())
+        )
+        self.pipeline.set_output_keys(filtering_keys)
+        filtered_indices = []
+        for index, data_id in enumerate(self.data_ids):
+            if first_n is not None and len(filtered_indices) == first_n:
+                continue
+            data_point = self.data[data_id]
+            data_point["id"] = data_id
+            computed = self.pipeline.compute_outputs(data_point)
+            if combined_filter(computed):
+                filtered_indices.append(index)
+        self.pipeline.set_output_keys(saved_output_keys)
+        return Subset(self, filtered_indices)
 
     @classmethod
     def from_json(

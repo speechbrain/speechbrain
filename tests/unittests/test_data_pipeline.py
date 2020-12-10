@@ -59,3 +59,7 @@ def test_data_pipeline():
     assert "foo" not in result
     assert "foobar" not in result
     assert "bar" in result
+    # Finally, can also still request any specific key:
+    computed = pipeline.compute_specific(["foobar"], {"foo": 1, "bar": 2})
+    assert watcher.called
+    assert computed["foobar"] == 3
