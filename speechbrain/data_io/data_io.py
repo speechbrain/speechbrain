@@ -427,7 +427,9 @@ class DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            save_pkl(label_dict, label_dict_file)
+            if sb.if_main_process():
+                save_pkl(label_dict, label_dict_file)
+            sb.ddp_barrier()
 
         return label_dict
 
@@ -1330,8 +1332,10 @@ class HDF5DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            label_dict_file = self.output_folder + "/label_dict.pkl"
-            save_pkl(label_dict, label_dict_file)
+            if sb.if_main_process():
+                label_dict_file = self.output_folder + "/label_dict.pkl"
+                save_pkl(label_dict, label_dict_file)
+            sb.ddp_barrier()
         return label_dict
 
 
@@ -2568,7 +2572,9 @@ def save_md5(files, out_file):
     for file in files:
         md5_dict[file] = get_md5(file)
     # Saving dictionary in pkl format
-    save_pkl(md5_dict, out_file)
+    if sb.if_main_process():
+        save_pkl(md5_dict, out_file)
+    sb.ddp_barrier()
 
 
 def save_pkl(obj, file):
@@ -2590,10 +2596,8 @@ def save_pkl(obj, file):
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
     """
-    if sb.if_main_process():
-        with open(file, "wb") as f:
-            pickle.dump(obj, f)
-    sb.ddp_barrier()
+    with open(file, "wb") as f:
+        pickle.dump(obj, f)
 
 
 def load_pkl(file):

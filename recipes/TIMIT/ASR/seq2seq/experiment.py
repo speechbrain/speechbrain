@@ -182,29 +182,22 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.ddp_init_group(run_opts)
 
-    # all writing command must be done with the main_process
-    if sb.if_main_process():
-        # Create experiment directory
-        sb.create_experiment_directory(
-            experiment_directory=hparams["output_folder"],
-            hyperparams_to_save=hparams_file,
-            overrides=overrides,
-        )
-
-        # Prepare data
-        prepare_timit(
-            data_folder=hparams["data_folder"],
-            splits=["train", "dev", "test"],
-            save_folder=hparams["data_folder"],
-        )
-    # wait for main_process if ddp is used
-    sb.ddp_barrier()
-
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+    # Prepare data
+    prepare_timit(
+        data_folder=hparams["data_folder"],
+        splits=["train", "dev", "test"],
+        save_folder=hparams["data_folder"],
+    )
     # Collect index to label conversion dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
     hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -212,6 +205,5 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
     asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
