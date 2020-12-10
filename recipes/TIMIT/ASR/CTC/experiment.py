@@ -76,15 +76,18 @@ class ASR_Brain(sb.Brain):
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # In distributed setting, only want to save model/stats once
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={"loss": stage_loss, "PER": per},
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": per}, min_keys=["PER"],
-                )
+            try:
+                if sb.if_main_process():
+                    self.hparams.train_logger.log_stats(
+                        stats_meta={"epoch": epoch, "lr": old_lr},
+                        train_stats={"loss": self.train_loss},
+                        valid_stats={"loss": stage_loss, "PER": per},
+                    )
+                    self.checkpointer.save_and_keep_only(
+                        meta={"PER": per}, min_keys=["PER"],
+                    )
+            finally:
+                sb.ddp_barrier()
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
