@@ -176,6 +176,7 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     rnn_re_init: True
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
+    use_rnnp: False
 
 emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
