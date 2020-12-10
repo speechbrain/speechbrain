@@ -14,7 +14,7 @@ import torch
 import logging
 import speechbrain as sb
 from tqdm.contrib import tqdm
-from speechbrain.utils.metric_stats import EER
+from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 
 
@@ -212,3 +212,8 @@ if __name__ == "__main__":
 
     eer, th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
     logger.info("EER=%f", eer * 100)
+
+    min_dcf, th = minDCF(
+        torch.tensor(positive_scores), torch.tensor(negative_scores)
+    )
+    logger.info("minDCF=%f", min_dcf * 100)
