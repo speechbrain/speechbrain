@@ -21,7 +21,7 @@ def test_dynamic_item_dataset():
     assert dataset[1] == {"id": "utt2", "barfoo": 1}
 
 
-def test_subset_dynamic_item_dataset():
+def test_filtered_sorted_dynamic_item_dataset():
     from speechbrain.data_io.dataset import DynamicItemDataset
     import operator
 
@@ -36,7 +36,7 @@ def test_subset_dynamic_item_dataset():
     }
     output_keys = ["text"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
-    subset = dataset.filtered_subset(key_min_value={"foo": 3})
+    subset = dataset.filtered_sorted(key_min_value={"foo": 3})
     # Note: subset is not a shallow view!
     dataset.set_output_keys(["id", "foo"])
     assert subset[0] == {"text": "where are you world"}
@@ -44,24 +44,40 @@ def test_subset_dynamic_item_dataset():
     assert subset[0] == {"id": "utt3", "foo": 3}
 
     # Note: now making a subset from a version which had id and foo as output keys
-    subset = dataset.filtered_subset(key_max_value={"bar": 2})
+    subset = dataset.filtered_sorted(key_max_value={"bar": 2})
     assert len(subset) == 2
     assert subset[0] == {"id": "utt1", "foo": -1}
 
     dataset.add_dynamic_item("barfoo", operator.sub, ["bar", "foo"])
-    subset = dataset.filtered_subset(key_test={"barfoo": lambda x: x == 1})
+    subset = dataset.filtered_sorted(key_test={"barfoo": lambda x: x == 1})
     assert len(subset) == 4
     assert subset[3] == {"id": "utt4", "foo": 5}
-    subset = dataset.filtered_subset(key_min_value={"foo": 3, "bar": 2})
+    subset = dataset.filtered_sorted(key_min_value={"foo": 3, "bar": 2})
     assert subset[0]["id"] == "utt3"
-    subset = dataset.filtered_subset(
+    subset = dataset.filtered_sorted(
         key_min_value={"foo": 3}, key_max_value={"foobar": 7}
     )
     assert len(subset) == 1
-    subset = dataset.filtered_subset(
+    subset = dataset.filtered_sorted(
         key_min_value={"foo": 3}, key_max_value={"foobar": 3}
     )
     assert len(subset) == 0
-    subset = dataset.filtered_subset(first_n=1, key_min_value={"foo": 3})
+    subset = dataset.filtered_sorted(select_n=1, key_min_value={"foo": 3})
     assert len(subset) == 1
     assert subset[0]["id"] == "utt3"
+
+    # Can filter twice!
+    subset = dataset.filtered_sorted(key_min_value={"foo": 3})
+    subsetsubset = subset.filtered_sorted(key_max_value={"bar": 4})
+    assert len(subset) == 2
+    assert len(subsetsubset) == 1
+
+    # Can sort:
+    subset = dataset.filtered_sorted(sort_key="foo", reverse=True)
+    assert subset[0]["id"] == "utt4"
+
+    # Can filter and sort at the same time:
+    subset = dataset.filtered_sorted(
+        key_max_value={"foo": 1}, sort_key="foo", reverse=True
+    )
+    assert subset[0]["id"] == "utt2"
