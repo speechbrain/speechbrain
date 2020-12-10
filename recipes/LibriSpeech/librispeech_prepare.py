@@ -20,6 +20,7 @@ from speechbrain.data_io.data_io import (
     save_pkl,
     merge_csvs,
 )
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
@@ -68,68 +69,73 @@ def prepare_librispeech(
     >>> save_folder = 'librispeech_prepared'
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
-    data_folder = data_folder
-    splits = splits
-    save_folder = save_folder
-    select_n_sentences = select_n_sentences
-    conf = {
-        "select_n_sentences": select_n_sentences,
-    }
+    if sb.if_main_process():
+        data_folder = data_folder
+        splits = splits
+        save_folder = save_folder
+        select_n_sentences = select_n_sentences
+        conf = {
+            "select_n_sentences": select_n_sentences,
+        }
 
-    # Other variables
-    # Saving folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+        # Other variables
+        # Saving folder
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
 
-    save_opt = os.path.join(save_folder, OPT_FILE)
+        save_opt = os.path.join(save_folder, OPT_FILE)
 
-    # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder, conf):
-        logger.info("Skipping preparation, completed in previous run.")
-        return
-
-    # Additional checks to make sure the data folder contains Librispeech
-    check_librispeech_folders(data_folder, splits)
-
-    # create csv files for each split
-    all_texts = {}
-    for split_index in range(len(splits)):
-
-        split = splits[split_index]
-
-        wav_lst = get_all_files(
-            os.path.join(data_folder, split), match_and=[".flac"]
-        )
-
-        text_lst = get_all_files(
-            os.path.join(data_folder, split), match_and=["trans.txt"]
-        )
-
-        text_dict = text_to_dict(text_lst)
-        all_texts.update(text_dict)
-
-        if select_n_sentences is not None:
-            n_sentences = select_n_sentences[split_index]
+        # Check if this phase is already done (if so, skip it)
+        if skip(splits, save_folder, conf):
+            logger.info("Skipping preparation, completed in previous run.")
         else:
-            n_sentences = len(wav_lst)
+            # Additional checks to make sure the data folder contains Librispeech
+            check_librispeech_folders(data_folder, splits)
 
-        create_csv(
-            save_folder, wav_lst, text_dict, split, n_sentences,
-        )
+            # create csv files for each split
+            all_texts = {}
+            for split_index in range(len(splits)):
 
-    # Merging csv file if needed
-    if merge_lst and merge_name is not None:
-        merge_files = [split_libri + ".csv" for split_libri in merge_lst]
-        merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
-        )
+                split = splits[split_index]
 
-    # Create lexicon.csv and oov.csv
-    if create_lexicon:
-        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
+                wav_lst = get_all_files(
+                    os.path.join(data_folder, split), match_and=[".flac"]
+                )
 
-    # saving options
-    save_pkl(conf, save_opt)
+                text_lst = get_all_files(
+                    os.path.join(data_folder, split), match_and=["trans.txt"]
+                )
+
+                text_dict = text_to_dict(text_lst)
+                all_texts.update(text_dict)
+
+                if select_n_sentences is not None:
+                    n_sentences = select_n_sentences[split_index]
+                else:
+                    n_sentences = len(wav_lst)
+
+                create_csv(
+                    save_folder, wav_lst, text_dict, split, n_sentences,
+                )
+
+            # Merging csv file if needed
+            if merge_lst and merge_name is not None:
+                merge_files = [
+                    split_libri + ".csv" for split_libri in merge_lst
+                ]
+                merge_csvs(
+                    data_folder=save_folder,
+                    csv_lst=merge_files,
+                    merged_csv=merge_name,
+                )
+
+            # Create lexicon.csv and oov.csv
+            if create_lexicon:
+                create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
+
+            # saving options
+            save_pkl(conf, save_opt)
+    sb.ddp_barrier()
 
 
 def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):

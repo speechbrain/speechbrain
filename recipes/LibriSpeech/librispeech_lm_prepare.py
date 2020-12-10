@@ -15,6 +15,7 @@ from speechbrain.data_io.data_io import (
 import h5py
 from speechbrain.utils.data_utils import download_file
 import gzip
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
@@ -47,29 +48,36 @@ def prepare_lm_corpus(
     >>> save_folder = 'librispeech_lm'
     >>> prepare_librispeech(data_folder, save_folder, 'lm_corpus.h5')
     """
-    conf = {
-        "select_n_sentences": select_n_sentences,
-    }
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+    if sb.if_main_process():
+        conf = {
+            "select_n_sentences": select_n_sentences,
+        }
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
 
-    save_opt = os.path.join(save_folder, OPT_FILE)
+        save_opt = os.path.join(save_folder, OPT_FILE)
 
-    # Check if this phase is already done (if so, skip it)
-    if skip(save_folder, filename, conf):
-        logger.info("Skipping preparation, completed in previous run.")
-        return
+        # Check if this phase is already done (if so, skip it)
+        if skip(save_folder, filename, conf):
+            logger.info("Skipping preparation, completed in previous run.")
+        else:
+            data_path = os.path.join(data_folder, "librispeech-lm-norm.txt.gz")
+            src = (
+                "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
+            )
+            download_file(src, data_path)
 
-    data_path = os.path.join(data_folder, "librispeech-lm-norm.txt.gz")
-    src = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
-    download_file(src, data_path)
+            create_hdf5(
+                data_path,
+                save_folder,
+                filename,
+                select_n_sentences,
+                add_txt=None,
+            )
 
-    create_hdf5(
-        data_path, save_folder, filename, select_n_sentences, add_txt=None
-    )
-
-    # saving options
-    save_pkl(conf, save_opt)
+            # saving options
+            save_pkl(conf, save_opt)
+    sb.ddp_barrier()
 
 
 def skip(save_folder, filename, conf):

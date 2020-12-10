@@ -200,7 +200,7 @@ class ASR(sb.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.root_process:
+            if sb.if_main_process():
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch, "lr": old_lr},
                     train_stats=self.train_stats,
@@ -209,6 +209,7 @@ class ASR(sb.Brain):
                 self.checkpointer.save_and_keep_only(
                     meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
                 )
+            sb.ddp_barrier()
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -223,26 +224,32 @@ class ASR(sb.Brain):
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
         if hasattr(self.hparams, "tok_mdl_file"):
-            download_file(
-                source=self.hparams.tok_mdl_file,
-                dest=save_model_path,
-                replace_existing=True,
-            )
+            if sb.if_main_process():
+                download_file(
+                    source=self.hparams.tok_mdl_file,
+                    dest=save_model_path,
+                    replace_existing=True,
+                )
+            sb.ddp_barrier()
             self.hparams.tokenizer.sp.load(save_model_path)
 
         if hasattr(self.hparams, "tok_voc_file"):
-            download_file(
-                source=self.hparams.tok_voc_file,
-                dest=save_vocab_path,
-                replace_existing=True,
-            )
+            if sb.if_main_process():
+                download_file(
+                    source=self.hparams.tok_voc_file,
+                    dest=save_vocab_path,
+                    replace_existing=True,
+                )
+            sb.ddp_barrier()
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
+        if sb.if_main_process():
+            download_file(self.hparams.lm_ckpt_file, save_model_path)
+        sb.ddp_barrier()
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
@@ -260,6 +267,10 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # If distributed_launch=True then
+    # create ddp_group with the right communication protocol
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
