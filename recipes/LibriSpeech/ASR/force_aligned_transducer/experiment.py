@@ -15,7 +15,7 @@ from speechbrain.utils.data_utils import undo_padding
 
 # Define training procedure
 class ASR(sb.Brain):
-    def ctc_align(self, p_ctc, y, T, U):
+    def random_align(self, p_ctc, y, T, U):
         """
         p_ctc: (B, Tmax, #labels)
         y: (B, Umax)
@@ -30,6 +30,118 @@ class ASR(sb.Brain):
             U_b = U[b].item()
             alignment = list(np.random.permutation([0] * T_b + [1] * U_b))
             alignments.append(alignment)
+        return alignments
+
+    def ctc_align(self, p_ctc, y, T, U):
+        """
+        p_ctc: (B, Tmax, #labels)
+        y: (B, Umax)
+        T: (B)
+        U: (B)
+        returns: list of alignments [ [0,1,0,0] , ... ]
+        """
+        B = p_ctc.shape[0]
+        alignments = []
+        for b in range(B):
+            T_b = T[b].item() - 1
+            U_b = U[b].item()
+
+            # Step 1: Get CTC alignment
+            S = 2 * U_b + 1
+            y_prime = []  # [_, y1, _, y2, _, y3, _]
+            for i in range(S):
+                label = (
+                    self.hparams.blank_index
+                    if (i + 1) % 2
+                    else y[b, int(i / 2)].item()
+                )
+                y_prime.append(label)
+            log_alpha = torch.log(torch.zeros(T_b, S))
+            psi = torch.zeros(T_b, S).long()
+            for t in range(0, T_b):
+                if t == 0:
+                    log_alpha[t, 0] = p_ctc[b, 0, self.hparams.blank_index]
+                    log_alpha[t, 1] = p_ctc[b, 0, y_prime[1]]
+                else:
+                    for s in range(S):
+                        if s == 0:
+                            log_alpha[t, s] = (
+                                log_alpha[t - 1, s] + p_ctc[b, t, y_prime[s]]
+                            )
+                            psi[t, s] = 0
+                        if s == 1:
+                            log_alpha[t, s] = (
+                                torch.max(
+                                    log_alpha[t - 1, s - 1 : s + 1], dim=0
+                                )[0]
+                                + p_ctc[b, t, y_prime[s]]
+                            )
+                            psi[t, s] = (
+                                torch.max(
+                                    log_alpha[t - 1, s - 1 : s + 1], dim=0
+                                )[1]
+                                + s
+                                - 1
+                            )
+                        if s > 1:
+                            if (
+                                y_prime[s] == self.hparams.blank_index
+                                or y_prime[s - 2] == y_prime[s]
+                            ):
+                                log_alpha[t, s] = (
+                                    torch.max(
+                                        log_alpha[t - 1, s - 1 : s + 1], dim=0
+                                    )[0]
+                                    + p_ctc[b, t, y_prime[s]]
+                                )
+                                psi[t, s] = (
+                                    torch.max(
+                                        log_alpha[t - 1, s - 1 : s + 1], dim=0
+                                    )[1]
+                                    + s
+                                    - 1
+                                )
+                            else:
+                                log_alpha[t, s] = (
+                                    torch.max(
+                                        log_alpha[t - 1, s - 2 : s + 1], dim=0
+                                    )[0]
+                                    + p_ctc[b, t, y_prime[s]]
+                                )
+                                psi[t, s] = (
+                                    torch.max(
+                                        log_alpha[t - 1, s - 2 : s + 1], dim=0
+                                    )[1]
+                                    + s
+                                    - 2
+                                )
+            ctc_alignment = []
+            s = (
+                torch.max(log_alpha[T_b - 1, S - 2 : S], dim=0)[1].item()
+                + (S - 1)
+                - 1
+            )
+            ctc_alignment.append(y_prime[s])
+            for t in range(T_b - 1, 0, -1):
+                s = psi[t, s].item()
+                ctc_alignment.append(y_prime[s])
+            ctc_alignment.reverse()
+
+            # Step 2: Convert CTC alignment to Transducer alignment
+            # Step 2.1: Convert repeated labels to label + blanks
+            current_label = ctc_alignment[0]
+            for t in range(1, T_b):
+                if ctc_alignment[t] == current_label:
+                    ctc_alignment[t] = self.hparams.blank_index
+                else:
+                    current_label = ctc_alignment[t]
+            # Step 2.2: Add a blank after each label
+            transducer_alignment = []
+            for a in ctc_alignment:
+                if a != self.hparams.blank_index:
+                    transducer_alignment.append(1)
+                transducer_alignment.append(0)
+            alignments.append(transducer_alignment)
         return alignments
 
     def gather_outputs_and_labels(
@@ -60,8 +172,8 @@ class ASR(sb.Brain):
                 if step == 1:  # down (label)
                     y_expanded.append(y[b, u].item())
                     u += 1
-            t_u_indices.append((T[b].item() - 1, U[b].item()))
-            y_expanded.append(self.hparams.blank_index)
+            # t_u_indices.append((T[b].item() - 1, U[b].item()))
+            # y_expanded.append(self.hparams.blank_index)
             t_indices = [t for (t, u) in t_u_indices]
             u_indices = [u for (t, u) in t_u_indices]
             combined = encoder_out[b, t_indices] + predictor_out[b, u_indices]
@@ -171,7 +283,8 @@ class ASR(sb.Brain):
         y = target_tokens
         T = torch.round(wav_lens * encoder_out.shape[1]).long()
         U = abs_length.long()
-        alignments = self.ctc_align(p_ctc, y, T, U)
+        with torch.no_grad():
+            alignments = self.ctc_align(p_ctc, y, T, U)
         (
             joiner_out,
             joiner_labels,
