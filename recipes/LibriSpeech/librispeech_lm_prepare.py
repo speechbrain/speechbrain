@@ -48,19 +48,21 @@ def prepare_lm_corpus(
     >>> save_folder = 'librispeech_lm'
     >>> prepare_librispeech(data_folder, save_folder, 'lm_corpus.h5')
     """
-    if sb.if_main_process():
-        conf = {
-            "select_n_sentences": select_n_sentences,
-        }
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
+    try:
+        if sb.if_main_process():
+            conf = {
+                "select_n_sentences": select_n_sentences,
+            }
+            if not os.path.exists(save_folder):
+                os.makedirs(save_folder)
 
-        save_opt = os.path.join(save_folder, OPT_FILE)
+            save_opt = os.path.join(save_folder, OPT_FILE)
 
-        # Check if this phase is already done (if so, skip it)
-        if skip(save_folder, filename, conf):
-            logger.info("Skipping preparation, completed in previous run.")
-        else:
+            # Check if this phase is already done (if so, skip it)
+            if skip(save_folder, filename, conf):
+                logger.info("Skipping preparation, completed in previous run.")
+                return
+
             data_path = os.path.join(data_folder, "librispeech-lm-norm.txt.gz")
             src = (
                 "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
@@ -77,7 +79,8 @@ def prepare_lm_corpus(
 
             # saving options
             save_pkl(conf, save_opt)
-    sb.ddp_barrier()
+    finally:
+        sb.ddp_barrier()
 
 
 def skip(save_folder, filename, conf):
