@@ -1,0 +1,23 @@
+generator: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 32
+        kernel_size: 11
+    activation: !new:torch.nn.LeakyReLU
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1
+        kernel_size: 11
+    tanh: !new:torch.nn.Tanh
+
+discriminator: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 32
+        kernel_size: 11
+        stride: 8
+    activation: !new:torch.nn.LeakyReLU
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1
+        kernel_size: 11
+        stride: 8
+    sigmoid: !new:torch.nn.Sigmoid
