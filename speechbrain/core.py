@@ -277,7 +277,7 @@ def if_main_process():
             if int(os.environ["LOCAL_RANK"]) == 0:
                 return True
             return False
-    return False
+    return True
 
 
 def ddp_barrier():
