@@ -255,9 +255,14 @@ def _convert_to_yaml(overrides):
     return yaml_string.strip()
 
 
-def if_main_process(run_opts):
-    if "local_rank" not in run_opts.items() or run_opts["local_rank"] == 0:
-        return True
+def if_main_process():
+    if "LOCAL_RANK" in os.environ:
+        if os.environ["LOCAL_RANK"] == "":
+            return False
+        else:
+            if int(os.environ["LOCAL_RANK"]) == 0:
+                return True
+            return False
     return False
 
 

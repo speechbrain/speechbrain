@@ -181,7 +181,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.ddp_init_group(run_opts)
 
-    if sb.if_main_process(run_opts):
+    # all writing command must be done with the main_process
+    if sb.if_main_process():
         # Create experiment directory
         sb.create_experiment_directory(
             experiment_directory=hparams["output_folder"],
@@ -195,11 +196,7 @@ if __name__ == "__main__":
             splits=["train", "dev", "test"],
             save_folder=hparams["data_folder"],
         )
-
-    # if multiple subprocess is used then
-    # allow the subprocess:0 to run the I/O
-    # using sb.ensure_first_or_completed(run_opts)
-    # others subprocess !=0 will wait until I/O processing is done.
+    # wait for main_process if ddp is used
     sb.ddp_barrier()
 
     # Collect index to label conversion dict for decoding
