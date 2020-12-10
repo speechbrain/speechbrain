@@ -178,10 +178,21 @@ class DynamicItemDataset(Dataset):
         """
         self.pipeline.set_output_keys(keys)
 
-    def filtered_subset(
-        self, key_min_value={}, key_max_value={}, key_test={}, first_n=None,
+    def filtered_sorted(
+        self,
+        key_min_value={},
+        key_max_value={},
+        key_test={},
+        sort_key=None,
+        reverse=False,
+        select_n=None,
     ):
-        """Get a torch.utils.data.Subset of the data that pass all filters
+        """Get a filtered and/or sorted version of this, shares static data.
+
+        The reason to implement these operations in the same method is that
+        computing some dynamic items may be expensive, and this way the
+        filtering and sorting steps don't need to compute the dynamic items
+        twice.
 
         Arguments
         ---------
@@ -194,19 +205,22 @@ class DynamicItemDataset(Dataset):
         key_test : dict
             Map from key (in data or in dynamic items) to func, will only keep
             data_point if bool(func(data_point[key])) == True
-        first_n : None, int
-            If not None, only keep first_n filtered data_points. Meant for
-            debuggging.
+        sort_key : None, str
+            If not None, sort by data_point[sort_key]. Default is ascending
+            order.
+        reverse : bool
+            If True, sort in descending order.
+        select_n : None, int
+            If not None, only keep (at most) the first n filtered data_points.
+            The possible sorting is applied, but only on the first n data
+            points found. Meant for debuggging.
 
         Returns
         -------
-        torch.utils.data.Subset
-            Subset points to this dataset, but only yields the the data points
-            which pass all specified filters
-
-        NOTE
-        ----
-        The static data is shared!
+        FilteredSortedDynamicItemDataset
+            Shares the static data, but has its own output keys and
+            dynamic items (initially deep copied from this, so they have the
+            same dynamic items available)
 
         NOTE
         ----
@@ -233,24 +247,37 @@ class DynamicItemDataset(Dataset):
             return True
 
         saved_output_keys = self.pipeline.output_keys
-        filtering_keys = (
+        temp_keys = (
             set(key_min_value.keys())
             | set(key_max_value.keys())
             | set(key_test.keys())
+            | set([] if sort_key is None else [sort_key])
         )
-        self.pipeline.set_output_keys(filtering_keys)
+        self.pipeline.set_output_keys(temp_keys)
         filtered_ids = []
-        for data_id in self.data_ids:
-            if first_n is not None and len(filtered_ids) == first_n:
-                continue
+        for i, data_id in enumerate(self.data_ids):
+            if select_n is not None and len(filtered_ids) == select_n:
+                break
             data_point = self.data[data_id]
             data_point["id"] = data_id
             computed = self.pipeline.compute_outputs(data_point)
             if combined_filter(computed):
-                filtered_ids.append(data_id)
+                if sort_key is not None:
+                    # Add (main sorting index, current index, data_id)
+                    # So that we maintain current sorting and don't compare
+                    # data_id values ever.
+                    filtered_ids.append((computed[sort_key], i, data_id))
+                else:
+                    filtered_ids.append(data_id)
         self.pipeline.set_output_keys(saved_output_keys)
-        return SubsetDynamicItemDataset(
-            self, filtered_ids
+        if sort_key is not None:
+            filtered_sorted_ids = [
+                tup[2] for tup in sorted(filtered_ids, reverse=reverse)
+            ]
+        else:
+            filtered_sorted_ids = filtered_ids
+        return FilteredSortedDynamicItemDataset(
+            self, filtered_sorted_ids
         )  # NOTE: defined below
 
     @classmethod
@@ -270,10 +297,26 @@ class DynamicItemDataset(Dataset):
         return cls(data, dynamic_items, output_keys)
 
 
-class SubsetDynamicItemDataset(DynamicItemDataset):
-    """Subset of a DynamicItemDataset, shares the static data"""
+class FilteredSortedDynamicItemDataset(DynamicItemDataset):
+    """Possibly filtered, possibly sorted DynamicItemDataset
+
+    Shares the static data (weakref).
+    Has its own dynamic_items and output_keys (deepcopy).
+    """
 
     def __init__(self, from_dataset, data_ids):
         self.data = from_dataset.data
         self.data_ids = data_ids
         self.pipeline = copy.deepcopy(from_dataset.pipeline)
+
+    @classmethod
+    def from_json(
+        cls, json_path, replacements={}, dynamic_items=None, output_keys=None
+    ):
+        raise TypeError("Cannot create SubsetDynamicItemDataset directly!")
+
+    @classmethod
+    def from_csv(
+        cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
+    ):
+        raise TypeError("Cannot create SubsetDynamicItemDataset directly!")
