@@ -127,7 +127,7 @@ def load_data_csv(csv_path, replacements={}):
     >>> tmpfile = getfixture("tmpdir") / "test.csv"
     >>> with open(tmpfile, "w") as fo:
     ...     _ = fo.write(csv_spec)
-    >>> data = load_data_csv(tmpfile, {"$data_folder": "/home"})
+    >>> data = load_data_csv(tmpfile, {"data_folder": "/home"})
     >>> data["utt1"]["wav_path"]
     '/home/utt1.wav'
 
@@ -135,7 +135,7 @@ def load_data_csv(csv_path, replacements={}):
     with open(csv_path, newline="") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile)
-        variable_finder = re.compile(r"\$[\w.]+")
+        variable_finder = re.compile(r"\$([\w.]+)")
         for row in reader:
             # ID:
             try:
@@ -152,7 +152,7 @@ def load_data_csv(csv_path, replacements={}):
             for key, value in row.items():
                 try:
                     row[key] = variable_finder.sub(
-                        lambda match: replacements[match[0]], value
+                        lambda match: replacements[match[1]], value
                     )
                 except KeyError:
                     raise KeyError(
