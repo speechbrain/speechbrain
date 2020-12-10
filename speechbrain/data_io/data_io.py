@@ -127,6 +127,9 @@ def load_data_csv(csv_path, replacements={}):
     >>> tmpfile = getfixture("tmpdir") / "test.csv"
     >>> with open(tmpfile, "w") as fo:
     ...     _ = fo.write(csv_spec)
+    >>> data = load_data_csv(tmpfile, {"$data_folder": "/home"})
+    >>> data["utt1"]["wav_path"]
+    '/home/utt1.wav'
 
     """
     with open(csv_path, newline="") as csvfile:
@@ -134,6 +137,7 @@ def load_data_csv(csv_path, replacements={}):
         reader = csv.DictReader(csvfile)
         variable_finder = re.compile(r"\$[\w.]+")
         for row in reader:
+            # ID:
             try:
                 data_id = row["ID"]
                 del row["ID"]  # This is used as a key in result, instead.
@@ -144,17 +148,20 @@ def load_data_csv(csv_path, replacements={}):
                 )
             if data_id in result:
                 raise ValueError(f"Duplicate id: {data_id}")
-            if "duration" in row:
-                row["duration"] = float(row["duration"])
-
+            # Replacements:
             for key, value in row.items():
                 try:
-                    row[key] = variable_finder.sub("asdf", value)
+                    row[key] = variable_finder.sub(
+                        lambda match: replacements[match[0]], value
+                    )
                 except KeyError:
                     raise KeyError(
                         f"The item {value} requires replacements "
                         "which were not supplied."
                     )
+            # Duration:
+            if "duration" in row:
+                row["duration"] = float(row["duration"])
             result[data_id] = row
     return result
 

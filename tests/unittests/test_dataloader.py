@@ -6,7 +6,7 @@ def test_saveable_dataloader(tmpdir):
 
     save_file = tmpdir + "/dataloader.ckpt"
     dataset = torch.randn(10, 1)
-    dataloader = SaveableDataLoader(dataset)
+    dataloader = SaveableDataLoader(dataset, collate_fn=None)
     data_iterator = iter(dataloader)
     first_item = next(data_iterator)
     assert first_item == dataset[0]
@@ -15,8 +15,8 @@ def test_saveable_dataloader(tmpdir):
     second_item = next(data_iterator)
     assert second_item == dataset[1]
     # Now make a new dataloader and recover:
-    new_dataloader = SaveableDataLoader(dataset)
-    new_dataloader._speechbrain_load(save_file, end_of_epoch=False)
+    new_dataloader = SaveableDataLoader(dataset, collate_fn=None)
+    new_dataloader._speechbrain_load(save_file, end_of_epoch=False, device=None)
     new_data_iterator = iter(new_dataloader)
     second_second_item = next(new_data_iterator)
     assert second_second_item == second_item
@@ -30,7 +30,7 @@ def test_saveable_dataloader_multiprocess(tmpdir):
     dataset = torch.randn(10, 1)
     for num_parallel in [1, 2, 10, 12]:
         dataloader = SaveableDataLoader(
-            dataset, num_workers=num_parallel
+            dataset, num_workers=num_parallel, collate_fn=None
         )  # Note num_workers
         data_iterator = iter(dataloader)
         first_item = next(data_iterator)
