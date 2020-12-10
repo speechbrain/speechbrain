@@ -43,6 +43,7 @@ class ASR_Brain(sb.Brain):
             noisy_wavs, noisy_feats, noisy_lens, targets = self.prepare_feats(
                 noisy, targets, stage
             )
+            phase_wavs = noisy_wavs
 
             # Mask with "signal approximation (SA)"
             if self.hparams.enhance_type == "masking":
@@ -58,18 +59,19 @@ class ASR_Brain(sb.Brain):
                 predictions["feats"] = noisy_feats
 
             elif self.hparams.enhance_type == "clean":
-                _, clean_feats, clean_lens, _ = self.prepare_feats(
+                clean_wavs, clean_feats, clean_lens, _ = self.prepare_feats(
                     clean, targets, stage,
                 )
                 predictions["feats"] = clean_feats
+                phase_wavs = clean_wavs
 
             # Resynthesize waveforms
             enhanced_mag = torch.expm1(predictions["feats"])
-            predictions["wavs"] = self.hparams.resynth(enhanced_mag, noisy_wavs)
+            predictions["wavs"] = self.hparams.resynth(enhanced_mag, phase_wavs)
 
         # Generate clean features for ASR pre-training
         if self.hparams.ctc_type == "clean" or self.hparams.seq_type == "clean":
-            clean_feats, clean_lens, targets = self.prepare_feats(
+            _, clean_feats, clean_lens, targets = self.prepare_feats(
                 clean, targets, stage,
             )
 
@@ -88,8 +90,8 @@ class ASR_Brain(sb.Brain):
                 feat_lens = clean_lens
             if self.hparams.seq_type == "joint":
                 asr_feats = predictions["wavs"]
-                # if stage == sb.Stage.TRAIN:
-                #    asr_feats = self.hparams.augment(asr_feats, noisy_lens)
+                if stage == sb.Stage.TRAIN:
+                    asr_feats = self.hparams.augment(asr_feats, noisy_lens)
                 asr_feats = self.hparams.fbank(asr_feats)
                 asr_feats = self.hparams.normalizer(asr_feats, noisy_lens)
                 embed = self.modules.src_embedding(asr_feats)
@@ -232,6 +234,7 @@ class ASR_Brain(sb.Brain):
             loss += self.hparams.ctc_weight * ctc_loss
 
             if stage != sb.Stage.TRAIN:
+                ids, _, _ = clean
                 self.ctc_metrics.append(
                     ids, predictions["ctc_pout"], tokens, clean_lens, token_lens
                 )
@@ -314,7 +317,6 @@ class ASR_Brain(sb.Brain):
 
             if self.hparams.enhance_weight > 0:
                 self.enh_metrics = self.hparams.enhance_stats()
-                # self.stoi_metrics = self.hparams.stoi_stats()
                 self.stoi_metrics = sb.MetricStats(metric=estoi_eval, n_jobs=30)
                 self.pesq_metrics = sb.MetricStats(metric=pesq_eval, n_jobs=30)
 
@@ -331,11 +333,21 @@ class ASR_Brain(sb.Brain):
                 if not hasattr(self, "err_rate_metrics"):
                     self.err_rate_metrics = self.hparams.err_rate_stats()
 
-        # Freeze models at beginning of training
-        elif epoch <= 1:
+        # Freeze models before training
+        else:
             for model in self.hparams.frozen_models:
                 for p in self.modules[model].parameters():
-                    p.requires_grad = False
+                    if (
+                        hasattr(self.hparams, "unfreeze_epoch")
+                        and epoch >= self.hparams.unfreeze_epoch
+                        and (
+                            not hasattr(self.hparams, "unfrozen_models")
+                            or model in self.hparams.unfrozen_models
+                        )
+                    ):
+                        p.requires_grad = True
+                    else:
+                        p.requires_grad = False
 
     def on_stage_end(self, stage, stage_loss, epoch):
         if stage == sb.Stage.TRAIN:
@@ -357,29 +369,30 @@ class ASR_Brain(sb.Brain):
 
             if self.hparams.ctc_weight > 0 or self.hparams.seq_weight > 0:
                 err_rate = self.err_rate_metrics.summarize("error_rate")
-
-                err_rate_type = "PER"
-                if self.hparams.target_type == "wrd":
-                    err_rate_type = "WER"
-
+                err_rate_type = self.hparams.target_type + "ER"
                 stage_stats[err_rate_type] = err_rate
                 min_keys.append(err_rate_type)
 
         if stage == sb.Stage.VALID:
 
+            stats_meta = {"epoch": epoch}
             if self.hparams.ctc_weight > 0 or self.hparams.seq_weight > 0:
-                old_lr, new_lr = self.hparams.lr_annealing(err_rate)
+                old_lr, new_lr = self.hparams.lr_annealing(epoch - 1)
                 sb.nnet.update_learning_rate(self.optimizer, new_lr)
+                stats_meta["lr"] = old_lr
 
             # In distributed setting, only want to save model/stats once
             if self.root_process:
                 self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch},
+                    stats_meta=stats_meta,
                     train_stats={"loss": self.train_loss},
                     valid_stats=stage_stats,
                 )
                 self.checkpointer.save_and_keep_only(
-                    meta=stage_stats, max_keys=max_keys, min_keys=min_keys,
+                    meta=stage_stats,
+                    max_keys=max_keys,
+                    min_keys=min_keys,
+                    num_to_keep=self.hparams.checkpoint_avg,
                 )
 
         elif stage == sb.Stage.TEST:
@@ -387,6 +400,7 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
+            self.checkpointer.save_checkpoint(meta=stage_stats, name="avg")
             with open(self.hparams.stats_file, "w") as w:
                 if self.hparams.enhance_weight > 0:
                     w.write("\nstoi stats:\n")
@@ -399,6 +413,24 @@ class ASR_Brain(sb.Brain):
                 if self.hparams.ctc_weight > 0:
                     self.err_rate_metrics.write_stats(w)
                 print("stats written to ", self.hparams.stats_file)
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        self.checkpointer.recover_if_possible(max_key=max_key, min_key=min_key)
+        checkpoints = self.checkpointer.find_checkpoints(
+            max_key=max_key,
+            min_key=min_key,
+            max_num_checkpoints=self.hparams.checkpoint_avg,
+        )
+        for model in self.modules:
+            if (
+                model not in self.hparams.frozen_models
+                or hasattr(self.hparams, "unfrozen_models")
+                and model in self.hparams.unfrozen_models
+            ):
+                model_state_dict = sb.utils.checkpoints.average_checkpoints(
+                    checkpoints, model
+                )
+                self.modules[model].load_state_dict(model_state_dict)
 
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
@@ -476,7 +508,6 @@ if __name__ == "__main__":
     test_set = hparams["test_loader"]()
     tgt = hparams["target_type"]
     hparams["ind2lab"] = hparams["test_loader"].label_dict[tgt]["index2lab"]
-    # hparams["ind2lab"][42] = "blank"
 
     # Load pretrained models
     if "pretrained_path" in hparams:
@@ -498,6 +529,6 @@ if __name__ == "__main__":
         asr_brain.load_lm()
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    # asr_brain.evaluate(hparams["test_loader"](), max_key="stoi")
-    # asr_brain.evaluate(test_set, min_key="WER")
-    asr_brain.evaluate(hparams["test_loader"]())
+    # asr_brain.evaluate(test_set, max_key="stoi")
+    # asr_brain.evaluate(test_set, min_key="wrdER")
+    asr_brain.evaluate(test_set)

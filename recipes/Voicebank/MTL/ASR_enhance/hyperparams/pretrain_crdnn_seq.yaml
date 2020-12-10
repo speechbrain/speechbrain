@@ -5,9 +5,9 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1248
+seed: 1253
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/noisy_crdnn_seq/<seed>
+output_folder: !ref results/biphn_crdnn_seq/<seed>
 stats_file: !ref <output_folder>/stats.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -19,12 +19,14 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 25
-ctc_epochs: 3
+number_of_epochs: 20
+ctc_epochs: 5
 batch_size: 8
 lr: 0.0005
 device: 'cuda:0'
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
+target_type: biphn
+checkpoint_avg: 1
 
 # Loss weights
 enhance_type: null  # null, mapping, masking
@@ -39,9 +41,6 @@ alignment_weight: 0.0
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path: {}
-    # src_embedding: crdnn_seq_base10_ep5/src_embedding.ckpt
-    # tgt_embedding: crdnn_seq_base10_ep5/tgt_embedding.ckpt
-    # recognizer: crdnn_seq_base10_ep5/recognizer.ckpt
 frozen_models: []
 
 # Feature parameters
@@ -70,7 +69,7 @@ dec_attn_type: location
 dec_attn_dim: 256
 
 # Outputs
-output_neurons: 42
+output_neurons: 1164
 blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
@@ -83,21 +82,21 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [noisy_wav, clean_wav, phn]
+    csv_read: [noisy_wav, clean_wav, !ref <target_type>]
 
 valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [noisy_wav, clean_wav, phn]
+    csv_read: [noisy_wav, clean_wav, !ref <target_type>]
 
 test_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [noisy_wav, clean_wav, phn]
+    csv_read: [noisy_wav, clean_wav, !ref <target_type>]
 
 augment: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [97, 103]
@@ -126,7 +125,7 @@ src_embedding: !new:CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
+    time_pooling: True
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -172,11 +171,10 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+lr_annealing: !new:speechbrain.nnet.StepScheduler
     initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.5
-    patient: 0
+    decay_factor: 0.5
+    decay_drop: 3
 
 modules:
     src_embedding: !ref <src_embedding>
@@ -196,7 +194,6 @@ checkpointer: !new:speechbrain.Checkpointer
         ctc_output: !ref <ctc_output>
         seq_output: !ref <seq_output>
         counter: !ref <epoch_counter>
-        lr_annealing: !ref <lr_annealing>
 
 enhance_loss: !name:speechbrain.nnet.mse_loss
 mimic_loss: !name:speechbrain.nnet.mse_loss
@@ -222,7 +219,7 @@ seq_stats: !name:speechbrain.MetricStats
     metric: !name:speechbrain.nnet.nll_loss
         label_smoothing: !ref <label_smoothing>
         reduction: batch
-per_stats: !name:speechbrain.ErrorRateStats
+err_rate_stats: !name:speechbrain.ErrorRateStats
 
 train_logger: !new:speechbrain.FileTrainLogger
     save_file: !ref <train_log>

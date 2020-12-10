@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1250
+seed: 1319
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/joint_asr_bpe_lm/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -24,18 +24,19 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 15
+number_of_epochs: 20
 ctc_epochs: 0
 batch_size: 8
-lr: 1.0
+lr: 0.0001
 token_type: unigram
 target_type: wrd
 device: 'cuda:0'
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
+checkpoint_avg: 5  # average this many checkpoints for eval
 
 # Loss weights
-enhance_type: clean  # null, mapping, masking
-enhance_weight: 1.0
+enhance_type: masking  # null, mapping, masking
+enhance_weight: 0.0
 mimic_weight: 0.0
 ctc_weight: 1.0
 ctc_type: joint  # null, clean, joint
@@ -46,10 +47,13 @@ label_smoothing: 0.1
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
-    enhance_model: transformer_crdnn_base10/enhance_model.ckpt
+    enhance_model: biphn_mimic_transformer/enhance_model.ckpt
+    # enhance_model: transformer_crdnn_base10/enhance_model.ckpt
     # enhance_model: results/masking/enhance_model.ckpt
 
-frozen_models: []  # [enhance_model]
+frozen_models: [enhance_model, src_embedding]
+unfreeze_epoch: 4
+unfrozen_models: [src_embedding]
 
 # Feature parameters
 sample_rate: 16000
@@ -274,16 +278,13 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
-opt_class: !name:torch.optim.Adadelta
+opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
 
-lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+lr_annealing: !new:speechbrain.nnet.StepScheduler
     initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.5
-    patient: 0
+    decay_factor: 0.5
+    decay_drop: 3
 
 modules:
     enhance_model: !ref <enhance_model>
@@ -304,7 +305,7 @@ checkpointer: !new:speechbrain.Checkpointer
         ctc_output: !ref <ctc_output>
         seq_output: !ref <seq_output>
         counter: !ref <epoch_counter>
-        lr_annealing: !ref <lr_annealing>
+        normalizer: !ref <normalizer>
 
 pretrain_checkpointer: !new:speechbrain.Checkpointer
     checkpoints_dir: pretrain
