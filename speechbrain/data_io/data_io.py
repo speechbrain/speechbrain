@@ -24,6 +24,7 @@ from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 import h5py
 import math
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -2589,8 +2590,10 @@ def save_pkl(obj, file):
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
     """
-    with open(file, "wb") as f:
-        pickle.dump(obj, f)
+    if sb.if_main_process():
+        with open(file, "wb") as f:
+            pickle.dump(obj, f)
+    sb.ddp_barrier()
 
 
 def load_pkl(file):

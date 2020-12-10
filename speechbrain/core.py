@@ -414,7 +414,6 @@ class Brain:
     ):
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.root_process = True
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
@@ -494,7 +493,6 @@ class Brain:
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
-            self.root_process = self.rank == 0
             # force the models to start and remain synchronized
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -804,7 +802,7 @@ class Brain:
                 self.train_sampler.set_epoch(epoch)
 
             # Only show progressbar if requested and root_process
-            disable = not (progressbar and self.root_process)
+            disable = not (progressbar and sb.if_main_process())
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for self.step, batch in enumerate(t):
                     loss = self.fit_batch(batch)

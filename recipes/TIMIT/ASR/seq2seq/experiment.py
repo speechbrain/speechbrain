@@ -133,7 +133,7 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-            if self.root_process:
+            if sb.if_main_process():
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch, "lr": old_lr},
                     train_stats={"loss": self.train_loss},
@@ -147,6 +147,7 @@ class ASR(sb.Brain):
                 self.checkpointer.save_and_keep_only(
                     meta={"PER": per}, min_keys=["PER"]
                 )
+            sb.ddp_barrier()
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
