@@ -56,51 +56,59 @@ def create_experiment_directory(
         If True, an environment state description is saved to the experiment
         directory, in a file called env.log in the experiment directory
     """
-    # all writing command must be done with the main_process
-    if sb.if_main_process():
-        if not os.path.isdir(experiment_directory):
-            os.makedirs(experiment_directory)
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            if not os.path.isdir(experiment_directory):
+                os.makedirs(experiment_directory)
 
-        # Write the parameters file
-        if hyperparams_to_save is not None:
-            hyperparams_filename = os.path.join(
-                experiment_directory, "hyperparams.yaml"
+            # Write the parameters file
+            if hyperparams_to_save is not None:
+                hyperparams_filename = os.path.join(
+                    experiment_directory, "hyperparams.yaml"
+                )
+                with open(hyperparams_to_save) as f:
+                    resolved_yaml = sb.resolve_references(f, overrides)
+                with open(hyperparams_filename, "w") as w:
+                    print("# Generated %s from:" % date.today(), file=w)
+                    print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
+                    print("# yamllint disable", file=w)
+                    shutil.copyfileobj(resolved_yaml, w)
+
+            # Copy executing file to output directory
+            module = inspect.getmodule(inspect.currentframe().f_back)
+            if module is not None:
+                callingfile = os.path.realpath(module.__file__)
+                shutil.copy(callingfile, experiment_directory)
+
+            # Log exceptions to output automatically
+            log_file = os.path.join(experiment_directory, "log.txt")
+            logger_overrides = {
+                "handlers": {"file_handler": {"filename": log_file}}
+            }
+            sb.utils.logger.setup_logging(log_config, logger_overrides)
+            sys.excepthook = _logging_excepthook
+
+            # Log beginning of experiment!
+            logger.info("Beginning experiment!")
+            logger.info(f"Experiment folder: {experiment_directory}")
+            commit_hash = subprocess.check_output(
+                ["git", "describe", "--always"]
             )
-            with open(hyperparams_to_save) as f:
-                resolved_yaml = sb.resolve_references(f, overrides)
-            with open(hyperparams_filename, "w") as w:
-                print("# Generated %s from:" % date.today(), file=w)
-                print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
-                print("# yamllint disable", file=w)
-                shutil.copyfileobj(resolved_yaml, w)
+            logger.debug(
+                "Commit hash: '%s'" % commit_hash.decode("utf-8").strip()
+            )
 
-        # Copy executing file to output directory
-        module = inspect.getmodule(inspect.currentframe().f_back)
-        if module is not None:
-            callingfile = os.path.realpath(module.__file__)
-            shutil.copy(callingfile, experiment_directory)
-
-        # Log exceptions to output automatically
-        log_file = os.path.join(experiment_directory, "log.txt")
-        logger_overrides = {
-            "handlers": {"file_handler": {"filename": log_file}}
-        }
-        sb.utils.logger.setup_logging(log_config, logger_overrides)
-        sys.excepthook = _logging_excepthook
-
-        # Log beginning of experiment!
-        logger.info("Beginning experiment!")
-        logger.info(f"Experiment folder: {experiment_directory}")
-        commit_hash = subprocess.check_output(["git", "describe", "--always"])
-        logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
-
-        # Save system description:
-        if save_env_desc:
-            description_str = sb.utils.logger.get_environment_description()
-            with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
-                fo.write(description_str)
-    # wait for main_process if ddp is used
-    sb.ddp_barrier()
+            # Save system description:
+            if save_env_desc:
+                description_str = sb.utils.logger.get_environment_description()
+                with open(
+                    os.path.join(experiment_directory, "env.log"), "w"
+                ) as fo:
+                    fo.write(description_str)
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
 
 
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
@@ -807,7 +815,7 @@ class Brain:
             if self.train_sampler is not None:
                 self.train_sampler.set_epoch(epoch)
 
-            # Only show progressbar if requested and root_process
+            # Only show progressbar if requested and main_process
             disable = not (progressbar and sb.if_main_process())
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for self.step, batch in enumerate(t):
