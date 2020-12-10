@@ -163,11 +163,9 @@ def test_load_extended_yaml(tmpdir):
 
     # Apply method
     yaml = """
-    a: 3
-    b: !apply:datetime.date.fromordinal
-        - !ref <a>
+    a: "A STRING"
     common_kwargs:
-        thing1: 1
+        thing1: !ref <a.lower>
         thing2: 2
     c: !apply:speechbrain.TestThing.from_keys
         args:
@@ -176,8 +174,7 @@ def test_load_extended_yaml(tmpdir):
         kwargs: !ref <common_kwargs>
     """
     things = load_extended_yaml(yaml)
-    assert things["b"].month == 1
-    assert things["c"].kwargs["thing1"] == 1
+    assert things["c"].kwargs["thing1"]() == "a string"
 
     # Refattr:
     yaml = """
