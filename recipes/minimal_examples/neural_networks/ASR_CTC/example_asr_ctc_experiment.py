@@ -5,7 +5,7 @@ import speechbrain as sb
 
 class CTCBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        wavs, lens = batch["wav"]
+        wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x = self.modules.model(feats)
@@ -16,8 +16,8 @@ class CTCBrain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        ids = batch["id"]
-        phns, phn_lens = batch["phn"]
+        ids = batch.id
+        phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
@@ -52,6 +52,15 @@ def main():
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+
+    # Fit the label encoder here, after data prep JSON has been loaded:
+    hparams["label_encoder"].fit(
+        [hparams["train_data"].data, hparams["valid_data"].data],
+        supervision="phn",
+        sup_transform=hparams["common_dynamic_items"]["phn_list"]["func"],
+    )
+
+    print(hparams["common_dynamic_items"])
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(

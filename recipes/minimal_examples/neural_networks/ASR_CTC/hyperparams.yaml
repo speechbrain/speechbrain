@@ -24,50 +24,44 @@ dnn_neurons: 128
 # Data:
 data_folder: !PLACEHOLDER
 
-train_examples: !apply:speechbrain.data_io.data_io.load_json
+label_encoder: !new:speechbrain.data_io.encoders.CTCTextEncoder
+
+common_dynamic_items:
+    phn_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [phn]
+    phn_encoded:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !ref <label_encoder.encode_sequence>
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_list]
+    sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [wav]
+
+common_output_keys: ["id", "sig", "phn_encoded"]
+
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/train.json
     replacements:
         data_root: !ref <data_folder>
-dev_examples: !apply:speechbrain.data_io.data_io.load_json
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/dev.json
     replacements:
         data_root: !ref <data_folder>
-
-label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
-    data_collections: [!ref <train_examples>, !ref <dev_examples>]
-    supervision: phn
-    blank_encoding: !ref <blank_index>
-    sup_transform: !name:speechbrain.utils.data_utils.split_by_whitespace
-
-text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
-    - !name:speechbrain.utils.data_utils.split_by_whitespace
-    - !ref <label_encoder.encode_sequence>
-    - !name:speechbrain.data_io.data_io.to_longTensor
-
-audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
-    - !name:speechbrain.data_io.data_io.read_audio
-
-data_tf:
-    - !ref <text_pipeline>
-    - !ref <audio_pipeline>
-
-train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    examples: !ref <train_examples>
-    data_transforms: !ref <data_tf>
-
-valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    examples: !ref <dev_examples>
-    data_transforms: !ref <data_tf>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
     batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <valid_data>
     batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
