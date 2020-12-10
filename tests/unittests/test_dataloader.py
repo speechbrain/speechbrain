@@ -40,7 +40,9 @@ def test_saveable_dataloader_multiprocess(tmpdir):
         second_item = next(data_iterator)
         assert second_item == dataset[1]
         # Now make a new dataloader and recover:
-        new_dataloader = SaveableDataLoader(dataset, num_workers=num_parallel)
+        new_dataloader = SaveableDataLoader(
+            dataset, num_workers=num_parallel, collate_fn=None
+        )
         new_dataloader._speechbrain_load(
             save_file, end_of_epoch=False, device=None
         )
