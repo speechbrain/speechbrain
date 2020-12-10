@@ -53,7 +53,7 @@ def test_data_pipeline():
     assert "bar" not in result
     # Can change the outputs (continues previous tests)
     watcher.reset_mock()
-    pipeline.set_output_keys("bar")
+    pipeline.set_output_keys(["bar"])
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
     assert "foo" not in result

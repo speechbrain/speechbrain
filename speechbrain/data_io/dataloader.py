@@ -151,7 +151,7 @@ class SaveableDataLoader(DataLoader):
             fo.write(str(to_save))
 
     @mark_as_loader
-    def _speechbrain_load(self, path, end_of_epoch, device=None):
+    def _speechbrain_load(self, path, end_of_epoch, device):
         del device  # Unused here
         if self._speechbrain_iterator is not None:
             logging.warning(
