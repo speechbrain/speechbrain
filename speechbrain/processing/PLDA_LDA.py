@@ -1,8 +1,8 @@
 """A popular speaker recognition/diarization model (LDA and PLDA).
 
 Authors
- * Nauman Dawalatabad 2020
  * Anthony Larcher 2020
+ * Nauman Dawalatabad 2020
 
 Relevant Papers
  - This implementation of PLDA is based of following papers.
@@ -23,10 +23,7 @@ Credits
 import numpy
 import copy
 import pickle
-import sys  # noqa F401
-import time  # noqa F401
 
-# from numpy import linalg
 from scipy import linalg
 
 STAT_TYPE = numpy.float64
@@ -211,6 +208,14 @@ class StatObject_SB:
         self.stat1 = self.stat1 - (
             self.stat0[:, index_map] * mu.astype(STAT_TYPE)
         )
+
+    def norm_stat1(self):
+        """Divide all first-order statistics by their euclidian norm.
+        """
+        vect_norm = numpy.clip(
+            numpy.linalg.norm(self.stat1, axis=1), 1e-08, numpy.inf
+        )
+        self.stat1 = (self.stat1.transpose() / vect_norm).transpose()
 
     def rotate_stat1(self, R):
         """Rotate first-order statistics by a right-product.
@@ -878,7 +883,11 @@ class PLDA:
             self.Sigma = Sigma
 
     def plda(
-        self, stat_server=None, output_file_name=None,
+        self,
+        stat_server=None,
+        output_file_name=None,
+        whiten=False,
+        w_stat_server=None,
     ):
         """Trains PLDA model with no within class covariance matrix but full residual covariance matrix.
 
@@ -898,6 +907,12 @@ class PLDA:
 
         # Dimension of the vector (x-vectors stored in stat1)
         vect_size = stat_server.stat1.shape[1]  # noqa F841
+
+        # Whitening (Optional)
+        if whiten is True:
+            w_mean = w_stat_server.get_mean_stat1()
+            w_Sigma = w_stat_server.get_total_covariance_stat1()
+            stat_server.whiten_stat1(w_mean, w_Sigma)
 
         # Initialize mean and residual covariance from the training data
         self.mean = stat_server.get_mean_stat1()
@@ -949,8 +964,6 @@ class PLDA:
             self.F = sqr_inv_sigma.T.dot(self.F)
 
             # Replicate self.stat0
-            # index_map = numpy.zeros(vect_size, dtype=int)
-            # _stat0 = local_stat.stat0[:, index_map]
             index_map = numpy.zeros(vect_size, dtype=int)
             _stat0 = local_stat.stat0[:, index_map]
 

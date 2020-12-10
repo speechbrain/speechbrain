@@ -118,8 +118,9 @@ def test_recovery_custom_io(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path, end_of_epoch, device=None):
+        def load(self, path, end_of_epoch, device):
             del end_of_epoch  # Unused
+            del device
             with open(path) as fi:
                 self.param = int(fi.read())
 
@@ -270,3 +271,67 @@ def test_torch_meta(tmpdir):
     )
     loaded = recoverer.recover_if_possible()
     assert saved.meta["loss"].allclose(loaded.meta["loss"])
+
+
+def test_checkpoint_hook_register(tmpdir):
+    from speechbrain.utils.checkpoints import register_checkpoint_hooks
+    from speechbrain.utils.checkpoints import mark_as_saver
+    from speechbrain.utils.checkpoints import mark_as_loader
+    from speechbrain.utils.checkpoints import Checkpointer
+
+    # First a proper interface:
+    @register_checkpoint_hooks
+    class CustomRecoverable:
+        def __init__(self, param):
+            self.param = int(param)
+
+        @mark_as_saver
+        def save(self, path):
+            with open(path, "w") as fo:
+                fo.write(str(self.param))
+
+        @mark_as_loader
+        def load(self, path, end_of_epoch, device):
+            del end_of_epoch  # Unused
+            with open(path) as fi:
+                self.param = int(fi.read())
+
+    recoverable = CustomRecoverable(1.0)
+    checkpointer = Checkpointer(tmpdir, {"recoverable": recoverable})
+    checkpointer.save_checkpoint()
+    recoverable.param = 2.0
+    checkpointer.recover_if_possible()
+    assert recoverable.param == 1.0
+
+    # Improper interfaces:
+    with pytest.raises(TypeError):
+
+        class BadRecoverable:
+            def __init__(self, param):
+                self.param = int(param)
+
+            def save(self, path):
+                with open(path, "w") as fo:
+                    fo.write(str(self.param))
+
+            @mark_as_loader
+            def load(self, path, end_of_epoch):  # MISSING device
+                del end_of_epoch  # Unused
+                with open(path) as fi:
+                    self.param = int(fi.read())
+
+    with pytest.raises(TypeError):
+
+        class BadRecoverable:  # noqa: F811
+            def __init__(self, param):
+                self.param = int(param)
+
+            @mark_as_saver
+            def save(self, path, extra_arg):  # Extra argument
+                with open(path, "w") as fo:
+                    fo.write(str(self.param))
+
+            def load(self, path, end_of_epoch, device):
+                del end_of_epoch  # Unused
+                with open(path) as fi:
+                    self.param = int(fi.read())
