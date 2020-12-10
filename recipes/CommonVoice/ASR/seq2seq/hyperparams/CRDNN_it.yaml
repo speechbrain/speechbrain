@@ -7,7 +7,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 123
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_it/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -15,8 +15,9 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # root path of the commonvoice dataset
-wav_folder: !PLACEHOLDER  # !! Largish disk required !! (mp3 files converted)
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/it
+data_folder_rirs: !ref <data_folder>
+wav_folder: !PLACEHOLDER  # e.g, /localscratch/common_voiceit_converted
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
@@ -81,7 +82,8 @@ max_decode_ratio: 1.0
 beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
-max_attn_shift: 180
+max_attn_shift: 140
+temperature: 1.50
 
 #
 # Functions and classes
@@ -113,6 +115,15 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, wrd]
 
 # Models
+
+# Environmental corruption
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
 
 # SpecAugment
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
@@ -215,6 +226,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     eos_threshold: !ref <eos_threshold>
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
+    temperature: !ref <temperature>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
