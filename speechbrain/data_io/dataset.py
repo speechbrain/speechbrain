@@ -1,11 +1,12 @@
 """Datasets load individual data points (examples)
 
 Authors
-  * Samuele Cornell 2020
   * Aku Rouhe 2020
+  * Samuele Cornell 2020
 """
 
-from torch.utils.data import Dataset, Subset
+import copy
+from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.data_io.data_io import load_data_json, load_data_csv
 import logging
@@ -177,7 +178,7 @@ class DynamicItemDataset(Dataset):
         """
         self.pipeline.set_output_keys(keys)
 
-    def filtered_view(
+    def filtered_subset(
         self, key_min_value={}, key_max_value={}, key_test={}, first_n=None,
     ):
         """Get a torch.utils.data.Subset of the data that pass all filters
@@ -205,8 +206,7 @@ class DynamicItemDataset(Dataset):
 
         NOTE
         ----
-        The original dataset still controlls e.g. the output keys! The Subset is
-        only a shallow view!
+        The static data is shared!
 
         NOTE
         ----
@@ -239,17 +239,19 @@ class DynamicItemDataset(Dataset):
             | set(key_test.keys())
         )
         self.pipeline.set_output_keys(filtering_keys)
-        filtered_indices = []
-        for index, data_id in enumerate(self.data_ids):
-            if first_n is not None and len(filtered_indices) == first_n:
+        filtered_ids = []
+        for data_id in self.data_ids:
+            if first_n is not None and len(filtered_ids) == first_n:
                 continue
             data_point = self.data[data_id]
             data_point["id"] = data_id
             computed = self.pipeline.compute_outputs(data_point)
             if combined_filter(computed):
-                filtered_indices.append(index)
+                filtered_ids.append(data_id)
         self.pipeline.set_output_keys(saved_output_keys)
-        return Subset(self, filtered_indices)
+        return SubsetDynamicItemDataset(
+            self, filtered_ids
+        )  # NOTE: defined below
 
     @classmethod
     def from_json(
@@ -266,3 +268,12 @@ class DynamicItemDataset(Dataset):
         """Load a data prep CSV file and create a Dataset based on it."""
         data = load_data_csv(csv_path, replacements)
         return cls(data, dynamic_items, output_keys)
+
+
+class SubsetDynamicItemDataset(DynamicItemDataset):
+    """Subset of a DynamicItemDataset, shares the static data"""
+
+    def __init__(self, from_dataset, data_ids):
+        self.data = from_dataset.data
+        self.data_ids = data_ids
+        self.pipeline = copy.deepcopy(from_dataset.pipeline)
