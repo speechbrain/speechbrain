@@ -133,7 +133,6 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
             if self.root_process:
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch, "lr": old_lr},
@@ -182,7 +181,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.ddp_init_group(run_opts)
 
-    if sb.ensure_first_or_completed(run_opts):
+    if sb.if_main_process(run_opts):
         # Create experiment directory
         sb.create_experiment_directory(
             experiment_directory=hparams["output_folder"],
