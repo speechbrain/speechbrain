@@ -133,6 +133,8 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            # In distributed setting, only want to save model/stats once
             try:
                 if sb.if_main_process():
                     self.hparams.train_logger.log_stats(
