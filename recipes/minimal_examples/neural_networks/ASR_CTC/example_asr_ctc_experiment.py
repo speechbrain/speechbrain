@@ -60,8 +60,6 @@ def main():
         sup_transform=hparams["common_dynamic_items"]["phn_list"]["func"],
     )
 
-    print(hparams["common_dynamic_items"])
-
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),

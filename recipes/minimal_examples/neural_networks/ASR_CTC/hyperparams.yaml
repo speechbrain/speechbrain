@@ -26,6 +26,7 @@ data_folder: !PLACEHOLDER
 
 label_encoder: !new:speechbrain.data_io.encoders.CTCTextEncoder
 
+# BUG: Want to reuse this
 common_dynamic_items:
     phn_list:
         func: !name:speechbrain.utils.data_utils.split_by_whitespace
@@ -45,15 +46,39 @@ train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/train.json
     replacements:
         data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
+    #BUG Contd. Want to use it here, but nothing gets copied with !ref <common_dynamic_items>
+    dynamic_items:
+        phn_list:
+            func: !name:speechbrain.utils.data_utils.split_by_whitespace
+            argkeys: [phn]
+        phn_encoded:
+            func: !new:speechbrain.utils.data_utils.FuncPipeline
+                - !ref <label_encoder.encode_sequence>
+                - !name:speechbrain.data_io.data_io.to_longTensor
+            argkeys: [phn_list]
+        sig:
+            func: !name:speechbrain.data_io.data_io.read_audio
+            argkeys: [wav]
+
+    output_keys: !copy <common_output_keys>
 
 valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/dev.json
     replacements:
         data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
+    dynamic_items:
+        phn_list:
+            func: !name:speechbrain.utils.data_utils.split_by_whitespace
+            argkeys: [phn]
+        phn_encoded:
+            func: !new:speechbrain.utils.data_utils.FuncPipeline
+                - !ref <label_encoder.encode_sequence>
+                - !name:speechbrain.data_io.data_io.to_longTensor
+            argkeys: [phn_list]
+        sig:
+            func: !name:speechbrain.data_io.data_io.read_audio
+            argkeys: [wav]
+    output_keys: !copy <common_output_keys>
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
