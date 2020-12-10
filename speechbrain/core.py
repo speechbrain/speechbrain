@@ -255,7 +255,7 @@ def _convert_to_yaml(overrides):
     return yaml_string.strip()
 
 
-def ensure_first_or_completed(run_opts):
+def if_main_process(run_opts):
     if "local_rank" not in run_opts.items() or run_opts["local_rank"] == 0:
         return True
     return False
