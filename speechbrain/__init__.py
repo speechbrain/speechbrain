@@ -44,3 +44,4 @@ class TestThing:
         obj = cls()
         obj.args = args
         obj.kwargs = kwargs
+        return obj
