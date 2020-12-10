@@ -300,7 +300,7 @@ class DynamicItemDataset(Dataset):
 class FilteredSortedDynamicItemDataset(DynamicItemDataset):
     """Possibly filtered, possibly sorted DynamicItemDataset
 
-    Shares the static data (weakref).
+    Shares the static data (reference).
     Has its own dynamic_items and output_keys (deepcopy).
     """
 
