@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1251
+seed: 1255
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/mimic_crdnn_seq/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -23,7 +23,9 @@ number_of_epochs: 50
 batch_size: 8
 lr: 0.0001
 device: 'cuda:0'
+target_type: biphn
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
+checkpoint_avg: 1
 
 # Loss weights
 enhance_type: masking  # null, mapping, masking
@@ -39,7 +41,8 @@ label_smoothing: 0.1
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
     # enhance_model: results/mimic_crdnn_seq/enhance_model.ckpt
-    src_embedding: crdnn_seq_base10_final/src_embedding.ckpt
+    # src_embedding: crdnn_seq_base10_final/src_embedding.ckpt
+    src_embedding: biphn_crdnn/src_embedding.ckpt
 
 frozen_models: [src_embedding]
 
@@ -66,7 +69,7 @@ enhancer_drop_rate: 0.1
 src_activation: !name:torch.nn.LeakyReLU
 src_dropout: 0.0
 cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_channels: (100, 200)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
 rnn_neurons: 512
@@ -81,7 +84,7 @@ dec_attn_type: location
 dec_attn_dim: 256
 
 # Outputs
-output_neurons: 42
+output_neurons: 1164
 blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
@@ -95,7 +98,6 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [noisy_wav, clean_wav, phn]
-    avoid_if_longer_than: 8
 
 valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
@@ -154,7 +156,7 @@ src_embedding: !new:CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
+    time_pooling: True
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>

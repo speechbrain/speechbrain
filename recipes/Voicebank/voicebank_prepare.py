@@ -213,28 +213,24 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
     logger.debug("Creating lexicon...")
     lexicon = create_lexicon(os.path.join(data_folder, "lexicon.txt"))
 
-    logger.debug("Creating csv files for noisy VoiceBank...")
-
-    # Creating csv file for training data
+    logger.debug("Collecting files...")
     extension = [".wav"]
     valid_speakers = TRAIN_SPEAKERS[:valid_speaker_count]
     wav_lst_train = get_all_files(
         train_noisy_folder, match_and=extension, exclude_or=valid_speakers,
     )
-    create_csv(
-        wav_lst_train, save_csv_train, train_clean_folder, train_txts, lexicon
-    )
-
-    # Creating csv file for validation data
     wav_lst_valid = get_all_files(
         train_noisy_folder, match_and=extension, match_or=valid_speakers,
+    )
+    wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
+
+    logger.debug("Creating csv files for noisy VoiceBank...")
+    create_csv(
+        wav_lst_train, save_csv_train, train_clean_folder, train_txts, lexicon
     )
     create_csv(
         wav_lst_valid, save_csv_valid, train_clean_folder, train_txts, lexicon
     )
-
-    # Creating csv file for testing data
-    wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
     create_csv(
         wav_lst_test, save_csv_test, test_clean_folder, test_txts, lexicon
     )
@@ -305,6 +301,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
     csv_lines[0].extend(["clean_wav", "clean_wav_format", "clean_wav_opts"])
     csv_lines[0].extend(["wrd", "wrd_format", "wrd_opts"])
     csv_lines[0].extend(["phn", "phn_format", "phn_opts"])
+    csv_lines[0].extend(["biphn", "biphn_format", "biphn_opts"])
 
     # Processing all the wav files in the list
     for wav_file in wav_lst:  # ex:p203_122.wav
@@ -317,24 +314,23 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
         signal = read_wav_soundfile(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
-        # Reading the transcript
+        # Read text
+        snt_id = os.path.basename(wav_file).replace(".wav", "")
         with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
             words = f.read()
-
-        # Strip punctuation and add pronunciation
         words = remove_punctuation(words).strip().upper()
-        phns = " ".join([lexicon[word] for word in words.split()])
+        phones = " ".join([lexicon[word] for word in words.split()])
 
-        # Put space between every character
-        # chars = " ".join(words)
-        # chars = chars.replace("   ", " _ ")
-        # chars = re.sub(r"\s{2,}", r" ", chars)
-        # chars = re.sub(r"(.) \1", r"\1\1", chars)
+        biphones = zip(["<B>"] + phones.split(), phones.split() + ["<E>"])
+        biphones = [phn1 + phn2 for phn1, phn2 in biphones]
 
         # Composition of the csv_line
         csv_line = [snt_id, str(duration)]
-        csv_line.extend([wav_file, "wav", "", clean_wav, "wav", ""])
-        csv_line.extend([words, "string", "", phns, "string", ""])
+        csv_line.extend([wav_file, "wav", ""])
+        csv_line.extend([clean_wav, "wav", ""])
+        csv_line.extend([words, "string", ""])
+        csv_line.extend([phones, "string", ""])
+        csv_line.extend([biphones, "string", ""])
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)
