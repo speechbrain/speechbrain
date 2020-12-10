@@ -41,7 +41,7 @@ class ReproducibleRandomSampler(RandomSampler):
     >>> # Create the random sampler:
     >>> sampler = ReproducibleRandomSampler(dataset)
     >>> dataloader = SaveableDataLoader(dataset, sampler = sampler,
-    ...     num_workers = 3)
+    ...     num_workers = 3, collate_fn=None)
     >>> # Setup the checkpointer.
     >>> # Note that the sampler doesn't need to be saved itself.
     >>> tmpdir = getfixture('tmpdir')
@@ -58,7 +58,7 @@ class ReproducibleRandomSampler(RandomSampler):
     >>> # What if instead you had to restart the experiment?
     >>> new_sampler = ReproducibleRandomSampler(dataset)
     >>> new_dataloader = SaveableDataLoader(dataset, sampler = new_sampler,
-    ...        num_workers = 3)
+    ...        num_workers = 3, collate_fn=None)
     >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
     >>> _ = new_checkpointer.recover_if_possible()
     >>> # You'll get the same random order again:
