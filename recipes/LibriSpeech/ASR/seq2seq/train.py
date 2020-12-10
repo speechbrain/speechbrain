@@ -35,7 +35,6 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
 
@@ -279,15 +278,7 @@ if __name__ == "__main__":
     )
 
     # Creating tokenizer must be done after preparation
-    # Specify the bos_id/eos_id if different from blank_id
-    hparams["tokenizer"] = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        csv_train=hparams["csv_train"],
-        csv_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=1.0,
-    )
+    tokenizer = hparams["tokenizer"]()
 
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
@@ -296,6 +287,7 @@ if __name__ == "__main__":
     hparams["ind2lab"] = hparams["test_other_loader"].label_dict["wrd"][
         "index2lab"
     ]
+    hparams["tokenizer"] = tokenizer
 
     # Brain class initialization
     asr_brain = ASR(
