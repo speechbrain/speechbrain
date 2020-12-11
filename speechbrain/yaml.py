@@ -164,7 +164,11 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
     yaml.Loader.add_multi_constructor("!apply:", _apply_function)
 
+    # SUPER DIRTY:
+    yaml.constructor.BaseConstructor.construct_object.__defaults__ = (True,)
     hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
+    # Return to sanity:
+    yaml.constructor.BaseConstructor.construct_object.__defaults__ = (False,)
 
     # Remove items that start with "__"
     removal_keys = [k for k in hparams.keys() if k.startswith("__")]
