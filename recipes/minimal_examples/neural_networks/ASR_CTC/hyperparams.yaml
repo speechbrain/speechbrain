@@ -59,8 +59,7 @@ train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         sig:
             func: !name:speechbrain.data_io.data_io.read_audio
             argkeys: [wav]
-
-    output_keys: !copy <common_output_keys>
+    output_keys: !ref <common_output_keys>
 
 valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/dev.json
