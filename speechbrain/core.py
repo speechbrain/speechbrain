@@ -320,10 +320,24 @@ def ddp_init_group(run_opts):
         a list of arguments to parse, most often from `sys.argv[1:]`
     """
     if run_opts["distributed_launch"]:
+        if "local_rank" not in run_opts.items():
+            sys.exit(
+                "To use DDP backend, start your script with:\n\t"
+                "python -m torch.distributed.lunch [args]\n\t"
+                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+            )
+        else:
+            if run_opts["local_rank"] + 1 > torch.cuda.device_count():
+                sys.exit(
+                    "Killing process " + str() + "\n"
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m torch.distributed.lunch [args]\n\t"
+                    "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                )
         if "RANK" in os.environ is None or os.environ["RANK"] == "":
             sys.exit(
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n"
+                "python -m torch.distributed.lunch [args]\n\t"
                 "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
             )
         rank = int(os.environ["RANK"])
@@ -367,8 +381,8 @@ def ddp_init_group(run_opts):
         if "local_rank" in run_opts.items() and run_opts["local_rank"] > 0:
             sys.exit(
                 "DDP is disabled, no subprocess is accepted, signle GPU is then performed\n\t"
-                "for multiGPU DDP training, please use --distributed_launch=True\n"
-                "python -m torch.distributed.lunch [args]\n"
+                "for multiGPU DDP training, please use --distributed_launch=True\n\t"
+                "python -m torch.distributed.lunch [args]\n\t"
                 "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
             )
 
@@ -510,16 +524,6 @@ class Brain:
                 "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
             )
 
-        # Kill all subprocess generated with torch.distributed.launch
-        # without specifying distributed_launch arg
-        if not self.distributed_launch:
-            if "cuda" in self.device and int(self.device[5:]) > 0:
-                sys.exit(
-                    "Killing process " + str(self.device[5:]) + "\n"
-                    "To use DDP backend, start your script with:\n\t"
-                    "python -m torch.distributed.lunch [args]\n"
-                    "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
-                )
         # Switch to the right context
         if "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
