@@ -19,6 +19,11 @@ def test_dynamic_item_dataset():
     dataset.add_dynamic_item("barfoo", operator.sub, ["bar", "foo"])
     dataset.set_output_keys(["id", "barfoo"])
     assert dataset[1] == {"id": "utt2", "barfoo": 1}
+    # Iterate:
+    barfoosum = 0
+    for data_point in iter(dataset):
+        barfoosum += data_point["barfoo"]
+    assert barfoosum == 4
 
 
 def test_filtered_sorted_dynamic_item_dataset():
