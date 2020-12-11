@@ -73,8 +73,6 @@ class SLU(sb.Brain):
             words, asr_tokens = self.modules.asr_model.transcribe(
                 wavs.detach(), wav_lens
             )
-            print("ASR output:")
-            print(" ".join(words[0]))
 
             # Pad examples to have same length.
             max_length = max([len(t) for t in asr_tokens])
