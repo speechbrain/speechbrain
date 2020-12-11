@@ -53,8 +53,8 @@ class QuaternionRNN(torch.nn.Module):
         Default: quaternion.
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "quaternion" will generate random quaternion
-        weights following the init_criterion and the complex polar form.
+        quaternion-valued weights. "quaternion" will generate random quaternion
+        weights following the init_criterion and the quaternion polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Quaternion Recurrent Neural Networks",
         Parcollet T. et al.
@@ -105,7 +105,7 @@ class QuaternionRNN(torch.nn.Module):
 
     def _init_layers(self,):
         """
-        Initializes the layers of the ComplexRNN.
+        Initializes the layers of the quaternionRNN.
 
         Arguments
         ---------
@@ -220,8 +220,8 @@ class QuaternionRNN_Layer(torch.nn.Module):
         Default: quaternion.
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "quaternion" will generate random quaternion
-        weights following the init_criterion and the complex polar form.
+        quaternion-valued weights. "quaternion" will generate random quaternion
+        weights following the init_criterion and the quaternion polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Quaternion Recurrent Neural Networks",
         Parcollet T. et al.
