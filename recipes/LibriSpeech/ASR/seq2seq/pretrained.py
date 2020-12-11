@@ -61,7 +61,9 @@ class ASR(torch.nn.Module):
 
         # Load pretrained modules
         self.load_tokenizer()
-        self.load_lm()
+        if "lm_model" not in overrides:
+            print("No LM provided; using default LibriSpeech LM.")
+            self.load_lm()
         self.load_asr()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -104,11 +106,9 @@ class ASR(torch.nn.Module):
             str(self.hparams["output_neurons"]) + "_unigram.model",
         )
 
-        # Donwloanding from the web
+        # Downloading from the web
         download_file(
-            source=self.hparams["tok_mdl_file"],
-            dest=save_model_path,
-            replace_existing=True,
+            source=self.hparams["tok_mdl_file"], dest=save_model_path,
         )
 
         # Initialize and pre-train the tokenizer
