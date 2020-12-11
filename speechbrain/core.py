@@ -235,6 +235,20 @@ def parse_arguments(arg_list):
 
     overrides = _convert_to_yaml(overrides)
 
+    # Checking that DataParallel use the right number of GPU
+    if run_opts["data_parallel_backend"]:
+        if run_opts["data_parallel_count"] == 0:
+            raise ValueError(
+                "data_parellel_count must be > 1."
+                "if data_parallel_count = -1, then use all gpus."
+            )
+        if run_opts["data_parallel_count"] > torch.cuda.device_count():
+            raise ValueError(
+                "data_parellel_count must be <= "
+                + str(torch.cuda.device_count())
+                + "if data_parallel_count = -1, then use all gpus."
+            )
+
     # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
     # If run_opts["local_rank"] exists
     # Otherwise use OS.environ["LOCAL_RANK"]
@@ -900,12 +914,6 @@ class Brain:
                     if self.data_parallel_count == -1:
                         module = DP(module)
                     else:
-                        if self.data_parallel_count == 0:
-                            raise ValueError(
-                                "data_parellel_count must be > 1."
-                                "if data_parallel_count = -1, then use all gpus."
-                            )
-
                         module = DP(
                             module,
                             [i for i in range(self.data_parallel_count)],
