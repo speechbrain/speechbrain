@@ -11,7 +11,7 @@ asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 save_folder: pretrained_models
 lm_hparam_file:
-    ../../../recipes/timers-and-such/LM/hparams/pretrained.yaml
+    ../../../recipes/LibriSpeech/LM/hyperparams/pretrained.yaml
 
 # Device selection
 device: 'cuda:0'
@@ -112,7 +112,7 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-lm_model: !new:recipes.timers-and-such.LM.pretrained.LM
+lm_model: !new:recipes.LibriSpeech.LM.pretrained.LM
     hparams_file: !ref <lm_hparam_file>
 
 asr_model: !new:torch.nn.ModuleList
