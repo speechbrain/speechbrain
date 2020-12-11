@@ -175,6 +175,7 @@ def test_load_extended_yaml(tmpdir):
     """
     things = load_extended_yaml(yaml)
     assert things["c"].kwargs["thing1"]() == "a string"
+    assert things["c"].specific_key() == "a string"
 
     # Refattr:
     yaml = """

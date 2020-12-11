@@ -42,6 +42,7 @@ class TestThing:
     @classmethod
     def from_keys(cls, args, kwargs):
         obj = cls()
+        obj.specific_key = kwargs["thing1"]
         obj.args = args
         obj.kwargs = kwargs
         return obj
