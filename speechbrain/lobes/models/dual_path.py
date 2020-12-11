@@ -16,6 +16,7 @@ import copy
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+from speechbrain.nnet.CNN import Conv1d, Conv2d
 import speechbrain.nnet.RNN as SBRNN
 
 
@@ -24,7 +25,6 @@ EPS = 1e-8
 
 class GlobalLayerNorm(nn.Module):
     """ Calculate Global Layer Normalization
-
     Arguments
     ---------
        dim: (int or list or torch.Size)
@@ -35,7 +35,6 @@ class GlobalLayerNorm(nn.Module):
           A boolean value that when set to True,
           this module has learnable per-element affine parameters
           initialized to ones (for weights) and zeros (for biases).
-
     Example
     -------
     >>> x = torch.randn(5, 10, 20)
@@ -62,7 +61,6 @@ class GlobalLayerNorm(nn.Module):
 
     def forward(self, x):
         """Returns the normalized tensor.
-
         Arguments
         ---------
         x : torch.Tensor
@@ -175,18 +173,19 @@ class Encoder(nn.Module):
     >>> encoder = Encoder(kernel_size=4, out_channels=64)
     >>> h = encoder(x)
     >>> h.shape
-    torch.Size([2, 64, 499])
+    torch.Size([2, 501, 64])
     """
 
     def __init__(self, kernel_size=2, out_channels=64, in_channels=1):
         super(Encoder, self).__init__()
-        self.conv1d = nn.Conv1d(
+        self.conv1d = Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=kernel_size,
             stride=kernel_size // 2,
             groups=1,
             bias=False,
+            padding="valid",
         )
         self.in_channels = in_channels
 
@@ -207,10 +206,10 @@ class Encoder(nn.Module):
               N = Number of filters
               T_out = Number of timepoints at the output of the encoder
         """
-        # B x L -> B x 1 x L
+        # B x L -> B x L x 1
         if self.in_channels == 1:
-            x = torch.unsqueeze(x, dim=1)
-        # B x 1 x L -> B x N x T_out
+            x = torch.unsqueeze(x, dim=-1)
+        # B x L x 1-> B x T_out x N
         x = self.conv1d(x)
         x = F.relu(x)
 
@@ -228,7 +227,6 @@ class Decoder(nn.ConvTranspose1d):
         Number of  input channels.
     out_channels: int
         Number of output channels.
-
 
     Example
     ---------
@@ -310,6 +308,7 @@ class FastTransformerBlock(nn.Module):
 
     Example
     -------
+    # the doctstring is commented
     # >>> x = torch.randn(10, 100, 64)
     # >>> block = FastTransformerBlock('linear', 64)
     # >>> x = block(x)
@@ -769,10 +768,10 @@ class Dual_Computation_Block(nn.Module):
         >>> intra_block = SBTransformerBlock(1, 64, 8)
         >>> inter_block = SBTransformerBlock(1, 64, 8)
         >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
-        >>> x = torch.randn(10, 64, 100, 10)
+        >>> x = torch.randn(4, 100, 10, 64)
         >>> x = dual_comp_block(x)
         >>> x.shape
-        torch.Size([10, 64, 100, 10])
+        torch.Size([4, 100, 10, 64])
     """
 
     def __init__(
@@ -836,19 +835,19 @@ class Dual_Computation_Block(nn.Module):
                K = time points in each chunk
                S = the number of chunks
         """
-        B, N, K, S = x.shape
-        # intra RNN
-        # [BS, K, N]
-        intra = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
-        # [BS, K, H]
+        B, K, S, N = x.shape
 
+        # intra model
+        # [BS, K, N]
+        intra = x.permute(0, 2, 1, 3).contiguous().view(B * S, K, N)
+
+        # [BS, K, N]
         intra = self.intra_mdl(intra)
 
         # [BS, K, N]
         if self.linear_layer_after_inter_intra:
-            intra = self.intra_linear(
-                intra.contiguous().view(B * S * K, -1)
-            ).view(B * S, K, -1)
+            intra = self.intra_linear(intra)
+
         # [B, S, K, N]
         intra = intra.view(B, S, K, N)
         # [B, N, K, S]
@@ -858,7 +857,7 @@ class Dual_Computation_Block(nn.Module):
 
         # [B, N, K, S]
         if self.skip_around_intra:
-            intra = intra + x
+            intra = intra + x.permute(0, 3, 1, 2)
 
         # inter RNN
         # [BK, S, N]
@@ -868,9 +867,8 @@ class Dual_Computation_Block(nn.Module):
 
         # [BK, S, N]
         if self.linear_layer_after_inter_intra:
-            inter = self.inter_linear(
-                inter.contiguous().view(B * S * K, -1)
-            ).view(B * K, S, -1)
+            inter = self.inter_linear(inter)
+
         # [B, K, S, N]
         inter = inter.view(B, K, S, N)
         # [B, N, K, S]
@@ -880,7 +878,7 @@ class Dual_Computation_Block(nn.Module):
         # [B, N, K, S]
         out = inter + intra
 
-        return out
+        return out.permute(0, 2, 3, 1)
 
 
 class Dual_Path_Model(nn.Module):
@@ -918,10 +916,10 @@ class Dual_Path_Model(nn.Module):
     >>> intra_block = SBTransformerBlock(1, 64, 8)
     >>> inter_block = SBTransformerBlock(1, 64, 8)
     >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
-    >>> x = torch.randn(10, 64, 2000)
+    >>> x = torch.randn(10, 2000, 64)
     >>> x = dual_path_model(x)
     >>> x.shape
-    torch.Size([2, 10, 64, 2000])
+    torch.Size([2, 10, 2000, 64])
     """
 
     def __init__(
@@ -944,11 +942,13 @@ class Dual_Path_Model(nn.Module):
         self.num_spks = num_spks
         self.num_layers = num_layers
         self.norm = select_norm(norm, in_channels, 3)
-        self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
-        self.use_global_pos_enc = use_global_pos_enc
-
-        if self.use_global_pos_enc:
-            self.pos_enc = PositionalEncoding(max_length)
+        self.conv1d = Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            bias=False,
+            padding="valid",
+        )
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
@@ -965,18 +965,42 @@ class Dual_Path_Model(nn.Module):
                 )
             )
 
-        self.conv2d = nn.Conv2d(
-            out_channels, out_channels * num_spks, kernel_size=1
+        self.conv2d = Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels * num_spks,
+            kernel_size=1,
+            bias=True,
+            padding="valid",
         )
-        self.end_conv1x1 = nn.Conv1d(out_channels, in_channels, 1, bias=False)
+        self.end_conv1x1 = Conv1d(
+            in_channels=out_channels,
+            out_channels=in_channels,
+            kernel_size=1,
+            bias=False,
+            padding="valid",
+        )
         self.prelu = nn.PReLU()
         self.activation = nn.ReLU()
         # gated output layer
         self.output = nn.Sequential(
-            nn.Conv1d(out_channels, out_channels, 1), nn.Tanh()
+            Conv1d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                bias=False,
+                padding="valid",
+            ),
+            nn.Tanh(),
         )
         self.output_gate = nn.Sequential(
-            nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
+            Conv1d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                bias=False,
+                padding="valid",
+            ),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):
@@ -985,53 +1009,51 @@ class Dual_Path_Model(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            input tensor of dimension [B, N, L].
-
-            [B, L, N]
+            input tensor of dimension [B, L, N]
 
         Return
         ------
         out: torch.Tensor
-            Output tensor of dimension [spks, B, N, L]
+            Output tensor of dimension [spks, B, L, N]
 
         where, spks = Number of speakers
                B = Batchsize,
-               N = number of filters
                L = the number of time points
+               N = number of filters
         """
 
-        # [B, N, L]
-        x = self.norm(x)
-        # [B, N, L]
+        # [B, L, N]
+        x = self.norm(x.permute(0, 2, 1)).permute(0, 2, 1)
+        # [B, L, N]
         x = self.conv1d(x)
-        if self.use_global_pos_enc:
-            x = self.pos_enc(x.transpose(1, -1)).transpose(1, -1) + x * (
-                x.size(1) ** 0.5
-            )
 
-        # [B, N, K, S]
+        # [B, K, S, N]
         x, gap = self._Segmentation(x, self.K)
-        # [B, N*spks, K, S]
+
+        # [B, K, S, N*spks]
         for i in range(self.num_layers):
             x = self.dual_mdl[i](x)
 
         # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
-
         x = self.prelu(x)
+
         x = self.conv2d(x)
-        # [B*spks, N, K, S]
-        B, _, K, S = x.shape
-        x = x.view(B * self.num_spks, -1, K, S)
-        # [B*spks, N, L]
+        # [B*spks, K, S, N]
+        B, K, S, _ = x.shape
+        x = x.reshape(B * self.num_spks, K, S, -1)
+
+        # [B*spks, L, N]
         x = self._over_add(x, gap)
+
         x = self.output(x) * self.output_gate(x)
-        # [spks*B, N, L]
+        # [B*spks, L, N]
         x = self.end_conv1x1(x)
-        # [B*spks, N, L] -> [B, spks, N, L]
-        _, N, L = x.shape
-        x = x.view(B, self.num_spks, N, L)
+
+        # [B*spks, L, N] -> [B, spks, L, N]
+        _, L, N = x.shape
+        x = x.view(B, self.num_spks, L, N)
         x = self.activation(x)
-        # [spks, B, N, L]
+        # [spks, B, L, N]
         x = x.transpose(0, 1)
 
         return x
@@ -1046,21 +1068,21 @@ class Dual_Path_Model(nn.Module):
         P: int
             Hop size.
         input: torch.Tensor
-            Tensor of size [B, N, L].
+            Tensor of size [B, L, N].
 
             where, B = Batchsize,
                    N = number of filters
                    L = time points
         """
-        B, N, L = input.shape
+        B, L, N = input.shape
         P = K // 2
         gap = K - (P + L % K) % K
         if gap > 0:
-            pad = torch.Tensor(torch.zeros(B, N, gap)).type(input.type())
-            input = torch.cat([input, pad], dim=2)
+            pad = torch.Tensor(torch.zeros(B, gap, N)).type(input.type())
+            input = torch.cat([input, pad], dim=1)
 
-        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.type())
-        input = torch.cat([_pad, input, _pad], dim=2)
+        _pad = torch.Tensor(torch.zeros(B, P, N)).type(input.type())
+        input = torch.cat([_pad, input, _pad], dim=1)
 
         return input, gap
 
@@ -1072,12 +1094,12 @@ class Dual_Path_Model(nn.Module):
            K: int
                Length of the chunks.
            input: torch.Tensor
-                Tensor with dim [B, N, L].
+                Tensor with dim [B, L, N].
 
         Return
         -------
            output: torch.tensor
-                Tensor with dim [B, N, K, S].
+                Tensor with dim [B, K, S, N].
 
         where, B = Batchsize,
                N = number of filters
@@ -1085,14 +1107,14 @@ class Dual_Path_Model(nn.Module):
                S = the number of chunks
                L = the number of time points
         """
-        B, N, L = input.shape
+        B, L, N = input.shape
         P = K // 2
         input, gap = self._padding(input, K)
-        # [B, N, K, S]
-        input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
-        input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
+        # [B, K, S, N]
+        input1 = input[:, :-P, :].contiguous().view(B, -1, K, N)
+        input2 = input[:, P:, :].contiguous().view(B, -1, K, N)
         input = (
-            torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
+            torch.cat([input1, input2], dim=2).view(B, -1, K, N).transpose(1, 2)
         )
 
         return input.contiguous(), gap
@@ -1103,14 +1125,14 @@ class Dual_Path_Model(nn.Module):
         Arguments
         ---------
            input: torch.tensor
-                Tensor with dim [B, N, K, S].
+                Tensor with dim [B, K, S, N].
            gap: int
                 Padding length.
 
         Return
         -------
            output: torch.tensor
-                Tensor with dim [B, N, L].
+                Tensor with dim [B, L, N].
 
         where, B = Batchsize,
                N = number of filters
@@ -1119,16 +1141,16 @@ class Dual_Path_Model(nn.Module):
                L = the number of time points
 
         """
-        B, N, K, S = input.shape
+        B, K, S, N = input.shape
         P = K // 2
-        # [B, N, S, K]
-        input = input.transpose(2, 3).contiguous().view(B, N, -1, K * 2)
+        # [B, S, K, N]
+        input = input.transpose(1, 2).contiguous().view(B, -1, K * 2, N)
 
-        input1 = input[:, :, :, :K].contiguous().view(B, N, -1)[:, :, P:]
-        input2 = input[:, :, :, K:].contiguous().view(B, N, -1)[:, :, :-P]
+        input1 = input[:, :, :K, :].contiguous().view(B, -1, N)[:, P:, :]
+        input2 = input[:, :, K:, :].contiguous().view(B, -1, N)[:, :-P, :]
         input = input1 + input2
-        # [B, N, L]
+        # [B, L, N]
         if gap > 0:
-            input = input[:, :, :-gap]
+            input = input[:, :-gap, :]
 
         return input
