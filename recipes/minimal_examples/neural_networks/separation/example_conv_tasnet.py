@@ -52,9 +52,16 @@ def create_minimal_data(repository_folder, config_file_path):
 class CTN_Brain(sb.Brain):
     def compute_forward(self, mixture, stage):
 
-        mixture_w = self.modules.encoder(mixture)
-        est_mask = self.modules.mask_net(mixture_w)
-        est_source = self.modules.decoder(mixture_w, est_mask)
+        mix_w = self.hparams.encoder(mixture)
+        est_mask = self.hparams.mask_net(mix_w)
+        mix_w = torch.stack([mix_w] * 2)
+        sep_h = mix_w * est_mask
+
+        # Decoding
+        est_source = torch.cat(
+            [self.hparams.decoder(sep_h[i]).unsqueeze(-1) for i in range(2)],
+            dim=-1,
+        )
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mixture.size(1)
