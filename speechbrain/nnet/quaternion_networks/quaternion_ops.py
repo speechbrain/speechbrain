@@ -93,8 +93,8 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         """
         Run the backward phase of the forward call defined above. This
         implementation follows the quaternion backpropagation of a quaternion
-        layer that can be found in
-        in
+        layer that can be found in "Quaternion neural networks" - Parcollet T.
+        Page 48.
 
         Arguments
         ---------
