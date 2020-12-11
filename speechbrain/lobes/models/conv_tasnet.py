@@ -3,7 +3,118 @@ import torch.nn as nn
 import speechbrain as sb
 import torch.nn.functional as F
 
+from speechbrain.processing.signal_processing import overlap_and_add
+
 EPS = 1e-8
+
+
+class Encoder(nn.Module):
+    """This class learns the adaptive frontend for the ConvTasnet model
+
+    Arguments
+    ---------
+    L : int
+        The filter kernel size, needs to an odd number
+    N : int
+        number of dimensions at the output of the adaptive front end.
+
+    Example
+    -------
+    >>> inp = torch.rand(10, 100)
+    >>> encoder = Encoder(11, 20)
+    >>> h = encoder(inp)
+    >>> h.shape
+    torch.Size([10, 20, 20])
+    """
+
+    def __init__(self, L, N):
+        super(Encoder, self).__init__()
+
+        # 50% overlap
+        self.conv1d_U = sb.nnet.CNN.Conv1d(
+            in_channels=1,
+            out_channels=N,
+            kernel_size=L,
+            stride=L // 2,
+            bias=False,
+        )
+
+    def forward(self, mixture):
+        """
+        Arguments
+        ---------
+        mixture : Tensor
+            shape is [M, T], M is batch size, T is #samples
+
+        Returns
+        -------
+        mixture_w : Tensor
+            shape is [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
+        """
+        mixture = torch.unsqueeze(mixture, -1)  # [M, T, 1]
+        conv_out = self.conv1d_U(mixture)
+        mixture_w = F.relu(conv_out)  # [M, K, N]
+        return mixture_w
+
+
+class Decoder(nn.Module):
+    """
+    This class implements the decoder for the ConvTasnet.
+    The seperated source embeddings are fed to the decoder to reconstruct
+    the estimated sources in the time domain.
+
+    Arguments
+    ---------
+    L : int
+        Number of bases to use when reconstructing
+
+    Example
+    -------
+    >>> L, C, N = 8, 2, 8
+    >>> mixture_w = torch.randn(10, 100, N)
+    >>> est_mask = torch.randn(10, 100, C, N)
+    >>> Decoder = Decoder(L, N)
+    >>> mixture_hat = Decoder(mixture_w, est_mask)
+    >>> mixture_hat.shape
+    torch.Size([10, 404, 2])
+    """
+
+    def __init__(self, L, N):
+        super(Decoder, self).__init__()
+
+        # Hyper-parameter
+        self.L = L
+
+        # Components
+        self.basis_signals = sb.nnet.linear.Linear(
+            input_size=N, n_neurons=L, bias=False
+        )
+
+    def forward(self, mixture_w, est_mask):
+        """
+        Arguments
+        ---------
+        mixture_w : Tensor
+            shape is [M, K, N]
+        est_mask : Tensor
+            shape is [M, K, C, N]
+
+        Returns
+        -------
+        est_source : Tensor
+            shape is [M, T, C]
+        """
+        # D = W * M
+        source_w = (
+            torch.unsqueeze(mixture_w, 2).repeat(1, 1, est_mask.size(2), 1)
+            * est_mask
+        )  # [M, K, C, N]
+        source_w = source_w.permute(0, 2, 1, 3)  # [M, C, K, N]
+        # S = DV
+        est_source = self.basis_signals(source_w)  # [M, C, K, L]
+        est_source = overlap_and_add(est_source, self.L // 2)  # M x C x T
+
+        return est_source.permute(0, 2, 1)  # M x T x C
 
 
 class TemporalBlocksSequential(sb.nnet.containers.Sequential):
@@ -86,10 +197,10 @@ class MaskNet(nn.Module):
     ---------
     >>> N, B, H, P, X, R, C = 11, 12, 2, 5, 3, 1, 2
     >>> MaskNet = MaskNet(N, B, H, P, X, R, C)
-    >>> mixture_w = torch.randn(10, 100, 11)
+    >>> mixture_w = torch.randn(10, 11, 100)
     >>> est_mask = MaskNet(mixture_w)
     >>> est_mask.shape
-    torch.Size([2, 10, 100, 11])
+    torch.Size([2, 10, 11, 100])
     """
 
     def __init__(
@@ -133,6 +244,7 @@ class MaskNet(nn.Module):
 
     def forward(self, mixture_w):
         """
+        Keep this API same with TasNet
 
         Arguments
         ---------
@@ -144,8 +256,8 @@ class MaskNet(nn.Module):
         est_mask : Tensor
             shape is [M, K, C, N]
         """
-        # mixture_w = mixture_w.permute(0, 2, 1)
-        M, N, K = mixture_w.size()
+        mixture_w = mixture_w.permute(0, 2, 1)
+        M, K, N = mixture_w.size()
         y = self.layer_norm(mixture_w)
         y = self.bottleneck_conv1x1(y)
         y = self.temporal_conv_net(y)
