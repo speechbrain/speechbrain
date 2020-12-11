@@ -7,6 +7,7 @@ Authors
 import os
 import torch
 import torchaudio
+import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.speech_augmentation import (
     SpeedPerturb,
@@ -297,38 +298,50 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
         The maximum length in seconds. Waveforms longer
         than this will be cut into pieces.
     """
-    with open(csv_file, "w") as w:
-        w.write("ID,duration,wav,wav_format,wav_opts\n\n")
-        for line in open(filelist):
+    try:
+        if sb.if_main_process():
+            with open(csv_file, "w") as w:
+                w.write("ID,duration,wav,wav_format,wav_opts\n\n")
+                for line in open(filelist):
 
-            # Read file for duration/channel info
-            filename = os.path.join(folder, line.split()[-1])
-            signal, rate = torchaudio.load(filename)
+                    # Read file for duration/channel info
+                    filename = os.path.join(folder, line.split()[-1])
+                    signal, rate = torchaudio.load(filename)
 
-            # Ensure only one channel
-            if signal.shape[0] > 1:
-                signal = signal[0].unsqueeze(0)
-                torchaudio.save(filename, signal, rate)
+                    # Ensure only one channel
+                    if signal.shape[0] > 1:
+                        signal = signal[0].unsqueeze(0)
+                        torchaudio.save(filename, signal, rate)
 
-            ID, ext = os.path.basename(filename).split(".")
-            duration = signal.shape[1] / rate
+                    ID, ext = os.path.basename(filename).split(".")
+                    duration = signal.shape[1] / rate
 
-            # Handle long waveforms
-            if max_length is not None and duration > max_length:
-                # Delete old file
-                os.remove(filename)
-                for i in range(int(duration / max_length)):
-                    start = int(max_length * i * rate)
-                    stop = int(min(max_length * (i + 1), duration) * rate)
-                    new_filename = filename[: -len(f".{ext}")] + f"_{i}.{ext}"
-                    torchaudio.save(new_filename, signal[:, start:stop], rate)
-                    csv_row = (
-                        f"{ID}_{i}",
-                        str((stop - start) / rate),
-                        new_filename,
-                        ext,
-                        "\n",
-                    )
-                    w.write(",".join(csv_row))
-            else:
-                w.write(",".join((ID, str(duration), filename, ext, "\n")))
+                    # Handle long waveforms
+                    if max_length is not None and duration > max_length:
+                        # Delete old file
+                        os.remove(filename)
+                        for i in range(int(duration / max_length)):
+                            start = int(max_length * i * rate)
+                            stop = int(
+                                min(max_length * (i + 1), duration) * rate
+                            )
+                            new_filename = (
+                                filename[: -len(f".{ext}")] + f"_{i}.{ext}"
+                            )
+                            torchaudio.save(
+                                new_filename, signal[:, start:stop], rate
+                            )
+                            csv_row = (
+                                f"{ID}_{i}",
+                                str((stop - start) / rate),
+                                new_filename,
+                                ext,
+                                "\n",
+                            )
+                            w.write(",".join(csv_row))
+                    else:
+                        w.write(
+                            ",".join((ID, str(duration), filename, ext, "\n"))
+                        )
+    finally:
+        sb.ddp_barrier()
