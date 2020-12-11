@@ -11,6 +11,7 @@ import logging
 import csv
 import sentencepiece as spm
 from speechbrain.data_io.data_io import merge_char
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +126,16 @@ class SentencePiece:
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
             if not os.path.isfile(self.text_file):
-                self._csv2text()
-            self._train_BPE()
+                try:
+                    if sb.if_main_process():
+                        self._csv2text()
+                finally:
+                    sb.ddp_barrier()
+            try:
+                if sb.if_main_process():
+                    self._train_BPE()
+            finally:
+                sb.ddp_barrier()
         else:
             logger.info("Tokenizer is already trained.")
         logger.info("==== Loading Tokenizer ===")
