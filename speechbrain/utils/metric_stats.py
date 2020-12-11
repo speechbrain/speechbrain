@@ -8,6 +8,7 @@ Authors:
 """
 import torch
 import speechbrain.data_io.wer as wer_io
+import speechbrain as sb
 from speechbrain.utils import edit_distance
 from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import (
@@ -144,18 +145,22 @@ class MetricStats:
         verbose : bool
             Whether to also print the stats to stdout.
         """
-        if not self.summary:
-            self.summarize()
+        try:
+            if sb.if_main_process():
+                if not self.summary:
+                    self.summarize()
 
-        message = f"Average score: {self.summary['average']}\n"
-        message += f"Min error: {self.summary['min_score']} "
-        message += f"id: {self.summary['min_id']}\n"
-        message += f"Max error: {self.summary['max_score']} "
-        message += f"id: {self.summary['max_id']}\n"
+                message = f"Average score: {self.summary['average']}\n"
+                message += f"Min error: {self.summary['min_score']} "
+                message += f"id: {self.summary['min_id']}\n"
+                message += f"Max error: {self.summary['max_score']} "
+                message += f"id: {self.summary['max_id']}\n"
 
-        filestream.write(message)
-        if verbose:
-            print(message)
+                filestream.write(message)
+                if verbose:
+                    print(message)
+        finally:
+            sb.ddp_barrier()
 
 
 class ErrorRateStats(MetricStats):
@@ -267,11 +272,15 @@ class ErrorRateStats(MetricStats):
 
         * See MetricStats.write_stats()
         """
-        if not self.summary:
-            self.summarize()
+        try:
+            if sb.if_main_process():
+                if not self.summary:
+                    self.summarize()
 
-        wer_io.print_wer_summary(self.summary, filestream)
-        wer_io.print_alignments(self.scores, filestream)
+                wer_io.print_wer_summary(self.summary, filestream)
+                wer_io.print_alignments(self.scores, filestream)
+        finally:
+            sb.ddp_barrier()
 
 
 class BinaryMetricStats(MetricStats):

@@ -320,7 +320,7 @@ def ddp_init_group(run_opts):
         a list of arguments to parse, most often from `sys.argv[1:]`
     """
     if run_opts["distributed_launch"]:
-        if "local_rank" not in run_opts.items():
+        if "local_rank" not in run_opts:
             sys.exit(
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.lunch [args]\n\t"

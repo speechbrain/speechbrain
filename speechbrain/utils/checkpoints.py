@@ -57,6 +57,7 @@ import pathlib
 import inspect
 import shutil
 import logging
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -522,19 +523,27 @@ class Checkpointer:
             we cannot guarantee that the saved checkpoint actually survives
             deletion.
         """
-        self.save_checkpoint(meta=meta, end_of_epoch=end_of_epoch, name=name)
+        try:
+            if sb.if_main_process():
+                self.save_checkpoint(
+                    meta=meta, end_of_epoch=end_of_epoch, name=name
+                )
 
-        if keep_recent:
-            importance_keys.append(ckpt_recency)
-        for key in max_keys:
-            importance_keys.append(lambda ckpt, key=key: ckpt.meta[key])
-        for key in min_keys:
-            importance_keys.append(lambda ckpt, key=key: -ckpt.meta[key])
-        self.delete_checkpoints(
-            num_to_keep=num_to_keep,
-            importance_keys=importance_keys,
-            ckpt_predicate=ckpt_predicate,
-        )
+                if keep_recent:
+                    importance_keys.append(ckpt_recency)
+                for key in max_keys:
+                    importance_keys.append(lambda ckpt, key=key: ckpt.meta[key])
+                for key in min_keys:
+                    importance_keys.append(
+                        lambda ckpt, key=key: -ckpt.meta[key]
+                    )
+                self.delete_checkpoints(
+                    num_to_keep=num_to_keep,
+                    importance_keys=importance_keys,
+                    ckpt_predicate=ckpt_predicate,
+                )
+        finally:
+            sb.ddp_barrier()
 
     def find_checkpoint(
         self,
