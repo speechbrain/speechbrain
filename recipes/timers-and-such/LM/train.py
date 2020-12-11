@@ -33,8 +33,7 @@ class LM(sb.Brain):
         tokens_with_bos = sb.data_io.data_io.prepend_bos_token(
             tokens, bos_index=self.hparams.asr_model.hparams["bos_index"]
         )
-        embedded_tokens = self.hparams.emb(tokens_with_bos)
-        logits = self.hparams.net(embedded_tokens)
+        logits = self.hparams.net(tokens_with_bos)
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs

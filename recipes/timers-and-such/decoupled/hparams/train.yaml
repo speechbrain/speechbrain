@@ -26,6 +26,8 @@ csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 asr_hparam_file:
     ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained.yaml
+lm_hparam_file:
+    ../../../recipes/timers-and-such/LM/hparams/pretrained.yaml
 
 # Training parameters
 number_of_epochs: 1
@@ -88,9 +90,12 @@ test_synth_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 
 # Models
+lm_model: !new:recipes.timers-and-such.LM.pretrained.LM
+    hparams_file: !ref <lm_hparam_file>
+
 asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
-    overrides: {'beam_size': !ref <asr_beam_size>}
+    overrides: {'beam_size': !ref <asr_beam_size>, 'lm_model': !ref <lm_model>}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <emb_size>]
