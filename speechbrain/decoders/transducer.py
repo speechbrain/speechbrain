@@ -36,10 +36,10 @@ class TransducerBeamSearcher(torch.nn.Module):
     state_beam: float
         The threshold coefficient in log space to decide if hyps in A (process_hyps)
         is likely to compete with hyps in B (beam_hyps), if not, end the while loop.
-        Reference: https://arxiv.org/abs/1904.02619
+        Reference: https://arxiv.org/pdf/1911.01629.pdf
     expand_beam: float
         The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
-        Reference: https://arxiv.org/abs/1904.02619
+        Reference: https://arxiv.org/pdf/1911.01629.pdf
 
     Example
     -------
