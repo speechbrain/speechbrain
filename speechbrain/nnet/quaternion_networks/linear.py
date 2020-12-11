@@ -128,19 +128,22 @@ class QuaternionLinear(torch.nn.Module):
         )
 
         # Spinor specific parameters
+        if self.spinor:
+            self.zero_kernel = torch.nn.Parameter(
+                torch.zeros(self.r_weight.shape), requires_grad=False
+            )
+
         if self.spinor and self.vector_scale:
             self.scale_param = torch.nn.Parameter(
-                torch.Tensor(self.in_features, self.out_features).to(
-                    self.device
-                )
+                torch.Tensor(self.in_features, self.out_features)
             )
+            torch.nn.init.xavier_uniform_(self.scale_param.data)
         else:
             self.scale_param = None
 
         if self.bias:
-            self.b = torch.nn.Parameter(
-                torch.Tensor(4 * n_neurons).to(self.device)
-            )
+            self.b = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
+            self.b.data.fill_(0)
         else:
             self.b = None
 
@@ -176,8 +179,9 @@ class QuaternionLinear(torch.nn.Module):
                     self.i_weight,
                     self.j_weight,
                     self.k_weight,
-                    self.bias,
+                    self.b,
                     self.scale_param,
+                    self.zero_kernel,
                 )
             else:
                 out = quaternion_linear_op(
@@ -186,7 +190,7 @@ class QuaternionLinear(torch.nn.Module):
                     self.i_weight,
                     self.j_weight,
                     self.k_weight,
-                    self.bias,
+                    self.b,
                 )
         else:
             out = QuaternionLinearCustomBackward.apply(
@@ -195,7 +199,7 @@ class QuaternionLinear(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.bias,
+                self.b,
             )
 
         return out

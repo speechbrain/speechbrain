@@ -13,7 +13,173 @@ Authors
 
 import torch
 import math
+import numpy as np
 from scipy.stats import chi
+from torch.autograd import Variable
+
+
+class QuaternionLinearCustomBackward(torch.autograd.Function):
+    """ This class redefine the backpropagation of a quaternion linear layer
+        (not a spinor layer). By doing so, we can save up to 4x memory, but it
+        is also 2x slower than 'quaternion_linear_op'. It should be used
+        within speechbrain.nnet.quaternion_networks.linear.QuaternionLinear.
+    """
+
+    @staticmethod
+    def forward(ctx, input, r_weight, i_weight, j_weight, k_weight, bias):
+        """
+        Applies a quaternion linear transformation to the incoming data:
+        It is important to notice that the forward phase of a QNN is defined
+        as W * Inputs (with * equal to the Hamilton product). The constructed
+        cat_kernels_4_quaternion is a modified version of the quaternion
+        representation so when we do torch.mm(Input,W) it's equivalent
+        to W * Inputs.
+
+        Arguments
+        ---------
+        input: torch.Tensor
+            Quaternion input tensor to be transformed.
+        r_weight: torch.Parameter
+            Real part of the quaternion weight matrix of this layer.
+        i_weight: torch.Parameter
+            First imaginary part of the quaternion weight matrix of this layer.
+        j_weight: torch.Parameter
+            Second imaginarypart of the quaternion weight matrix of this layer.
+        k_weight: torch.Parameter
+            Third imaginary part of the quaternion weight matrix of this layer.
+        bias: torch.Parameter
+        """
+
+        ctx.save_for_backward(
+            input, r_weight, i_weight, j_weight, k_weight, bias
+        )
+
+        cat_kernels_4_r = torch.cat(
+            [r_weight, -i_weight, -j_weight, -k_weight], dim=0
+        )
+        cat_kernels_4_i = torch.cat(
+            [i_weight, r_weight, -k_weight, j_weight], dim=0
+        )
+        cat_kernels_4_j = torch.cat(
+            [j_weight, k_weight, r_weight, -i_weight], dim=0
+        )
+        cat_kernels_4_k = torch.cat(
+            [k_weight, -j_weight, i_weight, r_weight], dim=0
+        )
+        cat_kernels_4_quaternion = torch.cat(
+            [
+                cat_kernels_4_r,
+                cat_kernels_4_i,
+                cat_kernels_4_j,
+                cat_kernels_4_k,
+            ],
+            dim=1,
+        )
+        if input.dim() == 2:
+            if bias is not None:
+                return torch.addmm(bias, input, cat_kernels_4_quaternion)
+            else:
+                return torch.mm(input, cat_kernels_4_quaternion)
+        else:
+            output = torch.matmul(input, cat_kernels_4_quaternion)
+            if bias is not None:
+                return output + bias
+            else:
+                return output
+
+    # This function has only a single output, so it gets only one gradient
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+        Run the backward phase of the forward call defined above. This
+        implementation follows the quaternion backpropagation of a quaternion
+        layer that can be found in
+        in
+
+        Arguments
+        ---------
+        input: torch.Tensor
+            Quaternion input tensor to be transformed.
+        r_weight: torch.Parameter
+            Real part of the quaternion weight matrix of this layer.
+        i_weight: torch.Parameter
+            First imaginary part of the quaternion weight matrix of this layer.
+        j_weight: torch.Parameter
+            Second imaginarypart of the quaternion weight matrix of this layer.
+        k_weight: torch.Parameter
+            Third imaginary part of the quaternion weight matrix of this layer.
+        bias: torch.Parameter
+        """
+        input, r_weight, i_weight, j_weight, k_weight, bias = ctx.saved_tensors
+        grad_input = (
+            grad_weight_r
+        ) = grad_weight_i = grad_weight_j = grad_weight_k = grad_bias = None
+
+        input_r = torch.cat([r_weight, -i_weight, -j_weight, -k_weight], dim=0)
+        input_i = torch.cat([i_weight, r_weight, -k_weight, j_weight], dim=0)
+        input_j = torch.cat([j_weight, k_weight, r_weight, -i_weight], dim=0)
+        input_k = torch.cat([k_weight, -j_weight, i_weight, r_weight], dim=0)
+        cat_kernels_4_quaternion_T = Variable(
+            torch.cat([input_r, input_i, input_j, input_k], dim=1).permute(
+                1, 0
+            ),
+            requires_grad=False,
+        )
+
+        nb_hidden = input.size()[-1]
+        r = input.narrow(1, 0, nb_hidden // 4)
+        i = input.narrow(1, nb_hidden // 4, nb_hidden // 4)
+        j = input.narrow(1, nb_hidden // 2, nb_hidden // 4)
+        k = input.narrow(1, nb_hidden - nb_hidden // 4, nb_hidden // 4)
+        input_r = torch.cat([r, -i, -j, -k], dim=0)
+        input_i = torch.cat([i, r, -k, j], dim=0)
+        input_j = torch.cat([j, k, r, -i], dim=0)
+        input_k = torch.cat([k, -j, i, r], dim=0)
+        input_mat = Variable(
+            torch.cat([input_r, input_i, input_j, input_k], dim=1),
+            requires_grad=False,
+        )
+
+        nb_hidden = grad_output.size()[-1]
+        r = grad_output.narrow(1, 0, nb_hidden // 4)
+        i = grad_output.narrow(1, nb_hidden // 4, nb_hidden // 4)
+        j = grad_output.narrow(1, nb_hidden // 2, nb_hidden // 4)
+        k = grad_output.narrow(1, nb_hidden - nb_hidden // 4, nb_hidden // 4)
+        input_r = torch.cat([r, i, j, k], dim=1)
+        input_i = torch.cat([-i, r, k, -j], dim=1)
+        input_j = torch.cat([-j, -k, r, i], dim=1)
+        input_k = torch.cat([-k, j, -i, r], dim=1)
+        grad_mat = torch.cat([input_r, input_i, input_j, input_k], dim=0)
+
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output.mm(cat_kernels_4_quaternion_T)
+        if ctx.needs_input_grad[1]:
+            grad_weight = grad_mat.permute(1, 0).mm(input_mat).permute(1, 0)
+            unit_size_x = r_weight.size(0)
+            unit_size_y = r_weight.size(1)
+            grad_weight_r = grad_weight.narrow(0, 0, unit_size_x).narrow(
+                1, 0, unit_size_y
+            )
+            grad_weight_i = grad_weight.narrow(0, 0, unit_size_x).narrow(
+                1, unit_size_y, unit_size_y
+            )
+            grad_weight_j = grad_weight.narrow(0, 0, unit_size_x).narrow(
+                1, unit_size_y * 2, unit_size_y
+            )
+            grad_weight_k = grad_weight.narrow(0, 0, unit_size_x).narrow(
+                1, unit_size_y * 3, unit_size_y
+            )
+        if ctx.needs_input_grad[5]:
+            grad_bias = grad_output.sum(0).squeeze(0)
+
+        return (
+            grad_input,
+            grad_weight_r,
+            grad_weight_i,
+            grad_weight_j,
+            grad_weight_k,
+            grad_bias,
+        )
 
 
 def quaternion_linear_op(input, r_weight, i_weight, j_weight, k_weight, bias):
@@ -72,7 +238,7 @@ def quaternion_linear_op(input, r_weight, i_weight, j_weight, k_weight, bias):
 
 
 def quaternion_linear_rotation_op(
-    input, r_weight, i_weight, j_weight, k_weight, bias, scale
+    input, r_weight, i_weight, j_weight, k_weight, bias, scale, zero_kernel
 ):
     """
     Applies a quaternion rotation transformation to the incoming data:
@@ -102,6 +268,11 @@ def quaternion_linear_rotation_op(
         the neural network instable with deep configurations. The scale
         parameters are learnable parameters that acts like gates by multiplying
         the output vector with a small trainable parameter.
+    zero_kernel: torch.Paramater
+        The zero kernel is simply a tensor of zeros with require grad = False.
+        Its shape is equivalent to a quaternion component shape. In fact,
+        it is only needed to make the dimensions match when using the rotation
+        matrix : https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
     """
 
     # First we normalise the quaternion weights. Only unit quaternions are
@@ -138,41 +309,50 @@ def quaternion_linear_rotation_op(
     if scale is not None:
         rot_kernel_1 = torch.cat(
             [
+                zero_kernel,
                 scale * (1.0 - (square_j + square_k)),
                 scale * (ij - rk),
                 scale * (ik + rj),
             ],
-            dim=0,
+            dim=1,
         )
         rot_kernel_2 = torch.cat(
             [
+                zero_kernel,
                 scale * (ij + rk),
                 scale * (1.0 - (square_i + square_k)),
                 scale * (jk - ri),
             ],
-            dim=0,
+            dim=1,
         )
         rot_kernel_3 = torch.cat(
             [
+                zero_kernel,
                 scale * (ik - rj),
                 scale * (jk + ri),
                 scale * (1.0 - (square_i + square_j)),
             ],
-            dim=0,
+            dim=1,
         )
     else:
         rot_kernel_1 = torch.cat(
-            [1.0 - (square_j + square_k), (ij - rk), (ik + rj)], dim=0
+            [zero_kernel, (1.0 - (square_j + square_k)), (ij - rk), (ik + rj)],
+            dim=1,
         )
         rot_kernel_2 = torch.cat(
-            [(ij + rk), 1.0 - (square_i + square_k), (jk - ri)], dim=0
+            [zero_kernel, (ij + rk), (1.0 - (square_i + square_k)), (jk - ri)],
+            dim=1,
         )
         rot_kernel_3 = torch.cat(
-            [(ik - rj), (jk + ri), (1.0 - (square_i + square_j))], dim=0
+            [zero_kernel, (ik - rj), (jk + ri), (1.0 - (square_i + square_j))],
+            dim=1,
         )
 
+    zero_kernel2 = torch.cat(
+        [zero_kernel, zero_kernel, zero_kernel, zero_kernel], dim=1
+    )
     global_rot_kernel = torch.cat(
-        [rot_kernel_1, rot_kernel_2, rot_kernel_3], dim=1
+        [zero_kernel2, rot_kernel_1, rot_kernel_2, rot_kernel_3], dim=0
     )
 
     if input.dim() == 2:
@@ -205,8 +385,14 @@ def quaternion_init(
     criterion: str, (glorot, he)
     """
 
+    # We set the numpy seed equal to the torch seed for reproducibility
+    # Indeed we use numpy and scipy here. We need % (2**31-1) or, if the
+    # seed hasn't been set by the used in the YAML file, torch will generate
+    # a double that would be to big for numpy.
+    np.random.seed(seed=torch.initial_seed() % (2 ** 31 - 1))
+
     if kernel_size is not None:
-        receptive_field = torch.prod(kernel_size)
+        receptive_field = np.prod(kernel_size)
         fan_in = in_features * receptive_field
         fan_out = out_features * receptive_field
     else:
@@ -214,9 +400,9 @@ def quaternion_init(
         fan_out = out_features
 
     if criterion == "glorot":
-        s = 1.0 / torch.sqrt(2 * (fan_in + fan_out))
+        s = 1.0 / np.sqrt(2 * (fan_in + fan_out))
     else:
-        s = 1.0 / torch.sqrt(2 * fan_in)
+        s = 1.0 / np.sqrt(2 * fan_in)
 
     # Generating randoms and purely imaginary quaternions :
     if kernel_size is None:
@@ -227,8 +413,8 @@ def quaternion_init(
         else:
             kernel_shape = (out_features, in_features) + (*kernel_size,)
 
-    modulus = chi.rvs(4, loc=0, scale=s, size=kernel_shape)
-    number_of_weights = torch.prod(kernel_shape)
+    modulus = torch.from_numpy(chi.rvs(4, loc=0, scale=s, size=kernel_shape))
+    number_of_weights = np.prod(kernel_shape)
     v_i = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_j = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_k = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
@@ -243,7 +429,7 @@ def quaternion_init(
     v_j = v_j.reshape(kernel_shape)
     v_k = v_k.reshape(kernel_shape)
 
-    phase = torch.FloatTensor(kernel_shape).uniform_(-math.pi, math.pi)
+    phase = torch.rand(kernel_shape).uniform_(-math.pi, math.pi)
 
     weight_r = modulus * torch.cos(phase)
     weight_i = modulus * v_i * torch.sin(phase)
@@ -276,7 +462,6 @@ def unitary_init(in_features, out_features, kernel_size=None, criterion="he"):
             kernel_shape = (out_features, in_features) + (*kernel_size,)
 
     number_of_weights = torch.prod(kernel_shape)
-    v_r = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_r = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_i = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_j = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
@@ -314,12 +499,7 @@ def affect_init(
     """
 
     r, i, j, k = init_func(
-        r_weight.size(0),
-        r_weight.size(1),
-        r_weight.size(2),
-        r_weight.size(3),
-        None,
-        init_criterion,
+        r_weight.size(0), r_weight.size(1), None, init_criterion,
     )
 
     r_weight.data = r.type_as(r_weight.data)
