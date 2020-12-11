@@ -1,20 +1,24 @@
 # SLU recipes for Timers and Such v0.1
 This folder contains recipes for spoken language understanding (SLU) with [Timers and Such v0.1](https://zenodo.org/record/4110812), an SLU dataset with a large (train/dev/test) set of synthetic speech and a small (train/dev/test) set of real speech.
 
+### LM recipe
+This recipe trains a language model (LM) on Timers and Such transcripts. (It is not necessary to run this before running the other recipes, as they download a trained checkpoint.)
+
 ### Decoupled recipe
 The "decoupled" recipe uses an ASR model (using the LibriSpeech seq2seq recipe) to map speech to text and a separate NLU model, trained on the true transcripts rather than the ASR output, to map text to semantics using an attention-based seq2seq model.
+The ASR model uses either the LibriSpeech LM (`train_LS_LM.yaml`) or the Timers and Such LM (`train_TAS_LM.yaml`).
 
 ```
 cd decoupled
-python train.py hparams/train.yaml
+python train.py hparams/{train_LS_LM.yaml, train_TAS_LM}.yaml
 ```
 
 ### Multistage recipe
-The "multistage" recipe is similar to the decoupled recipe, but instead of using the true transcripts to train the NLU model, we use transcripts predicted by the ASR model.
+The "multistage" recipe is similar to the decoupled recipe, but instead of using the true transcripts to train the NLU model, we use transcripts predicted by the ASR model, again using either the LibriSpeech LM (`train_LS_LM.yaml`) or the Timers and Such LM (`train_TAS_LM.yaml`).
 
 ```
 cd multistage
-python train.py hparams/train.yaml
+python train.py hparams/{train_LS_LM.yaml, train_TAS_LM}.yaml
 ```
 
 ### Direct recipe
