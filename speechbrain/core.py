@@ -270,6 +270,10 @@ def _convert_to_yaml(overrides):
 
 
 def if_main_process():
+    """Check if the current process is the main process and authorized to run I/O commands.
+    In DDP mode, the main process is the one with LOCAL_RANK == 0.
+    In standard mode, the process will not have `LOCAL_RANK` Unix var and will be authorized to run the I/O commands.
+    """
     if "LOCAL_RANK" in os.environ:
         if os.environ["LOCAL_RANK"] == "":
             return False
@@ -281,22 +285,26 @@ def if_main_process():
 
 
 def ddp_barrier():
+    """ In DDP mode, this function will synchronizes all processes.
+    torch.distributed.barrier() will lock blocks processes until the whole group enters this function
+    """
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
 
 
 def ddp_init_group(run_opts):
-    # Initialize ddp environment
-    # local_rank is used to set the right GPU device context
-    # for the current process
-    # rank arg is used to set the right rank of the current process for ddp.
-    # if you have 2 servers with 2 gpu:
-    # server1:
-    #   GPU0: local_rank=device=0, rank=0
-    #   GPU1: local_rank=device=1, rank=1
-    # server2:
-    #   GPU0: local_rank=device=0, rank=2
-    #   GPU1: local_rank=device=1, rank=3
+    """
+    This function will initialize the ddp group if
+    distributed_launch=True bool is given in the python command line.
+
+    The ddp group will use distributed_backend arg for setting the DDP communication protocol.
+    `RANK` Unix variable will be used for registring the subprocess to the ddp group.
+
+    Arguments
+    ---------
+    run_opts: list
+        a list of arguments to parse, most often from `sys.argv[1:]`
+    """
     if run_opts["distributed_launch"]:
         if "RANK" in os.environ is None or os.environ["RANK"] == "":
             sys.exit(
@@ -327,7 +335,14 @@ def ddp_init_group(run_opts):
                 run_opts["distributed_backend"]
                 + " communcation protocol doesn't exist."
             )
-
+        # rank arg is used to set the right rank of the current process for ddp.
+        # if you have 2 servers with 2 gpu:
+        # server1:
+        #   GPU0: local_rank=device=0, rank=0
+        #   GPU1: local_rank=device=1, rank=1
+        # server2:
+        #   GPU0: local_rank=device=0, rank=2
+        #   GPU1: local_rank=device=1, rank=3
         torch.distributed.init_process_group(
             backend=run_opts["distributed_backend"], rank=rank,
         )
