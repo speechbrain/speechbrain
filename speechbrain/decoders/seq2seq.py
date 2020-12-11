@@ -11,7 +11,7 @@ import torch
 import numpy as np
 
 import speechbrain as sb
-from speechbrain.decoders.ctc import CTCPrefixScoreTH
+from speechbrain.decoders.ctc import CTCPrefixScorer
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -560,19 +560,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.ctc_weight > 0:
             # (batch_size * beam_size, L, vocab_size)
             ctc_outputs = self.ctc_forward_step(enc_states)
-            # ctc_scorer = CTCPrefixScorer(
-            #     ctc_outputs,
-            #     enc_lens,
-            #     batch_size,
-            #     self.beam_size,
-            #     self.blank_index,
-            #     self.eos_index,
-            # )
-            ctc_scorer = CTCPrefixScoreTH(
+            ctc_scorer = CTCPrefixScorer(
                 ctc_outputs,
                 enc_lens,
-                # batch_size,
-                # self.beam_size,
+                batch_size,
+                self.beam_size,
                 self.blank_index,
                 self.eos_index,
             )
@@ -665,16 +657,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                # g = alived_seq
-                g = memory
+                g = alived_seq
                 # block blank token
                 log_probs[:, self.blank_index] = self.minus_inf
                 if self.ctc_weight != 1.0:
                     # pruning vocab for ctc_scorer
-                    # _, ctc_candidates = log_probs.topk(
-                    #     self.beam_size * 2, dim=-1
-                    # )
-                    ctc_candidates = None
+                    _, ctc_candidates = log_probs.topk(
+                        self.beam_size * 2, dim=-1
+                    )
                 else:
                     ctc_candidates = None
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
