@@ -12,7 +12,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/TAS_LM/<seed>
+output_folder: !ref results/LS_LM/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -25,7 +25,7 @@ csv_valid: !ref <data_folder>/<dev_split>-type=decoupled.csv
 csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 asr_hparam_file:
-    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_TAS_LM.yaml
+    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
 number_of_epochs: 1

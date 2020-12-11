@@ -61,9 +61,6 @@ class ASR(torch.nn.Module):
 
         # Load pretrained modules
         self.load_tokenizer()
-        if "lm_model" not in overrides:
-            print("No LM provided; using default LibriSpeech LM.")
-            self.load_lm()
         self.load_asr()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -129,14 +126,3 @@ class ASR(torch.nn.Module):
         self.mod.asr_model.load_state_dict(
             torch.load(save_model_path), strict=True
         )
-
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams["save_folder"], "lm_model.ckpt"
-        )
-        download_file(self.hparams["lm_ckpt_file"], save_model_path)
-
-        # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path, map_location=self.device)
-        self.mod.lm_model.load_state_dict(state_dict, strict=True)
