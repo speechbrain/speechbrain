@@ -66,6 +66,7 @@ class Separation(sb.Brain):
         est_mask = self.hparams.MaskNet(mix_w)
         mix_w = torch.stack([mix_w] * self.hparams.num_spks)
         sep_h = mix_w * est_mask
+        sep_h = sep_h.transpose(2, 3)
 
         # Decoding
         est_source = torch.cat(
