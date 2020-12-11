@@ -106,6 +106,11 @@ class QuaternionLinear(torch.nn.Module):
         self.spinor = spinor
         self.vector_scale = vector_scale
 
+        # When initialising with speechbrain the input_shape is an integer !
+        # we need to transform it into a list it works with all the question ops
+        if isinstance(input_shape, int):
+            input_shape = [1, input_shape]
+
         # Check the quaternion_valued form of the input
         check_quaternion_input(input_shape)
 

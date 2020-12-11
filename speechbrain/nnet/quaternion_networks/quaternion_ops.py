@@ -517,7 +517,7 @@ def check_quaternion_input(input_shape):
         Expected shape of the input.
     """
 
-    if len(input_shape) not in {2, 3}:
+    if len(input_shape) not in {1, 2, 3}:
         raise Exception(
             "Quaternion linear accepts only input of dimension 2 or 3."
             " input.dim = " + str(input.dim())
@@ -525,7 +525,7 @@ def check_quaternion_input(input_shape):
 
     nb_hidden = input_shape[-1]
 
-    if nb_hidden % 1 != 0:
+    if nb_hidden % 4 != 0:
         raise Exception(
             "Quaternion Tensors must have a dimensions dividible by 4."
             " input.size()[1] = " + str(nb_hidden)
