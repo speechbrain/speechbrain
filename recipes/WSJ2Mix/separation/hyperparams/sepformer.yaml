@@ -117,12 +117,12 @@ MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
     num_layers: 2
-    K: 250
+    K: 200
     intra_model: !ref <SBtfintra>
     inter_model: !ref <SBtfinter>
-    norm: ln
+    norm: gln
     linear_layer_after_inter_intra: False
-    skip_around_intra: True
+    skip_around_intra: False
 
 Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
     in_channels: !ref <N_encoder_out>
