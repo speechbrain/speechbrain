@@ -40,6 +40,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     expand_beam: float
         The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
         Reference: https://arxiv.org/pdf/1911.01629.pdf
+        Reference: https://github.com/kaldi-asr/kaldi/blob/master/src/decoder/simple-decoder.cc (See PruneToks)
 
     Example
     -------
