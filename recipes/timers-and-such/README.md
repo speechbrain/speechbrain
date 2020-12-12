@@ -36,7 +36,7 @@ python train.py hparams/train.yaml
 | System | Synthetic | Real |
 |----------------- | ------------ | ------|
 | Decoupled (LibriSpeech LM) | 18.7% ± 5.1% | 23.6% ± 7.3% |
-| Decoupled (Timers and Such LM) | ? % | ? % |
+| Decoupled (Timers and Such LM) | 31.9% ± 3.9% | 44.4% ± 6.9% |
 | Multistage (LibriSpeech LM) | 69.9% ± 2.5% | 69.8% ± 3.5% |
 | Multistage (Timers and Such LM) | ? % | ? % |
 | Direct | 96.1% ± 0.2% | 74.5% ± 6.9% |
