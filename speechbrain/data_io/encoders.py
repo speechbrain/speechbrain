@@ -1,193 +1,212 @@
+"""Encoding categorical data as integers
+
+Authors
+  * Samuele Cornell 2020
+  * Aku Rouhe 2020
+"""
+import ast
 import torch
-import pickle
+import itertools
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class CategoricalEncoder(object):
+class CategoricalEncoder:
     """
-    Categorical encoder object. It is used to encode labels to a categorical distribution.
-    It is thus suitable for speaker recognition where for example you have speakers
-    labels e.g. spk1, spk2, spk3 and you want corresponding labels 0, 1, 2 to be able to train a classifier with CrossEntropy loss.
+    Encode labels of a discrete set.
+
+    Used for encoding text as well as e.g. speaker identities in speaker
+    recognition.
     """
 
-    def __init__(self):
+    EXTRAS_SEPARATOR = "================\n"
 
-        self.lab2indx = {}
-        self.indx2lab = {}
+    def __init__(self, starting_index=0):
+        self.lab2ind = {}
+        self.ind2lab = {}
+        self.starting_index = starting_index
 
     def __len__(self):
-        return len(self.lab2indx)
+        return len(self.lab2ind)
 
-    def fit(
-        self,
-        data_collections: (list, dict),
-        supervision: str,
-        sup_transform=None,
-    ):
-
-        if isinstance(data_collections, dict):
-            data_collections = [data_collections]
-
-        def _recursive_helper(dictionary, supervision, labels_set):
-
-            for k in dictionary.keys():
-                if isinstance(dictionary[k], dict):
-                    if k == supervision:
-                        raise NotImplementedError(
-                            "Desired supervision must be either list, tuple or string, Not Supported, got: {}".format(
-                                type(dictionary[k])
-                            )
-                        )
-                    _recursive_helper(dictionary[k], supervision, labels_set)
-                else:
-                    # leaf node contains no dict
-                    if k == supervision:
-                        if isinstance(dictionary[k], (list, tuple)):
-                            if sup_transform is not None:
-                                all_labs.update(
-                                    set(sup_transform(dictionary[k]))
-                                )
-                            else:
-                                all_labs.update(set(dictionary[k]))
-                        elif isinstance(dictionary[k], (str)):
-                            if sup_transform is not None:
-                                transformed = sup_transform(
-                                    dictionary[k]
-                                )  # we make sure is hashable
-                                if isinstance(transformed, (list, tuple)):
-                                    all_labs.update(set(transformed))
-                                else:
-                                    all_labs.add(transformed)
-                            else:
-                                all_labs.add(dictionary[k])
-                        else:
-                            raise NotImplementedError(
-                                "Desired supervision must be either list, tuple or string, Not Supported, got: {}".format(
-                                    type(dictionary[k])
-                                )
-                            )
-
-        all_labs = set()
-        for data_coll in data_collections:
-            _recursive_helper(data_coll, supervision, all_labs)
-
-        if not len(self.lab2indx.keys()) and not len(self.indx2lab.keys()):
-            self.lab2indx = {key: index for index, key in enumerate(all_labs)}
-            self.indx2lab = {key: index for key, index in enumerate(all_labs)}
-        else:
-            raise EnvironmentError(
-                "lab2indx and indx2lab must be empty, "
-                "please use fit right after object instantiation."
-            )
-
-    def add_elem(self, label, index=None):
-        """
-        Update method (adding additional labels not present in the encoder internal state.
-
-        Note
-        ----------
-        If no element is provided we simply append to end of label dictionary:
-        e.g. there are 40 (from 0 to 39) labels already, for the added label the encoding value (index) will be 40.
+    def update_from_iterable(self, iterable, sequence_input=False):
+        """Update from iterator
 
         Arguments
-        ----------
-        label : str
-            new label we want to add.
-
-        index : int, optional
-            corresponding integer value for the label.
-
-        Returns
-        -------
-        None
+        ---------
+        iterable : iterable
+            Input sequence on which to operate.
+        sequence_input : bool
+            Whether iterable yields sequences of labels or individual labels
+            directly. False by default.
         """
-        if label in self.lab2indx.keys():
-            raise KeyError("Label already present in label dictionary")
-
-        max_indx = list(self.indx2lab.keys())[-1]
-        if index is None or index == (max_indx + 1):
-            self.lab2indx[label] = max_indx + 1
-            self.indx2lab[max_indx + 1] = index
+        if sequence_input:
+            label_iterator = itertools.chain.from_iterable(iterable)
         else:
-            if not (0 <= index <= (max_indx + 1)):
-                raise IndexError(
-                    "Invalid value specified choose between 0 and {}, got {}".format(
-                        len(self.lab2indx), index
-                    )
-                )
+            label_iterator = iter(iterable)
+        for label in label_iterator:
+            if label not in self.lab2ind:
+                self.add_label(label)
 
-            self.lab2indx[label] = index
-            orig_key = self.indx2lab[index]
-            self.lab2indx[orig_key] = max_indx + 1
-            self.indx2lab[max_indx + 1] = orig_key
-            self.indx2lab[index] = label
+    def update_from_didataset(
+        self, didataset, output_key, sequence_input=False
+    ):
+        """Update from DynamicItemDataset
 
-    def update(self, d: dict):
-        for k, v in d.items():
-            self.add_elem(k, v)
-
-    def _index_label_dict(self, label_dict, k):
-
-        return label_dict[k]
-
-    def encode_label(self, x):
+        Arguments
+        ---------
+        didataset : DynamicItemDataset
+            Dataset on which to operate.
+        output_key : str
+            Key in the dataset (in data or a dynamic item) to encode.
+        sequence_input : bool
+            Whether the data yielded with the specified key consists of
+            sequences of labels or individual labels directly.
         """
-        Parameters
-        ----------
-        x : str
-            list, tuple of strings or either a single string which one wants to encode.
-
-        Returns
-        -------
-        labels : int
-            corresponding encoded int value.
-
-        """
-        if isinstance(x, str):
-            labels = self._index_label_dict(self.lab2indx, x)
-        else:
-            raise NotImplementedError(
-                "Value to encode must be a string, got {}".format(type(x))
+        with didataset.output_keys_as([output_key]):
+            self.update_from_iterable(
+                (data_point[output_key] for data_point in didataset),
+                sequence_input=sequence_input,
             )
-        return labels
 
-    def encode_sequence(self, x):
-        """
-        Parameters
-        ----------
-        x : (list, tuple)
-            list, tuple of strings which one wants to encode one by one e.g.
-            every element of the sequence is a label and we encode it.
+    def add_label(self, label):
+        """Add new label to the encoder, at the next free position.
+
+        Arguments
+        ---------
+        label : hashable
+            Most often labels are str, but anything that can act as dict key is
+            supported. Note that default save/load only supports Python
+            literals.
 
         Returns
         -------
-        labels : torch.Tensor
-            tensor containing encoded value.
-
+        int
+            The index that was used to encode this label.
         """
+        if label in self.lab2ind:
+            clsname = self.__class__.__name__
+            raise KeyError(f"Label already present in {clsname}")
+        index = self._next_index()
+        self.lab2ind[label] = index
+        self.ind2lab[index] = label
+        return index
 
-        if isinstance(x, (tuple, list)):
-            labels = list(map(self.encode_label, x))
-        else:
-            raise NotImplementedError(
-                "Value to encode must be a list or tuple, got {}".format(
-                    type(x)
-                )
+    def insert_label(self, label, index):
+        """Add a new label, forcing its index to a specific value.
+
+        If a label already has the specified index, it is moved to the end
+        of the mapping.
+
+        Arguments
+        ---------
+        label : hashable
+            Most often labels are str, but anything that can act as dict key is
+            supported. Note that default save/load only supports Python
+            literals.
+        index : int
+            The specific index to use.
+        """
+        if label in self.lab2ind:
+            clsname = self.__class__.__name__
+            raise KeyError(f"Label already present in {clsname}")
+        index = int(index)
+        moving_label = False
+        if index in self.ind2lab:
+            saved_label = self.ind2lab[index]
+            moving_label = True
+        self.lab2ind[label] = index
+        self.ind2lab[index] = label
+        if moving_label:
+            logger.warning(
+                f"Moving label {repr(saved_label)} from index "
+                f"{index}, because {repr(label)} was inserted at its place."
             )
-        return labels
+            new_index = self._next_index()
+            self.lab2ind[saved_label] = new_index
+            self.ind2lab[new_index] = saved_label
+
+    def _next_index(self):
+        """The index to use for the next new label"""
+        index = self.starting_index
+        while index in self.ind2lab:
+            index += 1
+        return index
+
+    def encode_label(self, label):
+        """Encode label to int
+
+        Arguments
+        ---------
+        label : hashable
+            Label to encode, must exist in the mapping.
+
+        Returns
+        -------
+        int
+            Corresponding encoded int value.
+        """
+        return self.label2ind[label]
+
+    def encode_label_torch(self, label):
+        """Encode label to torch.LongTensor
+
+        Arguments
+        ---------
+        label : hashable
+            Label to encode, must exist in the mapping.
+
+        Returns
+        -------
+        torch.LongTensor
+            Corresponding encoded int value.
+            Tensor shape [1]
+        """
+        return torch.LongTensor([self.label2ind[label]])
+
+    def encode_sequence(self, sequence):
+        """Encode a sequence of labels to list
+
+        Arguments
+        ---------
+        x : iterable
+            Labels to encode, must exist in the mapping.
+
+        Returns
+        -------
+        list
+            Corresponding integer labels
+        """
+        return [self.label2ind[label] for label in sequence]
+
+    def encode_sequence_torch(self, sequence):
+        """Encode a sequence of labels to torch.LongTensor
+
+        Arguments
+        ---------
+        x : iterable
+            Labels to encode, must exist in the mapping.
+
+        Returns
+        -------
+        torch.LongTensor
+            Corresponding integer labels
+            Tensor shape [len(sequence)]
+        """
+        return torch.LongTensor([self.label2ind[label] for label in sequence])
 
     def decode_int(self, x):
         """
         Decodes a torch.Tensor or list of ints to a list of corresponding labels.
 
         Arguments
-        ----------
+        ---------
         x : (torch.Tensor, list, tuple)
-            Torch tensor or list containing int values which has to be decoded to original labels strings.
-            Torch tensors must be 1D with shape (seq_len,) or 2D with shape (batch, seq_len).
-            List and tuples must be one-dimensional or bi-dimensional.
+            Torch tensor or list containing int values which has to be decoded
+            to original labels strings.  Torch tensors must be 1D with shape
+            (seq_len,) or 2D with shape (batch, seq_len).  List and tuples must
+            be one-dimensional or bi-dimensional.
 
         Returns
         -------
@@ -202,16 +221,16 @@ class CategoricalEncoder(object):
             if x.ndim == 1:  # 1d tensor
                 decoded = []
                 for time_step in range(len(x)):
-                    decoded.append(self.indx2lab[x[time_step].item()])
+                    decoded.append(self.ind2lab[x[time_step].item()])
                 return decoded
 
             elif x.ndim == 2:
                 batch = []  # batch, steps
-                batch_indx = x.size(0)
-                for b in range(batch_indx):
+                batch_ind = x.size(0)
+                for b in range(batch_ind):
                     c_example = []
                     for time_step in range(len(x[b])):
-                        c_example.append(self.indx2lab[x[b, time_step].item()])
+                        c_example.append(self.ind2lab[x[b, time_step].item()])
                     batch.append(c_example)
                 return batch
 
@@ -228,13 +247,13 @@ class CategoricalEncoder(object):
                 for b in range(len(x)):
                     c_example = []
                     for time_step in range(len(x[b])):
-                        c_example.append(self.indx2lab[x[b][time_step]])
+                        c_example.append(self.ind2lab[x[b][time_step]])
                     batch.append(c_example)
                 return batch
             else:  # 1D list
                 decoded = []
                 for time_step in range(len(x)):
-                    decoded.append(self.indx2lab[x[time_step].item()])
+                    decoded.append(self.ind2lab[x[time_step].item()])
                 return decoded
 
         else:
@@ -266,15 +285,15 @@ class CategoricalEncoder(object):
             )
 
         if x.ndim == 1:
-            indx = torch.argmax(x)
-            decoded = self.indx2lab[indx.item()]
+            ind = torch.argmax(x)
+            decoded = self.ind2lab[ind.item()]
             return decoded
 
         elif x.ndim == 2:
             decoded = []
             indexes = torch.argmax(x, 0)  # classes, steps
             for time_step in range(len(indexes)):
-                decoded.append(self.indx2lab[indexes[time_step].item()])
+                decoded.append(self.ind2lab[indexes[time_step].item()])
             return decoded
 
         elif x.ndim == 3:  # batched tensor b, classes, steps
@@ -283,7 +302,7 @@ class CategoricalEncoder(object):
                 c_batch = []
                 indexes = torch.argmax(x[batch], 0)
                 for time_step in range(len(indexes)):
-                    c_batch.append(self.indx2lab[indexes[time_step]])
+                    c_batch.append(self.ind2lab[indexes[time_step]])
                 decoded.append(c_batch)
             return decoded
         else:
@@ -294,18 +313,82 @@ class CategoricalEncoder(object):
             )
 
     def save(self, path):
-        with open(path, "wb") as f:
-            pickle.dump((self.lab2indx, self.indx2lab), f)
-
-    def load(self, path):
-        if len(self.lab2indx) or len(self.indx2lab):
-            raise RuntimeError(
-                "Use load right after instantiation, "
-                "lab2indx and indx2lab must be empty otherwise this operation will overwrite them."
+        """Save the categorical encoding for later use and recovery"""
+        extras = self._get_extras()
+        if "starting_index" in extras:
+            raise ValueError(
+                "The extra key starting_index is reserved by the "
+                "CategoricalEncoder base class."
             )
+        extras["starting_index"] = self.starting_index
+        self._save_literal(path, self.lab2ind, extras)
 
-        with open(path, "rb") as f:
-            self.lab2indx, self.indx2lab = pickle.load(f)
+    def load_if_possible(self, path):
+        """Loads if possible, returns bool indicating if loaded or not."""
+        if self.lab2ind:
+            clsname = self.__class__.__name__
+            raise RuntimeError(f"Load called, but {clsname} is not empty")
+        try:
+            lab2ind, ind2lab, extras = self._load_literal(path)
+        except (FileNotFoundError, ValueError, SyntaxError):
+            logger.debug(
+                f"Would load categorical encoding from {path}, "
+                "but could not."
+            )
+            return False
+        self.lab2ind = lab2ind
+        self.ind2lab = ind2lab
+        # Starting index is stored with extras, but is part of the base class.
+        self.starting_index = extras["starting_index"]
+        del extras["starting_index"]
+        self._set_extras(extras)
+        # If we're here, load was a success!
+        logger.debug(f"Loaded categorical encoding from {path}")
+        return True
+
+    def _get_extras(self):
+        """Override this to provide any additional things to save"""
+        return {}
+
+    def _set_extras(self, lab2ind, ind2lab, extras):
+        """Override this to e.g. load any extras needed"""
+        pass
+
+    @staticmethod
+    def _save_literal(path, lab2ind, extras):
+        """Save which is compatible with _load_literal"""
+        with open(path, "w") as f:
+            for label, ind in lab2ind.items():
+                f.write(repr(label) + " " + str(ind) + "\n")
+            f.write(CategoricalEncoder.EXTRAS_SEPARATOR)
+            for key, value in extras:
+                f.write(repr(key) + " " + repr(value) + "\n")
+
+    @staticmethod
+    def _load_literal(path):
+        """Load which supports Python literals as keys.
+
+        This is considered safe for user input, as well (unlike e.g. pickle).
+        """
+        lab2ind = {}
+        ind2lab = {}
+        extras = {}
+        with open(path) as f:
+            # Load the label to index mapping (until EXTRAS_SEPARATOR)
+            for line in f:
+                if line == CategoricalEncoder.EXTRAS_SEPARATOR:
+                    break
+                literal, ind = line.strip().split()
+                label = ast.literal_eval(literal)
+                lab2ind[label] = ind
+                ind2lab[ind] = label
+            # Load the extras:
+            for line in f:
+                literal_key, literal_value = line.strip().split()
+                key = ast.literal_eval(literal_key)
+                value = ast.literal_eval(literal_value)
+                extras[key] = value
+        return lab2ind, ind2lab, extras
 
 
 class TextEncoder(CategoricalEncoder):
