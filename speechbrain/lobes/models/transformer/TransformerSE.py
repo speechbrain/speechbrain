@@ -17,12 +17,12 @@ class CNNTransformerSE(TransformerInterface):
 
     Arguements
     ----------
-    output_size: int
-        the number of expected neurons in the output layer.
-    embed_dim: int
-        Expected dimension of input embedding.
+    d_model : int
+        the number of expected features in the encoder inputs.
+    output_size : int
+        the number of neurons in the output layer.
     output_activation: torch class
-        the activation function of output layer, (default=ReLU).
+        the activation function of the output layer, (default=ReLU).
     nhead: int
         the number of heads in the multiheadattention models (default=8).
     num_layers: int
@@ -41,7 +41,7 @@ class CNNTransformerSE(TransformerInterface):
     Example
     -------
     >>> src = torch.rand([8, 120, 256])
-    >>> net = CNNTransformerSE(output_size=257, input_size=256, d_model=256)
+    >>> net = CNNTransformerSE(d_model=256, output_size=257)
     >>> out = net(src)
     >>> out.shape
     torch.Size([8, 120, 257])
@@ -51,7 +51,6 @@ class CNNTransformerSE(TransformerInterface):
         self,
         d_model,
         output_size,
-        input_size,
         output_activation=nn.ReLU,
         nhead=8,
         num_layers=8,
@@ -60,6 +59,7 @@ class CNNTransformerSE(TransformerInterface):
         activation=nn.LeakyReLU,
         causal=True,
         custom_emb_module=None,
+        normalize_before=False,
     ):
         super().__init__(
             d_model=d_model,
@@ -70,13 +70,12 @@ class CNNTransformerSE(TransformerInterface):
             dropout=dropout,
             activation=activation,
             positional_encoding=False,
+            normalize_before=normalize_before,
         )
 
         self.custom_emb_module = custom_emb_module
         self.causal = causal
-        self.output_layer = Linear(
-            output_size, input_size=input_size, bias=False
-        )
+        self.output_layer = Linear(output_size, input_size=d_model, bias=False)
         self.output_activation = output_activation()
 
     def forward(self, x, src_key_padding_mask=None):

@@ -63,13 +63,16 @@ mask_net: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     causal: False
     mask_nonlinear: 'relu'
 
-encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
-    L: 21
-    N: 32
+encoder: !new:speechbrain.lobes.models.dual_path.Encoder
+    kernel_size: 16
+    out_channels: 32
 
-decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
-    L: 20
-    N: 32
+decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+    in_channels: 32
+    out_channels: 1
+    kernel_size: 16
+    stride: 8
+    bias: False
 
 modules:
     mask_net: !ref <mask_net>
