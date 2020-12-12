@@ -840,6 +840,7 @@ class Checkpointer:
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
                             but missing a load path for {name}"
                     raise RuntimeError(MSG)
+
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
                 self.custom_load_hooks[name](
