@@ -52,14 +52,15 @@ class Separation(sb.Brain):
 
         # Add speech distortions
         if stage == sb.Stage.TRAIN:
-            if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
-                mix, targets = self.add_speed_perturb(targets)
+            with torch.no_grad():
+                if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
+                    mix, targets = self.add_speed_perturb(targets, mix_lens)
 
-            if self.hparams.use_wavedrop:
-                mix = self.hparams.wavedrop(mix, mix_lens)
+                if self.hparams.use_wavedrop:
+                    mix = self.hparams.wavedrop(mix, mix_lens)
 
-            if self.hparams.limit_training_signal_len:
-                mix, targets = self.cut_signals(mix, targets)
+                if self.hparams.limit_training_signal_len:
+                    mix, targets = self.cut_signals(mix, targets)
 
         # Separation
         mix_w = self.hparams.Encoder(mix)
@@ -194,7 +195,7 @@ class Separation(sb.Brain):
                 test_stats=stage_stats,
             )
 
-    def add_speed_perturb(self, targets):
+    def add_speed_perturb(self, targets, targ_lens):
         """Adds speed perturbation and random_shift to the input signals"""
 
         min_len = -1
@@ -202,40 +203,46 @@ class Separation(sb.Brain):
 
         if self.hparams.use_speedperturb:
             # Performing speed change (independently on each source)
+            new_targets = []
             recombine = True
-            for i, target in enumerate(targets):
-                ids, targ, targ_lens = target
-                target[1] = target[1].to(self.device)
-                targ_lens = targ_lens.to(self.device)
-                target[1] = self.hparams.speedperturb(target[1], targ_lens)
+
+            for i in range(targets.shape[-1]):
+                new_target = self.hparams.speedperturb(
+                    targets[:, :, i], targ_lens
+                )
+                new_targets.append(new_target)
                 if i == 0:
-                    min_len = target[1].shape[1]
+                    min_len = new_target.shape[-1]
                 else:
-                    if target[1].shape[1] < min_len:
-                        min_len = target[1].shape[1]
+                    if new_target.shape[-1] < min_len:
+                        min_len = new_target.shape[-1]
 
-        if self.hparams.use_rand_shift:
-            # Performing random_shift (independently on each source)
-            recombine = True
-            for target in targets:
-                rand_shift = torch.randint(
-                    self.hparams.min_shift, self.hparams.max_shift, (1,)
-                )
-                target[1] = target[1].to(self.device)
-                target[1] = torch.roll(
-                    target[1], shifts=(rand_shift[0],), dims=1
-                )
+            if self.hparams.use_rand_shift:
+                # Performing random_shift (independently on each source)
+                recombine = True
+                for i in range(targets.shape[-1]):
+                    rand_shift = torch.randint(
+                        self.hparams.min_shift, self.hparams.max_shift, (1,)
+                    )
+                    new_targets[i] = new_targets[i].to(self.device)
+                    new_targets[i] = torch.roll(
+                        new_target, shifts=(rand_shift[0],), dims=1
+                    )
 
-        # Re-combination
-        if recombine:
-            for i, target in enumerate(targets):
+            # Re-combination
+            if recombine:
                 if self.hparams.use_speedperturb:
-                    target[1] = target[1][:, 0:min_len]
-                if i == 0:
-                    mix = target[1]
-                else:
-                    mix = mix + target[1]
-        return [mix, targets]
+                    targets = torch.zeros(
+                        targets.shape[0],
+                        min_len,
+                        targets.shape[-1],
+                        device=targets.device,
+                        dtype=torch.float,
+                    )
+                for i, new_target in enumerate(new_targets):
+                    targets[:, :, i] = new_targets[i][:, 0:min_len]
+        mix = targets.sum(-1)
+        return mix, targets
 
     def cut_signals(self, mixture, targets):
         """This function selects a random segment of a given length withing the mixture.
