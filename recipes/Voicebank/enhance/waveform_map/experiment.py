@@ -4,133 +4,157 @@ import sys
 import torch
 import torchaudio
 import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
-from speechbrain.nnet.loss.stoi_loss import stoi_loss
-from joblib import Parallel, delayed
 from pesq import pesq
-
-# This hack needed to import data preparation script from ../..
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-from voicebank_prepare import prepare_voicebank  # noqa E402
-
-# Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
-
-# Create experiment directory
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
-)
-
-if params.use_tensorboard:
-    from speechbrain.utils.train_logger import TensorboardLogger
-
-    tensorboard_train_logger = TensorboardLogger(params.tensorboard_logs)
-
-# Create the folder to save enhanced files
-if not os.path.exists(params.enhanced_folder):
-    os.mkdir(params.enhanced_folder)
+from speechbrain.utils.metric_stats import MetricStats
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
 
 
-def truncate(wavs, lengths, max_length):
-    lengths *= max_length / wavs.shape[1]
-    lengths = lengths.clamp(max=1)
-    wavs = wavs[:, :max_length]
-    return wavs, lengths
-
-
-def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
-    pesq_scores = Parallel(n_jobs=30)(
-        delayed(pesq)(
-            fs=params.Sample_rate,
-            ref=clean[: int(length)],
-            deg=enhanced[: int(length)],
-            mode="wb",
-        )
-        for enhanced, clean, length in zip(pred_wavs, target_wavs, lengths)
-    )
-    return pesq_scores
-
-
-class SEBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
+# Brain class for speech enhancement training
+class SEBrain(sb.Brain):
+    def compute_forward(self, x, stage):
         ids, wavs, lens = x
-        wavs, lens = truncate(wavs, lens, params.max_length)
+        wavs, lens = wavs.to(self.device), lens.to(self.device)
         wavs = torch.unsqueeze(wavs, -1)
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-        out = params.model(wavs, init_params=init_params)[:, :, 0]
-        return out
+        predict_wav = self.hparams.model(wavs)[:, :, 0]
 
-    def compute_objectives(self, predictions, targets, stage="train"):
-        ids, target_wavs, lens = targets
-        target_wavs, lens = truncate(target_wavs, lens, params.max_length)
-        target_wavs = target_wavs.to(params.device)
-        lens = lens.to(params.device)
-        loss = params.compute_cost(predictions, target_wavs, lens)
+        return predict_wav
 
-        stats = {}
-        if stage != "train":
-            lens = lens * target_wavs.shape[1]
-            pesq_scores = multiprocess_evaluation(
-                predictions.cpu().numpy(),
-                target_wavs.cpu().numpy(),
-                lens.cpu().numpy(),
+    def compute_objectives(self, predict_wav, targets, stage):
+        ids, target_wav, lens = targets
+        target_wav, lens = target_wav.to(self.device), lens.to(self.device)
+
+        loss = self.hparams.compute_cost(predict_wav, target_wav, lens)
+        self.loss_metric.append(
+            ids, predict_wav, target_wav, lens, reduction="batch"
+        )
+
+        if stage != sb.Stage.TRAIN:
+
+            # Evaluate speech quality/intelligibility
+            self.stoi_metric.append(
+                ids, predict_wav, target_wav, lens, reduction="batch"
             )
-            stats["pesq"] = pesq_scores
-            stats["stoi"] = -stoi_loss(predictions, target_wavs, lens)
+            self.pesq_metric.append(
+                ids, predict=predict_wav, target=target_wav, lengths=lens
+            )
 
-            if stage == "test":
-                # Write wavs to file
-                for name, pred_wav, length in zip(ids, predictions, lens):
+            # Write wavs to file
+            if stage == sb.Stage.TEST:
+                lens = lens * target_wav.shape[1]
+                for name, pred_wav, length in zip(ids, predict_wav, lens):
                     name += ".wav"
-                    enhance_path = os.path.join(params.enhanced_folder, name)
+                    enhance_path = os.path.join(
+                        self.hparams.enhanced_folder, name
+                    )
+                    pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
                     torchaudio.save(
-                        enhance_path, pred_wav[: int(length)].to("cpu"), 16000
+                        enhance_path,
+                        torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
+                        16000,
                     )
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        if params.use_tensorboard:
-            tensorboard_train_logger.log_stats(
-                {"Epoch": epoch}, train_stats, valid_stats
+    def on_stage_start(self, stage, epoch=None):
+        self.loss_metric = MetricStats(metric=self.hparams.compute_cost)
+        self.stoi_metric = MetricStats(metric=stoi_loss)
+
+        # Define function taking (prediction, target) for parallel eval
+        def pesq_eval(pred_wav, target_wav):
+            return pesq(
+                fs=16000,
+                ref=target_wav.numpy(),
+                deg=pred_wav.numpy(),
+                mode="wb",
             )
 
-        params.train_logger.log_stats(
-            {"Epoch": epoch}, train_stats, valid_stats
+        if stage != sb.Stage.TRAIN:
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+            self.train_stats = {"loss": self.loss_metric.scores}
+        else:
+            stats = {
+                "loss": stage_loss,
+                "pesq": self.pesq_metric.summarize("average"),
+                "stoi": -self.stoi_metric.summarize("average"),
+            }
+
+        if stage == sb.Stage.VALID:
+            if self.hparams.use_tensorboard:
+                valid_stats = {
+                    "loss": self.loss_metric.scores,
+                    "stoi": self.stoi_metric.scores,
+                    "pesq": self.pesq_metric.scores,
+                }
+                self.hparams.tensorboard_train_logger.log_stats(
+                    {"Epoch": epoch}, self.train_stats, valid_stats
+                )
+            self.hparams.train_logger.log_stats(
+                {"Epoch": epoch},
+                train_stats={"loss": self.train_loss},
+                valid_stats=stats,
+            )
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
+
+        if stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                {"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=stats,
+            )
+
+
+# Recipe begins!
+if __name__ == "__main__":
+
+    # This hack needed to import data preparation script from ../..
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
+    from voicebank_prepare import prepare_voicebank  # noqa E402
+
+    # Load hyperparameters file with command-line overrides
+    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    if hparams["use_tensorboard"]:
+        from speechbrain.utils.train_logger import TensorboardLogger
+
+        hparams["tensorboard_train_logger"] = TensorboardLogger(
+            hparams["tensorboard_logs"]
         )
 
-        pesq_score = summarize_average(valid_stats["pesq"])
-        params.checkpointer.save_and_keep_only(
-            meta={"pesq_score": pesq_score}, max_keys=["pesq_score"],
-        )
+    # Create the folder to save enhanced files
+    if not os.path.exists(hparams["enhanced_folder"]):
+        os.mkdir(hparams["enhanced_folder"])
 
+    # Prepare data
+    prepare_voicebank(
+        data_folder=hparams["data_folder"], save_folder=hparams["data_folder"],
+    )
 
-# Prepare data
-prepare_voicebank(
-    data_folder=params.data_folder, save_folder=params.data_folder,
-)
-train_set = params.train_loader()
-valid_set = params.valid_loader()
-test_set = params.test_loader()
-first_x, first_y = next(iter(train_set))
+    se_brain = SEBrain(
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        checkpointer=hparams["checkpointer"],
+    )
 
-se_brain = SEBrain(
-    modules=[params.model], optimizer=params.optimizer, first_inputs=[first_x],
-)
+    # Load latest checkpoint to resume training
+    se_brain.fit(
+        se_brain.hparams.epoch_counter,
+        train_set=hparams["train_loader"](),
+        valid_set=hparams["valid_loader"](),
+    )
 
-# Load latest checkpoint to resume training
-params.checkpointer.recover_if_possible()
-se_brain.fit(params.epoch_counter, train_set, valid_set)
-
-# Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(max_key="pesq_score")
-test_stats = se_brain.evaluate(test_set)
-params.train_logger.log_stats(
-    stats_meta={"Epoch loaded": params.epoch_counter.current},
-    test_stats=test_stats,
-)
+    # Load best checkpoint for evaluation
+    test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="pesq")

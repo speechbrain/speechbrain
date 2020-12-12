@@ -21,6 +21,7 @@ class SEBrain(sb.Brain):
 
         # mask with "signal approximation (SA)"
         mask = self.hparams.model(feats)
+        mask = torch.squeeze(mask, 2)
         predict_spec = torch.mul(mask, feats)
 
         # Also return predicted wav
@@ -66,7 +67,9 @@ class SEBrain(sb.Brain):
                         self.hparams.enhanced_folder, name
                     )
                     torchaudio.save(
-                        enhance_path, predict_wav[: int(length)].cpu(), 16000
+                        enhance_path,
+                        torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
+                        16000,
                     )
 
         return loss
@@ -113,7 +116,7 @@ class SEBrain(sb.Brain):
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["pesq"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -173,7 +176,7 @@ if __name__ == "__main__":
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 
-        hparams["hparams"]["tensorboard_train_logger"] = TensorboardLogger(
+        hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs"]
         )
 
@@ -187,15 +190,15 @@ if __name__ == "__main__":
     )
 
     se_brain = SEBrain(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
         opt_class=hparams["opt_class"],
+        hparams=hparams,
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
     )
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        hparams["epoch_counter"],
+        se_brain.hparams.epoch_counter,
         train_set=hparams["train_loader"](),
         valid_set=hparams["valid_loader"](),
     )
