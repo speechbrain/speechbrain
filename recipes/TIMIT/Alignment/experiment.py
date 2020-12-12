@@ -100,7 +100,8 @@ class ASR_Brain(sb.Brain):
         predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach().cpu()
 

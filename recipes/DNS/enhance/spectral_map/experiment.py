@@ -86,7 +86,8 @@ class SEBrain(sb.core.Brain):
         )
         loss = self.compute_objectives(predictions, cleans, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
