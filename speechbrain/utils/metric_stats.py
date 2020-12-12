@@ -135,30 +135,33 @@ class MetricStats:
         else:
             return self.summary
 
-    def write_stats(self, filestream, verbose=False):
+    def write_stats(self, filepath, verbose=False):
         """Write all relevant statistics to file.
 
         Arguments
         ---------
-        filestream : file-like object
-            A stream for the stats to be written to.
+        filepath : file path
+            path file to be written.
         verbose : bool
             Whether to also print the stats to stdout.
         """
         try:
             if sb.if_main_process():
-                if not self.summary:
-                    self.summarize()
+                with open(filepath, "w+") as filestream:
+                    # TODO add metric name
+                    # message = self.metric + " loss stats:\n"
+                    if not self.summary:
+                        self.summarize()
 
-                message = f"Average score: {self.summary['average']}\n"
-                message += f"Min error: {self.summary['min_score']} "
-                message += f"id: {self.summary['min_id']}\n"
-                message += f"Max error: {self.summary['max_score']} "
-                message += f"id: {self.summary['max_id']}\n"
+                    message = f"Average score: {self.summary['average']}\n"
+                    message += f"Min error: {self.summary['min_score']} "
+                    message += f"id: {self.summary['min_id']}\n"
+                    message += f"Max error: {self.summary['max_score']} "
+                    message += f"id: {self.summary['max_id']}\n"
 
-                filestream.write(message)
-                if verbose:
-                    print(message)
+                    filestream.write(message)
+                    if verbose:
+                        print(message)
         finally:
             sb.ddp_barrier()
 
@@ -267,7 +270,7 @@ class ErrorRateStats(MetricStats):
         else:
             return self.summary
 
-    def write_stats(self, filestream):
+    def write_stats(self, filepath):
         """Write all relevant info (e.g. error rate alignments) to file.
 
         * See MetricStats.write_stats()
@@ -276,9 +279,9 @@ class ErrorRateStats(MetricStats):
             if sb.if_main_process():
                 if not self.summary:
                     self.summarize()
-
-                wer_io.print_wer_summary(self.summary, filestream)
-                wer_io.print_alignments(self.scores, filestream)
+                with open(filepath, "w+") as filestream:
+                    wer_io.print_wer_summary(self.summary, filestream)
+                    wer_io.print_alignments(self.scores, filestream)
         finally:
             sb.ddp_barrier()
 

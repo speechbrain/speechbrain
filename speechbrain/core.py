@@ -378,7 +378,7 @@ def ddp_init_group(run_opts):
         logger.info(
             "Distributed_launch flag is disable, this experiment will be executed without DDP."
         )
-        if "local_rank" in run_opts.items() and run_opts["local_rank"] > 0:
+        if "local_rank" in run_opts and run_opts["local_rank"] > 0:
             sys.exit(
                 "DDP is disabled, no subprocess is accepted, signle GPU is then performed\n\t"
                 "for multiGPU DDP training, please use --distributed_launch=True\n\t"

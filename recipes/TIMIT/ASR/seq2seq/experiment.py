@@ -153,17 +153,13 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "CTC, seq2seq, and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            self.ctc_metrics.write_stats(self.hparams.wer_file)
+            self.seq_metrics.write_stats(self.hparams.wer_file)
+            self.per_metrics.write_stats(self.hparams.wer_file)
+            print(
+                "CTC, seq2seq, and PER stats written to file ",
+                self.hparams.wer_file,
+            )
 
 
 if __name__ == "__main__":
