@@ -346,6 +346,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         lm_weight=0.0,
         lm_modules=None,
         ctc_weight=0.0,
+        ctc_score_mode="full",
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -385,6 +386,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # ctc already initalized
         self.minus_inf = minus_inf
+        self.ctc_score_mode = ctc_score_mode
 
     def _check_full_beams(self, hyps, beam_size):
         """
@@ -660,7 +662,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 g = alived_seq
                 # block blank token
                 log_probs[:, self.blank_index] = self.minus_inf
-                if self.ctc_weight != 1.0:
+                if self.ctc_weight != 1.0 and self.ctc_score_mode == "partial":
                     # pruning vocab for ctc_scorer
                     _, ctc_candidates = log_probs.topk(
                         self.beam_size * 2, dim=-1
