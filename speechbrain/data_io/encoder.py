@@ -147,7 +147,7 @@ class CategoricalEncoder:
         int
             Corresponding encoded int value.
         """
-        return self.label2ind[label]
+        return self.lab2ind[label]
 
     def encode_label_torch(self, label):
         """Encode label to torch.LongTensor
@@ -163,7 +163,7 @@ class CategoricalEncoder:
             Corresponding encoded int value.
             Tensor shape [1]
         """
-        return torch.LongTensor([self.label2ind[label]])
+        return torch.LongTensor([self.lab2ind[label]])
 
     def encode_sequence(self, sequence):
         """Encode a sequence of labels to list
@@ -178,7 +178,7 @@ class CategoricalEncoder:
         list
             Corresponding integer labels
         """
-        return [self.label2ind[label] for label in sequence]
+        return [self.lab2ind[label] for label in sequence]
 
     def encode_sequence_torch(self, sequence):
         """Encode a sequence of labels to torch.LongTensor
@@ -194,7 +194,7 @@ class CategoricalEncoder:
             Corresponding integer labels
             Tensor shape [len(sequence)]
         """
-        return torch.LongTensor([self.label2ind[label] for label in sequence])
+        return torch.LongTensor([self.lab2ind[label] for label in sequence])
 
     def decode_int(self, x):
         """
@@ -350,7 +350,7 @@ class CategoricalEncoder:
         """Override this to provide any additional things to save"""
         return {}
 
-    def _set_extras(self, lab2ind, ind2lab, extras):
+    def _set_extras(self, extras):
         """Override this to e.g. load any extras needed"""
         pass
 
@@ -361,8 +361,9 @@ class CategoricalEncoder:
             for label, ind in lab2ind.items():
                 f.write(repr(label) + " " + str(ind) + "\n")
             f.write(CategoricalEncoder.EXTRAS_SEPARATOR)
-            for key, value in extras:
+            for key, value in extras.items():
                 f.write(repr(key) + " " + repr(value) + "\n")
+            f.flush()
 
     @staticmethod
     def _load_literal(path):
@@ -379,6 +380,7 @@ class CategoricalEncoder:
                 if line == CategoricalEncoder.EXTRAS_SEPARATOR:
                     break
                 literal, ind = line.strip().split()
+                ind = int(ind)
                 label = ast.literal_eval(literal)
                 lab2ind[label] = ind
                 ind2lab[ind] = label
