@@ -10,7 +10,7 @@ The ASR model uses either the LibriSpeech LM (`train_LS_LM.yaml`) or the Timers 
 
 ```
 cd decoupled
-python train.py hparams/{train_LS_LM.yaml, train_TAS_LM}.yaml
+python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
 ```
 
 ### Multistage recipe
@@ -18,7 +18,7 @@ The "multistage" recipe is similar to the decoupled recipe, but instead of using
 
 ```
 cd multistage
-python train.py hparams/{train_LS_LM.yaml, train_TAS_LM}.yaml
+python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
 ```
 
 ### Direct recipe
