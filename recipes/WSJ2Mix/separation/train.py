@@ -422,7 +422,7 @@ if __name__ == "__main__":
     )
 
     # Prepare data
-    data_save_dir = hparams["wsj0mixpath"]
+    data_save_dir = hparams["data_folder"]
 
     # If the dataset is not present, we create it in data_save_dir
     if not os.path.exists(data_save_dir):
