@@ -6,6 +6,7 @@ Authors
 """
 
 import copy
+import contextlib
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.data_io.data_io import load_data_json, load_data_csv
@@ -178,6 +179,30 @@ class DynamicItemDataset(Dataset):
         """
         self.pipeline.set_output_keys(keys)
 
+    @contextlib.contextmanager
+    def output_keys_as(self, keys):
+        """Context manager to temporarily set output keys
+
+        Example
+        -------
+        >>> dataset = DynamicItemDataset({"a":{"x":1,"y":2},"b":{"x":3,"y":4}},
+        ...     output_keys = ["x"])
+        >>> with dataset.output_keys_as(["y"]):
+        ...     print(dataset[0])
+        {'y': 2}
+        >>> print(dataset[0])
+        {'x': 1}
+
+        NOTE
+        ----
+        Not thread-safe. While in this context manager, the output keys
+        are affected for any call.
+        """
+        saved_output_keys = self.pipeline.output_keys
+        self.pipeline.set_output_keys(keys)
+        yield self
+        self.pipeline.set_output_keys(saved_output_keys)
+
     def filtered_sorted(
         self,
         key_min_value={},
@@ -246,30 +271,28 @@ class DynamicItemDataset(Dataset):
                 return False
             return True
 
-        saved_output_keys = self.pipeline.output_keys
         temp_keys = (
             set(key_min_value.keys())
             | set(key_max_value.keys())
             | set(key_test.keys())
             | set([] if sort_key is None else [sort_key])
         )
-        self.pipeline.set_output_keys(temp_keys)
         filtered_ids = []
-        for i, data_id in enumerate(self.data_ids):
-            if select_n is not None and len(filtered_ids) == select_n:
-                break
-            data_point = self.data[data_id]
-            data_point["id"] = data_id
-            computed = self.pipeline.compute_outputs(data_point)
-            if combined_filter(computed):
-                if sort_key is not None:
-                    # Add (main sorting index, current index, data_id)
-                    # So that we maintain current sorting and don't compare
-                    # data_id values ever.
-                    filtered_ids.append((computed[sort_key], i, data_id))
-                else:
-                    filtered_ids.append(data_id)
-        self.pipeline.set_output_keys(saved_output_keys)
+        with self.output_keys_as(temp_keys):
+            for i, data_id in enumerate(self.data_ids):
+                if select_n is not None and len(filtered_ids) == select_n:
+                    break
+                data_point = self.data[data_id]
+                data_point["id"] = data_id
+                computed = self.pipeline.compute_outputs(data_point)
+                if combined_filter(computed):
+                    if sort_key is not None:
+                        # Add (main sorting index, current index, data_id)
+                        # So that we maintain current sorting and don't compare
+                        # data_id values ever.
+                        filtered_ids.append((computed[sort_key], i, data_id))
+                    else:
+                        filtered_ids.append(data_id)
         if sort_key is not None:
             filtered_sorted_ids = [
                 tup[2] for tup in sorted(filtered_ids, reverse=reverse)
