@@ -14,8 +14,7 @@ output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/big_random_1024/save/CKPT+2020-10-28+13-25-27+00/model.ckpt # yamllint disable-line rule:line-length
-
+lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/lr1/big_batchmean/save/CKPT+2020-11-30+02-35-44+00/model.ckpt # yamllint disable-line rule:line-length
 # Tokenizer model
 tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model # yamllint disable-line rule:line-length
 tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.vocab # yamllint disable-line rule:line-length
@@ -60,11 +59,11 @@ conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
 strides: (1, 2, 1, 1, 1, 1, 1, 2, 1)
 
 # Transformer
-d_model: 512
+d_model: 768
 nhead: 8
 num_encoder_layers: 12
 num_decoder_layers: 6
-d_ffn: 2048
+d_ffn: 3072
 transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
 output_neurons: 5000
@@ -138,16 +137,17 @@ tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
     eos_id: !ref <eos_index>
     unk_id: !ref <unk_index>
 
-CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
-    alpha: !ref <alpha>
-    dropout: !ref <dropout>
-    num_blocks: !ref <num_blocks>
-    conv_channels: !ref <conv_channels>
-    strides: !ref <strides>
+    num_blocks: 3
+    num_layers_per_block: 1
+    out_channels: (128, 256, 512)
+    kernel_sizes: (3, 3, 1)
+    strides: (2, 2, 1)
+    residuals: (False, False, False)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-    input_size: 640
+    input_size: 10240
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: !ref <nhead>
