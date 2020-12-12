@@ -28,7 +28,7 @@ csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
 csv_test_real: !ref <data_folder>/test-real-type=direct.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
 asr_hparam_file:
-    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained.yaml
+    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
 number_of_epochs: 1
