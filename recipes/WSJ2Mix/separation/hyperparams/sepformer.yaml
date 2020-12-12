@@ -11,7 +11,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
-wsj0mixpath: '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
+data_folder: '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
 output_folder: !ref results/sepformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
