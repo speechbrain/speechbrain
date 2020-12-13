@@ -285,14 +285,14 @@ def _convert_to_yaml(overrides):
 
 def if_main_process():
     """Check if the current process is the main process and authorized to run I/O commands.
-    In DDP mode, the main process is the one with LOCAL_RANK == 0.
-    In standard mode, the process will not have `LOCAL_RANK` Unix var and will be authorized to run the I/O commands.
+    In DDP mode, the main process is the one with RANK == 0.
+    In standard mode, the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
     """
-    if "LOCAL_RANK" in os.environ:
-        if os.environ["LOCAL_RANK"] == "":
+    if "RANK" in os.environ:
+        if os.environ["RANK"] == "":
             return False
         else:
-            if int(os.environ["LOCAL_RANK"]) == 0:
+            if int(os.environ["RANK"]) == 0:
                 return True
             return False
     return True
@@ -881,7 +881,13 @@ class Brain:
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss
                         )
-                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
+                    try:
+                        if sb.if_main_process():
+                            self.on_stage_end(
+                                Stage.VALID, avg_valid_loss, epoch
+                            )
+                    finally:
+                        sb.ddp_barrier()
 
     def _compile_jit(self):
         """This should be run *after* mp.spawn, since jit modules
@@ -961,7 +967,11 @@ class Brain:
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
-        self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
+            try:
+                if sb.if_main_process():
+                    self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
+            finally:
+                sb.ddp_barrier()
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.

@@ -5,6 +5,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
+ * Abdel HEBA 2020
 """
 
 import os
@@ -427,7 +428,11 @@ class DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            save_pkl(label_dict, label_dict_file)
+            try:
+                if sb.if_main_process():
+                    save_pkl(label_dict, label_dict_file)
+            finally:
+                sb.ddp_barrier()
 
         return label_dict
 
@@ -1330,8 +1335,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            label_dict_file = self.output_folder + "/label_dict.pkl"
-            save_pkl(label_dict, label_dict_file)
+            try:
+                label_dict_file = self.output_folder + "/label_dict.pkl"
+                if sb.if_main_process():
+                    save_pkl(label_dict, label_dict_file)
+            finally:
+                sb.ddp_barrier()
         return label_dict
 
 
@@ -2274,7 +2283,11 @@ class TensorSaver(torch.nn.Module):
 
         # Creating the save folder if it does not exist
         if not os.path.exists(self.save_folder):
-            os.makedirs(self.save_folder)
+            try:
+                if sb.if_main_process():
+                    os.makedirs(self.save_folder)
+            finally:
+                sb.ddp_barrier()
 
         # Check specified format
         if self.save_format not in self.supported_formats:
@@ -2287,9 +2300,13 @@ class TensorSaver(torch.nn.Module):
 
         # Create the csv file (if specified)
         if self.save_csv:
-            self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
-            open(self.save_csv_path, "w").close()
-            self.first_line_csv = True
+            try:
+                self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
+                if sb.if_main_process():
+                    open(self.save_csv_path, "w").close()
+                self.first_line_csv = True
+            finally:
+                sb.ddp_barrier()
 
     def forward(self, data, data_id, data_len):
         """
@@ -2307,7 +2324,11 @@ class TensorSaver(torch.nn.Module):
             data = 10 * data.log10()
 
         # Writing data on disk (in parallel)
-        self.write_batch(data, data_id, data_len)
+        try:
+            if sb.if_main_process():
+                self.write_batch(data, data_id, data_len)
+        finally:
+            sb.ddp_barrier()
 
     def write_batch(self, data, data_id, data_len):
         """
@@ -2590,12 +2611,8 @@ def save_pkl(obj, file):
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
     """
-    try:
-        if sb.if_main_process():
-            with open(file, "wb") as f:
-                pickle.dump(obj, f)
-    finally:
-        sb.ddp_barrier()
+    with open(file, "wb") as f:
+        pickle.dump(obj, f)
 
 
 def load_pkl(file):

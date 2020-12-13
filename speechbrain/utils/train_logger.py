@@ -5,7 +5,6 @@ Authors
  * Peter Plantinga 2020
 """
 import logging
-import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -84,26 +83,20 @@ class FileTrainLogger(TrainLogger):
         test_stats=None,
         verbose=True,
     ):
-        try:
-            if sb.if_main_process():
-                """See TrainLogger.log_stats()"""
-                string_summary = self._stats_to_string(stats_meta)
-                for dataset, stats in [
-                    ("train", train_stats),
-                    ("valid", valid_stats),
-                    ("test", test_stats),
-                ]:
-                    if stats is not None:
-                        string_summary += " - " + self._stats_to_string(
-                            stats, dataset
-                        )
+        """See TrainLogger.log_stats()"""
+        string_summary = self._stats_to_string(stats_meta)
+        for dataset, stats in [
+            ("train", train_stats),
+            ("valid", valid_stats),
+            ("test", test_stats),
+        ]:
+            if stats is not None:
+                string_summary += " - " + self._stats_to_string(stats, dataset)
 
-                with open(self.save_file, "a") as fout:
-                    print(string_summary, file=fout)
-                if verbose:
-                    logger.info(string_summary)
-        finally:
-            sb.ddp_barrier()
+        with open(self.save_file, "a") as fout:
+            print(string_summary, file=fout)
+        if verbose:
+            logger.info(string_summary)
 
 
 class TensorboardLogger(TrainLogger):
@@ -136,31 +129,23 @@ class TensorboardLogger(TrainLogger):
         test_stats=None,
         verbose=False,
     ):
-        try:
-            if sb.if_main_process():
-                """See TrainLogger.log_stats()"""
-                self.global_step["meta"] += 1
-                for name, value in stats_meta.items():
-                    self.writer.add_scalar(
-                        name, value, self.global_step["meta"]
-                    )
+        """See TrainLogger.log_stats()"""
+        self.global_step["meta"] += 1
+        for name, value in stats_meta.items():
+            self.writer.add_scalar(name, value, self.global_step["meta"])
 
-                for dataset, stats in [
-                    ("train", train_stats),
-                    ("valid", valid_stats),
-                    ("test", test_stats),
-                ]:
-                    if stats is None:
-                        continue
-                    for stat, value_list in stats.items():
-                        if stat not in self.global_step[dataset]:
-                            self.global_step[dataset][stat] = 0
-                        tag = f"{stat}/{dataset}"
-                        for value in value_list:
-                            new_global_step = (
-                                self.global_step[dataset][stat] + 1
-                            )
-                            self.writer.add_scalar(tag, value, new_global_step)
-                            self.global_step[dataset][stat] = new_global_step
-        finally:
-            sb.ddp_barrier()
+        for dataset, stats in [
+            ("train", train_stats),
+            ("valid", valid_stats),
+            ("test", test_stats),
+        ]:
+            if stats is None:
+                continue
+            for stat, value_list in stats.items():
+                if stat not in self.global_step[dataset]:
+                    self.global_step[dataset][stat] = 0
+                tag = f"{stat}/{dataset}"
+                for value in value_list:
+                    new_global_step = self.global_step[dataset][stat] + 1
+                    self.writer.add_scalar(tag, value, new_global_step)
+                    self.global_step[dataset][stat] = new_global_step
