@@ -8,7 +8,6 @@ Authors:
 """
 import torch
 import speechbrain.data_io.wer as wer_io
-import speechbrain as sb
 from speechbrain.utils import edit_distance
 from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import (
@@ -135,35 +134,28 @@ class MetricStats:
         else:
             return self.summary
 
-    def write_stats(self, filepath, verbose=False):
+    def write_stats(self, filestream, verbose=False):
         """Write all relevant statistics to file.
 
         Arguments
         ---------
-        filepath : file path
-            path file to be written.
+        filestream : file-like object
+            A stream for the stats to be written to.
         verbose : bool
             Whether to also print the stats to stdout.
         """
-        try:
-            if sb.if_main_process():
-                with open(filepath, "w+") as filestream:
-                    # TODO add metric name
-                    # message = self.metric + " loss stats:\n"
-                    if not self.summary:
-                        self.summarize()
+        if not self.summary:
+            self.summarize()
 
-                    message = f"Average score: {self.summary['average']}\n"
-                    message += f"Min error: {self.summary['min_score']} "
-                    message += f"id: {self.summary['min_id']}\n"
-                    message += f"Max error: {self.summary['max_score']} "
-                    message += f"id: {self.summary['max_id']}\n"
+        message = f"Average score: {self.summary['average']}\n"
+        message += f"Min error: {self.summary['min_score']} "
+        message += f"id: {self.summary['min_id']}\n"
+        message += f"Max error: {self.summary['max_score']} "
+        message += f"id: {self.summary['max_id']}\n"
 
-                    filestream.write(message)
-                    if verbose:
-                        print(message)
-        finally:
-            sb.ddp_barrier()
+        filestream.write(message)
+        if verbose:
+            print(message)
 
 
 class ErrorRateStats(MetricStats):
@@ -270,20 +262,15 @@ class ErrorRateStats(MetricStats):
         else:
             return self.summary
 
-    def write_stats(self, filepath):
+    def write_stats(self, filestream):
         """Write all relevant info (e.g. error rate alignments) to file.
-
         * See MetricStats.write_stats()
         """
-        try:
-            if sb.if_main_process():
-                if not self.summary:
-                    self.summarize()
-                with open(filepath, "w+") as filestream:
-                    wer_io.print_wer_summary(self.summary, filestream)
-                    wer_io.print_alignments(self.scores, filestream)
-        finally:
-            sb.ddp_barrier()
+        if not self.summary:
+            self.summarize()
+
+        wer_io.print_wer_summary(self.summary, filestream)
+        wer_io.print_alignments(self.scores, filestream)
 
 
 class BinaryMetricStats(MetricStats):
