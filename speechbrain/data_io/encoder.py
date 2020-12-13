@@ -20,6 +20,7 @@ class CategoricalEncoder:
     recognition.
     """
 
+    VALUE_SEPARATOR = " => "
     EXTRAS_SEPARATOR = "================\n"
 
     def __init__(self, starting_index=0):
@@ -359,10 +360,20 @@ class CategoricalEncoder:
         """Save which is compatible with _load_literal"""
         with open(path, "w") as f:
             for label, ind in lab2ind.items():
-                f.write(repr(label) + " " + str(ind) + "\n")
+                f.write(
+                    repr(label)
+                    + CategoricalEncoder.VALUE_SEPARATOR
+                    + str(ind)
+                    + "\n"
+                )
             f.write(CategoricalEncoder.EXTRAS_SEPARATOR)
             for key, value in extras.items():
-                f.write(repr(key) + " " + repr(value) + "\n")
+                f.write(
+                    repr(key)
+                    + CategoricalEncoder.VALUE_SEPARATOR
+                    + repr(value)
+                    + "\n"
+                )
             f.flush()
 
     @staticmethod
@@ -379,14 +390,18 @@ class CategoricalEncoder:
             for line in f:
                 if line == CategoricalEncoder.EXTRAS_SEPARATOR:
                     break
-                literal, ind = line.strip().split()
+                literal, ind = line.strip().split(
+                    CategoricalEncoder.VALUE_SEPARATOR
+                )
                 ind = int(ind)
                 label = ast.literal_eval(literal)
                 lab2ind[label] = ind
                 ind2lab[ind] = label
             # Load the extras:
             for line in f:
-                literal_key, literal_value = line.strip().split()
+                literal_key, literal_value = line.strip().split(
+                    CategoricalEncoder.VALUE_SEPARATOR
+                )
                 key = ast.literal_eval(literal_key)
                 value = ast.literal_eval(literal_value)
                 extras[key] = value
