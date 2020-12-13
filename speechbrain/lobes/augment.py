@@ -54,7 +54,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
     -------
     >>> inputs = torch.randn([10, 16000])
     >>> feature_maker = TimeDomainSpecAugment(speeds=[80])
-    >>> feats = feature_maker(inputs, torch.ones(10), init_params=True)
+    >>> feats = feature_maker(inputs, torch.ones(10))
     >>> feats.shape
     torch.Size([10, 12800])
     """
@@ -90,7 +90,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
             drop_length_high=drop_chunk_length_high,
         )
 
-    def forward(self, waveforms, lengths, init_params=False):
+    def forward(self, waveforms, lengths):
         """Returns the distorted waveforms.
 
         Arguments
@@ -155,7 +155,7 @@ class EnvCorrupt(torch.nn.Module):
     -------
     >>> inputs = torch.randn([10, 16000])
     >>> corrupter = EnvCorrupt(babble_speaker_count=9)
-    >>> feats = corrupter(inputs, torch.ones(10), init_params=True)
+    >>> feats = corrupter(inputs, torch.ones(10))
     """
 
     def __init__(
@@ -219,7 +219,7 @@ class EnvCorrupt(torch.nn.Module):
                 snr_high=noise_snr_high,
             )
 
-    def forward(self, waveforms, lengths, init_params=False):
+    def forward(self, waveforms, lengths):
         """Returns the distorted waveforms.
 
         Arguments

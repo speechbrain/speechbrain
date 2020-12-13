@@ -8,8 +8,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 __set_seed_python: !apply:random.seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1_2
-output_folder: results/voxceleb1_2/ecapa-tdnn
+data_folder: /localscratch/voxceleb1
+output_folder: results/voxceleb1/ecapa-tdnn
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 

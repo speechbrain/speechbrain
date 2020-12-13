@@ -24,7 +24,7 @@ batch_size: 128
 lr: 0.0002500
 lr_final: 0.00005000
 freeze_embeddings: False
-device: 'cuda'
+device: 'cuda:0'
 multigpu_count: 0  # Set to number of GPUs for multi-gpu training
 multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 random_segment: False
