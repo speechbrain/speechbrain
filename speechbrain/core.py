@@ -550,6 +550,22 @@ class Brain:
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
+            if not torch.distributed.is_initialized():
+                if self.rank > 0:
+                    sys.exit(
+                        " ================ WARNING ==============="
+                        "Please add sb.ddp_init_group() into your exp.py"
+                        "To use DDP backend, start your script with:\n\t"
+                        "python -m torch.distributed.lunch [args]\n\t"
+                        "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                    )
+                else:
+                    logger.warn(
+                        "To use DDP, please add sb.ddp_init_group() into your exp.py"
+                    )
+                    logger.info(
+                        "Only the main process is alive, all other subprocess were killed."
+                    )
             # force the models to start and remain synchronized
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
