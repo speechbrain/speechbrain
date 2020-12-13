@@ -11,7 +11,7 @@ def test_categorical_encoder_saving(tmpdir):
     from speechbrain.data_io.encoder import CategoricalEncoder
 
     encoder = CategoricalEncoder(starting_index=3)
-    encoding_file = tmpdir / "encoding.txt"
+    encoding_file = tmpdir / "char_encoding.txt"
     # First time this runs, the encoding is created:
     if not encoder.load_if_possible(encoding_file):
         encoder.update_from_iterable("abcd")
@@ -26,6 +26,17 @@ def test_categorical_encoder_saving(tmpdir):
     integers = encoder.encode_sequence("dcba")
     assert all(isinstance(i, int) for i in integers)
     assert encoder.starting_index == 3  # This is also loaded
+
+    # Also possible to encode tuples and load
+    encoder = CategoricalEncoder()
+    encoding_file = tmpdir / "tuple_encoding.txt"
+    encoder.add_label((1, 2, 3))
+    encoder.insert_label((1, 2), index=-1)
+    encoder.save(encoding_file)
+    # Reload
+    encoder = CategoricalEncoder()
+    assert encoder.load_if_possible(encoding_file)
+    assert encoder.encode_label((1, 2)) == -1
 
 
 def test_categorical_encoder_from_dataset():
