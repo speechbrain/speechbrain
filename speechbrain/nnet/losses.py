@@ -873,7 +873,7 @@ class AdditiveAngularMargin(AngularMargin):
         ---------
         predictions : torch.Tensor
         """
-        cosine = outputs
+        cosine = outputs.float()
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
         phi = cosine * self.cos_m - sine * self.sin_m  # cos(theta + m)
         if self.easy_margin:
