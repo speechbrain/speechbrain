@@ -79,6 +79,8 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         Path where to load from
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
+    device : str
+        Torch device, where to map the loaded parameters.
 
     Returns
     -------
@@ -174,9 +176,9 @@ def mark_as_loader(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), True)
+        sig.bind(object(), pathlib.Path("testpath"), True, None)
     except TypeError:
-        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch)"
+        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch, device)"
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
