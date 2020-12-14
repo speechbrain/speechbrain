@@ -7,14 +7,12 @@ Authors
 """
 
 import os
-import sys
 import shutil
 import urllib.request
 import collections.abc
 import torch
 import tqdm
 import pathlib
-import importlib
 import speechbrain as sb
 
 
@@ -315,45 +313,18 @@ def download_file(
         sb.ddp_barrier()
 
 
-def import_from_file(class_name, module_path):
-    """Imports a function or a class from the module specified in the path.
-
-    Arguments
-    ---------
-    class_name : str
-        Name of the class to import.
-    module_path : str
-    """
-    module_path = os.path.abspath(module_path)
-    lib_dir = os.path.dirname(module_path)
-    lib_name = os.path.basename(module_path)
-    lib_name = os.path.splitext(lib_name)[0]
-    sys.path.append(lib_dir)
-    module = importlib.import_module(lib_name)
-    class_obj = getattr(module, class_name)
-    return class_obj
-
-
-def prepare_data(prep_funct, prep_lib_path, **kwargs):
+def prepare_data(prep_function):
     """Performs the dataset preparation with DPP (multi-gpu) support.
 
     Arguments
     ---------
-    prep_lib_path : path
-        Path of the data preparation script.
-    prep_funct : str
-        Name of the function to use for preparation.
-    kwargs: dict
-        Arguments to pass to the prep_function.
+    prepare_funct : object
+        Function used to perform data preparation.
     """
-
-    # Import module from path
-    prepare = import_from_file(prep_funct, prep_lib_path)
-
     try:
         # all writing command must be done with the main_process
         if sb.if_main_process():
-            prepare(**kwargs)
+            prep_function()
     finally:
         # wait for main_process if ddp is used
         sb.ddp_barrier()
