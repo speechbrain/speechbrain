@@ -40,7 +40,6 @@ common_dynamic_items:
         argkeys: [wav]
 common_output_keys: ["id", "sig", "phn_encoded"]
 
-
 train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/train.json
     replacements:
