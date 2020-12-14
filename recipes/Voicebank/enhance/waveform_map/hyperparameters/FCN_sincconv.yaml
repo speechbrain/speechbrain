@@ -7,13 +7,13 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 2234
+seed: 5670
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: /localscratch/noisy-vctk-16k
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/FCN_stoi/<seed>
+output_folder: !ref ./results/FCN_sincconv/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/FCN_enhanced
@@ -35,7 +35,7 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-number_of_epochs: 20
+number_of_epochs: 150
 N_batch: 1
 lr: 0.001
 device: 'cuda:0'
@@ -78,7 +78,7 @@ model: !new:speechbrain.nnet.containers.Sequential
         input_size: 1
         track_running_stats: False
         affine: True
-    conv1: !name:speechbrain.nnet.CNN.Conv1d
+    conv1: !name:speechbrain.nnet.CNN.SincConv
         out_channels: !ref <base_channels>
         kernel_size: !ref <kernel_size>
     IN1: !new:speechbrain.nnet.normalization.InstanceNorm1d
@@ -150,19 +150,23 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
 
-compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
 compute_STFT: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     n_fft: !ref <N_fft>
     window_fn: !ref <window_fn>
+
 compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     window_fn: !ref <window_fn>
+
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
