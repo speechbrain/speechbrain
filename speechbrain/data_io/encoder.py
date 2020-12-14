@@ -480,11 +480,11 @@ class TextEncoder(CategoricalEncoder):
 
     def add_blank(self, encoding=None, token="<blank>"):
         self.blank_token = token
-        self.add_elem(token, encoding)
+        self.enforce_label(token, encoding)
 
     def add_unk(self, encoding=None, token="<unk>"):
         self.unk_token = token
-        self.add_elem(token, encoding)
+        self.enforce_label(token, encoding)
 
     def add_bos_eos(
         self,
@@ -500,9 +500,10 @@ class TextEncoder(CategoricalEncoder):
             )
             self.bos_token = bos_token
             self.eos_token = bos_token
-            self.add_elem(bos_token, bos_encoding)
+            self.enforce_label(bos_token, bos_encoding)
         else:
-            self.update({bos_token: bos_encoding, eos_token: eos_encoding})
+            self.enforce_label(bos_token, bos_encoding)
+            self.enforce_label(eos_token, eos_encoding)
             self.bos_token = bos_token
             self.eos_token = eos_token
 
@@ -519,7 +520,7 @@ class TextEncoder(CategoricalEncoder):
             except KeyError:
                 raise KeyError(
                     "Token {} can't be encoded because it is not in the encoding dictionary, "
-                    "either something was meesed up during data preparation or, "
+                    "either something was messed up during data preparation or, "
                     "if this happens in test consider using the <unk>, unknown fallback symbol".format(
                         k
                     )
@@ -563,7 +564,7 @@ class CTCTextEncoder(TextEncoder):
     ):
         enc = cls()
 
-        enc.fit(data_collections, *args, **kwargs)
+        enc.update_from_didataset(data_collections, *args, **kwargs)
         enc.add_blank(blank_encoding, blank_token)
         if unk_token is not None:
             enc.add_unk(unk_encoding, unk_token)
