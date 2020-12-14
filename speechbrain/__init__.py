@@ -41,3 +41,11 @@ class TestThing:
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+
+    @classmethod
+    def from_keys(cls, args, kwargs):
+        obj = cls()
+        obj.specific_key = kwargs["thing1"]
+        obj.args = args
+        obj.kwargs = kwargs
+        return obj
