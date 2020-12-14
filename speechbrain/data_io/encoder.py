@@ -6,6 +6,7 @@ Authors
 """
 import ast
 import torch
+import collections
 import itertools
 import logging
 
@@ -16,8 +17,7 @@ class CategoricalEncoder:
     """
     Encode labels of a discrete set.
 
-    Used for encoding text as well as e.g. speaker identities in speaker
-    recognition.
+    Used for encoding e.g. speaker identities in speaker recognition.
     """
 
     VALUE_SEPARATOR = " => "
@@ -27,6 +27,10 @@ class CategoricalEncoder:
         self.lab2ind = {}
         self.ind2lab = {}
         self.starting_index = starting_index
+        # NOTE: unk_label is not set at all!
+        # This is because None is a suitable value for unk.
+        # So the test is: hasattr(self, "unk_label")
+        # rather than self.unk_label is not None
 
     def __len__(self):
         return len(self.lab2ind)
@@ -69,6 +73,52 @@ class CategoricalEncoder:
                 (data_point[output_key] for data_point in didataset),
                 sequence_input=sequence_input,
             )
+
+    def limited_labelset_from_iterable(
+        self, iterable, sequence_input=True, n_most_common=None, min_count=1
+    ):
+        """Produce label mapping from iterable based on label counts
+
+        Used to limit label set size.
+
+        Arguments
+        ---------
+        iterable : iterable
+            Input sequence on which to operate.
+        sequence_input : bool
+            Whether iterable yields sequences of labels or individual labels
+            directly. True by default, unlike CategoricalEncoder.
+        n_most_common : int, None
+            Take at most this many labels as the label set, keeping the most
+            common ones. If None (as by default), take all.
+        min_count : int
+            Don't take labels if they appear less than this many times.
+
+        Returns
+        -------
+        collections.Counter
+            The counts of the different labels (unfiltered).
+        """
+        if self.lab2ind:
+            clsname = self.__class__.__name__
+            logger.info(
+                f"Limited_labelset_from_iterable called, "
+                f"but {clsname} is not empty. "
+                "The new labels will be added, i.e. won't overwrite. "
+                "This is normal if there is e.g. an unk label already."
+            )
+        if sequence_input:
+            label_iterator = itertools.chain.from_iterable(iterable)
+        else:
+            label_iterator = iter(iterable)
+        counts = collections.Counter(label_iterator)
+        for label, count in counts.most_common(n_most_common):
+            if count < min_count:
+                # .most_common() produces counts in descending order,
+                # so no more labels can be found
+                break
+            self.add_label(label)
+        return counts
 
     def add_label(self, label):
         """Add new label to the encoder, at the next free position.
@@ -169,6 +219,26 @@ class CategoricalEncoder:
             self.lab2ind[saved_label] = new_index
             self.ind2lab[new_index] = saved_label
 
+    def add_unk(self, unk_label="<unk>"):
+        """Add label for unknown tokens (out-of-vocab)
+
+        When asked to encode unknown labels, they can be mapped to this.
+
+        Arguments
+        ---------
+        label : hashable, optional
+            Most often labels are str, but anything that can act as dict key is
+            supported. Note that default save/load only supports Python
+            literals. Default: <unk>. This can be None, as well!
+
+        Returns
+        -------
+        int
+            The index that was used to encode this.
+        """
+        self.unk_label = unk_label
+        return self.add_label(unk_label)
+
     def _next_index(self):
         """The index to use for the next new label"""
         index = self.starting_index
@@ -180,35 +250,63 @@ class CategoricalEncoder:
         """Check that the set of indices doesn't have gaps
 
         For example:
-        Continuous: [2,3,4]
-        Non-continuous: [0,1,3]
+        If starting index = 1
+        Continuous: [1,2,3,4]
+        Continuous: [0,1,2]
+        Non-continuous: [2,3,4]
+        Non-continuous: [1,2,4]
 
         Returns
         -------
         bool
-            True if continuous (or there are only 0 or 1 labels).
+            True if continuous.
         """
         # Because of Python indexing this also handles the special cases
         # of 0 or 1 labels.
         indices = sorted(self.ind2lab.keys())
-        return all(j - i == 1 for i, j in zip(indices[:-1], indices[1:]))
+        return self.starting_index in indices and all(
+            j - i == 1 for i, j in zip(indices[:-1], indices[1:])
+        )
 
-    def encode_label(self, label):
+    def encode_label(self, label, allow_unk=True):
         """Encode label to int
 
         Arguments
         ---------
         label : hashable
             Label to encode, must exist in the mapping.
+        allow_unk : bool
+            If given label is not in the label set
+            AND unk_label has been added with add_unk(),
+            allows encoding to unk_label's index.
 
         Returns
         -------
         int
             Corresponding encoded int value.
         """
-        return self.lab2ind[label]
+        try:
+            return self.lab2ind[label]
+        except KeyError:
+            if hasattr(self, "unk_label") and allow_unk:
+                return self.lab2ind[self.unk_label]
+            elif hasattr(self, "unk_label") and not allow_unk:
+                raise KeyError(
+                    f"Unknown label {label}, and explicitly "
+                    "disallowed the use of the existing unk-label"
+                )
+            elif not hasattr(self, "unk_label") and allow_unk:
+                raise KeyError(
+                    f"Cannot encode unknown label {label}. "
+                    "You have not called add_unk() to add a special "
+                    "unk-label for unknown labels."
+                )
+            else:
+                raise KeyError(
+                    f"Couldn't and wouldn't encode unknown label " f"{label}."
+                )
 
-    def encode_label_torch(self, label):
+    def encode_label_torch(self, label, allow_unk=True):
         """Encode label to torch.LongTensor
 
         Arguments
@@ -222,9 +320,9 @@ class CategoricalEncoder:
             Corresponding encoded int value.
             Tensor shape [1]
         """
-        return torch.LongTensor([self.lab2ind[label]])
+        return torch.LongTensor(self.encode_label(label, allow_unk))
 
-    def encode_sequence(self, sequence):
+    def encode_sequence(self, sequence, allow_unk=True):
         """Encode a sequence of labels to list
 
         Arguments
@@ -237,9 +335,9 @@ class CategoricalEncoder:
         list
             Corresponding integer labels
         """
-        return [self.lab2ind[label] for label in sequence]
+        return [self.encode_label(label, allow_unk) for label in sequence]
 
-    def encode_sequence_torch(self, sequence):
+    def encode_sequence_torch(self, sequence, allow_unk=True):
         """Encode a sequence of labels to torch.LongTensor
 
         Arguments
@@ -253,7 +351,9 @@ class CategoricalEncoder:
             Corresponding integer labels
             Tensor shape [len(sequence)]
         """
-        return torch.LongTensor([self.lab2ind[label] for label in sequence])
+        return torch.LongTensor(
+            [self.encode_label(label, allow_unk) for label in sequence]
+        )
 
     def decode_torch(self, x):
         """
@@ -309,55 +409,6 @@ class CategoricalEncoder:
         except TypeError:  # Not an iterable, bottom level!
             return self.ind2lab[int(x)]
 
-    def decode_one_hot(self, x):
-        """
-
-        Arguments
-        ----------
-        x : torch.Tensor
-            One-hot encoding torch.Tensor which has to be decoded to original labels strings.
-            Accepts 1D tensor of shape (n_classes) 2D tensor of shape (n_classes, time_steps)
-            and 3D tensor of shape (batch, n_classes, time_steps).
-
-        Returns
-        -------
-        decoded : list
-            list containing original labels (strings).
-        """
-
-        if not isinstance(x, torch.Tensor):
-            raise TypeError(
-                "Input must be a torch.Tensor, got {}".format(type(x))
-            )
-
-        if x.ndim == 1:
-            ind = torch.argmax(x)
-            decoded = self.ind2lab[ind.item()]
-            return decoded
-
-        elif x.ndim == 2:
-            decoded = []
-            indexes = torch.argmax(x, 0)  # classes, steps
-            for time_step in range(len(indexes)):
-                decoded.append(self.ind2lab[indexes[time_step].item()])
-            return decoded
-
-        elif x.ndim == 3:  # batched tensor b, classes, steps
-            decoded = []
-            for batch in x.shape[0]:
-                c_batch = []
-                indexes = torch.argmax(x[batch], 0)
-                for time_step in range(len(indexes)):
-                    c_batch.append(self.ind2lab[indexes[time_step]])
-                decoded.append(c_batch)
-            return decoded
-        else:
-            raise NotImplementedError(
-                "Only 1D, 2D and 3D tensors are supported got tensor with ndim={}".format(
-                    x.ndim
-                )
-            )
-
     def save(self, path):
         """Save the categorical encoding for later use and recovery
 
@@ -370,16 +421,10 @@ class CategoricalEncoder:
             Where to save. Will overwrite.
         """
         extras = self._get_extras()
-        if "starting_index" in extras:
-            raise ValueError(
-                "The extra key starting_index is reserved by the "
-                "CategoricalEncoder base class."
-            )
-        extras["starting_index"] = self.starting_index
         self._save_literal(path, self.lab2ind, extras)
 
-    def load_if_possible(self, path):
-        """Loads if possible, returns bool indicating if loaded or not.
+    def load(self, path):
+        """Loads from the given path
 
         CategoricalEncoder uses a Python literal format, which supports things
         like tuple labels, but is considered safe to load (unlike e.g. pickle).
@@ -388,7 +433,6 @@ class CategoricalEncoder:
         ---------
         path : str, Path
             Where to load from.
-
         """
         if self.lab2ind:
             clsname = self.__class__.__name__
@@ -397,8 +441,44 @@ class CategoricalEncoder:
                 "Loaded data will overwrite everything. "
                 "This is normal if there are e.g. default labels."
             )
+        lab2ind, ind2lab, extras = self._load_literal(path)
+        self.lab2ind = lab2ind
+        self.ind2lab = ind2lab
+        self._set_extras(extras)
+        # If we're here, load was a success!
+        logger.debug(f"Loaded categorical encoding from {path}")
+
+    def load_if_possible(self, path):
+        """Loads if possible, returns bool indicating if loaded or not.
+
+        Arguments
+        ---------
+        path : str, Path
+            Where to load from.
+
+        Returns
+        -------
+        bool :
+            If load was successful.
+
+        Example
+        -------
+        >>> encoding_file = getfixture('tmpdir') / "encoding.txt"
+        >>> encoder = CategoricalEncoder()
+        >>> # The idea is in an experiment script to have something like this:
+        >>> if not encoder.load_if_possible(encoding_file):
+        ...     encoder.update_from_iterable("abcd")
+        ...     encoder.save(encoding_file)
+        >>> # So the first time you run the experiment, the encoding is created.
+        >>> # However, later, the encoding exists:
+        >>> encoder = CategoricalEncoder()
+        >>> if not encoder.load_if_possible(encoding_file):
+        ...     assert False  # We won't get here!
+        >>> encoder.decode_ndim(range(4))
+        ['a', 'b', 'c', 'd']
+        """
         try:
-            lab2ind, ind2lab, extras = self._load_literal(path)
+            self.load(path)
         except FileNotFoundError:
             logger.debug(
                 f"Would load categorical encoding from {path}, "
@@ -411,23 +491,26 @@ class CategoricalEncoder:
                 "and file existed but seems to be corrupted or otherwise couldn't load."
             )
             return False
-        self.lab2ind = lab2ind
-        self.ind2lab = ind2lab
-        # Starting index is stored with extras, but is part of the base class.
-        self.starting_index = extras["starting_index"]
-        del extras["starting_index"]
-        self._set_extras(extras)
-        # If we're here, load was a success!
-        logger.debug(f"Loaded categorical encoding from {path}")
-        return True
+        return True  # If here, all good
 
     def _get_extras(self):
-        """Override this to provide any additional things to save"""
-        return {}
+        """Override this to provide any additional things to save
+
+        Call super()._get_extras() to get the base extras
+        """
+        extras = {"starting_index": self.starting_index}
+        if hasattr(self, "unk_label"):
+            extras["unk_label"] = self.unk_label
+        return extras
 
     def _set_extras(self, extras):
-        """Override this to e.g. load any extras needed"""
-        pass
+        """Override this to e.g. load any extras needed
+
+        Call super()._set_extras(extras) to set the base extras
+        """
+        if "unk_label" in extras:
+            self.unk_label = extras["unk_label"]
+        self.starting_index = extras["starting_index"]
 
     @staticmethod
     def _save_literal(path, lab2ind, extras):
@@ -483,20 +566,13 @@ class CategoricalEncoder:
 
 
 class TextEncoder(CategoricalEncoder):
-    def __init__(self):
-
-        super(TextEncoder, self).__init__()
-        self.blank_token = None
-        self.unk_token = None
-        self.bos_token = None
-        self.eos_token = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bos_label = None
+        self.eos_label = None
 
     def add_blank(self, encoding=None, token="<blank>"):
         self.blank_token = token
-        self.enforce_label(token, encoding)
-
-    def add_unk(self, encoding=None, token="<unk>"):
-        self.unk_token = token
         self.enforce_label(token, encoding)
 
     def add_bos_eos(
@@ -520,65 +596,22 @@ class TextEncoder(CategoricalEncoder):
             self.bos_token = bos_token
             self.eos_token = eos_token
 
-    def _index_label_dict(self, label_dict, k):
-        if self.unk_token:
-            try:
-                out = label_dict[k]
-            except KeyError:
-                out = label_dict[self.unk_token]
-            return out
-        else:
-            try:
-                return label_dict[k]
-            except KeyError:
-                raise KeyError(
-                    "Token {} can't be encoded because it is not in the encoding dictionary, "
-                    "either something was messed up during data preparation or, "
-                    "if this happens in test consider using the <unk>, unknown fallback symbol".format(
-                        k
-                    )
-                )
+    def prepend_bos_label(self, x):
+        """Returns a list version of x, with BOS prepended"""
+        return [self.bos_label] + list(x)
 
-    def prepend_bos(self, x: list):
-        if isinstance(x, list):
-            return [self.bos_token] + x
-        else:
-            raise TypeError(
-                "Curently only inputs of type: list are supported, got {}".format(
-                    type(x)
-                )
-            )
+    def prepend_bos_index(self, x):
+        """Returns a list version of x, with BOS index prepended"""
+        return [self.label2ind[self.bos_label]] + list(x)
 
-    def append_eos(self, x: list):
-        if isinstance(x, list):
-            return x.append(self.eos_token)
-        else:
-            raise TypeError(
-                "Curently only inputs of type: list are supported, got {}".format(
-                    type(x)
-                )
-            )
+    def append_eos_label(self, x):
+        """Returns a list version of x, with EOS appended"""
+        return list(x) + [self.eos_label]
+
+    def append_eos_index(self, x):
+        """Returns a list version of x, with EOS index appended"""
+        return list(x) + [self.lab2ind[self.eos_label]]
 
 
 class CTCTextEncoder(TextEncoder):
-    def __init__(self):
-        super().__init__()
-
-    @classmethod
-    def fit_from_yaml(
-        cls,
-        data_collections,
-        *args,
-        blank_encoding=0,
-        blank_token="<blank>",
-        unk_encoding=1,
-        unk_token=None,
-        **kwargs,
-    ):
-        enc = cls()
-
-        enc.update_from_didataset(data_collections, *args, **kwargs)
-        enc.add_blank(blank_encoding, blank_token)
-        if unk_token is not None:
-            enc.add_unk(unk_encoding, unk_token)
-        return enc
+    pass

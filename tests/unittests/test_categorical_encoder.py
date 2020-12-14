@@ -41,6 +41,28 @@ def test_categorical_encoder():
     result = encoder.decode_ndim([[0, 0], [1], [2, 2, 2], []])
     assert result == [["a", "a"], ["b"], ["c", "c", "c"], []]
 
+    encoder = CategoricalEncoder()
+    encoder.limited_labelset_from_iterable("aabbbcccd", n_most_common=3)
+    encoder.encode_sequence("abc")
+    with pytest.raises(KeyError):
+        encoder.encode_label("d")
+    encoder = CategoricalEncoder()
+    encoder.limited_labelset_from_iterable("aabbbcccd", min_count=3)
+    encoder.encode_sequence("cbcb")
+    with pytest.raises(KeyError):
+        encoder.encode_label("a")
+    with pytest.raises(KeyError):
+        encoder.encode_label("d")
+    encoder = CategoricalEncoder()
+    encoder.limited_labelset_from_iterable(
+        "aabbbcccd", n_most_common=3, min_count=3
+    )
+    encoder.encode_sequence("cbcb")
+    with pytest.raises(KeyError):
+        encoder.encode_label("a")
+    with pytest.raises(KeyError):
+        encoder.encode_label("d")
+
 
 def test_categorical_encoder_saving(tmpdir):
     from speechbrain.data_io.encoder import CategoricalEncoder
@@ -92,4 +114,5 @@ def test_categorical_encoder_from_dataset():
     output_keys = ["words_t"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
     encoder.update_from_didataset(dataset, "words", sequence_input=True)
-    assert all(isinstance(i, int) for i in dataset[0]["words_t"])
+    assert dataset[0]["words_t"] == [0, 1]
+    assert encoder.decode_ndim(dataset[0]["words_t"]) == ["hello", "world"]
