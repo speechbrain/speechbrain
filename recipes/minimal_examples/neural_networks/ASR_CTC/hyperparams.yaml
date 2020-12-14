@@ -23,7 +23,8 @@ dnn_neurons: 128
 
 # Data:
 data_folder: !PLACEHOLDER
-label_encoder: !new:speechbrain.data_io.encoders.CTCTextEncoder
+
+label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
 
 common_dynamic_items:
     phn_list:
@@ -38,6 +39,7 @@ common_dynamic_items:
         func: !name:speechbrain.data_io.data_io.read_audio
         argkeys: [wav]
 common_output_keys: ["id", "sig", "phn_encoded"]
+
 
 train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/train.json
