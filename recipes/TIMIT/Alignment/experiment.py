@@ -144,16 +144,14 @@ class ASR_Brain(sb.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(acc)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            # In distributed setting, only want to save model/stats once
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={"loss": stage_loss, "accuracy": acc},
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"accuracy": acc}, min_keys=["accuracy"],
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={"loss": stage_loss, "accuracy": acc},
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"accuracy": acc}, min_keys=["accuracy"],
+            )
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -174,6 +172,9 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(

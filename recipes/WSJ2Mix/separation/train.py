@@ -407,9 +407,12 @@ if __name__ == "__main__":
     )  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Logger info
     logger = logging.getLogger(__name__)
@@ -444,6 +447,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["optimizer"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
