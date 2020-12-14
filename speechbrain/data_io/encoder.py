@@ -554,8 +554,8 @@ class CTCTextEncoder(TextEncoder):
     @classmethod
     def fit_from_yaml(
         cls,
-        data_collections,
-        *args,
+        didataset,
+        output_key,
         blank_encoding=0,
         blank_token="<blank>",
         unk_encoding=1,
@@ -564,7 +564,7 @@ class CTCTextEncoder(TextEncoder):
     ):
         enc = cls()
 
-        enc.update_from_didataset(data_collections, *args, **kwargs)
+        enc.update_from_didataset(didataset, output_key, **kwargs)
         enc.add_blank(blank_encoding, blank_token)
         if unk_token is not None:
             enc.add_unk(unk_encoding, unk_token)
