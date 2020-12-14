@@ -173,8 +173,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
-    # If distributed_launch=True then
-    # create ddp_group with the right communication protocol
+    # Initialize ddp (useful when using multiple gpus with ddp)
     sb.ddp_init_group(run_opts)
 
     # Create experiment directory
@@ -182,15 +181,6 @@ if __name__ == "__main__":
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Data preparation
-    sb.utils.data_utils.prepare_data(
-        "prepare_timit",
-        "../../timit_prepare.py",
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
     )
 
     # Collect index to label conversion dict for decoding
