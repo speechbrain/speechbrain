@@ -14,7 +14,7 @@ def test_data_pipeline():
     pipeline.add_dynamic_item(
         "foobar", func=lambda x, y: x + y, argkeys=["foo", "bar"]
     )
-    pipeline.output_keys.append("foobar")
+    pipeline.set_output_keys(["bar", "foobar"])
     result = pipeline({"foo": 1, "bar": 2})
     assert result["foobar"] == 3
     pipeline = DataPipeline()
@@ -28,7 +28,7 @@ def test_data_pipeline():
     watcher = MagicMock(return_value=3)
     pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
     pipeline.add_dynamic_item("truebar", func=lambda x: x, argkeys=["foobar"])
-    pipeline.output_keys.append("truebar")
+    pipeline.set_output_keys(("truebar",))
     result = pipeline({"foo": 1, "bar": 2})
     assert watcher.called
     assert result["truebar"] == 3
@@ -36,7 +36,7 @@ def test_data_pipeline():
     watcher = MagicMock(return_value=3)
     pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
     pipeline.add_dynamic_item("truebar", func=lambda x: x, argkeys=["foo"])
-    pipeline.output_keys.append("truebar")
+    pipeline.set_output_keys(("truebar",))
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
     assert result["truebar"] == 1
@@ -44,8 +44,7 @@ def test_data_pipeline():
     pipeline = DataPipeline()
     watcher = MagicMock(return_value=3)
     pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
-    pipeline.output_keys.append("foobar")
-    pipeline.output_keys.append("foo")
+    pipeline.set_output_keys(("foobar", "foo"))
     result = pipeline({"foo": 1, "bar": 2})
     assert watcher.called
     assert "foo" in result
@@ -63,3 +62,9 @@ def test_data_pipeline():
     computed = pipeline.compute_specific(["foobar"], {"foo": 1, "bar": 2})
     assert watcher.called
     assert computed["foobar"] == 3
+
+    # Output can be a mapping:
+    # (Key appears outside, value is internal)
+    pipeline.set_output_keys({"signal": "foobar"})
+    result = pipeline({"foo": 1, "bar": 2})
+    assert result["signal"] == 3
