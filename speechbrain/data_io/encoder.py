@@ -47,8 +47,7 @@ class CategoricalEncoder:
         else:
             label_iterator = iter(iterable)
         for label in label_iterator:
-            if label not in self.lab2ind:
-                self.add_label(label)
+            self.ensure_label(label)
 
     def update_from_didataset(
         self, didataset, output_key, sequence_input=False
@@ -94,6 +93,26 @@ class CategoricalEncoder:
         self.ind2lab[index] = label
         return index
 
+    def ensure_label(self, label):
+        """Add label if it is not already present.
+
+        Arguments
+        ---------
+        label : hashable
+            Most often labels are str, but anything that can act as dict key is
+            supported. Note that default save/load only supports Python
+            literals.
+
+        Returns
+        -------
+        int
+            The index that was used to encode this label.
+        """
+        if label in self.lab2ind:
+            return self.lab2ind[label]
+        else:
+            return self.add_label(label)
+
     def insert_label(self, label, index):
         """Add a new label, forcing its index to a specific value.
 
@@ -112,17 +131,39 @@ class CategoricalEncoder:
         if label in self.lab2ind:
             clsname = self.__class__.__name__
             raise KeyError(f"Label already present in {clsname}")
+        else:
+            self.enforce_label(label, index)
+
+    def enforce_label(self, label, index):
+        """Make sure label is present and encoded to particular index.
+
+        If the label is present, but encoded to some other index, it is
+        moved to the given index.
+
+        If there is already another label at the
+        given index, that label is moved to the next free position.
+        """
         index = int(index)
-        moving_label = False
+        if label in self.lab2ind:
+            if index == self.lab2ind[label]:
+                return
+            else:
+                # Delete old index mapping. Everything else gets overwritten.
+                del self.ind2lab[self.lab2ind[label]]
+        # Move other label out of the way:
         if index in self.ind2lab:
             saved_label = self.ind2lab[index]
-            moving_label = True
+            moving_other = True
+        else:
+            moving_other = False
+        # Ready to push the new index.
         self.lab2ind[label] = index
         self.ind2lab[index] = label
-        if moving_label:
-            logger.warning(
+        # And finally put the moved index in new spot.
+        if moving_other:
+            logger.info(
                 f"Moving label {repr(saved_label)} from index "
-                f"{index}, because {repr(label)} was inserted at its place."
+                f"{index}, because {repr(label)} was put at its place."
             )
             new_index = self._next_index()
             self.lab2ind[saved_label] = new_index
@@ -134,6 +175,23 @@ class CategoricalEncoder:
         while index in self.ind2lab:
             index += 1
         return index
+
+    def is_continuous(self):
+        """Check that the set of indices doesn't have gaps
+
+        For example:
+        Continuous: [2,3,4]
+        Non-continuous: [0,1,3]
+
+        Returns
+        -------
+        bool
+            True if continuous (or there are only 0 or 1 labels).
+        """
+        # Because of Python indexing this also handles the special cases
+        # of 0 or 1 labels.
+        indices = sorted(self.ind2lab.keys())
+        return all(j - i == 1 for i, j in zip(indices[:-1], indices[1:]))
 
     def encode_label(self, label):
         """Encode label to int
@@ -328,13 +386,16 @@ class CategoricalEncoder:
         """Loads if possible, returns bool indicating if loaded or not."""
         if self.lab2ind:
             clsname = self.__class__.__name__
-            raise RuntimeError(f"Load called, but {clsname} is not empty")
+            logger.info(
+                f"Load called, but {clsname} is not empty."
+                "Loaded data will overwrite everything."
+            )
         try:
             lab2ind, ind2lab, extras = self._load_literal(path)
         except (FileNotFoundError, ValueError, SyntaxError):
             logger.debug(
                 f"Would load categorical encoding from {path}, "
-                "but could not."
+                "but either file did not exist or file corrupted."
             )
             return False
         self.lab2ind = lab2ind

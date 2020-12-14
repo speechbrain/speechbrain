@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_categorical_encoder():
     from speechbrain.data_io.encoder import CategoricalEncoder
 
@@ -5,6 +8,16 @@ def test_categorical_encoder():
     encoder.update_from_iterable("abcd")
     integers = encoder.encode_sequence("dcba")
     assert all(isinstance(i, int) for i in integers)
+    assert encoder.is_continuous()
+    with pytest.raises(KeyError):
+        encoder.add_label("a")
+    # Does NOT raise:
+    encoder.ensure_label("a")
+    with pytest.raises(KeyError):
+        encoder.insert_label("a", -3)
+    encoder.enforce_label("a", -3)
+    assert encoder.encode_label("a") == -3
+    assert not encoder.is_continuous()
 
 
 def test_categorical_encoder_saving(tmpdir):
