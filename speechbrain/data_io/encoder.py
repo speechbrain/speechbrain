@@ -387,8 +387,9 @@ class CategoricalEncoder:
         if self.lab2ind:
             clsname = self.__class__.__name__
             logger.info(
-                f"Load called, but {clsname} is not empty."
-                "Loaded data will overwrite everything."
+                f"Load called, but {clsname} is not empty. "
+                "Loaded data will overwrite everything. "
+                "This is normal if there are e.g. default labels."
             )
         try:
             lab2ind, ind2lab, extras = self._load_literal(path)
@@ -452,7 +453,7 @@ class CategoricalEncoder:
                 if line == CategoricalEncoder.EXTRAS_SEPARATOR:
                     break
                 literal, ind = line.strip().split(
-                    CategoricalEncoder.VALUE_SEPARATOR
+                    CategoricalEncoder.VALUE_SEPARATOR, maxsplit=1
                 )
                 ind = int(ind)
                 label = ast.literal_eval(literal)
@@ -461,7 +462,7 @@ class CategoricalEncoder:
             # Load the extras:
             for line in f:
                 literal_key, literal_value = line.strip().split(
-                    CategoricalEncoder.VALUE_SEPARATOR
+                    CategoricalEncoder.VALUE_SEPARATOR, maxsplit=1
                 )
                 key = ast.literal_eval(literal_key)
                 value = ast.literal_eval(literal_value)
