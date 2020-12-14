@@ -10,7 +10,6 @@ Authors
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -168,10 +167,6 @@ class ASR(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -188,8 +183,11 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-    # Prepare data
-    prepare_timit(
+
+    # Data preparation
+    sb.utils.data_utils.prepare_data(
+        "prepare_timit",
+        "../../timit_prepare.py",
         data_folder=hparams["data_folder"],
         splits=["train", "dev", "test"],
         save_folder=hparams["data_folder"],

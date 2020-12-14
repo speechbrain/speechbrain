@@ -12,7 +12,6 @@ import os
 import csv
 import logging
 from speechbrain.utils.data_utils import get_all_files
-import speechbrain as sb
 
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
@@ -81,132 +80,131 @@ def prepare_timit(
     >>> save_folder = 'TIMIT_prepared'
     >>> prepare_timit(data_folder, splits, save_folder)
     """
-    try:
-        # all writing command must be done with the main_process
-        if sb.if_main_process():
-            conf = {
-                "data_folder": data_folder,
-                "splits": splits,
-                "kaldi_ali_tr": kaldi_ali_tr,
-                "kaldi_ali_dev": kaldi_ali_dev,
-                "kaldi_ali_test": kaldi_ali_test,
-                "save_folder": save_folder,
-                "phn_set": phn_set,
-                "uppercase": uppercase,
-            }
+    conf = {
+        "data_folder": data_folder,
+        "splits": splits,
+        "kaldi_ali_tr": kaldi_ali_tr,
+        "kaldi_ali_dev": kaldi_ali_dev,
+        "kaldi_ali_test": kaldi_ali_test,
+        "save_folder": save_folder,
+        "phn_set": phn_set,
+        "uppercase": uppercase,
+    }
 
-            # Getting speaker dictionary
-            dev_spk, test_spk = _get_speaker()
+    # Getting speaker dictionary
+    dev_spk, test_spk = _get_speaker()
 
-            # Avoid calibration sentences
-            avoid_sentences = ["sa1", "sa2"]
+    # Avoid calibration sentences
+    avoid_sentences = ["sa1", "sa2"]
 
-            # Setting file extension.
-            extension = [".wav"]
+    # Setting file extension.
+    extension = [".wav"]
 
-            # Checking TIMIT_uppercase
-            if uppercase:
-                avoid_sentences = [item.upper() for item in avoid_sentences]
-                extension = [item.upper() for item in extension]
-                dev_spk = [item.upper() for item in dev_spk]
-                test_spk = [item.upper() for item in test_spk]
+    # Checking TIMIT_uppercase
+    if uppercase:
+        avoid_sentences = [item.upper() for item in avoid_sentences]
+        extension = [item.upper() for item in extension]
+        dev_spk = [item.upper() for item in dev_spk]
+        test_spk = [item.upper() for item in test_spk]
 
-            # Setting the save folder
-            if not os.path.exists(save_folder):
-                os.makedirs(save_folder)
-            # Setting ouput files
-            save_opt = os.path.join(save_folder, OPT_FILE)
-            save_csv_train = os.path.join(save_folder, TRAIN_CSV)
-            save_csv_dev = os.path.join(save_folder, DEV_CSV)
-            save_csv_test = os.path.join(save_folder, TEST_CSV)
-            # Check if this phase is already done (if so, skip it)
-            if skip(splits, save_folder, conf):
-                logger.debug("Skipping preparation, completed in previous run.")
-                return
+    # Setting the save folder
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
 
-            # Additional checks to make sure the data folder contains TIMIT
-            _check_timit_folders(uppercase, data_folder)
-            msg = "\tCreating csv file for the TIMIT Dataset.."
-            logger.debug(msg)
-            # Creating csv file for training data
-            if "train" in splits:
+    # Setting ouput files
+    save_opt = os.path.join(save_folder, OPT_FILE)
+    save_csv_train = os.path.join(save_folder, TRAIN_CSV)
+    save_csv_dev = os.path.join(save_folder, DEV_CSV)
+    save_csv_test = os.path.join(save_folder, TEST_CSV)
 
-                # Checking TIMIT_uppercase
-                if uppercase:
-                    match_lst = extension + ["TRAIN"]
-                else:
-                    match_lst = extension + ["train"]
+    # Check if this phase is already done (if so, skip it)
+    if skip(splits, save_folder, conf):
+        logger.debug("Skipping preparation, completed in previous run.")
+        return
 
-                wav_lst_train = get_all_files(
-                    data_folder,
-                    match_and=match_lst,
-                    exclude_or=avoid_sentences,
-                )
+    # Additional checks to make sure the data folder contains TIMIT
+    _check_timit_folders(uppercase, data_folder)
 
-                create_csv(
-                    wav_lst_train,
-                    save_csv_train,
-                    uppercase,
-                    data_folder,
-                    phn_set,
-                    kaldi_lab=kaldi_ali_tr,
-                    kaldi_lab_opts=kaldi_lab_opts,
-                )
-            # Creating csv file for dev data
-            if "dev" in splits:
+    msg = "\tCreating csv file for the TIMIT Dataset.."
+    logger.debug(msg)
 
-                # Checking TIMIT_uppercase
-                if uppercase:
-                    match_lst = extension + ["TEST"]
-                else:
-                    match_lst = extension + ["test"]
+    # Creating csv file for training data
+    if "train" in splits:
 
-                wav_lst_dev = get_all_files(
-                    data_folder,
-                    match_and=match_lst,
-                    match_or=dev_spk,
-                    exclude_or=avoid_sentences,
-                )
+        # Checking TIMIT_uppercase
+        if uppercase:
+            match_lst = extension + ["TRAIN"]
+        else:
+            match_lst = extension + ["train"]
 
-                create_csv(
-                    wav_lst_dev,
-                    save_csv_dev,
-                    uppercase,
-                    data_folder,
-                    phn_set,
-                    kaldi_lab=kaldi_ali_dev,
-                    kaldi_lab_opts=kaldi_lab_opts,
-                )
-            # Creating csv file for test data
-            if "test" in splits:
+        wav_lst_train = get_all_files(
+            data_folder, match_and=match_lst, exclude_or=avoid_sentences,
+        )
 
-                # Checking TIMIT_uppercase
-                if uppercase:
-                    match_lst = extension + ["TEST"]
-                else:
-                    match_lst = extension + ["test"]
+        create_csv(
+            wav_lst_train,
+            save_csv_train,
+            uppercase,
+            data_folder,
+            phn_set,
+            kaldi_lab=kaldi_ali_tr,
+            kaldi_lab_opts=kaldi_lab_opts,
+        )
 
-                wav_lst_test = get_all_files(
-                    data_folder,
-                    match_and=match_lst,
-                    match_or=test_spk,
-                    exclude_or=avoid_sentences,
-                )
+    # Creating csv file for dev data
+    if "dev" in splits:
 
-                create_csv(
-                    wav_lst_test,
-                    save_csv_test,
-                    uppercase,
-                    data_folder,
-                    phn_set,
-                    kaldi_lab=kaldi_ali_test,
-                    kaldi_lab_opts=kaldi_lab_opts,
-                )
-            # saving options
-            save_pkl(conf, save_opt)
-    finally:
-        # wait for main_process if ddp is used
-        sb.ddp_barrier()
+        # Checking TIMIT_uppercase
+        if uppercase:
+            match_lst = extension + ["TEST"]
+        else:
+            match_lst = extension + ["test"]
+
+        wav_lst_dev = get_all_files(
+            data_folder,
+            match_and=match_lst,
+            match_or=dev_spk,
+            exclude_or=avoid_sentences,
+        )
+
+        create_csv(
+            wav_lst_dev,
+            save_csv_dev,
+            uppercase,
+            data_folder,
+            phn_set,
+            kaldi_lab=kaldi_ali_dev,
+            kaldi_lab_opts=kaldi_lab_opts,
+        )
+
+    # Creating csv file for test data
+    if "test" in splits:
+
+        # Checking TIMIT_uppercase
+        if uppercase:
+            match_lst = extension + ["TEST"]
+        else:
+            match_lst = extension + ["test"]
+
+        wav_lst_test = get_all_files(
+            data_folder,
+            match_and=match_lst,
+            match_or=test_spk,
+            exclude_or=avoid_sentences,
+        )
+
+        create_csv(
+            wav_lst_test,
+            save_csv_test,
+            uppercase,
+            data_folder,
+            phn_set,
+            kaldi_lab=kaldi_ali_test,
+            kaldi_lab_opts=kaldi_lab_opts,
+        )
+
+    # saving options
+    save_pkl(conf, save_opt)
 
 
 def _get_phonemes():

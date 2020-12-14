@@ -7,12 +7,14 @@ Authors
 """
 
 import os
+import sys
 import shutil
 import urllib.request
 import collections.abc
 import torch
 import tqdm
 import pathlib
+import importlib
 import speechbrain as sb
 
 
@@ -257,6 +259,21 @@ def recursive_update(d, u, must_match=False):
 def download_file(
     source, dest, unpack=False, dest_unpack=None, replace_existing=False
 ):
+    """Downloads the file from the given source and saves it in the given
+    destination path.
+
+     Arguments
+    ---------
+    source : path or url
+        Path of the source file. If source is an URL, it downloads it from
+        the web.
+    dest : path
+        Destination path.
+    unpack : bool
+        If True, it unpacks the data in the dest folder.
+    replace_exsisting : bool
+        If True, replaces the existing files.
+    """
     try:
         if sb.if_main_process():
 
@@ -295,4 +312,48 @@ def download_file(
                 print(f"Extracting {dest} to {dest_unpack}")
                 shutil.unpack_archive(dest, dest_unpack)
     finally:
+        sb.ddp_barrier()
+
+
+def import_from_file(class_name, module_path):
+    """Imports a function or a class from the module specified in the path.
+
+    Arguments
+    ---------
+    class_name : str
+        Name of the class to import.
+    module_path : str
+    """
+    module_path = os.path.abspath(module_path)
+    lib_dir = os.path.dirname(module_path)
+    lib_name = os.path.basename(module_path)
+    lib_name = os.path.splitext(lib_name)[0]
+    sys.path.append(lib_dir)
+    module = importlib.import_module(lib_name)
+    class_obj = getattr(module, class_name)
+    return class_obj
+
+
+def prepare_data(prep_funct, prep_lib_path, **kwargs):
+    """Performs the dataset preparation with DPP (multi-gpu) support.
+
+    Arguments
+    ---------
+    prep_lib_path : path
+        Path of the data preparation script.
+    prep_funct : str
+        Name of the function to use for preparation.
+    kwargs: dict
+        Arguments to pass to the prep_function.
+    """
+
+    # Import module from path
+    prepare = import_from_file(prep_funct, prep_lib_path)
+
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            prepare(**kwargs)
+    finally:
+        # wait for main_process if ddp is used
         sb.ddp_barrier()
