@@ -110,6 +110,12 @@ class DynamicItemDataset(Dataset):
     >>> batch.words_encoded
     PaddedData(data=tensor([[1, 2, 0, 0],
             [3, 4, 5, 2]]), lengths=tensor([0.5000, 1.0000]))
+    >>> # Output keys can also be a map:
+    >>> dataset.set_output_keys({"id":"id", "signal": "wav", "words": "words_encoded"})
+    >>> batch = next(iter(dataloader))
+    >>> batch.words
+    PaddedData(data=tensor([[1, 2, 0, 0],
+            [3, 4, 5, 2]]), lengths=tensor([0.5000, 1.0000]))
 
 
     Arguments
@@ -123,9 +129,13 @@ class DynamicItemDataset(Dataset):
             func: <callable> # To be called
             argkeys: <list> # keys of args, either other funcs or in data
         <key2>: ...
-    output_keys : list, optional
+    output_keys : dict, list, optional
         List of keys (either directly available in data or dynamic items)
         to include in the output dict when data points are fetched.
+
+        If a dict is given; it is used to map internal keys to output keys.
+        From the output_keys dict key:value pairs the key appears outside,
+        and value is the internal key.
     """
 
     def __init__(
@@ -136,9 +146,8 @@ class DynamicItemDataset(Dataset):
         static_keys = self.data[self.data_ids[0]]
         if "id" in static_keys:
             raise ValueError("The key 'id' is reserved for the data point id.")
-        self.pipeline = DataPipeline.from_configuration(
-            dynamic_elements, output_keys
-        )
+        self.pipeline = DataPipeline.from_configuration(dynamic_elements)
+        self.set_output_keys(output_keys)
 
     def __len__(self):
         return len(self.data_ids)
@@ -174,8 +183,12 @@ class DynamicItemDataset(Dataset):
 
         Arguments
         ---------
-        keys : list
+        keys : dict, list
             List of of keys (str) to produce in output.
+
+            If a dict is given; it is used to map internal keys to output keys.
+            From the output_keys dict key:value pairs the key appears outside,
+            and value is the internal key.
         """
         self.pipeline.set_output_keys(keys)
 
@@ -198,10 +211,10 @@ class DynamicItemDataset(Dataset):
         Not thread-safe. While in this context manager, the output keys
         are affected for any call.
         """
-        saved_output_keys = self.pipeline.output_keys
+        saved_output = self.pipeline.output_mapping
         self.pipeline.set_output_keys(keys)
         yield self
-        self.pipeline.set_output_keys(saved_output_keys)
+        self.pipeline.set_output_keys(saved_output)
 
     def filtered_sorted(
         self,

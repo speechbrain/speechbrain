@@ -50,12 +50,11 @@ class DataPipeline:
     """
 
     def __init__(self, output_keys=None):
-        if output_keys is None:
-            output_keys = []
-        self.output_keys = output_keys
+        self.output_mapping = {}
         self.dg = DependencyGraph()
         self._exec_order = None
         self._dynamic_item_keys = []
+        self.set_output_keys(output_keys)
 
     @classmethod
     def from_configuration(cls, dynamic_items=None, output_keys=None):
@@ -68,9 +67,13 @@ class DataPipeline:
                 func: <callable> # To be called
                 argkeys: <list> # keys of args, either other dynamic_items or in data
             <key2>: ...
-        output_keys : list, optional
+        output_keys : dict, list, optional
             List of keys (either dynamic_items or entries in data)
             to add in the final output.
+
+            If a dict is given; it is used to map internal keys to output keys.
+            From the output_keys dict key:value pairs the key appears outside,
+            and value is the internal key.
         """
         pipeline = cls()
         if dynamic_items is None:
@@ -82,7 +85,7 @@ class DataPipeline:
                 pipeline.add_dynamic_item(key, *conf)
             else:
                 pipeline.add_dynamic_item(key, **conf)
-        pipeline.output_keys = output_keys
+        pipeline.set_output_keys(output_keys)
         return pipeline
 
     def add_dynamic_item(self, key, func, argkeys):
@@ -118,11 +121,26 @@ class DataPipeline:
 
         Arguments
         ---------
-        keys : list
+        keys : dict, list, None
             List of of keys (str) to produce in output.
+
+            If a dict is given; it is used to map internal keys to output keys.
+            From the output_keys dict key:value pairs the key appears outside,
+            and value is the internal key.
         """
-        self.output_keys = keys
+        self.output_mapping = self._output_keys_to_mapping(keys)
         self._exec_order = None
+
+    @staticmethod
+    def _output_keys_to_mapping(keys):
+        # Ensure a mapping (accept a list for convenience, too)
+        if keys is None:
+            output_mapping = {}
+        elif isinstance(keys, dict):
+            output_mapping = keys
+        else:
+            output_mapping = {key: key for key in keys}
+        return output_mapping
 
     def compute_outputs(self, data):
         """
@@ -134,7 +152,7 @@ class DataPipeline:
         Returns
         -------
         dict
-            With keys as in self.output_keys
+            With the keys that were set.
         """
         if self._exec_order is None:
             self._prepare_run(data)
@@ -150,8 +168,8 @@ class DataPipeline:
             ]
             intermediate[compute_key] = func(*args)
         return {
-            outkey: data[outkey] if outkey in data else intermediate[outkey]
-            for outkey in self.output_keys
+            outkey: data[inkey] if inkey in data else intermediate[inkey]
+            for outkey, inkey in self.output_mapping.items()
         }
 
     def compute_specific(self, keys, data):
@@ -159,12 +177,13 @@ class DataPipeline:
         # If a key in data is requested as an output key, it might not exist
         # in the dependency graph yet. It's safe to add it here implicitly,
         # since we know that the key is found in data.
-        for output_key in keys:
+        output_mapping = self._output_keys_to_mapping(keys)
+        for output_key in output_mapping.values():
             if output_key in data and output_key not in self.dg:
                 self.dg.add_node(output_key)
         intermediate = {}
         for compute_key, edges, conf in self.dg.get_evaluation_order(
-            selected_keys=keys
+            selected_keys=output_mapping.values()
         ):
             if compute_key in data:
                 continue
@@ -176,8 +195,8 @@ class DataPipeline:
             ]
             intermediate[compute_key] = func(*args)
         return {
-            outkey: data[outkey] if outkey in data else intermediate[outkey]
-            for outkey in keys
+            outkey: data[inkey] if inkey in data else intermediate[inkey]
+            for outkey, inkey in output_mapping.items()
         }
 
     def __call__(self, data):
@@ -190,9 +209,11 @@ class DataPipeline:
         # If a key in data is requested as an output key, it might not exist
         # in the dependency graph yet. It's safe to add it here implicitly,
         # since we know that the key is found in data.
-        for output_key in self.output_keys:
+        for output_key in self.output_mapping.values():
             if output_key in data and output_key not in self.dg:
                 self.dg.add_node(output_key)
         self._exec_order = list(
-            self.dg.get_evaluation_order(selected_keys=self.output_keys)
+            self.dg.get_evaluation_order(
+                selected_keys=self.output_mapping.values()
+            )
         )
