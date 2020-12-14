@@ -19,6 +19,28 @@ def test_categorical_encoder():
     assert encoder.encode_label("a") == -3
     assert not encoder.is_continuous()
 
+    # Decoding:
+    import torch
+
+    encoder = CategoricalEncoder()
+    encoder.update_from_iterable("abcd")
+    result = encoder.decode_torch(
+        torch.tensor([[0, 0], [1, 1], [2, 2], [3, 3]])
+    )
+    assert result == [["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]
+    result = encoder.decode_ndim([[0, 0], [1, 1], [2, 2], [3, 3]])
+    assert result == [["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]
+    result = encoder.decode_ndim(torch.tensor([[0, 0], [1, 1], [2, 2], [3, 3]]))
+    assert result == [["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]
+    result = encoder.decode_ndim([[[[[0, 0], [1, 1], [2, 2], [3, 3]]]]])
+    assert result == [[[[["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]]]]
+    result = encoder.decode_torch(
+        torch.tensor([[[[[0, 0], [1, 1], [2, 2], [3, 3]]]]])
+    )
+    assert result == [[[[["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]]]]
+    result = encoder.decode_ndim([[0, 0], [1], [2, 2, 2], []])
+    assert result == [["a", "a"], ["b"], ["c", "c", "c"], []]
+
 
 def test_categorical_encoder_saving(tmpdir):
     from speechbrain.data_io.encoder import CategoricalEncoder

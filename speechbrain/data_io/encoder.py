@@ -255,72 +255,59 @@ class CategoricalEncoder:
         """
         return torch.LongTensor([self.lab2ind[label] for label in sequence])
 
-    def decode_int(self, x):
+    def decode_torch(self, x):
         """
         Decodes a torch.Tensor or list of ints to a list of corresponding labels.
 
+        Provided separately because Torch provides clearer introspection,
+        and so doesn't require try-except.
+
         Arguments
         ---------
-        x : (torch.Tensor, list, tuple)
-            Torch tensor or list containing int values which has to be decoded
-            to original labels strings.  Torch tensors must be 1D with shape
-            (seq_len,) or 2D with shape (batch, seq_len).  List and tuples must
-            be one-dimensional or bi-dimensional.
+        x : torch.Tensor
+            Torch tensor of some integer dtype (Long, int) and any shape to decode.
 
         Returns
         -------
-        decoded : list
-            list containing original labels (list of str).
+        list
+            list of original labels
         """
-        if not len(x):
-            return []
-
-        if isinstance(x, torch.Tensor):
-
-            if x.ndim == 1:  # 1d tensor
-                decoded = []
-                for time_step in range(len(x)):
-                    decoded.append(self.ind2lab[x[time_step].item()])
-                return decoded
-
-            elif x.ndim == 2:
-                batch = []  # batch, steps
-                batch_ind = x.size(0)
-                for b in range(batch_ind):
-                    c_example = []
-                    for time_step in range(len(x[b])):
-                        c_example.append(self.ind2lab[x[b, time_step].item()])
-                    batch.append(c_example)
-                return batch
-
-            else:
-                raise NotImplementedError(
-                    "Only 1D and 2D tensors are supported got tensor with ndim={}".format(
-                        x.ndim
-                    )
-                )
-
-        elif isinstance(x, (tuple, list)):
-            if isinstance(x[0], (list, tuple)):  # 2D list
-                batch = []  # classes, steps
-                for b in range(len(x)):
-                    c_example = []
-                    for time_step in range(len(x[b])):
-                        c_example.append(self.ind2lab[x[b][time_step]])
-                    batch.append(c_example)
-                return batch
-            else:  # 1D list
-                decoded = []
-                for time_step in range(len(x)):
-                    decoded.append(self.ind2lab[x[time_step].item()])
-                return decoded
-
+        decoded = []
+        # Recursively operates on the different dimensions.
+        if x.ndim == 1:  # Last dimension!
+            for element in x:
+                decoded.append(self.ind2lab[int(element)])
         else:
-            raise TypeError(
-                "Input must be a torch.Tensor or list or tuple, got {}".format(
-                    type(x)
-                )
-            )
+            for subtensor in x:
+                decoded.append(self.decode_torch(subtensor))
+        return decoded
+
+    def decode_ndim(self, x):
+        """
+        Decodes an arbitrarily nested iterable to a list of corresponding labels.
+
+        This works for essentially any pythonic iterable (including torch), and also
+        single elements.
+
+        Arguments
+        ---------
+        x : Any
+            Python list or other iterable or torch.Tensor or a single integer element
+
+        Returns
+        -------
+        list, Any
+            ndim list of original labels, or if input was signle element,
+            output will be, too.
+        """
+        # Recursively operates on the different dimensions.
+        try:
+            decoded = []
+            for subtensor in x:
+                decoded.append(self.decode_ndim(subtensor))
+            return decoded
+        except TypeError:  # Not an iterable, bottom level!
+            return self.ind2lab[int(x)]
 
     def decode_one_hot(self, x):
         """
@@ -372,7 +359,16 @@ class CategoricalEncoder:
             )
 
     def save(self, path):
-        """Save the categorical encoding for later use and recovery"""
+        """Save the categorical encoding for later use and recovery
+
+        Saving uses a Python literal format, which supports things like
+        tuple labels, but is considered safe to load (unlike e.g. pickle).
+
+        Arguments
+        ---------
+        path : str, Path
+            Where to save. Will overwrite.
+        """
         extras = self._get_extras()
         if "starting_index" in extras:
             raise ValueError(
@@ -383,7 +379,17 @@ class CategoricalEncoder:
         self._save_literal(path, self.lab2ind, extras)
 
     def load_if_possible(self, path):
-        """Loads if possible, returns bool indicating if loaded or not."""
+        """Loads if possible, returns bool indicating if loaded or not.
+
+        CategoricalEncoder uses a Python literal format, which supports things
+        like tuple labels, but is considered safe to load (unlike e.g. pickle).
+
+        Arguments
+        ---------
+        path : str, Path
+            Where to load from.
+
+        """
         if self.lab2ind:
             clsname = self.__class__.__name__
             logger.info(
@@ -393,10 +399,16 @@ class CategoricalEncoder:
             )
         try:
             lab2ind, ind2lab, extras = self._load_literal(path)
-        except (FileNotFoundError, ValueError, SyntaxError):
+        except FileNotFoundError:
             logger.debug(
                 f"Would load categorical encoding from {path}, "
-                "but either file did not exist or file corrupted."
+                "but file doesn't exist yet."
+            )
+            return False
+        except (ValueError, SyntaxError):
+            logger.debug(
+                f"Would load categorical encoding from {path}, "
+                "and file existed but seems to be corrupted or otherwise couldn't load."
             )
             return False
         self.lab2ind = lab2ind
