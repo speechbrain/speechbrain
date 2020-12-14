@@ -226,7 +226,7 @@ class Separation(sb.Brain):
                     )
                     new_targets[i] = new_targets[i].to(self.device)
                     new_targets[i] = torch.roll(
-                        new_target, shifts=(rand_shift[0],), dims=1
+                        new_targets[i], shifts=(rand_shift[0],), dims=1
                     )
 
             # Re-combination

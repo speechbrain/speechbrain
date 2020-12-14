@@ -27,7 +27,7 @@ import torch
 import random
 import speechbrain as sb
 from tqdm.contrib import tqdm
-from speechbrain.utils.metric_stats import EER
+from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 
 
@@ -251,8 +251,9 @@ class VerificationBrain(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            EER = self.compute_EER()
+            EER, min_dcf = self.verification_performance()
             stage_stats["ErrorRate"] = EER
+            stage_stats["min_dcf"] = min_dcf
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -270,7 +271,7 @@ class VerificationBrain(sb.core.Brain):
                     min_keys=["ErrorRate"],
                 )
 
-    def compute_EER(self,):
+    def verification_performance(self,):
         """ Computes the EER using the standard voxceleb test split
         """
         # Computing  enrollment and test embeddings
@@ -294,7 +295,11 @@ class VerificationBrain(sb.core.Brain):
         eer, th = EER(
             torch.tensor(positive_scores), torch.tensor(negative_scores)
         )
-        return eer * 100
+
+        min_dcf, th = minDCF(
+            torch.tensor(positive_scores), torch.tensor(negative_scores)
+        )
+        return eer * 100, min_dcf
 
     def get_verification_scores(self, veri_test):
         """ computes positive and negative scores given the verification split.
