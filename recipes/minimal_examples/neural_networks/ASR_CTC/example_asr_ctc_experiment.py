@@ -53,12 +53,15 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    # Fit the label encoder here, after data prep JSON has been loaded:
-    hparams["label_encoder"].fit(
-        [hparams["train_data"].data, hparams["valid_data"].data],
-        supervision="phn",
-        sup_transform=hparams["common_dynamic_items"]["phn_list"]["func"],
+    # we fit label encoder here, in actual experiments it will be done after data prep
+    hparams["label_encoder"].update_from_didataset(
+        hparams["train_data"], output_key="phn_list", sequence_input=True
     )
+
+    hparams["label_encoder"].update_from_didataset(
+        hparams["valid_data"], output_key="phn_list", sequence_input=True
+    )
+    hparams["label_encoder"].add_blank(hparams["blank_index"])
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
