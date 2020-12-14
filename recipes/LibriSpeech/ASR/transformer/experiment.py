@@ -172,15 +172,14 @@ class ASR(sb.core.Brain):
         (loss / self.hparams.gradient_accumulation).backward()
 
         if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping
-            torch.nn.utils.clip_grad_norm_(
-                self.modules.parameters(), self.hparams.gradient_clipping
-            )
+            # gradient clipping & early stop if loss is not finite
+            self.check_gradients(loss)
 
             self.optimizer.step()
             self.optimizer.zero_grad()
 
             # anneal lr every update
+            # due to the CTC loss, the two stage gradient annealing can improve the convergence rate
             self.hparams.noam_annealing(self.optimizer)
             self.hparams.cosine_annealing(self.optimizer)
 
