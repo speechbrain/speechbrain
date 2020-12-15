@@ -2,44 +2,53 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
 # Neural Parameters
-N_epochs: 25
-N_batch: 2
-lr: 0.0004
+N_epochs: 15
+batch_size: 2
+lr: 0.002
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, ali]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+# Data:
+data_folder: !PLACEHOLDER
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, ali]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+common_dynamic_items:
+    alignments:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !name:speechbrain.data_io.data_io.load_pickle
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [ali]
+    sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [wav]
+common_output_keys: ["id", "sig", "alignments"]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, ali]
-    sentence_sorting: ascending
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/train.json
     replacements:
-        $data_folder: !ref <data_folder>
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/dev.json
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <train_data>
+    batch_size: !ref <batch_size>
+
+valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: !ref <batch_size>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
+
+# Model
 
 linear1: !new:speechbrain.nnet.linear.Linear
     input_size: 660
