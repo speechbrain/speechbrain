@@ -23,7 +23,8 @@ dnn_neurons: 128
 
 # Data:
 data_folder: !PLACEHOLDER
-label_encoder: !new:speechbrain.data_io.encoders.CTCTextEncoder
+
+label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
 
 common_dynamic_items:
     phn_list:

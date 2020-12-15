@@ -308,9 +308,9 @@ def load_pickle(pickle_path):
     Returns
     -------
     out : object
-        python object loaded form pickle
+        python object loaded from pickle
     """
-    with open(pickle_path, "r") as f:
+    with open(pickle_path, "rb") as f:
         out = pickle.load(f)
     return out
 
