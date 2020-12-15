@@ -15,7 +15,6 @@ output_folder: !ref results/CRDNN_BPE_RNNT_LM_100H/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
@@ -91,13 +90,13 @@ expand_beam: 2.3
 lm_weight: 0.50
 
 # LM Model parameters
-lm_emb_size: 128
-lm_activation: !name:torch.nn.LeakyReLU
-lm_dropout: 0.0
-lm_rnn_layers: 2
-lm_rnn_neurons: 2048
-lm_dnn_blocks: 1
-lm_dnn_neurons: 512
+#lm_emb_size: 128
+#lm_activation: !name:torch.nn.LeakyReLU
+#lm_dropout: 0.0
+#lm_rnn_layers: 2
+#lm_rnn_neurons: 2048
+#lm_dnn_blocks: 1
+#lm_dnn_neurons: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -178,10 +177,10 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
 # ctc_cost: !name:speechbrain.nnet.ctc_loss
 #    blank_index: !ref <blank_index>
 
-emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>
-    consider_as_one_hot: True
-    blank_id: !ref <blank_index>
+#emb: !new:speechbrain.nnet.embedding.Embedding
+#    num_embeddings: !ref <output_neurons>
+#    consider_as_one_hot: True
+#    blank_id: !ref <blank_index>
 
 #dec: !new:speechbrain.nnet.RNN.GRU
 #    input_shape: [null, null, !ref <output_neurons> - 1]
@@ -189,11 +188,16 @@ emb: !new:speechbrain.nnet.embedding.Embedding
 #    num_layers: 1
 #    re_init: True
 
-external_lm:
+external_lm: !new:recipes.LibriSpeech.LM.pretrained.LM
+    hparams_file: ../../LM/hyperparams/pretrained.yaml
+
+external_lm_dim: 512
 
 dec: !new:experiment.PredictionNetwork
     lm: !ref <external_lm>
-    ff:
+    ff: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <external_lm_dim>
+        n_neurons: !ref <joint_dim>
 
 # For MTL with LM over the decoder
 # dec_lin: !new:speechbrain.nnet.linear.Linear
@@ -236,7 +240,7 @@ transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
 modules:
     enc: !ref <enc>
     #emb: !ref <emb>
-    #dec: !ref <dec>
+    dec: !ref <dec>
     Tjoint: !ref <Tjoint>
     transducer_lin: !ref <transducer_lin>
     normalize: !ref <normalize>
@@ -247,11 +251,12 @@ modules:
 # for MTL
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
+    - [!ref <enc>, !ref <dec>, !ref <transducer_lin>]
+    #- [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
 
 Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     #decode_network_lst: [!ref <emb>, !ref <dec>]
-    decode_network_lst: [!ref <dec.emb>, !ref <dec>]
+    decode_network_lst: [!ref <dec>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <transducer_lin>]
     blank_id: !ref <blank_index>
@@ -259,8 +264,8 @@ Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     nbest: 1
 
 Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-    #decode_network_lst: [!ref <emb>, !ref <dec>]
-    decode_network_lst: [!ref <dec.emb>, !ref <dec>]
+    #decode_network_lst: [!ref <emb>, !ref <dec>] # dec.embedding?
+    decode_network_lst: [!ref <dec>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <transducer_lin>]
     blank_id: !ref <blank_index>

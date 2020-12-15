@@ -5,7 +5,8 @@ Authors
  * Peter Plantinga 2020
  * Ju-Chieh Chou 2020
  * Titouan Parcollet 2020
- * Abdel 2020
+ * Abdel Heba 2020
+ * Loren Lugosch 2020
 """
 import torch
 from torch import nn
@@ -122,3 +123,13 @@ class RNNLM(nn.Module):
             return out, hidden
         else:
             return out
+
+    def extract_features(self, x):
+        """
+        Similar to forward(), but just extracts features from the input sequence (e.g. for using a pre-trained LM as the predictor in a Transducer model).
+        """
+        out = self.embedding(x)
+        out = self.dropout(out)
+        out, _ = self.rnn(out, None)
+        out = self.dnn(out)
+        return out

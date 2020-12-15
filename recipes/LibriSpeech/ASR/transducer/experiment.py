@@ -38,11 +38,18 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
-class PredictionNetwork(torch.nn.Module):
-    def __init__(self, lm, ff)
-        super(PredictionNetwork, self).__init__()
 
-    def forward(self, )
+class PredictionNetwork(torch.nn.Module):
+    def __init__(self, lm, ff):
+        super(PredictionNetwork, self).__init__()
+        self.lm = lm
+        self.ff = ff
+
+    def forward(self, y):
+        out = self.lm.extract_features(y)
+        out = self.ff(out)
+        return out
+
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -78,8 +85,9 @@ class ASR(sb.Brain):
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats.detach())
-        e_in = self.modules.emb(y_in)
-        h, _ = self.modules.dec(e_in)
+        # e_in = self.modules.emb(y_in)
+        # h, _ = self.modules.dec(e_in)
+        h = self.modules.dec(y_in)
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
         # add timeseq_dim to the decoder tensor: [B,U,H_dec] => [B,1,U,H_dec]
@@ -320,8 +328,8 @@ class ASR(sb.Brain):
                 replace_existing=True,
             )
 
+    """
     def load_lm(self):
-        """Loads the LM specified in the yaml file"""
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
@@ -331,6 +339,7 @@ class ASR(sb.Brain):
         state_dict = torch.load(save_model_path, map_location=self.device)
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
+    """
 
 
 if __name__ == "__main__":
@@ -390,8 +399,10 @@ if __name__ == "__main__":
     )
 
     asr_brain.load_tokenizer()
+    """
     if hasattr(asr_brain.hparams, "lm_ckpt_file"):
         asr_brain.load_lm()
+    """
 
     # Training
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
