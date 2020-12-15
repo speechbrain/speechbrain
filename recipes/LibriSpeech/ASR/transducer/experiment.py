@@ -38,6 +38,11 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
+class PredictionNetwork(torch.nn.Module):
+    def __init__(self, lm, ff)
+        super(PredictionNetwork, self).__init__()
+
+    def forward(self, )
 
 # Define training procedure
 class ASR(sb.Brain):

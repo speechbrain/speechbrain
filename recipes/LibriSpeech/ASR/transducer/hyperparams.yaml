@@ -183,11 +183,17 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     consider_as_one_hot: True
     blank_id: !ref <blank_index>
 
-dec: !new:speechbrain.nnet.RNN.GRU
-    input_shape: [null, null, !ref <output_neurons> - 1]
-    hidden_size: !ref <dec_neurons>
-    num_layers: 1
-    re_init: True
+#dec: !new:speechbrain.nnet.RNN.GRU
+#    input_shape: [null, null, !ref <output_neurons> - 1]
+#    hidden_size: !ref <dec_neurons>
+#    num_layers: 1
+#    re_init: True
+
+external_lm: 
+
+dec: !new:experiment.PredictionNetwork
+    lm: !ref <external_lm>
+    ff: 
 
 # For MTL with LM over the decoder
 # dec_lin: !new:speechbrain.nnet.linear.Linear
@@ -213,29 +219,30 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
     blank_index: !ref <blank_index>
 
-lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <lm_emb_size>
-    activation: !ref <lm_activation>
-    dropout: !ref <lm_dropout>
-    rnn_layers: !ref <lm_rnn_layers>
-    rnn_neurons: !ref <lm_rnn_neurons>
-    dnn_blocks: !ref <lm_dnn_blocks>
-    dnn_neurons: !ref <lm_dnn_neurons>
-    return_hidden: True  # For inference
+
+#lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+#    output_neurons: !ref <output_neurons>
+#    embedding_dim: !ref <lm_emb_size>
+#    activation: !ref <lm_activation>
+#    dropout: !ref <lm_dropout>
+#    rnn_layers: !ref <lm_rnn_layers>
+#    rnn_neurons: !ref <lm_rnn_neurons>
+#    dnn_blocks: !ref <lm_dnn_blocks>
+#    dnn_neurons: !ref <lm_dnn_neurons>
+#    return_hidden: True  # For inference
 
 # for MTL
 # update model if any HEAD module is added
 modules:
     enc: !ref <enc>
-    emb: !ref <emb>
-    dec: !ref <dec>
+    #emb: !ref <emb>
+    #dec: !ref <dec>
     Tjoint: !ref <Tjoint>
     transducer_lin: !ref <transducer_lin>
     normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
     augmentation: !ref <augmentation>
-    lm_model: !ref <lm_model>
+    #lm_model: !ref <lm_model>
 
 # for MTL
 # update model if any HEAD module is added
@@ -243,7 +250,8 @@ model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
 
 Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-    decode_network_lst: [!ref <emb>, !ref <dec>]
+    #decode_network_lst: [!ref <emb>, !ref <dec>]
+    decode_network_lst: [!ref <dec.emb>, !ref <dec>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <transducer_lin>]
     blank_id: !ref <blank_index>
@@ -251,14 +259,15 @@ Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     nbest: 1
 
 Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-    decode_network_lst: [!ref <emb>, !ref <dec>]
+    #decode_network_lst: [!ref <emb>, !ref <dec>]
+    decode_network_lst: [!ref <dec.emb>, !ref <dec>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <transducer_lin>]
     blank_id: !ref <blank_index>
     beam_size: !ref <beam_size>
     nbest: !ref <nbest>
-    lm_module: !ref <lm_model>
-    lm_weight: !ref <lm_weight>
+    #lm_module: !ref <lm_model>
+    #lm_weight: !ref <lm_weight>
     state_beam: !ref <state_beam>
     expand_beam: !ref <expand_beam>
 
