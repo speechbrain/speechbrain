@@ -16,7 +16,6 @@ class CTCBrain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        ids = batch.id
         phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
 
@@ -24,7 +23,7 @@ class CTCBrain(sb.Brain):
             seq = sb.decoders.ctc_greedy_decode(
                 predictions, lens, blank_id=self.hparams.blank_index
             )
-            self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
+            self.per_metrics.append(batch.id, seq, phns, target_len=phn_lens)
 
         return loss
 
