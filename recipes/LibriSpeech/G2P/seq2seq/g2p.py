@@ -160,7 +160,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-
     # Load index2label dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
