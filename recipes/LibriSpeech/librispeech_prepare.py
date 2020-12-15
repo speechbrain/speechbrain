@@ -75,7 +75,7 @@ def prepare_librispeech(
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
     data_folder = data_folder
-    splits = tr_splits +  dev_splits + te_splits
+    splits = tr_splits + dev_splits + te_splits
     save_folder = save_folder
     select_n_sentences = select_n_sentences
     conf = {
@@ -249,8 +249,8 @@ def split_lexicon(data_folder, split_ratio):
     tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
     train_lines = [header] + lexicon_lines[0:tr_snts]
     valid_snts = int(0.01 * split_ratio[1] * len(lexicon_lines))
-    valid_lines = [header] + lexicon_lines[tr_snts : tr_snts + valid_snts]
-    test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
+    valid_lines = [header] + lexicon_lines[tr_snts: tr_snts + valid_snts]
+    test_lines = [header] + lexicon_lines[tr_snts + valid_snts:]
 
     # Saving files
     with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
