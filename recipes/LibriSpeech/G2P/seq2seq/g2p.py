@@ -144,10 +144,6 @@ class G2P(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from librispeech_prepare import prepare_librispeech  # noqa E402
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -164,13 +160,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare LibriSpeech lexicon
-    prepare_librispeech(
-        data_folder=hparams["data_folder"],
-        splits=[],
-        save_folder=hparams["data_folder"],
-        create_lexicon=True,
-    )
 
     # Load index2label dict for decoding
     train_set = hparams["train_loader"]()
