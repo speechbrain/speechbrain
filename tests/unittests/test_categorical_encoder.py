@@ -174,7 +174,8 @@ def test_text_encoder(tmpdir):
 def test_ctc_encoder(tmpdir):
     from speechbrain.data_io.encoder import CTCTextEncoder
 
-    encoder = CTCTextEncoder(bos_label="<s>", eos_label="</s>", blank_label="_")
+    encoder = CTCTextEncoder(bos_label="<s>", eos_label="</s>")
+    encoder.add_blank(blank_label="_")
     encoding_file = tmpdir / "ctc_encoding.txt"
     encoder.update_from_iterable(["abcd", "bcdef"], sequence_input=True)
     encoded = encoder.encode_sequence(encoder.prepend_bos_label(["a", "b"]))
