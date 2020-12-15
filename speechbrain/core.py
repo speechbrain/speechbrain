@@ -177,16 +177,18 @@ def parse_arguments(arg_list):
     parsed_args = vars(parser.parse_args(arg_list))
 
     param_file = parsed_args["param_file"]
-    del parsed_args["param_file"]
 
     # Convert yaml_overrides to dictionary
     yaml_overrides = ""
     if parsed_args["yaml_overrides"] is not None:
         yaml_overrides = parsed_args["yaml_overrides"]
-        del parsed_args["yaml_overrides"]
 
     # Only return non-empty items
-    items = {k: v for k, v in parsed_args.items() if v is not None}
+    items = {
+        k: v
+        for k, v in parsed_args.items()
+        if v is not None and k not in ["yaml_overrides", "param_file"]
+    }
 
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
@@ -195,7 +197,7 @@ def parse_arguments(arg_list):
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
-    return param_file, yaml_stream.getvalue()
+    return param_file, yaml_stream.getvalue(), parsed_args
 
 
 class Stage(Enum):
