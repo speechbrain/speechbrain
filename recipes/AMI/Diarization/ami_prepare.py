@@ -1,1 +1,1 @@
-ami_prepare.py
+../ami_prepare.py
