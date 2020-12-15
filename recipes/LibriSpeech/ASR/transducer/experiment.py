@@ -345,7 +345,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-
     # Creating tokenizer must be done after preparation
     # Specify the bos_id/eos_id if different from blank_id
     hparams["tokenizer"] = SentencePiece(
