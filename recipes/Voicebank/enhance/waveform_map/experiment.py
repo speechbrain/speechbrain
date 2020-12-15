@@ -109,11 +109,6 @@ class SEBrain(sb.Brain):
 # Recipe begins!
 if __name__ == "__main__":
 
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from voicebank_prepare import prepare_voicebank  # noqa E402
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -139,11 +134,6 @@ if __name__ == "__main__":
     # Create the folder to save enhanced files
     if not os.path.exists(hparams["enhanced_folder"]):
         os.mkdir(hparams["enhanced_folder"])
-
-    # Prepare data
-    prepare_voicebank(
-        data_folder=hparams["data_folder"], save_folder=hparams["data_folder"],
-    )
 
     se_brain = SEBrain(
         modules=hparams["modules"],
