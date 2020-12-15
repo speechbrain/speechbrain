@@ -13,9 +13,9 @@ import csv
 import random
 from collections import Counter
 import logging
+import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
     load_pkl,
     save_pkl,
     merge_csvs,
@@ -28,8 +28,10 @@ SAMPLERATE = 16000
 
 def prepare_librispeech(
     data_folder,
-    splits,
     save_folder,
+    tr_splits=[],
+    dev_splits=[],
+    te_splits=[],
     select_n_sentences=None,
     merge_lst=[],
     merge_name=None,
@@ -43,9 +45,13 @@ def prepare_librispeech(
     ---------
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
-    splits : list
-        List of splits to prepare from ['dev-clean','dev-others','test-clean',
-        'test-others','train-clean-100','train-clean-360','train-other-500']
+    tr_splits : list
+        List of train splits to prepare from ['test-others','train-clean-100',
+        'train-clean-360','train-other-500'].
+    dev_splits : list
+        List of dev splits to prepare from ['dev-clean','dev-others'].
+    te_splits : list
+        List of test splits to prepare from ['test-clean','test-others'].
     save_folder : str
         The directory where to store the csv files.
     select_n_sentences : int
@@ -69,7 +75,7 @@ def prepare_librispeech(
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
     data_folder = data_folder
-    splits = splits
+    splits = tr_splits +  dev_splits + te_splits
     save_folder = save_folder
     select_n_sentences = select_n_sentences
     conf = {
@@ -85,8 +91,10 @@ def prepare_librispeech(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        logger.info("Skipping preparation, completed in previous run.")
+        print("Skipping preparation, completed in previous run.")
         return
+    else:
+        print("Data_preparation...")
 
     # Additional checks to make sure the data folder contains Librispeech
     check_librispeech_folders(data_folder, splits)
@@ -281,7 +289,7 @@ def create_csv(
 
     # Preliminary prints
     msg = "Creating csv lists in  %s..." % (csv_file)
-    logger.info(msg)
+    print(msg)
 
     csv_lines = [
         [
@@ -310,7 +318,8 @@ def create_csv(
         spk_id = "-".join(snt_id.split("-")[0:2])
         wrds = text_dict[snt_id]
 
-        signal = read_wav_soundfile(wav_file)
+        signal, fs = torchaudio.load(wav_file)
+        signal = signal.squeeze(0)
         duration = signal.shape[0] / SAMPLERATE
 
         # replace space to <space> token
@@ -352,7 +361,7 @@ def create_csv(
 
     # Final print
     msg = "%s sucessfully created!" % (csv_file)
-    logger.info(msg)
+    print(msg)
 
 
 def skip(splits, save_folder, conf):
