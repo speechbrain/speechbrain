@@ -8,7 +8,7 @@
 
 save_folder: pretrained_models
 lm_ckpt_file:
-    https://www.dropbox.com/s/h2nigdmx55o9rjx/timers-and-such-lm.ckpt?dl=0
+    https://www.dropbox.com/s/h2nigdmx55o9rjx/timers-and-such-lm.ckpt?dl=1
 
 device: 'cuda:0'
 
