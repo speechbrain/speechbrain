@@ -12,6 +12,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# NOTE: Changing these does NOT change the defaults in the classes.
+# Consider these read-only.
+DEFAULT_UNK = "<unk>"
+DEFAULT_BOS = "<s>"
+DEFAULT_EOS = "<s>"
+DEFAULT_BLANK = "<b>"
+
 
 class CategoricalEncoder:
     """
@@ -23,14 +30,16 @@ class CategoricalEncoder:
     VALUE_SEPARATOR = " => "
     EXTRAS_SEPARATOR = "================\n"
 
-    def __init__(self, starting_index=0):
+    def __init__(self, starting_index=0, **special_labels):
         self.lab2ind = {}
         self.ind2lab = {}
         self.starting_index = starting_index
-        # NOTE: unk_label is not set at all!
+        # NOTE: unk_label is not necessarily set at all!
         # This is because None is a suitable value for unk.
         # So the test is: hasattr(self, "unk_label")
         # rather than self.unk_label is not None
+        if "unk_label" in special_labels:
+            self.add_unk(special_labels["unk_label"])
 
     def __len__(self):
         return len(self.lab2ind)
@@ -75,7 +84,7 @@ class CategoricalEncoder:
             )
 
     def limited_labelset_from_iterable(
-        self, iterable, sequence_input=True, n_most_common=None, min_count=1
+        self, iterable, sequence_input=False, n_most_common=None, min_count=1
     ):
         """Produce label mapping from iterable based on label counts
 
@@ -87,7 +96,7 @@ class CategoricalEncoder:
             Input sequence on which to operate.
         sequence_input : bool
             Whether iterable yields sequences of labels or individual labels
-            directly. True by default, unlike CategoricalEncoder.
+            directly. False by default.
         n_most_common : int, None
             Take at most this many labels as the label set, keeping the most
             common ones. If None (as by default), take all.
@@ -219,7 +228,7 @@ class CategoricalEncoder:
             self.lab2ind[saved_label] = new_index
             self.ind2lab[new_index] = saved_label
 
-    def add_unk(self, unk_label="<unk>"):
+    def add_unk(self, unk_label=DEFAULT_UNK):
         """Add label for unknown tokens (out-of-vocab)
 
         When asked to encode unknown labels, they can be mapped to this.
@@ -356,8 +365,7 @@ class CategoricalEncoder:
         )
 
     def decode_torch(self, x):
-        """
-        Decodes a torch.Tensor or list of ints to a list of corresponding labels.
+        """Decodes an arbitrarily nested torch.Tensor to a list of labels.
 
         Provided separately because Torch provides clearer introspection,
         and so doesn't require try-except.
@@ -365,7 +373,8 @@ class CategoricalEncoder:
         Arguments
         ---------
         x : torch.Tensor
-            Torch tensor of some integer dtype (Long, int) and any shape to decode.
+            Torch tensor of some integer dtype (Long, int) and any shape to
+            decode.
 
         Returns
         -------
@@ -383,11 +392,10 @@ class CategoricalEncoder:
         return decoded
 
     def decode_ndim(self, x):
-        """
-        Decodes an arbitrarily nested iterable to a list of corresponding labels.
+        """Decodes an arbitrarily nested iterable to a list of labels.
 
-        This works for essentially any pythonic iterable (including torch), and also
-        single elements.
+        This works for essentially any pythonic iterable (including torch), and
+        also single elements.
 
         Arguments
         ---------
@@ -439,7 +447,7 @@ class CategoricalEncoder:
             logger.info(
                 f"Load called, but {clsname} is not empty. "
                 "Loaded data will overwrite everything. "
-                "This is normal if there are e.g. default labels."
+                "This is normal if there is e.g. an unk label defined at init."
             )
         lab2ind, ind2lab, extras = self._load_literal(path)
         self.lab2ind = lab2ind
@@ -566,52 +574,216 @@ class CategoricalEncoder:
 
 
 class TextEncoder(CategoricalEncoder):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.bos_label = None
-        self.eos_label = None
-
-    def add_blank(self, encoding=None, token="<blank>"):
-        self.blank_token = token
-        self.enforce_label(token, encoding)
+    def __init__(self, starting_index=0, **special_labels):
+        super().__init__(starting_index, **special_labels)
+        # NOTE: bos_label and eos_label are not set at all!
+        # This is because None is a suitable value.
+        # So the test is: hasattr(self, "bos_label")
+        # rather than self.bos_label is not None
+        # Same thing with unk, see base class.
+        if "bos_label" in special_labels and "eos_label" in special_labels:
+            self.insert_bos_eos(
+                special_labels["bos_label"], special_labels["eos_label"]
+            )
+        elif "bos_label" in special_labels or "eos_label" in special_labels:
+            raise TypeError("Only BOS or EOS specified. Need both for init.")
 
     def add_bos_eos(
-        self,
-        bos_encoding=None,
-        bos_token="<bos>",
-        eos_encoding=None,
-        eos_token="<eos>",
+        self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS,
     ):
-        if not eos_encoding or (eos_encoding == bos_encoding):
+        """Add sentence boundary markers in the label set
+
+        If the beginning-of-sentence and end-of-sentence markers
+        are the same, will just use one sentence-boundary label.
+
+        This method adds to the end of the index, rather than at the beginning,
+        like insert_bos_eos.
+
+        Arguments
+        ---------
+        bos_label : hashable
+            Beginning-of-sentence label, any label
+        eos_label : hashable
+            End-of-sentence label, any label. If set to the same label as
+            bos_label, will just use one sentence-boundary label.
+        """
+        if bos_label == eos_label:
             logger.debug(
-                "Only BOS token specified or BOS == EOS, EOS is set implictly equal to BOS",
-                exc_info=True,
+                "BOS and EOS labels are the same so using just one sentence "
+                "boundary label"
             )
-            self.bos_token = bos_token
-            self.eos_token = bos_token
-            self.enforce_label(bos_token, bos_encoding)
+            self.add_label(bos_label)
         else:
-            self.enforce_label(bos_token, bos_encoding)
-            self.enforce_label(eos_token, eos_encoding)
-            self.bos_token = bos_token
-            self.eos_token = eos_token
+            self.add_label(bos_label)
+            self.add_label(eos_label)
+        self.bos_label = bos_label
+        self.eos_label = eos_label
+
+    def insert_bos_eos(
+        self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS, bos_index=0
+    ):
+        """Insert sentence boundary markers in the label set.
+
+        If the beginning-of-sentence and end-of-sentence markers
+        are the same, will just use one sentence-boundary label.
+
+        Arguments
+        ---------
+        bos_label : hashable
+            Beginning-of-sentence label, any label
+        eos_label : hashable
+            End-of-sentence label, any label. If set to the same label as
+            bos_label, will just use one sentence-boundary label.
+        bos_index : int
+            Where to insert bos_label. If EOS is added, it is added at
+            box_index + 1.
+        """
+        if bos_label == eos_label:
+            logger.debug(
+                "BOS and EOS labels are the same so using just one sentence "
+                "boundary label"
+            )
+            self.insert_label(bos_label, bos_index)
+        else:
+            self.insert_label(bos_label, bos_index)
+            self.insert_label(eos_label, bos_index + 1)
+        self.bos_label = bos_label
+        self.eos_label = eos_label
 
     def prepend_bos_label(self, x):
         """Returns a list version of x, with BOS prepended"""
+        if not hasattr(self, "bos_label"):
+            raise KeyError("BOS label has not been added to label set!")
         return [self.bos_label] + list(x)
 
     def prepend_bos_index(self, x):
         """Returns a list version of x, with BOS index prepended"""
-        return [self.label2ind[self.bos_label]] + list(x)
+        if not hasattr(self, "bos_label"):
+            raise KeyError("BOS label has not been added to label set!")
+        return [self.lab2ind[self.bos_label]] + list(x)
 
     def append_eos_label(self, x):
         """Returns a list version of x, with EOS appended"""
+        if not hasattr(self, "eos_label"):
+            raise KeyError("EOS label has not been added to label set!")
         return list(x) + [self.eos_label]
 
     def append_eos_index(self, x):
         """Returns a list version of x, with EOS index appended"""
+        if not hasattr(self, "eos_label"):
+            raise KeyError("EOS label has not been added to label set!")
         return list(x) + [self.lab2ind[self.eos_label]]
+
+    def _get_extras(self):
+        extras = super()._get_extras()
+        if hasattr(self, "bos_label"):
+            extras["bos_label"] = self.bos_label
+        if hasattr(self, "eos_label"):
+            extras["eos_label"] = self.eos_label
+        return extras
+
+    def _set_extras(self, extras):
+        super()._set_extras(extras)
+        if "bos_label" in extras:
+            self.bos_label = extras["bos_label"]
+        if "eos_label" in extras:
+            self.eos_label = extras["eos_label"]
 
 
 class CTCTextEncoder(TextEncoder):
-    pass
+    def __init__(self, starting_index=0, **special_labels):
+        super().__init__(starting_index, **special_labels)
+        if "blank_label" in special_labels:
+            self.add_blank(special_labels["blank_label"])
+        # NOTE: blank_label is not necessarily set at all!
+        # This is because None is a suitable value.
+        # So the test is: hasattr(self, "blank_label")
+        # rather than self.blank_label is not None
+        # Same thing with unk, see base class.
+
+    def add_blank(self, blank_label=DEFAULT_BLANK):
+        self.add_label(blank_label)
+        self.blank_label = blank_label
+
+    def collapse_labels(self, x, merge_repeats=True):
+        """Applies the CTC collapsing rules on one label sequence
+
+        Arguments
+        ---------
+        x : iterable
+            Label sequence on which to operate.
+        merge_repeats : bool
+            Whether to merge repeated labels before removing blanks.
+            In the basic CTC label topology, repeated labels are merged.
+            However, in RNN-T, they are not.
+
+        Returns
+        -------
+        list
+            List of labels with collapsing rules applied.
+        """
+        # This cannot work on arbitrary "ndim", because strings can be
+        # infinitely iterated. Iterating "a" produces "a" over and over again.
+        if not hasattr(self, "blank_label"):
+            raise KeyError("Blank label has not been added")
+        if merge_repeats:
+            return [
+                label
+                for i, label in enumerate(x)
+                if (i == 0 or label != x[i - 1]) and label != self.blank_label
+            ]
+        else:
+            return [label for label in x if label != self.blank_label]
+
+    def collapse_indices_ndim(self, x, merge_repeats=True):
+        """Applies the CTC collapsing rules on arbitrarily label sequence
+
+        Arguments
+        ---------
+        x : iterable
+            Label sequence on which to operate.
+        merge_repeats : bool
+            Whether to merge repeated labels before removing blanks.
+            In the basic CTC label topology, repeated labels are merged.
+            However, in RNN-T, they are not.
+
+        Returns
+        -------
+        list
+            List of labels with collapsing rules applied.
+        """
+        if not hasattr(self, "blank_label"):
+            raise KeyError("Blank label has not been added")
+        # Recursively operates on the different dimensions.
+        collapsed = []
+        for subtensor in x:
+            try:
+                collapsed.append(
+                    self.collapse_indices_ndim(subtensor, merge_repeats)
+                )
+            except TypeError:  # Not an iterable at next level!
+                # So we should rather operate on this dimension.
+                break
+        else:  # For-else: only enter else if NO break.
+            return collapsed
+        # We get here if we DID break:
+        blank_index = self.lab2ind[self.blank_label]
+        if merge_repeats:
+            return [
+                index
+                for i, index in enumerate(x)
+                if (i == 0 or index != x[i - 1]) and index != blank_index
+            ]
+        else:
+            return [index for index in x if index != blank_index]
+
+    def _get_extras(self):
+        extras = super()._get_extras()
+        if hasattr(self, "blank_label"):
+            extras["blank_label"] = self.blank_label
+        return extras
+
+    def _set_extras(self, extras):
+        super()._set_extras(extras)
+        if "blank_label" in extras:
+            self.blank_label = extras["blank_label"]

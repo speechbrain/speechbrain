@@ -63,6 +63,12 @@ def test_categorical_encoder():
     with pytest.raises(KeyError):
         encoder.encode_label("d")
 
+    encoder = CategoricalEncoder(unk_label="<unk>")
+    encoder.update_from_iterable("abc")
+    assert encoder.encode_label("a") == 1
+    assert encoder.encode_label("d") == 0
+    assert encoder.decode_ndim(encoder.encode_label("d")) == "<unk>"
+
 
 def test_categorical_encoder_saving(tmpdir):
     from speechbrain.data_io.encoder import CategoricalEncoder
@@ -95,6 +101,22 @@ def test_categorical_encoder_saving(tmpdir):
     assert encoder.load_if_possible(encoding_file)
     assert encoder.encode_label((1, 2)) == -1
 
+    # Load unk:
+    encoder = CategoricalEncoder(unk_label="UNKNOWN")
+    encoding_file = tmpdir / "unk_encoding.txt"
+    encoder.update_from_iterable("abc")
+    encoder.save(encoding_file)
+    encoder = CategoricalEncoder()
+    assert encoder.load_if_possible(encoding_file)
+    assert encoder.encode_label("a") == 1
+    assert encoder.decode_ndim(encoder.encode_label("d")) == "UNKNOWN"
+    # Even if set differently:
+    encoder = CategoricalEncoder()
+    encoder.add_unk()
+    assert encoder.load_if_possible(encoding_file)
+    assert encoder.encode_label("a") == 1
+    assert encoder.decode_ndim(encoder.encode_label("d")) == "UNKNOWN"
+
 
 def test_categorical_encoder_from_dataset():
     from speechbrain.data_io.encoder import CategoricalEncoder
@@ -116,3 +138,73 @@ def test_categorical_encoder_from_dataset():
     encoder.update_from_didataset(dataset, "words", sequence_input=True)
     assert dataset[0]["words_t"] == [0, 1]
     assert encoder.decode_ndim(dataset[0]["words_t"]) == ["hello", "world"]
+
+
+def test_text_encoder(tmpdir):
+    from speechbrain.data_io.encoder import TextEncoder
+
+    encoder = TextEncoder()
+    encoding_file = tmpdir / "text_encoding.txt"
+    encoder.add_bos_eos()
+    encoder.update_from_iterable(
+        [["hello", "world"], ["how", "are", "you", "world"]],
+        sequence_input=True,
+    )
+    encoded = encoder.encode_sequence(
+        encoder.prepend_bos_label(["are", "you", "world"])
+    )
+    assert encoded[0] == 0
+    encoded = encoder.append_eos_index(
+        encoder.encode_sequence(["are", "you", "world"])
+    )
+    assert encoded[-1] == 0  # By default uses just one sentence_boundary marker
+    encoder.save(encoding_file)
+    encoder = TextEncoder()
+    assert encoder.load_if_possible(encoding_file)
+    encoded = encoder.encode_sequence(
+        encoder.append_eos_label(["are", "you", "world"])
+    )
+    assert encoded[-1] == 0
+    encoded = encoder.prepend_bos_index(
+        encoder.encode_sequence(["are", "you", "world"])
+    )
+    assert encoded[0] == 0
+
+
+def test_ctc_encoder(tmpdir):
+    from speechbrain.data_io.encoder import CTCTextEncoder
+
+    encoder = CTCTextEncoder(bos_label="<s>", eos_label="</s>", blank_label="_")
+    encoding_file = tmpdir / "ctc_encoding.txt"
+    encoder.update_from_iterable(["abcd", "bcdef"], sequence_input=True)
+    encoded = encoder.encode_sequence(encoder.prepend_bos_label(["a", "b"]))
+    assert encoded[0] == 0
+    encoder.save(encoding_file)
+    encoder = CTCTextEncoder()
+    assert encoder.load_if_possible(encoding_file)
+    assert (
+        "".join(encoder.collapse_labels("_bb_aaa___bbbbb_b_eeee_____"))
+        == "babbe"
+    )
+    assert "".join(encoder.collapse_labels("babe")) == "babe"
+    assert (
+        "".join(
+            encoder.collapse_labels(
+                "_bb_aaa___bbbbb_b_eeee_____", merge_repeats=False
+            )
+        )
+        == "bbaaabbbbbbeeee"
+    )
+    assert encoder.decode_ndim(
+        (
+            encoder.collapse_indices_ndim(
+                [
+                    [0, 2, 4, 4, 2, 3, 3, 3, 2, 2, 2, 4, 2, 4, 2, 7, 2, 1],
+                    [[0, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1]],
+                ]
+            )
+        )
+    ) == [
+        ["<s>", "b", "a", "b", "b", "e", "</s>"],
+        [["<s>", "a", "b", "c", "d", "c", "b", "a", "</s>"]],
+    ]
