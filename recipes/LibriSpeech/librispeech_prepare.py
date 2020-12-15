@@ -249,8 +249,8 @@ def split_lexicon(data_folder, split_ratio):
     tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
     train_lines = [header] + lexicon_lines[0:tr_snts]
     valid_snts = int(0.01 * split_ratio[1] * len(lexicon_lines))
-    valid_lines = [header] + lexicon_lines[tr_snts: tr_snts + valid_snts]
-    test_lines = [header] + lexicon_lines[tr_snts + valid_snts:]
+    valid_lines = [header] + lexicon_lines[tr_snts : tr_snts + valid_snts]
+    test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
 
     # Saving files
     with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
