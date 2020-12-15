@@ -29,6 +29,7 @@ data_folder: /localscratch/LibriSpeech
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_split: dev-clean
+test_splits: ["test-clean", "test-other"]
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
 csv_test_clean: !ref <data_folder>/test-clean.csv
@@ -89,6 +90,15 @@ lm_rnn_layers: 2
 lm_rnn_neurons: 2048
 lm_dnn_blocks: 1
 lm_dnn_neurons: 512
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:librispeech_prepare.prepare_librispeech
+        data_folder: !ref <data_folder>
+        splits: !ref <train_splits> + !ref <dev_splits> + !ref <test_splits>
+        merge_lst: !ref <train_splits>
+        merge_name: !ref <csv_train>
+        save_folder: !ref <data_folder>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>

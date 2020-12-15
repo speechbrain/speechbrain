@@ -56,6 +56,14 @@ out_channels: 256
 kernel_size: 16
 kernel_stride: 8
 
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:prepare_data.prepare_wsjmix
+        datapath: !ref <data_folder>
+        savepath: !ref <data_folder>
+        n_spks: !ref <num_spks>
+
 # Dataloaders
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tr_csv>
