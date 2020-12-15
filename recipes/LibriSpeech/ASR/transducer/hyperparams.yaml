@@ -189,11 +189,11 @@ emb: !new:speechbrain.nnet.embedding.Embedding
 #    num_layers: 1
 #    re_init: True
 
-external_lm: 
+external_lm:
 
 dec: !new:experiment.PredictionNetwork
     lm: !ref <external_lm>
-    ff: 
+    ff:
 
 # For MTL with LM over the decoder
 # dec_lin: !new:speechbrain.nnet.linear.Linear
