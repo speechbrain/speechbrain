@@ -44,6 +44,13 @@ class CategoricalEncoder:
     def __len__(self):
         return len(self.lab2ind)
 
+    @classmethod
+    def from_saved(cls, path):
+        """Recreate a previously saved encoder directly"""
+        obj = cls()
+        obj.load(path)
+        return obj
+
     def update_from_iterable(self, iterable, sequence_input=False):
         """Update from iterator
 
@@ -694,7 +701,7 @@ class CTCTextEncoder(TextEncoder):
     def __init__(self, starting_index=0, **special_labels):
         super().__init__(starting_index, **special_labels)
         if "blank_label" in special_labels:
-            self.add_blank(special_labels["blank_label"])
+            self.insert_blank(special_labels["blank_label"])
         # NOTE: blank_label is not necessarily set at all!
         # This is because None is a suitable value.
         # So the test is: hasattr(self, "blank_label")
@@ -702,7 +709,13 @@ class CTCTextEncoder(TextEncoder):
         # Same thing with unk, see base class.
 
     def add_blank(self, blank_label=DEFAULT_BLANK):
+        """Add blank symbol to labelset"""
         self.add_label(blank_label)
+        self.blank_label = blank_label
+
+    def insert_blank(self, blank_label=DEFAULT_BLANK, index=0):
+        """Insert blank symbol at a given labelset"""
+        self.insert_label(blank_label, index)
         self.blank_label = blank_label
 
     def collapse_labels(self, x, merge_repeats=True):

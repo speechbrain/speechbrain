@@ -7,7 +7,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 N_epochs: 15
 batch_size: 1
 lr: 0.002
-blank_index: 43
+blank_index: 0
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -31,9 +31,7 @@ common_dynamic_items:
         func: !name:speechbrain.utils.data_utils.split_by_whitespace
         argkeys: [phn]
     phn_encoded:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.encode_sequence>
-            - !name:speechbrain.data_io.data_io.to_longTensor
+        func: !ref <label_encoder.encode_sequence_torch>
         argkeys: [phn_list]
     sig:
         func: !name:speechbrain.data_io.data_io.read_audio
@@ -46,6 +44,9 @@ train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         data_root: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <train_data>
+    batch_size: !ref <batch_size>
 
 valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/dev.json
@@ -53,11 +54,6 @@ valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         data_root: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
-
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <train_data>
-    batch_size: !ref <batch_size>
-
 valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <valid_data>
     batch_size: !ref <batch_size>
