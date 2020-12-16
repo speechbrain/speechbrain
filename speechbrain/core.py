@@ -201,26 +201,22 @@ def parse_arguments(arg_list):
     parser.add_argument(
         "--auto_mix_prec",
         type=bool,
-        default=False,
         help="If True, automatic mixed-precision is used.",
     )
     parser.add_argument(
         "--max_grad_norm",
         type=float,
-        default=5.0,
         help="Gradient norm will be clipped to this value, "
         "enter negative value to disable.",
     )
     parser.add_argument(
         "--nonfinite_patience",
         type=int,
-        default=3,
         help="Max number of batches per epoch to skip if loss is nonfinite.",
     )
     parser.add_argument(
         "--progressbar",
         type=bool,
-        default=True,
         help="If True, displays a progressbar indicating dataset progress.",
     )
 
