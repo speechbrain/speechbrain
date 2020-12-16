@@ -7,25 +7,26 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 123
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_rw/<seed>
+output_folder: !ref results/CRDNN_it/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # root path of the commonvoice dataset
-wav_folder: !PLACEHOLDER  # !! Largish disk required !! (mp3 files converted)
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+data_folder_rirs: !ref <data_folder>
+wav_folder: !PLACEHOLDER  # e.g, /localscratch/common_voiceit_converted
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: False
-language: rw
+language: fr # use 'it' for Italian, 'rw' for Kinyarwanda
 duration_threshold: 8  # Longer sentences will be removed (in seconds)
-csv_train: !ref <save_folder>/train.csv
-csv_valid: !ref <save_folder>/dev.csv
-csv_test: !ref <save_folder>/test.csv
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 35
@@ -33,7 +34,7 @@ number_of_ctc_epochs: 30
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-batch_size: 16
+batch_size: 12
 lr: 1.0
 ctc_weight: 0.3
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -70,10 +71,26 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 40
+beam_size: 80
 eos_threshold: 1.5
-using_max_attn_shift: False
-max_attn_shift: 60
+using_max_attn_shift: True
+max_attn_shift: 140
+temperature: 1.50
+
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:common_voice_prepare.prepare_common_voice
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
+        path_to_wav: !ref <wav_folder>
+        train_tsv_file: !ref <train_tsv_file>
+        dev_tsv_file: !ref <dev_tsv_file>
+        test_tsv_file: !ref <test_tsv_file>
+        accented_letters: !ref <accented_letters>
+        language: !ref <language>
+        duration_threshold: !ref <duration_threshold>
+
 
 #
 # Functions and classes
@@ -105,6 +122,15 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, wrd]
 
 # Models
+
+# Environmental corruption
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
 
 # SpecAugment
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
@@ -207,6 +233,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     eos_threshold: !ref <eos_threshold>
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
+    temperature: !ref <temperature>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

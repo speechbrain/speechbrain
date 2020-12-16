@@ -9,7 +9,6 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -163,11 +162,6 @@ class ASR_Brain(sb.Brain):
 # Begin Recipe!
 if __name__ == "__main__":
 
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from timit_prepare import prepare_timit  # noqa E402
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -181,14 +175,6 @@ if __name__ == "__main__":
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
-        phn_set=str(hparams["ground_truth_phn_set"]),
     )
 
     # Collect index to label dictionary for decoding

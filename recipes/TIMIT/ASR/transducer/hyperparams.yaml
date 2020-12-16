@@ -67,6 +67,13 @@ nbest: 1
 state_beam: 1.0
 expand_beam: 1.0
 
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:timit_prepare.prepare_timit
+        data_folder: !ref <data_folder>
+        splits: ["train", "dev", "test"]
+        save_folder: !ref <data_folder>
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
