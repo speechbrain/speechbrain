@@ -7,10 +7,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+data_folder: /media/sam/HitachiX360/TIMIT/  # e.g. /path/to/TIMIT
 
 # Training parameters
 number_of_epochs: 50
@@ -44,12 +41,13 @@ emb_size: 128
 dec_neurons: 256
 
 # Outputs
-output_neurons: 40
-blank_index: !ref <output_neurons> - 1
+output_neurons: 45
+blank_index: 0
+eos_bos_index: 0
 
 # Decoding parameters
-bos_index: !ref <output_neurons> - 1
-eos_index: !ref <output_neurons> - 1
+bos_index: !ref <eos_bos_index>
+eos_index: !ref <eos_bos_index>
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
@@ -58,26 +56,66 @@ eos_threshold: 1.5
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+label_encoder: !new:speechbrain.data_io.encoder.TextEncoder
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
+common_dynamic_items:
+    phn_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [phn]
+    phn_encoded_list:
+        func: !ref <label_encoder.encode_sequence>
+        argkeys: [phn_list]
+    phn_encoded:
+        func: !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded_list]
+    phn_encoded_eos:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !ref <label_encoder.append_eos_index>
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded_list]
+    phn_encoded_bos:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !ref <label_encoder.prepend_bos_index>
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded_list]
+    sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [wav]
+common_output_keys: ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"]
+
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/train.csv
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <train_data>
     batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+    shuffle: False # we use ordered batches for better performance
+
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/dev.csv
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: !ref <batch_size>
+    shuffle: False
+
+test_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/test.csv
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: !ref <batch_size>
+    shuffle: False
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -153,8 +191,8 @@ greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
+    bos_index: !ref <eos_bos_index>
+    eos_index: !ref <eos_bos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
@@ -162,8 +200,8 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
+    bos_index: !ref <eos_bos_index>
+    eos_index: !ref <eos_bos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
@@ -187,7 +225,6 @@ modules:
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
-    env_corrupt: !ref <env_corrupt>
 
 jit_module_keys: [enc]
 

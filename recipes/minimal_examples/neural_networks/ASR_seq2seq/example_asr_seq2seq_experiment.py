@@ -41,18 +41,16 @@ class seq2seqBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        inputs, targets = batch
-        preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
-        loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
+        preds = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(preds, batch, sb.Stage.TRAIN)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage=sb.Stage.TEST):
-        inputs, targets = batch
-        out = self.compute_forward(inputs, targets, stage)
-        loss = self.compute_objectives(out, targets, stage)
+        out = self.compute_forward(batch, stage)
+        loss = self.compute_objectives(out, batch, stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
@@ -86,7 +84,7 @@ def main():
     label_encoder.update_from_didataset(
         hparams["valid_data"], output_key="phn_list", sequence_input=True
     )
-    label_encoder.inser_eos_bos(index=hparams["eos_bos_index"])
+    label_encoder.insert_bos_eos(bos_index=hparams["eos_bos_index"])
 
     seq2seq_brain = seq2seqBrain(
         hparams["modules"], hparams["opt_class"], hparams
@@ -96,7 +94,7 @@ def main():
         hparams["train_loader"],
         hparams["valid_loader"],
     )
-    seq2seq_brain.evaluate(hparams["test_loader"]())
+    seq2seq_brain.evaluate(hparams["valid_loader"])
 
     # Check that model overfits for integration test
     assert seq2seq_brain.train_loss < 1.0
