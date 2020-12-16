@@ -131,9 +131,16 @@ if __name__ == "__main__":
             hparams["tensorboard_logs"]
         )
 
-    # Create the folder to save enhanced files
-    if not os.path.exists(hparams["enhanced_folder"]):
-        os.mkdir(hparams["enhanced_folder"])
+    # Create the folder to save enhanced files (+ support for DDP)
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            if not os.path.isdir(hparams["enhanced_folder"]):
+                os.makedirs(hparams["enhanced_folder"])
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
+
 
     se_brain = SEBrain(
         modules=hparams["modules"],

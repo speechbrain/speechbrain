@@ -15,9 +15,9 @@ data_folder: '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
 output_folder: !ref results/sepformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-tr_csv: !ref <save_folder>/wsj_tr.csv
-cv_csv: !ref <save_folder>/wsj_cv.csv
-tt_csv: !ref <save_folder>/wsj_tt.csv
+tr_csv: !ref <data_folder>/wsj_tr.csv
+cv_csv: !ref <data_folder>/wsj_cv.csv
+tt_csv: !ref <data_folder>/wsj_tt.csv
 
 # Experiment params
 auto_mix_prec: True

@@ -9,6 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
+valid_folder: !ref <data_folder>/valid
 output_folder: !ref results/causalCNNTransformer/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
@@ -42,6 +43,14 @@ Sample_rate: 16000
 N_fft: 512
 Win_length: 32
 Hop_length: 16
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:dns_prepare.prepare_dns
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
+        valid_folder: !ref <valid_folder>
+        seg_size: 10.0
 
 activation: !name:torch.nn.LeakyReLU
 output_activation: !name:torch.nn.ReLU
