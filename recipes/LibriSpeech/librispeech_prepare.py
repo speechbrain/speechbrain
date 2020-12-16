@@ -13,14 +13,13 @@ import csv
 import random
 from collections import Counter
 import logging
+import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
     load_pkl,
     save_pkl,
     merge_csvs,
 )
-import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
@@ -29,8 +28,10 @@ SAMPLERATE = 16000
 
 def prepare_librispeech(
     data_folder,
-    splits,
     save_folder,
+    tr_splits=[],
+    dev_splits=[],
+    te_splits=[],
     select_n_sentences=None,
     merge_lst=[],
     merge_name=None,
@@ -44,9 +45,13 @@ def prepare_librispeech(
     ---------
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
-    splits : list
-        List of splits to prepare from ['dev-clean','dev-others','test-clean',
-        'test-others','train-clean-100','train-clean-360','train-other-500']
+    tr_splits : list
+        List of train splits to prepare from ['test-others','train-clean-100',
+        'train-clean-360','train-other-500'].
+    dev_splits : list
+        List of dev splits to prepare from ['dev-clean','dev-others'].
+    te_splits : list
+        List of test splits to prepare from ['test-clean','test-others'].
     save_folder : str
         The directory where to store the csv files.
     select_n_sentences : int
@@ -69,76 +74,70 @@ def prepare_librispeech(
     >>> save_folder = 'librispeech_prepared'
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
-    try:
-        if sb.if_main_process():
-            data_folder = data_folder
-            splits = splits
-            save_folder = save_folder
-            select_n_sentences = select_n_sentences
-            conf = {
-                "select_n_sentences": select_n_sentences,
-            }
+    data_folder = data_folder
+    splits = tr_splits + dev_splits + te_splits
+    save_folder = save_folder
+    select_n_sentences = select_n_sentences
+    conf = {
+        "select_n_sentences": select_n_sentences,
+    }
 
-            # Other variables
-            # Saving folder
-            if not os.path.exists(save_folder):
-                os.makedirs(save_folder)
+    # Other variables
+    # Saving folder
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
 
-            save_opt = os.path.join(save_folder, OPT_FILE)
+    save_opt = os.path.join(save_folder, OPT_FILE)
 
-            # Check if this phase is already done (if so, skip it)
-            if skip(splits, save_folder, conf):
-                logger.info("Skipping preparation, completed in previous run.")
-                return
+    # Check if this phase is already done (if so, skip it)
+    if skip(splits, save_folder, conf):
+        print("Skipping preparation, completed in previous run.")
+        return
+    else:
+        print("Data_preparation...")
 
-            # Additional checks to make sure the data folder contains Librispeech
-            check_librispeech_folders(data_folder, splits)
+    # Additional checks to make sure the data folder contains Librispeech
+    check_librispeech_folders(data_folder, splits)
 
-            # create csv files for each split
-            all_texts = {}
-            for split_index in range(len(splits)):
+    # create csv files for each split
+    all_texts = {}
+    for split_index in range(len(splits)):
 
-                split = splits[split_index]
+        split = splits[split_index]
 
-                wav_lst = get_all_files(
-                    os.path.join(data_folder, split), match_and=[".flac"]
-                )
+        wav_lst = get_all_files(
+            os.path.join(data_folder, split), match_and=[".flac"]
+        )
 
-                text_lst = get_all_files(
-                    os.path.join(data_folder, split), match_and=["trans.txt"]
-                )
+        text_lst = get_all_files(
+            os.path.join(data_folder, split), match_and=["trans.txt"]
+        )
 
-                text_dict = text_to_dict(text_lst)
-                all_texts.update(text_dict)
+        text_dict = text_to_dict(text_lst)
+        all_texts.update(text_dict)
 
-                if select_n_sentences is not None:
-                    n_sentences = select_n_sentences[split_index]
-                else:
-                    n_sentences = len(wav_lst)
+        if select_n_sentences is not None:
+            n_sentences = select_n_sentences[split_index]
+        else:
+            n_sentences = len(wav_lst)
 
-                create_csv(
-                    save_folder, wav_lst, text_dict, split, n_sentences,
-                )
+        create_csv(
+            save_folder, wav_lst, text_dict, split, n_sentences,
+        )
 
-            # Merging csv file if needed
-            if merge_lst and merge_name is not None:
-                merge_files = [
-                    split_libri + ".csv" for split_libri in merge_lst
-                ]
-                merge_csvs(
-                    data_folder=save_folder,
-                    csv_lst=merge_files,
-                    merged_csv=merge_name,
-                )
+    # Merging csv file if needed
+    if merge_lst and merge_name is not None:
+        merge_files = [split_libri + ".csv" for split_libri in merge_lst]
+        merge_csvs(
+            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+        )
 
-            # Create lexicon.csv and oov.csv
-            if create_lexicon:
-                create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
+    # Create lexicon.csv and oov.csv
+    if create_lexicon:
+        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
 
-            # saving options
-            save_pkl(conf, save_opt)
-    finally:
-        sb.ddp_barrier()
+    # saving options
+    save_pkl(conf, save_opt)
 
 
 def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
@@ -290,7 +289,7 @@ def create_csv(
 
     # Preliminary prints
     msg = "Creating csv lists in  %s..." % (csv_file)
-    logger.info(msg)
+    print(msg)
 
     csv_lines = [
         [
@@ -319,7 +318,8 @@ def create_csv(
         spk_id = "-".join(snt_id.split("-")[0:2])
         wrds = text_dict[snt_id]
 
-        signal = read_wav_soundfile(wav_file)
+        signal, fs = torchaudio.load(wav_file)
+        signal = signal.squeeze(0)
         duration = signal.shape[0] / SAMPLERATE
 
         # replace space to <space> token
@@ -361,7 +361,7 @@ def create_csv(
 
     # Final print
     msg = "%s sucessfully created!" % (csv_file)
-    logger.info(msg)
+    print(msg)
 
 
 def skip(splits, save_folder, conf):

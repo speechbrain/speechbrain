@@ -32,6 +32,17 @@ deltas: False
 out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
 
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:voxceleb_prepare.prepare_voxceleb
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
+        splits: ["train", "dev"]
+        split_ratio: [90, 10]
+        seg_dur: 300
+        rand_seed: !ref <seed>
+        random_segment: !ref <random_segment>
+
 # Dataloaders
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
