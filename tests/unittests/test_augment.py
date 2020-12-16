@@ -171,7 +171,7 @@ def test_drop_chunk():
         drop_count_high=1,
         drop_start=100,
         drop_end=200,
-        drop_value=0.0,
+        noise_factor=0.0,
     )
     expected_waveform = test_waveform.clone()
     expected_waveform[:, 100:200] = 0.0
