@@ -19,7 +19,6 @@ Authors
  * Loren Lugosch, Mirco Ravanelli 2020
 """
 
-import os
 import sys
 import torch
 import speechbrain as sb
