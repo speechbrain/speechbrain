@@ -94,7 +94,7 @@ lin: !new:speechbrain.nnet.linear.Linear
     bias: False
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 43  # 42 phonemes + 1 bos
+    num_embeddings: 45  # 45 phonemes + 1 bos
     embedding_dim: 128
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder

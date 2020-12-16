@@ -18,19 +18,17 @@ import speechbrain as sb
 
 # Define training procedure
 class ASR(sb.Brain):
-    def compute_forward(self, x, y, stage):
-        ids, wavs, wav_lens = x
-        ids, phns, phn_lens = y
-
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
+        phns_bos, _ = batch.phn_encoded_bos
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                phns = torch.cat([phns, phns])
+                phns_bos = torch.cat([phns_bos, phns_bos])
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
@@ -42,11 +40,7 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
-        # Prepend bos token at the beginning
-        y_in = sb.data_io.data_io.prepend_bos_token(
-            phns, self.hparams.bos_index
-        )
-        e_in = self.modules.emb(y_in)
+        e_in = self.modules.emb(phns_bos)
         h, _ = self.modules.dec(e_in, x, wav_lens)
 
         # output layer for seq2seq log-probabilities
@@ -63,58 +57,51 @@ class ASR(sb.Brain):
 
         return p_ctc, p_seq, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         if stage == sb.Stage.TRAIN:
             p_ctc, p_seq, wav_lens = predictions
         else:
             p_ctc, p_seq, wav_lens, hyps = predictions
 
-        ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+        ids = batch.id
+        phns_eos, phn_lens_eos = batch.phn_encoded_eos
+        phns, phn_lens = batch.phn_encoded
 
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-
-        # Add phn_lens by one for eos token
-        abs_length = torch.round(phn_lens * phns.shape[1])
-
-        # Append eos token at the end of the label sequences
-        phns_with_eos = sb.data_io.data_io.append_eos_token(
-            phns, length=abs_length, eos_index=self.hparams.eos_index
-        )
-
-        # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
+        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            phns_eos = torch.cat([phns_eos, phns_eos], dim=0)
+            phn_lens_eos = torch.cat([phn_lens_eos, phn_lens_eos], dim=0)
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss_seq = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)
         loss = self.hparams.ctc_weight * loss_ctc
         loss += (1 - self.hparams.ctc_weight) * loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
-            self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
+            self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens)
             self.per_metrics.append(
-                ids, hyps, phns, None, phn_lens, self.hparams.ind2lab
+                ids,
+                hyps,
+                phns,
+                None,
+                phn_lens,
+                self.hparams.label_encoder.decode_ndim,
             )
 
         return loss
 
     def fit_batch(self, batch):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets, stage=stage)
-        loss = self.compute_objectives(predictions, targets, stage=stage)
+        predictions = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
@@ -174,9 +161,30 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, overrides, args = sb.parse_arguments(sys.argv[1:])
+
+    prepare_timit(
+        data_folder=args["data_folder"],
+        splits=["train", "dev", "test"],
+        save_folder=args["data_folder"],
+    )
+
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    label_encoder = hparams["label_encoder"]
+
+    if not label_encoder.load_if_possible("encoder_state.txt"):
+
+        label_encoder.update_from_didataset(
+            hparams["train_data"], output_key="phn_list", sequence_input=True
+        )
+        label_encoder.update_from_didataset(
+            hparams["valid_data"], output_key="phn_list", sequence_input=True
+        )
+
+        label_encoder.insert_bos_eos(bos_index=hparams["blank_index"])
+        label_encoder.save("encoder_state.txt")
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -185,18 +193,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
-    )
-
-    # Collect index to label conversion dict for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -204,5 +200,9 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
+        hparams["train_loader"],
+        hparams["valid_loader"],
+    )
+    asr_brain.evaluate(hparams["test_loader"], min_key="PER")

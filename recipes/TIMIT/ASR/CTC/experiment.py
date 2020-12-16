@@ -58,7 +58,7 @@ class ASR_Brain(sb.Brain):
                 phns,
                 None,
                 phn_lens,
-                self.hparams.label_encoder.decode_int,
+                self.hparams.label_encoder.decode_ndim,
             )
 
         return loss
@@ -134,7 +134,7 @@ if __name__ == "__main__":
             hparams["valid_data"], output_key="phn_list", sequence_input=True
         )
 
-        label_encoder.insert_bos_eos(index=hparams["blank_index"])
+        label_encoder.insert_blank(index=hparams["blank_index"])
         label_encoder.save("encoder_state.txt")
 
     # Create experiment directory
