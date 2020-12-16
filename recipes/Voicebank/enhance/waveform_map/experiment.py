@@ -141,7 +141,6 @@ if __name__ == "__main__":
         # wait for main_process if ddp is used
         sb.ddp_barrier()
 
-
     se_brain = SEBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
