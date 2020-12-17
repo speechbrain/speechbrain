@@ -21,7 +21,10 @@ from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from torch.utils.data import DistributedSampler
+from speechbrain.data_io.batch import PaddedBatch
+from speechbrain.data_io.dataset import DynamicItemDataset
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.data_io.sampler import DistributedSamplerWrapper
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -494,9 +497,7 @@ class Brain:
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: "
-                        + arg
-                        + " arg is override by command line input"
+                        "Info: " + arg + " arg overridden by command line input"
                     )
                 setattr(self, arg, run_opts[arg])
             else:
@@ -629,6 +630,89 @@ class Brain:
         """
         pass
 
+    def handle_data_init(
+        self,
+        train_set,
+        valid_set=None,
+        train_sampler=None,
+        shuffle_train=False,
+        pin_memory=False,
+        num_workers=0,
+        drop_last=False,
+        train_loader_kwargs=None,
+        valid_loader_kwargs=None,
+        dataloader_ckpt_pref="dataloader_",
+    ):
+        """Creates DataLoaders for the datasets
+
+        Note that some of the options exposed directly on handle_data_init are
+        only for more convenient syntax. They might just be directly added to
+        train_loader_kwargs and valid_loader_kwargs.
+
+        Arguments
+        ---------
+        train_set : Dataset
+            A set of data to use for training.
+        valid_set : Dataset
+            A set of data to use for validation.
+        train_sampler : Sampler, None
+            Optional sampler to use for training data. In DDP, gets
+            automatically wrapped in a DistributedSamplerWrapper.
+        train_shuffle : bool
+            To shuffle train data or not.
+        pin_memory : bool
+            To pin memory of batches. (Passed to data loaders.)
+        num_workers : int
+            Number of workers to pass to data loaders.
+        drop_last : False
+            Drop last incomplete batch and drop last uneven data in DDP.
+        train_loader_kwargs : dict
+            Additional keyword arguments to the training DataLoader. Some may be
+            incompatible with other options, like train_sampler, shuffle_train.
+        valid_loader_kwargs : dict
+            Additional keyword arguments to the training DataLoader. Some may be
+            incompatible with other options, like pin_memory.
+        dataloader_ckpt_pref : str, None
+            Prefix to use for SaveableDataLoader Checkpoint name. Set to None
+            to not save the DataLoader.
+        """
+        if train_loader_kwargs is None:
+            train_loader_kwargs = {}
+        if valid_loader_kwargs is None:
+            valid_loader_kwargs = {}
+        if train_sampler is not None and shuffle_train:
+            raise ValueError(
+                "Cannot specify both train_sampler and " "shuffle_train=True"
+            )
+
+        # DistributedSampler
+        if self.distributed_launch:
+            # num_replicas arg is equal to word_size
+            # and retrieved automatically within
+            # DistributedSampler obj.
+            if train_sampler is not None:
+                self.train_sampler = DistributedSamplerWrapper(
+                    train_sampler, rank=self.rank, drop_last=drop_last
+                )
+            else:
+                self.train_sampler = DistributedSampler(
+                    train_set,
+                    rank=self.rank,
+                    shuffle=shuffle_train,
+                    drop_last=drop_last,
+                )
+            train_loader_kwargs["sampler"] = self.train_sampler
+
+        # PaddedBatch as default collation for DynamicItemDataset
+        if "collate_fn" not in train_loader_kwargs and isinstance(
+            train_set, DynamicItemDataset
+        ):
+            train_loader_kwargs["collate_fn"] = PaddedBatch
+        if "collate_fn" not in valid_loader_kwargs and isinstance(
+            valid_set, DynamicItemDataset
+        ):
+            valid_loader_kwargs["collate_fn"] = PaddedBatch
+
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
         if distributed_count is more than 0 and backend is ddp.
@@ -636,7 +720,8 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* mp.spawn since jit modules cannot be pickled.
+        # Run this *after* starting all processes since jit modules cannot be
+        # pickled.
         self._compile_jit()
 
         # Wrap modules with parallel backend after jit
@@ -804,7 +889,12 @@ class Brain:
         return loss.detach().cpu()
 
     def fit(
-        self, epoch_counter, train_set, valid_set=None, progressbar=None,
+        self,
+        epoch_counter,
+        train_set,
+        valid_set=None,
+        progressbar=None,
+        **data_init_spec,
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -817,39 +907,29 @@ class Brain:
         * ``update_average()``
 
         If the initialization was done with distributed_count > 0 and the
-        distributed_backend is ddp, this method will spawn the correct number
-        of processes and run a portion of the training data on the
-        corresponding device.
+        distributed_backend is ddp, this will generally handle multiprocess
+        logic, like splitting the training data into subsets for each device and
+        only saving a checkpoint on the main process.
 
         Arguments
         ---------
         epoch_counter : iterable
             each call should return an integer indicating the epoch count.
-        train_set : DataLoader
+        train_set : Dataset
             A set of data to use for training.
-        valid_set : DataLoader
+        valid_set : Dataset
             A set of data to use for validation.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        train_loader, valid_loader = self.handle_data_init(
+            train_set, valid_set, **data_init_spec
+        )
+
         self.on_fit_start()
 
         if progressbar is None:
             progressbar = self.progressbar
-
-        self.train_sampler = None
-        if self.distributed_launch:
-            raise NotImplementedError(
-                "Currently not supporting DDP with new data loading"
-            )
-            # num_replicas arg is equal to word_size
-            # and retrieved automatically within
-            # DistributedSampler obj.
-            self.train_sampler = DistributedSampler(
-                dataset=train_set.dataset,
-                rank=self.rank,
-                shuffle=train_set.shuffle,
-            )
 
         # Iterate epochs
         for epoch in epoch_counter:
@@ -867,7 +947,7 @@ class Brain:
 
             # Only show progressbar if requested and main_process
             disable = not (progressbar and sb.if_main_process())
-            with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
+            with tqdm(train_loader, dynamic_ncols=True, disable=disable) as t:
                 for self.step, batch in enumerate(t):
                     loss = self.fit_batch(batch)
                     avg_train_loss = self.update_average(loss, avg_train_loss)
@@ -876,7 +956,7 @@ class Brain:
 
             # Validation stage
             avg_valid_loss = None
-            if valid_set is not None:
+            if valid_loader is not None:
                 self.on_stage_start(Stage.VALID, epoch)
                 self.modules.eval()
                 avg_valid_loss = 0.0
