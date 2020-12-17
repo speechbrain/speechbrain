@@ -16,14 +16,15 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/lr1/big_batchmean/save/CKPT+2020-11-30+02-35-44+00/model.ckpt # yamllint disable-line rule:line-length
 # Tokenizer model
-tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model # yamllint disable-line rule:line-length
-tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.vocab # yamllint disable-line rule:line-length
+tok_mdl_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip/save/5000_unigram.model # yamllint disable-line rule:line-length
+tok_voc_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip/save/5000_unigram.vocab # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_split: dev-clean
-csv_train: !ref <data_folder>/train-960.csv
+dev_split: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test_clean: !ref <data_folder>/test-clean.csv
 csv_test_other: !ref <data_folder>/test-other.csv
@@ -38,9 +39,9 @@ gradient_accumulation: 4
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 rank: null
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: null
+device: 'cuda'
+multigpu_count: 4  # Set to number of GPUs for multi-gpu training
+multigpu_backend: ddp_nccl
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
@@ -221,6 +222,18 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     length_normalization: True
 
 ############ Hyperparameters to pass to the Brain class ##############
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:librispeech_prepare.prepare_librispeech
+        data_folder: !ref <data_folder>
+        tr_splits: !ref <train_splits>
+        dev_splits: !ref <dev_split>
+        te_splits: !ref <test_splits>
+        merge_lst: !ref <train_splits>
+        merge_name: !ref <csv_train>
+        save_folder: !ref <data_folder>
+
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
 

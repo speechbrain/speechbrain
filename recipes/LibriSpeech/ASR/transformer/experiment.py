@@ -286,11 +286,6 @@ class ASR(sb.core.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from librispeech_prepare import prepare_librispeech  # noqa E402
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -306,16 +301,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_librispeech(
-        data_folder=hparams["data_folder"],
-        splits=hparams["train_splits"]
-        + [hparams["dev_split"], "test-clean", "test-other"],
-        merge_lst=hparams["train_splits"],
-        merge_name=hparams["csv_train"],
-        save_folder=hparams["data_folder"],
-    )
-
     # Creating tokenizer must be done after preparation
     tokenizer = hparams["tokenizer"]()
 
@@ -324,9 +309,7 @@ if __name__ == "__main__":
     valid_set = hparams["valid_loader"]()
     test_clean_set = hparams["test_clean_loader"]()
     test_other_set = hparams["test_other_loader"]()
-    ind2lab = hparams["test_other_loader"].label_dict["wrd"][
-        "index2lab"
-    ]
+    ind2lab = hparams["test_other_loader"].label_dict["wrd"]["index2lab"]
     hparams["ind2lab"] = ind2lab
     hparams["tokenizer"] = tokenizer
 
