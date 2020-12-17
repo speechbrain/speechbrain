@@ -516,8 +516,7 @@ class CategoricalEncoder:
     def load_if_possible(self, path):
         try:
             # all writing command must be done with the main_process
-            if sb.if_main_process():
-                bool_load = self._load_if_possible(path)
+            bool_load = self._load_if_possible(path)
         finally:
             # wait for main_process if ddp is used
             sb.ddp_barrier()

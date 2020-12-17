@@ -839,16 +839,16 @@ class Brain:
 
         self.train_sampler = None
         if self.distributed_launch:
-            raise NotImplementedError(
-                "Currently not supporting DDP with new data loading"
-            )
+            # raise NotImplementedError(
+            #    "Currently not supporting DDP with new data loading"
+            # )
             # num_replicas arg is equal to word_size
             # and retrieved automatically within
             # DistributedSampler obj.
             self.train_sampler = DistributedSampler(
                 dataset=train_set.dataset,
                 rank=self.rank,
-                shuffle=train_set.shuffle,
+                # shuffle=train_set.shuffle,
             )
 
         # Iterate epochs
