@@ -83,7 +83,7 @@ class DynamicItemDataset(Dataset):
     >>> from speechbrain.data_io.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
     >>> dataloader = SaveableDataLoader(dataset, collate_fn=PaddedBatch,
-            batch_size=2)
+    ...     batch_size=2)
     >>> # First, create encoding for words:
     >>> dataset.set_output_keys(["words"])
     >>> encoding = {}
