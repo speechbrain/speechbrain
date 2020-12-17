@@ -313,23 +313,6 @@ def download_file(
         sb.ddp_barrier()
 
 
-def prepare_data(prep_function):
-    """Performs the dataset preparation with DPP (multi-gpu) support.
-
-    Arguments
-    ---------
-    prepare_funct : object
-        Function used to perform data preparation.
-    """
-    try:
-        # all writing command must be done with the main_process
-        if sb.if_main_process():
-            prep_function()
-    finally:
-        # wait for main_process if ddp is used
-        sb.ddp_barrier()
-
-
 class FuncPipeline:
     """
     Chain together functions.
