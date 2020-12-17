@@ -264,7 +264,6 @@ class ErrorRateStats(MetricStats):
 
     def write_stats(self, filestream):
         """Write all relevant info (e.g. error rate alignments) to file.
-
         * See MetricStats.write_stats()
         """
         if not self.summary:

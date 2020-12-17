@@ -13,10 +13,10 @@ save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
 # csv files
-csv_train: !ref <save_folder>/train.csv
-csv_valid: !ref <save_folder>/dev.csv
-csv_enrol: !ref <save_folder>/enrol.csv
-csv_test: !ref <save_folder>/test.csv
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_enrol: !ref <data_folder>/enrol.csv
+csv_test: !ref <data_folder>/test.csv
 
 # Training hyperparameters
 number_of_epochs: 25
@@ -41,6 +41,17 @@ n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:voxceleb_prepare.prepare_voxceleb
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
+        splits: ["train", "dev", "test"]
+        split_ratio: [90, 10]
+        seg_dur: 300
+        rand_seed: !ref <seed>
+        random_segment: !ref <random_segment>
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank

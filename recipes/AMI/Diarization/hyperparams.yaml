@@ -59,6 +59,19 @@ ignore_overlap: True
 forgiveness_collar: 0.25
 
 
+# Data preparation will generate csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:ami_prepare.prepare_ami
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
+        manual_annot_folder: !ref <manual_annot_folder>
+        split_type: !ref <split_type>
+        skip_TNO: !ref <skip_TNO>
+        mic_type: !ref <mic_type>
+        vad_type: !ref <vad_type>
+        max_subseg_dur: !ref <max_subseg_dur>
+        overlap: !ref <overlap>
+
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>

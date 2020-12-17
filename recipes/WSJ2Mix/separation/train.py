@@ -397,19 +397,14 @@ class Separation(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from prepare_data import (
-        create_wsj_csv,
-        create_wsj_csv_3spks,
-        get_wsj_files,
-    )  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Logger info
     logger = logging.getLogger(__name__)
@@ -421,19 +416,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    data_save_dir = hparams["data_folder"]
-
-    # If the dataset is not present, we create it in data_save_dir
-    if not os.path.exists(data_save_dir):
-        wsj0path = hparams["wsj0path"]
-        get_wsj_files(wsj0path, data_save_dir)
-
-    if hparams["num_spks"] == 2:
-        create_wsj_csv(data_save_dir, hparams["save_folder"])
-    elif hparams["num_spks"] == 3:
-        create_wsj_csv_3spks(data_save_dir, hparams["save_folder"])
-
     # Data loaders
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
@@ -444,6 +426,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["optimizer"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

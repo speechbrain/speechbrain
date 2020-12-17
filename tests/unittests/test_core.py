@@ -1,11 +1,12 @@
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
 
-    filename, overrides = parse_arguments(
-        ["params.yaml", "--seed", "3", "--data_folder", "TIMIT"]
+    filename, run_opts, overrides = parse_arguments(
+        ["params.yaml", "--device=cpu", "--seed=3", "--data_folder", "TIMIT"]
     )
     assert filename == "params.yaml"
-    assert overrides == "data_folder: TIMIT\nseed: 3\n"
+    assert run_opts["device"] == "cpu"
+    assert overrides == "seed: 3\ndata_folder: TIMIT"
 
 
 def test_brain():
