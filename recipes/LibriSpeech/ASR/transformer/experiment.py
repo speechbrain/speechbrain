@@ -77,6 +77,10 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
+        # if stage == sb.Stage.TRAIN:
+        #     if hasattr(self.hparams, "augmentation"):
+        #         wavs = self.hparams.augmentation(feats)
+
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
             src, y_in, wav_lens, pad_idx=self.hparams.pad_index
@@ -172,7 +176,7 @@ class ASR(sb.core.Brain):
         (loss / self.hparams.gradient_accumulation).backward()
 
         if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not finite
+            # gradient clipping & early stop if loss is not fini
             self.check_gradients(loss)
 
             self.optimizer.step()
@@ -215,7 +219,7 @@ class ASR(sb.core.Brain):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and self.root_process:
+        if stage == sb.Stage.VALID and sb.if_main_process():
             epoch_stats = {
                 "epoch": epoch,
                 "lr": self.hparams.cosine_annealing.current_lr,
@@ -238,6 +242,8 @@ class ASR(sb.core.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
+
+        sb.ddp_barrier()
 
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
@@ -285,76 +291,67 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
     from librispeech_prepare import prepare_librispeech  # noqa E402
 
-    while True:
-        try:
-            # Load hyperparameters file with command-line overrides
-            hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
-            with open(hparams_file) as fin:
-                hparams = sb.load_extended_yaml(fin, overrides)
+    # Load hyperparameters file with command-line overrides
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, overrides)
 
-            # Create experiment directory
-            sb.create_experiment_directory(
-                experiment_directory=hparams["output_folder"],
-                hyperparams_to_save=hparams_file,
-                overrides=overrides,
-            )
+    # initialize the process group for distributed training
+    sb.ddp_init_group(run_opts)
 
-            # Prepare data
-            prepare_librispeech(
-                data_folder=hparams["data_folder"],
-                splits=hparams["train_splits"]
-                + [hparams["dev_split"], "test-clean", "test-other"],
-                merge_lst=hparams["train_splits"],
-                merge_name=hparams["csv_train"],
-                save_folder=hparams["data_folder"],
-            )
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
 
-            # Creating tokenizer must be done after preparation
-            tokenizer = hparams["tokenizer"]()
+    # Prepare data
+    prepare_librispeech(
+        data_folder=hparams["data_folder"],
+        splits=hparams["train_splits"]
+        + [hparams["dev_split"], "test-clean", "test-other"],
+        merge_lst=hparams["train_splits"],
+        merge_name=hparams["csv_train"],
+        save_folder=hparams["data_folder"],
+    )
 
-            # Load index2label dict for decoding
-            train_set = hparams["train_loader"]()
-            valid_set = hparams["valid_loader"]()
-            test_clean_set = hparams["test_clean_loader"]()
-            test_other_set = hparams["test_other_loader"]()
-            ind2lab = hparams["test_other_loader"].label_dict["wrd"][
-                "index2lab"
-            ]
-            hparams["ind2lab"] = ind2lab
-            hparams["tokenizer"] = tokenizer
+    # Creating tokenizer must be done after preparation
+    tokenizer = hparams["tokenizer"]()
 
-            # Brain class initialization
-            asr_brain = ASR(
-                modules=hparams["modules"],
-                opt_class=hparams["optimizer"],
-                hparams=hparams,
-                checkpointer=hparams["checkpointer"],
-            )
+    # Load index2label dict for decoding
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+    test_clean_set = hparams["test_clean_loader"]()
+    test_other_set = hparams["test_other_loader"]()
+    ind2lab = hparams["test_other_loader"].label_dict["wrd"][
+        "index2lab"
+    ]
+    hparams["ind2lab"] = ind2lab
+    hparams["tokenizer"] = tokenizer
 
-            asr_brain.load_tokenizer()
-            if hasattr(asr_brain.hparams, "lm_ckpt_file"):
-                asr_brain.load_lm()
+    # Brain class initialization
+    asr_brain = ASR(
+        modules=hparams["modules"],
+        opt_class=hparams["optimizer"],
+        hparams=hparams,
+        run_opts=run_opts,
+        checkpointer=hparams["checkpointer"],
+    )
 
-            # Training
-            asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
+    asr_brain.load_tokenizer()
+    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
+        asr_brain.load_lm()
 
-            # Test
-            asr_brain.hparams.wer_file = (
-                hparams["output_folder"] + "/wer_test_clean.txt"
-            )
-            asr_brain.evaluate(test_clean_set, max_key="ACC")
-            asr_brain.hparams.wer_file = (
-                hparams["output_folder"] + "/wer_test_other.txt"
-            )
-            asr_brain.evaluate(test_other_set, max_key="ACC")
-            sys.exit()
+    # Training
+    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
-        except KeyboardInterrupt:
-            sys.exit()
-
-        except Exception:
-            import traceback
-
-            traceback.print_exc()
-            msg = "failed with pkl I/O, retrying...."
-            print(msg)
+    # Test
+    asr_brain.hparams.wer_file = (
+        hparams["output_folder"] + "/wer_test_clean.txt"
+    )
+    asr_brain.evaluate(test_clean_set, max_key="ACC")
+    asr_brain.hparams.wer_file = (
+        hparams["output_folder"] + "/wer_test_other.txt"
+    )
+    asr_brain.evaluate(test_other_set, max_key="ACC")

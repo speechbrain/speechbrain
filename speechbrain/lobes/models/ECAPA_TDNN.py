@@ -143,7 +143,7 @@ class SEBlock(nn.Module):
     -------
     >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
     >>> se_layer = SEBlock(64, 16, 64)
-    >>> lengths = torch.randint(1, 120, (8,))
+    >>> lengths = torch.rand((8,))
     >>> out_tensor = se_layer(inp_tensor, lengths).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 120, 64])
@@ -164,7 +164,7 @@ class SEBlock(nn.Module):
     def forward(self, x, lengths=None):
         L = x.shape[-1]
         if lengths is not None:
-            mask = length_to_mask(lengths, max_len=L, device=x.device)
+            mask = length_to_mask(lengths * L, max_len=L, device=x.device)
             mask = mask.unsqueeze(1)
             total = mask.sum(dim=2, keepdim=True)
             s = (x * mask).sum(dim=2, keepdim=True) / total
@@ -192,7 +192,7 @@ class AttentiveStatisticsPooling(nn.Module):
     -------
     >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
     >>> asp_layer = AttentiveStatisticsPooling(64)
-    >>> lengths = torch.randint(1, 120, (8,))
+    >>> lengths = torch.rand((8,))
     >>> out_tensor = asp_layer(inp_tensor, lengths).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 1, 128])
@@ -230,10 +230,10 @@ class AttentiveStatisticsPooling(nn.Module):
             return mean, std
 
         if lengths is None:
-            lengths = torch.ones(x.shape[0], device=x.device) * L
+            lengths = torch.ones(x.shape[0], device=x.device)
 
         # Make binary mask of shape [N, 1, L]
-        mask = length_to_mask(lengths, max_len=L, device=x.device)
+        mask = length_to_mask(lengths * L, max_len=L, device=x.device)
         mask = mask.unsqueeze(1)
 
         # Expand the temporal context of the pooling layer by allowing the
@@ -337,7 +337,7 @@ class SERes2NetBlock(nn.Module):
         x = self.tdnn1(x)
         x = self.res2net_block(x)
         x = self.tdnn2(x)
-        x = self.se_block(x)
+        x = self.se_block(x, lengths)
 
         return x + residual
 

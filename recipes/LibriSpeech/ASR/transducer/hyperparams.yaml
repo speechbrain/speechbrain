@@ -29,13 +29,13 @@ data_folder: /localscratch/LibriSpeech
 data_folder_rirs: !ref <data_folder>
 # for training librispeech over 960H
 #train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-train_splits: ["train-clean-100"]
-dev_split: dev-clean
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_split: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
 csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/<dev_split>.csv
+csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test_clean: !ref <data_folder>/test-clean.csv
 csv_test_other: !ref <data_folder>/test-other.csv
-
 
 # Training parameters
 number_of_epochs: 30
@@ -48,11 +48,6 @@ lr: 1.0
 # MTL for decoder with CE (uncomment dec_lin layer)
 #number_of_ce_epochs: 2
 #ce_weight: 0.33
-
-# GPU setup
-device: cuda:0
-multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: null # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 
 # Tokenizer
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -101,6 +96,18 @@ lm_dnn_neurons: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
+
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:librispeech_prepare.prepare_librispeech
+        data_folder: !ref <data_folder>
+        tr_splits: !ref <train_splits>
+        dev_splits: !ref <dev_split>
+        te_splits: !ref <test_splits>
+        merge_lst: !ref <train_splits>
+        merge_name: !ref <csv_train>
+        save_folder: !ref <data_folder>
 
 # Dataloaders
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory

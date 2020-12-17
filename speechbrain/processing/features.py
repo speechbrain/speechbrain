@@ -767,7 +767,7 @@ class DCT(torch.nn.Module):
             x = x.reshape(x.shape[0] * x.shape[3], x.shape[1], x.shape[2])
 
         # apply the DCT transform
-        dct = torch.matmul(x, self.dct_mat)
+        dct = torch.matmul(x, self.dct_mat.to(x.device))
 
         # Reshape in the case of multi-channels
         if len(input_shape) == 4:
