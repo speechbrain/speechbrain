@@ -17,9 +17,8 @@ import speechbrain as sb
 # Define training procedure
 class ASR_Brain(sb.Brain):
     def compute_forward(self, batch, stage):
-        wavs, wav_lens = batch["wav"]
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
         # Adding augmentation when specified:
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
@@ -39,9 +38,8 @@ class ASR_Brain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         pout, pout_lens = predictions
-        ids = batch["id"]
-        phns, phn_lens = batch["phn"]
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+        ids = batch.id
+        phns, phn_lens = batch.phn_encoded
 
         if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
             phns = torch.cat([phns, phns], dim=0)
@@ -60,7 +58,7 @@ class ASR_Brain(sb.Brain):
                 phns,
                 None,
                 phn_lens,
-                self.hparams.label_encoder.decode_int,
+                self.hparams.label_encoder.decode_ndim,
             )
 
         return loss
@@ -114,10 +112,30 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, overrides, args = sb.parse_arguments(sys.argv[1:])
+
+    prepare_timit(
+        data_folder=args["data_folder"],
+        splits=["train", "dev", "test"],
+        save_folder=args["data_folder"],
+    )
 
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    label_encoder = hparams["label_encoder"]
+
+    if not label_encoder.load_if_possible("encoder_state.txt"):
+
+        label_encoder.update_from_didataset(
+            hparams["train_data"], output_key="phn_list", sequence_input=True
+        )
+        label_encoder.update_from_didataset(
+            hparams["valid_data"], output_key="phn_list", sequence_input=True
+        )
+
+        label_encoder.insert_blank(index=hparams["blank_index"])
+        label_encoder.save("encoder_state.txt")
 
     # Create experiment directory
     sb.create_experiment_directory(

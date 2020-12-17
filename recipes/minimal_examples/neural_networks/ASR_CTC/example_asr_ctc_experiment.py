@@ -5,7 +5,7 @@ import speechbrain as sb
 
 class CTCBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        wavs, lens = batch["wav"]
+        wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x = self.modules.model(feats)
@@ -16,15 +16,14 @@ class CTCBrain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        ids = batch["id"]
-        phns, phn_lens = batch["phn"]
+        phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
             seq = sb.decoders.ctc_greedy_decode(
                 predictions, lens, blank_id=self.hparams.blank_index
             )
-            self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
+            self.per_metrics.append(batch.id, seq, phns, target_len=phn_lens)
 
         return loss
 
@@ -52,6 +51,16 @@ def main():
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+
+    # Update label encoder:
+    label_encoder = hparams["label_encoder"]
+    label_encoder.update_from_didataset(
+        hparams["train_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.update_from_didataset(
+        hparams["valid_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.insert_blank(index=hparams["blank_index"])
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
