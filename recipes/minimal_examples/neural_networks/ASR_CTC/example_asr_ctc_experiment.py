@@ -54,13 +54,16 @@ def main():
 
     # Update label encoder:
     label_encoder = hparams["label_encoder"]
-    label_encoder.update_from_didataset(
-        hparams["train_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.update_from_didataset(
-        hparams["valid_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.insert_blank(index=hparams["blank_index"])
+    if not label_encoder.load_if_possible("./label.txt"):
+        label_encoder.update_from_didataset(
+            hparams["train_data"], output_key="phn_list", sequence_input=True
+        )
+        label_encoder.update_from_didataset(
+            hparams["valid_data"], output_key="phn_list", sequence_input=True
+        )
+        label_encoder.insert_blank(index=hparams["blank_index"])
+        # save label_encoder
+        label_encoder.save("./label.txt")
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(

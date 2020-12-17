@@ -9,6 +9,7 @@ import torch
 import collections
 import itertools
 import logging
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -436,7 +437,11 @@ class CategoricalEncoder:
             Where to save. Will overwrite.
         """
         extras = self._get_extras()
-        self._save_literal(path, self.lab2ind, extras)
+        try:
+            if sb.if_main_process():
+                self._save_literal(path, self.lab2ind, extras)
+        finally:
+            sb.ddp_barrier()
 
     def load(self, path):
         """Loads from the given path
@@ -463,7 +468,7 @@ class CategoricalEncoder:
         # If we're here, load was a success!
         logger.debug(f"Loaded categorical encoding from {path}")
 
-    def load_if_possible(self, path):
+    def _load_if_possible(self, path):
         """Loads if possible, returns bool indicating if loaded or not.
 
         Arguments
@@ -507,6 +512,16 @@ class CategoricalEncoder:
             )
             return False
         return True  # If here, all good
+
+    def load_if_possible(self, path):
+        try:
+            # all writing command must be done with the main_process
+            if sb.if_main_process():
+                bool_load = self._load_if_possible(path)
+        finally:
+            # wait for main_process if ddp is used
+            sb.ddp_barrier()
+            return bool_load
 
     def _get_extras(self):
         """Override this to provide any additional things to save
