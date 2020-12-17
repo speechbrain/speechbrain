@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 
-from ami_prepare import prepare_ami  # noqa E402
 
 try:
     import sklearn  # noqa F401
@@ -341,7 +340,7 @@ def dev_tuner(full_csv, split_type):
 if __name__ == "__main__":  # noqa: C901
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
         params = sb.yaml.load_extended_yaml(fin, overrides)
@@ -365,22 +364,6 @@ if __name__ == "__main__":  # noqa: C901
     for dir_ in exp_dirs:
         if not os.path.exists(dir_):
             os.makedirs(dir_)
-
-    # Prepare data for AMI
-    logger.info(
-        "AMI: Data preparation [Prepares both, the reference RTTMs and the CSVs]"
-    )
-    prepare_ami(
-        data_folder=params["data_folder"],
-        manual_annot_folder=params["manual_annot_folder"],
-        save_folder=params["save_folder"],
-        split_type=params["split_type"],
-        skip_TNO=params["skip_TNO"],
-        mic_type=params["mic_type"],
-        vad_type=params["vad_type"],
-        max_subseg_dur=params["max_subseg_dur"],
-        overlap=params["overlap"],
-    )
 
     # AMI Dev Set
     full_csv = []
