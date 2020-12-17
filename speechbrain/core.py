@@ -675,8 +675,10 @@ class Brain:
         """
         if train_loader_kwargs is None:
             train_loader_kwargs = {}
+        train_loader_kwargs["drop_last"] = drop_last
         if valid_loader_kwargs is None:
             valid_loader_kwargs = {}
+        valid_loader_kwargs["drop_last"] = drop_last
         if train_sampler is not None and shuffle_train:
             raise ValueError(
                 "Cannot specify both train_sampler and shuffle_train=True"
@@ -731,6 +733,7 @@ class Brain:
             train_loader = DataLoader(train_set, **train_loader_kwargs)
         else:
             train_loader = SaveableDataLoader(train_set, **train_loader_kwargs)
+
         if valid_set is None:
             valid_loader = None
         elif isinstance(valid_set, IterableDataset):

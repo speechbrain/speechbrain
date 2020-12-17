@@ -65,8 +65,8 @@ def main():
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"],
-        hparams["valid_loader"],
+        hparams["train_data"],
+        hparams["valid_data"],
     )
     # Evaluation is run separately (now just evaluating on valid data)
     ctc_brain.evaluate(hparams["valid_loader"])
