@@ -92,9 +92,12 @@ if __name__ == "__main__":
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -121,6 +124,7 @@ if __name__ == "__main__":
 
     asr_brain = ASR(
         hparams=hparams["hparams"],
+        run_opts=run_opts,
         opt_class=hparams["opt_class"],
         jit_modules=hparams["jit_modules"],
         checkpointer=hparams["checkpointer"],

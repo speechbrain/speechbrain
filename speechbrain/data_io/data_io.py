@@ -6,6 +6,7 @@ Authors
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
  * Samuele Cornell 2020
+ * Abdel HEBA 2020
 """
 
 import os
@@ -21,6 +22,7 @@ import time
 import torchaudio
 import json
 import re
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +275,6 @@ def read_audio_multichannel(waveforms_obj):
     >>> torch.all(torch.eq(loaded.transpose(0, 1), dummywav))
     tensor(True)
     """
-    # TODO: Example / unittest
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
         return audio
@@ -1119,7 +1120,11 @@ class TensorSaver(torch.nn.Module):
 
         # Creating the save folder if it does not exist
         if not os.path.exists(self.save_folder):
-            os.makedirs(self.save_folder)
+            try:
+                if sb.if_main_process():
+                    os.makedirs(self.save_folder)
+            finally:
+                sb.ddp_barrier()
 
         # Check specified format
         if self.save_format not in self.supported_formats:
@@ -1132,9 +1137,13 @@ class TensorSaver(torch.nn.Module):
 
         # Create the csv file (if specified)
         if self.save_csv:
-            self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
-            open(self.save_csv_path, "w").close()
-            self.first_line_csv = True
+            try:
+                self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
+                if sb.if_main_process():
+                    open(self.save_csv_path, "w").close()
+                self.first_line_csv = True
+            finally:
+                sb.ddp_barrier()
 
     def forward(self, data, data_id, data_len):
         """
@@ -1152,7 +1161,11 @@ class TensorSaver(torch.nn.Module):
             data = 10 * data.log10()
 
         # Writing data on disk (in parallel)
-        self.write_batch(data, data_id, data_len)
+        try:
+            if sb.if_main_process():
+                self.write_batch(data, data_id, data_len)
+        finally:
+            sb.ddp_barrier()
 
     def write_batch(self, data, data_id, data_len):
         """
