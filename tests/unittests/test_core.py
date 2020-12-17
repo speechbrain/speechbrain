@@ -16,11 +16,11 @@ def test_brain():
     model = torch.nn.Linear(in_features=10, out_features=10)
 
     class SimpleBrain(Brain):
-        def compute_forward(self, x, stage):
-            return self.modules.model(x)
+        def compute_forward(self, batch, stage):
+            return self.modules.model(batch[0])
 
-        def compute_objectives(self, predictions, targets, stage):
-            return torch.nn.functional.l1_loss(predictions, targets)
+        def compute_objectives(self, predictions, batch, stage):
+            return torch.nn.functional.l1_loss(predictions, batch[1])
 
     brain = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1))
 
