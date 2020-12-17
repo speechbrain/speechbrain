@@ -13,6 +13,7 @@ import collections.abc
 import torch
 import tqdm
 import pathlib
+import speechbrain as sb
 
 
 def undo_padding(batch, lengths):
@@ -256,37 +257,77 @@ def recursive_update(d, u, must_match=False):
 def download_file(
     source, dest, unpack=False, dest_unpack=None, replace_existing=False
 ):
-    class DownloadProgressBar(tqdm.tqdm):
-        def update_to(self, b=1, bsize=1, tsize=None):
-            if tsize is not None:
-                self.total = tsize
-            self.update(b * bsize - self.n)
+    """Downloads the file from the given source and saves it in the given
+    destination path.
 
-    # Create the destination directory if it doesn't exist
-    dest_dir = pathlib.Path(dest).resolve().parent
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    if "http" not in source:
-        shutil.copyfile(source, dest)
+     Arguments
+    ---------
+    source : path or url
+        Path of the source file. If source is an URL, it downloads it from
+        the web.
+    dest : path
+        Destination path.
+    unpack : bool
+        If True, it unpacks the data in the dest folder.
+    replace_exsisting : bool
+        If True, replaces the existing files.
+    """
+    try:
+        if sb.if_main_process():
 
-    elif not os.path.isfile(dest) or (
-        os.path.isfile(dest) and replace_existing
-    ):
-        print(f"Downloading {source} to {dest}")
-        with DownloadProgressBar(
-            unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
-        ) as t:
-            urllib.request.urlretrieve(
-                source, filename=dest, reporthook=t.update_to
-            )
-    else:
-        print("Destination path is not empty. Skipping download")
+            class DownloadProgressBar(tqdm.tqdm):
+                def update_to(self, b=1, bsize=1, tsize=None):
+                    if tsize is not None:
+                        self.total = tsize
+                    self.update(b * bsize - self.n)
 
-    # Unpack if necessary
-    if unpack:
-        if dest_unpack is None:
-            dest_unpack = os.path.dirname(dest)
-        print(f"Extracting {dest} to {dest_unpack}")
-        shutil.unpack_archive(dest, dest_unpack)
+            # Create the destination directory if it doesn't exist
+            dest_dir = pathlib.Path(dest).resolve().parent
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            if "http" not in source:
+                shutil.copyfile(source, dest)
+
+            elif not os.path.isfile(dest) or (
+                os.path.isfile(dest) and replace_existing
+            ):
+                print(f"Downloading {source} to {dest}")
+                with DownloadProgressBar(
+                    unit="B",
+                    unit_scale=True,
+                    miniters=1,
+                    desc=source.split("/")[-1],
+                ) as t:
+                    urllib.request.urlretrieve(
+                        source, filename=dest, reporthook=t.update_to
+                    )
+            else:
+                print("Destination path is not empty. Skipping download")
+
+            # Unpack if necessary
+            if unpack:
+                if dest_unpack is None:
+                    dest_unpack = os.path.dirname(dest)
+                print(f"Extracting {dest} to {dest_unpack}")
+                shutil.unpack_archive(dest, dest_unpack)
+    finally:
+        sb.ddp_barrier()
+
+
+def prepare_data(prep_function):
+    """Performs the dataset preparation with DPP (multi-gpu) support.
+
+    Arguments
+    ---------
+    prepare_funct : object
+        Function used to perform data preparation.
+    """
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            prep_function()
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
 
 
 class FuncPipeline:
