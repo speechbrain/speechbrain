@@ -42,8 +42,9 @@ output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
 # Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:timit_prepare.prepare_timit
+__data_prep: !apply:speechbrain.utils.distributed.run_on_main
+    func: !name:timit_prepare.prepare_timit
+    kwargs:
         data_folder: !ref <data_folder>
         splits: ["train", "dev", "test"]
         save_folder: !ref <data_folder>
