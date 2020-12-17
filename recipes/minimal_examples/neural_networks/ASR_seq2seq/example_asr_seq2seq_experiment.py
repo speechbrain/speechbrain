@@ -1,20 +1,19 @@
 #!/usr/bin/python
 import os
-import torch
 import speechbrain as sb
 
 
 class seq2seqBrain(sb.Brain):
-    def compute_forward(self, x, y, stage):
-        id, wavs, wav_lens = x
-        id, phns, phn_lens = y
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
+        phns_bos, _ = batch.phn_encoded_bos
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, wav_lens)
         x = self.modules.enc(feats)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.hparams.bos)
-        e_in = self.modules.emb(y_in)
+        e_in = self.modules.emb(phns_bos)
         h, w = self.modules.dec(e_in, x, wav_lens)
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
@@ -25,25 +24,16 @@ class seq2seqBrain(sb.Brain):
 
         return outputs
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         if stage == sb.Stage.TRAIN:
             outputs = predictions
         else:
             outputs, seq = predictions
 
-        ids, phns, phn_lens = targets
+        ids = batch.id
+        phns, phn_lens = batch.phn_encoded_eos
 
-        # Add phn_lens by one for eos token
-        abs_length = torch.round(phn_lens * phns.shape[1])
-
-        # Append eos token at the end of the label sequences
-        phns = sb.data_io.data_io.append_eos_token(
-            phns, length=abs_length, eos_index=self.hparams.eos
-        )
-
-        # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns.shape[1]
-        loss = self.hparams.compute_cost(outputs, phns, length=rel_length)
+        loss = self.hparams.compute_cost(outputs, phns, length=phn_lens)
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
@@ -51,18 +41,16 @@ class seq2seqBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        inputs, targets = batch
-        preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
-        loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
+        preds = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(preds, batch, sb.Stage.TRAIN)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage=sb.Stage.TEST):
-        inputs, targets = batch
-        out = self.compute_forward(inputs, targets, stage)
-        loss = self.compute_objectives(out, targets, stage)
+        out = self.compute_forward(batch, stage)
+        loss = self.compute_objectives(out, batch, stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
@@ -88,15 +76,25 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
+        # Update label encoder:
+    label_encoder = hparams["label_encoder"]
+    label_encoder.update_from_didataset(
+        hparams["train_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.update_from_didataset(
+        hparams["valid_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.insert_bos_eos(bos_index=hparams["eos_bos_index"])
+
     seq2seq_brain = seq2seqBrain(
         hparams["modules"], hparams["opt_class"], hparams
     )
     seq2seq_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_loader"],
+        hparams["valid_loader"],
     )
-    seq2seq_brain.evaluate(hparams["test_loader"]())
+    seq2seq_brain.evaluate(hparams["valid_loader"])
 
     # Check that model overfits for integration test
     assert seq2seq_brain.train_loss < 1.0

@@ -5,6 +5,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
+ * Samuele Cornell 2020
 """
 
 import os
@@ -17,8 +18,361 @@ import hashlib
 import multiprocessing as mp
 import csv
 import time
+import torchaudio
+import json
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def _recursive_format(data, replacements):
+    # Data: dict or list, replacements : dict
+    # Replaces string keys in replacements by their values
+    # at all levels of data (in str values)
+    # Works in-place.
+    if isinstance(data, dict):
+        for key, item in data.items():
+            if isinstance(item, dict) or isinstance(item, list):
+                _recursive_format(item, replacements)
+            elif isinstance(item, str):
+                data[key] = item.format_map(replacements)
+            # If not dict, list or str, do nothing
+    if isinstance(data, list):
+        for i, item in enumerate(data):
+            if isinstance(item, dict) or isinstance(item, list):
+                _recursive_format(item, replacements)
+            elif isinstance(item, str):
+                data[i] = item.format_map(replacements)
+            # If not dict, list or str, do nothing
+
+
+def load_data_json(json_path, replacements={}):
+    """Loads JSON and recursively formats string values
+
+    Arguments
+    ----------
+    json_path : str
+        Path to CSV file
+    replacements : dict
+        Optional dict:
+        e.g. {"data_folder": "/home/speechbrain/data"}
+        This is used to recursively format all string values in the data
+
+    Returns
+    -------
+    dict
+        JSON data with replacements applied
+
+    Example
+    -------
+    >>> json_spec = '''{
+    ...   "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+    ...   "ex2": {"files": [{"spk1": "{ROOT}/ex2.wav"}, {"spk2": "{ROOT}/ex2.wav"}], "id": 2}
+    ... }
+    ... '''
+    >>> tmpfile = getfixture('tmpdir') / "test.json"
+    >>> with open(tmpfile, "w") as fo:
+    ...     _ = fo.write(json_spec)
+    >>> data = load_data_json(tmpfile, {"ROOT": "/home"})
+    >>> data["ex1"]["files"][0]
+    '/home/mic1/ex1.wav'
+    >>> data["ex2"]["files"][1]["spk2"]
+    '/home/ex2.wav'
+
+    """
+    # TODO: Example / unittest
+    with open(json_path, "r") as f:
+        out_json = json.load(f)
+    _recursive_format(out_json, replacements)
+    return out_json
+
+
+def _replacer(match, replacements):
+    print(match[0])
+    print(replacements[match[0]])
+    return replacements[match[0]]
+
+
+def load_data_csv(csv_path, replacements={}):
+    """Loads CSV and formats string values
+
+    Uses the SpeechBrain legacy CSV data format, where the CSV must have an
+    'ID' field.
+    If there is a field called duration, it is interpreted as a float.
+    The rest of the fields are left as they are (legacy _format and _opts fields
+    are not used to load the data in any special way).
+
+    Bash-like string replacements with $to_replace are supported.
+
+    Arguments
+    ----------
+    csv_path : str
+        Path to CSV file
+    replacements : dict
+        Optional dict:
+        e.g. {"data_folder": "/home/speechbrain/data"}
+        This is used to recursively format all string values in the data
+
+    Returns
+    -------
+    dict
+        JSON data with replacements applied
+
+    Example
+    -------
+    >>> csv_spec = '''ID,duration,wav_path
+    ... utt1,1.45,$data_folder/utt1.wav
+    ... utt2,2.0,$data_folder/utt2.wav
+    ... '''
+    >>> tmpfile = getfixture("tmpdir") / "test.csv"
+    >>> with open(tmpfile, "w") as fo:
+    ...     _ = fo.write(csv_spec)
+    >>> data = load_data_csv(tmpfile, {"data_folder": "/home"})
+    >>> data["utt1"]["wav_path"]
+    '/home/utt1.wav'
+
+    """
+    with open(csv_path, newline="") as csvfile:
+        result = {}
+        reader = csv.DictReader(csvfile)
+        variable_finder = re.compile(r"\$([\w.]+)")
+        for row in reader:
+            # ID:
+            try:
+                data_id = row["ID"]
+                del row["ID"]  # This is used as a key in result, instead.
+            except KeyError:
+                raise KeyError(
+                    "CSV has to have an 'ID' field, with unique ids"
+                    " for all data points"
+                )
+            if data_id in result:
+                raise ValueError(f"Duplicate id: {data_id}")
+            # Replacements:
+            for key, value in row.items():
+                try:
+                    row[key] = variable_finder.sub(
+                        lambda match: replacements[match[1]], value
+                    )
+                except KeyError:
+                    raise KeyError(
+                        f"The item {value} requires replacements "
+                        "which were not supplied."
+                    )
+            # Duration:
+            if "duration" in row:
+                row["duration"] = float(row["duration"])
+            result[data_id] = row
+    return result
+
+
+def read_audio(waveforms_obj):
+    """General audio loading, based on custom notation
+
+    Expected use case is specifically in conjunction with Datasets
+    specified by JSON.
+
+    The custom notation:
+
+    The annotation can be just a path to a file:
+    "/path/to/wav1.wav"
+
+    Or can specify more options in a dict:
+    {"file": "/path/to/wav2.wav",
+    "start": 8000,
+    "stop": 16000
+    }
+
+    Arguments
+    ----------
+    waveforms_obj : str, dict
+        Audio reading annotation, see above for format
+
+    Returns
+    -------
+    torch.Tensor
+        audio tensor with shape: (samples, )
+
+    Example
+    -------
+    >>> dummywav = torch.rand(16000)
+    >>> import os
+    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> import soundfile as sf
+    >>> sf.write(tmpfile, dummywav, 16000, subtype="float")
+    >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
+    >>> loaded = read_audio(asr_example["wav"])
+    >>> torch.all(torch.eq(loaded, dummywav))
+    tensor(True)
+    """
+    if isinstance(waveforms_obj, str):
+        audio, _ = torchaudio.load(waveforms_obj)
+        return audio.squeeze(0)
+
+    path = waveforms_obj["file"]
+    start = waveforms_obj.get("start", 0)
+    # Default stop to start -> if not specified, num_frames becomes 0,
+    # which is the torchaudio default
+    stop = waveforms_obj.get("stop", start)
+    num_frames = stop - start
+    audio, fs = torchaudio.load(path, num_frames=num_frames, offset=start)
+    return audio.squeeze(0)
+
+
+def read_audio_multichannel(waveforms_obj):
+    """General audio loading, based on custom notation
+
+    Expected use case is specifically in conjunction with Datasets
+    specified by JSON.
+
+    The custom notation:
+
+    The annotation can be just a path to a file:
+    "/path/to/wav1.wav"
+
+    Multiple (possibly multi-channel) files can be specified, as long as they
+    have the same length:
+    {"files": [
+        "/path/to/wav1.wav",
+        "/path/to/wav2.wav"
+        ]
+    }
+
+    Or you can specify a single file more succintly:
+    {"files": "/path/to/wav2.wav"}
+
+    Offset number samples and stop number samples also can be specified to read
+    only a segment within the files.
+    {"files": [
+        "/path/to/wav1.wav",
+        "/path/to/wav2.wav"
+        ]
+    "start": 8000
+    "stop": 16000
+    }
+
+    Arguments
+    ----------
+    waveforms_obj : str, dict
+        Audio reading annotation, see above for format
+
+    Returns
+    -------
+    torch.Tensor
+        audio tensor with shape: (samples, )
+
+    Example
+    -------
+    >>> dummywav = torch.rand(16000, 2)
+    >>> import os
+    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> import soundfile as sf
+    >>> sf.write(tmpfile, dummywav, 16000, subtype="float")
+    >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
+    >>> loaded = read_audio(asr_example["wav"])
+    >>> torch.all(torch.eq(loaded.transpose(0, 1), dummywav))
+    tensor(True)
+    """
+    # TODO: Example / unittest
+    if isinstance(waveforms_obj, str):
+        audio, _ = torchaudio.load(waveforms_obj)
+        return audio
+
+    files = waveforms_obj["files"]
+    if not isinstance(files, list):
+        files = [files]
+
+    waveforms = []
+    start = waveforms_obj.get("start", 0)
+    # Default stop to start -> if not specified, num_frames becomes 0,
+    # which is the torchaudio default
+    stop = waveforms_obj.get("stop", start)
+    num_frames = stop - start
+    for f in files:
+        audio, fs = torchaudio.load(f, num_frames=num_frames, offset=start)
+        waveforms.append(audio)
+
+    out = torch.cat(waveforms, 0)
+    return out
+
+
+def load_pickle(pickle_path):
+    """
+    Utility function for loading .pkl pickle files.
+
+    Parameters
+    ----------
+    pickle_path : str
+        path to pickle file
+
+    Returns
+    -------
+    out : object
+        python object loaded from pickle
+    """
+    with open(pickle_path, "rb") as f:
+        out = pickle.load(f)
+    return out
+
+
+def to_floatTensor(x: (list, tuple, np.ndarray)):
+    """
+    Parameters
+    ----------
+    x : (list, tuple, np.ndarray)
+        input data to be converted to torch float.
+
+    Returns
+    -------
+    tensor : torch.tensor
+        data now in torch.tensor float datatype.
+    """
+    if isinstance(x, torch.Tensor):
+        return x.float()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).float()
+    else:
+        return torch.tensor(x, dtype=torch.float)
+
+
+def to_doubleTensor(x: (list, tuple, np.ndarray)):
+    """
+    Parameters
+    ----------
+    x : (list, tuple, np.ndarray)
+        input data to be converted to torch double.
+
+    Returns
+    -------
+    tensor : torch.tensor
+        data now in torch.tensor double datatype.
+    """
+    if isinstance(x, torch.Tensor):
+        return x.double()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).double()
+    else:
+        return torch.tensor(x, dtype=torch.double)
+
+
+def to_longTensor(x: (list, tuple, np.ndarray)):
+    """
+    Parameters
+    ----------
+    x : (list, tuple, np.ndarray)
+        input data to be converted to torch long.
+
+    Returns
+    -------
+    tensor : torch.tensor
+        data now in torch.tensor long datatype.
+    """
+    if isinstance(x, torch.Tensor):
+        return x.long()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).long()
+    else:
+        return torch.tensor(x, dtype=torch.long)
 
 
 def convert_index_to_lab(batch, ind2lab):
@@ -68,7 +422,7 @@ def relative_time_to_absolute(batch, relative_lens, rate):
         features. This has to have 1/s as the unit.
 
     Returns
-    -------
+    ------:
     torch.tensor
         Duration of each sequence in seconds.
 

@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 42
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -13,10 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+data_folder: /media/sam/HitachiX360/TIMIT/  # e.g. /path/to/TIMIT
 
 # Training parameters
 number_of_epochs: 50
@@ -53,26 +50,53 @@ blank_index: !ref <output_neurons> - 1
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+common_dynamic_items:
+    phn_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [phn]
+    phn_encoded:
+        func: !ref <label_encoder.encode_sequence_torch>
+        argkeys: [phn_list]
+    sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [wav]
+common_output_keys: ["id", "sig", "phn_encoded"]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/train.csv
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <train_data>
     batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+    shuffle: False # we use ordered batches for better performance
+
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/dev.csv
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: !ref <batch_size>
+    shuffle: False
+
+test_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/test.csv
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: !ref <batch_size>
+    shuffle: False
+
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -132,7 +156,7 @@ modules:
     model: !ref <model>
     output: !ref <output>
     normalize: !ref <normalize>
-    env_corrupt: !ref <env_corrupt>
+    #env_corrupt: !ref <env_corrupt>
 
 jit_module_keys: [model]
 

@@ -10,7 +10,7 @@ Example
 >>> from speechbrain.utils.checkpoints import Checkpointer
 >>> # An example "dataset" and its loader
 >>> dataset = torch.randn(10, 1)
->>> dataloader = SaveableDataLoader(dataset, num_workers = 3)
+>>> dataloader = SaveableDataLoader(dataset, num_workers = 3, collate_fn=None)
 >>> # Setup the checkpointer:
 >>> tmpdir = getfixture('tmpdir')
 >>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
@@ -25,7 +25,7 @@ Example
 ...     if i == 3:
 ...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
 >>> # So when you restart the experiment:
->>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3)
+>>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3, collate_fn=None)
 >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
 >>> _ = new_checkpointer.recover_if_possible()
 >>> # The dataloader fast-forwards to the position where we left off:
@@ -35,9 +35,11 @@ Authors:
   * Aku Rouhe 2020
 """
 from torch.utils.data import DataLoader
+from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
+from speechbrain.data_io.batch import PaddedBatch
 from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
     mark_as_saver,
@@ -88,8 +90,7 @@ if hasattr(_BaseDataLoaderIter, "_reset"):
 
 @register_checkpoint_hooks
 class SaveableDataLoader(DataLoader):
-    """
-    A saveable version of the PyTorch DataLoader.
+    """A saveable version of the PyTorch DataLoader.
 
     See `torch.utils.data.DataLoader` for usage. This class should work exactly
     like the PyTorch basic DataLoader, but this can be checkpointed with
@@ -107,8 +108,18 @@ class SaveableDataLoader(DataLoader):
     logged, but that is all.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, dataset, *_ignore, collate_fn=PaddedBatch, **kwargs):
+        if _ignore:
+            raise TypeError(
+                "SaveableDataLoader only allows positional argument"
+                " for dataset. Use keyword arguments for other args."
+            )
+        super().__init__(dataset=dataset, collate_fn=collate_fn, **kwargs)
+        if isinstance(self.dataset, IterableDataset):
+            logging.warning(
+                "SaveableDataLoader cannot save the position in an "
+                "IterableDataset. Save the position on the dataset itself."
+            )
         self._speechbrain_recovery_skip_to = None
         self._speechbrain_iterator = None
 
@@ -125,6 +136,13 @@ class SaveableDataLoader(DataLoader):
 
     @mark_as_saver
     def _speechbrain_save(self, path):
+        if isinstance(self.dataset, IterableDataset):
+            logging.warning(
+                "Warning again: a checkpoint was requested on "
+                "SaveableDataLoader, but the dataset is an IterableDataset. "
+                "Cannot save the position in an IterableDataset. Not raising "
+                "an error; assuming that you know what you're doing."
+            )
         if self._speechbrain_iterator is None:
             to_save = None
         else:
@@ -133,7 +151,7 @@ class SaveableDataLoader(DataLoader):
             fo.write(str(to_save))
 
     @mark_as_loader
-    def _speechbrain_load(self, path, end_of_epoch, device=None):
+    def _speechbrain_load(self, path, end_of_epoch, device):
         del device  # Unused here
         if self._speechbrain_iterator is not None:
             logging.warning(

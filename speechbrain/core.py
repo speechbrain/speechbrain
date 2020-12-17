@@ -177,16 +177,18 @@ def parse_arguments(arg_list):
     parsed_args = vars(parser.parse_args(arg_list))
 
     param_file = parsed_args["param_file"]
-    del parsed_args["param_file"]
 
     # Convert yaml_overrides to dictionary
     yaml_overrides = ""
     if parsed_args["yaml_overrides"] is not None:
         yaml_overrides = parsed_args["yaml_overrides"]
-        del parsed_args["yaml_overrides"]
 
     # Only return non-empty items
-    items = {k: v for k, v in parsed_args.items() if v is not None}
+    items = {
+        k: v
+        for k, v in parsed_args.items()
+        if v is not None and k not in ["yaml_overrides", "param_file"]
+    }
 
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
@@ -195,7 +197,7 @@ def parse_arguments(arg_list):
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
-    return param_file, yaml_stream.getvalue()
+    return param_file, yaml_stream.getvalue(), parsed_args
 
 
 class Stage(Enum):
@@ -270,10 +272,10 @@ class Brain:
     -------
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
-    ...     def compute_forward(self, x, stage):
-    ...         return self.modules.model(x)
-    ...     def compute_objectives(self, predictions, targets, stage):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
+    ...     def compute_forward(self, batch, stage):
+    ...         return self.modules.model(batch[0])
+    ...     def compute_objectives(self, predictions, batch, stage):
+    ...         return torch.nn.functional.l1_loss(predictions, batch[0])
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
@@ -302,7 +304,9 @@ class Brain:
                 setattr(self, arg, hparams[arg])
             else:
                 setattr(self, arg, default)
-
+        # Switch to the right context
+        if "cuda" in self.device:
+            torch.cuda.set_device(int(self.device[-1]))
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
@@ -493,21 +497,19 @@ class Brain:
         -------
         detached loss
         """
-        inputs, labels = batch
-
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(inputs, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+                outputs = self.compute_forward(batch, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
-            outputs = self.compute_forward(inputs, Stage.TRAIN)
-            loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+            outputs = self.compute_forward(batch, Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             loss.backward()
             if self.check_gradients(loss):
                 self.optimizer.step()
@@ -580,9 +582,9 @@ class Brain:
         -------
         detached loss
         """
-        inputs, targets = batch
-        out = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(out, targets, stage=stage)
+
+        out = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def fit(
@@ -620,7 +622,7 @@ class Brain:
             progressbar = self.progressbar
 
         self.train_sampler = None
-        if self.rank is not None:
+        if self.rank is not None and self.multigpu_count > 0:
             raise NotImplementedError(
                 "Currently not supporting DDP with new data loading"
             )

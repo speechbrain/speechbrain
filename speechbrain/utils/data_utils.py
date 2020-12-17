@@ -12,6 +12,7 @@ import urllib.request
 import collections.abc
 import torch
 import tqdm
+import pathlib
 
 
 def undo_padding(batch, lengths):
@@ -261,6 +262,9 @@ def download_file(
                 self.total = tsize
             self.update(b * bsize - self.n)
 
+    # Create the destination directory if it doesn't exist
+    dest_dir = pathlib.Path(dest).resolve().parent
+    dest_dir.mkdir(parents=True, exist_ok=True)
     if "http" not in source:
         shutil.copyfile(source, dest)
 
@@ -294,7 +298,7 @@ class FuncPipeline:
 
     Arguments
     ---------
-    *funcs : function, optional
+    *funcs : list, optional
         Any number of functions, given in order of execution.
 
     Returns
@@ -314,7 +318,118 @@ class FuncPipeline:
         return x
 
     def __str__(self):
-        return "FuncPipeline of:\n" + "\n".join(str(f) for f in self.funcs)
+        if self.funcs:
+            return "FuncPipeline:\n" + "\n".join(str(f) for f in self.funcs)
+        else:
+            return "Empty FuncPipeline"
+
+
+def pad_right_to(
+    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+):
+    """
+    This function takes a torch tensor of arbitrary shape and pads it to target
+    shape by appending values on the right.
+
+    Parameters
+    ----------
+    tensor : input torch tensor
+        Input tensor whose dimension we need to pad.
+    target_shape : (list, tuple)
+        Target shape we want for the target tensor its len must be equal to tensor.ndim
+    mode : str
+        Pad mode, please refer to torch.nn.functional.pad documentation.
+    value : float
+        Pad value, please refer to torch.nn.functional.pad documentation.
+
+    Returns
+    -------
+    tensor : torch.Tensor
+        Padded tensor
+    valid_vals : list
+        List containing proportion for each dimension of original, non-padded values
+
+    """
+    assert len(target_shape) == tensor.ndim
+
+    pads = []
+    valid_vals = []
+    i = len(target_shape) - 1
+    j = 0
+    while i >= 0:
+        assert (
+            target_shape[i] >= tensor.shape[i]
+        ), "Target shape must be >= original shape for every dim"
+        pads.extend([0, target_shape[i] - tensor.shape[i]])
+        valid_vals.append(tensor.shape[j] / target_shape[j])
+        i -= 1
+        j += 1
+
+    tensor = torch.nn.functional.pad(tensor, pads, mode=mode, value=value)
+
+    return tensor, valid_vals
+
+
+def batch_pad_right(tensors: list, mode="constant", value=0):
+    """
+    Given a list of torch tensors it batches them together by padding to the right
+    on each dimension in order to get same length for all.
+
+    Parameters
+    ----------
+    tensors : list
+        List of tensor we wish to pad together.
+    mode : str
+        Padding mode see torch.nn.functional.pad documentation.
+    value : float
+        Padding value see torch.nn.functional.pad documentation.
+
+    Returns
+    -------
+    tensor : torch.Tensor
+        Padded tensor
+    valid_vals : list
+        List containing proportion for each dimension of original, non-padded values
+
+    """
+
+    if not len(tensors):
+        raise IndexError("Tensors list must not be empty")
+
+    if len(tensors) == 1:
+        return tensors[0].unsqueeze(0), torch.tensor([1.0])
+
+    if not (
+        any(
+            [tensors[i].ndim == tensors[0].ndim for i in range(1, len(tensors))]
+        )
+    ):
+        raise IndexError("All tensors must have same number of dimensions")
+
+    # FIXME we limit the support here: we allow padding of only the last dimension
+
+    max_shape = []
+    for dim in range(tensors[0].ndim):
+        if (dim < tensors[0].ndim - 1) and not all(
+            [x.shape[dim] != tensors[0][dim] for x in tensors]
+        ):
+            raise EnvironmentError(
+                "Tensors should have same dimensions except for last one"
+            )
+        max_shape.append(max([x.shape[dim] for x in tensors]))
+
+    batched = []
+    valid = []
+    for t in tensors:
+        padded, valid_percent = pad_right_to(
+            t, max_shape, mode=mode, value=value
+        )
+        batched.append(padded)
+        valid.append(valid_percent[0])
+
+    batched = torch.stack(batched)
+
+    return batched, torch.tensor(valid)
 
 
 def split_by_whitespace(text):
