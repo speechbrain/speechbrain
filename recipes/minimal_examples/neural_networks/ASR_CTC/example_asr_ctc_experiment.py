@@ -1,10 +1,12 @@
 #!/usr/bin/python
 import os
+import sys
 import speechbrain as sb
 
 
 class CTCBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -46,11 +48,18 @@ class CTCBrain(sb.Brain):
 
 def main():
     experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    # hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    print(overrides)
+    print(run_opts)
+    print(hparams_file)
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
-        hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Update label encoder:
     label_encoder = hparams["label_encoder"]
@@ -65,7 +74,9 @@ def main():
         # save label_encoder
         label_encoder.save("./label.txt")
 
-    ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
+    ctc_brain = CTCBrain(
+        hparams["modules"], hparams["opt_class"], hparams, run_opts
+    )
     ctc_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"],
