@@ -20,11 +20,13 @@ from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
+from torch.utils.data import DataLoader
+from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from speechbrain.data_io.batch import PaddedBatch
-from speechbrain.data_io.dataloader import SaveableDataLoader
 from speechbrain.data_io.dataset import DynamicItemDataset
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.data_io.dataloader import SaveableDataLoader
 from speechbrain.data_io.sampler import DistributedSamplerWrapper
 
 logger = logging.getLogger(__name__)
@@ -637,18 +639,13 @@ class Brain:
         valid_set=None,
         train_sampler=None,
         shuffle_train=False,
-        pin_memory=False,
-        num_workers=0,
         drop_last=False,
+        dataloader_ckpt_pref="dataloader_",
         train_loader_kwargs=None,
         valid_loader_kwargs=None,
-        dataloader_ckpt_pref="dataloader_",
+        **extra_loader_kwargs,
     ):
         """Creates DataLoaders for the datasets
-
-        Note that some of the options exposed directly on handle_data_init are
-        only for more convenient syntax. They might just be directly added to
-        train_loader_kwargs and valid_loader_kwargs.
 
         Arguments
         ---------
@@ -661,10 +658,6 @@ class Brain:
             automatically wrapped in a DistributedSamplerWrapper.
         train_shuffle : bool
             To shuffle train data or not.
-        pin_memory : bool
-            To pin memory of batches. (Passed to data loaders.)
-        num_workers : int
-            Number of workers to pass to data loaders.
         drop_last : False
             Drop last incomplete batch and drop last uneven data in DDP.
         train_loader_kwargs : dict
@@ -676,6 +669,9 @@ class Brain:
         dataloader_ckpt_pref : str, None
             Prefix to use for SaveableDataLoader Checkpoint name. Set to None
             to not save the DataLoader.
+        **extra_loader_kwargs : dict
+            Extra keyword args to pass to both train and validation loaders.
+            This can be used to specify e.g. pin_memory and num_workers for both.
         """
         if train_loader_kwargs is None:
             train_loader_kwargs = {}
@@ -683,7 +679,7 @@ class Brain:
             valid_loader_kwargs = {}
         if train_sampler is not None and shuffle_train:
             raise ValueError(
-                "Cannot specify both train_sampler and " "shuffle_train=True"
+                "Cannot specify both train_sampler and shuffle_train=True"
             )
 
         # DistributedSampler
@@ -716,11 +712,41 @@ class Brain:
         ):
             valid_loader_kwargs["collate_fn"] = PaddedBatch
 
-        train_loader = SaveableDataLoader(train_set, **train_loader_kwargs)
+        # Create the DataLoaders:
+        train_loader_kwargs.update(
+            {
+                k: v
+                for k, v in extra_loader_kwargs.items()
+                if k not in train_loader_kwargs
+            }
+        )
+        valid_loader_kwargs.update(
+            {
+                k: v
+                for k, v in extra_loader_kwargs.items()
+                if k not in valid_loader_kwargs
+            }
+        )
+        if isinstance(train_set, IterableDataset):
+            train_loader = DataLoader(train_set, **train_loader_kwargs)
+        else:
+            train_loader = SaveableDataLoader(train_set, **train_loader_kwargs)
         if valid_set is None:
             valid_loader = None
+        elif isinstance(valid_set, IterableDataset):
+            valid_loader = DataLoader(valid_set, **valid_loader_kwargs)
         else:
             valid_loader = SaveableDataLoader(valid_set, **valid_loader_kwargs)
+
+        # Add DataLoaders to checkpointer:
+        if self.checkpointer is not None and dataloader_ckpt_pref is not None:
+            if isinstance(train_loader, SaveableDataLoader):
+                train_name = dataloader_ckpt_pref + "train_set"
+                self.checkpointer.add_recoverable(train_name, train_loader)
+            if isinstance(valid_loader, SaveableDataLoader):
+                valid_name = dataloader_ckpt_pref + "valid_set"
+                self.checkpointer.add_recoverable(valid_name, valid_loader)
+
         return train_loader, valid_loader
 
     def on_fit_start(self):
