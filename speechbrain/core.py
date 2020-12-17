@@ -22,6 +22,7 @@ from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from torch.utils.data import DistributedSampler
 from speechbrain.data_io.batch import PaddedBatch
+from speechbrain.data_io.dataloader import SaveableDataLoader
 from speechbrain.data_io.dataset import DynamicItemDataset
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.data_io.sampler import DistributedSamplerWrapper
@@ -702,6 +703,8 @@ class Brain:
                     drop_last=drop_last,
                 )
             train_loader_kwargs["sampler"] = self.train_sampler
+        else:
+            self.train_sampler = train_sampler
 
         # PaddedBatch as default collation for DynamicItemDataset
         if "collate_fn" not in train_loader_kwargs and isinstance(
@@ -712,6 +715,13 @@ class Brain:
             valid_set, DynamicItemDataset
         ):
             valid_loader_kwargs["collate_fn"] = PaddedBatch
+
+        train_loader = SaveableDataLoader(train_set, **train_loader_kwargs)
+        if valid_set is None:
+            valid_loader = None
+        else:
+            valid_loader = SaveableDataLoader(valid_set, **valid_loader_kwargs)
+        return train_loader, valid_loader
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
