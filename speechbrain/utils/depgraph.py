@@ -272,3 +272,8 @@ class DependencyGraph:
                 if cycle:
                     return cycle
         return []
+
+    def __contains__(self, key):
+        # Allows the syntax:
+        # 'key' in dependency_graph
+        return key in self.key2ind

@@ -4,8 +4,8 @@ import speechbrain as sb
 
 
 class ASR_Brain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
@@ -16,9 +16,10 @@ class ASR_Brain(sb.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         outputs, lens = predictions
-        ids, ali, ali_lens = targets
+        ids = batch.id
+        ali, ali_lens = batch.alignments
         loss = self.hparams.compute_cost(outputs, ali, lens)
 
         if stage != sb.Stage.TRAIN:
@@ -54,10 +55,10 @@ def main():
     asr_brain = ASR_Brain(hparams["modules"], hparams["opt_class"], hparams)
     asr_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_loader"],
+        hparams["valid_loader"],
     )
-    asr_brain.evaluate(hparams["test_loader"]())
+    asr_brain.evaluate(hparams["valid_loader"])
 
     # Check that model overfits for integration test
     assert asr_brain.train_loss < 0.2
