@@ -17,9 +17,9 @@ experiment_name: 1-convtasnet
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-tr_csv: !ref <save_folder>/wsj_tr.csv
-cv_csv: !ref <save_folder>/wsj_cv.csv
-tt_csv: !ref <save_folder>/wsj_tt.csv
+tr_csv: !ref <data_folder>/wsj_tr.csv
+cv_csv: !ref <data_folder>/wsj_cv.csv
+tt_csv: !ref <data_folder>/wsj_tt.csv
 
 # Experiment params
 auto_mix_prec: False
@@ -57,6 +57,13 @@ N_encoder_out: 256
 out_channels: 256
 kernel_size: 16
 kernel_stride: 8
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:prepare_data.prepare_wsjmix
+        datapath: !ref <data_folder>
+        savepath: !ref <data_folder>
+        n_spks: !ref <num_spks>
 
 # Dataloaders
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
