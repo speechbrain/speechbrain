@@ -4,7 +4,7 @@ Data preparation.
 Download: https://catalog.ldc.upenn.edu/LDC93S1
 
 Authors
-* Others
+* Mirco Ravanelli 2020
 * Elena Rastorgueva 2020
 """
 
@@ -119,14 +119,14 @@ def prepare_timit(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        logger.debug("Skipping preparation, completed in previous run.")
+        print("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains TIMIT
     _check_timit_folders(uppercase, data_folder)
 
     msg = "\tCreating csv file for the TIMIT Dataset.."
-    logger.debug(msg)
+    print(msg)
 
     # Creating csv file for training data
     if "train" in splits:
@@ -505,7 +505,7 @@ def create_csv(
 
     # Adding some Prints
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    logger.debug(msg)
+    print(msg)
 
     # Reading kaldi labels if needed:
     snt_no_lab = 0
@@ -561,7 +561,7 @@ def create_csv(
                     "kaldi label" % (snt_id)
                 )
 
-                logger.debug(msg)
+                print(msg)
                 snt_no_lab = snt_no_lab + 1
             else:
                 snt_lab_path = os.path.join(kaldi_lab_dir, snt_id + ".pkl")
@@ -574,7 +574,7 @@ def create_csv(
                     "corresponding kaldi label. Please check data and "
                     "kaldi labels (check %s and %s)." % (data_folder, kaldi_lab)
                 )
-                logger.error(err_msg, exc_info=True)
+                print(err_msg, exc_info=True)
 
         if missing_lab:
             continue
@@ -640,7 +640,7 @@ def create_csv(
     # Writing the csv lines
     _write_json(csv_lines, csv_file)
     msg = "\t%s sucessfully created!" % (csv_file)
-    logger.debug(msg)
+    print(msg)
 
 
 def get_phoneme_lists(phn_file, phn_set):

@@ -12,10 +12,10 @@ Run using:
 > python train.py hparams/train.yaml
 
 Authors
- * Loren Lugosch, Mirco Ravanelli 2020
+ * Loren Lugosch 2020
+ * Mirco Ravanelli 2020
 """
 
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -166,7 +166,8 @@ class SLU(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         self.batch_count += 1
         return loss.detach()
@@ -239,28 +240,20 @@ class SLU(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from prepare import prepare_TAS
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data
-    prepare_TAS(
-        data_folder=hparams["data_folder"],
-        type="direct",
-        train_splits=hparams["train_splits"],
     )
 
     # Creating tokenizer must be done after preparation
@@ -290,6 +283,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
     slu_brain.load_tokenizer()
