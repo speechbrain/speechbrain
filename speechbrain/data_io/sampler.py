@@ -7,7 +7,7 @@ Authors:
 """
 import torch
 import logging
-from torch.utils.data.sampler import RandomSampler
+from torch.utils.data.sampler import RandomSampler, DistributedSampler
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class ReproducibleRandomSampler(RandomSampler):
     >>> # Create the random sampler:
     >>> sampler = ReproducibleRandomSampler(dataset)
     >>> dataloader = SaveableDataLoader(dataset, sampler = sampler,
-    ...     num_workers = 3, collate_fn=None)
+    ...     num_workers = 3)
     >>> # Setup the checkpointer.
     >>> # Note that the sampler doesn't need to be saved itself.
     >>> tmpdir = getfixture('tmpdir')
@@ -60,7 +60,7 @@ class ReproducibleRandomSampler(RandomSampler):
     >>> # What if instead you had to restart the experiment?
     >>> new_sampler = ReproducibleRandomSampler(dataset)
     >>> new_dataloader = SaveableDataLoader(dataset, sampler = new_sampler,
-    ...        num_workers = 3, collate_fn=None)
+    ...        num_workers = 3)
     >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
     >>> _ = new_checkpointer.recover_if_possible()
     >>> # You'll get the same random order again:
@@ -91,3 +91,18 @@ class ReproducibleRandomSampler(RandomSampler):
     def __iter__(self):
         self.generator.manual_seed(self.seed + self.epoch)
         return super().__iter__()
+
+
+# Heavily inspired by Catalyst, which is under Apache 2.0 licence:
+# https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
+class DistributedSamplerWrapper(DistributedSampler):
+    """Allows using any sampler with Distributed Data Parallel"""
+
+    def __init__(self, sampler, *args, **kwargs):
+        # DistributedSampler only calls len() on dataset
+        super().__init__(dataset=sampler, *args, **kwargs)
+        self.sampler = sampler
+
+    def __iter__(self):
+        pass
+        # indices_of_indices = super().__iter__()
