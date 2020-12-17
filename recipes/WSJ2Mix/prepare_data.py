@@ -34,6 +34,22 @@ import pickle
 import csv
 
 
+def prepare_wsjmix(datapath, savepath, n_spks=2):
+    """
+    Prepared wsj2mix if n_spks=2 and wsj3mix if n_spks=3.
+
+    Arguments:
+    ----------
+        datapath (str) : path for the wsj0-mix dataset.
+        savepath (str) : path where we save the csv file.
+        n_spks (int): number of speakers
+    """
+    if n_spks == 2:
+        create_wsj_csv(datapath, savepath)
+    if n_spks == 3:
+        create_wsj_csv_3spks(datapath, savepath)
+
+
 # load or create the csv files for the data
 def create_wsj_csv(datapath, savepath):
     """
