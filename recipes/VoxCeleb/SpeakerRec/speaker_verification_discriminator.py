@@ -363,11 +363,6 @@ if __name__ == "__main__":
     # This flag enable the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from voxceleb_prepare import prepare_voxceleb  # noqa E402
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -380,16 +375,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data from dev of Voxceleb1
-    prepare_voxceleb(
-        data_folder=hparams["data_folder"],
-        save_folder=hparams["save_folder"],
-        splits=["train", "dev", "test"],
-        split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=hparams["seed"],
-        random_segment=hparams["random_segment"],
-    )
 
     # Data loaders
     train_set = hparams["train_loader"]()
