@@ -47,10 +47,11 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 model: !new:speechbrain.nnet.containers.Sequential
     input_shape: [!ref <N_batch>, null, 660]  # input_size
-    RNN: !name:speechbrain.nnet.quaternion_networks.RNN.QuaternionRNN
+    RNN: !name:speechbrain.nnet.quaternion_networks.RNN.QuaternionLiGRU
         hidden_size: 64
         num_layers: 1
         bidirectional: True
+        autograd: True
     linear: !name:speechbrain.nnet.linear.Linear
         n_neurons: 43  # 42 phonemes + 1 blank
         bias: False

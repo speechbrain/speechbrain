@@ -38,7 +38,7 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         Arguments
         ---------
         input: torch.Tensor
-            Quaternion input tensor to be transformed.
+            Quaternion input tensor to be transformed. Shape: [batch*time, X]
         r_weight: torch.Parameter
             Real part of the quaternion weight matrix of this layer.
         i_weight: torch.Parameter
@@ -75,17 +75,10 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
             ],
             dim=1,
         )
-        if input.dim() == 2:
-            if bias is not None:
-                return torch.addmm(bias, input, cat_kernels_4_quaternion)
-            else:
-                return torch.mm(input, cat_kernels_4_quaternion)
+        if bias is not None:
+            return torch.addmm(bias, input, cat_kernels_4_quaternion)
         else:
-            output = torch.matmul(input, cat_kernels_4_quaternion)
-            if bias is not None:
-                return output + bias
-            else:
-                return output
+            return torch.mm(input, cat_kernels_4_quaternion)
 
     # This function has only a single output, so it gets only one gradient
     @staticmethod
