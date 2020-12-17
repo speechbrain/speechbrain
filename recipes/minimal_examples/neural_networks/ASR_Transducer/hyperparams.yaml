@@ -9,7 +9,7 @@ csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
-device: 'cuda'
+device: 'cuda:0'
 # Neural Parameters
 N_epochs: 10
 N_batch: 1

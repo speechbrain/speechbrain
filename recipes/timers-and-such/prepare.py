@@ -1,13 +1,16 @@
 import os
 import shutil
+from speechbrain.data_io.data_io import read_wav_soundfile, merge_csvs
+from speechbrain.utils.data_utils import download_file
 
 try:
     import pandas as pd
-except ModuleNotFoundError:
-    print("Error: pandas must be installed to run this recipe.")
-    print("Install using `pip install pandas`.")
-from speechbrain.data_io.data_io import read_wav_soundfile, merge_csvs
-from speechbrain.utils.data_utils import download_file
+except ImportError:
+    err_msg = (
+        "The optional dependency pandas must be installed to run this recipe.\n"
+    )
+    err_msg += "Install using `pip install pandas`.\n"
+    raise ImportError(err_msg)
 
 
 def prepare_TAS(data_folder, type, train_splits):

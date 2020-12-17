@@ -12,10 +12,10 @@ import random
 import shutil
 import sys  # noqa F401
 import numpy as np
+import torch
+import torchaudio
 from tqdm.contrib import tqdm
-
 from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
     load_pkl,
     save_pkl,
 )
@@ -117,7 +117,7 @@ def prepare_voxceleb(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        logger.debug("Skipping preparation, completed in previous run.")
+        print("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains VoxCeleb data
@@ -129,7 +129,7 @@ def prepare_voxceleb(
     # _check_voxceleb1_folders(data_folder, splits)
 
     msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
-    logger.debug(msg)
+    print(msg)
 
     # Split data into 90% train and 10% validation (verification split)
     wav_lst_train, wav_lst_dev = _get_utt_split_lists(
@@ -333,7 +333,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     """
 
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    logger.debug(msg)
+    print(msg)
 
     csv_output = [
         [
@@ -362,7 +362,9 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
         audio_id = my_sep.join([spk_id, sess_id, utt_id.split(".")[0]])
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(wav_file)
+        signal, fs = torchaudio.load(wav_file)
+        signal = signal.squeeze(0)
+
         if random_segment:
             audio_duration = signal.shape[0] / SAMPLERATE
 
@@ -393,14 +395,13 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
             audio_duration = signal.shape[0] / SAMPLERATE
 
             uniq_chunks_list = _get_chunks(seg_dur, audio_id, audio_duration)
-
             for chunk in uniq_chunks_list:
                 s, e = chunk.split("_")[-2:]
                 start_sample = int(int(s) / 100 * SAMPLERATE)
                 end_sample = int(int(e) / 100 * SAMPLERATE)
 
                 #  Avoid chunks with very small energy
-                mean_sig = np.mean(np.abs(signal[start_sample:end_sample]))
+                mean_sig = torch.mean(np.abs(signal[start_sample:end_sample]))
                 if mean_sig < amp_th:
                     continue
 
@@ -433,7 +434,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
     # Final prints
     msg = "\t%s Sucessfully created!" % (csv_file)
-    logger.debug(msg)
+    print(msg)
 
 
 def prepare_csv_enrol_test(data_folders, save_folder):
@@ -476,13 +477,14 @@ def prepare_csv_enrol_test(data_folders, save_folder):
         test_ids = list(np.unique(np.array(test_ids)))
 
         # Prepare enrol csv
-        logger.debug("preparing enrol csv")
+        print("preparing enrol csv")
         enrol_csv = []
         for id in enrol_ids:
             wav = data_folder + "/wav/" + id + ".wav"
 
             # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav)
+            signal, fs = torchaudio.load(wav)
+            signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
 
             csv_line = [
@@ -496,7 +498,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             enrol_csv.append(csv_line)
 
         csv_output = csv_output_head + enrol_csv
-        csv_file = save_folder + ENROL_CSV
+        csv_file = os.path.join(save_folder, ENROL_CSV)
 
         # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
@@ -507,13 +509,14 @@ def prepare_csv_enrol_test(data_folders, save_folder):
                 csv_writer.writerow(line)
 
         # Prepare test csv
-        logger.debug("preparing test csv")
+        print("preparing test csv")
         test_csv = []
         for id in test_ids:
             wav = data_folder + "/wav/" + id + ".wav"
 
             # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav)
+            signal, fs = torchaudio.load(wav)
+            signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
 
             csv_line = [
@@ -527,7 +530,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             test_csv.append(csv_line)
 
         csv_output = csv_output_head + test_csv
-        csv_file = save_folder + TEST_CSV
+        csv_file = os.path.join(save_folder, TEST_CSV)
 
         # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:

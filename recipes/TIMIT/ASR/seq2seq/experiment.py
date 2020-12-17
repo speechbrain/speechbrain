@@ -10,7 +10,6 @@ Authors
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -24,8 +23,8 @@ class ASR(sb.Brain):
         phns_bos, _ = batch.phn_encoded_bos
 
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+            if hasattr(self.hparams, "env_corrupt"):
+                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
                 phns_bos = torch.cat([phns_bos, phns_bos])
@@ -95,7 +94,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
@@ -121,20 +121,19 @@ class ASR(sb.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={
-                        "loss": stage_loss,
-                        "ctc_loss": self.ctc_metrics.summarize("average"),
-                        "seq_loss": self.seq_metrics.summarize("average"),
-                        "PER": per,
-                    },
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": per}, min_keys=["PER"]
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={
+                    "loss": stage_loss,
+                    "ctc_loss": self.ctc_metrics.summarize("average"),
+                    "seq_loss": self.seq_metrics.summarize("average"),
+                    "PER": per,
+                },
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"]
+            )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -155,36 +154,25 @@ class ASR(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides, args = sb.parse_arguments(sys.argv[1:])
-
-    prepare_timit(
-        data_folder=args["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=args["data_folder"],
-    )
-
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
     label_encoder = hparams["label_encoder"]
-
     if not label_encoder.load_if_possible("encoder_state.txt"):
-
         label_encoder.update_from_didataset(
             hparams["train_data"], output_key="phn_list", sequence_input=True
         )
         label_encoder.update_from_didataset(
             hparams["valid_data"], output_key="phn_list", sequence_input=True
         )
-
         label_encoder.insert_bos_eos(bos_index=hparams["blank_index"])
         label_encoder.save("encoder_state.txt")
+
+    # Initialize ddp (useful when using multiple gpus with ddp)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -197,6 +185,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

@@ -2,6 +2,7 @@
 
 Authors
  * Peter Plantinga 2020
+ * Abdel Heba 2020
 """
 
 import os
@@ -12,14 +13,13 @@ import logging
 import inspect
 import argparse
 import subprocess
-import ruamel.yaml
 import speechbrain as sb
-from io import StringIO
 from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
+from torch.nn import DataParallel as DP
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -55,45 +55,59 @@ def create_experiment_directory(
         If True, an environment state description is saved to the experiment
         directory, in a file called env.log in the experiment directory
     """
-    if not os.path.isdir(experiment_directory):
-        os.makedirs(experiment_directory)
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            if not os.path.isdir(experiment_directory):
+                os.makedirs(experiment_directory)
 
-    # Write the parameters file
-    if hyperparams_to_save is not None:
-        hyperparams_filename = os.path.join(
-            experiment_directory, "hyperparams.yaml"
-        )
-        with open(hyperparams_to_save) as f:
-            resolved_yaml = sb.resolve_references(f, overrides)
-        with open(hyperparams_filename, "w") as w:
-            print("# Generated %s from:" % date.today(), file=w)
-            print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
-            print("# yamllint disable", file=w)
-            shutil.copyfileobj(resolved_yaml, w)
+            # Write the parameters file
+            if hyperparams_to_save is not None:
+                hyperparams_filename = os.path.join(
+                    experiment_directory, "hyperparams.yaml"
+                )
+                with open(hyperparams_to_save) as f:
+                    resolved_yaml = sb.resolve_references(f, overrides)
+                with open(hyperparams_filename, "w") as w:
+                    print("# Generated %s from:" % date.today(), file=w)
+                    print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
+                    print("# yamllint disable", file=w)
+                    shutil.copyfileobj(resolved_yaml, w)
 
-    # Copy executing file to output directory
-    module = inspect.getmodule(inspect.currentframe().f_back)
-    if module is not None:
-        callingfile = os.path.realpath(module.__file__)
-        shutil.copy(callingfile, experiment_directory)
+            # Copy executing file to output directory
+            module = inspect.getmodule(inspect.currentframe().f_back)
+            if module is not None:
+                callingfile = os.path.realpath(module.__file__)
+                shutil.copy(callingfile, experiment_directory)
 
-    # Log exceptions to output automatically
-    log_file = os.path.join(experiment_directory, "log.txt")
-    logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
-    sb.utils.logger.setup_logging(log_config, logger_overrides)
-    sys.excepthook = _logging_excepthook
+            # Log exceptions to output automatically
+            log_file = os.path.join(experiment_directory, "log.txt")
+            logger_overrides = {
+                "handlers": {"file_handler": {"filename": log_file}}
+            }
+            sb.utils.logger.setup_logging(log_config, logger_overrides)
+            sys.excepthook = _logging_excepthook
 
-    # Log beginning of experiment!
-    logger.info("Beginning experiment!")
-    logger.info(f"Experiment folder: {experiment_directory}")
-    commit_hash = subprocess.check_output(["git", "describe", "--always"])
-    logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+            # Log beginning of experiment!
+            logger.info("Beginning experiment!")
+            logger.info(f"Experiment folder: {experiment_directory}")
+            commit_hash = subprocess.check_output(
+                ["git", "describe", "--always"]
+            )
+            logger.debug(
+                "Commit hash: '%s'" % commit_hash.decode("utf-8").strip()
+            )
 
-    # Save system description:
-    if save_env_desc:
-        description_str = sb.utils.logger.get_environment_description()
-        with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
-            fo.write(description_str)
+            # Save system description:
+            if save_env_desc:
+                description_str = sb.utils.logger.get_environment_description()
+                with open(
+                    os.path.join(experiment_directory, "env.log"), "w"
+                ) as fo:
+                    fo.write(description_str)
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
 
 
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
@@ -113,91 +127,259 @@ def parse_arguments(arg_list):
     -------
     param_file : str
         The location of the parameters file.
-    overrides : str
-        The yaml-formatted overrides, to pass to ``load_extended_yaml``.
+    run_opts : dict
+        Run options, such as distributed, device, etc.
+    overrides : dict
+        The overrides to pass to ``load_extended_yaml``.
 
     Example
     -------
-    >>> argv = ['hyperparams.yaml', '--seed', '10']
-    >>> filename, overrides = parse_arguments(argv)
+    >>> argv = ['hyperparams.yaml', '--device', 'cuda:1', '--seed', '10']
+    >>> filename, run_opts, overrides = parse_arguments(argv)
     >>> filename
     'hyperparams.yaml'
+    >>> run_opts["device"]
+    'cuda:1'
     >>> overrides
-    'seed: 10\n'
+    'seed: 10'
     """
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
     )
     parser.add_argument(
         "param_file",
+        type=str,
         help="a yaml-formatted file using the extended YAML syntax "
         "defined by SpeechBrain.",
     )
     parser.add_argument(
-        "--yaml_overrides",
-        help="A yaml-formatted string representing a dictionary of "
-        "overrides to the parameters in the param file. The keys of "
-        "the dictionary can use dots to represent levels in the yaml "
-        'hierarchy. For example: "{model.param1: value1}" would '
-        "override the param1 parameter of the model node.",
-    )
-    parser.add_argument(
-        "--output_folder",
-        help="A folder for storing all experiment-related outputs.",
-    )
-    parser.add_argument(
-        "--data_folder", help="A folder containing the data used for training",
-    )
-    parser.add_argument(
-        "--save_folder",
-        help="A folder for storing checkpoints that allow restoring "
-        "progress for testing or re-starting training.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="A random seed to reproduce experiments on the same machine",
-    )
-    parser.add_argument(
         "--log_config",
+        type=str,
         help="A file storing the configuration options for logging",
     )
+    # if use_env = False in torch.distributed.lunch then local_rank arg is given
     parser.add_argument(
-        "--rank", type=int, help="Rank of process in multiprocessing setup"
-    )
-    parser.add_argument("--device", help="The device to run the experiment on")
-    parser.add_argument(
-        "--multigpu_count", type=int, help="Number of gpus to run on"
+        "--local_rank", type=int, help="Rank on local machine",
     )
     parser.add_argument(
-        "--multigpu_backend", help="data_parallel, ddp_nccl, ddp_gloo, ddp_mpi"
+        "--device",
+        type=str,
+        default="cuda:0",
+        help="The device to run the experiment on (e.g. 'cuda:0')",
     )
+    parser.add_argument(
+        "--data_parallel_count",
+        type=int,
+        default=-1,
+        help="Number of devices that are used for data_parallel computation",
+    )
+    parser.add_argument(
+        "--data_parallel_backend",
+        type=bool,
+        default=False,
+        help="If True, data_parallel is used.",
+    )
+    parser.add_argument(
+        "--distributed_launch",
+        type=bool,
+        default=False,
+        help="if True, use DDP",
+    )
+    parser.add_argument(
+        "--distributed_backend",
+        type=str,
+        default="nccl",
+        help="One of {nccl, gloo, mpi}",
+    )
+    parser.add_argument(
+        "--jit_module_keys",
+        type=str,
+        nargs="*",
+        help="A list of keys in the 'modules' dict to jitify",
+    )
+    parser.add_argument(
+        "--auto_mix_prec",
+        type=bool,
+        help="If True, automatic mixed-precision is used.",
+    )
+    parser.add_argument(
+        "--max_grad_norm",
+        type=float,
+        help="Gradient norm will be clipped to this value, "
+        "enter negative value to disable.",
+    )
+    parser.add_argument(
+        "--nonfinite_patience",
+        type=int,
+        help="Max number of batches per epoch to skip if loss is nonfinite.",
+    )
+    parser.add_argument(
+        "--progressbar",
+        type=bool,
+        help="If True, displays a progressbar indicating dataset progress.",
+    )
+
+    # Accept extra args to override yaml
+    run_opts, overrides = parser.parse_known_args(arg_list)
 
     # Ignore items that are "None", they were not passed
-    parsed_args = vars(parser.parse_args(arg_list))
+    run_opts = {k: v for k, v in vars(run_opts).items() if v is not None}
 
-    param_file = parsed_args["param_file"]
+    param_file = run_opts["param_file"]
+    del run_opts["param_file"]
 
-    # Convert yaml_overrides to dictionary
-    yaml_overrides = ""
-    if parsed_args["yaml_overrides"] is not None:
-        yaml_overrides = parsed_args["yaml_overrides"]
+    overrides = _convert_to_yaml(overrides)
 
-    # Only return non-empty items
-    items = {
-        k: v
-        for k, v in parsed_args.items()
-        if v is not None and k not in ["yaml_overrides", "param_file"]
-    }
+    # Checking that DataParallel use the right number of GPU
+    if run_opts["data_parallel_backend"]:
+        if run_opts["data_parallel_count"] == 0:
+            raise ValueError(
+                "data_parellel_count must be > 1."
+                "if data_parallel_count = -1, then use all gpus."
+            )
+        if run_opts["data_parallel_count"] > torch.cuda.device_count():
+            raise ValueError(
+                "data_parellel_count must be <= "
+                + str(torch.cuda.device_count())
+                + "if data_parallel_count = -1, then use all gpus."
+            )
 
-    # Convert to string and append to overrides
-    ruamel_yaml = ruamel.yaml.YAML()
-    overrides = ruamel_yaml.load(yaml_overrides) or {}
-    sb.utils.data_utils.recursive_update(overrides, items)
-    yaml_stream = StringIO()
-    ruamel_yaml.dump(overrides, yaml_stream)
+    # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
+    # If run_opts["local_rank"] exists
+    # Otherwise use OS.environ["LOCAL_RANK"]
+    local_rank = None
+    if "local_rank" in run_opts:
+        local_rank = run_opts["local_rank"]
+    else:
+        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
+            local_rank = int(os.environ["LOCAL_RANK"])
 
-    return param_file, yaml_stream.getvalue(), parsed_args
+    # force device arg to be the same as local_rank from torch.distributed.lunch
+    if local_rank is not None and "cuda" in run_opts["device"]:
+        run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
+
+    return param_file, run_opts, overrides
+
+
+def _convert_to_yaml(overrides):
+    """Convert args to yaml for overrides"""
+    yaml_string = ""
+
+    # Handle '--arg=val' type args
+    joined_args = "=".join(overrides)
+    split_args = joined_args.split("=")
+
+    for arg in split_args:
+        if arg.startswith("--"):
+            yaml_string += "\n" + arg[len("--") :] + ":"
+        else:
+            yaml_string += " " + arg
+
+    return yaml_string.strip()
+
+
+def if_main_process():
+    """Check if the current process is the main process and authorized to run I/O commands.
+    In DDP mode, the main process is the one with RANK == 0.
+    In standard mode, the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
+    """
+    if "RANK" in os.environ:
+        if os.environ["RANK"] == "":
+            return False
+        else:
+            if int(os.environ["RANK"]) == 0:
+                return True
+            return False
+    return True
+
+
+def ddp_barrier():
+    """ In DDP mode, this function will synchronizes all processes.
+    torch.distributed.barrier() will lock blocks processes until the whole group enters this function
+    """
+    if torch.distributed.is_initialized():
+        torch.distributed.barrier()
+
+
+def ddp_init_group(run_opts):
+    """
+    This function will initialize the ddp group if
+    distributed_launch=True bool is given in the python command line.
+
+    The ddp group will use distributed_backend arg for setting the DDP communication protocol.
+    `RANK` Unix variable will be used for registring the subprocess to the ddp group.
+
+    Arguments
+    ---------
+    run_opts: list
+        a list of arguments to parse, most often from `sys.argv[1:]`
+    """
+    if run_opts["distributed_launch"]:
+        if "local_rank" not in run_opts:
+            sys.exit(
+                "To use DDP backend, start your script with:\n\t"
+                "python -m torch.distributed.lunch [args]\n\t"
+                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+            )
+        else:
+            if run_opts["local_rank"] + 1 > torch.cuda.device_count():
+                sys.exit(
+                    "Killing process " + str() + "\n"
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m torch.distributed.lunch [args]\n\t"
+                    "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                )
+        if "RANK" in os.environ is None or os.environ["RANK"] == "":
+            sys.exit(
+                "To use DDP backend, start your script with:\n\t"
+                "python -m torch.distributed.lunch [args]\n\t"
+                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+            )
+        rank = int(os.environ["RANK"])
+
+        if run_opts["distributed_backend"] == "nccl":
+            if not torch.distributed.is_nccl_available():
+                logger.info("NCCL is not supported in your machine.")
+                raise ValueError("NCCL is not supported in your machine.")
+        elif run_opts["distributed_backend"] == "gloo":
+            if not torch.distributed.is_gloo_available():
+                logger.info("GLOO is not supported in your machine.")
+                raise ValueError("GLOO is not supported in your machine.")
+        elif run_opts["distributed_backend"] == "mpi":
+            if not torch.distributed.is_mpi_available():
+                logger.info("MPI is not supported in your machine.")
+                raise ValueError("MPI is not supported in your machine.")
+        else:
+            logger.info(
+                run_opts["distributed_backend"]
+                + " communcation protocol doesn't exist."
+            )
+            raise ValueError(
+                run_opts["distributed_backend"]
+                + " communcation protocol doesn't exist."
+            )
+        # rank arg is used to set the right rank of the current process for ddp.
+        # if you have 2 servers with 2 gpu:
+        # server1:
+        #   GPU0: local_rank=device=0, rank=0
+        #   GPU1: local_rank=device=1, rank=1
+        # server2:
+        #   GPU0: local_rank=device=0, rank=2
+        #   GPU1: local_rank=device=1, rank=3
+        torch.distributed.init_process_group(
+            backend=run_opts["distributed_backend"], rank=rank,
+        )
+    else:
+        logger.info(
+            "Distributed_launch flag is disable, this experiment will be executed without DDP."
+        )
+        if "local_rank" in run_opts and run_opts["local_rank"] > 0:
+            sys.exit(
+                "DDP is disabled, no subprocess is accepted, signle GPU is then performed\n\t"
+                "for multiGPU DDP training, please use --distributed_launch=True\n\t"
+                "python -m torch.distributed.lunch [args]\n\t"
+                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+            )
 
 
 class Stage(Enum):
@@ -247,26 +429,29 @@ class Brain:
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g. self.hparams.model(x)
-    jit_module_keys : list of str
-        keys from the dictionary passed to ``modules`` to compile with
-        ``torch.jit.script``.
+    run_opts : dict
+        A set of options to change the runtime environment, including
+            jit_module_keys : list of str
+                List of keys in modules that should be jit compiled.
+            distributed_count : int
+                Number of devices to run on.
+            distributed_backend : str
+                One of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
+            device : str
+                The location for performing computations.
+            auto_mix_prec : bool
+                If True, automatic mixed-precision is used.
+                Activate it only with cuda.
+            max_grad_norm : float
+                Default implementation of ``fit_batch()`` uses
+                ``clip_grad_norm_`` with this value.
+            nonfinite_patience : int
+                Number of times to ignore non-finite losses before stopping.
+            progressbar : bool
+                Whether to display a progressbar when training.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
-    device : str
-        The location for performing computations.
-    multigpu_count : int
-        Number of GPUs to use for computation. With ``"data_parallel"``
-        backend, ``fit()`` is run on one process and multiple GPUs. With one of
-        the three ``ddp`` backends, ``fit()`` is run with one process per GPU.
-    multigpu_backend : str
-        one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
-    auto_mix_prec: bool
-        If True, automatic mixed-precision is used. Activate it only with cuda.
-    gradient_clipping : float
-        Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
-    nonfinite_patience : int
-        Number of times to ignore non-finite losses before stopping.
 
     Example
     -------
@@ -281,32 +466,63 @@ class Brain:
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
-    def __init__(
-        self, modules=None, opt_class=None, hparams=None, checkpointer=None,
+    def __init__(  # noqa: C901
+        self,
+        modules=None,
+        opt_class=None,
+        hparams=None,
+        run_opts=None,
+        checkpointer=None,
     ):
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.root_process = True
 
-        # Arguments passed via the hparams dictionary
-        brain_arg_defaults = {
+        # Arguments passed via the run opts dictionary
+        run_opt_defaults = {
             "device": "cpu",
-            "multigpu_count": 0,
-            "multigpu_backend": None,
+            "data_parallel_count": -1,
+            "data_parallel_backend": False,
+            "distributed_launch": False,
+            "distributed_backend": "nccl",
             "jit_module_keys": None,
             "auto_mix_prec": False,
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "progressbar": True,
         }
-        for arg, default in brain_arg_defaults.items():
-            if hparams is not None and arg in hparams:
-                setattr(self, arg, hparams[arg])
+        for arg, default in run_opt_defaults.items():
+            if run_opts is not None and arg in run_opts:
+                if hparams is not None and arg in hparams:
+                    logger.info(
+                        "Info: "
+                        + arg
+                        + " arg is override by command line input"
+                    )
+                setattr(self, arg, run_opts[arg])
             else:
-                setattr(self, arg, default)
+                # If any arg from run_opt_defaults exist in hparams and
+                # not in command line args "run_opts"
+                if hparams is not None and arg in hparams:
+                    logger.info(
+                        "Info: " + arg + " arg from hparam file is used"
+                    )
+                    setattr(self, arg, hparams[arg])
+                else:
+                    setattr(self, arg, default)
+
+        if self.data_parallel_backend and self.distributed_launch:
+            sys.exit(
+                "To use data_parallel backend, start you script with:\n\t"
+                "python experiment.py hyperparams.yaml --data_parallel_backend=True --data_parallel_count=2"
+                "To use DDP backend, start your script with:\n\t"
+                "python -m torch.distributed.lunch [args]\n"
+                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+            )
+
         # Switch to the right context
         if "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
+
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
@@ -327,24 +543,24 @@ class Brain:
             fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
-        # Initialize ddp environment
-        self.rank = os.environ.get("RANK")
-        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
-            if self.rank is None:
-                sys.exit(
-                    "To use DDP backend, start your script with:\n\t"
-                    "python -m speechbrain.ddp experiment.py hyperparams.yaml"
-                )
-            else:
-                self.rank = int(self.rank)
-            self.root_process = self.rank == 0
-
-            # Use backend (without "ddp_") to initialize process group
-            backend = self.multigpu_backend[4:]
-            torch.distributed.init_process_group(
-                backend=backend, world_size=self.multigpu_count, rank=self.rank
-            )
-
+        if self.distributed_launch:
+            self.rank = int(os.environ["RANK"])
+            if not torch.distributed.is_initialized():
+                if self.rank > 0:
+                    sys.exit(
+                        " ================ WARNING ==============="
+                        "Please add sb.ddp_init_group() into your exp.py"
+                        "To use DDP backend, start your script with:\n\t"
+                        "python -m torch.distributed.lunch [args]\n\t"
+                        "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                    )
+                else:
+                    logger.warn(
+                        "To use DDP, please add sb.ddp_init_group() into your exp.py"
+                    )
+                    logger.info(
+                        "Only the main process is alive, all other subprocess were killed."
+                    )
             # force the models to start and remain synchronized
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -415,7 +631,7 @@ class Brain:
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if multigpu_count is more than 0 and backend is ddp.
+        if distributed_count is more than 0 and backend is ddp.
 
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
@@ -424,7 +640,7 @@ class Brain:
         self._compile_jit()
 
         # Wrap modules with parallel backend after jit
-        self._wrap_multigpu()
+        self._wrap_distributed()
 
         # Initialize optimizers after parameters are configured
         self.init_optimizers()
@@ -600,8 +816,8 @@ class Brain:
         * ``evaluate_batch()``
         * ``update_average()``
 
-        If the initialization was done with multigpu_count > 0 and the
-        multigpu_backend is ddp, this method will spawn the correct number
+        If the initialization was done with distributed_count > 0 and the
+        distributed_backend is ddp, this method will spawn the correct number
         of processes and run a portion of the training data on the
         corresponding device.
 
@@ -622,13 +838,15 @@ class Brain:
             progressbar = self.progressbar
 
         self.train_sampler = None
-        if self.rank is not None and self.multigpu_count > 0:
+        if self.distributed_launch:
             raise NotImplementedError(
                 "Currently not supporting DDP with new data loading"
             )
+            # num_replicas arg is equal to word_size
+            # and retrieved automatically within
+            # DistributedSampler obj.
             self.train_sampler = DistributedSampler(
                 dataset=train_set.dataset,
-                num_replicas=self.multigpu_count,
                 rank=self.rank,
                 shuffle=train_set.shuffle,
             )
@@ -647,8 +865,8 @@ class Brain:
             if self.train_sampler is not None:
                 self.train_sampler.set_epoch(epoch)
 
-            # Only show progressbar if requested and root_process
-            disable = not (progressbar and self.root_process)
+            # Only show progressbar if requested and main_process
+            disable = not (progressbar and sb.if_main_process())
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for self.step, batch in enumerate(t):
                     loss = self.fit_batch(batch)
@@ -670,7 +888,13 @@ class Brain:
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss
                         )
-                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
+                    try:
+                        if sb.if_main_process():
+                            self.on_stage_end(
+                                Stage.VALID, avg_valid_loss, epoch
+                            )
+                    finally:
+                        sb.ddp_barrier()
 
     def _compile_jit(self):
         """This should be run *after* mp.spawn, since jit modules
@@ -680,22 +904,38 @@ class Brain:
             return
 
         for name in self.jit_module_keys:
+            if name not in self.modules:
+                raise ValueError(
+                    "module" + name + " is not defined in your hparams file."
+                )
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
 
-    def _wrap_multigpu(self):
-        """Wrap modules with multigpu wrapper when requested"""
-        if self.multigpu_backend is None:
+    def _wrap_distributed(self):
+        """Wrap modules with distributed wrapper when requested"""
+        if not self.distributed_launch and not self.data_parallel_backend:
             return
-
-        for name, module in self.modules.items():
-            if any(p.requires_grad for p in module.parameters()):
-                if self.multigpu_backend == "data_parallel":
-                    module = torch.nn.DataParallel(module)
-                elif self.multigpu_backend.startswith("ddp"):
+        elif self.distributed_launch:
+            for name, module in self.modules.items():
+                if any(p.requires_grad for p in module.parameters()):
+                    # for ddp, all module must run on same GPU
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
                     module = DDP(module, device_ids=[self.device])
-            self.modules[name] = module
+                    self.modules[name] = module
+        else:
+            # data_parallel_backend
+            for name, module in self.modules.items():
+                if any(p.requires_grad for p in module.parameters()):
+                    # if distributed_count = -1 then use all gpus
+                    # otherwise, specify the set of gpu to use
+                    if self.data_parallel_count == -1:
+                        module = DP(module)
+                    else:
+                        module = DP(
+                            module,
+                            [i for i in range(self.data_parallel_count)],
+                        )
+                    self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
@@ -730,7 +970,11 @@ class Brain:
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
-        self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
+            try:
+                if sb.if_main_process():
+                    self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
+            finally:
+                sb.ddp_barrier()
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.

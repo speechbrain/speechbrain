@@ -86,7 +86,8 @@ class SEBrain(sb.core.Brain):
         )
         loss = self.compute_objectives(predictions, cleans, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -177,15 +178,13 @@ class SEBrain(sb.core.Brain):
 # Recipe begins!
 if __name__ == "__main__":
 
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from dns_prepare import prepare_dns  # noqa E402
-
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -201,22 +200,21 @@ if __name__ == "__main__":
             hparams["tensorboard_logs"]
         )
 
-    # Create the folder to save enhanced files
-    if not os.path.exists(hparams["enhanced_folder"]):
-        os.mkdir(hparams["enhanced_folder"])
-
-    # Prepare data
-    prepare_dns(
-        data_folder=hparams["data_folder"],
-        save_folder=hparams["data_folder"],
-        valid_folder=os.path.join(hparams["data_folder"], "valid"),
-        seg_size=10.0,
-    )
+    # Create the folder to save enhanced files (+ support for DDP)
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            if not os.path.isdir(hparams["enhanced_folder"]):
+                os.makedirs(hparams["enhanced_folder"])
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
 
     se_brain = SEBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
