@@ -9,8 +9,8 @@ save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
 # csv files
-csv_train: !ref <save_folder>/train.csv
-csv_valid: !ref <save_folder>/dev.csv
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100

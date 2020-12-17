@@ -14,8 +14,8 @@ save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
 # csv files
-csv_train: !ref <save_folder>/train.csv
-csv_valid: !ref <save_folder>/dev.csv
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100
@@ -37,7 +37,18 @@ max_frames: 300
 # Number of speakers
 out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
-# Functions
+
+# data preparation will generate train.csv, dev.csv
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:voxceleb_prepare.prepare_voxceleb
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
+        splits: ["train", "dev"]
+        split_ratio: [90, 10]
+        seg_dur: 300
+        rand_seed: !ref <seed>
+        random_segment: !ref <random_segment>
+
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
