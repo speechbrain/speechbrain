@@ -11,6 +11,7 @@ Authors
 import sys
 import torch
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
@@ -112,15 +113,17 @@ if __name__ == "__main__":
 
     # Create label encoding
     label_encoder = hparams["label_encoder"]
-    if not label_encoder.load_if_possible("encoder_state.txt"):
-        label_encoder.update_from_didataset(
-            hparams["train_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.update_from_didataset(
-            hparams["valid_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.insert_blank(index=hparams["blank_index"])
-        label_encoder.save("encoder_state.txt")
+    run_on_main(
+        func=label_encoder.load_or_create,
+        args=["encoder_state.txt"],
+        kwargs={
+            "from_didatasets": [hparams["train_data"], hparams["valid_data"]],
+            "output_key": "phn_list",
+            "special_labels": {"blank_label": "_"},
+        },
+        post_func=label_encoder.load,
+        post_args=["encoder_state.txt"],
+    )
 
     # Create experiment directory
     sb.create_experiment_directory(
