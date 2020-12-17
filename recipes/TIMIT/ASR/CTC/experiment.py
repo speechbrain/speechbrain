@@ -107,6 +107,10 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
+
+    # Create label encoding
     label_encoder = hparams["label_encoder"]
     if not label_encoder.load_if_possible("encoder_state.txt"):
         label_encoder.update_from_didataset(
@@ -117,9 +121,6 @@ if __name__ == "__main__":
         )
         label_encoder.insert_blank(index=hparams["blank_index"])
         label_encoder.save("encoder_state.txt")
-
-    # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
