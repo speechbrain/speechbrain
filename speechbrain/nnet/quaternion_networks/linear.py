@@ -198,6 +198,13 @@ class QuaternionLinear(torch.nn.Module):
                     self.b,
                 )
         else:
+
+            # The custom backward needs an input with 2D at most!
+            input_dim = x.dim()
+            if input_dim == 3:
+                batch, time, fea = x.size()
+                x = x.view(batch * time, fea)
+
             out = QuaternionLinearCustomBackward.apply(
                 x,
                 self.r_weight,
@@ -206,5 +213,8 @@ class QuaternionLinear(torch.nn.Module):
                 self.k_weight,
                 self.b,
             )
+
+            if input_dim == 3:
+                out = out.view(batch, time, out.size(-1))
 
         return out
