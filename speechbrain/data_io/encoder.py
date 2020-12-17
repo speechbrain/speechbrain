@@ -38,6 +38,9 @@ class CategoricalEncoder:
         # This is because None is a suitable value for unk.
         # So the test is: hasattr(self, "unk_label")
         # rather than self.unk_label is not None
+        self.handle_special_labels(special_labels)
+
+    def handle_special_labels(self, special_labels):
         if "unk_label" in special_labels:
             self.add_unk(special_labels["unk_label"])
 
@@ -135,6 +138,34 @@ class CategoricalEncoder:
                 break
             self.add_label(label)
         return counts
+
+    def load_or_create(
+        self,
+        path,
+        from_iterables=[],
+        from_didatasets=[],
+        sequence_input=False,
+        output_key=None,
+        special_labels={},
+    ):
+        """Convenient syntax for creating the encoder conditionally
+
+        This pattern would be repeated in so many experiments that
+        we decided to add a convenient shortcut for it here.
+        """
+        if not self.load_if_possible(path):
+            for iterable in from_iterables:
+                self.update_from_iterable(iterable, sequence_input)
+            for didataset in from_didatasets:
+                if output_key is None:
+                    raise ValueError(
+                        "Provide an output_key for " "DynamicItemDataset"
+                    )
+                self.update_from_didataset(
+                    didataset, output_key, sequence_input
+                )
+            self.handle_special_labels(special_labels)
+            self.save(path)
 
     def add_label(self, label):
         """Add new label to the encoder, at the next free position.
@@ -581,9 +612,11 @@ class CategoricalEncoder:
 
 
 class TextEncoder(CategoricalEncoder):
-    def __init__(self, starting_index=0, **special_labels):
-        super().__init__(starting_index, **special_labels)
-        # NOTE: bos_label and eos_label are not set at all!
+    """For encoding text"""
+
+    def handle_special_labels(self, special_labels):
+        super().handle_special_labels(special_labels)
+        # NOTE: bos_label and eos_label are not necessarily set at all!
         # This is because None is a suitable value.
         # So the test is: hasattr(self, "bos_label")
         # rather than self.bos_label is not None
@@ -698,15 +731,17 @@ class TextEncoder(CategoricalEncoder):
 
 
 class CTCTextEncoder(TextEncoder):
-    def __init__(self, starting_index=0, **special_labels):
-        super().__init__(starting_index, **special_labels)
-        if "blank_label" in special_labels:
-            self.insert_blank(special_labels["blank_label"])
+    """Handles CTC"""
+
+    def handle_special_labels(self, special_labels):
+        super().handle_special_labels(special_labels)
         # NOTE: blank_label is not necessarily set at all!
         # This is because None is a suitable value.
         # So the test is: hasattr(self, "blank_label")
         # rather than self.blank_label is not None
         # Same thing with unk, see base class.
+        if "blank_label" in special_labels:
+            self.insert_blank(special_labels["blank_label"])
 
     def add_blank(self, blank_label=DEFAULT_BLANK):
         """Add blank symbol to labelset"""
