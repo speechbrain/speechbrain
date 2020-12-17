@@ -7,7 +7,7 @@ Authors:
 """
 import torch
 import logging
-from torch.utils.data.sampler import RandomSampler, DistributedSampler
+from torch.utils.data import RandomSampler, DistributedSampler
 
 logger = logging.getLogger(__name__)
 
