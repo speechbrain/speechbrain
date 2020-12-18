@@ -78,6 +78,7 @@ eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
 lm_weight: 0.50
+ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -237,9 +238,11 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
     language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
@@ -248,6 +251,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     max_attn_shift: !ref <max_attn_shift>
     coverage_penalty: !ref <coverage_penalty>
     lm_weight: !ref <lm_weight>
+    ctc_weight: !ref <ctc_weight_decode>
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
