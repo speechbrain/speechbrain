@@ -167,20 +167,16 @@ def main():
 
         hparams["train_logger"] = TensorboardLogger(hparams["tensorboard_logs"])
 
-    train_loader = hparams["train_loader"]()
-    val_loader = hparams["val_loader"]()
-    test_loader = hparams["test_loader"]()
-
     ctn = CTN_Brain(hparams["modules"], hparams["opt_class"], hparams)
 
     ctn.fit(
         ctn.hparams.epoch_counter,
-        train_set=train_loader,
-        valid_set=val_loader,
+        train_set=hparams["train_data"],
+        valid_set=hparams["valid_data"],
         progressbar=hparams["progressbar"],
     )
 
-    ctn.evaluate(test_loader)
+    ctn.evaluate(hparams["test_data"])
 
     # Integration test: check that the model overfits the training data
     assert -ctn.train_loss > 10.0

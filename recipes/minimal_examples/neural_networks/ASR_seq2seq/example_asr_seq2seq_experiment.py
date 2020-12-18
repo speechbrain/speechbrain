@@ -92,10 +92,10 @@ def main():
     )
     seq2seq_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"],
-        hparams["valid_loader"],
+        hparams["train_data"],
+        hparams["valid_data"],
     )
-    seq2seq_brain.evaluate(hparams["valid_loader"])
+    seq2seq_brain.evaluate(hparams["valid_data"])
 
     # Check that model overfits for integration test
     assert seq2seq_brain.train_loss < 1.0
