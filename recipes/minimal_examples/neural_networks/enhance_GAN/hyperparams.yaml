@@ -7,13 +7,14 @@ models: !include:models.yaml
 
 data_folder: !PLACEHOLDER
 N_epochs: 5
+N_batch: 2
+
 data: !include:data.yaml
     data_folder: !ref <data_folder>
     N_epochs: !ref <N_epochs>
 
-train_loader: !ref <data[train_loader]>
-valid_loader: !ref <data[valid_loader]>
-test_loader: !ref <data[test_loader]>
+train_data: !ref <data[train_data]>
+valid_data: !ref <data[valid_data]>
 add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
 
 modules:
