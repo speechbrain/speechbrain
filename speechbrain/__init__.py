@@ -15,6 +15,8 @@ from speechbrain import (
     utils,
 )
 
+from speechbrain.utils.Accuracy import AccuracyStats
+
 __all__ = [
     "Stage",
     "Brain",
@@ -29,6 +31,7 @@ __all__ = [
     "data_io",
     "decoders",
     "lobes",
+    "AccuracyStats",
     "lm",
     "nnet",
     "processing",
