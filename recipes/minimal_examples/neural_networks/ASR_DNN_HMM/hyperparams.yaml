@@ -35,14 +35,6 @@ valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
 
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <train_data>
-    batch_size: !ref <batch_size>
-
-valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
-
 compute_features: !new:speechbrain.lobes.features.MFCC
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
