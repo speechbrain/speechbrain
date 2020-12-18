@@ -77,10 +77,6 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
-        # if stage == sb.Stage.TRAIN:
-        #     if hasattr(self.hparams, "augmentation"):
-        #         wavs = self.hparams.augmentation(feats)
-
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
             src, y_in, wav_lens, pad_idx=self.hparams.pad_index
