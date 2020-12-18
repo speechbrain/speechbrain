@@ -123,8 +123,9 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <eos_bos_index>
-    eos_index: !ref <eos_bos_index>
+    bos_index: !ref <bos>
+    eos_index: !ref <eos>
+    blank_index: !ref <blank>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 

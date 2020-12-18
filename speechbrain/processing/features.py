@@ -971,6 +971,7 @@ class InputNormalization(torch.nn.Module):
         norm_type="global",
         avg_factor=None,
         requires_grad=False,
+        update_until_epoch=3,
     ):
         super().__init__()
         self.mean_norm = mean_norm
@@ -987,8 +988,9 @@ class InputNormalization(torch.nn.Module):
         self.count = 0
         self.eps = 1e-10
         self.device_inp = torch.device("cpu")
+        self.update_until_epoch = update_until_epoch
 
-    def forward(self, x, lengths, spk_ids=torch.tensor([])):
+    def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
         """Returns the tensor with the sourrounding context.
 
         Arguments
@@ -1074,7 +1076,7 @@ class InputNormalization(torch.nn.Module):
                     self.glob_mean = current_mean
                     self.glob_std = current_std
 
-                else:
+                elif epoch < self.update_until_epoch:
                     if self.avg_factor is None:
                         self.weight = 1 / (self.count + 1)
                     else:

@@ -367,7 +367,7 @@ def ddp_init_group(run_opts):
         #   GPU0: local_rank=device=0, rank=2
         #   GPU1: local_rank=device=1, rank=3
         torch.distributed.init_process_group(
-            backend=run_opts["distributed_backend"], rank=rank,
+            backend=run_opts["distributed_backend"], rank=rank
         )
     else:
         logger.info(
