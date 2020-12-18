@@ -91,6 +91,15 @@ class CategoricalEncoder:
                 sequence_input=sequence_input,
             )
 
+    def update_from_transform_dataset(
+        self, transform_dataset, output_key, sequence_input=False,
+    ):
+        with transform_dataset.output_keys_as([output_key]):
+            self.update_from_iterable(
+                (data_point[output_key] for data_point in transform_dataset),
+                sequence_input=sequence_input,
+            )
+
     def limited_labelset_from_iterable(
         self, iterable, sequence_input=False, n_most_common=None, min_count=1
     ):

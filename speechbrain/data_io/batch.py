@@ -5,7 +5,7 @@ Authors
 """
 import collections
 import torch
-import speechbrain.utils.data_utils
+from speechbrain.utils.data_utils import batch_pad_right
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 
@@ -67,7 +67,7 @@ class PaddedBatch:
         examples,
         padded_keys=None,
         device_prep_keys=None,
-        padding_func=speechbrain.utils.data_utils.batch_pad_right,
+        padding_func=batch_pad_right,
         padding_kwargs={},
     ):
         self.__keys = examples[0].keys()

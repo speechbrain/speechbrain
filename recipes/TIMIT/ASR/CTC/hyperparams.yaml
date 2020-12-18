@@ -41,63 +41,8 @@ dnn_neurons: 512
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:timit_prepare.prepare_timit
-        data_folder: !ref <data_folder>
-        splits: ["train", "dev", "test"]
-        save_folder: !ref <data_folder>
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
-
-common_dynamic_items:
-    phn_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [phn]
-    phn_encoded:
-        func: !ref <label_encoder.encode_sequence_torch>
-        argkeys: [phn_list]
-    sig:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [wav]
-common_output_keys: ["id", "sig", "phn_encoded"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/train.csv
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <train_data>
-    batch_size: !ref <batch_size>
-    shuffle: False # we use ordered batches for better performance
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/dev.csv
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
-    shuffle: False
-
-test_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/test.csv
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
-    shuffle: False
-
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -107,13 +52,13 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 # Can be removed to improve speed
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
+#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+#    openrir_folder: !ref <data_folder>
+#    babble_prob: 0.0
+#    reverb_prob: 0.0
+#    noise_prob: 1.0
+#    noise_snr_low: 0
+#    noise_snr_high: 15
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

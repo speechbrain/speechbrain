@@ -8,8 +8,10 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
+import timit_prepare
 import speechbrain as sb
 
 
@@ -52,12 +54,11 @@ class ASR_Brain(sb.Brain):
                 pout, pout_lens, blank_id=self.hparams.blank_index
             )
             self.per_metrics.append(
-                ids,
-                sequence,
-                phns,
-                None,
-                phn_lens,
-                self.hparams.label_encoder.decode_ndim,
+                ids=ids,
+                predict=sequence,
+                target=phns,
+                target_len=phn_lens,
+                lab2ind=self.hparams.label_encoder.decode_ndim,
             )
 
         return loss
@@ -99,6 +100,86 @@ class ASR_Brain(sb.Brain):
                 print("CTC and PER stats written to ", self.hparams.wer_file)
 
 
+def make_datasets(data_folder, batch_size):
+
+    sb.utils.data_utils.run_on_main(
+        timit_prepare.prepare_timit,
+        data_folder=data_folder,
+        splits=["train", "dev", "test"],
+        save_folder=data_folder,
+    )
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    def split_phn(phn):
+        return {"phn_list": sb.utils.data_utils.split_by_whitespace(phn)}
+
+    def make_phn_encoded(phn_list):
+        phn_encoded = label_encoder.encode_sequence_torch(phn_list)
+        return {"phn_encoded": phn_encoded}
+
+    def make_sig(wav):
+        return {"sig": sb.data_io.data_io.read_audio(wav)}
+
+    item_transforms = {
+        "phn": split_phn,
+        "phn_list": make_phn_encoded,
+        "wav": make_sig,
+    }
+
+    train_data = sb.data_io.transform_dataset.TransformDataset.from_csv(
+        csv_path=os.path.join(data_folder, "train.csv"),
+        replacements={"data_root": data_folder},
+        item_transforms=item_transforms,
+        output_keys=["id", "phn_encoded", "sig"],
+    )
+    train_loader = sb.data_io.dataloader.SaveableDataLoader(
+        dataset=train_data,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=sb.data_io.batch.PaddedBatch,
+    )
+    valid_data = sb.data_io.transform_dataset.TransformDataset.from_csv(
+        csv_path=os.path.join(data_folder, "dev.csv"),
+        replacements={"data_root": data_folder},
+        item_transforms=item_transforms,
+        output_keys=["id", "phn_encoded", "sig"],
+    )
+    valid_loader = sb.data_io.dataloader.SaveableDataLoader(
+        dataset=train_data,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=sb.data_io.batch.PaddedBatch,
+    )
+    test_data = sb.data_io.transform_dataset.TransformDataset.from_csv(
+        csv_path=os.path.join(data_folder, "test.csv"),
+        replacements={"data_root": data_folder},
+        item_transforms=item_transforms,
+        output_keys=["id", "phn_encoded", "sig"],
+    )
+    test_loader = sb.data_io.dataloader.SaveableDataLoader(
+        dataset=train_data,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=sb.data_io.batch.PaddedBatch,
+    )
+
+    # Create label encoding
+    if not label_encoder.load_if_possible("encoder_state.txt"):
+        label_encoder.update_from_transform_dataset(
+            train_data, output_key="phn_list", sequence_input=True
+        )
+        label_encoder.update_from_transform_dataset(
+            valid_data, output_key="phn_list", sequence_input=True
+        )
+        label_encoder.update_from_transform_dataset(
+            test_data, output_key="phn_list", sequence_input=True
+        )
+        label_encoder.insert_blank(index=hparams["blank_index"])
+        label_encoder.save("encoder_state.txt")
+
+    return train_loader, valid_loader, test_loader, label_encoder
+
+
 # Begin Recipe!
 if __name__ == "__main__":
 
@@ -110,24 +191,17 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.ddp_init_group(run_opts)
 
-    # Create label encoding
-    label_encoder = hparams["label_encoder"]
-    if not label_encoder.load_if_possible("encoder_state.txt"):
-        label_encoder.update_from_didataset(
-            hparams["train_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.update_from_didataset(
-            hparams["valid_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.insert_blank(index=hparams["blank_index"])
-        label_encoder.save("encoder_state.txt")
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    train_loader, valid_loader, test_loader, label_encoder = make_datasets(
+        hparams["data_folder"], hparams["batch_size"],
+    )
+    hparams["label_encoder"] = label_encoder
 
     asr_brain = ASR_Brain(
         modules=hparams["modules"],
@@ -136,10 +210,6 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        hparams["train_loader"],
-        hparams["valid_loader"],
-    )
 
-    asr_brain.evaluate(hparams["test_loader"], min_key="PER")
+    asr_brain.fit(asr_brain.hparams.epoch_counter, train_loader, valid_loader)
+    asr_brain.evaluate(test_loader, min_key="PER")
