@@ -633,124 +633,92 @@ class Brain:
         """
         pass
 
-    def handle_data_init(
+    def make_dataloader(
         self,
-        train_set,
-        valid_set=None,
-        train_sampler=None,
-        shuffle_train=False,
+        dataset,
+        stage,
+        sampler=None,
+        shuffle=False,
         drop_last=False,
-        dataloader_ckpt_pref="dataloader_",
-        train_loader_kwargs=None,
-        valid_loader_kwargs=None,
+        dataloader_ckpt_key="dataloader",
+        loader_kwargs=None,
         **extra_loader_kwargs,
     ):
         """Creates DataLoaders for the datasets
 
         Arguments
         ---------
-        train_set : Dataset
-            A set of data to use for training.
-        valid_set : Dataset
-            A set of data to use for validation.
-        train_sampler : Sampler, None
+        dataset : Dataset
+            A set of data to use to create data loader.
+        sampler : Sampler, None
             Optional sampler to use for training data. In DDP, gets
             automatically wrapped in a DistributedSamplerWrapper.
-        train_shuffle : bool
-            To shuffle train data or not.
+        shuffle : bool
+            To shuffle data or not.
         drop_last : False
             Drop last incomplete batch and drop last uneven data in DDP.
-        train_loader_kwargs : dict
-            Additional keyword arguments to the training DataLoader. Some may be
-            incompatible with other options, like train_sampler, shuffle_train.
-        valid_loader_kwargs : dict
-            Additional keyword arguments to the training DataLoader. Some may be
-            incompatible with other options, like pin_memory.
         dataloader_ckpt_pref : str, None
             Prefix to use for SaveableDataLoader Checkpoint name. Set to None
             to not save the DataLoader.
+        loader_kwargs : dict
+            Additional keyword arguments to the DataLoader. Some may be
+            incompatible with other options, like sampler, shuffle.
         **extra_loader_kwargs : dict
             Extra keyword args to pass to both train and validation loaders.
             This can be used to specify e.g. pin_memory and num_workers for both.
         """
-        if train_loader_kwargs is None:
-            train_loader_kwargs = {}
-        train_loader_kwargs["drop_last"] = drop_last
-        if valid_loader_kwargs is None:
-            valid_loader_kwargs = {}
-        valid_loader_kwargs["drop_last"] = drop_last
-        if train_sampler is not None and shuffle_train:
-            raise ValueError(
-                "Cannot specify both train_sampler and shuffle_train=True"
-            )
+        if loader_kwargs is None:
+            loader_kwargs = {}
+        loader_kwargs["drop_last"] = drop_last
+        if sampler is not None and shuffle:
+            raise ValueError("Cannot specify both sampler and shuffle=True")
 
         # DistributedSampler
-        if self.distributed_launch:
+        if self.distributed_launch and stage == sb.Stage.TRAIN:
             # num_replicas arg is equal to word_size
             # and retrieved automatically within
             # DistributedSampler obj.
-            if train_sampler is not None:
+            if sampler is not None:
                 self.train_sampler = DistributedSamplerWrapper(
-                    train_sampler, rank=self.rank, drop_last=drop_last
+                    sampler, rank=self.rank, drop_last=drop_last
                 )
             else:
                 self.train_sampler = DistributedSampler(
-                    train_set,
+                    dataset,
                     rank=self.rank,
-                    shuffle=shuffle_train,
+                    shuffle=shuffle,
                     drop_last=drop_last,
                 )
-            train_loader_kwargs["sampler"] = self.train_sampler
-        else:
-            self.train_sampler = train_sampler
+            loader_kwargs["sampler"] = self.train_sampler
 
         # PaddedBatch as default collation for DynamicItemDataset
-        if "collate_fn" not in train_loader_kwargs and isinstance(
-            train_set, DynamicItemDataset
+        if "collate_fn" not in loader_kwargs and isinstance(
+            dataset, DynamicItemDataset
         ):
-            train_loader_kwargs["collate_fn"] = PaddedBatch
-        if "collate_fn" not in valid_loader_kwargs and isinstance(
-            valid_set, DynamicItemDataset
-        ):
-            valid_loader_kwargs["collate_fn"] = PaddedBatch
+            loader_kwargs["collate_fn"] = PaddedBatch
 
         # Create the DataLoaders:
-        train_loader_kwargs.update(
+        loader_kwargs.update(
             {
                 k: v
                 for k, v in extra_loader_kwargs.items()
-                if k not in train_loader_kwargs
+                if k not in loader_kwargs
             }
         )
-        valid_loader_kwargs.update(
-            {
-                k: v
-                for k, v in extra_loader_kwargs.items()
-                if k not in valid_loader_kwargs
-            }
-        )
-        if isinstance(train_set, IterableDataset):
-            train_loader = DataLoader(train_set, **train_loader_kwargs)
+        if isinstance(dataset, IterableDataset):
+            dataloader = DataLoader(dataset, **loader_kwargs)
         else:
-            train_loader = SaveableDataLoader(train_set, **train_loader_kwargs)
-
-        if valid_set is None:
-            valid_loader = None
-        elif isinstance(valid_set, IterableDataset):
-            valid_loader = DataLoader(valid_set, **valid_loader_kwargs)
-        else:
-            valid_loader = SaveableDataLoader(valid_set, **valid_loader_kwargs)
+            dataloader = SaveableDataLoader(dataset, **loader_kwargs)
 
         # Add DataLoaders to checkpointer:
-        if self.checkpointer is not None and dataloader_ckpt_pref is not None:
-            if isinstance(train_loader, SaveableDataLoader):
-                train_name = dataloader_ckpt_pref + "train_set"
-                self.checkpointer.add_recoverable(train_name, train_loader)
-            if isinstance(valid_loader, SaveableDataLoader):
-                valid_name = dataloader_ckpt_pref + "valid_set"
-                self.checkpointer.add_recoverable(valid_name, valid_loader)
+        if (
+            self.checkpointer is not None
+            and dataloader_ckpt_key is not None
+            and isinstance(dataloader, SaveableDataLoader)
+        ):
+            self.checkpointer.add_recoverable(dataloader_ckpt_key, dataloader)
 
-        return train_loader, valid_loader
+        return dataloader
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
@@ -961,9 +929,17 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        train_loader, valid_loader = self.handle_data_init(
-            train_set, valid_set, **data_init_spec
+
+        # Sampler should be handled by `make_dataloader`
+        self.train_sampler = None
+        train_loader = self.make_dataloader(
+            train_set, stage=sb.Stage.TRAIN, **data_init_spec
         )
+        valid_loader = None
+        if valid_set is not None:
+            valid_loader = self.make_dataloader(
+                valid_set, stage=sb.Stage.VALID, **data_init_spec
+            )
 
         self.on_fit_start()
 
@@ -1001,7 +977,7 @@ class Brain:
                 avg_valid_loss = 0.0
                 with torch.no_grad():
                     for self.step, batch in enumerate(
-                        tqdm(valid_set, dynamic_ncols=True, disable=disable)
+                        tqdm(valid_loader, dynamic_ncols=True, disable=disable)
                     ):
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
@@ -1078,6 +1054,7 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
+        test_loader = self.make_dataloader(test_set, Stage.TEST)
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
@@ -1085,7 +1062,7 @@ class Brain:
         disable = not progressbar
         with torch.no_grad():
             for self.step, batch in enumerate(
-                tqdm(test_set, dynamic_ncols=True, disable=disable)
+                tqdm(test_loader, dynamic_ncols=True, disable=disable)
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
