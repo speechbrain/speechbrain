@@ -30,28 +30,36 @@ dnn_neurons: 128
 # token infomation
 blank_id: 42
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+common_dynamic_items:
+    phn_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [phn]
+    phn_encoded:
+        func: !ref <label_encoder.encode_sequence>
+        argkeys: [phn_list]
+    phn_encoded_bos:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !ref <label_encoder.prepend_bos_index>
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded]
+    sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [wav]
+common_output_keys: ["id", "sig", "phn_encoded", "phn_encoded_bos"]
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/train.json
     replacements:
-        $data_folder: !ref <data_folder>
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/dev.json
     replacements:
-        $data_folder: !ref <data_folder>
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 

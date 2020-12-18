@@ -4,9 +4,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
 N_epochs: 10
@@ -20,31 +17,49 @@ rnn_neurons: 128
 rnn_bidirectional: True
 
 # token infomation
-bos: 42
-eos: 42
+eos_bos_index: 42
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [char, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+char_encoder: !new:speechbrain.data_io.encoder.TextEncoder
+label_encoder: !new:speechbrain.data_io.encoder.TextEncoder
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [char, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+common_dynamic_items:
+    char_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [char]
+    char_encoded:
+        func: !ref <char_encoder.encode_sequence_torch>
+        argkeys: [char_list]
+    phn_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [phn]
+    phn_encoded:
+        func: !ref <label_encoder.encode_sequence>
+        argkeys: [phn_list]
+    phn_encoded_eos:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !ref <label_encoder.append_eos_index>
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded]
+    phn_encoded_bos:
+        func: !new:speechbrain.utils.data_utils.FuncPipeline
+            - !ref <label_encoder.prepend_bos_index>
+            - !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded]
+common_output_keys: ["id", "char_encoded", "phn_encoded_eos", "phn_encoded_bos"]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [char, phn]
-    sentence_sorting: ascending
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/train.json
     replacements:
-        $data_folder: !ref <data_folder>
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/dev.json
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
 enc: !new:speechbrain.nnet.RNN.LSTM
     input_shape: [null, null, 128]
@@ -55,7 +70,7 @@ enc: !new:speechbrain.nnet.RNN.LSTM
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <rnn_neurons>
-    n_neurons: 43  # 42 phonemes + 1 eos
+    n_neurons: 44  # 42 phonemes + 1 eos
     bias: False
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
@@ -63,7 +78,7 @@ encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: 128
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 43  # 42 phonemes + 1 bos
+    num_embeddings: 44  # 42 phonemes + 1 bos
     embedding_dim: 128
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
@@ -91,8 +106,8 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <bos>
-    eos_index: !ref <eos>
+    bos_index: !ref <eos_bos_index>
+    eos_index: !ref <eos_bos_index>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 
