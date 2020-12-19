@@ -13,7 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /scratch/elec/puhe/c/timit/timit  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 
 # Training parameters
 number_of_epochs: 50
