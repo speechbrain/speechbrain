@@ -6,6 +6,7 @@ Authors
 import collections
 import torch
 import speechbrain.utils.data_utils
+from torch.utils.data._utils.collate import default_convert
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 
@@ -14,7 +15,8 @@ class PaddedBatch:
     """Collate_fn when examples are dicts and have variable length sequences.
 
     Different elements in the examples get matched by key.
-    By default, all torch.Tensor valued elements get padded and support
+    All numpy tensors get converted to Torch (PyTorch default_convert)
+    Then, by default, all torch.Tensor valued elements get padded and support
     collective pin_memory() and to() calls.
     Regular Python data types are just collected in a list.
 
@@ -70,11 +72,12 @@ class PaddedBatch:
         padding_func=speechbrain.utils.data_utils.batch_pad_right,
         padding_kwargs={},
     ):
-        self.__keys = examples[0].keys()
+        self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
         for key in self.__keys:
             values = [example[key] for example in examples]
+            values = default_convert(values)
             if (padded_keys is not None and key in padded_keys) or (
                 padded_keys is None and isinstance(values[0], torch.Tensor)
             ):
@@ -137,3 +140,8 @@ class PaddedBatch:
                 moved = value.to(*args, **kwargs)
             setattr(self, key, moved)
         return self
+
+    def at_position(self, pos):
+        """Fetch an item by its position in the batch"""
+        key = self.__keys[pos]
+        return getattr(self, key)
