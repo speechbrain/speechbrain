@@ -209,7 +209,6 @@ def _read_csv_item(item):
 
     Delegates to the relevant functions.
     """
-    print(item)
     opts = _parse_csv_item_opts(item.opts)
     if item.format.upper() in SF_FORMATS:
         return read_wav_soundfile(item.data, opts)
