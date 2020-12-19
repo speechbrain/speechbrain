@@ -167,7 +167,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
@@ -198,16 +199,14 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+            )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -250,31 +249,21 @@ class ASR(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from librispeech_prepare import prepare_librispeech  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # If distributed_launch=True then
+    # create ddp_group with the right communication protocol
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data
-    prepare_librispeech(
-        data_folder=hparams["data_folder"],
-        splits=hparams["train_splits"]
-        + [hparams["dev_split"], "test-clean", "test-other"],
-        merge_lst=hparams["train_splits"],
-        merge_name=hparams["csv_train"],
-        save_folder=hparams["data_folder"],
     )
 
     # Creating tokenizer must be done after preparation
@@ -294,6 +283,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

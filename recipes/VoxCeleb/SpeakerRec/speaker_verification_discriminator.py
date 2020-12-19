@@ -27,7 +27,7 @@ import torch
 import random
 import speechbrain as sb
 from tqdm.contrib import tqdm
-from speechbrain.utils.metric_stats import EER
+from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 
 
@@ -251,8 +251,9 @@ class VerificationBrain(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            EER = self.compute_EER()
+            EER, min_dcf = self.verification_performance()
             stage_stats["ErrorRate"] = EER
+            stage_stats["min_dcf"] = min_dcf
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -270,7 +271,7 @@ class VerificationBrain(sb.core.Brain):
                     min_keys=["ErrorRate"],
                 )
 
-    def compute_EER(self,):
+    def verification_performance(self,):
         """ Computes the EER using the standard voxceleb test split
         """
         # Computing  enrollment and test embeddings
@@ -294,7 +295,11 @@ class VerificationBrain(sb.core.Brain):
         eer, th = EER(
             torch.tensor(positive_scores), torch.tensor(negative_scores)
         )
-        return eer * 100
+
+        min_dcf, th = minDCF(
+            torch.tensor(positive_scores), torch.tensor(negative_scores)
+        )
+        return eer * 100, min_dcf
 
     def get_verification_scores(self, veri_test):
         """ computes positive and negative scores given the verification split.
@@ -358,13 +363,8 @@ if __name__ == "__main__":
     # This flag enable the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from voxceleb_prepare import prepare_voxceleb  # noqa E402
-
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -373,17 +373,6 @@ if __name__ == "__main__":
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data from dev of Voxceleb1
-    prepare_voxceleb(
-        data_folder=hparams["data_folder"],
-        save_folder=hparams["save_folder"],
-        splits=["train", "dev", "test"],
-        split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=hparams["seed"],
-        random_segment=hparams["random_segment"],
     )
 
     # Data loaders
@@ -402,6 +391,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
