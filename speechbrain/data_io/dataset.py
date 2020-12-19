@@ -80,10 +80,10 @@ class DynamicItemDataset(Dataset):
 
     With these, different views of the data can be loaded:
     >>> from speechbrain.data_io.dataloader import SaveableDataLoader
+    >>> from speechbrain.data_io.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
-    >>> #Note: SaveableDataLoader has speechbrain.data_io.batch.PaddedBatch
-    >>> # as default collate_fn
-    >>> dataloader = SaveableDataLoader(dataset, batch_size=2)
+    >>> dataloader = SaveableDataLoader(dataset, collate_fn=PaddedBatch,
+    ...     batch_size=2)
     >>> # First, create encoding for words:
     >>> dataset.set_output_keys(["words"])
     >>> encoding = {}
@@ -143,7 +143,7 @@ class DynamicItemDataset(Dataset):
     ):
         self.data = data
         self.data_ids = list(self.data.keys())
-        static_keys = self.data[self.data_ids[0]]
+        static_keys = list(self.data[self.data_ids[0]].keys())
         if "id" in static_keys:
             raise ValueError("The key 'id' is reserved for the data point id.")
         self.pipeline = DataPipeline.from_configuration(dynamic_items)

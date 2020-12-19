@@ -10,7 +10,7 @@ Example
 >>> from speechbrain.utils.checkpoints import Checkpointer
 >>> # An example "dataset" and its loader
 >>> dataset = torch.randn(10, 1)
->>> dataloader = SaveableDataLoader(dataset, num_workers = 3, collate_fn=None)
+>>> dataloader = SaveableDataLoader(dataset, num_workers = 3)
 >>> # Setup the checkpointer:
 >>> tmpdir = getfixture('tmpdir')
 >>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
@@ -25,7 +25,7 @@ Example
 ...     if i == 3:
 ...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
 >>> # So when you restart the experiment:
->>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3, collate_fn=None)
+>>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3)
 >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
 >>> _ = new_checkpointer.recover_if_possible()
 >>> # The dataloader fast-forwards to the position where we left off:
@@ -161,13 +161,8 @@ class SaveableDataLoader(DataLoader):
     logged, but that is all.
     """
 
-    def __init__(self, dataset, *_ignore, collate_fn=PaddedBatch, **kwargs):
-        if _ignore:
-            raise TypeError(
-                "SaveableDataLoader only allows positional argument"
-                " for dataset. Use keyword arguments for other args."
-            )
-        super().__init__(dataset=dataset, collate_fn=collate_fn, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if isinstance(self.dataset, IterableDataset):
             logging.warning(
                 "SaveableDataLoader cannot save the position in an "
