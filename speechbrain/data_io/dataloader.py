@@ -40,6 +40,8 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
 from speechbrain.data_io.batch import PaddedBatch
+from speechbrain.data_io.dataset import DynamicItemDataset
+from speechbrain.data_io.sampler import ReproducibleRandomSampler
 from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
     mark_as_saver,
@@ -47,6 +49,57 @@ from speechbrain.utils.checkpoints import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def make_dataloader(dataset, **loader_kwargs):
+    """Makes a basic DataLoader with SpeechBrain defaults
+
+    For DynamicItemDatasets (which return dicts), use
+    PaddedBatch as the default collate_fn
+
+    Shuffling gets implemented by ReproducibleRandomSampler
+
+    If the Dataset is not an IterableDataset, the DataLoader
+    is a SaveableDataLoader
+
+    Arguments
+    ---------
+    dataset : Dataset
+        The dataset to make a DataLoader for.
+    **loader_kwargs : dict
+        Keyword args to DataLoader, see PyTorch DataLoader for
+        options.
+
+    Returns
+    -------
+    DataLoader
+    """
+    # PaddedBatch as default collation for DynamicItemDataset
+    if "collate_fn" not in loader_kwargs and isinstance(
+        dataset, DynamicItemDataset
+    ):
+        loader_kwargs["collate_fn"] = PaddedBatch
+    # Reproducible random sampling
+    if loader_kwargs.get("shuffle", False):
+        if loader_kwargs.get("sampler") is not None:
+            raise ValueError(
+                "Cannot specify both shuffle=True and a "
+                "sampler in loader_kwargs"
+            )
+        sampler = ReproducibleRandomSampler(dataset)
+        loader_kwargs["sampler"] = sampler
+        # Should delete shuffle because you can't set both Sampler and
+        # shuffle
+        # NOTE: the dict of loader options may get used elsewhere!
+        # However, this del doesn't touch those because loader_kwargs comes
+        # from a **kwargs dict.
+        del loader_kwargs["shuffle"]
+    # Create the loader
+    if isinstance(dataset, IterableDataset):
+        dataloader = DataLoader(dataset, **loader_kwargs)
+    else:
+        dataloader = SaveableDataLoader(dataset, **loader_kwargs)
+    return dataloader
 
 
 # We essentially want to make the DataLoader iterators able to skip ahead
