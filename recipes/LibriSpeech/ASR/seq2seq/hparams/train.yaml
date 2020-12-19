@@ -28,9 +28,10 @@ data_folder: /localscratch/LibriSpeech
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_split: dev-clean
+dev_split: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
 csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/<dev_split>.csv
+csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test_clean: !ref <data_folder>/test-clean.csv
 csv_test_other: !ref <data_folder>/test-other.csv
 
@@ -42,12 +43,6 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
-
-# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
-# These options will be set by that script, and will override these.
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Feature parameters
 sample_rate: 16000
@@ -83,6 +78,7 @@ eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
 lm_weight: 0.50
+ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -95,6 +91,17 @@ lm_rnn_layers: 2
 lm_rnn_neurons: 2048
 lm_dnn_blocks: 1
 lm_dnn_neurons: 512
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:librispeech_prepare.prepare_librispeech
+        data_folder: !ref <data_folder>
+        tr_splits: !ref <train_splits>
+        dev_splits: !ref <dev_split>
+        te_splits: !ref <test_splits>
+        merge_lst: !ref <train_splits>
+        merge_name: !ref <csv_train>
+        save_folder: !ref <data_folder>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -242,9 +249,11 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
     language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
@@ -253,6 +262,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     max_attn_shift: !ref <max_attn_shift>
     coverage_penalty: !ref <coverage_penalty>
     lm_weight: !ref <lm_weight>
+    ctc_weight: !ref <ctc_weight_decode>
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
