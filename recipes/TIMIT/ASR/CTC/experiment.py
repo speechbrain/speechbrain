@@ -11,6 +11,7 @@ Authors
 import sys
 import torch
 import speechbrain as sb
+from functools import partial
 
 
 # Define training procedure
@@ -99,28 +100,37 @@ class ASR_Brain(sb.Brain):
                 print("CTC and PER stats written to ", self.hparams.wer_file)
 
 
+# This syntax is not clear yet:
+def label_enc_fit(hparams):
+    label_encoder = hparams["label_encoder"]
+    label_encoder.update_from_didataset(
+        hparams["train_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.update_from_didataset(
+        hparams["valid_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.insert_blank(index=hparams["blank_index"])
+    label_encoder.save("encoder_state.txt")
+
+
 # Begin Recipe!
 if __name__ == "__main__":
 
-    # Load hyperparameters file with command-line overrides
+    # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.ddp_init_group(run_opts)
 
+    # Load hyperparameters file with command-line overrides
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, overrides)
+
     # Create label encoding
     label_encoder = hparams["label_encoder"]
     if not label_encoder.load_if_possible("encoder_state.txt"):
-        label_encoder.update_from_didataset(
-            hparams["train_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.update_from_didataset(
-            hparams["valid_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.insert_blank(index=hparams["blank_index"])
-        label_encoder.save("encoder_state.txt")
+        sb.utils.data_utils.prepare_data(partial(label_enc_fit, hparams))
+        label_encoder.load("encoder_state.txt")
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -138,8 +148,11 @@ if __name__ == "__main__":
     )
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
-        hparams["train_loader"],
-        hparams["valid_loader"],
+        hparams["train_data"],
+        hparams["valid_data"],
+        **hparams["dataloader_spec"],
     )
 
-    asr_brain.evaluate(hparams["test_loader"], min_key="PER")
+    asr_brain.evaluate(
+        hparams["test_data"], min_key="PER", **hparams["dataloader_spec"]
+    )
