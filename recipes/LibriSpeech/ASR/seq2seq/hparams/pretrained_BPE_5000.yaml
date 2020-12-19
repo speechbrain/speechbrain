@@ -1,7 +1,7 @@
 # ############################################################################
 # Model: E2E ASR with attention-based ASR
 # Encoder: CRDNN model
-# Decoder: GRU + beamsearch + RNNLM
+# Decoder: GRU + beamsearch + TransformerLM
 # Tokens: BPE with unigram
 # losses: CTC+ NLL
 # Training: Librispeech 960h
