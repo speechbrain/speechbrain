@@ -1116,7 +1116,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
     def lm_forward_step(self, inp_tokens, memory):
         memory = _update_mem(inp_tokens, memory)
         if not next(self.lm.parameters()).is_cuda:
-            self.lm_modules.to(inp_tokens.device)
+            self.lm.to(inp_tokens.device)
         logits = self.lm(memory)
         log_probs = self.softmax(logits / self.temperature_lm)
         return log_probs[:, -1, :], memory
