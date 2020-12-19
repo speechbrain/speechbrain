@@ -150,7 +150,7 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         hparams["train_data"],
         hparams["valid_data"],
-        **hparams["dataloader_spec"],
+        **hparams["dataloader_spec"]
     )
 
     asr_brain.evaluate(
