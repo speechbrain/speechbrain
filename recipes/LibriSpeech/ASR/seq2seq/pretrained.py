@@ -124,5 +124,5 @@ class ASR(torch.nn.Module):
             download_file(self.hparams["asr_ckpt_file"], save_model_path)
 
         self.mod.asr_model.load_state_dict(
-            torch.load(save_model_path), strict=True
+            torch.load(save_model_path, map_location=self.device), strict=True
         )

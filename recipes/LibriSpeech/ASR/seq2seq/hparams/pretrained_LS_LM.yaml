@@ -114,6 +114,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.LM
     hparams_file: !ref <lm_hparam_file>
+    overrides: {'device': !ref <device>}
 
 asr_model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
