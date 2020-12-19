@@ -143,7 +143,7 @@ class DynamicItemDataset(Dataset):
     ):
         self.data = data
         self.data_ids = list(self.data.keys())
-        static_keys = self.data[self.data_ids[0]]
+        static_keys = list(self.data[self.data_ids[0]].keys())
         if "id" in static_keys:
             raise ValueError("The key 'id' is reserved for the data point id.")
         self.pipeline = DataPipeline.from_configuration(dynamic_elements)
