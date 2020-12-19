@@ -70,7 +70,7 @@ class PaddedBatch:
         padding_func=speechbrain.utils.data_utils.batch_pad_right,
         padding_kwargs={},
     ):
-        self.__keys = examples[0].keys()
+        self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
         for key in self.__keys:
