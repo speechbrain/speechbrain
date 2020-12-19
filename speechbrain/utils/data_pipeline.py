@@ -96,16 +96,19 @@ class DataPipeline:
             Unique key
         func : callable
             To be called
-        argkeys : list
+        argkeys : list, str
             List of keys. When func is called, each key is resolved to
             either an entry in the data or the output of another dynamic_item.
             The func is then called with these as positional arguments,
             in the same order as specified here.
+            A single arg can be given directly.
         """
         if key in self._dynamic_item_keys:
             raise ValueError(f"Duplicate function key {key}")
         else:
             self._dynamic_item_keys.append(key)
+        if not isinstance(argkeys, list):
+            argkeys = [argkeys]
         conf = DynamicItemConf(func, argkeys)
         self.dg.add_node(key, data=conf)
         for depended in argkeys:
@@ -161,7 +164,12 @@ class DataPipeline:
             if compute_key in data:
                 continue
             # It is a dynamic_item, so conf is a DynamicItemConf, which we can unpack:
-            func, argkeys = conf
+            try:
+                func, argkeys = conf
+            except TypeError:
+                raise RuntimeError(
+                    f"Could not find {compute_key} in data or dynamic items"
+                )
             args = [
                 data[argkey] if argkey in data else intermediate[argkey]
                 for argkey in argkeys
