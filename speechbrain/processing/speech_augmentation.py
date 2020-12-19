@@ -17,6 +17,8 @@ import math
 import torch
 import soundfile as sf  # noqa
 import torch.nn.functional as F
+from speechbrain.data_io.legacy import ExtendedCSVDataset
+from speechbrain.data_io.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
@@ -34,10 +36,10 @@ class AddNoise(torch.nn.Module):
     csv_file : str
         The name of a csv file containing the location of the
         noise audio files. If none is provided, white noise will be used.
-    csv_read : list, None, optional
+    csv_keys : list, None, optional
         Default: None . One data entry for the noise data should be specified.
         If None, the csv file is expected to have only one data entry.
-    order : str
+    sorting : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
     do_cache : bool
@@ -67,7 +69,6 @@ class AddNoise(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
@@ -77,8 +78,8 @@ class AddNoise(torch.nn.Module):
     def __init__(
         self,
         csv_file=None,
-        csv_read=None,
-        order="random",
+        csv_keys=None,
+        sorting="random",
         do_cache=False,
         num_workers=0,
         snr_low=0,
@@ -92,8 +93,8 @@ class AddNoise(torch.nn.Module):
         super().__init__()
 
         self.csv_file = csv_file
-        self.csv_read = csv_read
-        self.order = order
+        self.csv_keys = csv_keys
+        self.sorting = sorting
         self.do_cache = do_cache
         self.num_workers = num_workers
         self.snr_low = snr_low
@@ -163,7 +164,6 @@ class AddNoise(torch.nn.Module):
 
     def _load_noise(self, lengths, max_length):
         """Load a batch of noises"""
-        raise NotImplementedError("Need to replace DataLoaderFactory")
         lengths = lengths.long().squeeze(1)
         batch_size = len(lengths)
 
@@ -174,16 +174,20 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                data_loader = DataLoaderFactory(  # noqa: F821
-                    csv_file=self.csv_file,
-                    csv_read=self.csv_read,
-                    sentence_sorting=self.order,
-                    batch_size=batch_size,
-                    cache=self.do_cache,
+                dataset = ExtendedCSVDataset(
+                    csvpath=self.csv_file,
+                    output_keys=self.csv_keys,
+                    sorting=self.sorting
+                    if self.sorting != "random"
+                    else "original",
                     replacements=self.replacements,
-                    num_workers=self.num_workers,
                 )
-                self.data_loader = data_loader()
+                self.data_loader = make_dataloader(
+                    dataset,
+                    batch_size=batch_size,
+                    num_workers=self.num_workers,
+                    shuffle=(self.sorting == "random"),
+                )
                 self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
@@ -263,11 +267,12 @@ class AddNoise(torch.nn.Module):
     def _load_noise_batch(self):
         """Load a batch of noises, restarting iteration if necessary."""
         try:
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
+            # Don't necessarily know the key
+            noises, lens = next(self.noise_data).at_position(0)
         except StopIteration:
             self.noise_data = iter(self.data_loader)
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
-        return noise_batch, noise_len
+            noises, lens = next(self.noise_data).at_position(0)
+        return noises, lens
 
 
 class AddReverb(torch.nn.Module):
@@ -278,7 +283,7 @@ class AddReverb(torch.nn.Module):
     csv_file : str
         The name of a csv file containing the location of the
         impulse response files.
-    order : str
+    sorting : str
         The order to iterate the csv file, from one of
         the following options: random, original, ascending, and descending.
     do_cache : bool
@@ -300,7 +305,6 @@ class AddReverb(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
@@ -310,29 +314,30 @@ class AddReverb(torch.nn.Module):
     def __init__(
         self,
         csv_file,
-        order="random",
+        sorting="random",
         do_cache=False,
         reverb_prob=1.0,
         rir_scale_factor=1.0,
         replacements={},
     ):
         super().__init__()
-        raise NotImplementedError("Need to replace DataLoaderFactory")
         self.csv_file = csv_file
-        self.order = order
+        self.sorting = sorting
         self.do_cache = do_cache
         self.reverb_prob = reverb_prob
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
 
         # Create a data loader for the RIR waveforms
-        self.data_loader = DataLoaderFactory(  # noqa: F821
-            csv_file=self.csv_file,
-            sentence_sorting=self.order,
-            cache=self.do_cache,
+        dataset = ExtendedCSVDataset(
+            csvpath=self.csv_file,
+            sorting=self.sorting if self.sorting != "random" else "original",
             replacements=self.replacements,
         )
-        self.rir_data = iter(self.data_loader())
+        self.data_loader = make_dataloader(
+            dataset, shuffle=(self.sorting == "random")
+        )
+        self.rir_data = iter(self.data_loader)
 
     def forward(self, waveforms, lengths):
         """
@@ -383,10 +388,10 @@ class AddReverb(torch.nn.Module):
 
     def _load_rir(self, waveforms):
         try:
-            wav_id, rir_waveform, length = next(self.rir_data)[0]
+            rir_waveform, length = next(self.rir_data).at_position(0)
         except StopIteration:
             self.rir_data = iter(self.data_loader)
-            wav_id, rir_waveform, length = next(self.rir_data)[0]
+            rir_waveform, length = next(self.rir_data).at_position(0)
 
         # Make sure RIR has correct channels
         if len(rir_waveform.shape) == 2:
@@ -797,15 +802,13 @@ class AddBabble(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> babbler = AddBabble()
-    >>> factory = DataLoaderFactory(
-    ...     csv_file='samples/audio_samples/csv_example3.csv',
-    ...     batch_size=5,
+    >>> dataset = ExtendedCSVDataset(
+    ...     csvpath='samples/audio_samples/csv_example3.csv',
     ... )
-    >>> loader = iter(factory().get_dataloader())
-    >>> ids, batch, lengths = next(loader)[0]
-    >>> noisy = babbler(batch, lengths)
+    >>> loader = make_dataloader(dataset, batch_size=5)
+    >>> speech, lengths = next(iter(loader)).at_position(0)
+    >>> noisy = babbler(speech, lengths)
     """
 
     def __init__(
