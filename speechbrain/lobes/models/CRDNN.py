@@ -135,6 +135,7 @@ class CRDNN(sb.nnet.containers.Sequential):
 
         if rnn_layers > 0:
             if use_rnnp:
+                self.append(sb.nnet.containers.Sequential, layer_name="RNN")
                 for _ in range(rnn_layers):
                     self.append(
                         rnn_class,
