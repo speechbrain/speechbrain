@@ -139,14 +139,14 @@ class DynamicItemDataset(Dataset):
     """
 
     def __init__(
-        self, data, dynamic_elements=None, output_keys=None,
+        self, data, dynamic_items=None, output_keys=None,
     ):
         self.data = data
         self.data_ids = list(self.data.keys())
         static_keys = self.data[self.data_ids[0]]
         if "id" in static_keys:
             raise ValueError("The key 'id' is reserved for the data point id.")
-        self.pipeline = DataPipeline.from_configuration(dynamic_elements)
+        self.pipeline = DataPipeline.from_configuration(dynamic_items)
         self.set_output_keys(output_keys)
 
     def __len__(self):
@@ -268,6 +268,23 @@ class DynamicItemDataset(Dataset):
         ----
         Temporarily changes the output keys!
         """
+        filtered_sorted_ids = self._filtered_sorted_ids(
+            key_min_value, key_max_value, key_test, sort_key, reverse, select_n,
+        )
+        return FilteredSortedDynamicItemDataset(
+            self, filtered_sorted_ids
+        )  # NOTE: defined below
+
+    def _filtered_sorted_ids(
+        self,
+        key_min_value={},
+        key_max_value={},
+        key_test={},
+        sort_key=None,
+        reverse=False,
+        select_n=None,
+    ):
+        """Returns a list of data ids, fulfilling the sorting and filtering"""
 
         def combined_filter(computed):
             for key, limit in key_min_value.items():
@@ -316,9 +333,7 @@ class DynamicItemDataset(Dataset):
             ]
         else:
             filtered_sorted_ids = filtered_ids
-        return FilteredSortedDynamicItemDataset(
-            self, filtered_sorted_ids
-        )  # NOTE: defined below
+        return filtered_sorted_ids
 
     @classmethod
     def from_json(
