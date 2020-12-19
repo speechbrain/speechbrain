@@ -22,6 +22,7 @@ import time
 import torchaudio
 import json
 import re
+import collections
 import speechbrain as sb
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,7 @@ def load_data_csv(csv_path, replacements={}):
     Returns
     -------
     dict
-        JSON data with replacements applied
+        CSV data with replacements applied
 
     Example
     -------
@@ -166,6 +167,143 @@ def load_data_csv(csv_path, replacements={}):
                 row["duration"] = float(row["duration"])
             result[data_id] = row
     return result
+
+
+CSVItem = collections.namedtuple("CSVItem", ["data", "format", "opts"])
+# The Legacy Extended CSV Data item triplet
+
+
+def load_sb_extended_csv(csv_path, replacements={}):
+    """Loads SB Extended CSV and formats string values
+
+    Uses the SpeechBrain Extended CSV data format, where the
+    CSV must have an 'ID' and 'duration' fields.
+
+    The rest of the fields come in triplets:
+    a <name>, <name>_format, <name>_opts
+
+    These add a <name>_sb_data item in the dict. Additionally, a
+    basic DynamicItem (see DynamicItemDataset) is created, which
+    loads the _sb_data item.
+
+    Bash-like string replacements with $to_replace are supported.
+
+    This format has its restriction, but they allow some tasks to
+    have loading specified by the CSV.
+
+    Arguments
+    ----------
+    csv_path : str
+        Path to CSV file
+    replacements : dict
+        Optional dict:
+        e.g. {"data_folder": "/home/speechbrain/data"}
+        This is used to recursively format all string values in the data
+
+    Returns
+    -------
+    dict
+        CSV data with replacements applied
+    list
+        List of DynamicItems to add in DynamicItemDataset
+
+    """
+    ITEM_POSTFIX = "_data"
+    with open(csv_path, newline="") as csvfile:
+        result = {}
+        reader = csv.DictReader(csvfile)
+        variable_finder = re.compile(r"\$([\w.]+)")
+        if not reader.fieldnames[0] == "ID":
+            raise KeyError(
+                "CSV has to have an 'ID' field, with unique ids"
+                " for all data points"
+            )
+        if not reader.fieldnames[1] == "duration":
+            raise KeyError(
+                "CSV has to have an 'duration' field, "
+                "with the length of the data point in seconds."
+            )
+        if not len(reader.fieldsnames[2:]) % 3 == 0:
+            raise ValueError(
+                "All named fields must have 3 entries: "
+                "<name>, <name>_format, <name>_opts"
+            )
+        names = reader.fieldnames[2::3]
+        for row in reader:
+            # Make a triplet for each name
+            data_point = {}
+            # ID:
+            data_id = row["ID"]
+            del row["ID"]  # This is used as a key in result, instead.
+            # Duration:
+            data_point["duration"] = float(row["duration"])
+            del row["duration"]  # This is handled specially.
+            if data_id in result:
+                raise ValueError(f"Duplicate id: {data_id}")
+            # Replacements:
+            # Only need to run these in the actual data,
+            # not in _opts, _format
+            for key, value in row.items()[::3]:
+                try:
+                    row[key] = variable_finder.sub(
+                        lambda match: replacements[match[1]], value
+                    )
+                except KeyError:
+                    raise KeyError(
+                        f"The item {value} requires replacements "
+                        "which were not supplied."
+                    )
+            for i, name in enumerate(names):
+                triplet = CSVItem(row.values()[i : i + 3])
+                data_point[name + ITEM_POSTFIX] = triplet
+            result[data_id] = data_point
+        # Make a DynamicItem for each CSV entry
+        # _read_csv_item delegates reading to further
+        dynamic_items_to_add = [
+            (name, _read_csv_item, name + ITEM_POSTFIX) for name in names
+        ]
+        return result, dynamic_items_to_add
+
+
+SF_FORMATS = sf.available_formats()
+
+
+def _read_csv_item(csvitem):
+    """Reads the different formats supported in SB Extended CSV
+
+    Delegates to the relevant functions.
+    """
+    opts = _parse_csv_item_opts(csvitem.opts)
+    if csvitem.format in SF_FORMATS:
+        return read_wav_soundfile(csv.data, opts)
+    elif csvitem.format == "pkl":
+        return read_pkl(csv.data, opts)
+    elif csvitem.format == "string":
+        # Just implement string reading here.
+        # NOTE: No longer supporting
+        # lab2ind mapping like before.
+        # Try decoding string
+        string = csvitem.data
+        try:
+            string = string.decode("utf-8")
+        except AttributeError:
+            pass
+        # Splitting elements with ' '
+        string = string.split(" ")
+        return string
+    else:
+        raise TypeError(f"Don't know how to read {csv.format}")
+
+
+def _parse_csv_item_opts(self, entry):
+    """Parse the _opts field in a SB Extended CSV item"""
+    if len(entry) == 0:
+        return {}
+    opts = {}
+    for opt in entry.split(" "):
+        opt_name, opt_val = opt.split(":")
+        opts[opt_name] = opt_val
+    return opts
 
 
 def read_audio(waveforms_obj):
@@ -573,6 +711,8 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     """
     Read wav audio files with soundfile.
 
+    This supports the SB Extended CSV audio reading.
+
     Arguments
     ---------
     file : str
@@ -775,57 +915,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
         tensor = tensor.astype("int32")
 
     return tensor
-
-
-def read_string(string, data_options={}, lab2ind=None):
-    """
-    This function reads data in string format.
-
-    Arguments
-    ---------
-    string : str
-        String to read
-    data_options : dict, optional
-        Options for the reader
-    lab2ind : dict, optional
-        Mapping from label to index
-
-    Returns
-    -------
-    torch.LongTensor
-        The read string in integer indices, if lab2ind is provided, else
-    list
-        The read string split at each space
-
-    Example
-    -------
-    >>> read_string('hello world', lab2ind = {"hello":1, "world": 2})
-    tensor([1, 2])
-    """
-
-    if callable(lab2ind):
-        return lab2ind(string)
-
-    # Try decoding string
-    try:
-        string = string.decode("utf-8")
-    except AttributeError:
-        pass
-
-    # Splitting elements with ' '
-    string = string.split(" ")
-
-    # convert string to integer as specified in self.label_dict
-    if lab2ind is not None:
-        for index, val in enumerate(string):
-            if val not in lab2ind:
-                lab2ind[val] = len(lab2ind)
-
-            string[index] = lab2ind[val]
-
-        string = torch.LongTensor(string)
-
-    return string
 
 
 def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
