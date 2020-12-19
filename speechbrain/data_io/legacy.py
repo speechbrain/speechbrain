@@ -36,10 +36,12 @@ class ExtendedCSVDataset(DynamicItemDataset):
     NOTE
     ----
     Mapping from legacy interface:
-        sentence_sorting -> sorting
+        csv_file -> csvpath
+        sentence_sorting -> sorting, and "random" is not supported,
+            use e.g. make_dataloader(..., shuffle = (sorting=="random"))
         avoid_if_shorter_than -> min_duration
         avoid_if_longer_than -> max_duration
-        csv_read -> output_keys, and if you want ids add "id" as key
+        csv_read -> output_keys, and if you want IDs add "id" as key
 
     Arguments
     ---------

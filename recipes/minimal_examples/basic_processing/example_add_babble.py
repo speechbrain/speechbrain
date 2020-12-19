@@ -4,26 +4,35 @@ import speechbrain as sb
 output_folder = os.path.join("results", "add_babble")
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
-overrides = {
-    "output_folder": output_folder,
-    "data_folder": os.path.join(experiment_dir, "..", "..", "..", "samples"),
-    "batch_size": 5,
-}
-with open(hyperparams_file) as fin:
-    hyperparams = sb.load_extended_yaml(fin, overrides)
 
-sb.create_experiment_directory(
-    experiment_directory=output_folder,
-    hyperparams_to_save=hyperparams_file,
-    overrides=overrides,
-)
 
-for ((id, wav, wav_len),) in hyperparams["sample_data"]().get_dataloader():
-    wav_babble = hyperparams["add_babble"](wav, wav_len)
-    hyperparams["save"](wav_babble, id, wav_len)
+def main():
+    overrides = {
+        "output_folder": output_folder,
+        "data_folder": os.path.join(
+            experiment_dir, "..", "..", "..", "samples"
+        ),
+        "batch_size": 5,
+    }
+    with open(hyperparams_file) as fin:
+        hyperparams = sb.load_extended_yaml(fin, overrides)
+
+    sb.create_experiment_directory(
+        experiment_directory=output_folder,
+        hyperparams_to_save=hyperparams_file,
+        overrides=overrides,
+    )
+
+    dataloader = sb.data_io.dataloader.make_dataloader(
+        dataset=hyperparams["sample_data"], batch_size=hyperparams["batch_size"]
+    )
+    for (id, (wav, wav_len),) in iter(dataloader):
+        wav_babble = hyperparams["add_babble"](wav, wav_len)
+        hyperparams["save"](wav_babble, id, wav_len)
 
 
 def test_babble():
+    main()
     import torchaudio
 
     torchaudio.set_audio_backend("sox_io")
@@ -34,3 +43,7 @@ def test_babble():
         actual, rate = torchaudio.load(filename)
         expected, rate = torchaudio.load(expected_file)
         assert actual.allclose(expected)
+
+
+if __name__ == "__main__":
+    main()
