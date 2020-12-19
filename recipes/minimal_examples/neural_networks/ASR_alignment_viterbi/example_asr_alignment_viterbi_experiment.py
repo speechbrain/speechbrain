@@ -4,8 +4,8 @@ import speechbrain as sb
 
 
 class AlignBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.wav
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x = self.modules.model(feats)
@@ -14,12 +14,12 @@ class AlignBrain(sb.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        ids, phns, phn_lens = targets
+        phns, phn_lens = batch.phn_enc
 
         prev_alignments = self.hparams.aligner.get_prev_alignments(
-            ids, predictions, lens, phns, phn_lens
+            batch.id, predictions, lens, phns, phn_lens
         )
         loss = self.hparams.compute_cost(predictions, prev_alignments)
 
@@ -27,7 +27,7 @@ class AlignBrain(sb.Brain):
             viterbi_scores, alignments = self.hparams.aligner(
                 predictions, lens, phns, phn_lens, "viterbi"
             )
-            self.hparams.aligner.store_alignments(ids, alignments)
+            self.hparams.aligner.store_alignments(batch.id, alignments)
 
         return loss
 
@@ -39,7 +39,7 @@ class AlignBrain(sb.Brain):
             print("Train loss: %.2f" % self.train_loss)
             print("Valid loss: %.2f" % stage_loss)
             print("Recalculating and recording alignments...")
-            self.evaluate(self.hparams.train_set)
+            self.evaluate(self.hparams.train_data)
 
 
 def main():
@@ -50,14 +50,23 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    hparams["train_set"] = hparams["train_loader"]()
+    # Label encoder:
+    encoder = hparams["label_encoder"]
+    dsets = [hparams["train_data"], hparams["valid_data"], hparams["test_data"]]
+    for dset in dsets:
+        encoder.update_from_didataset(dset, "phn", sequence_input=True)
+    for dset in dsets:
+        dset.add_dynamic_item("phn_enc", encoder.encode_sequence_torch, "phn")
+        dset.set_output_keys(["id", "wav", "phn_enc"])
+
     align_brain = AlignBrain(hparams["modules"], hparams["opt_class"], hparams)
     align_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_set"],
-        hparams["valid_loader"](),
+        hparams["train_data"],
+        hparams["valid_data"],
+        batch_size=hparams["batch_size"],
     )
-    align_brain.evaluate(hparams["test_loader"]())
+    align_brain.evaluate(hparams["test_data"], batch_size=hparams["batch_size"])
 
     # Check that model overfits for integration test
     assert align_brain.train_loss < 2.0

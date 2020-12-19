@@ -174,10 +174,7 @@ class DynamicItemDataset(Dataset):
             in the same order as specified here.
             A single arg can be given directly.
         """
-        if isinstance(argkeys, list):
-            self.pipeline.add_dynamic_item(key, func, argkeys)
-        else:
-            self.pipeline.add_dynamic_item(key, func, [argkeys])
+        self.pipeline.add_dynamic_item(key, func, argkeys)
 
     def set_output_keys(self, keys):
         """Use this to change the output keys

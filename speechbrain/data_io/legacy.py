@@ -193,7 +193,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
                         "which were not supplied."
                     )
             for i, name in enumerate(names):
-                triplet = CSVItem(*list(row.values())[i : i + 3])
+                triplet = CSVItem(*list(row.values())[i * 3 : i * 3 + 3])
                 data_point[name + ITEM_POSTFIX] = triplet
             result[data_id] = data_point
         # Make a DynamicItem for each CSV entry
@@ -209,6 +209,7 @@ def _read_csv_item(item):
 
     Delegates to the relevant functions.
     """
+    print(item)
     opts = _parse_csv_item_opts(item.opts)
     if item.format.upper() in SF_FORMATS:
         return read_wav_soundfile(item.data, opts)
