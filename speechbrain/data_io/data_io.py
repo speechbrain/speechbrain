@@ -130,7 +130,7 @@ def load_data_csv(csv_path, replacements={}):
     """
     with open(csv_path, newline="") as csvfile:
         result = {}
-        reader = csv.DictReader(csvfile)
+        reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")
         for row in reader:
             # ID:

@@ -7,8 +7,6 @@ import pickle
 import logging
 import torch
 import re
-import random
-
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +65,11 @@ class ExtendedCSVDataset(DynamicItemDataset):
             argkeys: <list> # keys of args, either other funcs or in data
         <key2>: ...
         NOTE: A dynamic item is automatically added for each CSV data-triplet
-    output_keys : list
+    output_keys : list, None
         The list of output keys to produce. You can refer to names of the
         CSV data-triplets. E.G. if the CSV has: wav,wav_format,wav_opts,
         then the Dataset has a dynamic item output available with key "wav"
+        NOTE: If None, read all existing.
     """
 
     def __init__(
@@ -83,11 +82,13 @@ class ExtendedCSVDataset(DynamicItemDataset):
         dynamic_items=None,
         output_keys=None,
     ):
-        if sorting not in ["original", "ascending", "descending", "random"]:
+        if sorting not in ["original", "ascending", "descending"]:
             clsname = self.__class__.__name__
             raise ValueError(f"{clsname} doesn't support {sorting} sorting")
         # Load the CSV, init class
-        data, di_to_add = load_sb_extended_csv(csvpath, replacements)
+        data, di_to_add, data_names = load_sb_extended_csv(
+            csvpath, replacements
+        )
         super().__init__(data, dynamic_items, output_keys)
         for key, func, argname in di_to_add:
             self.add_dynamic_item(key, func, argname)
@@ -104,9 +105,10 @@ class ExtendedCSVDataset(DynamicItemDataset):
             sort_key=sort_key,
             reverse=reverse,
         )
-        if sorting == "random":
-            random.shuffle(filtered_sorted_ids)
         self.data_ids = filtered_sorted_ids
+        # Handle None output_keys (differently than Base)
+        if output_keys is None:
+            self.set_output_keys(data_names)
 
 
 def load_sb_extended_csv(csv_path, replacements={}):
@@ -146,7 +148,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
     """
     with open(csv_path, newline="") as csvfile:
         result = {}
-        reader = csv.DictReader(csvfile)
+        reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")
         if not reader.fieldnames[0] == "ID":
             raise KeyError(
@@ -158,7 +160,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
                 "CSV has to have an 'duration' field, "
                 "with the length of the data point in seconds."
             )
-        if not len(reader.fieldsnames[2:]) % 3 == 0:
+        if not len(reader.fieldnames[2:]) % 3 == 0:
             raise ValueError(
                 "All named fields must have 3 entries: "
                 "<name>, <name>_format, <name>_opts"
@@ -178,7 +180,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
             # Replacements:
             # Only need to run these in the actual data,
             # not in _opts, _format
-            for key, value in row.items()[::3]:
+            for key, value in list(row.items())[::3]:
                 try:
                     row[key] = variable_finder.sub(
                         lambda match: replacements[match[1]], value
@@ -189,7 +191,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
                         "which were not supplied."
                     )
             for i, name in enumerate(names):
-                triplet = CSVItem(row.values()[i : i + 3])
+                triplet = CSVItem(*list(row.values())[i : i + 3])
                 data_point[name + ITEM_POSTFIX] = triplet
             result[data_id] = data_point
         # Make a DynamicItem for each CSV entry
@@ -197,25 +199,25 @@ def load_sb_extended_csv(csv_path, replacements={}):
         dynamic_items_to_add = [
             (name, _read_csv_item, name + ITEM_POSTFIX) for name in names
         ]
-        return result, dynamic_items_to_add
+        return result, dynamic_items_to_add, names
 
 
-def _read_csv_item(csvitem):
+def _read_csv_item(item):
     """Reads the different formats supported in SB Extended CSV
 
     Delegates to the relevant functions.
     """
-    opts = _parse_csv_item_opts(csvitem.opts)
-    if csvitem.format in SF_FORMATS:
-        return read_wav_soundfile(csv.data, opts)
-    elif csvitem.format == "pkl":
-        return read_pkl(csv.data, opts)
-    elif csvitem.format == "string":
+    opts = _parse_csv_item_opts(item.opts)
+    if item.format.upper() in SF_FORMATS:
+        return read_wav_soundfile(item.data, opts)
+    elif item.format == "pkl":
+        return read_pkl(item.data, opts)
+    elif item.format == "string":
         # Just implement string reading here.
         # NOTE: No longer supporting
         # lab2ind mapping like before.
         # Try decoding string
-        string = csvitem.data
+        string = item.data
         try:
             string = string.decode("utf-8")
         except AttributeError:
@@ -224,11 +226,13 @@ def _read_csv_item(csvitem):
         string = string.split(" ")
         return string
     else:
-        raise TypeError(f"Don't know how to read {csv.format}")
+        raise TypeError(f"Don't know how to read {item.format}")
 
 
-def _parse_csv_item_opts(self, entry):
+def _parse_csv_item_opts(entry):
     """Parse the _opts field in a SB Extended CSV item"""
+    # Accepting even slightly weirdly formatted entries:
+    entry = entry.strip()
     if len(entry) == 0:
         return {}
     opts = {}
