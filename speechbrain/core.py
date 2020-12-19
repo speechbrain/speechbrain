@@ -721,6 +721,10 @@ class Brain:
             loader_kwargs = self._train_loader_specifics(
                 dataset, train_shuffle, train_drop_last, loader_kwargs
             )
+        else:  # For other stages, this handles at least shuffle
+            loader_kwargs = self._non_train_loader_specifics(
+                dataset, train_shuffle, train_drop_last, loader_kwargs
+            )
 
         # Create the loader
         if isinstance(dataset, IterableDataset):
@@ -744,6 +748,21 @@ class Brain:
         # Shuffling should really only matter for the train stage. Shuffling
         # will also lead to more padding in batches if the order was otherwise
         # sorted by length.
+        if loader_kwargs.get("shuffle", False) and not train_shuffle:
+            # Shuffle = True, train_shuffle=False
+            logger.warning(
+                "Specified shuffle=True, but train_shuffle=False. "
+                "Since train_shuffle=False is the default, assuming you "
+                "want to apply shuffle=True everywhere. Setting "
+                "train_shuffle=True."
+            )
+            train_shuffle = True
+            # Should delete shuffle because you can't set both Sampler and
+            # shuffle
+            # NOTE: the dict of loader options may get used elsewhere!
+            # However, this del doesn't touch those because loader_kwargs comes
+            # from a **kwargs dict.
+            del loader_kwargs["shuffle"]
         if train_shuffle:
             if sampler is not None:
                 raise ValueError(
@@ -778,6 +797,26 @@ class Brain:
                 "Cannot automatically solve distributed sampling "
                 "for IterableDataset"
             )
+        return loader_kwargs
+
+    def _non_train_loader_specifics(
+        self, dataset, train_shuffle, train_drop_last, loader_kwargs
+    ):
+        """Handling non-Stage.TRAIN DataLoaders"""
+        if loader_kwargs.get("shuffle", False):
+            if loader_kwargs.get("sampler") is not None:
+                raise ValueError(
+                    "Cannot specify both shuffle=True and a "
+                    "sampler in loader_kwargs"
+                )
+            sampler = ReproducibleRandomSampler(dataset)
+            loader_kwargs["sampler"] = sampler
+            # Should delete shuffle because you can't set both Sampler and
+            # shuffle
+            # NOTE: the dict of loader options may get used elsewhere!
+            # However, this del doesn't touch those because loader_kwargs comes
+            # from a **kwargs dict.
+            del loader_kwargs["shuffle"]
         return loader_kwargs
 
     def on_fit_start(self):
