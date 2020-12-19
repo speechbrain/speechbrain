@@ -119,12 +119,12 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
-
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create label encoding
     label_encoder = hparams["label_encoder"]
@@ -146,10 +146,15 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    # Sort datasets:
+    sorted_train = hparams["train_data"].filtered_sorted(sort_key="duration")
+    sorted_valid = hparams["valid_data"].filtered_sorted(sort_key="duration")
+
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
-        hparams["train_data"],
-        hparams["valid_data"],
+        sorted_train,
+        sorted_valid,
         **hparams["dataloader_spec"],
     )
 
