@@ -56,6 +56,7 @@ class SpecAugment(torch.nn.Module):
     >>> a = torch.rand([8, 120, 80])
     >>> a = aug(a)
     >>> print(a.shape)
+    torch.Size([8, 120, 80])
     """
 
     def __init__(
