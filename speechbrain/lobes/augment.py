@@ -22,6 +22,176 @@ torchaudio.set_audio_backend("sox_io")
 OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
+class SpecAugment(torch.nn.Module):
+    """An implementation of SpecAugment algorithm
+    Referencce:
+        https://arxiv.org/abs/1904.08779
+
+    Arguments
+    ---------
+    time_warp : bool
+        wether applying time warping
+    time_warp_window : int
+        time warp window
+    time_warp_mode : str
+        interpolation mode for time warping (defualt "bicubic")
+    freq_mask : bool
+        wether applying freq mask
+    freq_mask_width : int or tuple
+        freq mask width range
+    n_freq_mask : int
+        number of freq mask
+    time_mask : int
+        wether applying time mask
+    time_mask_width : int or tuple
+        time mask width range
+    n_time_mask : int
+        number of time mask
+    replace_with_zero : bool
+        if True, replace masked value with 0, else replace masked value with mean of the input tensor
+
+    Example
+    -------
+    >>> aug = SpecAugment()
+    >>> a = torch.rand([8, 120, 80])
+    >>> a = aug(a)
+    >>> print(a.shape)
+    """
+
+    def __init__(
+        self,
+        time_warp=True,
+        time_warp_window=5,
+        time_warp_mode="bicubic",
+        freq_mask=True,
+        freq_mask_width=(0, 20),
+        n_freq_mask=2,
+        time_mask=True,
+        time_mask_width=(0, 100),
+        n_time_mask=2,
+        replace_with_zero=True,
+    ):
+        super().__init__()
+        assert (
+            time_warp or freq_mask or time_mask
+        ), "at least one of time_warp, time_mask, or freq_mask should be applied"
+
+        self.apply_time_warp = time_warp
+        self.time_warp_window = time_warp_window
+        self.time_warp_mode = time_warp_mode
+
+        self.freq_mask = freq_mask
+        if isinstance(freq_mask_width, int):
+            freq_mask_width = (0, freq_mask_width)
+        self.freq_mask_width = freq_mask_width
+        self.n_freq_mask = n_freq_mask
+
+        self.time_mask = time_mask
+        if isinstance(time_mask_width, int):
+            time_mask_width = (0, time_mask_width)
+        self.time_mask_width = time_mask_width
+        self.n_time_mask = n_time_mask
+
+        self.replace_with_zero = replace_with_zero
+
+    def forward(self, x):
+        if self.apply_time_warp:
+            x = self.time_warp(x)
+        if self.freq_mask:
+            x = self.mask_along_axis(x, dim=2)
+        if self.time_mask:
+            x = self.mask_along_axis(x, dim=1)
+        return x
+
+    def time_warp(self, x):
+        """Time warping with torch.nn.functional.interpolate
+        """
+        original_size = x.shape
+        window = self.time_warp_window
+
+        # 2d interpolation requires 4D or higher dimension tensors
+        # x: (Batch, Time, Freq) -> (Batch, 1, Time, Freq)
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+
+        time = x.shape[2]
+        if time - window <= window:
+            return x.view(*original_size)
+
+        # compute center and corepoding window
+        c = torch.randint(window, time - window, (1,))[0]
+        w = torch.randint(c - window, c + window, (1,))[0] + 1
+
+        left = torch.nn.functional.interpolate(
+            x[:, :, :c],
+            (w, x.shape[3]),
+            mode=self.time_warp_mode,
+            align_corners=True,
+        )
+        right = torch.nn.functional.interpolate(
+            x[:, :, c:],
+            (time - w, x.shape[3]),
+            mode=self.time_warp_mode,
+            align_corners=True,
+        )
+
+        x[:, :, :w] = left
+        x[:, :, w:] = right
+
+        return x.view(*original_size)
+
+    def mask_along_axis(self, x, dim):
+        """mask along time or frequenct axis
+
+        Arguments
+        ---------
+        x : tensor
+            input tensor
+        dim : int
+            corresponding dimension to mask
+        """
+        original_size = x.shape
+        if x.shape == 4:
+            x = x.view(-1, x.shape[2], x.shape[3])
+
+        batch, time, fea = x.shape
+
+        if dim == 1:
+            D = time
+            n_mask = self.n_time_mask
+            width_range = self.time_mask_width
+        else:
+            D = fea
+            n_mask = self.n_freq_mask
+            width_range = self.freq_mask_width
+
+        mask_len = torch.randint(
+            width_range[0], width_range[1], (batch, n_mask), device=x.device
+        ).unsqueeze(2)
+
+        mask_pos = torch.randint(
+            0, max(1, D - mask_len.max()), (batch, n_mask), device=x.device
+        ).unsqueeze(2)
+
+        # compute masks
+        arange = torch.arange(D, device=x.device).view(1, 1, -1)
+        mask = (mask_pos <= arange) * (arange < (mask_pos + mask_len))
+        mask = mask.any(dim=1)
+
+        if dim == 1:
+            mask = mask.unsqueeze(2)
+        else:
+            mask = mask.unsqueeze(1)
+
+        if self.replace_with_zero:
+            val = 0.0
+        else:
+            val = x.mean(dim=dim)
+
+        x = x.masked_fill_(mask, val)
+        return x.view(*original_size)
+
+
 class TimeDomainSpecAugment(torch.nn.Module):
     """A time-domain approximation of the SpecAugment algorithm.
 
