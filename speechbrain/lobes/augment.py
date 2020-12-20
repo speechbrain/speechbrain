@@ -187,7 +187,7 @@ class SpecAugment(torch.nn.Module):
         if self.replace_with_zero:
             val = 0.0
         else:
-            val = x.mean(dim=dim)
+            val = x.mean()
 
         x = x.masked_fill_(mask, val)
         return x.view(*original_size)

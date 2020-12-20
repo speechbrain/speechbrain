@@ -16,8 +16,8 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/lr1/big_batchmean/save/CKPT+2020-11-30+02-35-44+00/model.ckpt # yamllint disable-line rule:line-length
 # Tokenizer model
-tok_mdl_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip/save/5000_unigram.model # yamllint disable-line rule:line-length
-tok_voc_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip/save/5000_unigram.vocab # yamllint disable-line rule:line-length
+tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model # yamllint disable-line rule:line-length
+tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.vocab # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
@@ -40,7 +40,7 @@ gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 rank: null
 device: 'cuda'
-multigpu_count: 4  # Set to number of GPUs for multi-gpu training
+multigpu_count: 2  # Set to number of GPUs for multi-gpu training
 multigpu_backend: ddp_nccl
 token_type: unigram # ["unigram", "bpe", "char"]
 
@@ -222,8 +222,6 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     length_normalization: True
 
 ############ Hyperparameters to pass to the Brain class ##############
-
-# Data preparation will generate train.csv, dev.csv, and test.csv files
 __data_prep: !apply:speechbrain.utils.data_utils.prepare_data
     prep_function: !name:librispeech_prepare.prepare_librispeech
         data_folder: !ref <data_folder>
@@ -269,9 +267,17 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 3
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+augmentation: !new:speechbrain.lobes.augment.SpecAugment
+    time_warp: True
+    time_warp_window: 5
+    time_warp_mode: bicubic
+    freq_mask: True
+    n_freq_mask: 2
+    time_mask: True
+    n_time_mask: 2
+    replace_with_zero: False
+    freq_mask_width: 30
+    time_mask_width: 40
 
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder_rirs>
