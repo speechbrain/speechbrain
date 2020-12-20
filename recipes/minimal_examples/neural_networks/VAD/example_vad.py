@@ -77,7 +77,6 @@ def main():
 
     train_set = sb.data_io.legacy.ExtendedCSVDataset(
         csvpath=hparams["csv_train"],
-        output_keys=["id", "wav", "target"],
         replacements={"data_folder": hparams["data_folder"]},
         dynamic_items={
             "target": {
@@ -85,6 +84,7 @@ def main():
                 "argkeys": ["speech_data"],
             }
         },
+        output_keys=["id", "wav", "target"],
     )
 
     vad_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
