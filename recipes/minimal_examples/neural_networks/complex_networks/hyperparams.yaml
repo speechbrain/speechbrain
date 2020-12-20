@@ -67,7 +67,7 @@ model: !new:speechbrain.nnet.containers.Sequential
         hidden_size: 64
         bidirectional: True
     linear: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 43  # 42 phonemes + 1 blank
+        n_neurons: 44  # 43 phonemes + 1 blank
         bias: False
     softmax: !new:speechbrain.nnet.activations.Softmax
         apply_log: True
@@ -78,6 +78,6 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: 42
+    blank_index: !ref <blank_index>
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
