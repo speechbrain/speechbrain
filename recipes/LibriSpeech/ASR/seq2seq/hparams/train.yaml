@@ -69,8 +69,6 @@ output_neurons: 1000  # index(blank/eos/bos) = 0
 blank_index: 0
 
 # Decoding parameters
-bos_index: 1
-eos_index: 2
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 80
