@@ -1004,7 +1004,7 @@ class Brain:
     ):
         """Iterate epochs and datasets to improve objective.
 
-        Relies on the existence of mulitple functions that can (or should) be
+        Relies on the existence of multiple functions that can (or should) be
         overridden. The following methods are used and expected to have a
         certain behavior:
 
