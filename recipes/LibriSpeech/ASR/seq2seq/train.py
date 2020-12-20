@@ -240,7 +240,8 @@ class ASR(sb.Brain):
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
+        if not os.path.isfile(save_model_path):
+            download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
