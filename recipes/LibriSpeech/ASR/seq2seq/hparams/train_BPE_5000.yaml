@@ -16,7 +16,7 @@ output_folder: !ref results/LSTMP_BPE_5000_ENV/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: ../transformer/base_src_mask_input_norm_2/save/lm_model.ckpt
+lm_ckpt_file: #!ref <output_folder>/save/lm_model.ckpt
 
 # Tokenizer model
 tok_mdl_file: ../transformer/e16_gelu_noskip_1024/save/5000_unigram.model
@@ -38,7 +38,7 @@ csv_test_other: !ref <data_folder>/test-other.csv
 
 
 # Training parameters
-number_of_epochs: 15
+number_of_epochs: 25
 number_of_ctc_epochs: !ref <number_of_epochs>
 batch_size: 1
 lr: 1.0
