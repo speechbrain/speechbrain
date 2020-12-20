@@ -21,11 +21,8 @@ from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.utils.data import Dataset
 from torch.nn import DataParallel as DP
-from torch.utils.data import DataLoader
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
-from speechbrain.data_io.batch import PaddedBatch
-from speechbrain.data_io.dataset import DynamicItemDataset
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.data_io.dataloader import SaveableDataLoader
 from speechbrain.data_io.sampler import DistributedSamplerWrapper
@@ -640,8 +637,8 @@ class Brain:
         dataset,
         stage,
         ckpt_prefix="dataloader-",
-        train_shuffle=False,
-        train_drop_last=False,
+        train_shuffle=None,
+        train_drop_last=None,
         **loader_kwargs,
     ):
         """Creates DataLoaders for Datasets
@@ -702,38 +699,40 @@ class Brain:
         train_shuffle : bool
             To shuffle training data or not. Shuffling should really only
             matter for the train stage.
+            The default is None, which mostly leads to the same behaviour as
+            False. However, specifying False explicitly lets you specify
+            loader_kwargs["shuffle"]=True and still have train_shuffle = False.
+            If train_shuffle=None, and loader_kwargs["shuffle"]=True,
+            train_shuffle is set to True, as well.
         train_drop_last : bool
-            Drop last incomplete traingin batch and drop last uneven training
+            Drop last incomplete training batch and drop last uneven training
             data in DDP.
+            The default is None, which mostly leads to the same behaviour as
+            False. However, specifying False explicitly lets you specify
+            loader_kwargs["drop_last"]=True and still have train_drop_last =
+            False. If train_drop_last=None, and
+            loader_kwargs["drop_last"]=True, train_drop_last is set to True, as
+            well.
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
             E.G. batch_size, num_workers, pin_memory
-            These are secondary to train_shuffle and train_drop_last.
         """
-        # PaddedBatch as default collation for DynamicItemDataset
-        if "collate_fn" not in loader_kwargs and isinstance(
-            dataset, DynamicItemDataset
-        ):
-            loader_kwargs["collate_fn"] = PaddedBatch
-
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(
                 dataset, train_shuffle, train_drop_last, loader_kwargs
             )
-        else:  # For other stages, this handles at least shuffle
-            loader_kwargs = self._non_train_loader_specifics(
-                dataset, train_shuffle, train_drop_last, loader_kwargs
-            )
+        dataloader = sb.data_io.dataloader.make_dataloader(
+            dataset, **loader_kwargs
+        )
 
-        # Create the loader
-        if isinstance(dataset, IterableDataset):
-            dataloader = DataLoader(dataset, **loader_kwargs)
-        else:
-            dataloader = SaveableDataLoader(dataset, **loader_kwargs)
-            if self.checkpointer is not None and ckpt_prefix is not None:
-                ckpt_key = ckpt_prefix + stage.name
-                self.checkpointer.add_recoverable(ckpt_key, dataloader)
+        if (
+            self.checkpointer is not None
+            and ckpt_prefix is not None
+            and isinstance(dataloader, SaveableDataLoader)
+        ):
+            ckpt_key = ckpt_prefix + stage.name
+            self.checkpointer.add_recoverable(ckpt_key, dataloader)
         return dataloader
 
     def _train_loader_specifics(
@@ -742,20 +741,18 @@ class Brain:
         """Special handling for the Stage.TRAIN DataLoader"""
         # Drop last usually should not be used in validation/test but it is
         # often fine for training.
-        loader_kwargs["drop_last"] = train_drop_last
+        if loader_kwargs.get("drop_last", False) and train_drop_last is None:
+            # loader_kwargs["drop_last"] == True, train_drop_last==None
+            train_drop_last = True
+        elif train_drop_last is None:
+            train_drop_last = False
 
         sampler = loader_kwargs.get("sampler", None)
         # Shuffling should really only matter for the train stage. Shuffling
         # will also lead to more padding in batches if the order was otherwise
         # sorted by length.
-        if loader_kwargs.get("shuffle", False) and not train_shuffle:
-            # Shuffle = True, train_shuffle=False
-            logger.warning(
-                "Specified shuffle=True, but train_shuffle=False. "
-                "Since train_shuffle=False is the default, assuming you "
-                "want to apply shuffle=True everywhere. Setting "
-                "train_shuffle=True."
-            )
+        if loader_kwargs.get("shuffle", False) and train_shuffle is None:
+            # loader_kwargs["shuffle"] == True, train_shuffle==None
             train_shuffle = True
             # Should delete shuffle because you can't set both Sampler and
             # shuffle
@@ -763,11 +760,13 @@ class Brain:
             # However, this del doesn't touch those because loader_kwargs comes
             # from a **kwargs dict.
             del loader_kwargs["shuffle"]
+        elif train_shuffle is None:
+            train_shuffle = False
         if train_shuffle:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both train_shuffle=True and a "
-                    "sampler in loader_kwargs"
+                    "Cannot specify both train_shuffle=True (or shuffle=True) "
+                    "and a sampler in loader_kwargs"
                 )
             sampler = ReproducibleRandomSampler(dataset)
             self.train_sampler = sampler
@@ -782,7 +781,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     sampler, rank=self.rank, drop_last=train_drop_last
                 )
-            else:
+            elif loader_kwargs.get("batch_sampler") is None:
                 # Currently, to get here train_shuffle must be False.
                 # Still, we can keep passing shuffle=train_shuffle
                 self.train_sampler = DistributedSampler(
@@ -791,32 +790,19 @@ class Brain:
                     shuffle=train_shuffle,
                     drop_last=train_drop_last,
                 )
+            else:  # batch_sampler was specified
+                # TODO: Could a DistributedSamplerWrapper actually work
+                # just fine for wrapping a BatchSampler, as well?
+                logger.warning(
+                    "Cannot automatically solve distributed sampling "
+                    "when using a BatchSampler."
+                )
             loader_kwargs["sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
             logger.warning(
                 "Cannot automatically solve distributed sampling "
                 "for IterableDataset"
             )
-        return loader_kwargs
-
-    def _non_train_loader_specifics(
-        self, dataset, train_shuffle, train_drop_last, loader_kwargs
-    ):
-        """Handling non-Stage.TRAIN DataLoaders"""
-        if loader_kwargs.get("shuffle", False):
-            if loader_kwargs.get("sampler") is not None:
-                raise ValueError(
-                    "Cannot specify both shuffle=True and a "
-                    "sampler in loader_kwargs"
-                )
-            sampler = ReproducibleRandomSampler(dataset)
-            loader_kwargs["sampler"] = sampler
-            # Should delete shuffle because you can't set both Sampler and
-            # shuffle
-            # NOTE: the dict of loader options may get used elsewhere!
-            # However, this del doesn't touch those because loader_kwargs comes
-            # from a **kwargs dict.
-            del loader_kwargs["shuffle"]
         return loader_kwargs
 
     def on_fit_start(self):
@@ -1033,7 +1019,9 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         **loader_kwargs : dict
             Kwargs passed to `make_dataloader()` if train_set or valid_set is a
-            Dataset, not DataLoader. E.G. batch_size, num_workers,
+            Dataset, not DataLoader. E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid, but these additional kwargs are
+            specific to self.make_dataloader(): train_shuffle, train_drop_last
         """
 
         # Sampler should be handled by `make_dataloader`
