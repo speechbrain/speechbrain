@@ -1,15 +1,7 @@
 #!/usr/bin/env/python3
 """
 
-Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
-
-We encode input waveforms into features using a model trained on LibriSpeech,
-then feed the features into a seq2seq model to map them to semantics.
-
-(Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
-
-Run using:
-> python train.py hparams/train.yaml
+text-only NLU
 
 Authors
  * Loren Lugosch, Mirco Ravanelli 2020
@@ -30,25 +22,9 @@ import pandas as pd
 # Define training procedure
 class SLU(sb.Brain):
     def compute_forward(self, x, y, stage):
-        """Forward computations from the waveform batches to the output probabilities."""
-        ids, wavs, wav_lens = x
+        """Forward computations from the waveform batches (or true transcripts, at train time) to the output probabilities."""
+        ids, true_transcripts, true_transcript_lens = x
         ids, target_semantics, target_semantics_lens = y
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                target_semantics = torch.cat(
-                    [target_semantics, target_semantics], dim=0
-                )
-                target_semantics_lens = torch.cat(
-                    [target_semantics_lens, target_semantics_lens]
-                )
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Prepare labels
         target_tokens, _ = self.hparams.tokenizer(
@@ -62,16 +38,23 @@ class SLU(sb.Brain):
             target_tokens, self.hparams.bos_index
         )
 
-        # ASR encoder forward pass
-        with torch.no_grad():
-            ASR_encoder_out = self.modules.asr_model.encode(
-                wavs.detach(), wav_lens
-            )
+        # Tokenize ground truth transcript using ASR model's tokenizer
+        (true_tokens, true_tokens_lens,) = self.modules.asr_model.mod.tokenizer(
+            true_transcripts,
+            true_transcript_lens,
+            hparams["asr_ind2lab"],  # self.modules.asr_model.ind2lab,
+            task="encode",
+        )
+        true_tokens, true_tokens_lens = (
+            true_tokens.to(self.device),
+            true_tokens_lens.to(self.device),
+        )
+        embedded_transcripts = self.hparams.input_emb(true_tokens)
+        input_tokens_lens = true_tokens_lens
 
-        # SLU forward pass
-        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
+        encoder_out = self.hparams.slu_enc(embedded_transcripts)
         e_in = self.hparams.output_emb(y_in)
-        h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
+        h, _ = self.hparams.dec(e_in, encoder_out, input_tokens_lens)
 
         # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
@@ -82,22 +65,23 @@ class SLU(sb.Brain):
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            return p_seq, wav_lens
+            return p_seq, input_tokens_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
-            return p_seq, wav_lens, p_tokens
+            p_tokens, scores = self.hparams.beam_searcher(
+                encoder_out, input_tokens_lens
+            )
+            return p_seq, input_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
         """Computes the loss (NLL) given predictions and targets."""
-        show_results_every = 100  # plots results every N iterations
 
         if (
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            p_seq, wav_lens = predictions
+            p_seq, decoded_transcript_lens = predictions
         else:
-            p_seq, wav_lens, predicted_tokens = predictions
+            p_seq, decoded_transcript_lens, predicted_tokens = predictions
 
         ids, target_semantics, target_semantics_lens = targets
         target_tokens, target_token_lens = self.hparams.tokenizer(
@@ -108,11 +92,6 @@ class SLU(sb.Brain):
         )
         target_tokens = target_tokens.to(self.device)
         target_token_lens = target_token_lens.to(self.device)
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            target_tokens = torch.cat([target_tokens, target_tokens], dim=0)
-            target_token_lens = torch.cat(
-                [target_token_lens, target_token_lens], dim=0
-            )
 
         # Add char_lens by one for eos token
         abs_length = torch.round(target_token_lens * target_tokens.shape[1])
@@ -147,10 +126,12 @@ class SLU(sb.Brain):
             target_semantics = sb.data_io.data_io.convert_index_to_lab(
                 target_semantics, self.hparams.ind2lab
             )
-            self.log_outputs(predicted_semantics, target_semantics)
+            for i in range(len(target_semantics)):
+                print(" ".join(predicted_semantics[i]).replace("|", ","))
+                print(" ".join(target_semantics[i]).replace("|", ","))
+                print("")
 
             if stage != sb.Stage.TRAIN:
-                # TODO use different metric
                 self.wer_metric.append(
                     ids, predicted_semantics, target_semantics
                 )
@@ -180,13 +161,6 @@ class SLU(sb.Brain):
                         writer.write(dict)
 
         return loss
-
-    def log_outputs(self, predicted_semantics, target_semantics):
-        """ TODO: log these to a file instead of stdout """
-        for i in range(len(target_semantics)):
-            print(" ".join(predicted_semantics[i]).replace("|", ","))
-            print(" ".join(target_semantics[i]).replace("|", ","))
-            print("")
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -246,7 +220,7 @@ class SLU(sb.Brain):
                 self.wer_metric.write_stats(w)
 
     def load_tokenizer(self):
-        """Loads the sentence piece tokenizer specified in the yaml file"""
+        """Loads the sentence piece tokinizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
@@ -287,7 +261,7 @@ if __name__ == "__main__":
     # Prepare data
     prepare_SLURP(
         data_folder=hparams["data_folder"],
-        slu_type="direct",
+        slu_type="decoupled",
         train_splits=hparams["train_splits"],
     )
 
@@ -308,6 +282,9 @@ if __name__ == "__main__":
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
     test_set = hparams["test_loader"]()
+    hparams["asr_ind2lab"] = hparams["train_loader"].label_dict["transcript"][
+        "index2lab"
+    ]  # ugh
     hparams["ind2lab"] = hparams["test_loader"].label_dict["semantics"][
         "index2lab"
     ]
@@ -322,7 +299,7 @@ if __name__ == "__main__":
     slu_brain.load_tokenizer()
 
     # Training
-    show_results_every = 100  # plots results every N iterations
+    show_results_every = 250  # plots results every N iterations
     slu_brain.fit(slu_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
