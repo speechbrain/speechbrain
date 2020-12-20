@@ -35,7 +35,7 @@ common_dynamic_items:
         argkeys: [s1_wav]
     source2:
         func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [s1_wav]
+        argkeys: [s2_wav]
 common_output_keys: ["id", "mix_sig", "source1", "source2"]
 
 train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
