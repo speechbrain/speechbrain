@@ -3,6 +3,7 @@ An approximation of the SpecAugment algorithm, carried out in the time domain.
 
 Authors
  * Peter Plantinga 2020
+ * Jianyuan Zhong 2020
 """
 import os
 import torch
