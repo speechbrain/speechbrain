@@ -7,7 +7,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+csv_test: !ref <data_folder>/dev.csv
 
 # Neural Parameters
 N_epochs: 10
@@ -70,7 +70,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 42  # 42 phonemes, no blank
+    n_neurons: 43  # 43 phonemes, no blank
     bias: False
 
 modules:
