@@ -27,22 +27,28 @@ progressbar: True
 loss_fn: 'sisnr'
 train_onthefly: False
 common_dynamic_items:
-    sig:
+    mix_sig:
         func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [wav]
-common_output_keys: ["id", "sig"]
+        argkeys: [mix_wav]
+    source1:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [s1_wav]
+    source2:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [s1_wav]
+common_output_keys: ["id", "mix_sig", "source1", "source2"]
 
 train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
     csv_path: !ref <data_folder>/minimal_example_convtasnet_tr.csv
     replacements:
-        data_root: !ref <data_folder>
+        data_folder: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
 
 valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
     csv_path: !ref <data_folder>/minimal_example_convtasnet_cv.csv
     replacements:
-        data_root: !ref <data_folder>
+        data_folder: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
 
