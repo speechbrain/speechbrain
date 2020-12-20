@@ -6,12 +6,13 @@ Authors
 import collections
 import torch
 import speechbrain.utils.data_utils
+from speechbrain.utils.data_utils import mod_default_collate
+from speechbrain.utils.data_utils import recursive_to
 from torch.utils.data._utils.collate import default_convert
-from torch.utils.data._utils.collate import default_collate
 from torch.utils.data._utils.pin_memory import (
     pin_memory as recursive_pin_memory,
 )
-import collections.abc
+
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 
@@ -43,9 +44,10 @@ class PaddedBatch:
     apply_default_convert : bool
         Whether to apply PyTorch default_convert (numpy to torch recursively,
         etc.) on all data. Default:True, usually does the right thing.
-    nonpadded_default_collate : bool
-        Whether to apply PyTorch default_collate on values that didn't get padded.
-        Default:True, usually does the right thing.
+    nonpadded_stack : bool
+        Whether to apply PyTorch-default_collate-like stacking on values that
+        didn't get padded. This stacks if it can, but doesn't error out if it
+        cannot. Default:True, usually does the right thing.
 
     Example
     -------
@@ -72,6 +74,27 @@ class PaddedBatch:
             [2., 1.]], dtype=torch.float16)
     >>> batch.foo.lengths
     tensor([0.5000, 1.0000], dtype=torch.float16)
+    >>> # Numpy tensors get converted to torch and padded as well:
+    >>> import numpy as np
+    >>> batch = PaddedBatch([
+    ...     {"wav": np.asarray([1,2,3,4])},
+    ...     {"wav": np.asarray([1,2,3])}])
+    >>> batch.wav  # +ELLIPSIS
+    PaddedData(data=tensor([[1, 2,...
+    >>> # Basic stacking collation deals with non padded data:
+    >>> batch = PaddedBatch([
+    ...     {"spk_id": torch.tensor([1]), "wav": torch.tensor([.1,.0,.3])},
+    ...     {"spk_id": torch.tensor([2]), "wav": torch.tensor([.2,.3,-.1])}],
+    ...     padded_keys=["wav"])
+    >>> batch.spk_id
+    tensor([[1],
+            [2]])
+    >>> # And some data is left alone:
+    >>> batch = PaddedBatch([
+    ...     {"text": ["Hello"]},
+    ...     {"text": ["How", "are", "you?"]}])
+    >>> batch.text
+    [['Hello'], ['How', 'are', 'you?']]
 
     """
 
@@ -83,7 +106,7 @@ class PaddedBatch:
         padding_func=speechbrain.utils.data_utils.batch_pad_right,
         padding_kwargs={},
         apply_default_convert=True,
-        nonpadded_default_collate=True,
+        nonpadded_stack=True,
     ):
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
@@ -103,8 +126,8 @@ class PaddedBatch:
             else:
                 # Default PyTorch collate usually does the right thing
                 # (convert lists of equal sized tensors to batch tensors, etc.)
-                if nonpadded_default_collate:
-                    values = default_collate(values)
+                if nonpadded_stack:
+                    values = mod_default_collate(values)
                 setattr(self, key, values)
             if (device_prep_keys is not None and key in device_prep_keys) or (
                 device_prep_keys is None and isinstance(values[0], torch.Tensor)
@@ -154,30 +177,3 @@ class PaddedBatch:
         """Fetch an item by its position in the batch"""
         key = self.__keys[pos]
         return getattr(self, key)
-
-
-def recursive_to(data, *args, **kwargs):
-    """Moves data to device, or other type, and handles containers
-
-    Very similar to torch.utils.data._utils.pin_memory.pin_memory,
-    but applies .to() instead.
-    """
-    if isinstance(data, torch.Tensor):
-        return data.to(*args, **kwargs)
-    elif isinstance(data, collections.abc.Mapping):
-        return {
-            k: recursive_to(sample, *args, **kwargs)
-            for k, sample in data.items()
-        }
-    elif isinstance(data, tuple) and hasattr(data, "_fields"):  # namedtuple
-        return type(data)(
-            *(recursive_to(sample, *args, **kwargs) for sample in data)
-        )
-    elif isinstance(data, collections.abc.Sequence):
-        return [recursive_to(sample, *args, **kwargs) for sample in data]
-    elif hasattr(data, "to"):
-        return data.to(*args, **kwargs)
-    # What should be done with unknown data?
-    # For now, just return as they are
-    else:
-        return data
