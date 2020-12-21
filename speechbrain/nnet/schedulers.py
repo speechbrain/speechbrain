@@ -461,13 +461,14 @@ class ReduceLROnPlateau:
     """
 
     def __init__(
-        self, lr_min=1e-8, factor=0.5, patience=2,
+        self, lr_min=1e-8, factor=0.5, patience=2, dont_halve_until_epoch=65
     ):
         self.lr_min = lr_min
         self.factor = factor
         self.patience = patience
         self.patience_counter = 0
         self.losses = []
+        self.dont_halve_until_epoch = dont_halve_until_epoch
 
     def __call__(self, optim_list, current_epoch, current_loss):
         """
@@ -489,10 +490,7 @@ class ReduceLROnPlateau:
         for opt in optim_list:
             current_lr = opt.param_groups[0]["lr"]
 
-            # last_p_epochs = self.loses[-self.patience:]
-            # print(self.patience_counter)
-            # print(self.patience)
-            if current_epoch == 1:
+            if current_epoch >= self.dont_halve_until_epoch:
                 next_lr = current_lr
                 self.anchor = current_loss
             else:
