@@ -71,7 +71,7 @@ enc: !new:speechbrain.nnet.RNN.LSTM
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <rnn_neurons>
-    n_neurons: 44  # 42 phonemes + 1 eos
+    n_neurons: 44  # 43 phonemes + 1 eos
     bias: False
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
@@ -79,7 +79,7 @@ encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: 128
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 44  # 42 phonemes + 1 bos
+    num_embeddings: 44  # 43 phonemes + 1 bos
     embedding_dim: 128
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
