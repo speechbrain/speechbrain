@@ -6,8 +6,9 @@ import pytest
 
 class TransducerBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
         wavs, lens = batch.sig
-        feats = self.hparams.compute_features(wavs)
+        feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Transcription network: input-output dependency
