@@ -451,7 +451,7 @@ class ReduceLROnPlateau:
     >>> model = Linear(n_neurons=10, input_size=3)
     >>> optim = Adam(lr=1.0, params=model.parameters())
     >>> output = model(inp_tensor)
-    >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2)
+    >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2, 1)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=11.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=13.0)
