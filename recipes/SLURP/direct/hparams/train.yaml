@@ -16,7 +16,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /home/lugosch/code/slurp
+data_folder: /localscratch/code/slurp
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
@@ -30,7 +30,7 @@ asr_hparam_file:
     ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
-number_of_epochs: 4
+number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
 device: 'cuda:0'
@@ -148,7 +148,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     temperature: !ref <temperature>
     using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 1.5
+    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

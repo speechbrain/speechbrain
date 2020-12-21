@@ -1,11 +1,11 @@
 # ############################################################################
-# Model: Decoupled SLU
+# Model: NLU (no audio)
 # Encoder: transcript -> LSTM
-# (train time: ground truth transcript, test time: from LibriSpeech ASR)
+# (train time AND test time: ground truth transcript)
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
-# Training: Timers and Such
+# Training: SLURP
 # Authors:  Loren Lugosch, Mirco Ravanelli 2020
 # ############################################################################
 
@@ -17,7 +17,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /home/lugosch/code/slurp
+data_folder: /localscratch/code/slurp
 train_splits: ["train", "train_synthetic"]
 dev_split: devel
 csv_train: !ref <data_folder>/train-type=decoupled.csv
@@ -27,7 +27,7 @@ asr_hparam_file:
     ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 3
 batch_size: 16
 lr: 0.0003
 device: 'cuda:0'
