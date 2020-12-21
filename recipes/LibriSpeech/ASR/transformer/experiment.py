@@ -240,7 +240,7 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-        sb.ddp_barrier()
+        # sb.ddp_barrier()
 
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
