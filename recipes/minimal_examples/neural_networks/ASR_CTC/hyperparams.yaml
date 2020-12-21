@@ -73,7 +73,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 45  # 44 phonemes + 1 blank
+    n_neurons: 44  # 43 phonemes + 1 blank
     bias: False
 
 softmax: !new:speechbrain.nnet.activations.Softmax
