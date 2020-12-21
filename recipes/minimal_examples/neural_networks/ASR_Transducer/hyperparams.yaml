@@ -5,9 +5,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
 
 device: 'cuda:0'
 # Neural Parameters
@@ -15,8 +12,13 @@ N_epochs: 10
 N_batch: 1
 lr: 1.0
 
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 40
+
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
+activation: !name:torch.nn.LeakyReLU []
 dropout: 0.15
 cnn_blocks: 1
 cnn_channels: (16,)
@@ -28,20 +30,25 @@ dnn_blocks: 1
 dnn_neurons: 128
 
 # token infomation
-blank_id: 42
+blank_id: 0
+
+label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
 
 common_dynamic_items:
     phn_list:
         func: !name:speechbrain.utils.data_utils.split_by_whitespace
         argkeys: [phn]
-    phn_encoded:
+    phn_encoded_list:
         func: !ref <label_encoder.encode_sequence>
         argkeys: [phn_list]
     phn_encoded_bos:
         func: !new:speechbrain.utils.data_utils.FuncPipeline
             - !ref <label_encoder.prepend_bos_index>
             - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
+        argkeys: [phn_encoded_list]
+    phn_encoded:
+        func: !name:speechbrain.data_io.data_io.to_longTensor
+        argkeys: [phn_encoded_list]
     sig:
         func: !name:speechbrain.data_io.data_io.read_audio
         argkeys: [wav]
@@ -63,6 +70,7 @@ valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
+
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
@@ -82,22 +90,22 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 enc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 43  # 42 phonemes + 1 eos
+    n_neurons: 44  # 43 phonemes + 1 eos/bos
     bias: False
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 43  # 42 phonemes + 1 bos
+    num_embeddings: 44  # 43 phonemes + 1 eos/bos
     consider_as_one_hot: True
-    embedding_dim: 42
+    embedding_dim: 43
 
 dec: !new:speechbrain.nnet.RNN.GRU
-    input_size: 42
+    input_size: 43
     hidden_size: !ref <rnn_neurons>
     num_layers: 1
 
 dec_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <rnn_neurons>
-    n_neurons: 43  # 42 phonemes + 1 eos
+    n_neurons: 44  # 42 phonemes + 1 eos
     bias: False
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
@@ -105,8 +113,8 @@ Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
     nonlinearity: !ref <activation>
 
 output: !new:speechbrain.nnet.linear.Linear
-    input_size: 43
-    n_neurons: 43  # 42 phonemes + 1 eos
+    input_size: 44
+    n_neurons: 44  # 42 phonemes + 1 eos
     bias: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
@@ -121,6 +129,7 @@ modules:
     Tjoint: !ref <Tjoint>
     output: !ref <output>
     mean_var_norm: !ref <mean_var_norm>
+    compute_features: !ref <compute_features>
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
