@@ -490,7 +490,7 @@ class ReduceLROnPlateau:
         for opt in optim_list:
             current_lr = opt.param_groups[0]["lr"]
 
-            if current_epoch < self.dont_halve_until_epoch:
+            if current_epoch <= self.dont_halve_until_epoch:
                 next_lr = current_lr
                 self.anchor = current_loss
             else:
