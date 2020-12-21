@@ -802,9 +802,12 @@ class Deltas(torch.nn.Module):
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
-        self.kernel = torch.arange(
-            -self.n, self.n + 1, dtype=torch.float32,
-        ).repeat(input_size, 1, 1)
+        self.register_buffer(
+            "kernel",
+            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
+                input_size, 1, 1
+            ),
+        )
 
     def forward(self, x):
         """Returns the delta coefficients.
