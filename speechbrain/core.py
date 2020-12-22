@@ -19,9 +19,14 @@ from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
+from torch.utils.data import Dataset
 from torch.nn import DataParallel as DP
+from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.data_io.dataloader import SaveableDataLoader
+from speechbrain.data_io.sampler import DistributedSamplerWrapper
+from speechbrain.data_io.sampler import ReproducibleRandomSampler
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -494,9 +499,7 @@ class Brain:
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: "
-                        + arg
-                        + " arg is override by command line input"
+                        "Info: " + arg + " arg overridden by command line input"
                     )
                 setattr(self, arg, run_opts[arg])
             else:
@@ -629,6 +632,179 @@ class Brain:
         """
         pass
 
+    def make_dataloader(
+        self,
+        dataset,
+        stage,
+        ckpt_prefix="dataloader-",
+        train_shuffle=None,
+        train_drop_last=None,
+        **loader_kwargs,
+    ):
+        """Creates DataLoaders for Datasets
+
+        This is used by ``fit()`` and ``evaluate()`` if they just receive
+        Datasets.
+
+        Alternatively, this can be called from outside the Brain subclass.
+        In that case, the DataLoader should be passed to ``fit()`` in place
+        of the dataset.
+
+        The Stage.TRAIN DataLoader is handled specially. It has extra args for
+        shuffle and drop_last. In DDP a DistributedSampler is created (unless
+        dataset is an IterableDataset).
+
+        The reason for those specific training args is that most dataloader
+        args can be shared among all stages. This allows a convenient syntax,
+        especially in conjuction with YAML
+
+        .. code-block:: yaml
+            loader_spec:
+                batch_size: 32
+                num_workers: 2
+                pin_memory: True
+                train_drop_last: True
+
+        And then calling ``fit()`` simply:
+
+        .. code-block:: python
+            brain.fit(epochs, traindata, validdata, **hparams["loader_spec"])
+
+
+        NOTE
+        ----
+        Some important DataLoader arguments are passed via **loader_kwargs,
+        e.g. batch_size, num_workers, pin_memory
+
+        NOTE
+        ----
+        By default, ``evaluate()`` specifies ckpt_prefix=None to stop the test
+        DataLoader being added to the checkpointer. If you need to add a
+        recoverable after saving checkpoints (e.g. at test time, after
+        checkpointing the training), and still be able to recover reasonably,
+        you should probably specify allow_partial_load=True.
+
+        Arguments
+        ---------
+        dataset : Dataset
+            A set of data to use to create data loader. If the Dataset is a
+            DynamicItemDataset, PaddedBatch is used as the default collate_fn,
+            unless specified in loader_kwargs.
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+        ckpt_prefix: str, None
+            Prefix to use for SaveableDataLoader Checkpoint name. The Stage
+            name is added to this to create the full key. Set to None to not
+            save the DataLoader.
+        train_shuffle : bool
+            To shuffle training data or not. Shuffling should really only
+            matter for the train stage.
+            The default is None, which mostly leads to the same behaviour as
+            False. However, specifying False explicitly lets you specify
+            loader_kwargs["shuffle"]=True and still have train_shuffle = False.
+            If train_shuffle=None, and loader_kwargs["shuffle"]=True,
+            train_shuffle is set to True, as well.
+        train_drop_last : bool
+            Drop last incomplete training batch and drop last uneven training
+            data in DDP.
+            The default is None, which mostly leads to the same behaviour as
+            False. However, specifying False explicitly lets you specify
+            loader_kwargs["drop_last"]=True and still have train_drop_last =
+            False. If train_drop_last=None, and
+            loader_kwargs["drop_last"]=True, train_drop_last is set to True, as
+            well.
+        **loader_kwargs : dict
+            Additional keyword arguments to the DataLoader.
+            E.G. batch_size, num_workers, pin_memory
+        """
+        # TRAIN stage is handled specially.
+        if stage == sb.Stage.TRAIN:
+            loader_kwargs = self._train_loader_specifics(
+                dataset, train_shuffle, train_drop_last, loader_kwargs
+            )
+        dataloader = sb.data_io.dataloader.make_dataloader(
+            dataset, **loader_kwargs
+        )
+
+        if (
+            self.checkpointer is not None
+            and ckpt_prefix is not None
+            and isinstance(dataloader, SaveableDataLoader)
+        ):
+            ckpt_key = ckpt_prefix + stage.name
+            self.checkpointer.add_recoverable(ckpt_key, dataloader)
+        return dataloader
+
+    def _train_loader_specifics(
+        self, dataset, train_shuffle, train_drop_last, loader_kwargs
+    ):
+        """Special handling for the Stage.TRAIN DataLoader"""
+        # Drop last usually should not be used in validation/test but it is
+        # often fine for training.
+        if loader_kwargs.get("drop_last", False) and train_drop_last is None:
+            # loader_kwargs["drop_last"] == True, train_drop_last==None
+            train_drop_last = True
+        elif train_drop_last is None:
+            train_drop_last = False
+
+        sampler = loader_kwargs.get("sampler", None)
+        # Shuffling should really only matter for the train stage. Shuffling
+        # will also lead to more padding in batches if the order was otherwise
+        # sorted by length.
+        if loader_kwargs.get("shuffle", False) and train_shuffle is None:
+            # loader_kwargs["shuffle"] == True, train_shuffle==None
+            train_shuffle = True
+            # Should delete shuffle because you can't set both Sampler and
+            # shuffle
+            # NOTE: the dict of loader options may get used elsewhere!
+            # However, this del doesn't touch those because loader_kwargs comes
+            # from a **kwargs dict.
+            del loader_kwargs["shuffle"]
+        elif train_shuffle is None:
+            train_shuffle = False
+        if train_shuffle:
+            if sampler is not None:
+                raise ValueError(
+                    "Cannot specify both train_shuffle=True (or shuffle=True) "
+                    "and a sampler in loader_kwargs"
+                )
+            sampler = ReproducibleRandomSampler(dataset)
+            self.train_sampler = sampler
+            loader_kwargs["sampler"] = self.train_sampler
+
+        # Possibly make a DistributedSampler or a wrapper for some other sampler
+        if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            # num_replicas arg is equal to world_size
+            # and retrieved automatically within
+            # DistributedSampler obj.
+            if sampler is not None:
+                self.train_sampler = DistributedSamplerWrapper(
+                    sampler, rank=self.rank, drop_last=train_drop_last
+                )
+            elif loader_kwargs.get("batch_sampler") is None:
+                # Currently, to get here train_shuffle must be False.
+                # Still, we can keep passing shuffle=train_shuffle
+                self.train_sampler = DistributedSampler(
+                    dataset,
+                    rank=self.rank,
+                    shuffle=train_shuffle,
+                    drop_last=train_drop_last,
+                )
+            else:  # batch_sampler was specified
+                # TODO: Could a DistributedSamplerWrapper actually work
+                # just fine for wrapping a BatchSampler, as well?
+                logger.warning(
+                    "Cannot automatically solve distributed sampling "
+                    "when using a BatchSampler."
+                )
+            loader_kwargs["sampler"] = self.train_sampler
+        elif self.distributed_launch and isinstance(dataset, IterableDataset):
+            logger.warning(
+                "Cannot automatically solve distributed sampling "
+                "for IterableDataset"
+            )
+        return loader_kwargs
+
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
         if distributed_count is more than 0 and backend is ddp.
@@ -636,7 +812,8 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* mp.spawn since jit modules cannot be pickled.
+        # Run this *after* starting all processes since jit modules cannot be
+        # pickled.
         self._compile_jit()
 
         # Wrap modules with parallel backend after jit
@@ -804,11 +981,16 @@ class Brain:
         return loss.detach().cpu()
 
     def fit(
-        self, epoch_counter, train_set, valid_set=None, progressbar=None,
+        self,
+        epoch_counter,
+        train_set,
+        valid_set=None,
+        progressbar=None,
+        **loader_kwargs,
     ):
         """Iterate epochs and datasets to improve objective.
 
-        Relies on the existence of mulitple functions that can (or should) be
+        Relies on the existence of multiple functions that can (or should) be
         overridden. The following methods are used and expected to have a
         certain behavior:
 
@@ -817,39 +999,46 @@ class Brain:
         * ``update_average()``
 
         If the initialization was done with distributed_count > 0 and the
-        distributed_backend is ddp, this method will spawn the correct number
-        of processes and run a portion of the training data on the
-        corresponding device.
+        distributed_backend is ddp, this will generally handle multiprocess
+        logic, like splitting the training data into subsets for each device and
+        only saving a checkpoint on the main process.
 
         Arguments
         ---------
         epoch_counter : iterable
             each call should return an integer indicating the epoch count.
-        train_set : DataLoader
-            A set of data to use for training.
-        valid_set : DataLoader
-            A set of data to use for validation.
+        train_set : Dataset, DataLoader
+            A set of data to use for training. If a Dataset is given, a
+            DataLoader is automatically created. If a DataLoader is given, it is
+            used directly.
+        valid_set : Dataset, DataLoader
+            A set of data to use for validation. If a Dataset is given, a
+            DataLoader is automatically created. If a DataLoader is given, it is
+            used directly.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
+        **loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` if train_set or valid_set is a
+            Dataset, not DataLoader. E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid, but these additional kwargs are
+            specific to self.make_dataloader(): train_shuffle, train_drop_last
         """
+
+        # Sampler should be handled by `make_dataloader`
+        self.train_sampler = None
+        if isinstance(train_set, Dataset):
+            train_set = self.make_dataloader(
+                train_set, stage=sb.Stage.TRAIN, **loader_kwargs
+            )
+        if isinstance(valid_set, Dataset):
+            valid_set = self.make_dataloader(
+                valid_set, stage=sb.Stage.VALID, **loader_kwargs
+            )
+
         self.on_fit_start()
 
         if progressbar is None:
             progressbar = self.progressbar
-
-        self.train_sampler = None
-        if self.distributed_launch:
-            raise NotImplementedError(
-                "Currently not supporting DDP with new data loading"
-            )
-            # num_replicas arg is equal to word_size
-            # and retrieved automatically within
-            # DistributedSampler obj.
-            self.train_sampler = DistributedSampler(
-                dataset=train_set.dataset,
-                rank=self.rank,
-                shuffle=train_set.shuffle,
-            )
 
         # Iterate epochs
         for epoch in epoch_counter:
@@ -937,13 +1126,20 @@ class Brain:
                         )
                     self.modules[name] = module
 
-    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
+    def evaluate(
+        self,
+        test_set,
+        max_key=None,
+        min_key=None,
+        progressbar=None,
+        **loader_kwargs,
+    ):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
 
         Arguments
         ---------
-        test_set : list of DataLoaders
+        test_set : Dataset, DataLoader
             This list will be zipped before iterating.
         max_key : str
             Key to use for finding best checkpoint, passed to on_evaluate_start
@@ -951,6 +1147,11 @@ class Brain:
             Key to use for finding best checkpoint, passed to on_evaluate_start
         progressbar : bool
             Whether to display the progress in a progressbar.
+        **loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` if test_set is a Dataset, not
+            DataLoader. NOTE: loader_kwargs["ckpt_prefix"] gets automatically
+            overwritten to None (so that the test DataLoader is not added to
+            the checkpointer).
 
         Returns
         -------
@@ -959,6 +1160,11 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
+        if isinstance(test_set, Dataset):
+            loader_kwargs["ckpt_prefix"] = None
+            test_set = self.make_dataloader(
+                test_set, Stage.TEST, **loader_kwargs
+            )
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()

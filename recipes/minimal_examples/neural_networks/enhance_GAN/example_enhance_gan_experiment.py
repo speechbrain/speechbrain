@@ -5,16 +5,16 @@ import speechbrain as sb
 
 
 class EnhanceGanBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.sig
 
         noisy = self.hparams.add_noise(wavs, lens).unsqueeze(-1)
         enhanced = self.modules.generator(noisy)
 
         return enhanced
 
-    def compute_objectives(self, predictions, targets, stage, optim_name=""):
-        id, clean_wavs, lens = targets
+    def compute_objectives(self, predictions, batch, stage, optim_name=""):
+        clean_wavs, lens = batch.sig
         batch_size = clean_wavs.size(0)
 
         # Average the predictions of each time step
@@ -42,31 +42,23 @@ class EnhanceGanBrain(sb.Brain):
         return real_cost + simu_cost + map_cost
 
     def fit_batch(self, batch):
-        inputs = batch[0]
-
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+        self.g_optimizer.zero_grad()
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         g_loss = self.compute_objectives(
-            predictions, inputs, sb.Stage.TRAIN, "generator"
+            predictions, batch, sb.Stage.TRAIN, "generator"
         )
         g_loss.backward()
         self.g_optimizer.step()
-        self.g_optimizer.zero_grad()
 
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+        self.d_optimizer.zero_grad()
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         d_loss = self.compute_objectives(
-            predictions, inputs, sb.Stage.TRAIN, "discriminator"
+            predictions, batch, sb.Stage.TRAIN, "discriminator"
         )
         d_loss.backward()
         self.d_optimizer.step()
-        self.d_optimizer.zero_grad()
 
         return g_loss.detach() + d_loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs, stage)
-        loss = self.compute_objectives(predictions, inputs, stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
         if stage == sb.Stage.TRAIN:
@@ -105,10 +97,11 @@ def main():
     gan_brain = EnhanceGanBrain(hparams["modules"], hparams=hparams)
     gan_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_data"],
+        hparams["valid_data"],
+        batch_size=hparams["N_batch"],
     )
-    gan_brain.evaluate(hparams["test_loader"]())
+    gan_brain.evaluate(hparams["valid_data"])
 
     # Check test loss (mse), train loss is GAN loss
     assert gan_brain.test_loss < 0.002

@@ -5,9 +5,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
 N_epochs: 30
@@ -17,28 +14,34 @@ lr: 0.002
 # Model parameters
 activation: !new:torch.nn.LeakyReLU
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
+blank_index: 0
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+common_dynamic_items:
+    phn_list:
+        func: !name:speechbrain.utils.data_utils.split_by_whitespace
+        argkeys: [phn]
+    phn_encoded:
+        func: !ref <label_encoder.encode_sequence_torch>
+        argkeys: [phn_list]
+    sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [wav]
+common_output_keys: ["id", "sig", "phn_encoded"]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/train.json
     replacements:
-        $data_folder: !ref <data_folder>
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
+
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
+    json_path: !ref <data_folder>/dev.json
+    replacements:
+        data_root: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -64,7 +67,7 @@ model: !new:speechbrain.nnet.containers.Sequential
         hidden_size: 64
         bidirectional: True
     linear: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 43  # 42 phonemes + 1 blank
+        n_neurons: 44  # 43 phonemes + 1 blank
         bias: False
     softmax: !new:speechbrain.nnet.activations.Softmax
         apply_log: True
@@ -75,6 +78,6 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: 42
+    blank_index: !ref <blank_index>
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

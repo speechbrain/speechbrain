@@ -4,8 +4,8 @@ import speechbrain as sb
 
 
 class AlignBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.wav
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x = self.modules.model(feats)
@@ -14,9 +14,9 @@ class AlignBrain(sb.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        ids, phns, phn_lens = targets
+        phns, phn_lens = batch.phn_enc
         sum_alpha_T = self.hparams.aligner(
             predictions, lens, phns, phn_lens, "forward"
         )
@@ -48,13 +48,23 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
+    # Label encoder:
+    encoder = hparams["label_encoder"]
+    dsets = [hparams["train_data"], hparams["valid_data"], hparams["test_data"]]
+    for dset in dsets:
+        encoder.update_from_didataset(dset, "phn", sequence_input=True)
+    for dset in dsets:
+        dset.add_dynamic_item("phn_enc", encoder.encode_sequence_torch, "phn")
+        dset.set_output_keys(["id", "wav", "phn_enc"])
+
     align_brain = AlignBrain(hparams["modules"], hparams["opt_class"], hparams)
     align_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_data"],
+        hparams["valid_data"],
+        batch_size=hparams["batch_size"],
     )
-    align_brain.evaluate(hparams["test_loader"]())
+    align_brain.evaluate(hparams["test_data"], batch_size=hparams["batch_size"])
 
     # Check that model overfits for integration test
     assert align_brain.train_loss < 350.0

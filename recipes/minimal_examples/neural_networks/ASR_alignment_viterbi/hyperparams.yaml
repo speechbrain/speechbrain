@@ -7,11 +7,11 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+csv_test: !ref <data_folder>/dev.csv
 
 # Neural Parameters
 N_epochs: 10
-N_batch: 1
+batch_size: 1
 lr: 0.004
 
 # Model parameters
@@ -26,28 +26,28 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
+label_encoder: !new:speechbrain.data_io.encoder.CategoricalEncoder
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
+train_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train>
+    output_keys: [wav, phn]
+    sorting: ascending
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
+valid_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_valid>
+    output_keys: [wav, phn]
+    sorting: ascending
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
+
+test_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_test>
+    output_keys: [wav, phn]
+    sorting: ascending
+    replacements:
+        data_folder: !ref <data_folder>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -70,7 +70,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 42  # 42 phonemes, no blank
+    n_neurons: 43  # 43 phonemes, no blank
     bias: False
 
 modules:

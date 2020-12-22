@@ -11,7 +11,8 @@ N_epochs: 10
 batch_size: 1
 lr: 0.002
 # token infomation
-eos_bos_index: 42
+eos_bos_index: 1
+blank_index: 0
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -25,7 +26,7 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-label_encoder: !new:speechbrain.data_io.encoder.TextEncoder
+label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
 
 common_dynamic_items:
     phn_list:
@@ -55,9 +56,6 @@ train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         data_root: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <train_data>
-    batch_size: !ref <batch_size>
 
 valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/dev.json
@@ -65,9 +63,6 @@ valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         data_root: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
-valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -123,9 +118,9 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <bos>
-    eos_index: !ref <eos>
-    blank_index: !ref <blank>
+    bos_index: !ref <eos_bos_index>
+    eos_index: !ref <eos_bos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 

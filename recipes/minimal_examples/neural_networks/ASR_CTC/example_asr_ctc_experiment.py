@@ -50,7 +50,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
-        hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     # Update label encoder:
     label_encoder = hparams["label_encoder"]
@@ -65,11 +65,11 @@ def main():
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"],
-        hparams["valid_loader"],
+        hparams["train_data"],
+        hparams["valid_data"],
     )
     # Evaluation is run separately (now just evaluating on valid data)
-    ctc_brain.evaluate(hparams["valid_loader"])
+    ctc_brain.evaluate(hparams["valid_data"])
 
     # Check if model overfits for integration test
     assert ctc_brain.train_loss < 1.0

@@ -26,30 +26,31 @@ lr: 0.002
 progressbar: True
 loss_fn: 'sisnr'
 train_onthefly: False
+common_dynamic_items:
+    mix_sig:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [mix_wav]
+    source1:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [s1_wav]
+    source2:
+        func: !name:speechbrain.data_io.data_io.read_audio
+        argkeys: [s2_wav]
+common_output_keys: ["id", "mix_sig", "source1", "source2"]
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_tr>
-    batch_size: !ref <N_batch>
-    sentence_sorting: random
-    csv_read: [mix_wav, s1_wav, s2_wav]
+train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/minimal_example_convtasnet_tr.csv
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
-val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_cv>
-    batch_size: !ref <N_batch>
-    sentence_sorting: random
-    csv_read: [mix_wav, s1_wav, s2_wav]
+valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
+    csv_path: !ref <data_folder>/minimal_example_convtasnet_cv.csv
     replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_tt>
-    batch_size: !ref <N_batch>
-    sentence_sorting: random
-    csv_read: [mix_wav, s1_wav, s2_wav]
-    replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
+    dynamic_items: !ref <common_dynamic_items>
+    output_keys: !ref <common_output_keys>
 
 mask_net: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     N: 32

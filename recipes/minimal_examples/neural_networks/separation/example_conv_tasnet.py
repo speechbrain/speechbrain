@@ -84,14 +84,14 @@ class CTN_Brain(sb.Brain):
         # train_onthefly option enables data augmentation,
         # by creating random mixtures within the batch
         if self.hparams.train_onthefly:
-            bs = batch[0][1].shape[0]
+            bs = batch.sig.data.shape[0]
             perm = torch.randperm(bs)
 
             T = 24000
-            Tmax = max((batch[0][1].shape[-1] - T) // 10, 1)
+            Tmax = max((batch.mix_sig.data.shape[-1] - T) // 10, 1)
             Ts = torch.randint(0, Tmax, (1,))
-            source1 = batch[1][1][perm, Ts : Ts + T].to(self.device)
-            source2 = batch[2][1][:, Ts : Ts + T].to(self.device)
+            source1 = batch.source1.data[perm, Ts : Ts + T].to(self.device)
+            source2 = batch.source2.data[:, Ts : Ts + T].to(self.device)
 
             ws = torch.ones(2).to(self.device)
             ws = ws / ws.sum()
@@ -101,9 +101,13 @@ class CTN_Brain(sb.Brain):
                 [source1.unsqueeze(1), source2.unsqueeze(1)], dim=1
             )
         else:
-            inputs = batch[0][1].to(self.device)
+            inputs = batch.mix_sig.data.to(self.device)
             targets = torch.cat(
-                [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
+                [
+                    batch.source1.data.unsqueeze(-1),
+                    batch.source2.data.unsqueeze(-1),
+                ],
+                dim=-1,
             ).to(self.device)
 
         predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
@@ -115,9 +119,13 @@ class CTN_Brain(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
-        inputs = batch[0][1].to(self.device)
+        inputs = batch.mix_sig.data.to(self.device)
         targets = torch.cat(
-            [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
+            [
+                batch.source1.data.unsqueeze(-1),
+                batch.source2.data.unsqueeze(-1),
+            ],
+            dim=-1,
         ).to(self.device)
 
         predictions = self.compute_forward(inputs, stage)
@@ -167,23 +175,21 @@ def main():
 
         hparams["train_logger"] = TensorboardLogger(hparams["tensorboard_logs"])
 
-    train_loader = hparams["train_loader"]()
-    val_loader = hparams["val_loader"]()
-    test_loader = hparams["test_loader"]()
-
     ctn = CTN_Brain(hparams["modules"], hparams["opt_class"], hparams)
+
+    print(hparams["train_data"].data.items())
 
     ctn.fit(
         ctn.hparams.epoch_counter,
-        train_set=train_loader,
-        valid_set=val_loader,
+        train_set=hparams["train_data"],
+        valid_set=hparams["valid_data"],
         progressbar=hparams["progressbar"],
     )
 
-    ctn.evaluate(test_loader)
+    ctn.evaluate(hparams["valid_data"])
 
     # Integration test: check that the model overfits the training data
-    assert -ctn.train_loss > 10.0
+    assert -ctn.train_loss > 5.0
 
 
 if __name__ == "__main__":

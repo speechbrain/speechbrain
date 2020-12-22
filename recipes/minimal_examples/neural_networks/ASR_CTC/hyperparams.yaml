@@ -44,9 +44,6 @@ train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         data_root: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <train_data>
-    batch_size: !ref <batch_size>
 
 valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
     json_path: !ref <data_folder>/dev.json
@@ -54,9 +51,6 @@ valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
         data_root: !ref <data_folder>
     dynamic_items: !ref <common_dynamic_items>
     output_keys: !ref <common_output_keys>
-valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -79,7 +73,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 45  # 44 phonemes + 1 blank
+    n_neurons: 44  # 43 phonemes + 1 blank
     bias: False
 
 softmax: !new:speechbrain.nnet.activations.Softmax

@@ -6,8 +6,8 @@ import speechbrain as sb
 
 
 class VADBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.wav
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x, _ = self.modules.rnn(feats)
@@ -15,10 +15,10 @@ class VADBrain(sb.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage=True):
+    def compute_objectives(self, predictions, batch, stage=True):
         predictions, lens = predictions
 
-        ids, targets, lens = targets
+        targets, lens = batch.target
         targets = targets.to(predictions.device)
         predictions = predictions[:, : targets.shape[-1], 0]
         loss = self.hparams.compute_BCE_cost(
@@ -29,7 +29,9 @@ class VADBrain(sb.Brain):
         )
 
         # compute metrics
-        self.binary_metrics.append(ids, torch.sigmoid(predictions), targets)
+        self.binary_metrics.append(
+            batch.id, torch.sigmoid(predictions), targets
+        )
 
         return loss
 
@@ -47,7 +49,8 @@ class VADBrain(sb.Brain):
             print("Train Recall: %.2f" % train_summary["recall"])
 
 
-def parsing_func(hparams, string):
+def parsing_func(hparams, item):
+    string = item.data
     boundaries = string.split(" ")
     # we group by two
     # 0.01 is 10 ms hop size ...
@@ -72,13 +75,17 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = sb.data_io.data_io.DataLoaderFactory(
-        hparams["csv_train"],
-        hparams["N_batch"],
-        ["wav", "speech"],
-        replacements={"$data_folder": hparams["data_folder"]},
-        label_parsing_func=lambda x: parsing_func(hparams, x),
-    )()
+    train_set = sb.data_io.legacy.ExtendedCSVDataset(
+        csvpath=hparams["csv_train"],
+        replacements={"data_folder": hparams["data_folder"]},
+        dynamic_items={
+            "target": {
+                "func": lambda x: parsing_func(hparams, x),
+                "argkeys": ["speech_data"],
+            }
+        },
+        output_keys=["id", "wav", "target"],
+    )
 
     vad_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
     vad_brain.fit(range(hparams["N_epochs"]), train_set)
