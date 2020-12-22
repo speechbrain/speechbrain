@@ -180,15 +180,14 @@ class Separation(sb.Brain):
                 # if we do not use the reducelronplateau, we do not change the lr
                 current_lr = self.hparams.optimizer.optim.param_groups[0]["lr"]
 
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": current_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": current_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+            )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
