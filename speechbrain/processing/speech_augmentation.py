@@ -42,8 +42,8 @@ class AddNoise(torch.nn.Module):
     sorting : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
-    do_cache : bool
-        Whether or not to store noise files in the cache.
+    num_workers : int
+        Number of workers in the DataLoader (See PyTorch DataLoader docs).
     snr_low : int
         The low end of the mixing ratios, in decibels.
     snr_high : int
@@ -80,7 +80,6 @@ class AddNoise(torch.nn.Module):
         csv_file=None,
         csv_keys=None,
         sorting="random",
-        do_cache=False,
         num_workers=0,
         snr_low=0,
         snr_high=0,
@@ -95,7 +94,6 @@ class AddNoise(torch.nn.Module):
         self.csv_file = csv_file
         self.csv_keys = csv_keys
         self.sorting = sorting
-        self.do_cache = do_cache
         self.num_workers = num_workers
         self.snr_low = snr_low
         self.snr_high = snr_high
@@ -286,9 +284,6 @@ class AddReverb(torch.nn.Module):
     sorting : str
         The order to iterate the csv file, from one of
         the following options: random, original, ascending, and descending.
-    do_cache : bool
-        Whether or not to lazily load the files to a
-        cache and read the data from the cache.
     reverb_prob : float
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
@@ -315,7 +310,6 @@ class AddReverb(torch.nn.Module):
         self,
         csv_file,
         sorting="random",
-        do_cache=False,
         reverb_prob=1.0,
         rir_scale_factor=1.0,
         replacements={},
@@ -323,7 +317,6 @@ class AddReverb(torch.nn.Module):
         super().__init__()
         self.csv_file = csv_file
         self.sorting = sorting
-        self.do_cache = do_cache
         self.reverb_prob = reverb_prob
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
