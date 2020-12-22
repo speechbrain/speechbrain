@@ -179,7 +179,7 @@ def test_drop_chunk():
     assert dropper(test_waveform, lengths).allclose(expected_waveform)
 
     # Make sure amplitude is similar before and after
-    dropper = DropChunk()
+    dropper = DropChunk(noise_factor=1.0)
     drop_amplitude = dropper(test_waveform, lengths).abs().mean()
     orig_amplitude = test_waveform.abs().mean()
     assert drop_amplitude.allclose(orig_amplitude, atol=1e-2)
