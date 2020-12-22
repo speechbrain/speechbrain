@@ -306,9 +306,12 @@ class TransformerEncoder(nn.Module):
 
         if input_shape is None and d_model is None:
             raise ValueError("Expected one of input_shape or d_model")
+
+        if input_shape is not None and d_model is None:
             if len(input_shape) == 3:
                 msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
                 raise ValueError(msg)
+            d_model = input_shape[-1]
 
         self.layers = torch.nn.ModuleList(
             [
