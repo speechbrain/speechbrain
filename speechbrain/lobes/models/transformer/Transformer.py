@@ -9,6 +9,8 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
+from .conformer import ConformerEncoder
+
 
 class TransformerInterface(nn.Module):
     """This is an interface for transformer model.
@@ -55,6 +57,9 @@ class TransformerInterface(nn.Module):
         custom_tgt_module=None,
         positional_encoding=True,
         normalize_before=False,
+        kernel_size: Optional[int] = 31,
+        bias: Optional[bool] = True,
+        encoder_module: Optional[str] = "transformer",
     ):
         super().__init__()
 
@@ -69,16 +74,30 @@ class TransformerInterface(nn.Module):
         if num_encoder_layers > 0:
             if custom_src_module is not None:
                 self.custom_src_module = custom_src_module(d_model)
-
-            self.encoder = TransformerEncoder(
-                nhead=nhead,
-                num_layers=num_encoder_layers,
-                d_ffn=d_ffn,
-                d_model=d_model,
-                dropout=dropout,
-                activation=activation,
-                normalize_before=normalize_before,
-            )
+            if encoder_module == "transformer":
+                self.encoder = TransformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                )
+            elif encoder_module == "conformer":
+                self.encoder = ConformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    kernel_size=kernel_size,
+                    bias=bias,
+                )
+                assert (
+                    normalize_before
+                ), "normalize_before must be True for Conformer"
 
         # initialize the decoder
         if num_decoder_layers > 0:

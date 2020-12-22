@@ -6,6 +6,7 @@ Authors
 
 import torch  # noqa 42
 from torch import nn
+from typing import Optional
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
@@ -70,6 +71,9 @@ class TransformerASR(TransformerInterface):
         activation=nn.ReLU,
         positional_encoding=True,
         normalize_before=False,
+        kernel_size: Optional[int] = 31,
+        bias: Optional[bool] = True,
+        encoder_module: Optional[str] = "transformer",
     ):
         super().__init__(
             d_model=d_model,
@@ -81,6 +85,9 @@ class TransformerASR(TransformerInterface):
             activation=activation,
             positional_encoding=positional_encoding,
             normalize_before=normalize_before,
+            kernel_size=kernel_size,
+            bias=bias,
+            encoder_module=encoder_module,
         )
 
         self.custom_src_module = ModuleList(
