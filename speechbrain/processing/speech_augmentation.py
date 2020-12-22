@@ -1015,7 +1015,7 @@ class DropChunk(torch.nn.Module):
         drop_start=0,
         drop_end=None,
         drop_prob=1,
-        noise_factor=1,
+        noise_factor=0,
     ):
         super().__init__()
         self.drop_length_low = drop_length_low
