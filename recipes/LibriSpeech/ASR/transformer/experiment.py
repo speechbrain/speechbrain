@@ -75,8 +75,9 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
-        if hasattr(self.hparams, "augmentation"):
-            feats = self.hparams.augmentation(feats)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "augmentation"):
+                feats = self.hparams.augmentation(feats)
 
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
@@ -239,8 +240,6 @@ class ASR(sb.core.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
-
-        # sb.ddp_barrier()
 
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
