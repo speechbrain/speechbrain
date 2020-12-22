@@ -4,8 +4,8 @@ import speechbrain as sb
 
 
 class AutoBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
@@ -15,27 +15,12 @@ class AutoBrain(sb.Brain):
 
         return decoded
 
-    def compute_objectives(self, predictions, targets, stage):
-        id, wavs, lens = targets
+    def compute_objectives(self, predictions, batch, stage):
+        wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
-        self.mse_metric.append(id, predictions, feats, lens)
+        self.mse_metric.append(batch.id, predictions, feats, lens)
         return self.hparams.compute_cost(predictions, feats, lens)
-
-    def fit_batch(self, batch):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs, stage)
-        loss = self.compute_objectives(predictions, inputs, stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
         self.mse_metric = self.hparams.loss_tracker()
@@ -84,10 +69,11 @@ def main():
     auto_brain = AutoBrain(hparams["modules"], hparams["opt_class"], hparams)
     auto_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_data"],
+        hparams["valid_data"],
+        batch_size=hparams["N_batch"],
     )
-    auto_brain.evaluate(hparams["test_loader"]())
+    auto_brain.evaluate(hparams["valid_data"])
 
     # Check that model overfits for integration test
     assert auto_brain.train_loss < 0.08

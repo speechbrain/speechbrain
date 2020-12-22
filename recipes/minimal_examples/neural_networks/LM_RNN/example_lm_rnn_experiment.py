@@ -1,51 +1,21 @@
 #!/usr/bin/env python3
 import os
 import math
-import torch
 import speechbrain as sb
 
 
 class LMBrain(sb.Brain):
-    def compute_forward(self, y, stage):
-        ids, phns, phn_lens = y
-        y_in = sb.data_io.data_io.prepend_bos_token(
-            phns, self.hparams.bos_index
-        )
-        logits = self.modules.model(y_in)
+    def compute_forward(self, batch, stage):
+        phns, phn_lens = batch.phn_encoded_bos
+        logits = self.modules.model(phns)
         pout = self.hparams.log_softmax(logits)
         return pout
 
-    def compute_objectives(self, predictions, targets, stage):
-        pout = predictions
-        ids, phns, phn_lens = targets
-
-        abs_length = torch.round(phn_lens * phns.shape[1])
-
-        # Append eos token at the end of the label sequences
-        phns_with_eos = sb.data_io.data_io.append_eos_token(
-            phns, length=abs_length, eos_index=self.hparams.eos_index
-        )
-
-        # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
-        loss = self.hparams.compute_cost(pout, phns_with_eos, length=rel_length)
+    def compute_objectives(self, predictions, batch, stage):
+        phns, phn_lens = batch.phn_encoded_eos
+        loss = self.hparams.compute_cost(predictions, phns, length=phn_lens)
 
         return loss
-
-    def fit_batch(self, batch):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
-        inputs = batch[0]
-        out = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(out, inputs, stage=stage)
-        return loss.detach()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
@@ -67,13 +37,23 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
+    # Update label encoder:
+    label_encoder = hparams["label_encoder"]
+    label_encoder.update_from_didataset(
+        hparams["train_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.update_from_didataset(
+        hparams["valid_data"], output_key="phn_list", sequence_input=True
+    )
+    label_encoder.insert_bos_eos(bos_index=hparams["eos_bos_index"])
+
     lm_brain = LMBrain(hparams["modules"], hparams["opt_class"], hparams)
     lm_brain.fit(
         lm_brain.hparams.epoch_counter,
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_data"],
+        hparams["valid_data"],
     )
-    lm_brain.evaluate(hparams["test_loader"]())
+    lm_brain.evaluate(hparams["valid_data"])
 
     # Check that model overfits for an integration test
     assert lm_brain.train_loss < 0.15

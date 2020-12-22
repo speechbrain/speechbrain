@@ -6,6 +6,13 @@ Authors
 import collections
 import torch
 import speechbrain.utils.data_utils
+from speechbrain.utils.data_utils import mod_default_collate
+from speechbrain.utils.data_utils import recursive_to
+from torch.utils.data._utils.collate import default_convert
+from torch.utils.data._utils.pin_memory import (
+    pin_memory as recursive_pin_memory,
+)
+
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 
@@ -14,7 +21,8 @@ class PaddedBatch:
     """Collate_fn when examples are dicts and have variable length sequences.
 
     Different elements in the examples get matched by key.
-    By default, all torch.Tensor valued elements get padded and support
+    All numpy tensors get converted to Torch (PyTorch default_convert)
+    Then, by default, all torch.Tensor valued elements get padded and support
     collective pin_memory() and to() calls.
     Regular Python data types are just collected in a list.
 
@@ -33,6 +41,13 @@ class PaddedBatch:
         two tensors: the padded data, and another tensor for the data lengths.
     padding_kwargs : dict, optional
         Extra kwargs to pass to padding_func. E.G. mode, value
+    apply_default_convert : bool
+        Whether to apply PyTorch default_convert (numpy to torch recursively,
+        etc.) on all data. Default:True, usually does the right thing.
+    nonpadded_stack : bool
+        Whether to apply PyTorch-default_collate-like stacking on values that
+        didn't get padded. This stacks if it can, but doesn't error out if it
+        cannot. Default:True, usually does the right thing.
 
     Example
     -------
@@ -59,6 +74,27 @@ class PaddedBatch:
             [2., 1.]], dtype=torch.float16)
     >>> batch.foo.lengths
     tensor([0.5000, 1.0000], dtype=torch.float16)
+    >>> # Numpy tensors get converted to torch and padded as well:
+    >>> import numpy as np
+    >>> batch = PaddedBatch([
+    ...     {"wav": np.asarray([1,2,3,4])},
+    ...     {"wav": np.asarray([1,2,3])}])
+    >>> batch.wav  # +ELLIPSIS
+    PaddedData(data=tensor([[1, 2,...
+    >>> # Basic stacking collation deals with non padded data:
+    >>> batch = PaddedBatch([
+    ...     {"spk_id": torch.tensor([1]), "wav": torch.tensor([.1,.0,.3])},
+    ...     {"spk_id": torch.tensor([2]), "wav": torch.tensor([.2,.3,-.1])}],
+    ...     padded_keys=["wav"])
+    >>> batch.spk_id
+    tensor([[1],
+            [2]])
+    >>> # And some data is left alone:
+    >>> batch = PaddedBatch([
+    ...     {"text": ["Hello"]},
+    ...     {"text": ["How", "are", "you?"]}])
+    >>> batch.text
+    [['Hello'], ['How', 'are', 'you?']]
 
     """
 
@@ -69,19 +105,29 @@ class PaddedBatch:
         device_prep_keys=None,
         padding_func=speechbrain.utils.data_utils.batch_pad_right,
         padding_kwargs={},
+        apply_default_convert=True,
+        nonpadded_stack=True,
     ):
-        self.__keys = examples[0].keys()
+        self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
         for key in self.__keys:
             values = [example[key] for example in examples]
+            # Default convert usually does the right thing (numpy2torch etc.)
+            if apply_default_convert:
+                values = default_convert(values)
             if (padded_keys is not None and key in padded_keys) or (
                 padded_keys is None and isinstance(values[0], torch.Tensor)
             ):
+                # Padding and PaddedData
                 self.__padded_keys.append(key)
                 padded = PaddedData(*padding_func(values, **padding_kwargs))
                 setattr(self, key, padded)
             else:
+                # Default PyTorch collate usually does the right thing
+                # (convert lists of equal sized tensors to batch tensors, etc.)
+                if nonpadded_stack:
+                    values = mod_default_collate(values)
                 setattr(self, key, values)
             if (device_prep_keys is not None and key in device_prep_keys) or (
                 device_prep_keys is None and isinstance(values[0], torch.Tensor)
@@ -112,12 +158,7 @@ class PaddedBatch:
         """In-place, moves relevant elements to pinned memory."""
         for key in self.__device_prep_keys:
             value = getattr(self, key)
-            if isinstance(value, PaddedData):
-                pinned = PaddedData(
-                    value.data.pin_memory(), value.lengths.pin_memory()
-                )
-            else:
-                pinned = value.pin_memory()
+            pinned = recursive_pin_memory(value)
             setattr(self, key, pinned)
         return self
 
@@ -128,12 +169,11 @@ class PaddedBatch:
         """
         for key in self.__device_prep_keys:
             value = getattr(self, key)
-            if isinstance(value, PaddedData):
-                moved = PaddedData(
-                    value.data.to(*args, **kwargs),
-                    value.lengths.to(*args, **kwargs),
-                )
-            else:
-                moved = value.to(*args, **kwargs)
+            moved = recursive_to(value, *args, **kwargs)
             setattr(self, key, moved)
         return self
+
+    def at_position(self, pos):
+        """Fetch an item by its position in the batch"""
+        key = self.__keys[pos]
+        return getattr(self, key)

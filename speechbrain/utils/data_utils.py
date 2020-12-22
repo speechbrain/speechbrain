@@ -14,6 +14,7 @@ import torch
 import tqdm
 import pathlib
 import speechbrain as sb
+import re
 
 
 def undo_padding(batch, lengths):
@@ -476,3 +477,84 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
 def split_by_whitespace(text):
     """A very basic functional version of str.split"""
     return text.split()
+
+
+def recursive_to(data, *args, **kwargs):
+    """Moves data to device, or other type, and handles containers
+
+    Very similar to torch.utils.data._utils.pin_memory.pin_memory,
+    but applies .to() instead.
+    """
+    if isinstance(data, torch.Tensor):
+        return data.to(*args, **kwargs)
+    elif isinstance(data, collections.abc.Mapping):
+        return {
+            k: recursive_to(sample, *args, **kwargs)
+            for k, sample in data.items()
+        }
+    elif isinstance(data, tuple) and hasattr(data, "_fields"):  # namedtuple
+        return type(data)(
+            *(recursive_to(sample, *args, **kwargs) for sample in data)
+        )
+    elif isinstance(data, collections.abc.Sequence):
+        return [recursive_to(sample, *args, **kwargs) for sample in data]
+    elif hasattr(data, "to"):
+        return data.to(*args, **kwargs)
+    # What should be done with unknown data?
+    # For now, just return as they are
+    else:
+        return data
+
+
+np_str_obj_array_pattern = re.compile(r"[SaUO]")
+
+
+def mod_default_collate(batch):
+    r"""Makes a tensor from list of batch values
+
+    Note that this doesn't need to zip(*) values together
+    as PaddedBatch connects them alread (by key)
+
+    Here the idea is not to error out.
+
+    This is modified from:
+    https://github.com/pytorch/pytorch/blob/c0deb231db76dbea8a9d326401417f7d1ce96ed5/torch/utils/data/_utils/collate.py#L42
+    """
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        try:
+            if torch.utils.data.get_worker_info() is not None:
+                # If we're in a background process, concatenate directly into a
+                # shared memory tensor to avoid an extra copy
+                numel = sum([x.numel() for x in batch])
+                storage = elem.storage()._new_shared(numel)
+                out = elem.new(storage)
+            return torch.stack(batch, 0, out=out)
+        except RuntimeError:  # Unequal size:
+            return batch
+    elif (
+        elem_type.__module__ == "numpy"
+        and elem_type.__name__ != "str_"
+        and elem_type.__name__ != "string_"
+    ):
+        try:
+            if (
+                elem_type.__name__ == "ndarray"
+                or elem_type.__name__ == "memmap"
+            ):
+                # array of string classes and object
+                if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
+                    return batch
+                return mod_default_collate([torch.as_tensor(b) for b in batch])
+            elif elem.shape == ():  # scalars
+                return torch.as_tensor(batch)
+        except RuntimeError:  # Unequal size
+            return batch
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int):
+        return torch.tensor(batch)
+    else:
+        return batch

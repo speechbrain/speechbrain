@@ -77,7 +77,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-        # Update label encoder:
+    # Update label encoder:
     label_encoder = hparams["label_encoder"]
     label_encoder.update_from_didataset(
         hparams["train_data"], output_key="phn_list", sequence_input=True
@@ -86,16 +86,17 @@ def main():
         hparams["valid_data"], output_key="phn_list", sequence_input=True
     )
     label_encoder.insert_bos_eos(bos_index=hparams["eos_bos_index"])
+    label_encoder.insert_blank(index=hparams["blank_index"])
 
     seq2seq_brain = seq2seqBrain(
         hparams["modules"], hparams["opt_class"], hparams
     )
     seq2seq_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"],
-        hparams["valid_loader"],
+        hparams["train_data"],
+        hparams["valid_data"],
     )
-    seq2seq_brain.evaluate(hparams["valid_loader"])
+    seq2seq_brain.evaluate(hparams["valid_data"])
 
     # Check that model overfits for integration test
     assert seq2seq_brain.train_loss < 1.0

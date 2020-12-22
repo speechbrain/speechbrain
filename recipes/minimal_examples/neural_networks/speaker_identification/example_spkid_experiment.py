@@ -5,8 +5,8 @@ import speechbrain as sb
 
 
 class SpkIdBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch.wav
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
@@ -18,13 +18,14 @@ class SpkIdBrain(sb.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        uttid, spkid, _ = targets
-        loss = self.hparams.compute_cost(predictions, spkid, lens)
+        loss = self.hparams.compute_cost(predictions, batch.spk_id_enc, lens)
 
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(uttid, predictions, spkid, lens)
+            self.error_metrics.append(
+                batch.id, predictions, batch.spk_id_enc, lens
+            )
 
         return loss
 
@@ -53,13 +54,27 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
+    # Data loaders
+    # Label encoder:
+    encoder = hparams["label_encoder"]
+    dsets = [hparams["train_data"], hparams["valid_data"], hparams["test_data"]]
+    for dset in dsets:
+        # Note: in the legacy format, strings always return a list
+        encoder.update_from_didataset(dset, "spk_id", sequence_input=True)
+    for dset in dsets:
+        dset.add_dynamic_item(
+            "spk_id_enc", encoder.encode_sequence_torch, "spk_id"
+        )
+        dset.set_output_keys(["id", "wav", "spk_id_enc"])
+
     spk_id_brain = SpkIdBrain(hparams["modules"], hparams["opt_class"], hparams)
     spk_id_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_loader"](),
-        hparams["valid_loader"](),
+        hparams["train_data"],
+        hparams["valid_data"],
+        **hparams["loader_kwargs"],
     )
-    spk_id_brain.evaluate(hparams["test_loader"]())
+    spk_id_brain.evaluate(hparams["test_data"], **hparams["loader_kwargs"])
 
     # Check that model overfits for an integration test
     assert spk_id_brain.train_loss < 0.2

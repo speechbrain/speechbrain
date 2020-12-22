@@ -10,7 +10,7 @@ Example
 >>> from speechbrain.utils.checkpoints import Checkpointer
 >>> # An example "dataset" and its loader
 >>> dataset = torch.randn(10, 1)
->>> dataloader = SaveableDataLoader(dataset, num_workers = 3, collate_fn=None)
+>>> dataloader = SaveableDataLoader(dataset, num_workers = 3)
 >>> # Setup the checkpointer:
 >>> tmpdir = getfixture('tmpdir')
 >>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
@@ -25,7 +25,7 @@ Example
 ...     if i == 3:
 ...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
 >>> # So when you restart the experiment:
->>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3, collate_fn=None)
+>>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3)
 >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
 >>> _ = new_checkpointer.recover_if_possible()
 >>> # The dataloader fast-forwards to the position where we left off:
@@ -40,6 +40,8 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
 from speechbrain.data_io.batch import PaddedBatch
+from speechbrain.data_io.dataset import DynamicItemDataset
+from speechbrain.data_io.sampler import ReproducibleRandomSampler
 from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
     mark_as_saver,
@@ -47,6 +49,57 @@ from speechbrain.utils.checkpoints import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def make_dataloader(dataset, **loader_kwargs):
+    """Makes a basic DataLoader with SpeechBrain defaults
+
+    For DynamicItemDatasets (which return dicts), use
+    PaddedBatch as the default collate_fn
+
+    Shuffling gets implemented by ReproducibleRandomSampler
+
+    If the Dataset is not an IterableDataset, the DataLoader
+    is a SaveableDataLoader
+
+    Arguments
+    ---------
+    dataset : Dataset
+        The dataset to make a DataLoader for.
+    **loader_kwargs : dict
+        Keyword args to DataLoader, see PyTorch DataLoader for
+        options.
+
+    Returns
+    -------
+    DataLoader
+    """
+    # PaddedBatch as default collation for DynamicItemDataset
+    if "collate_fn" not in loader_kwargs and isinstance(
+        dataset, DynamicItemDataset
+    ):
+        loader_kwargs["collate_fn"] = PaddedBatch
+    # Reproducible random sampling
+    if loader_kwargs.get("shuffle", False):
+        if loader_kwargs.get("sampler") is not None:
+            raise ValueError(
+                "Cannot specify both shuffle=True and a "
+                "sampler in loader_kwargs"
+            )
+        sampler = ReproducibleRandomSampler(dataset)
+        loader_kwargs["sampler"] = sampler
+        # Should delete shuffle because you can't set both Sampler and
+        # shuffle
+        # NOTE: the dict of loader options may get used elsewhere!
+        # However, this del doesn't touch those because loader_kwargs comes
+        # from a **kwargs dict.
+        del loader_kwargs["shuffle"]
+    # Create the loader
+    if isinstance(dataset, IterableDataset):
+        dataloader = DataLoader(dataset, **loader_kwargs)
+    else:
+        dataloader = SaveableDataLoader(dataset, **loader_kwargs)
+    return dataloader
 
 
 # We essentially want to make the DataLoader iterators able to skip ahead
@@ -108,13 +161,8 @@ class SaveableDataLoader(DataLoader):
     logged, but that is all.
     """
 
-    def __init__(self, dataset, *_ignore, collate_fn=PaddedBatch, **kwargs):
-        if _ignore:
-            raise TypeError(
-                "SaveableDataLoader only allows positional argument"
-                " for dataset. Use keyword arguments for other args."
-            )
-        super().__init__(dataset=dataset, collate_fn=collate_fn, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if isinstance(self.dataset, IterableDataset):
             logging.warning(
                 "SaveableDataLoader cannot save the position in an "

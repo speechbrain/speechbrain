@@ -10,31 +10,36 @@ csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
 N_epochs: 4
-N_batch: 2
+batch_size: 2
 lr: 0.0004
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, spk_id]
-    sentence_sorting: ascending
+train_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train>
+    output_keys: [wav, spk_id]
+    sorting: ascending
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, spk_id]
-    sentence_sorting: ascending
+valid_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train>
+    output_keys: [wav, spk_id]
+    sorting: ascending
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, spk_id]
-    sentence_sorting: ascending
+test_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_test>
+    output_keys: [wav, spk_id]
+    sorting: ascending
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
+
+label_encoder: !new:speechbrain.data_io.encoder.CategoricalEncoder
+
+loader_kwargs:
+    batch_size: !ref <batch_size>
+    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
+        padded_keys: ["wav"]
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
