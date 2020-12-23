@@ -90,7 +90,10 @@ class ASR(sb.Brain):
             else:
                 return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
+            if stage == sb.Stage.VALID:
+                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
+            else:
+                p_tokens, scores = self.hparams.test_search(x, wav_lens)
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
