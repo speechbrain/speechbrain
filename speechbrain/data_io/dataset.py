@@ -345,7 +345,7 @@ class DynamicItemDataset(Dataset):
 
     @classmethod
     def from_json(
-        cls, json_path, replacements={}, dynamic_items=None, output_keys=None
+        cls, json_path, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Load a data prep JSON file and create a Dataset based on it."""
         data = load_data_json(json_path, replacements)
@@ -353,7 +353,7 @@ class DynamicItemDataset(Dataset):
 
     @classmethod
     def from_csv(
-        cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
+        cls, csv_path, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Load a data prep CSV file and create a Dataset based on it."""
         data = load_data_csv(csv_path, replacements)
@@ -383,3 +383,15 @@ class FilteredSortedDynamicItemDataset(DynamicItemDataset):
         cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
     ):
         raise TypeError("Cannot create SubsetDynamicItemDataset directly!")
+
+
+def add_dynamic_item(datasets, func, takes=None, provides=None):
+    """Helper for adding the same item to multiple datasets."""
+    for dataset in datasets:
+        dataset.add_dynamic_item(func, takes, provides)
+
+
+def set_output_keys(datasets, output_keys):
+    """Helper for setting the same item to multiple datasets."""
+    for dataset in datasets:
+        dataset.set_output_keys(output_keys)

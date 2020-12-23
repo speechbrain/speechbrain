@@ -337,9 +337,7 @@ class DataPipeline:
                 dependee_keys.extend(obj.next_provides())
             else:
                 depended.append(self.key_to_node[key])
-        # Works for DynamicItem and GeneratorDynamicItem as well:
         for provided in obj.provided_in_order():
-            print(provided)
             node_id = self.dg.add_node(data=obj)
             for key in provided:
                 self.key_to_node[key] = node_id

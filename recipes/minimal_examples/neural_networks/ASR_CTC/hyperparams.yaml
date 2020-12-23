@@ -4,10 +4,14 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Neural Parameters
-N_epochs: 15
-batch_size: 1
 lr: 0.002
-blank_index: 0
+blank_index: !PLACEHOLDER
+num_labels: !PLACEHOLDER
+
+# Training options
+N_epochs: 15
+dataloader_options:
+    batch_size: 1
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -20,37 +24,6 @@ rnn_neurons: 128
 rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
-
-# Data:
-data_folder: !PLACEHOLDER
-
-label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
-
-common_dynamic_items:
-    phn_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [phn]
-    phn_encoded:
-        func: !ref <label_encoder.encode_sequence_torch>
-        argkeys: [phn_list]
-    sig:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [wav]
-common_output_keys: ["id", "sig", "phn_encoded"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/train.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/dev.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -73,7 +46,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 44  # 43 phonemes + 1 blank
+    n_neurons: !ref <num_labels>
     bias: False
 
 softmax: !new:speechbrain.nnet.activations.Softmax
