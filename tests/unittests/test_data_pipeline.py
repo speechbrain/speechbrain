@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_data_pipeline():
     from speechbrain.utils.data_pipeline import DataPipeline
 
@@ -97,3 +100,55 @@ def test_takes_provides():
     assert a_to_b.next_takes() == ("a",)
     # And it knows what it gives:
     assert a_to_b.next_provides() == ("b",)
+
+
+def test_MIMO_pipeline():
+    from speechbrain.utils.data_pipeline import DataPipeline, takes, provides
+
+    @takes("text", "other-text")
+    @provides("reversed", "concat")
+    def text_pipeline(text, other):
+        return text[::-1], text + other
+
+    @takes("reversed", "concat")
+    @provides("reversed_twice", "double_concat")
+    def second_pipeline(rev, concat):
+        yield rev[::-1]
+        yield concat + concat
+
+    @provides("hello-world")
+    def provider():
+        yield "hello-world"
+
+    @takes("hello-world", "reversed_twice")
+    @provides("message")
+    def messenger(hello, name):
+        return f"{hello}, {name}"
+
+    pipeline = DataPipeline(
+        ["text", "other-text"],
+        dynamic_items=[second_pipeline, text_pipeline],
+        output_keys=["text", "reversed", "reversed_twice"],
+    )
+    result = pipeline({"text": "abc", "other-text": "def"})
+    assert result["reversed"] == "cba"
+    assert result["reversed_twice"] == "abc"
+    result = pipeline.compute_specific(
+        ["concat"], {"text": "abc", "other-text": "def"}
+    )
+    assert result["concat"] == "abcdef"
+    result = pipeline.compute_specific(
+        ["double_concat"], {"text": "abc", "other-text": "def"}
+    )
+    assert result["double_concat"] == "abcdefabcdef"
+    assert "concat" not in result
+    pipeline.add_dynamic_item(messenger)
+    with pytest.raises(RuntimeError):
+        pipeline.compute_specific(
+            ["message"], {"text": "abc", "other-text": "def"}
+        )
+    pipeline.add_dynamic_item(provider)
+    result = pipeline.compute_specific(
+        ["message"], {"text": "abc", "other-text": "def"}
+    )
+    assert result["message"] == "hello-world, abc"

@@ -106,8 +106,7 @@ class DependencyGraph:
         return uuid.uuid4()
 
     def add_node(self, key=None, data=None):
-        """
-        Adds a node explicitly.
+        """Adds a node explicitly.
 
         Arguments
         ---------
