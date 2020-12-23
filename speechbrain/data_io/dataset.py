@@ -67,16 +67,16 @@ class DynamicItemDataset(Dataset):
 
     The dynamic_items configuration could look like this:
     >>> import torch
-    >>> dynamic_items = {
-    ...  "wav": {
-    ...      "func": lambda l: torch.Tensor(l),
-    ...      "argkeys": ["wav_loaded"] },
-    ...  "wav_loaded": {
-    ...      "func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
-    ...      "argkeys": ["wav_file"] },
-    ...  "words": {
-    ...      "func": lambda t: t.split(),
-    ...      "argkeys": ["text"] }, }
+    >>> dynamic_items = [
+    ...     {"func": lambda l: torch.Tensor(l),
+    ...     "takes": ["wav_loaded"],
+    ...     "provides": "wav"},
+    ...     {"func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
+    ...     "takes": ["wav_file"],
+    ...     "provides": "wav_loaded"},
+    ...     {"func": lambda t: t.split(),
+    ...     "takes": ["text"],
+    ...     "provides": "words"}]
 
     With these, different views of the data can be loaded:
     >>> from speechbrain.data_io.dataloader import SaveableDataLoader
@@ -96,10 +96,10 @@ class DynamicItemDataset(Dataset):
     ...                 next_id += 1
     >>> # Next, add an encoded words_tensor dynamic item:
     >>> dataset.add_dynamic_item(
-    ...     key = "words_encoded",
     ...     func = lambda ws: torch.tensor([encoding[w] for w in ws],
     ...             dtype=torch.long),
-    ...     argkeys = ["words"])
+    ...     takes = ["words"],
+    ...     provides = "words_encoded")
     >>> # Now we can get word and audio tensors:
     >>> dataset.set_output_keys(["id", "wav", "words_encoded"])
     >>> batch = next(iter(dataloader))
