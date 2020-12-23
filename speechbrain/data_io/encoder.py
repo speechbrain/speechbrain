@@ -595,6 +595,24 @@ class TextEncoder(CategoricalEncoder):
         elif "bos_label" in special_labels or "eos_label" in special_labels:
             raise TypeError("Only BOS or EOS specified. Need both for init.")
 
+    def update_from_iterable(self, iterable, sequence_input=True):
+        """Change default for sequence_input to True"""
+        return super().update_from_iterable(iterable, sequence_input)
+
+    def update_from_didataset(self, didataset, output_key, sequence_input=True):
+        """Change default for sequence_input to True"""
+        return super().update_from_didataset(
+            didataset, output_key, sequence_input
+        )
+
+    def limited_labelset_from_iterable(
+        self, iterable, sequence_input=True, n_most_common=None, min_count=1
+    ):
+        """Change default for sequence_input to True"""
+        return super().limited_labelset_from_iterable(
+            iterable, sequence_input=True, n_most_common=None, min_count=1
+        )
+
     def add_bos_eos(
         self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS,
     ):
@@ -657,6 +675,18 @@ class TextEncoder(CategoricalEncoder):
         self.bos_label = bos_label
         self.eos_label = eos_label
 
+    def get_bos_index(self):
+        """Returns the index to which blank encodes"""
+        if not hasattr(self, "bos_label"):
+            raise RuntimeError("BOS label is not set!")
+        return self.encode_label(self.bos_label)
+
+    def get_eos_index(self):
+        """Returns the index to which blank encodes"""
+        if not hasattr(self, "eos_label"):
+            raise RuntimeError("EOS label is not set!")
+        return self.encode_label(self.eos_label)
+
     def prepend_bos_label(self, x):
         """Returns a list version of x, with BOS prepended"""
         if not hasattr(self, "bos_label"):
@@ -717,6 +747,12 @@ class CTCTextEncoder(TextEncoder):
         """Insert blank symbol at a given labelset"""
         self.insert_label(blank_label, index)
         self.blank_label = blank_label
+
+    def get_blank_index(self):
+        """Returns the index to which blank encodes"""
+        if not hasattr(self, "blank_label"):
+            raise RuntimeError("Blank label is not set!")
+        return self.encode_label(self.blank_label)
 
     def collapse_labels(self, x, merge_repeats=True):
         """Applies the CTC collapsing rules on one label sequence

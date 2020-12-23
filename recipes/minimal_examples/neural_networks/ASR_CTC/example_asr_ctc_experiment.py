@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os
+import pathlib
 import speechbrain as sb
 
 
@@ -44,32 +44,71 @@ class CTCBrain(sb.Brain):
             print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))
 
 
-def main():
-    experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
-    data_folder = "../../../../samples/audio_samples/nn_training_samples"
-    data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-    with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+def data_prep(data_folder):
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=data_folder / "train.json",
+        replacements={"data_root": data_folder},
+    )
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=data_folder / "dev.json",
+        replacements={"data_root": data_folder},
+    )
+    datasets = [train_data, valid_data]
+    sb.data_io.dataset.add_dynamic_item(
+        datasets, sb.data_io.data_io.read_audio, takes="wav", provides="sig"
+    )
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
 
-    # Update label encoder:
-    label_encoder = hparams["label_encoder"]
-    label_encoder.update_from_didataset(
-        hparams["train_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.update_from_didataset(
-        hparams["valid_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.insert_blank(index=hparams["blank_index"])
+    # 2. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
+    def text_pipeline(phn):
+        segmented = phn.strip().split()
+        yield segmented
+        encoded = label_encoder.encode_sequence_torch(segmented)
+        yield encoded
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+    label_encoder.add_blank()
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    label_encoder.update_from_didataset(valid_data, output_key="phn_list")
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
+
+    return train_data, valid_data, label_encoder
+
+
+def main():
+    experiment_dir = pathlib.Path(__file__).resolve().parent
+    hparams_file = experiment_dir / "hyperparams.yaml"
+    data_folder = "../../../../samples/audio_samples/nn_training_samples"
+    data_folder = (experiment_dir / data_folder).resolve()
+    train_data, valid_data, label_encoder = data_prep(data_folder)
+
+    # Load model hyper parameters:
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(
+            fin,
+            {
+                "blank_index": label_encoder.get_blank_index(),
+                "num_labels": len(label_encoder),
+            },
+        )
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_data"],
-        hparams["valid_data"],
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
     )
     # Evaluation is run separately (now just evaluating on valid data)
-    ctc_brain.evaluate(hparams["valid_data"])
+    ctc_brain.evaluate(valid_data)
 
     # Check if model overfits for integration test
     assert ctc_brain.train_loss < 1.0
