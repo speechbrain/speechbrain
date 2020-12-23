@@ -1,49 +1,59 @@
 def test_data_pipeline():
     from speechbrain.utils.data_pipeline import DataPipeline
 
-    pipeline = DataPipeline.from_configuration(
-        dynamic_items={
-            "foo": {"func": lambda x: x.lower(), "argkeys": ["text"]},
-            "bar": {"func": lambda x: x[::-1], "argkeys": ["foo"]},
-        },
-        output_keys=["bar"],
+    pipeline = DataPipeline(
+        ["text"],
+        dynamic_items=[
+            {"func": lambda x: x.lower(), "takes": ["text"], "provides": "foo"},
+            {"func": lambda x: x[::-1], "takes": "foo", "provides": ["bar"]},
+        ],
+        output_keys=["text", "foo", "bar"],
     )
     result = pipeline({"text": "Test"})
+    print(result)
     assert result["bar"] == "tset"
-    pipeline = DataPipeline()
+    pipeline = DataPipeline(["foo", "bar"])
     pipeline.add_dynamic_item(
-        "foobar", func=lambda x, y: x + y, argkeys=["foo", "bar"]
+        func=lambda x, y: x + y, takes=["foo", "bar"], provides="foobar"
     )
     pipeline.set_output_keys(["bar", "foobar"])
     result = pipeline({"foo": 1, "bar": 2})
     assert result["foobar"] == 3
-    pipeline = DataPipeline()
+    pipeline = DataPipeline(["foo", "bar"])
     from unittest.mock import MagicMock, Mock
 
     watcher = Mock()
-    pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
+    pipeline.add_dynamic_item(
+        provides="foobar", func=watcher, takes=["foo", "bar"]
+    )
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
-    pipeline = DataPipeline()
+    pipeline = DataPipeline(["foo", "bar"])
     watcher = MagicMock(return_value=3)
-    pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
-    pipeline.add_dynamic_item("truebar", func=lambda x: x, argkeys=["foobar"])
+    pipeline.add_dynamic_item(watcher, ["foo", "bar"], "foobar")
+    pipeline.add_dynamic_item(lambda x: x, ["foobar"], ["truebar"])
     pipeline.set_output_keys(("truebar",))
     result = pipeline({"foo": 1, "bar": 2})
     assert watcher.called
     assert result["truebar"] == 3
-    pipeline = DataPipeline()
+    pipeline = DataPipeline(["foo", "bar"])
     watcher = MagicMock(return_value=3)
-    pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
-    pipeline.add_dynamic_item("truebar", func=lambda x: x, argkeys=["foo"])
+    pipeline.add_dynamic_item(
+        func=watcher, takes=["foo", "bar"], provides="foobar"
+    )
+    pipeline.add_dynamic_item(
+        func=lambda x: x, takes=["foo"], provides="truebar"
+    )
     pipeline.set_output_keys(("truebar",))
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
     assert result["truebar"] == 1
 
-    pipeline = DataPipeline()
+    pipeline = DataPipeline(["foo", "bar"])
     watcher = MagicMock(return_value=3)
-    pipeline.add_dynamic_item("foobar", func=watcher, argkeys=["foo", "bar"])
+    pipeline.add_dynamic_item(
+        func=watcher, takes=["foo", "bar"], provides="foobar"
+    )
     pipeline.set_output_keys(("foobar", "foo"))
     result = pipeline({"foo": 1, "bar": 2})
     assert watcher.called
@@ -68,3 +78,22 @@ def test_data_pipeline():
     pipeline.set_output_keys({"signal": "foobar"})
     result = pipeline({"foo": 1, "bar": 2})
     assert result["signal"] == 3
+
+
+def test_takes_provides():
+    from speechbrain.utils.data_pipeline import takes, provides
+
+    @takes("a")
+    @provides("b")
+    def a_to_b(a):
+        return a + 1
+
+    assert a_to_b(1) == 2
+    a_to_b.reset()
+    # Normal dynamic item can be called twice:
+    assert a_to_b(1) == 2
+    assert a_to_b(1) == 2
+    # And it knows what it needs:
+    assert a_to_b.next_takes() == ("a",)
+    # And it knows what it gives:
+    assert a_to_b.next_provides() == ("b",)
