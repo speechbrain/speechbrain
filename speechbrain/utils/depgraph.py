@@ -163,7 +163,9 @@ class DependencyGraph:
         """
         from_ind = self._get_ind_and_add_if_new(from_key)
         to_ind = self._get_ind_and_add_if_new(to_key)
-        self.digraph[from_ind].edges.append(to_ind)
+        edges_list = self.digraph[from_ind].edges
+        if to_ind not in edges_list:
+            edges_list.append(to_ind)
 
     def _get_ind_and_add_if_new(self, key):
         # Used internally to implicitly add nodes for unseen keys

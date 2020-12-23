@@ -25,10 +25,199 @@ Author:
     * Aku Rouhe
 """
 
-import collections
+import inspect
+from dataclasses import dataclass
 from speechbrain.utils.depgraph import DependencyGraph
 
-DynamicItemConf = collections.namedtuple("DynamicItemConf", ["func", "argkeys"])
+
+@dataclass
+class StaticItem:
+    key: str
+
+
+class DynamicItem:
+    def __init__(self, takes=[], func=None, provides=[]):
+        self.takes = takes
+        self.func = func
+        self.provides = provides
+
+    def __call__(self, *args):
+        return self.func(*args)
+
+    # The next three methods are more about supporting GeneratorDynamicItems
+    def next_takes(self):
+        """The next argkeys to provide to this, when called"""
+        # Regular function DynamicItems always just need the same set of args
+        return self.takes
+
+    def next_provides(self):
+        """The next keys that this provides, when called"""
+        # Regular function DynamicItems always just provide the same set of keys
+        return self.provides
+
+    def provided_in_order(self):
+        """Assuming that this may need to be called multiple times; which keys
+        does it provide at that call. Returns a list, with len equal to the
+        number of times that this may be called."""
+        # Regular function DynamicItems are only called once:
+        return [self.provides]
+
+    def reset(self):
+        """Signals that this will not be called any more times on this pipeline
+        call."""
+        # Regular function DynamicItems don't need special resets.
+        pass
+
+
+class GeneratorDynamicItem(DynamicItem):
+    """
+    Example
+    -------
+    >>> lab2ind = {"is": 1, "this": 2, "it": 3}
+    >>> def text_pipeline(text):
+    ...     text = text.lower().strip()
+    ...     text = "".join(c for c in text if c.isalpha() or c == " ")
+    ...     words = text.split()
+    ...     yield words
+    ...     encoded = [lab2ind[word] for word in words]
+    ...     yield encoded
+    >>> item = GeneratorDynamicItem(
+    ...         args=["text"],
+    ...         func=text_pipeline,
+    ...         provides=["words", "words_encoded"])
+    >>> item("These words can't be encoded, right?")
+    ['these', 'words', 'cant', 'be', 'encoded', 'right']
+    >>> item.reset()
+    >>> item("Is this it? - This is it.")
+    ['is', 'this', 'it', 'this', 'is', 'it']
+    >>> item()
+    [1, 2, 3, 2, 1, 3]
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Doesn't generate electricity, only stores the currently active
+        # generator:
+        self.current_generator = None
+        self.num_provided_items = 0
+
+    def __call__(self, *args):
+        if self.num_provided_items == len(self.provides):
+            raise RuntimeError("DynamicItemPipeline called too many times!")
+        if not self.current_generator:
+            self.current_generator = self.func(*args)
+        # NOTE: Not supporting sending new values to the pipeline.
+        out = next(self.current_generator)
+        self.num_provided_items += 1
+        return out
+
+    def next_takes(self):
+        if not self.current_generator:
+            return self.takes
+        else:
+            return []
+
+    def next_provides(self):
+        keys = self.provides[self.num_provided_items]
+        # Support multiple yielded values like:
+        # @yields("wav_read", ["left_ch", "right_ch"])
+        if isinstance(keys, str):
+            return [keys]
+        else:
+            return keys
+
+    def provided_in_order(self):
+        return self.provides
+
+    def reset(self):
+        if self.current_generator is not None:
+            self.current_generator.close()
+        self.current_generator = None
+        self.num_provided_items = 0
+
+
+def takes(*argkeys):
+    """Decorator which makes a DynamicItem and specifies its argkeys.
+
+    If the wrapped object is a generator function (has a yield statement),
+    Creates a GeneratorDynamicItem. If the object is already a DynamicItem,
+    just specifies the argkeys for that. Otherwise creates a new regular
+    DynamicItem, with argkeys specified.
+
+    The args are always passed to the function at the start. Generators could
+    support sending new arguments, but for such use cases, simply create a new
+    dynamic item. The GeneratorDynamicItem class is meant for pipelines which
+    take in an input and transform it in multiple ways, where the intermediate
+    representations may be needed for e.g. fitting a BPE segmenter.
+    """
+
+    def decorator(obj):
+        if isinstance(obj, DynamicItem):
+            if obj.takes:
+                raise ValueError("Can't overwrite DynamicItem.takes")
+            obj.takes = argkeys
+            return obj
+        elif inspect.isgeneratorfunction(obj):
+            return GeneratorDynamicItem(takes=argkeys, func=obj)
+        else:
+            return DynamicItem(takes=argkeys, func=obj)
+
+    return decorator
+
+
+takes_decorator = takes  # Just for DataPipeline.add_dynamic_item
+
+
+def provides(*output_keys):
+    """Decorator which makes a DynamicItem and specifies what keys it provides.
+
+    If the wrapped object is a generator function (has a yield statement),
+    Creates a GeneratorDynamicItem. If the object is already a DynamicItem,
+    just specifies the provided keys for that. Otherwise creates a new regular
+    DynamicItem, with provided keys specified.
+
+    NOTE
+    ----
+    The behaviour is slightly different for generators and regular functions, if
+    many output keys are specified, e.g. @provides("signal", "mfcc"). Regular
+    functions should return a tuple with len equal to len(output_keys), while
+    generators should yield the items one by one.
+    >>> @provides("signal", "feat")
+    >>> def read_feat():
+    ...     wav = [.1,.2,-.1]
+    ...     feat = [s**2 for s in wav]
+    ...     return wav, feat
+    >>> @provides("signal", "feat")
+    >>> def read_feat():
+    ...     wav = [.1,.2,-.1]
+    ...     yield wav
+    ...     feat = [s**2 for s in wav]
+    ...     yield feat
+
+    If multiple keys are yielded at once, write e.g.
+    >>> @provides("wav_read"  ["left_channel", "right_channel"])
+    >>> def read_multi_channel():
+    ...     wav = [[.1,.2,-.1],[.2,.1,-.1]]
+    ...     yield wav
+    ...     yield wav[0], wav[1]
+
+    """
+
+    def decorator(obj):
+        if isinstance(obj, DynamicItem):
+            if obj.provides:
+                raise ValueError("Can't overwrite DynamicItem provides-list.")
+            obj.provides = output_keys
+            return obj
+        elif inspect.isgeneratorfunction(obj):
+            return GeneratorDynamicItem(func=obj, provides=output_keys)
+        else:
+            return DynamicItem(func=obj, provides=output_keys)
+
+    return decorator
+
+
+provides_decorator = provides  # Just for DataPipeline.add_dynamic_item
 
 
 class DataPipeline:
@@ -37,10 +226,10 @@ class DataPipeline:
 
     Example
     -------
-    >>> pipeline = DataPipeline.from_configuration(
-    ...     dynamic_items={
-    ...         "foo": {"func": lambda x: x.lower(), "argkeys": ["text"]},
-    ...         "bar": {"func": lambda x: x[::-1], "argkeys": ["foo"]},
+    >>> pipeline = DataPipeline(
+    ...     dynamic_items=[
+    ...     {"func": lambda x: x.lower(), "takes": "text", "produces": "foo"},
+    ...     {"func": lambda x: x[::-1], "takes": "foo", "produces": "bar"},
     ...     },
     ...     output_keys=["bar"],
     ... )
@@ -49,71 +238,96 @@ class DataPipeline:
 
     """
 
-    def __init__(self, output_keys=None):
-        self.output_mapping = {}
+    def __init__(self, static_data_keys, dynamic_items=[], output_keys=[]):
         self.dg = DependencyGraph()
         self._exec_order = None
-        self._dynamic_item_keys = []
+        self.key_to_node = {}
+        self.add_static_keys(static_data_keys)
+        self.add_dynamic_items(dynamic_items)
+        self.output_mapping = {}
         self.set_output_keys(output_keys)
 
-    @classmethod
-    def from_configuration(cls, dynamic_items=None, output_keys=None):
+    def add_static_keys(self, static_keys):
+        """Informs the pipeline about static items.
+
+        Static items are the ones provided to __call__ as data.
         """
+        for key in static_keys:
+            node_id = self.dg.add_node(data=StaticItem(key=key))
+            self.key_to_node[key] = node_id
+
+    def add_dynamic_items(self, dynamic_items):
+        """Add multiple dynamic items at once"""
+        for item in dynamic_items:
+            try:
+                self.add_dynamic_item(**item)
+            except TypeError:
+                self.add_dynamic_item(item)
+
+    def add_dynamic_item(self, func, takes=None, provides=None):
+        """Adds a dynamic item to the Pipeline.
+
+        Two calling conventions. For DynamicItem objects, just use:
+        add_dynamic_item(dynamic_item)
+        But otherwise, should use:
+        add_dynamic_item(func, takes, provides)
+
         Arguments
         ---------
-        dynamic_items : dict, optional
-            Nested dict with the format (in YAML notation):
-            <key>:
-                func: <callable> # To be called
-                argkeys: <list> # keys of args, either other dynamic_items or in data
-            <key2>: ...
-        output_keys : dict, list, optional
-            List of keys (either dynamic_items or entries in data)
-            to add in the final output.
-
-            If a dict is given; it is used to map internal keys to output keys.
-            From the output_keys dict key:value pairs the key appears outside,
-            and value is the internal key.
-        """
-        pipeline = cls()
-        if dynamic_items is None:
-            dynamic_items = {}
-        if output_keys is None:
-            output_keys = []
-        for key, conf in dynamic_items.items():
-            if isinstance(conf, list):
-                pipeline.add_dynamic_item(key, *conf)
-            else:
-                pipeline.add_dynamic_item(key, **conf)
-        pipeline.set_output_keys(output_keys)
-        return pipeline
-
-    def add_dynamic_item(self, key, func, argkeys):
-        """
-        Arguments
-        ---------
-        key : str
-            Unique key
-        func : callable
-            To be called
-        argkeys : list, str
+        func : callable, DynamicItem
+            If a DynamicItem is given, adds that directly. Otherwise a
+            DynamicItem is created, and this specifies the callable to use. If
+            a generator function is given, then create a GeneratorDynamicItem.
+            Otherwise creates a normal DynamicItem.
+        takes : list, str
             List of keys. When func is called, each key is resolved to
             either an entry in the data or the output of another dynamic_item.
             The func is then called with these as positional arguments,
             in the same order as specified here.
-            A single arg can be given directly.
+            A single key can be given as a bare string
+        provides : str, list
+            For regular functions, the key or list of keys that it provides.
+            If you give a generator function, key or list of keys that it
+            yields, in order. Also see the provides decorator.
+            A single key can be given as a bare string
         """
-        if key in self._dynamic_item_keys:
-            raise ValueError(f"Duplicate function key {key}")
-        else:
-            self._dynamic_item_keys.append(key)
-        if not isinstance(argkeys, list):
-            argkeys = [argkeys]
-        conf = DynamicItemConf(func, argkeys)
-        self.dg.add_node(key, data=conf)
-        for depended in argkeys:
-            self.dg.add_edge(key, depended)
-        self._exec_order = None
+        if isinstance(func, DynamicItem):
+            if takes is not None or provides is not None:
+                raise ValueError(
+                    "If providing a DynamicItem directly, don't "
+                    "specify takes or provides"
+                )
+            else:
+                self._add_dynamic_item_object(func)
+        if isinstance(takes, str):
+            takes = [takes]
+        if isinstance(provides, str):
+            provides = [provides]
+        di = takes_decorator(*takes)(provides_decorator(*provides)(func))
+        self._add_dynamic_item_object(di)
+
+    def _add_dynamic_item_object(self, obj):
+        """Internally adds the object
+
+        There is a node in the dependency graph for each call of the
+        DynamicItem. Each call may return multiple keys and depend on multiple
+        keys. An internal dict maps key to the id of the node that produces it.
+        """
+        if not obj.provides:
+            raise ValueError(
+                "Won't add redundant dynamic item which doesn't "
+                "provide anything."
+            )
+        depended = [self.key_to_node[key] for key in obj.takes]
+        # Works for DynamicItem and GeneratorDynamicItem as well:
+        for provided in obj.provided_in_order():
+            node_id = self.dg.add_node(data=obj)
+            for key in provided:
+                self.key_to_node[key] = node_id
+            for dep_id in depended:
+                self.dg.add_edge(node_id, dep_id)
+            # Next call will depend on this call:
+            depended = [node_id]
 
     def set_output_keys(self, keys):
         """Use this to change the output keys
@@ -159,69 +373,55 @@ class DataPipeline:
         """
         if self._exec_order is None:
             self._prepare_run(data)
-        intermediate = {}
-        for compute_key, edges, conf in self._exec_order:
-            if compute_key in data:
-                continue
-            # It is a dynamic_item, so conf is a DynamicItemConf, which we can unpack:
-            try:
-                func, argkeys = conf
-            except TypeError:
-                raise RuntimeError(
-                    f"Could not find {compute_key} in data or dynamic items"
-                )
-            args = [
-                data[argkey] if argkey in data else intermediate[argkey]
-                for argkey in argkeys
-            ]
-            intermediate[compute_key] = func(*args)
-        return {
-            outkey: data[inkey] if inkey in data else intermediate[inkey]
-            for outkey, inkey in self.output_mapping.items()
-        }
+        return self._compute(data, self._exec_order, self.output_mapping)
 
     def compute_specific(self, keys, data):
         """Compute output of specific item, without changing output_keys"""
-        # If a key in data is requested as an output key, it might not exist
-        # in the dependency graph yet. It's safe to add it here implicitly,
-        # since we know that the key is found in data.
         output_mapping = self._output_keys_to_mapping(keys)
-        for output_key in output_mapping.values():
-            if output_key in data and output_key not in self.dg:
-                self.dg.add_node(output_key)
+        order = self.dg.get_evaluation_order(
+            selected_keys=self.get_selected_node_ids(keys)
+        )
+        return self._compute(data, order, output_mapping)
+
+    def _compute(self, data, order, output_mapping):
         intermediate = {}
-        for compute_key, edges, conf in self.dg.get_evaluation_order(
-            selected_keys=output_mapping.values()
-        ):
-            if compute_key in data:
-                continue
-            # It is a dynamic_item, so conf is a DynamicItemConf, which we can unpack:
-            func, argkeys = conf
+        for node_id, edges, item in order:
+            if isinstance(item, StaticItem):
+                # Static item in data.
+                # Just check that key is found.
+                try:
+                    data[item.key]
+                    continue
+                except KeyError:
+                    raise KeyError(f"Expected key {item.key} in data!")
+            # A dynamic item, which we should compute:
             args = [
                 data[argkey] if argkey in data else intermediate[argkey]
-                for argkey in argkeys
+                for argkey in item.next_takes()
             ]
-            intermediate[compute_key] = func(*args)
+            # This needs to be called BEFORE the dynamic item is called.
+            provided_keys = item.next_provides()
+            values = item(*args)  # Call the DynamicItem to produce output
+            # If there is just one output value, wrap in a list so that
+            # it can be zipped as well:
+            if len(provided_keys) == 1:
+                values = [values]
+            intermediate.update(zip(provided_keys, values))
         return {
             outkey: data[inkey] if inkey in data else intermediate[inkey]
             for outkey, inkey in output_mapping.items()
         }
 
+    def get_selected_node_ids(self, selected_keys):
+        """Translates selected keys to dependency graph keys"""
+        return [self.key_to_node[key] for key in selected_keys]
+
     def __call__(self, data):
         return self.compute_outputs(data)
 
     def _prepare_run(self, data):
-        for key in self._dynamic_item_keys:
-            if key in data:
-                raise ValueError(f"Dynamic item key {key} appears in data")
-        # If a key in data is requested as an output key, it might not exist
-        # in the dependency graph yet. It's safe to add it here implicitly,
-        # since we know that the key is found in data.
-        for output_key in self.output_mapping.values():
-            if output_key in data and output_key not in self.dg:
-                self.dg.add_node(output_key)
         self._exec_order = list(
             self.dg.get_evaluation_order(
-                selected_keys=self.output_mapping.values()
+                self.get_selected_node_ids(self.output_mapping.values())
             )
         )
