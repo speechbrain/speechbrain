@@ -241,7 +241,7 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
-valid_search: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
+valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
