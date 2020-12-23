@@ -7,14 +7,15 @@ Example
 >>> # for a dataset:
 >>> from speechbrain.yaml import load_extended_yaml
 >>> yamlstring = '''
-... pipeline: !apply:speechbrain.utils.data_pipeline.DataPipeline.from_configuration
+... pipeline: !new:speechbrain.utils.data_pipeline.DataPipeline
+...     static_data_keys: [a, b]
 ...     dynamic_items:
-...         foo:
-...             func: !name:operator.add
-...             argkeys: ["a", "b"]
-...         bar:
-...             func: !name:operator.sub
-...             argkeys: ["foo", "b"]
+...         -   func: !name:operator.add
+...             takes: ["a", "b"]
+...             provides: foo
+...         -   func: !name:operator.sub
+...             takes: ["foo", "b"]
+...             provides: bar
 ...     output_keys: ["foo", "bar"]
 ... '''
 >>> hparams = load_extended_yaml(yamlstring)
@@ -82,8 +83,8 @@ class GeneratorDynamicItem(DynamicItem):
     ...     encoded = [lab2ind[word] for word in words]
     ...     yield encoded
     >>> item = GeneratorDynamicItem(
-    ...         args=["text"],
     ...         func=text_pipeline,
+    ...         takes=["text"],
     ...         provides=["words", "words_encoded"])
     >>> item("These words can't be encoded, right?")
     ['these', 'words', 'cant', 'be', 'encoded', 'right']
@@ -191,20 +192,20 @@ def provides(*output_keys):
     functions should return a tuple with len equal to len(output_keys), while
     generators should yield the items one by one.
     >>> @provides("signal", "feat")
-    >>> def read_feat():
+    ... def read_feat():
     ...     wav = [.1,.2,-.1]
     ...     feat = [s**2 for s in wav]
     ...     return wav, feat
     >>> @provides("signal", "feat")
-    >>> def read_feat():
+    ... def read_feat():
     ...     wav = [.1,.2,-.1]
     ...     yield wav
     ...     feat = [s**2 for s in wav]
     ...     yield feat
 
     If multiple keys are yielded at once, write e.g.
-    >>> @provides("wav_read"  ["left_channel", "right_channel"])
-    >>> def read_multi_channel():
+    >>> @provides("wav_read", ["left_channel", "right_channel"])
+    ... def read_multi_channel():
     ...     wav = [[.1,.2,-.1],[.2,.1,-.1]]
     ...     yield wav
     ...     yield wav[0], wav[1]
@@ -235,10 +236,11 @@ class DataPipeline:
     Example
     -------
     >>> pipeline = DataPipeline(
+    ...     static_data_keys=["text"],
     ...     dynamic_items=[
-    ...     {"func": lambda x: x.lower(), "takes": "text", "produces": "foo"},
-    ...     {"func": lambda x: x[::-1], "takes": "foo", "produces": "bar"},
-    ...     },
+    ...     {"func": lambda x: x.lower(), "takes": "text", "provides": "foo"},
+    ...     {"func": lambda x: x[::-1], "takes": "foo", "provides": "bar"},
+    ...     ],
     ...     output_keys=["bar"],
     ... )
     >>> pipeline({"text": "Test"})
