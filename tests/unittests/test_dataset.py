@@ -8,15 +8,15 @@ def test_dynamic_item_dataset():
         "utt3": {"foo": 3, "bar": 4, "text": "where are you world"},
         "utt4": {"foo": 5, "bar": 6, "text": "hello nation"},
     }
-    dynamic_items = {
-        "foobar": {"func": operator.add, "argkeys": ["foo", "bar"]}
-    }
+    dynamic_items = [
+        {"provides": "foobar", "func": operator.add, "takes": ["foo", "bar"]}
+    ]
     output_keys = ["text"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
     assert dataset[0] == {"text": "hello world"}
     dataset.set_output_keys(["id", "foobar"])
     assert dataset[1] == {"id": "utt2", "foobar": 3}
-    dataset.add_dynamic_item("barfoo", operator.sub, ["bar", "foo"])
+    dataset.add_dynamic_item(operator.sub, ["bar", "foo"], "barfoo")
     dataset.set_output_keys(["id", "barfoo"])
     assert dataset[1] == {"id": "utt2", "barfoo": 1}
     # Iterate:
@@ -36,9 +36,9 @@ def test_filtered_sorted_dynamic_item_dataset():
         "utt3": {"foo": 3, "bar": 4, "text": "where are you world"},
         "utt4": {"foo": 5, "bar": 6, "text": "hello nation"},
     }
-    dynamic_items = {
-        "foobar": {"func": operator.add, "argkeys": ["foo", "bar"]}
-    }
+    dynamic_items = [
+        {"provides": "foobar", "func": operator.add, "takes": ["foo", "bar"]}
+    ]
     output_keys = ["text"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
     subset = dataset.filtered_sorted(key_min_value={"foo": 3})
@@ -53,7 +53,7 @@ def test_filtered_sorted_dynamic_item_dataset():
     assert len(subset) == 2
     assert subset[0] == {"id": "utt1", "foo": -1}
 
-    dataset.add_dynamic_item("barfoo", operator.sub, ["bar", "foo"])
+    dataset.add_dynamic_item(operator.sub, ["bar", "foo"], "barfoo")
     subset = dataset.filtered_sorted(key_test={"barfoo": lambda x: x == 1})
     assert len(subset) == 4
     assert subset[3] == {"id": "utt4", "foo": 5}

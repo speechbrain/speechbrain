@@ -129,10 +129,14 @@ def test_categorical_encoder_from_dataset():
         "utt3": {"foo": 3, "bar": 4, "text": "where are you world"},
         "utt4": {"foo": 5, "bar": 6, "text": "hello nation"},
     }
-    dynamic_items = {
-        "words": {"func": lambda x: x.split(), "argkeys": ["text"]},
-        "words_t": {"func": encoder.encode_sequence, "argkeys": ["words"]},
-    }
+    dynamic_items = [
+        {"func": lambda x: x.split(), "takes": ["text"], "provides": "words"},
+        {
+            "func": encoder.encode_sequence,
+            "takes": ["words"],
+            "provides": "words_t",
+        },
+    ]
     output_keys = ["words_t"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
     encoder.update_from_didataset(dataset, "words", sequence_input=True)
