@@ -291,6 +291,7 @@ class DataPipeline:
             yields, in order. Also see the provides decorator.
             A single key can be given as a bare string
         """
+        print(func, takes, provides)
         if isinstance(func, DynamicItem):
             if takes is not None or provides is not None:
                 raise ValueError(
