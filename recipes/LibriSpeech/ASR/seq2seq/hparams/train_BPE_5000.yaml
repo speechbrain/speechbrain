@@ -40,7 +40,7 @@ csv_test_other: !ref <data_folder>/test-other.csv
 # Training parameters
 number_of_epochs: 25
 number_of_ctc_epochs: !ref <number_of_epochs>
-batch_size: 1
+batch_size: 16
 lr: 1.0
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -80,8 +80,8 @@ beam_size: 40
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
-lm_weight: 0.60
-ctc_weight_decode: 0.20
+lm_weight: 0.70
+ctc_weight_decode: 0.30
 coverage_penalty: 1.5
 temperature: 1.0
 temperature_lm: 1.0
