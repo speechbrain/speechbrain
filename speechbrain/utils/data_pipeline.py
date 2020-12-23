@@ -127,7 +127,15 @@ class GeneratorDynamicItem(DynamicItem):
             return keys
 
     def provided_in_order(self):
-        return self.provides
+        in_order = []
+        for keys in self.provides:
+            # Support multiple yielded values like:
+            # @yields("wav_read", ["left_ch", "right_ch"])
+            if isinstance(keys, str):
+                in_order.append([keys])
+            else:
+                in_order.append(keys)
+        return in_order
 
     def reset(self):
         if self.current_generator is not None:
@@ -242,9 +250,11 @@ class DataPipeline:
         self.dg = DependencyGraph()
         self._exec_order = None
         self.key_to_node = {}
+        self.unaccounted_keys = {}
+        self.dynamic_items = []
+        self.output_mapping = {}
         self.add_static_keys(static_data_keys)
         self.add_dynamic_items(dynamic_items)
-        self.output_mapping = {}
         self.set_output_keys(output_keys)
 
     def add_static_keys(self, static_keys):
@@ -291,7 +301,6 @@ class DataPipeline:
             yields, in order. Also see the provides decorator.
             A single key can be given as a bare string
         """
-        print(func, takes, provides)
         if isinstance(func, DynamicItem):
             if takes is not None or provides is not None:
                 raise ValueError(
@@ -300,6 +309,7 @@ class DataPipeline:
                 )
             else:
                 self._add_dynamic_item_object(func)
+                return
         if isinstance(takes, str):
             takes = [takes]
         if isinstance(provides, str):
@@ -319,16 +329,32 @@ class DataPipeline:
                 "Won't add redundant dynamic item which doesn't "
                 "provide anything."
             )
-        depended = [self.key_to_node[key] for key in obj.takes]
+        depended = []
+        for key in obj.takes:
+            # Might not be accounted for, yet:
+            if key not in self.key_to_node:
+                dependee_keys = self.unaccounted_keys.setdefault(key, [])
+                dependee_keys.extend(obj.next_provides())
+            else:
+                depended.append(self.key_to_node[key])
         # Works for DynamicItem and GeneratorDynamicItem as well:
         for provided in obj.provided_in_order():
+            print(provided)
             node_id = self.dg.add_node(data=obj)
             for key in provided:
                 self.key_to_node[key] = node_id
+                # This key may also be unaccounted for, so account for it now:
+                if key in self.unaccounted_keys:
+                    for dependee_key in self.unaccounted_keys[key]:
+                        dependee_node = self.key_to_node[dependee_key]
+                        self.dg.add_edge(dependee_node, node_id)
+                    del self.unaccounted_keys[key]  # Now accounted for!
             for dep_id in depended:
                 self.dg.add_edge(node_id, dep_id)
             # Next call will depend on this call:
             depended = [node_id]
+        # Keep a reference to the item in this object, as well:
+        self.dynamic_items.append(obj)
 
     def set_output_keys(self, keys):
         """Use this to change the output keys
@@ -385,6 +411,10 @@ class DataPipeline:
         return self._compute(data, order, output_mapping)
 
     def _compute(self, data, order, output_mapping):
+        if self.unaccounted_keys:
+            raise RuntimeError(
+                "Some keys are still unaccounted for! Cannot " "compute output."
+            )
         intermediate = {}
         for node_id, edges, item in order:
             if isinstance(item, StaticItem):
@@ -408,6 +438,8 @@ class DataPipeline:
             if len(provided_keys) == 1:
                 values = [values]
             intermediate.update(zip(provided_keys, values))
+        for dynamic_item in self.dynamic_items:
+            dynamic_item.reset()
         return {
             outkey: data[inkey] if inkey in data else intermediate[inkey]
             for outkey, inkey in output_mapping.items()
