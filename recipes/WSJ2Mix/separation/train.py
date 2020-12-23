@@ -53,7 +53,8 @@ class Separation(sb.Brain):
         # Add speech distortions
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
-                if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
+                if self.hparams.use_speedperturb or self.hparams.use_rand_shift \
+                        or self.hparams.use_speedperturb_sameforeachsource:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                 if self.hparams.use_wavedrop:
@@ -240,6 +241,21 @@ class Separation(sb.Brain):
                     )
                 for i, new_target in enumerate(new_targets):
                     targets[:, :, i] = new_targets[i][:, 0:min_len]
+
+        if self.hparams.use_speedperturb_sameforeachsource:
+
+            targets = targets.permute(0, 2, 1)
+            targets = targets.reshape(-1, targets.shape[-1])
+            wav_lens = torch.tensor([targets.shape[-1]] * targets.shape[0]).to(
+                self.device
+            )
+
+            targets = self.hparams.speedperturb(targets, wav_lens)
+            targets = targets.reshape(
+                -1, self.hparams.num_spks, targets.shape[-1]
+            )
+            targets = targets.permute(0, 2, 1)
+
         mix = targets.sum(-1)
         return mix, targets
 
