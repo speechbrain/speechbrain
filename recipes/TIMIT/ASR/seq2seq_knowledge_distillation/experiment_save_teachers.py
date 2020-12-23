@@ -7,34 +7,14 @@ import speechbrain as sb
 from tqdm.contrib import tqdm
 import h5py
 import numpy as np
-from types import SimpleNamespace
 
 
 # Define training procedure
 class ASR(sb.Brain):
-    def __init__(self, tea_modules_list=None):
-        self.root_process = True
-
-        # Arguments passed via the hparams dictionary
-        brain_arg_defaults = {
-            "device": "cpu",
-            "multigpu_count": 0,
-            "multigpu_backend": None,
-            "jit_module_keys": None,
-            "auto_mix_prec": False,
-            "max_grad_norm": 5.0,
-            "nonfinite_patience": 3,
-            "progressbar": True,
-        }
-        for arg, default in brain_arg_defaults.items():
-            if hparams is not None and arg in hparams:
-                setattr(self, arg, hparams[arg])
-            else:
-                setattr(self, arg, default)
-
-        # Make hyperparams available with dot notation too
-        if hparams is not None:
-            self.hparams = SimpleNamespace(**hparams)
+    def __init__(self, tea_modules_list=None, hparams=None):
+        super(ASR, self).__init__(
+            modules=None, opt_class=None, hparams=hparams, checkpointer=None
+        )
 
         # Initialize teacher parameters
         tea_modules_list_ = []
@@ -142,20 +122,23 @@ class ASR(sb.Brain):
 
         return tea_dict_list
 
+    def def_tea_name(self):
+        # define teacher variable name
+        tea_name = []
+        for tea_num in range(self.hparams.num_tea):
+            tea = "t{}".format(tea_num)
+            tea_name.append(tea)
+        return tea_name
+
     def fit_save(self, train_set, valid_set=None, test_set=None):
         data_sets = [train_set, valid_set, test_set]
-        stage = ["train", "valid", "test"]
-        tea_name = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"]
+        stage = self.hparams.stage
+        tea_name = self.def_tea_name()
 
-        if hasattr(self.hparams, "augmentation"):
-            f_name = "/tea_infer_{}batch.hdf5".format(self.hparams.batch_size)
-        else:
-            f_name = "/tea_infer_noAug_{}batch.hdf5".format(
-                self.hparams.batch_size
-            )
-
+        # define output file name
+        f_name = "/tea_infer_{}batch.hdf5".format(self.hparams.batch_size)
         f = h5py.File(self.hparams.output_folder + f_name, "w")
-        for num in range(3):
+        for num in range(len(stage)):
             # create group for each set (train, valid, test).
             g_sets = f.create_group(stage[num])
 
@@ -261,7 +244,7 @@ if __name__ == "__main__":
     test_set = hparams["test_loader"]()
     hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
 
-    asr_brain = ASR(tea_modules_list=tea_modules_list)
+    asr_brain = ASR(tea_modules_list=tea_modules_list, hparams=hparams)
 
     # load pre-trained weights of teacher models
     with open(hparams["tea_models_dir"], "r") as f:
