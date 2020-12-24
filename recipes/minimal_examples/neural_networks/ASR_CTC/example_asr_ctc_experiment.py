@@ -1,10 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env/python3
+"""This minimal example trains a CTC-based speech recognizer on a tiny dataset. 
+The basic tokens are phonemes, while the decoder is based on a simple greedy search.  
+Given the tiny dataset, the expected behavior is to overfit the training dataset 
+with a validation performance that stays high.
+"""
+
 import pathlib
 import speechbrain as sb
 
 
 class CTCBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the output probabilities."
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -15,6 +22,7 @@ class CTCBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the loss."
         predictions, lens = predictions
         phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
@@ -28,10 +36,12 @@ class CTCBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        "Gets called when a stage (either training, validation, test) starts."
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
 
@@ -44,7 +54,9 @@ class CTCBrain(sb.Brain):
             print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))
 
 
-def data_prep(data_folder):
+def data_prep(data_folder, hparams):
+    "Creates the datasets and their data processing pipelines."
+
     # 1. Declarations:
     train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "train.json",
@@ -55,25 +67,31 @@ def data_prep(data_folder):
         replacements={"data_root": data_folder},
     )
     datasets = [train_data, valid_data]
-    sb.data_io.dataset.add_dynamic_item(
-        datasets, sb.data_io.data_io.read_audio, takes="wav", provides="sig"
-    )
     label_encoder = sb.data_io.encoder.CTCTextEncoder()
 
-    # 2. Define text pipeline:
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("phn")
     @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
     def text_pipeline(phn):
-        segmented = phn.strip().split()
-        yield segmented
-        encoded = label_encoder.encode_sequence_torch(segmented)
-        yield encoded
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded = label_encoder.encode_sequence_torch(phn_list)
+        yield phn_encoded
 
     sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
-    label_encoder.add_blank()
+    label_encoder.insert_blank(hparams["blank_index"])
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
     label_encoder.update_from_didataset(valid_data, output_key="phn_list")
 
@@ -88,19 +106,18 @@ def main():
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = (experiment_dir / data_folder).resolve()
-    train_data, valid_data, label_encoder = data_prep(data_folder)
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(
-            fin,
-            {
-                "blank_index": label_encoder.get_blank_index(),
-                "num_labels": len(label_encoder),
-            },
-        )
+        hparams = sb.load_extended_yaml(fin)
 
+    # Dataset creation
+    train_data, valid_data, label_encoder = data_prep(data_folder, hparams)
+
+    # Trainer initialization
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
+
+    # Training/validation loop
     ctc_brain.fit(
         range(hparams["N_epochs"]),
         train_data,
