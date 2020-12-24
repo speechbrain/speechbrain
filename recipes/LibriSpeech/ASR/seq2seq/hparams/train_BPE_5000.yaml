@@ -16,7 +16,7 @@ output_folder: !ref results/LSTMP_BPE_5000_ENV/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: /miniscratch/ravanelm/LSTMP_BPE_5000_ENV/16/save/lm_model.ckpt
+lm_ckpt_file: https://www.dropbox.com/s/x5czm16p66c1i2g/lm_model.ckpt?dl=1 # yamllint disable-line rule:line-length
 
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 # yamllint disable-line rule:line-length
@@ -40,7 +40,7 @@ csv_test_other: !ref <data_folder>/test-other.csv
 # Training parameters
 number_of_epochs: 25
 number_of_ctc_epochs: !ref <number_of_epochs>
-batch_size: 16
+batch_size: 2
 lr: 1.0
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -120,14 +120,14 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 test_clean_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_clean>
-    batch_size: !ref <batch_size>
+    batch_size: 1
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
 test_other_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_other>
-    batch_size: !ref <batch_size>
+    batch_size: 1
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
