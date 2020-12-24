@@ -5,8 +5,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Neural Parameters
 lr: 0.002
-blank_index: !PLACEHOLDER
-num_labels: !PLACEHOLDER
+blank_index: 0
+num_labels: 44
 
 # Training options
 N_epochs: 15

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_UNK = "<unk>"
 DEFAULT_BOS = "<s>"
 DEFAULT_EOS = "<s>"
-DEFAULT_BLANK = "<b>"
+DEFAULT_BLANK = "<blank>"
 
 
 class CategoricalEncoder:
