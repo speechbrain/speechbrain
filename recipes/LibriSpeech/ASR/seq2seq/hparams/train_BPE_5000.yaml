@@ -40,7 +40,7 @@ csv_test_other: !ref <data_folder>/test-other.csv
 # Training parameters
 number_of_epochs: 25
 number_of_ctc_epochs: !ref <number_of_epochs>
-batch_size: 2
+batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -113,7 +113,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
+    batch_size: 1
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
