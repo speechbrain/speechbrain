@@ -85,6 +85,7 @@ class CRDNN(sb.nnet.containers.Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
         projection_dim=-1,
+        use_rnnp=False,
     ):
         super().__init__(input_shape=input_shape)
 
@@ -133,15 +134,33 @@ class CRDNN(sb.nnet.containers.Sequential):
             self.projection.append(activation(), layer_name="act")
 
         if rnn_layers > 0:
-            self.append(
-                rnn_class,
-                layer_name="RNN",
-                hidden_size=rnn_neurons,
-                num_layers=rnn_layers,
-                dropout=dropout,
-                bidirectional=rnn_bidirectional,
-                re_init=rnn_re_init,
-            )
+            if use_rnnp:
+                self.append(sb.nnet.containers.Sequential, layer_name="RNN")
+                for _ in range(rnn_layers):
+                    self.append(
+                        rnn_class,
+                        hidden_size=rnn_neurons,
+                        num_layers=1,
+                        bidirectional=rnn_bidirectional,
+                        re_init=rnn_re_init,
+                    )
+                    self.append(
+                        sb.nnet.linear.Linear,
+                        n_neurons=dnn_neurons,
+                        bias=True,
+                        combine_dims=True,
+                    )
+                    self.append(torch.nn.Dropout(p=dropout))
+            else:
+                self.append(
+                    rnn_class,
+                    layer_name="RNN",
+                    hidden_size=rnn_neurons,
+                    num_layers=rnn_layers,
+                    dropout=dropout,
+                    bidirectional=rnn_bidirectional,
+                    re_init=rnn_re_init,
+                )
 
         if dnn_blocks > 0:
             self.append(sb.nnet.containers.Sequential, layer_name="DNN")
