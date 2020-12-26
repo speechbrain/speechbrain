@@ -11,7 +11,6 @@ Authors
 import sys
 import torch
 import speechbrain as sb
-from functools import partial
 
 
 # Define training procedure
@@ -19,7 +18,7 @@ class ASR_Brain(sb.Brain):
     def compute_forward(self, batch, stage):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        # Adding augmentation when specified:
+        # Adding optional augmentation when specified:
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "env_corrupt"):
                 wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
@@ -100,17 +99,64 @@ class ASR_Brain(sb.Brain):
                 print("CTC and PER stats written to ", self.hparams.wer_file)
 
 
-# This syntax is not clear yet:
-def label_enc_fit(hparams):
-    label_encoder = hparams["label_encoder"]
-    label_encoder.update_from_didataset(
-        hparams["train_data"], output_key="phn_list", sequence_input=True
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_folder = hparams["data_folder"]
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
     )
-    label_encoder.update_from_didataset(
-        hparams["valid_data"], output_key="phn_list", sequence_input=True
+
+    if hparams["sorting"] is not None:
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="length")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["train_shuffle"] = False
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
     )
-    label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.save("encoder_state.txt")
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    datasets = [train_data, valid_data, test_data]
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded = label_encoder.encode_sequence_torch(phn_list)
+        yield phn_encoded
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 3. Fit encoder:
+    label_encoder.insert_blank(hparams["blank_index"])
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
+
+    return train_data, valid_data, test_data, label_encoder
 
 
 # Begin Recipe!
@@ -123,14 +169,21 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
+    # Dataset prep (parsing TIMIT and annotation into csv files)
+    from timit_prepare import prepare_timit  # noqa
+
+    prepare_timit(
+        hparams["data_folder"],
+        splits=["train", "dev", "test"],
+        save_folder=hparams["data_folder"],
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
+    hparams["label_encoder"] = label_encoder
+
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.ddp_init_group(run_opts)
-
-    # Create label encoding
-    label_encoder = hparams["label_encoder"]
-    if not label_encoder.load_if_possible("encoder_state.txt"):
-        sb.utils.data_utils.prepare_data(partial(label_enc_fit, hparams))
-        label_encoder.load("encoder_state.txt")
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -147,17 +200,13 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Sort datasets:
-    sorted_train = hparams["train_data"].filtered_sorted(sort_key="duration")
-    sorted_valid = hparams["valid_data"].filtered_sorted(sort_key="duration")
-
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
-        sorted_train,
-        sorted_valid,
-        **hparams["dataloader_spec"],
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
     )
 
     asr_brain.evaluate(
-        hparams["test_data"], min_key="PER", **hparams["dataloader_spec"]
+        test_data, min_key="PER", **hparams["dataloader_options"]
     )
