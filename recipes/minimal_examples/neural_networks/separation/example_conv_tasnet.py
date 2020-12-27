@@ -1,12 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env/python3
+"""This minimal example trains a speech separation system with on a tiny dataset. 
+The architecture is based on ConvTasnet and expectes in input mixtures of two
+speakers.
 """
-A minimal example on the conv-tasnet model
 
-Author
-    * Cem Subakan 2020
-"""
-import pathlib
 import torch
+import pathlib
 import speechbrain as sb
 import torch.nn.functional as F
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
@@ -14,6 +13,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 class SepBrain(sb.Brain):
     def compute_forward(self, mixture, stage):
+        "Given an input batch it computes the two estimated sources."
         mix_w = self.hparams.encoder(mixture)
         est_mask = self.hparams.mask_net(mix_w)
         mix_w = torch.stack([mix_w] * 2)
@@ -36,11 +36,12 @@ class SepBrain(sb.Brain):
         return est_source
 
     def compute_objectives(self, predictions, targets):
-
+        "Given the network predictions and targets computed the PIT loss."
         loss = get_si_snr_with_pitwrapper(targets, predictions)
         return loss
 
     def fit_batch(self, batch):
+        """Fits a training batch."""
         inputs = batch.mix_sig.data.to(self.device)
         targets = torch.cat(
             [
@@ -59,6 +60,7 @@ class SepBrain(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
+        """Evaluates a batch"""
         inputs = batch.mix_sig.data.to(self.device)
         targets = torch.cat(
             [
@@ -73,15 +75,10 @@ class SepBrain(sb.Brain):
         return loss.detach()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         elif stage == sb.Stage.VALID:
-            if self.hparams.use_tensorboard:
-                self.hparams.train_logger.log_stats(
-                    {"Epoch": epoch},
-                    {"loss": -self.train_loss},
-                    {"loss": -stage_loss},
-                )
             print("Completed epoch %d" % epoch)
             print("Train SI-SNR: %.3f" % -self.train_loss)
             print("Valid SI-SNR: %.3f" % -stage_loss)
