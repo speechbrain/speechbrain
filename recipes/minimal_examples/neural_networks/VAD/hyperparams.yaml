@@ -9,7 +9,7 @@ example_length: 2
 N_epochs: 15
 lr: 0.01
 dataloader_options:
-    batch_size: 2
+    batch_size: 1
 
 # Feature parameters
 n_mfcc: 20
