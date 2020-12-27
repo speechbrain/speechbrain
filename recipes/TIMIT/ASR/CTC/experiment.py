@@ -16,6 +16,7 @@ import speechbrain as sb
 # Define training procedure
 class ASR_Brain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         # Adding optional augmentation when specified:
@@ -36,6 +37,7 @@ class ASR_Brain(sb.Brain):
         return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
         ids = batch.id
         phns, phn_lens = batch.phn_encoded
@@ -63,12 +65,14 @@ class ASR_Brain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.ctc_metrics = self.hparams.ctc_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -105,24 +109,24 @@ def data_io_prep(hparams):
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["train_annotation"],
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] is not None:
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="length")
+        train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["train_shuffle"] = False
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["valid_annotation"],
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["test_annotation"],
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
 
@@ -192,6 +196,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Trainer initialization
     asr_brain = ASR_Brain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -201,6 +206,7 @@ if __name__ == "__main__":
     )
     asr_brain.label_encoder = label_encoder
 
+    # Training/validation loop
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
@@ -208,6 +214,7 @@ if __name__ == "__main__":
         **hparams["dataloader_options"],
     )
 
+    # Test
     asr_brain.evaluate(
         test_data, min_key="PER", **hparams["dataloader_options"]
     )
