@@ -45,16 +45,16 @@ lin: !new:speechbrain.nnet.linear.Linear
     input_size: 256
     n_neurons: !ref <num_labels>
     bias: False
-        
+
 softmax: !new:speechbrain.nnet.activations.Softmax
-        apply_log: True
+    apply_log: True
 
 modules:
     model: !ref <model>
     lin: !ref <lin>
     mean_var_norm: !ref <mean_var_norm>
-    
-    
+
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 

@@ -1,4 +1,8 @@
-#!/usr/bin/python
+"""This minimal example trains a Voice Activity Detector (VAD) on a tiny dataset.
+The network is based on a LSTM with a linear transformation on the top of that.
+The system is trained with the binary cross-entropy metric.
+"""
+
 import os
 import torch
 import numpy as np
@@ -7,6 +11,7 @@ import speechbrain as sb
 
 class VADBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the binary probability."
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -16,6 +21,7 @@ class VADBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage=True):
+        "Given the network predictions and targets computed the binary CE"
         predictions, lens = predictions
 
         targets, lens = batch.target
@@ -36,9 +42,11 @@ class VADBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        "Gets called when a stage (either training, validation, test) starts."
         self.binary_metrics = sb.utils.metric_stats.BinaryMetricStats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             train_summary = self.binary_metrics.summarize(threshold=0.5)
@@ -49,7 +57,8 @@ class VADBrain(sb.Brain):
             print("Train Recall: %.2f" % train_summary["recall"])
 
 
-def data_io(data_folder, hparams):
+def data_prep(data_folder, hparams):
+    "Creates the datasets and their data processing pipelines."
 
     train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
         json_path=os.path.join(data_folder, "train.json"),
@@ -110,7 +119,7 @@ def main():
         hparams = sb.load_extended_yaml(fin)
 
     # Data IO creation
-    train_data, valid_data = data_io(data_folder, hparams)
+    train_data, valid_data = data_prep(data_folder, hparams)
 
     # Trainer initialization
     ctc_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)

@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a speaker identification system based on 
+"""This minimal example trains a speaker identification system based on
 x-vectors. The encoder is based on TDNNs. The classifier is a MLP.
 """
 

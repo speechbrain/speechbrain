@@ -1,8 +1,8 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a HMM-DNN speech recognition model given the 
-alignments over phoneme units in input. The network is MLP composed of a 
+"""This minimal example trains a HMM-DNN speech recognition model given the
+alignments over phoneme units in input. The network is MLP composed of a
 single layer. A greedy search is used on top of the output probabilities.
-Given the tiny dataset, the expected behavior is to overfit the training dataset  
+Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
 
