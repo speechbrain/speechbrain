@@ -1,11 +1,19 @@
-#!/usr/bin/python
-import os
-import speechbrain as sb
+#!/usr/bin/env/python3
+"""This minimal example trains a RNNT-based speech recognizer on a tiny dataset. 
+The encoder is based on a combination of convolutional, recurrent, and
+feed-forward networks (CRDNN) that predict phonemes.  A beamsearch is used on 
+top of the output probabilities.
+Given the tiny dataset, the expected behavior is to overfit the training dataset  
+(with a validation performance that stays high).
+"""
 import pytest
+import pathlib
+import speechbrain as sb
 
 
 class TransducerBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the output probabilities."
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.modules.compute_features(wavs)
@@ -34,6 +42,7 @@ class TransducerBrain(sb.Brain):
             return outputs, lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the CTC loss."
         phns, phn_lens = batch.phn_encoded
 
         if stage == sb.Stage.TRAIN:
@@ -51,10 +60,12 @@ class TransducerBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        "Gets called when a stage (either training, validation, test) starts."
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         if stage == sb.Stage.VALID and epoch is not None:
@@ -65,39 +76,92 @@ class TransducerBrain(sb.Brain):
             print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))
 
 
+def data_prep(data_folder, hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=data_folder / "train.json",
+        replacements={"data_root": data_folder},
+    )
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=data_folder / "dev.json",
+        replacements={"data_root": data_folder},
+    )
+    datasets = [train_data, valid_data]
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides(
+        "phn_list", "phn_encoded", "phn_encoded_bos"
+    )
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded = label_encoder.encode_sequence_torch(phn_list)
+        yield phn_encoded
+        phn_encoded_bos = label_encoder.prepend_bos_index(phn_encoded).long()
+        yield phn_encoded_bos
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+    label_encoder.insert_blank(index=hparams["blank_index"])
+    label_encoder.insert_bos_eos(
+        bos_index=hparams["bos_index"], eos_label="<bos>"
+    )
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    label_encoder.update_from_didataset(valid_data, output_key="phn_list")
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "sig", "phn_encoded", "phn_encoded_bos"]
+    )
+    return train_data, valid_data, label_encoder
+
+
 def main():
     pytest.importorskip("numba")
-    experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    experiment_dir = pathlib.Path(__file__).resolve().parent
+    hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
-    data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
+    data_folder = (experiment_dir / data_folder).resolve()
+
+    # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = sb.load_extended_yaml(fin)
 
-    # Update label encoder:
-    label_encoder = hparams["label_encoder"]
-    label_encoder.update_from_didataset(
-        hparams["train_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.update_from_didataset(
-        hparams["valid_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.insert_bos_eos(bos_index=hparams["blank_id"])
+    # Dataset creation
+    train_data, valid_data, label_encoder = data_prep(data_folder, hparams)
 
-    transducer_brain = TransducerBrain(
-        modules=hparams["modules"],
-        opt_class=hparams["opt_class"],
-        hparams=hparams,
+    # Trainer initialization
+    trasducer_brain = TransducerBrain(
+        hparams["modules"], hparams["opt_class"], hparams
     )
-    transducer_brain.fit(
+
+    # Training/validation loop
+    trasducer_brain.fit(
         range(hparams["N_epochs"]),
-        hparams["train_data"],
-        hparams["valid_data"],
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
     )
-    transducer_brain.evaluate(hparams["valid_data"])
+    # Evaluation is run separately (now just evaluating on valid data)
+    trasducer_brain.evaluate(valid_data)
 
-    # Integration test: check that the model overfits the training data
-    assert transducer_brain.train_loss <= 1.0
+    # Check that model overfits for integration test
+    assert trasducer_brain.train_loss < 1.0
 
 
 if __name__ == "__main__":

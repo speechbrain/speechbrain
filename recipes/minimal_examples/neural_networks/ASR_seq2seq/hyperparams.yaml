@@ -1,18 +1,16 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-# NOTE: Seed does not guarantee replicability with CTC
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-
-# Data files
-data_folder: !PLACEHOLDER
-
-# Neural Parameters
-N_epochs: 10
-batch_size: 1
+    
+# Training Parameters
+N_epochs: 10    
 lr: 0.002
+dataloader_options:
+    batch_size: 1
+    
 # token infomation
-eos_bos_index: 1
-blank_index: 0
+bos_index: 0 # eos_index = bos_index + 1
+num_labels: 45
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -25,44 +23,6 @@ rnn_neurons: 128
 rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
-
-label_encoder: !new:speechbrain.data_io.encoder.CTCTextEncoder
-
-common_dynamic_items:
-    phn_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [phn]
-    phn_encoded:
-        func: !ref <label_encoder.encode_sequence>
-        argkeys: [phn_list]
-    phn_encoded_eos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.append_eos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
-    phn_encoded_bos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.prepend_bos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
-    sig:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [wav]
-common_output_keys: ["id", "sig", "phn_encoded_eos", "phn_encoded_bos"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/train.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/dev.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -85,11 +45,11 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 45  # 44 phonemes + 1 eos_bos
+    n_neurons: !ref <num_labels>
     bias: False
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 45  # 45 phonemes + 1 bos
+    num_embeddings: !ref <num_labels>
     embedding_dim: 128
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
@@ -118,9 +78,9 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <eos_bos_index>
-    eos_index: !ref <eos_bos_index>
-    blank_index: !ref <blank_index>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <bos_index> + 1
+    blank_index: !ref <bos_index>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 

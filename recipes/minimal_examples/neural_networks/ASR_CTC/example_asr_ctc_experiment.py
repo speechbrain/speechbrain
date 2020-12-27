@@ -1,8 +1,10 @@
 #!/usr/bin/env/python3
 """This minimal example trains a CTC-based speech recognizer on a tiny dataset. 
-The basic tokens are phonemes, while the decoder is based on a simple greedy search.  
-Given the tiny dataset, the expected behavior is to overfit the training dataset 
-with a validation performance that stays high.
+The encoder is based on a combination of convolutional, recurrent, and
+feed-forward networks (CRDNN) that predict phonemes.  A greedy search is used on 
+top of the output probabilities.
+Given the tiny dataset, the expected behavior is to overfit the training dataset  
+(with a validation performance that stays high).
 """
 
 import pathlib
@@ -22,7 +24,7 @@ class CTCBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the loss."
+        "Given the network predictions and targets computed the CTC loss."
         predictions, lens = predictions
         phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
@@ -91,14 +93,14 @@ def data_prep(data_folder, hparams):
 
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
-    label_encoder.insert_blank(hparams["blank_index"])
+    label_encoder.insert_blank(index=hparams["blank_index"])
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
     label_encoder.update_from_didataset(valid_data, output_key="phn_list")
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
 
-    return train_data, valid_data, label_encoder
+    return train_data, valid_data
 
 
 def main():
@@ -112,7 +114,7 @@ def main():
         hparams = sb.load_extended_yaml(fin)
 
     # Dataset creation
-    train_data, valid_data, label_encoder = data_prep(data_folder, hparams)
+    train_data, valid_data = data_prep(data_folder, hparams)
 
     # Trainer initialization
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
