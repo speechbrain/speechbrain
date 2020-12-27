@@ -1,58 +1,52 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a HMM-DNN speech recognition model given the
-alignments over phoneme units in input. The network is MLP composed of a
-single layer. A greedy search is used on top of the output probabilities.
-Given the tiny dataset, the expected behavior is to overfit the training dataset
-(with a validation performance that stays high).
+"""This minimal example trains a speaker identification system based on
+x-vectors. The encoder is based on TDNNs. The classifier is a MLP.
 """
 
 import pathlib
 import speechbrain as sb
 
 
-class ASRBrain(sb.Brain):
+# Trains xvector model
+class XvectorBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the output probabilities."
+        "Given an input batch it computes the speaker probabilities."
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
-
-        x = self.modules.linear1(feats)
-        x = self.hparams.activation(x)
-        x = self.modules.linear2(x)
-        outputs = self.hparams.softmax(x)
+        x_vect = self.modules.xvector_model(feats)
+        outputs = self.modules.classifier(x_vect)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the NLL loss."
-        outputs, lens = predictions
-        ids = batch.id
-        ali, ali_lens = batch.alignments
-        loss = self.hparams.compute_cost(outputs, ali, lens)
+        "Given the network predictions and targets computed the CE loss."
+        predictions, lens = predictions
+        spkid, spkid_lens = batch.spk_id_encoded
+        loss = self.hparams.compute_cost(predictions, spkid, lens)
 
         if stage != sb.Stage.TRAIN:
-            self.err_metrics.append(ids, outputs, ali, lens)
+            self.error_metrics.append(batch.id, predictions, spkid, lens)
 
         return loss
 
     def on_stage_start(self, stage, epoch=None):
         "Gets called when a stage (either training, validation, test) starts."
         if stage != sb.Stage.TRAIN:
-            self.err_metrics = self.hparams.error_stats()
+            self.error_metrics = self.hparams.error_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-
-        if stage == sb.Stage.VALID and epoch is not None:
+        if stage == sb.Stage.VALID:
             print("Epoch %d complete" % epoch)
             print("Train loss: %.2f" % self.train_loss)
-
         if stage != sb.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
-            print(stage, "error: %.2f" % self.err_metrics.summarize("average"))
+            print(
+                stage, "error: %.2f" % self.error_metrics.summarize("average")
+            )
 
 
 def data_prep(data_folder, hparams):
@@ -68,6 +62,7 @@ def data_prep(data_folder, hparams):
         replacements={"data_root": data_folder},
     )
     datasets = [train_data, valid_data]
+    label_encoder = sb.data_io.encoder.CategoricalEncoder()
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -79,17 +74,24 @@ def data_prep(data_folder, hparams):
     sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("ali")
-    @sb.utils.data_pipeline.provides("alignments")
-    def alignment_pipeline(ali):
-        alignments = sb.data_io.data_io.load_pickle(ali)
-        alignments = sb.data_io.data_io.to_longTensor(alignments)
-        return alignments
+    @sb.utils.data_pipeline.takes("spk_id")
+    @sb.utils.data_pipeline.provides("spk_id", "spk_id_encoded")
+    def label_pipeline(spk_id):
+        yield spk_id
+        spk_id_encoded = label_encoder.encode_sequence_torch([spk_id])
+        yield spk_id_encoded
 
-    sb.data_io.dataset.add_dynamic_item(datasets, alignment_pipeline)
+    sb.data_io.dataset.add_dynamic_item(datasets, label_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+    label_encoder.update_from_didataset(train_data, output_key="spk_id")
+    label_encoder.update_from_didataset(valid_data, output_key="spk_id")
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "alignments"])
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "sig", "spk_id_encoded"]
+    )
 
     return train_data, valid_data
 
@@ -108,20 +110,22 @@ def main():
     train_data, valid_data = data_prep(data_folder, hparams)
 
     # Trainer initialization
-    asr_brain = ASRBrain(hparams["modules"], hparams["opt_class"], hparams)
+    xvect_brain = XvectorBrain(
+        hparams["modules"], hparams["opt_class"], hparams
+    )
 
     # Training/validation loop
-    asr_brain.fit(
+    xvect_brain.fit(
         range(hparams["N_epochs"]),
         train_data,
         valid_data,
         **hparams["dataloader_options"],
     )
     # Evaluation is run separately (now just evaluating on valid data)
-    asr_brain.evaluate(valid_data)
+    xvect_brain.evaluate(valid_data)
 
     # Check if model overfits for integration test
-    assert asr_brain.train_loss < 0.2
+    assert xvect_brain.train_loss < 0.2
 
 
 if __name__ == "__main__":

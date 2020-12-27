@@ -1,23 +1,32 @@
-#!/usr/bin/env python3
-import os
+#!/usr/bin/env/python3
+
+"""This minimal example trains a character-level language model that predicts
+the next characters given the previous ones. The system uses a standard
+attention-based encoder-decoder pipeline. The encoder is based on a simple LSTM.
+Given the tiny dataset, the expected behavior is to overfit the training dataset
+(with a validation performance that stays high).
+"""
 import math
+import pathlib
 import speechbrain as sb
 
 
 class LMBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        phns, phn_lens = batch.phn_encoded_bos
-        logits = self.modules.model(phns)
+        "Given an input chars it computes the next-char probability."
+        chars, char_lens = batch.char_encoded_bos
+        logits = self.modules.model(chars)
         pout = self.hparams.log_softmax(logits)
         return pout
 
     def compute_objectives(self, predictions, batch, stage):
-        phns, phn_lens = batch.phn_encoded_eos
-        loss = self.hparams.compute_cost(predictions, phns, length=phn_lens)
-
+        "Given the network predictions and targets computed the NLL loss."
+        chars, char_lens = batch.char_encoded_eos
+        loss = self.hparams.compute_cost(predictions, chars, length=char_lens)
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        "Gets called when a stage (either training, validation, test) starts."
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         if stage == sb.Stage.VALID:
@@ -29,33 +38,77 @@ class LMBrain(sb.Brain):
             print(stage, "perplexity: %.2f" % perplexity)
 
 
+def data_prep(data_folder, hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=data_folder / "train.json",
+        replacements={"data_root": data_folder},
+    )
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=data_folder / "dev.json",
+        replacements={"data_root": data_folder},
+    )
+    datasets = [train_data, valid_data]
+    char_encoder = sb.data_io.encoder.TextEncoder()
+
+    # 2. Define char pipeline:
+    @sb.utils.data_pipeline.takes("char")
+    @sb.utils.data_pipeline.provides(
+        "char_list", "char_encoded_bos", "char_encoded_eos"
+    )
+    def char_pipeline(char):
+        char_list = char.strip().split()
+        yield char_list
+        char_encoded = char_encoder.encode_sequence_torch(char_list)
+        char_encoded_bos = char_encoder.prepend_bos_index(char_encoded).long()
+        yield char_encoded_bos
+        char_encoded_eos = char_encoder.append_eos_index(char_encoded).long()
+        yield char_encoded_eos
+
+    sb.data_io.dataset.add_dynamic_item(datasets, char_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+    char_encoder.insert_bos_eos(bos_index=hparams["bos_index"])
+    char_encoder.update_from_didataset(train_data, output_key="char_list")
+    char_encoder.update_from_didataset(valid_data, output_key="char_list")
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "char_encoded_bos", "char_encoded_eos"]
+    )
+    return train_data, valid_data
+
+
 def main():
-    experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    experiment_dir = pathlib.Path(__file__).resolve().parent
+    hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
-    data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
+    data_folder = (experiment_dir / data_folder).resolve()
+
+    # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = sb.load_extended_yaml(fin)
 
-    # Update label encoder:
-    label_encoder = hparams["label_encoder"]
-    label_encoder.update_from_didataset(
-        hparams["train_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.update_from_didataset(
-        hparams["valid_data"], output_key="phn_list", sequence_input=True
-    )
-    label_encoder.insert_bos_eos(bos_index=hparams["eos_bos_index"])
+    # Dataset creation
+    train_data, valid_data = data_prep(data_folder, hparams)
 
+    # Trainer initialization
     lm_brain = LMBrain(hparams["modules"], hparams["opt_class"], hparams)
-    lm_brain.fit(
-        lm_brain.hparams.epoch_counter,
-        hparams["train_data"],
-        hparams["valid_data"],
-    )
-    lm_brain.evaluate(hparams["valid_data"])
 
-    # Check that model overfits for an integration test
+    # Training/validation loop
+    lm_brain.fit(
+        range(hparams["N_epochs"]),
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
+    )
+    # Evaluation is run separately (now just evaluating on valid data)
+    lm_brain.evaluate(valid_data)
+
+    # Check that model overfits for integration test
     assert lm_brain.train_loss < 0.15
 
 

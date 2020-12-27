@@ -129,10 +129,14 @@ def test_categorical_encoder_from_dataset():
         "utt3": {"foo": 3, "bar": 4, "text": "where are you world"},
         "utt4": {"foo": 5, "bar": 6, "text": "hello nation"},
     }
-    dynamic_items = {
-        "words": {"func": lambda x: x.split(), "argkeys": ["text"]},
-        "words_t": {"func": encoder.encode_sequence, "argkeys": ["words"]},
-    }
+    dynamic_items = [
+        {"func": lambda x: x.split(), "takes": ["text"], "provides": "words"},
+        {
+            "func": encoder.encode_sequence,
+            "takes": ["words"],
+            "provides": "words_t",
+        },
+    ]
     output_keys = ["words_t"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
     encoder.update_from_didataset(dataset, "words", sequence_input=True)
@@ -157,14 +161,14 @@ def test_text_encoder(tmpdir):
     encoded = encoder.append_eos_index(
         encoder.encode_sequence(["are", "you", "world"])
     )
-    assert encoded[-1] == 0  # By default uses just one sentence_boundary marker
+    assert encoded[-1] == 1  # By default uses just one sentence_boundary marker
     encoder.save(encoding_file)
     encoder = TextEncoder()
     assert encoder.load_if_possible(encoding_file)
     encoded = encoder.encode_sequence(
         encoder.append_eos_label(["are", "you", "world"])
     )
-    assert encoded[-1] == 0
+    assert encoded[-1] == 1
     encoded = encoder.prepend_bos_index(
         encoder.encode_sequence(["are", "you", "world"])
     )

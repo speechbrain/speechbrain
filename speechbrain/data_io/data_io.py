@@ -128,6 +128,7 @@ def load_data_csv(csv_path, replacements={}):
     '/home/utt1.wav'
 
     """
+
     with open(csv_path, newline="") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
@@ -148,7 +149,7 @@ def load_data_csv(csv_path, replacements={}):
             for key, value in row.items():
                 try:
                     row[key] = variable_finder.sub(
-                        lambda match: replacements[match[1]], value
+                        lambda match: str(replacements[match[1]]), value
                     )
                 except KeyError:
                     raise KeyError(

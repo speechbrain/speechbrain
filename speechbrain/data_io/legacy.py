@@ -59,13 +59,12 @@ class ExtendedCSVDataset(DynamicItemDataset):
         Minimum duration in seconds. Discards other entries.
     max_duration : float, int
         Maximum duration in seconds. Discards other entries.
-    dynamic_items : dict
+    dynamic_items : list
         Configuration for extra dynamic items produced when fetching an
-        example. Nested dict with the format (in YAML notation):
-        <key>:
+        example. List of DynamicItems or dicts with keys:
             func: <callable> # To be called
-            argkeys: <list> # keys of args, either other funcs or in data
-        <key2>: ...
+            takes: <list> # key or list of keys of args this takes
+            provides: key # key or list of keys that this provides
         NOTE: A dynamic item is automatically added for each CSV data-triplet
     output_keys : list, None
         The list of output keys to produce. You can refer to names of the
@@ -81,8 +80,8 @@ class ExtendedCSVDataset(DynamicItemDataset):
         sorting="original",
         min_duration=0,
         max_duration=36000,
-        dynamic_items=None,
-        output_keys=None,
+        dynamic_items=[],
+        output_keys=[],
     ):
         if sorting not in ["original", "ascending", "descending"]:
             clsname = self.__class__.__name__
@@ -92,8 +91,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
             csvpath, replacements
         )
         super().__init__(data, dynamic_items, output_keys)
-        for key, func, argname in di_to_add:
-            self.add_dynamic_item(key, func, argname)
+        self.pipeline.add_dynamic_items(di_to_add)
         # Handle filtering, sorting:
         reverse = False
         sort_key = None
@@ -109,7 +107,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
         )
         self.data_ids = filtered_sorted_ids
         # Handle None output_keys (differently than Base)
-        if output_keys is None:
+        if not output_keys:
             self.set_output_keys(data_names)
 
 
@@ -198,9 +196,14 @@ def load_sb_extended_csv(csv_path, replacements={}):
             result[data_id] = data_point
         # Make a DynamicItem for each CSV entry
         # _read_csv_item delegates reading to further
-        dynamic_items_to_add = [
-            (name, _read_csv_item, name + ITEM_POSTFIX) for name in names
-        ]
+        dynamic_items_to_add = []
+        for name in names:
+            di = {
+                "func": _read_csv_item,
+                "takes": name + ITEM_POSTFIX,
+                "provides": name,
+            }
+            dynamic_items_to_add.append(di)
         return result, dynamic_items_to_add, names
 
 
