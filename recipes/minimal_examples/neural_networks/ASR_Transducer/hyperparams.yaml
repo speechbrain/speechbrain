@@ -7,15 +7,15 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Training params
 device: 'cuda:0'
 N_epochs: 15
-lr: 0.002
+lr: 1.0
 dataloader_options:
     batch_size: 1
-    
+
 # Special tokens and labels
 blank_index: 0
 bos_index: 1
 num_labels: 45
-       
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
 dropout: 0.15
