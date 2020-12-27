@@ -109,24 +109,24 @@ def data_io_prep(hparams):
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["train_annotation"],
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] is not None:
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="length")
+        train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["train_shuffle"] = False
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["valid_annotation"],
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["test_annotation"],
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
 
