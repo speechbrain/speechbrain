@@ -57,7 +57,7 @@ class ASR_Brain(sb.Brain):
                 phns,
                 None,
                 phn_lens,
-                self.hparams.label_encoder.decode_ndim,
+                self.label_encoder.decode_ndim,
             )
 
         return loss
@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
-    hparams["label_encoder"] = label_encoder
+    # hparams["label_encoder"] = label_encoder
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.ddp_init_group(run_opts)
@@ -199,6 +199,7 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+    asr_brain.label_encoder = label_encoder
 
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
