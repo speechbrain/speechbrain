@@ -67,16 +67,16 @@ class DynamicItemDataset(Dataset):
 
     The dynamic_items configuration could look like this:
     >>> import torch
-    >>> dynamic_items = {
-    ...  "wav": {
-    ...      "func": lambda l: torch.Tensor(l),
-    ...      "argkeys": ["wav_loaded"] },
-    ...  "wav_loaded": {
-    ...      "func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
-    ...      "argkeys": ["wav_file"] },
-    ...  "words": {
-    ...      "func": lambda t: t.split(),
-    ...      "argkeys": ["text"] }, }
+    >>> dynamic_items = [
+    ...     {"func": lambda l: torch.Tensor(l),
+    ...     "takes": ["wav_loaded"],
+    ...     "provides": "wav"},
+    ...     {"func": lambda path: [ord(c)/100 for c in path],  # Fake "loading"
+    ...     "takes": ["wav_file"],
+    ...     "provides": "wav_loaded"},
+    ...     {"func": lambda t: t.split(),
+    ...     "takes": ["text"],
+    ...     "provides": "words"}]
 
     With these, different views of the data can be loaded:
     >>> from speechbrain.data_io.dataloader import SaveableDataLoader
@@ -96,10 +96,10 @@ class DynamicItemDataset(Dataset):
     ...                 next_id += 1
     >>> # Next, add an encoded words_tensor dynamic item:
     >>> dataset.add_dynamic_item(
-    ...     key = "words_encoded",
     ...     func = lambda ws: torch.tensor([encoding[w] for w in ws],
     ...             dtype=torch.long),
-    ...     argkeys = ["words"])
+    ...     takes = ["words"],
+    ...     provides = "words_encoded")
     >>> # Now we can get word and audio tensors:
     >>> dataset.set_output_keys(["id", "wav", "words_encoded"])
     >>> batch = next(iter(dataloader))
@@ -122,13 +122,12 @@ class DynamicItemDataset(Dataset):
     ---------
     data : dict
         Dictionary containing single data points (e.g. utterances).
-    dynamic_items : dict, optional
+    dynamic_items : list, optional
         Configuration for the dynamic items produced when fetchin an example.
-        Nested dict with the format (in YAML notation):
-        <key>:
+        List of DynamicItems or dicts with the format
             func: <callable> # To be called
-            argkeys: <list> # keys of args, either other funcs or in data
-        <key2>: ...
+            takes: <list> # key or list of keys of args this takes
+            provides: key # key or list of keys that this provides
     output_keys : dict, list, optional
         List of keys (either directly available in data or dynamic items)
         to include in the output dict when data points are fetched.
@@ -139,14 +138,16 @@ class DynamicItemDataset(Dataset):
     """
 
     def __init__(
-        self, data, dynamic_items=None, output_keys=None,
+        self, data, dynamic_items=[], output_keys=[],
     ):
         self.data = data
         self.data_ids = list(self.data.keys())
         static_keys = list(self.data[self.data_ids[0]].keys())
         if "id" in static_keys:
             raise ValueError("The key 'id' is reserved for the data point id.")
-        self.pipeline = DataPipeline.from_configuration(dynamic_items)
+        else:
+            static_keys.append("id")
+        self.pipeline = DataPipeline(static_keys, dynamic_items)
         self.set_output_keys(output_keys)
 
     def __len__(self):
@@ -158,23 +159,33 @@ class DynamicItemDataset(Dataset):
         data_point["id"] = data_id
         return self.pipeline.compute_outputs(data_point)
 
-    def add_dynamic_item(self, key, func, argkeys):
+    def add_dynamic_item(self, func, takes=None, provides=None):
         """Makes a new dynamic item available on the dataset.
+
+        Two calling conventions. For DynamicItem objects, just use:
+        add_dynamic_item(dynamic_item)
+        But otherwise, should use:
+        add_dynamic_item(func, takes, provides)
+
+        See `speechbrain.utils.data_pipeline`
 
         Arguments
         ---------
-        key : str
-            Unique key
-        func : callable
-            To be called
-        argkeys : list, str
+        func : callable, DynamicItem
+            If a DynamicItem is given, adds that directly. Otherwise a
+            DynamicItem is created, and this specifies the callable to use. If
+            a generator function is given, then create a GeneratorDynamicItem.
+            Otherwise creates a normal DynamicItem.
+        takes : list, str
             List of keys. When func is called, each key is resolved to
             either an entry in the data or the output of another dynamic_item.
             The func is then called with these as positional arguments,
             in the same order as specified here.
             A single arg can be given directly.
+        provides : str
+            Unique key or keys that this provides.
         """
-        self.pipeline.add_dynamic_item(key, func, argkeys)
+        self.pipeline.add_dynamic_item(func, takes, provides)
 
     def set_output_keys(self, keys):
         """Use this to change the output keys
@@ -334,7 +345,7 @@ class DynamicItemDataset(Dataset):
 
     @classmethod
     def from_json(
-        cls, json_path, replacements={}, dynamic_items=None, output_keys=None
+        cls, json_path, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Load a data prep JSON file and create a Dataset based on it."""
         data = load_data_json(json_path, replacements)
@@ -342,7 +353,7 @@ class DynamicItemDataset(Dataset):
 
     @classmethod
     def from_csv(
-        cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
+        cls, csv_path, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Load a data prep CSV file and create a Dataset based on it."""
         data = load_data_csv(csv_path, replacements)
@@ -372,3 +383,15 @@ class FilteredSortedDynamicItemDataset(DynamicItemDataset):
         cls, csv_path, replacements={}, dynamic_items=None, output_keys=None
     ):
         raise TypeError("Cannot create SubsetDynamicItemDataset directly!")
+
+
+def add_dynamic_item(datasets, func, takes=None, provides=None):
+    """Helper for adding the same item to multiple datasets."""
+    for dataset in datasets:
+        dataset.add_dynamic_item(func, takes, provides)
+
+
+def set_output_keys(datasets, output_keys):
+    """Helper for setting the same item to multiple datasets."""
+    for dataset in datasets:
+        dataset.set_output_keys(output_keys)

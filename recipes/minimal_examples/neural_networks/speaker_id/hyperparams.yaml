@@ -2,17 +2,11 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data (csv) files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Training hyperparameters
-number_of_epochs: 10
-batch_size: 6
-lr: 0.002
-device: 'cpu'
+# Training params
+N_epochs: 10
+lr: 0.001
+dataloader_options:
+    batch_size: 8
 
 # Feature parameters
 n_mels: 24
@@ -21,28 +15,7 @@ right_frames: 0
 deltas: False
 
 # Number of speakers
-out_n_neurons: 2
-
-train_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
-    csvpath: !ref <csv_train>
-    output_keys: [wav, spk_id]
-    sorting: ascending
-    replacements:
-        data_folder: !ref <data_folder>
-
-valid_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
-    csvpath: !ref <csv_valid>
-    output_keys: [wav, spk_id]
-    sorting: ascending
-    replacements:
-        data_folder: !ref <data_folder>
-
-label_encoder: !new:speechbrain.data_io.encoder.CategoricalEncoder
-
-loader_kwargs:
-    batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
-        padded_keys: ["wav"]
+num_spks: 2
 
 
 compute_features: !new:speechbrain.lobes.features.Fbank
@@ -65,7 +38,7 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
     activation: !name:torch.nn.LeakyReLU
     lin_blocks: 1
     lin_neurons: 512
-    out_neurons: !ref <out_n_neurons>
+    out_neurons: !ref <num_spks>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global

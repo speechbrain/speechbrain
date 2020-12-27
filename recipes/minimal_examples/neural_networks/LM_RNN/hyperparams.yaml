@@ -2,16 +2,15 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Training parameters
-number_of_epochs: 30
-batch_size: 8
+# Training Parameters
+N_epochs: 30
 lr: 0.01
+dataloader_options:
+    batch_size: 8
+
+# token infomation
+bos_index: 0 # eos_index = bos_index + 1
+num_chars: 26 # 24 chars + 1 bos + 1 eos
 
 # Model parameters
 rnn_layers: 1
@@ -19,47 +18,8 @@ rnn_neurons: 256
 emb_size: 128
 dropout: 0.0
 
-# Outputs
-output_neurons: 44
-eos_bos_index: !ref <output_neurons> - 1
-
-label_encoder: !new:speechbrain.data_io.encoder.TextEncoder
-
-common_dynamic_items:
-    phn_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [phn]
-    phn_encoded:
-        func: !ref <label_encoder.encode_sequence>
-        argkeys: [phn_list]
-    phn_encoded_eos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.append_eos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
-    phn_encoded_bos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.prepend_bos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
-common_output_keys: ["id", "phn_encoded_eos", "phn_encoded_bos"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/train.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/dev.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
 model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
+    output_neurons: !ref <num_chars>
     embedding_dim: !ref <emb_size>
     rnn_neurons: !ref <rnn_neurons>
     rnn_layers: !ref <rnn_layers>
@@ -71,7 +31,7 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+    limit: !ref <N_epochs>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
