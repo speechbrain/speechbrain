@@ -1,8 +1,8 @@
 #!/usr/bin/env/python3
-"""This minimal example trains an autoencoder over speech features. The encoder 
-is a MLP that transforms the input into a lower-dimensional latent representation.  
-The decoder is another MLP that predicts the input features. The system is trained 
-with MSE. Given the tiny dataset, the expected behavior is to overfit the 
+"""This minimal example trains an autoencoder over speech features. The encoder
+is a MLP that transforms the input into a lower-dimensional latent representation.
+The decoder is another MLP that predicts the input features. The system is trained
+with MSE. Given the tiny dataset, the expected behavior is to overfit the
 training data  (with a validation performance that stays high).
 """
 

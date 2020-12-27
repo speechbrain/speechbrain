@@ -1,8 +1,8 @@
 #!/usr/bin/env/python3
 
-"""This minimal example trains a character-level language model that predicts 
-the next characters given the previous ones. The system uses a standard 
-attention-based encoder-decoder pipeline. The encoder is based on a simple LSTM. 
+"""This minimal example trains a character-level language model that predicts
+the next characters given the previous ones. The system uses a standard
+attention-based encoder-decoder pipeline. The encoder is based on a simple LSTM.
 Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
