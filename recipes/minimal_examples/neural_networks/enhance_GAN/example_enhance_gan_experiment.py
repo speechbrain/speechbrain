@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a GAN speech enhancement system on a tiny dataset. 
+"""This minimal example trains a GAN speech enhancement system on a tiny dataset.
 The generator and the discriminator are based on convolutional networks.
 """
 
