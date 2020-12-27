@@ -22,7 +22,7 @@ test_annotation: !ref <data_folder>/test.csv
 number_of_epochs: 50
 batch_size: 8
 lr: 1.0
-sorting: True # if None do not sort
+sorting: ascending # choose between ascending, descending and random
 
 # Feature parameters
 sample_rate: 16000
