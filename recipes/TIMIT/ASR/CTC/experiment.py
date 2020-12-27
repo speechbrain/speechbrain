@@ -114,11 +114,26 @@ def data_io_prep(hparams):
         replacements={"data_root": data_folder},
     )
 
-    if hparams["sorting"] is not None:
+    if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["train_shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["train_shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
