@@ -7,7 +7,7 @@ import speechbrain as sb
 
 class VADBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        wavs, lens = batch.wav
+        wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x, _ = self.modules.rnn(feats)
@@ -49,48 +49,84 @@ class VADBrain(sb.Brain):
             print("Train Recall: %.2f" % train_summary["recall"])
 
 
-def parsing_func(hparams, item):
-    string = item.data
-    boundaries = string.split(" ")
-    # we group by two
-    # 0.01 is 10 ms hop size ...
-    # IS THERE AN EASY WAY to pass to mfcc the step size ?
-    boundaries = [int(float(x) / 0.01) for x in boundaries]
-    boundaries = list(zip(boundaries[::2], boundaries[1::2]))
+def data_io(data_folder, hparams):
 
-    gt = torch.zeros(int(np.ceil(hparams["example_length"] * (1 / 0.01))))
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=os.path.join(data_folder, "train.json"),
+        replacements={"data_folder": data_folder},
+    )
 
-    for indxs in boundaries:
-        start, stop = indxs
-        gt[start:stop] = 1
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+        json_path=os.path.join(data_folder, "valid.json"),
+        replacements={"data_folder": data_folder},
+    )
 
-    return gt
+    datasets = [train_data, valid_data]
+
+    # 1. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    # 2. vad targets creation from annotated speech boundaries
+    @sb.utils.data_pipeline.takes("speech")
+    @sb.utils.data_pipeline.provides("target")
+    def vad_targets(string, hparams=hparams):
+        if len(string) > 0:
+            boundaries = string.split(" ")
+            # we group by two
+            # 0.01 is 10 ms hop size ...
+            boundaries = [int(float(x) / 0.01) for x in boundaries]
+            boundaries = list(zip(boundaries[::2], boundaries[1::2]))
+        else:
+            boundaries = []
+
+        gt = torch.zeros(int(np.ceil(hparams["example_length"] * (1 / 0.01))))
+
+        for indxs in boundaries:
+            start, stop = indxs
+            gt[start:stop] = 1
+
+        return gt
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.data_io.dataset.add_dynamic_item(datasets, vad_targets)
+
+    # 3. Set output:
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "target"])
+
+    return train_data, valid_data
 
 
 def main():
+
     experiment_dir = os.path.dirname(os.path.abspath(__file__))
     hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
-    data_folder = "../../../../../samples/vad"
+    data_folder = "../../../../../samples/audio_samples/vad"
     data_folder = os.path.abspath(experiment_dir + data_folder)
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = sb.load_extended_yaml(fin)
 
-    train_set = sb.data_io.legacy.ExtendedCSVDataset(
-        csvpath=hparams["csv_train"],
-        replacements={"data_folder": hparams["data_folder"]},
-        dynamic_items={
-            "target": {
-                "func": lambda x: parsing_func(hparams, x),
-                "argkeys": ["speech_data"],
-            }
-        },
-        output_keys=["id", "wav", "target"],
+    # Data IO creation
+    train_data, valid_data = data_io(data_folder, hparams)
+
+    # Trainer initialization
+    ctc_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
+
+    # Training/validation loop
+    ctc_brain.fit(
+        range(hparams["N_epochs"]),
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
     )
+    # Evaluation is run separately (now just evaluating on valid data)
+    ctc_brain.evaluate(valid_data)
 
-    vad_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
-    vad_brain.fit(range(hparams["N_epochs"]), train_set)
-
-    assert vad_brain.train_loss < 0.01
+    # Check if model overfits for integration test
+    assert ctc_brain.train_loss < 1.0
 
 
 if __name__ == "__main__":
