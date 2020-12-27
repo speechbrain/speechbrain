@@ -14,43 +14,13 @@ tensorboard_logs: runs/minimal_example
 output_folder: !ref results/conv_tasnet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-data_folder: !PLACEHOLDER
-csv_tr: !ref <data_folder>/minimal_example_convtasnet_tr.csv
-csv_cv: !ref <data_folder>/minimal_example_convtasnet_cv.csv
-csv_tt: !ref <data_folder>/minimal_example_convtasnet_tt.csv
 
-# Neural Parameters
+# Training params
 N_epochs: 150
-N_batch: 1
 lr: 0.002
-progressbar: True
-loss_fn: 'sisnr'
-train_onthefly: False
-common_dynamic_items:
-    mix_sig:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [mix_wav]
-    source1:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [s1_wav]
-    source2:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [s2_wav]
-common_output_keys: ["id", "mix_sig", "source1", "source2"]
+dataloader_options:
+    batch_size: 1
 
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/minimal_example_convtasnet_tr.csv
-    replacements:
-        data_folder: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/minimal_example_convtasnet_cv.csv
-    replacements:
-        data_folder: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
 
 mask_net: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     N: 32
