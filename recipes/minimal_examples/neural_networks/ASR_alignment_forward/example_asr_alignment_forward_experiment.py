@@ -1,8 +1,8 @@
 #!/usr/bin/env/python3
-"""This minimal example trains an HMM-based aligner with the forward algorithm. 
+"""This minimal example trains an HMM-based aligner with the forward algorithm.
 The encoder is based on a combination of convolutional, recurrent, and
-feed-forward networks (CRDNN) that predict phoneme states. 
-Given the tiny dataset, the expected behavior is to overfit the training data  
+feed-forward networks (CRDNN) that predict phoneme states.
+Given the tiny dataset, the expected behavior is to overfit the training data
 (with a validation performance that stays high).
 """
 

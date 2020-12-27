@@ -1,13 +1,13 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-    
+
 # Training Parameters
-N_epochs: 10    
+N_epochs: 10
 lr: 0.002
 dataloader_options:
     batch_size: 1
-    
+
 # token infomation
 bos_index: 0 # eos_index = bos_index + 1
 num_labels: 45

@@ -8,7 +8,7 @@ N_epochs: 5
 lr: 0.004
 dataloader_options:
     batch_size: 2
-    
+
 models: !include:models.yaml
 
 add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise

@@ -8,12 +8,12 @@ N_epochs: 15
 lr: 0.002
 dataloader_options:
     batch_size: 1
-    
+
 # Special tokens and labels
 blank_index: 0
 num_labels: 44
-    
-     
+
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
 dropout: 0.15

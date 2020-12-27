@@ -7,7 +7,7 @@ N_epochs: 15
 lr: 0.002
 dataloader_options:
     batch_size: 1
-    
+
 # Model parameters
 compute_features: !new:speechbrain.lobes.features.MFCC
 

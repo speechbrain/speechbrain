@@ -1,10 +1,10 @@
 #!/usr/bin/env/python3
 """This minimal example trains a graphene-to-phoneme (G2P) converter
-that turns a sequence of characters into a sequence of phonemes. The system uses 
+that turns a sequence of characters into a sequence of phonemes. The system uses
 a standard attention-based encoder-decoder pipeline. The encoder is based on an
- LSTM, while the decoder is based on a GRU. Greedy search applied on the top of 
-the output probabilities to detect the final sequence of phonemes. Given the 
-tiny dataset, the expected behavior is to overfit the training dataset 
+ LSTM, while the decoder is based on a GRU. Greedy search applied on the top of
+the output probabilities to detect the final sequence of phonemes. Given the
+tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
 import pathlib
