@@ -21,7 +21,6 @@ lr: 0.002
 dataloader_options:
     batch_size: 1
 
-
 mask_net: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     N: 32
     B: 32

@@ -36,11 +36,9 @@ class SepBrain(sb.Brain):
         return est_source
 
     def compute_objectives(self, predictions, targets):
-        if self.hparams.loss_fn == "sisnr":
-            loss = get_si_snr_with_pitwrapper(targets, predictions)
-            return loss
-        else:
-            raise ValueError("Not Correct Loss Function Type")
+
+        loss = get_si_snr_with_pitwrapper(targets, predictions)
+        return loss
 
     def fit_batch(self, batch):
         inputs = batch.mix_sig.data.to(self.device)
@@ -120,7 +118,7 @@ def data_prep(data_folder, hparams):
 
     # 3. Set output:
     sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "mix_wav", "source1", "source2"]
+        datasets, ["id", "mix_sig", "source1", "source2"]
     )
 
     return train_data, valid_data
