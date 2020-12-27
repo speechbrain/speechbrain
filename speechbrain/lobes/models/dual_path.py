@@ -801,7 +801,7 @@ class Dual_Computation_Block(nn.Module):
         if linear_layer_after_inter_intra:
             if isinstance(intra_mdl, SBRNNBlock):
                 self.intra_linear = Linear(
-                    out_channels, input_size=2 * out_channels
+                    out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
                 )
             else:
                 self.intra_linear = Linear(
@@ -810,7 +810,7 @@ class Dual_Computation_Block(nn.Module):
 
             if isinstance(inter_mdl, SBRNNBlock):
                 self.inter_linear = Linear(
-                    out_channels, input_size=2 * out_channels
+                    out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
                 )
             else:
                 self.inter_linear = Linear(
@@ -846,9 +846,11 @@ class Dual_Computation_Block(nn.Module):
 
         # [BS, K, N]
         if self.linear_layer_after_inter_intra:
-            intra = self.intra_linear(
-                intra.contiguous().view(B * S * K, -1)
-            ).view(B * S, K, -1)
+            # intra = self.intra_linear(
+            #    intra.contiguous().view(B * S * K, -1)
+            # ).view(B * S, K, -1)
+            intra = self.intra_linear(intra)
+
         # [B, S, K, N]
         intra = intra.view(B, S, K, N)
         # [B, N, K, S]
@@ -868,9 +870,11 @@ class Dual_Computation_Block(nn.Module):
 
         # [BK, S, N]
         if self.linear_layer_after_inter_intra:
-            inter = self.inter_linear(
-                inter.contiguous().view(B * S * K, -1)
-            ).view(B * K, S, -1)
+            # inter = self.inter_linear(
+            #    inter.contiguous().view(B * S * K, -1)
+            # ).view(B * K, S, -1)
+            inter = self.inter_linear(inter)
+
         # [B, K, S, N]
         inter = inter.view(B, K, S, N)
         # [B, N, K, S]

@@ -14,8 +14,6 @@ def test_add_noise(tmpdir):
     concat, lens = AddNoise._concat_batch(wav_a, a_len, wav_b, b_len)
     assert concat.shape == (3, 10000)
     assert lens.allclose(torch.Tensor([0.8, 1, 1]))
-    print(a_len)
-    print(b_len)
     concat, lens = AddNoise._concat_batch(wav_b, b_len, wav_a, a_len)
     assert concat.shape == (3, 10000)
     assert lens.allclose(torch.Tensor([1, 1, 0.8]))
@@ -173,11 +171,18 @@ def test_drop_chunk():
         drop_count_high=1,
         drop_start=100,
         drop_end=200,
+        noise_factor=0.0,
     )
     expected_waveform = test_waveform.clone()
     expected_waveform[:, 100:200] = 0.0
 
     assert dropper(test_waveform, lengths).allclose(expected_waveform)
+
+    # Make sure amplitude is similar before and after
+    dropper = DropChunk(noise_factor=1.0)
+    drop_amplitude = dropper(test_waveform, lengths).abs().mean()
+    orig_amplitude = test_waveform.abs().mean()
+    assert drop_amplitude.allclose(orig_amplitude, atol=1e-2)
 
 
 def test_clip():
