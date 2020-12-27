@@ -260,16 +260,15 @@ class VerificationBrain(sb.core.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"ErrorRate": stage_stats["ErrorRate"]},
-                    min_keys=["ErrorRate"],
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"ErrorRate": stage_stats["ErrorRate"]},
+                min_keys=["ErrorRate"],
+            )
 
     def verification_performance(self,):
         """ Computes the EER using the standard voxceleb test split

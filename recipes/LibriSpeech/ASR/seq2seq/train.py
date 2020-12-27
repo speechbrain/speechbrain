@@ -35,7 +35,6 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
 
@@ -91,7 +90,10 @@ class ASR(sb.Brain):
             else:
                 return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
+            if stage == sb.Stage.VALID:
+                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
+            else:
+                p_tokens, scores = self.hparams.test_search(x, wav_lens)
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
@@ -241,7 +243,8 @@ class ASR(sb.Brain):
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
+        if not os.path.isfile(save_model_path):
+            download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
@@ -268,15 +271,7 @@ if __name__ == "__main__":
     )
 
     # Creating tokenizer must be done after preparation
-    # Specify the bos_id/eos_id if different from blank_id
-    hparams["tokenizer"] = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        csv_train=hparams["csv_train"],
-        csv_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=1.0,
-    )
+    tokenizer = hparams["tokenizer"]()
 
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
@@ -285,6 +280,7 @@ if __name__ == "__main__":
     hparams["ind2lab"] = hparams["test_other_loader"].label_dict["wrd"][
         "index2lab"
     ]
+    hparams["tokenizer"] = tokenizer
 
     # Brain class initialization
     asr_brain = ASR(

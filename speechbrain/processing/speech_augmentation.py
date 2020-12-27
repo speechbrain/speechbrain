@@ -992,10 +992,14 @@ class DropChunk(torch.nn.Module):
         The probability that the batch of signals will
         have a portion dropped. By default, every batch
         has portions dropped.
+    noise_factor : float
+        The factor relative to average amplitude of an utterance
+        to use for scaling the white noise inserted. 1 keeps
+        the average amplitude the same, while 0 inserts all 0's.
 
     Example
     -------
-    >>> dropper = DropChunk(drop_start=100, drop_end=200)
+    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> length = torch.ones(1)
@@ -1013,6 +1017,7 @@ class DropChunk(torch.nn.Module):
         drop_start=0,
         drop_end=None,
         drop_prob=1,
+        noise_factor=0.0,
     ):
         super().__init__()
         self.drop_length_low = drop_length_low
@@ -1022,6 +1027,7 @@ class DropChunk(torch.nn.Module):
         self.drop_start = drop_start
         self.drop_end = drop_end
         self.drop_prob = drop_prob
+        self.noise_factor = noise_factor
 
         # Validate low < high
         if drop_length_low > drop_length_high:
@@ -1061,6 +1067,9 @@ class DropChunk(torch.nn.Module):
         if torch.rand(1) > self.drop_prob:
             return dropped_waveform
 
+        # Store original amplitude for computing white noise amplitude
+        clean_amplitude = compute_amplitude(waveforms, lengths.unsqueeze(1))
+
         # Pick a number of times to drop
         drop_times = torch.randint(
             low=self.drop_count_low,
@@ -1096,9 +1105,21 @@ class DropChunk(torch.nn.Module):
                 low=start_min, high=start_max + 1, size=(drop_times[i],),
             )
 
+            end = start + length
+
             # Update waveform
-            for j in range(drop_times[i]):
-                dropped_waveform[i, start[j] : start[j] + length[j]] = 0
+            if not self.noise_factor:
+                for j in range(drop_times[i]):
+                    dropped_waveform[i, start[j] : end[j]] = 0.0
+            else:
+                # Uniform distribution of -2 to +2 * avg amplitude should
+                # preserve the average for normalization
+                noise_max = 2 * clean_amplitude[i] * self.noise_factor
+                for j in range(drop_times[i]):
+                    # zero-center the noise distribution
+                    noise_vec = torch.rand(length[j], device=waveforms.device)
+                    noise_vec = 2 * noise_max * noise_vec - noise_max
+                    dropped_waveform[i, start[j] : end[j]] = noise_vec
 
         return dropped_waveform
 
