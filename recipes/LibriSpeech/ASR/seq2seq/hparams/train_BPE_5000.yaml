@@ -265,7 +265,6 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
     language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
@@ -275,9 +274,9 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
     coverage_penalty: !ref <coverage_penalty>
     lm_weight: !ref <lm_weight>
     ctc_weight: !ref <ctc_weight_decode>
+    blank_index: !ref <blank_index>
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
-
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
