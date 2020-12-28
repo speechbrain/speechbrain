@@ -2,13 +2,17 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-
-# Neural Parameters
+# Training Parameters
 N_epochs: 10
-N_batch: 1
 lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# token infomation
+bos_index: 0 # eos_index = bos_index + 1
+num_phns: 45 # 43 phonemes + 1 bos + 1 eos
+num_chars: 26 # 24 chars + 1 bos + 1 eos
+
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -16,51 +20,6 @@ rnn_layers: 1
 rnn_neurons: 128
 rnn_bidirectional: True
 
-# token infomation
-eos_bos_index: 1
-blank_index: 0
-
-char_encoder: !new:speechbrain.data_io.encoder.TextEncoder
-label_encoder: !new:speechbrain.data_io.encoder.TextEncoder
-
-common_dynamic_items:
-    char_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [char]
-    char_encoded:
-        func: !ref <char_encoder.encode_sequence_torch>
-        argkeys: [char_list]
-    phn_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [phn]
-    phn_encoded:
-        func: !ref <label_encoder.encode_sequence>
-        argkeys: [phn_list]
-    phn_encoded_eos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.append_eos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
-    phn_encoded_bos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.prepend_bos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded]
-common_output_keys: ["id", "char_encoded", "phn_encoded_eos", "phn_encoded_bos"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/train.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/dev.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
 
 enc: !new:speechbrain.nnet.RNN.LSTM
     input_shape: [null, null, 128]
@@ -71,15 +30,15 @@ enc: !new:speechbrain.nnet.RNN.LSTM
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <rnn_neurons>
-    n_neurons: 44  # 43 phonemes + 1 eos
+    n_neurons: !ref <num_phns>
     bias: False
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 28  # 27 chars + 1 bos
+    num_embeddings: !ref <num_chars>
     embedding_dim: 128
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 44  # 43 phonemes + 1 bos
+    num_embeddings: !ref <num_phns>
     embedding_dim: 128
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
@@ -107,9 +66,9 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <eos_bos_index>
-    eos_index: !ref <eos_bos_index>
-    blank_index: !ref <blank_index>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <bos_index> + 1
+    blank_index: !ref <bos_index>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 

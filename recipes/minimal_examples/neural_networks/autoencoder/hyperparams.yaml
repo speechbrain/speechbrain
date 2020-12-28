@@ -5,33 +5,12 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: False
 tensorboard_logs: runs
 
-# Data files
-data_folder: !PLACEHOLDER
-
-# Neural Parameters
+# Training params
 N_epochs: 100
-N_batch: 2
 lr: 0.004
+dataloader_options:
+    batch_size: 2
 
-common_dynamic_items:
-    sig:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [wav]
-common_output_keys: ["id", "sig"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/train.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_json
-    json_path: !ref <data_folder>/dev.json
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
     left_frames: 1
