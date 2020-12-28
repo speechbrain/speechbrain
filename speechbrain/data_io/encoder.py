@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 # NOTE: Changing these does NOT change the defaults in the classes.
 # Consider these read-only.
 DEFAULT_UNK = "<unk>"
-DEFAULT_BOS = "<s>"
-DEFAULT_EOS = "<s>"
-DEFAULT_BLANK = "<b>"
+DEFAULT_BOS = "<bos>"
+DEFAULT_EOS = "<eos>"
+DEFAULT_BLANK = "<blank>"
 
 
 class CategoricalEncoder:
@@ -595,6 +595,24 @@ class TextEncoder(CategoricalEncoder):
         elif "bos_label" in special_labels or "eos_label" in special_labels:
             raise TypeError("Only BOS or EOS specified. Need both for init.")
 
+    def update_from_iterable(self, iterable, sequence_input=True):
+        """Change default for sequence_input to True"""
+        return super().update_from_iterable(iterable, sequence_input)
+
+    def update_from_didataset(self, didataset, output_key, sequence_input=True):
+        """Change default for sequence_input to True"""
+        return super().update_from_didataset(
+            didataset, output_key, sequence_input
+        )
+
+    def limited_labelset_from_iterable(
+        self, iterable, sequence_input=True, n_most_common=None, min_count=1
+    ):
+        """Change default for sequence_input to True"""
+        return super().limited_labelset_from_iterable(
+            iterable, sequence_input=True, n_most_common=None, min_count=1
+        )
+
     def add_bos_eos(
         self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS,
     ):
@@ -627,7 +645,7 @@ class TextEncoder(CategoricalEncoder):
         self.eos_label = eos_label
 
     def insert_bos_eos(
-        self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS, bos_index=0
+        self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS, bos_index=0,
     ):
         """Insert sentence boundary markers in the label set.
 
@@ -642,8 +660,7 @@ class TextEncoder(CategoricalEncoder):
             End-of-sentence label, any label. If set to the same label as
             bos_label, will just use one sentence-boundary label.
         bos_index : int
-            Where to insert bos_label. If EOS is added, it is added at
-            box_index + 1.
+            Where to insert bos_label. eos_index = bos_index + 1
         """
         if bos_label == eos_label:
             logger.debug(
@@ -657,6 +674,18 @@ class TextEncoder(CategoricalEncoder):
         self.bos_label = bos_label
         self.eos_label = eos_label
 
+    def get_bos_index(self):
+        """Returns the index to which blank encodes"""
+        if not hasattr(self, "bos_label"):
+            raise RuntimeError("BOS label is not set!")
+        return self.encode_label(self.bos_label)
+
+    def get_eos_index(self):
+        """Returns the index to which blank encodes"""
+        if not hasattr(self, "eos_label"):
+            raise RuntimeError("EOS label is not set!")
+        return self.encode_label(self.eos_label)
+
     def prepend_bos_label(self, x):
         """Returns a list version of x, with BOS prepended"""
         if not hasattr(self, "bos_label"):
@@ -664,9 +693,13 @@ class TextEncoder(CategoricalEncoder):
         return [self.bos_label] + list(x)
 
     def prepend_bos_index(self, x):
-        """Returns a list version of x, with BOS index prepended"""
+        """Returns a list version of x, with BOS index prepended.
+        If the input is a tensor, a tensor is returned."""
         if not hasattr(self, "bos_label"):
             raise KeyError("BOS label has not been added to label set!")
+        if torch.is_tensor(x):
+            bos_ind = torch.Tensor([self.lab2ind[self.bos_label]])
+            return torch.cat([bos_ind, x])
         return [self.lab2ind[self.bos_label]] + list(x)
 
     def append_eos_label(self, x):
@@ -676,9 +709,13 @@ class TextEncoder(CategoricalEncoder):
         return list(x) + [self.eos_label]
 
     def append_eos_index(self, x):
-        """Returns a list version of x, with EOS index appended"""
+        """Returns a list version of x, with EOS index appended.
+        If the input is a tensor, a tensor is returned."""
         if not hasattr(self, "eos_label"):
             raise KeyError("EOS label has not been added to label set!")
+        if torch.is_tensor(x):
+            eos_ind = torch.Tensor([self.lab2ind[self.eos_label]])
+            return torch.cat([x, eos_ind])
         return list(x) + [self.lab2ind[self.eos_label]]
 
     def _get_extras(self):
@@ -717,6 +754,12 @@ class CTCTextEncoder(TextEncoder):
         """Insert blank symbol at a given labelset"""
         self.insert_label(blank_label, index)
         self.blank_label = blank_label
+
+    def get_blank_index(self):
+        """Returns the index to which blank encodes"""
+        if not hasattr(self, "blank_label"):
+            raise RuntimeError("Blank label is not set!")
+        return self.encode_label(self.blank_label)
 
     def collapse_labels(self, x, merge_repeats=True):
         """Applies the CTC collapsing rules on one label sequence
