@@ -11,7 +11,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Folders
 # data: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: /network/datasets/ami/amicorpus
-manual_annot_folder: /miniscratch/ravanelm/ami_public_manual
+manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL/
 output_folder: results/ami/sd_xvector_new/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
