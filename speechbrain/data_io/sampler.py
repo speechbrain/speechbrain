@@ -117,9 +117,10 @@ class ConcatDatasetBatchSampler(Sampler):
 
         self.batch_sizes = batch_sizes
         self.samplers = samplers
-        self.offsets = np.cumsum([len(x) for x in self.samplers]) - len(
-            self.samplers[0]
-        )
+        self.offsets = [0] + np.cumsum(
+            [len(x) for x in self.samplers]
+        ).tolist()[:-1]
+
         self.epoch = epoch
         self.set_epoch(self.epoch)
 
@@ -148,7 +149,9 @@ class ConcatDatasetBatchSampler(Sampler):
             for samp_idx in range(len(self.samplers)):
                 c_batch = []
                 while len(c_batch) < self.batch_sizes[samp_idx]:
-                    c_batch.append(next(iterators[samp_idx]))
+                    c_batch.append(
+                        self.offsets[samp_idx] + next(iterators[samp_idx])
+                    )
                 tot_batch.extend(c_batch)
             yield tot_batch
             tot_batch = []
