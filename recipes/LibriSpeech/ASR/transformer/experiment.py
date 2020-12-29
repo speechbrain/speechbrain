@@ -59,8 +59,6 @@ class ASR(sb.core.Brain):
                 target_word_lens = torch.cat(
                     [target_word_lens, target_word_lens]
                 )
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Prepare labels
         target_tokens, target_tokens_len = self.hparams.tokenizer(
@@ -72,10 +70,14 @@ class ASR(sb.core.Brain):
         target_tokens = target_tokens.to(self.device)
         target_tokens_len = target_tokens_len.to(self.device)
 
-        # forward pass
+        # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
+
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "augmentation"):
+                feats = self.hparams.augmentation(feats)
 
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
@@ -238,8 +240,6 @@ class ASR(sb.core.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
-
-        sb.ddp_barrier()
 
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
