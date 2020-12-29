@@ -80,7 +80,6 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     linear: !ref <lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <bos_index> + 1
-    blank_index: !ref <bos_index>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 
