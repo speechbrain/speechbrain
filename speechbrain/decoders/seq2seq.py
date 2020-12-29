@@ -336,7 +336,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
-        return_topk=False,
+        return_topk=True,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
