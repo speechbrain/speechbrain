@@ -56,13 +56,13 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 # Can be removed to improve speed
-#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#    openrir_folder: !ref <output_folder>
-#    babble_prob: 0.0
-#    reverb_prob: 0.0
-#    noise_prob: 1.0
-#    noise_snr_low: 0
-#    noise_snr_high: 15
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <output_folder>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -109,7 +109,7 @@ modules:
     model: !ref <model>
     output: !ref <output>
     normalize: !ref <normalize>
-    #env_corrupt: !ref <env_corrupt>
+    env_corrupt: !ref <env_corrupt>
 
 jit_module_keys: [model]
 
