@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -46,6 +45,14 @@ class ASR(sb.core.Brain):
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+                wav_lens = torch.cat([wav_lens, wav_lens])
+                target_words = torch.cat([target_words, target_words], dim=0)
+                target_word_lens = torch.cat(
+                    [target_word_lens, target_word_lens]
+                )
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
@@ -105,6 +112,12 @@ class ASR(sb.core.Brain):
         target_tokens = target_tokens.to(self.device)
         target_token_lens = target_token_lens.to(self.device)
 
+        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            target_tokens = torch.cat([target_tokens, target_tokens], dim=0)
+            target_token_lens = torch.cat(
+                [target_token_lens, target_token_lens], dim=0
+            )
+
         # Add char_lens by one for eos token
         abs_length = torch.round(target_token_lens * target_tokens.shape[1])
 
@@ -157,7 +170,8 @@ class ASR(sb.core.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
@@ -207,34 +221,19 @@ class ASR(sb.core.Brain):
 
 if __name__ == "__main__":
 
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from common_voice_prepare import prepare_common_voice  # noqa E402
-
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data
-    prepare_common_voice(
-        data_folder=hparams["data_folder"],
-        save_folder=hparams["save_folder"],
-        path_to_wav=hparams["wav_folder"],
-        train_tsv_file=hparams["train_tsv_file"],
-        dev_tsv_file=hparams["dev_tsv_file"],
-        test_tsv_file=hparams["test_tsv_file"],
-        accented_letters=hparams["accented_letters"],
-        language=hparams["language"],
-        duration_threshold=hparams["duration_threshold"],
     )
 
     # Creating tokenizer must be done after preparation
@@ -260,6 +259,7 @@ if __name__ == "__main__":
     asr_brain = ASR(
         modules=hparams["modules"],
         hparams=hparams,
+        run_opts=run_opts,
         opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],
     )

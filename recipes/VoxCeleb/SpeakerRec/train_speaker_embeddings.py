@@ -14,7 +14,6 @@ Author
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -94,49 +93,35 @@ class XvectorBrain(sb.core.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"ErrorRate": stage_stats["ErrorRate"]},
-                    min_keys=["ErrorRate"],
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"ErrorRate": stage_stats["ErrorRate"]},
+                min_keys=["ErrorRate"],
+            )
 
 
 if __name__ == "__main__":
 
-    # This flag enable the inbuilt cudnn auto-tuner
+    # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from voxceleb_prepare import prepare_voxceleb  # noqa E402
-
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.core.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data from dev of Voxceleb1
-    prepare_voxceleb(
-        data_folder=hparams["data_folder"],
-        save_folder=hparams["save_folder"],
-        splits=["train", "dev"],
-        split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=hparams["seed"],
-        random_segment=hparams["random_segment"],
     )
 
     # Data loaders
@@ -148,6 +133,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

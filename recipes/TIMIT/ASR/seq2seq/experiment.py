@@ -8,7 +8,6 @@ Authors
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -24,8 +23,8 @@ class ASR(sb.Brain):
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+            if hasattr(self.hparams, "env_corrupt"):
+                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
                 phns = torch.cat([phns, phns])
@@ -105,7 +104,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
@@ -132,20 +132,19 @@ class ASR(sb.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={
-                        "loss": stage_loss,
-                        "ctc_loss": self.ctc_metrics.summarize("average"),
-                        "seq_loss": self.seq_metrics.summarize("average"),
-                        "PER": per,
-                    },
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": per}, min_keys=["PER"]
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={
+                    "loss": stage_loss,
+                    "ctc_loss": self.ctc_metrics.summarize("average"),
+                    "seq_loss": self.seq_metrics.summarize("average"),
+                    "PER": per,
+                },
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"]
+            )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -166,15 +165,14 @@ class ASR(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful when using multiple gpus with ddp)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -183,24 +181,16 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
-    )
-
     # Collect index to label conversion dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
     hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
     asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
