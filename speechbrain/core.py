@@ -154,6 +154,19 @@ def parse_arguments(arg_list):
         "defined by SpeechBrain.",
     )
     parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Run the experiment with only a few batches for all "
+        "datasets, to ensure code runs without crashing.",
+    )
+    parser.add_argument(
+        "--debug_batches",
+        type=int,
+        default=2,
+        help="Number of batches to run in debug mode.",
+    )
+    parser.add_argument(
         "--log_config",
         type=str,
         help="A file storing the configuration options for logging",
@@ -432,6 +445,11 @@ class Brain:
         e.g. self.hparams.model(x)
     run_opts : dict
         A set of options to change the runtime environment, including
+            debug : bool
+                If true, this will only iterate a few batches for all
+                datasets, to ensure code runs without crashing.
+            debug_batches : int
+                Number of batches to run in debug mode, Default 2.
             jit_module_keys : list of str
                 List of keys in modules that should be jit compiled.
             distributed_count : int
@@ -445,11 +463,12 @@ class Brain:
                 Activate it only with cuda.
             max_grad_norm : float
                 Default implementation of ``fit_batch()`` uses
-                ``clip_grad_norm_`` with this value.
+                ``clip_grad_norm_`` with this value. Default: 5.
             nonfinite_patience : int
                 Number of times to ignore non-finite losses before stopping.
+                Default: 3.
             progressbar : bool
-                Whether to display a progressbar when training.
+                Whether to display a progressbar when training. Default: True.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -480,6 +499,8 @@ class Brain:
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
+            "debug": False,
+            "debug_batches": 2,
             "device": "cpu",
             "data_parallel_count": -1,
             "data_parallel_backend": False,
@@ -552,7 +573,7 @@ class Brain:
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.lunch [args]\n\t"
+                        "python -m torch.distributed.launch [args]\n\t"
                         "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
                     )
                 else:
@@ -877,6 +898,12 @@ class Brain:
                     loss = self.fit_batch(batch)
                     avg_train_loss = self.update_average(loss, avg_train_loss)
                     t.set_postfix(train_loss=avg_train_loss)
+
+                    # Debug mode only runs a few batches
+                    if self.debug and self.step == self.debug_batches:
+                        break
+
+            # Run train "on_stage_end" on all processes
             self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
 
             # Validation stage
@@ -893,6 +920,12 @@ class Brain:
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss
                         )
+
+                        # Debug mode only runs a few batches
+                        if self.debug and self.step == self.debug_batches:
+                            break
+
+                    # Only run validation "on_stage_end" on main process
                     try:
                         if sb.if_main_process():
                             self.on_stage_end(
@@ -979,6 +1012,12 @@ class Brain:
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
+
+                # Debug mode only runs a few batches
+                if self.debug and self.step == self.debug_batches:
+                    break
+
+            # Only run evaluation "on_stage_end" on main process
             try:
                 if sb.if_main_process():
                     self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
