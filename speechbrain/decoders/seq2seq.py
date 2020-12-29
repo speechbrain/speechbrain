@@ -25,8 +25,6 @@ class S2SBaseSearcher(torch.nn.Module):
         The index of beginning-of-sequence token.
     eos_index : int
         The index of end-of-sequence token.
-    blank_index: int
-        The index of the blank token.
     min_decode_radio : float
         The ratio of minimum decoding steps to length of encoder states.
     max_decode_radio : float
@@ -44,17 +42,11 @@ class S2SBaseSearcher(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        bos_index,
-        eos_index,
-        blank_index,
-        min_decode_ratio,
-        max_decode_ratio,
+        self, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
     ):
         super(S2SBaseSearcher, self).__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
-        self.blank_index = blank_index
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
 
@@ -229,7 +221,6 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ...     linear=lin,
     ...     bos_index=4,
     ...     eos_index=4,
-    ...     blank_index=4,
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ... )
@@ -276,8 +267,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The index of beginning-of-sequence token.
     eos_index : int
         The index of end-of-sequence token.
-    blank_index: int
-        The index of the blank token.
     min_decode_radio : float
         The ratio of minimum decoding steps to length of encoder states.
     max_decode_radio : float
@@ -332,7 +321,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self,
         bos_index,
         eos_index,
-        blank_index,
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
@@ -346,17 +334,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         lm_weight=0.0,
         lm_modules=None,
         ctc_weight=0.0,
+        blank_index=0,
         ctc_score_mode="full",
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
     ):
         super(S2SBeamSearcher, self).__init__(
-            bos_index,
-            eos_index,
-            blank_index,
-            min_decode_ratio,
-            max_decode_ratio,
+            bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
         self.topk = topk
@@ -377,12 +362,29 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.max_attn_shift = max_attn_shift
         self.lm_weight = lm_weight
         self.lm_modules = lm_modules
+
+        # ctc related
         self.ctc_weight = ctc_weight
+        self.blank_index = blank_index
         self.att_weight = 1.0 - ctc_weight
 
         assert (
             0.0 <= self.ctc_weight <= 1.0
         ), "ctc_weight should not > 1.0 and < 0.0"
+
+        if self.ctc_weight > 0.0:
+            if self.bos_index == self.eos_index:
+                raise ValueError(
+                    "To perform joint ATT/CTC decoding, set bos, eos to different indexes."
+                )
+            if self.blank_index == self.bos_index:
+                raise ValueError(
+                    "To perform joint ATT/CTC decoding, set blank, bos to different indexes."
+                )
+            if self.blank_index == self.eos_index:
+                raise ValueError(
+                    "To perform joint ATT/CTC decoding, set blank, eos to different indexes."
+                )
 
         # ctc already initalized
         self.minus_inf = minus_inf
@@ -901,13 +903,24 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     """
 
     def __init__(
-        self, embedding, decoder, linear, ctc_linear, temperature=1.0, **kwargs
+        self,
+        embedding,
+        decoder,
+        linear,
+        ctc_linear=None,
+        temperature=1.0,
+        **kwargs,
     ):
         super(S2SRNNBeamSearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
         self.ctc_fc = ctc_linear
+        if self.ctc_weight > 0.0 and self.ctc_fc is None:
+            raise ValueError(
+                "To perform joint ATT/CTC decoding, ctc_fc is required."
+            )
+
         self.softmax = torch.nn.LogSoftmax(dim=-1)
         self.temperature = temperature
 
@@ -977,13 +990,11 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
     >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
-    >>> ctc_lin = sb.nnet.linear.Linear(n_neurons=5, input_size=7)
     >>> lm = RNNLM(output_neurons=5, return_hidden=True)
     >>> searcher = S2SRNNBeamSearchLM(
     ...     embedding=emb,
     ...     decoder=dec,
     ...     linear=lin,
-    ...     ctc_linear=ctc_lin,
     ...     language_model=lm,
     ...     bos_index=4,
     ...     eos_index=4,
@@ -1003,13 +1014,12 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         embedding,
         decoder,
         linear,
-        ctc_linear,
         language_model,
         temperature_lm=1.0,
         **kwargs,
     ):
         super(S2SRNNBeamSearchLM, self).__init__(
-            embedding, decoder, linear, ctc_linear, **kwargs
+            embedding, decoder, linear, **kwargs
         )
 
         self.lm = language_model
@@ -1073,13 +1083,11 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
     >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
-    >>> ctc_lin = sb.nnet.linear.Linear(n_neurons=5, input_size=7)
     >>> lm = TransformerLM(5, 512, 8, 1, 0, 1024, activation=torch.nn.GELU)
     >>> searcher = S2SRNNBeamSearchTransformerLM(
     ...     embedding=emb,
     ...     decoder=dec,
     ...     linear=lin,
-    ...     ctc_linear=ctc_lin,
     ...     language_model=lm,
     ...     bos_index=4,
     ...     eos_index=4,
@@ -1099,13 +1107,12 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         embedding,
         decoder,
         linear,
-        ctc_linear,
         language_model,
         temperature_lm=1.0,
         **kwargs,
     ):
         super(S2SRNNBeamSearchTransformerLM, self).__init__(
-            embedding, decoder, linear, ctc_linear, **kwargs
+            embedding, decoder, linear, **kwargs
         )
 
         self.lm = language_model
