@@ -42,7 +42,7 @@ def minWER_loss(
     hypotheses_scores,
     blank_index,
     separator_index=None,
-    mode="Num_Word_Errors",
+    mode="word_errors",
 ):
     """
     Compute minWER loss using torch_edit_distance.
@@ -72,7 +72,7 @@ def minWER_loss(
         blank index.
     separator_index : default None,
         otherwise specify the space index.
-    mode : str, default "Num_word_Errors"
+    mode : str, default "word_errors"
         for using the number of word errors in a hypothesis.
         Otherwise "WER" for using WER metric.
 
@@ -108,12 +108,10 @@ def minWER_loss(
     # if WER, then normalize by utt length
     if mode == "WER":
         wers /= levenshtein_distance[:, 3]
-
     wers = wers.view(batch_size, topk)
     avg_wers = torch.mean(wers, -1).unsqueeze(1)
     relative_wers = wers - avg_wers
-    # Abdel contrib
-    # relative_wers = wers / avg_wers
+    print(relative_wers)
     # compute softmax for the Nbest scores
     hypotheses_scores = hypotheses_scores.softmax(dim=-1)
     mWER_loss = torch.sum(hypotheses_scores * (relative_wers), -1)

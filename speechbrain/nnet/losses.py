@@ -32,7 +32,7 @@ def minWER_loss(
     hypotheses_scores,
     blank_index,
     separator_index=None,
-    mode="Num_Word_Errors",
+    mode="word_errors",
     reduction="mean",
 ):
     """
@@ -63,7 +63,7 @@ def minWER_loss(
         blank index.
     separator_index : default None,
         otherwise specify the space index.
-    mode : str, default "Num_word_Errors"
+    mode : str, default "word_errors"
         for using the number of word errors in a hypothesis.
         Otherwise "WER" for using WER metric.
 

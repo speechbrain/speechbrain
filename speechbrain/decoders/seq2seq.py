@@ -336,6 +336,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
+        return_topk=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
@@ -359,6 +360,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.beam_size = beam_size
         self.topk = topk
         self.return_log_probs = return_log_probs
+        self.return_topk = return_topk
         self.length_normalization = length_normalization
         self.length_rewarding = length_rewarding
         self.coverage_penalty = coverage_penalty
@@ -883,18 +885,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         if self.return_log_probs:
-            return (
-                predictions,
-                topk_hyps,
-                topk_scores,
-                topk_len,
-                alived_log_probs.view(
-                    batch_size, self.beam_size, -1, vocab_size
-                ),
-            )
-            # return predictions, topk_hyps, topk_scores, topk_len, log_probs
-        else:
+            return predictions, topk_hyps, topk_scores, topk_len, log_probs
+        elif self.return_topk:
             return predictions, topk_hyps, topk_scores, topk_len
+        else:
+            return predictions, topk_scores
 
     def ctc_forward_step(self, x):
         logits = self.ctc_fc(x)
