@@ -20,7 +20,6 @@ rnn_layers: 1
 rnn_neurons: 128
 rnn_bidirectional: True
 
-
 enc: !new:speechbrain.nnet.RNN.LSTM
     input_shape: [null, null, 128]
     bidirectional: True
@@ -68,7 +67,6 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     linear: !ref <lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <bos_index> + 1
-    blank_index: !ref <bos_index>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 
