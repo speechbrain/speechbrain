@@ -50,7 +50,7 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Spectral Clustering parameters
-affinity: 'nn' # use 'cos' for cosine affinity
+affinity: 'cos' # use 'cos' for cosine affinity
 max_num_spkrs: 10
 oracle_n_spkrs: False
 
@@ -63,7 +63,7 @@ forgiveness_collar: 0.25
 __data_prep: !apply:speechbrain.utils.data_utils.prepare_data
     prep_function: !name:ami_prepare.prepare_ami
         data_folder: !ref <data_folder>
-        save_folder: !ref <data_folder>
+        save_folder: !ref <save_folder>
         manual_annot_folder: !ref <manual_annot_folder>
         split_type: !ref <split_type>
         skip_TNO: !ref <skip_TNO>
