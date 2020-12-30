@@ -17,8 +17,8 @@ win_length: 40  # window length (in ms) for stft
 hop_length: 10  # hop length (in ms) for stft
 
 # Experiment flags:
-save_reconstructed: True   # saves the results
-copy_original_files: True    # copies the original files
+save_reconstructed: False   # saves the results
+copy_original_files: False    # copies the original files
 
 train_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
     csvpath: !ref <csv_train>

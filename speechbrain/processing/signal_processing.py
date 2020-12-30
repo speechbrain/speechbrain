@@ -202,10 +202,10 @@ def convolve1d(
 
     Example
     -------
-    >>> import soundfile as sf
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal[None, :, None])
-    >>> kernel = torch.rand(1, 10, 1, dtype=signal.dtype)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0).unsqueeze(2)
+    >>> kernel = torch.rand(1, 10, 1)
     >>> signal = convolve1d(signal, kernel, padding=(9, 0))
     """
     if len(waveform.shape) != 3:
@@ -387,9 +387,9 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example
     -------
-    >>> import soundfile as sf
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :, None]
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)
     """

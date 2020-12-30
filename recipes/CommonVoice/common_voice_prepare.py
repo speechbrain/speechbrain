@@ -16,7 +16,7 @@ import torch
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
-from speechbrain.data_io.data_io import read_wav_soundfile
+from speechbrain.data_io.data_io import read_audio
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
@@ -384,7 +384,7 @@ def create_csv(
 
         # Reading the signal (to retrieve duration in seconds)
         if os.path.isfile(wav_path):
-            signal = read_wav_soundfile(wav_path)
+            signal = read_audio(wav_path)
         else:
             msg = "\tError loading: %s" % (str(len(file_name)))
             print(msg)

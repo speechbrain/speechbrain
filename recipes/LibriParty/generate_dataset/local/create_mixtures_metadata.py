@@ -8,12 +8,12 @@ Samuele Cornell, 2020
 """
 
 
-import soundfile as sf
 import numpy as np
 from pathlib import Path
 import json
 import os
 from tqdm import tqdm
+import soundfile as sf
 
 
 def _read_metadata(file_path, configs):

@@ -9,11 +9,11 @@ in torch audio toolkit (https://github.com/pytorch/audio).
 Example
 -------
 >>> import torch
->>> import soundfile as sf
->>> signal, fs=sf.read('samples/audio_samples/example1.wav')
->>> signal=torch.tensor(signal).float().unsqueeze(0)
+>>> from speechbrain.data_io.data_io import read_audio
+>>> signal =read_audio('samples/audio_samples/example1.wav')
+>>> signal = signal.unsqueeze(0)
 >>> compute_STFT = STFT(
-...     sample_rate=fs, win_length=25, hop_length=10, n_fft=400
+...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
 ... )
 >>> features = compute_STFT(signal)
 >>> features = spectral_magnitude(features)

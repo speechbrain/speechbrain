@@ -12,18 +12,16 @@ Authors
 import os
 import torch
 import logging
-import soundfile as sf
 import numpy as np
 import pickle
 import hashlib
-import multiprocessing as mp
 import csv
 import time
 import torchaudio
 import json
 import re
-import speechbrain as sb
 
+torchaudio.set_audio_backend("soundfile")  # switch backend
 logger = logging.getLogger(__name__)
 
 
@@ -195,16 +193,15 @@ def read_audio(waveforms_obj):
     >>> dummywav = torch.rand(16000)
     >>> import os
     >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
-    >>> import soundfile as sf
-    >>> sf.write(tmpfile, dummywav, 16000, subtype="float")
+    >>> write_audio(tmpfile, dummywav, 16000)
     >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
     >>> loaded = read_audio(asr_example["wav"])
-    >>> torch.all(torch.eq(loaded, dummywav))
-    tensor(True)
+    >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
+    True
     """
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
-        return audio.squeeze(0)
+        return audio.transpose(0, 1).squeeze(1)
 
     path = waveforms_obj["file"]
     start = waveforms_obj.get("start", 0)
@@ -213,7 +210,8 @@ def read_audio(waveforms_obj):
     stop = waveforms_obj.get("stop", start)
     num_frames = stop - start
     audio, fs = torchaudio.load(path, num_frames=num_frames, offset=start)
-    return audio.squeeze(0)
+    audio = audio.transpose(0, 1)
+    return audio.squeeze(1)
 
 
 def read_audio_multichannel(waveforms_obj):
@@ -263,16 +261,15 @@ def read_audio_multichannel(waveforms_obj):
     >>> dummywav = torch.rand(16000, 2)
     >>> import os
     >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
-    >>> import soundfile as sf
-    >>> sf.write(tmpfile, dummywav, 16000, subtype="float")
+    >>> write_audio(tmpfile, dummywav, 16000)
     >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
     >>> loaded = read_audio(asr_example["wav"])
-    >>> torch.all(torch.eq(loaded.transpose(0, 1), dummywav))
-    tensor(True)
+    >>> loaded.allclose(dummywav.squeeze(0),atol=1e-4) # replace with eq with sox_io backend
+    True
     """
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
-        return audio
+        return audio.transpose(0, 1)
 
     files = waveforms_obj["files"]
     if not isinstance(files, list):
@@ -289,7 +286,39 @@ def read_audio_multichannel(waveforms_obj):
         waveforms.append(audio)
 
     out = torch.cat(waveforms, 0)
-    return out
+    return out.transpose(0, 1)
+
+
+def write_audio(filepath, audio, samplerate):
+    """write audio on disk. It is basically a wrapper to support saving
+    audio signals in the speechbrain format (audio, channels).
+
+    Arguments
+    ----------
+    filepath: path
+        Path where to save the audio file
+    audio : torch.Tensor
+        Audio file in the expected speechbrain format (signal, channels)
+    samplerate: int
+        Sample rate (e.g, 16000)
+
+
+    Example
+    -------
+    >>> import os
+    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> dummywav = torch.rand(16000, 2)
+    >>> write_audio(tmpfile, dummywav, 16000)
+    >>> loaded = read_audio(tmpfile)
+    >>> loaded.allclose(dummywav,atol=1e-4) # replace with eq with sox_io backend
+    True
+    """
+    if len(audio.shape) == 2:
+        audio = audio.transpose(0, 1)
+    elif len(audio.shape) == 1:
+        audio = audio.unsqueeze(0)
+
+    torchaudio.save(filepath, audio, samplerate)
 
 
 def load_pickle(pickle_path):
@@ -615,48 +644,6 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     return lab
 
 
-def write_wav_soundfile(data, filename, sampling_rate):
-    """
-    Can be used to write audio with soundfile
-
-    Expecting data in (time, [channels]) format
-
-    Arguments
-    ---------
-    data : torch.tensor
-        it is the tensor to store as and audio file
-    filename : str
-        path to file where writing the data
-    sampling_rate : int, None
-        sampling rate of the audio file
-
-    Returns
-    -------
-    None
-
-    Example
-    -------
-    >>> tmpdir = getfixture('tmpdir')
-    >>> signal = 0.1*torch.rand([16000])
-    >>> tmpfile = os.path.join(tmpdir, 'wav_example.wav')
-    >>> write_wav_soundfile(signal, tmpfile, sampling_rate=16000)
-    """
-    if len(data.shape) > 2:
-        err_msg = (
-            "expected signal in the format (time, channel). Got %s "
-            "dimensions instead of two for file %s"
-            % (len(data.shape), filename)
-        )
-        raise ValueError(err_msg)
-    if isinstance(data, torch.Tensor):
-        if len(data.shape) == 2:
-            data = data.transpose(0, 1)
-        # Switching to cpu and converting to numpy
-        data = data.cpu().numpy()
-    # Writing the file
-    sf.write(filename, data, sampling_rate)
-
-
 def write_txt_file(data, filename, sampling_rate=None):
     """
     Write data in text format
@@ -731,329 +718,6 @@ def write_stdout(data, filename=None, sampling_rate=None):
             print(line)
     if isinstance(data, str):
         print(data)
-
-
-def save_img(data, filename, sampling_rate=None, logger=None):
-    """
-    Save a tensor as an image.
-
-    Arguments
-    ---------
-    data : torch.tensor
-        The tensor to write in the text file
-    filename : str
-        Path where to write the data.
-    sampling_rate : int
-        Sampling rate of the audio file.
-
-    Returns
-    -------
-    None
-
-    Note
-    ----
-    Depends on matplotlib as an extra tool. Install it separately.
-
-    Example
-    -------
-    >>> tmpdir = getfixture('tmpdir')
-    >>> signal=torch.rand([100,200])
-    >>> try:
-    ...     save_img(signal, tmpdir + '/example.png')
-    ... except ImportError:
-    ...     pass
-    """
-    # EXTRA TOOLS
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
-        err_msg = "Cannot import matplotlib. To use this, install matplotlib"
-        raise ImportError(err_msg)
-    # Checking tensor dimensionality
-    if len(data.shape) < 2 or len(data.shape) > 3:
-        err_msg = (
-            "cannot save image  %s. Save in png format supports 2-D or "
-            "3-D tensors only (e.g. [x,y] or [channel,x,y]). "
-            "Got %s" % (filename, str(data.shape))
-        )
-        raise ValueError(err_msg)
-    if len(data.shape) == 2:
-        N_ch = 1
-    else:
-        N_ch = data.shape[0]
-    # Flipping axis
-    data = data.flip([-2])
-    for i in range(N_ch):
-        if N_ch > 1:
-            filename = filename.replace(".png", "_ch_" + str(i) + ".png")
-        if N_ch > 1:
-            plt.imsave(filename, data[i])
-        else:
-            plt.imsave(filename, data)
-
-
-class TensorSaver(torch.nn.Module):
-    """
-    Save tensors on disk.
-
-    Arguments
-    ---------
-    save_folder : str
-        The folder where the tensors are stored.
-    save_format : str, optional
-        Default: "pkl"
-        The format to use to save the tensor.
-        See get_supported_formats() for an overview of
-        the supported data formats.
-    save_csv : bool, optional
-        Default: False
-        If True it saves the list of data written in a csv file.
-    data_name : str, optional
-        Default: "data"
-        The name to give to saved data
-    parallel_write : bool, optional
-        Default: False
-        If True it saves the data using parallel processes.
-    transpose : bool, optional
-        Default: False
-        if True it transposes the data matrix
-    decibel : bool, optional
-        Default: False
-        if True it saves the log of the data.
-
-    Example:
-    >>> tmpdir = getfixture('tmpdir')
-    >>> save_signal = TensorSaver(save_folder=tmpdir, save_format='wav')
-    >>> signal = 0.1 * torch.rand([1, 16000])
-    >>> save_signal(signal, ['example_random'], torch.ones(1))
-    """
-
-    def __init__(
-        self,
-        save_folder,
-        save_format="pkl",
-        save_csv=False,
-        data_name="data",
-        sampling_rate=16000,
-        parallel_write=False,
-        transpose=False,
-        decibel=False,
-    ):
-        super().__init__()
-
-        self.save_folder = save_folder
-        self.save_format = save_format
-        self.save_csv = save_csv
-        self.data_name = data_name
-        self.sampling_rate = sampling_rate
-        self.parallel_write = parallel_write
-        self.transpose = transpose
-        self.decibel = decibel
-
-        # Definition of other variables
-        self.supported_formats = self.get_supported_formats()
-
-        # Creating the save folder if it does not exist
-        if not os.path.exists(self.save_folder):
-            try:
-                if sb.if_main_process():
-                    os.makedirs(self.save_folder)
-            finally:
-                sb.ddp_barrier()
-
-        # Check specified format
-        if self.save_format not in self.supported_formats:
-            err_msg = (
-                "the format %s specified in the config file is not "
-                "supported. The current version supports %s"
-                % (self.save_format, self.supported_formats.keys())
-            )
-            logger.error(err_msg)
-
-        # Create the csv file (if specified)
-        if self.save_csv:
-            try:
-                self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
-                if sb.if_main_process():
-                    open(self.save_csv_path, "w").close()
-                self.first_line_csv = True
-            finally:
-                sb.ddp_barrier()
-
-    def forward(self, data, data_id, data_len):
-        """
-        Arguments
-        ---------
-        data : torch.tensor
-            batch of audio signals to save
-        data_id : list
-            list of ids in the batch
-        data_len : torch.tensor
-            length of each audio signal
-        """
-        # Convertion to log (if specified)
-        if self.decibel:
-            data = 10 * data.log10()
-
-        # Writing data on disk (in parallel)
-        try:
-            if sb.if_main_process():
-                self.write_batch(data, data_id, data_len)
-        finally:
-            sb.ddp_barrier()
-
-    def write_batch(self, data, data_id, data_len):
-        """
-        Saves a batch of data.
-
-        Arguments
-        ---------
-        data : torch.tensor
-            batch of audio signals to save
-        data_id : list
-            list of ids in the batch
-        data_len : torch.tensor
-            relative length of each audio signal
-
-        Example
-        -------
-        >>> save_folder = getfixture('tmpdir')
-        >>> save_format = 'wav'
-        >>> save_signal=TensorSaver(save_folder, save_format)
-        >>> # random signal
-        >>> signal=0.1*torch.rand([1,16000])
-        >>> # saving
-        >>> save_signal.write_batch(signal, ['example_random'], torch.ones(1))
-        """
-
-        # Write in parallel all the examples in the batch on disk:
-        jobs = []
-
-        # Move time dimension last
-        data = data.transpose(1, -1)
-
-        # Multiprocessing on gpu is something we have to fix
-        data = data.cpu()
-
-        if self.save_csv:
-            csv_f = open(self.save_csv_path, "a")
-
-            if self.first_line_csv:
-                line = "ID, duration, %s, %s_format, %s_opts\n" % (
-                    self.data_name,
-                    self.data_name,
-                    self.data_name,
-                )
-                self.first_line_csv = False
-
-                csv_f.write(line)
-
-        # Processing all the batches in data
-        for j in range(data.shape[0]):
-
-            # Selection up to the true data length (without padding)
-            actual_size = int(torch.round(data_len[j] * data[j].shape[0]))
-            data_save = data[j].narrow(0, 0, actual_size)
-
-            # Transposing the data if needed
-            if self.transpose:
-                data_save = data_save.transpose(-1, -2)
-
-            # Selection of the needed data writer
-            writer = self.supported_formats[self.save_format]["writer"]
-
-            # Output file
-            data_file = os.path.join(
-                self.save_folder, data_id[j] + "." + self.save_format
-            )
-
-            # Writing all the batches in parallel (if paralle_write=True)
-            if self.parallel_write:
-                p = mp.Process(
-                    target=writer,
-                    args=(data_save, data_file),
-                    kwargs={"sampling_rate": self.sampling_rate},
-                )
-                p.start()
-                jobs.append(p)
-            else:
-                # Writing data on disk with the selected writer
-                writer(
-                    data_save, data_file, sampling_rate=self.sampling_rate,
-                )
-
-            # Saving csv file
-            if self.save_csv:
-                line = "%s, %f, %s, %s, ,\n" % (
-                    data_id[j],
-                    actual_size,  # We are here saving the number of time steps
-                    data_file,
-                    self.save_format,
-                )
-                csv_f.write(line)
-
-        # Waiting all jobs to finish
-        if self.parallel_write:
-            for j in jobs:
-                j.join()
-
-        # Closing the csv file
-        if self.save_csv:
-            csv_f.close()
-
-    @staticmethod
-    def get_supported_formats():
-        """
-        Lists the supported formats and their related writers
-
-        Returns
-        -------
-        dict
-            Maps from file name extensions to dicts which have the keys
-            "writer" and "description"
-
-        Example
-        -------
-        >>> save_folder = getfixture('tmpdir')
-        >>> save_format = 'wav'
-        >>> # class initialization
-        >>> saver = TensorSaver(save_folder, save_format)
-        >>> saver.get_supported_formats()['wav']
-        {'writer': <function ...>, 'description': ...}
-        """
-
-        # Dictionary initialization
-        supported_formats = {}
-
-        # Adding sound file supported formats
-        sf_formats = sf.available_formats()
-
-        for wav_format in sf_formats.keys():
-            wav_format = wav_format.lower()
-            supported_formats[wav_format] = {}
-            supported_formats[wav_format]["writer"] = write_wav_soundfile
-            supported_formats[wav_format]["description"] = sf_formats[
-                wav_format.upper()
-            ]
-
-        # Adding the other supported formats
-        supported_formats["pkl"] = {}
-        supported_formats["pkl"]["writer"] = save_pkl
-        supported_formats["pkl"]["description"] = "Python binary format"
-
-        supported_formats["txt"] = {}
-        supported_formats["txt"]["writer"] = write_txt_file
-        supported_formats["txt"]["description"] = "Plain text"
-
-        supported_formats["png"] = {}
-        supported_formats["png"]["writer"] = save_img
-        supported_formats["png"]["description"] = "image in png format"
-
-        supported_formats["stdout"] = {}
-        supported_formats["stdout"]["writer"] = write_stdout
-        supported_formats["stdout"]["description"] = "write on stdout"
-
-        return supported_formats
 
 
 def length_to_mask(length, max_len=None, dtype=None, device=None):

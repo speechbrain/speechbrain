@@ -133,21 +133,21 @@ def svdl(a):
 
     Example:
     --------
-    >>> import soundfile as sf
     >>> import torch
-    >>>
+
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.decomposition import svdl
-    >>>
-    >>> xs_speech, fs = sf.read(
+    >>> from speechbrain.data_io.data_io import read_audio_multichannel
+
+    >>> xs_speech = read_audio_multichannel(
     ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
     ... )
-    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs_noise = read_audio_multichannel('samples/audio_samples/multi_mic/noise_diffuse.flac')
     >>> xs = xs_speech + 0.05 * xs_noise
-    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>> xs = xs.unsqueeze(0).float()
     >>>
-    >>> stft = STFT(sample_rate=fs)
+    >>> stft = STFT(sample_rate=16000)
     >>> cov = Covariance()
     >>>
     >>> Xs = stft(xs)
@@ -371,21 +371,21 @@ def inv(x):
 
     Example
     -------
-    >>> import soundfile as sf
     >>> import torch
     >>>
+    >>> from speechbrain.data_io.data_io import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.decomposition import inv
     >>>
-    >>> xs_speech, fs = sf.read(
+    >>> xs_speech = read_audio(
     ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
     ... )
-    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
+    >>> xs_noise = read_audio('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
     >>> xs = xs_speech + 0.05 * xs_noise
-    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>> xs = xs.unsqueeze(0).float()
     >>>
-    >>> stft = STFT(sample_rate=fs)
+    >>> stft = STFT(sample_rate=16000)
     >>> cov = Covariance()
     >>>
     >>> Xs = stft(xs)

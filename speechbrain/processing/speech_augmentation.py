@@ -15,7 +15,6 @@ Authors
 # Importing libraries
 import math
 import torch
-import soundfile as sf  # noqa
 import torch.nn.functional as F
 from speechbrain.data_io.legacy import ExtendedCSVDataset
 from speechbrain.data_io.dataloader import make_dataloader
@@ -69,9 +68,10 @@ class AddNoise(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
-    >>> clean = torch.tensor([signal], dtype=torch.float32)
     >>> noisy = noisifier(clean, torch.ones(1))
     """
 
@@ -300,9 +300,10 @@ class AddReverb(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
-    >>> clean = torch.tensor([signal], dtype=torch.float32)
     >>> reverbed = reverb(clean, torch.ones(1))
     """
 
@@ -415,9 +416,10 @@ class SpeedPerturb(torch.nn.Module):
 
     Example
     -------
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[90])
-    >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> perturbator = SpeedPerturb(orig_freq=16000, speeds=[90])
+    >>> clean = signal.unsqueeze(0)
     >>> perturbed = perturbator(clean)
     >>> clean.shape
     torch.Size([1, 52173])
@@ -488,9 +490,10 @@ class Resample(torch.nn.Module):
 
     Example
     -------
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :]
-    >>> resampler = Resample(orig_freq=rate, new_freq=rate // 2)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
+    >>> resampler = Resample(orig_freq=16000, new_freq=8000)
     >>> resampled = resampler(signal)
     >>> signal.shape
     torch.Size([1, 52173])
@@ -887,9 +890,9 @@ class DropFreq(torch.nn.Module):
 
     Example
     -------
+    >>> from speechbrain.data_io.data_io import read_audio
     >>> dropper = DropFreq()
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> dropped_signal = dropper(signal.unsqueeze(0))
     """
 
@@ -999,9 +1002,10 @@ class DropChunk(torch.nn.Module):
 
     Example
     -------
+    >>> from speechbrain.data_io.data_io import read_audio
     >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
     >>> length = torch.ones(1)
     >>> dropped_signal = dropper(signal, length)
     >>> float(dropped_signal[:, 150])
@@ -1139,9 +1143,10 @@ class DoClip(torch.nn.Module):
 
     Example
     -------
+    >>> from speechbrain.data_io.data_io import read_audio
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> clipped_signal = clipper(torch.tensor(signal).unsqueeze(0))
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> clipped_signal = clipper(signal.unsqueeze(0))
     >>> "%.2f" % clipped_signal.max()
     '0.01'
     """
