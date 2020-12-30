@@ -80,7 +80,6 @@ class AddNoise(torch.nn.Module):
         csv_file=None,
         csv_keys=None,
         sorting="random",
-        cache=False,
         num_workers=0,
         snr_low=0,
         snr_high=0,
@@ -95,7 +94,6 @@ class AddNoise(torch.nn.Module):
         self.csv_file = csv_file
         self.csv_keys = csv_keys
         self.sorting = sorting
-        self.cache = cache
         self.num_workers = num_workers
         self.snr_low = snr_low
         self.snr_high = snr_high
@@ -187,7 +185,6 @@ class AddNoise(torch.nn.Module):
                     batch_size=batch_size,
                     num_workers=self.num_workers,
                     shuffle=(self.sorting == "random"),
-                    cache=self.cache,
                 )
                 self.noise_data = iter(self.data_loader)
 
