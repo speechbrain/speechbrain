@@ -29,7 +29,6 @@ dnn_neurons: 128
 # token infomation
 bos: 42
 eos: 42
-blank: 42
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -110,7 +109,6 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     linear: !ref <lin>
     bos_index: !ref <bos>
     eos_index: !ref <eos>
-    blank_index: !ref <blank>
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 
