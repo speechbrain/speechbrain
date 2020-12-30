@@ -1,17 +1,17 @@
 """SpeechBrain Extended CSV Compatibility"""
 from speechbrain.data_io.dataset import DynamicItemDataset
-import soundfile as sf
 import collections
 import csv
 import pickle
 import logging
 import torch
+import torchaudio
 import re
 
 logger = logging.getLogger(__name__)
 
 
-SF_FORMATS = sf.available_formats()
+TORCHAUDIO_FORMATS = ["wav", "flac", "aac", "ogg", "flac", "mp3"]
 ITEM_POSTFIX = "_data"
 
 CSVItem = collections.namedtuple("CSVItem", ["data", "format", "opts"])
@@ -213,8 +213,9 @@ def _read_csv_item(item):
     Delegates to the relevant functions.
     """
     opts = _parse_csv_item_opts(item.opts)
-    if item.format.upper() in SF_FORMATS:
-        return read_wav_soundfile(item.data, opts)
+    if item.format in TORCHAUDIO_FORMATS:
+        audio, _ = torchaudio.load(item.data)
+        return audio.squeeze(0)
     elif item.format == "pkl":
         return read_pkl(item.data, opts)
     elif item.format == "string":
@@ -245,147 +246,6 @@ def _parse_csv_item_opts(entry):
         opt_name, opt_val = opt.split(":")
         opts[opt_name] = opt_val
     return opts
-
-
-# TODO: Consider making less complex
-def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
-    """
-    Read wav audio files with soundfile.
-
-    This supports the SB Extended CSV audio reading.
-
-    Arguments
-    ---------
-    file : str
-        The filepath to the file to read
-    data_options : dict
-        a dictionary containing options for the reader.
-    lab2ind : dict, None
-        a dictionary for converting labels to indices
-
-    Returns
-    -------
-    numpy.array
-        An array with the read signal
-
-    Example
-    -------
-    >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
-    array([0.00024414, 0.00018311], dtype=float32)
-    """
-    # Option initialization
-    start = 0
-    stop = None
-    endian = None
-    subtype = None
-    channels = None
-    samplerate = None
-
-    # List of possible options
-    possible_options = [
-        "start",
-        "stop",
-        "samplerate",
-        "endian",
-        "subtype",
-        "channels",
-    ]
-
-    # Check if the specified options are supported
-    for opt in data_options:
-        if opt not in possible_options:
-
-            err_msg = "%s is not a valid options. Valid options are %s." % (
-                opt,
-                possible_options,
-            )
-
-            logger.error(err_msg, exc_info=True)
-
-    # Managing start option
-    if "start" in data_options:
-        try:
-            start = int(data_options["start"])
-        except Exception:
-
-            err_msg = (
-                "The start value for the file %s must be an integer "
-                "(e.g start:405)" % (file)
-            )
-
-            logger.error(err_msg, exc_info=True)
-
-    # Managing stop option
-    if "stop" in data_options:
-        try:
-            stop = int(data_options["stop"])
-        except Exception:
-
-            err_msg = (
-                "The stop value for the file %s must be an integer "
-                "(e.g stop:405)" % (file)
-            )
-
-            logger.error(err_msg, exc_info=True)
-
-    # Managing samplerate option
-    if "samplerate" in data_options:
-        try:
-            samplerate = int(data_options["samplerate"])
-        except Exception:
-
-            err_msg = (
-                "The sampling rate for the file %s must be an integer "
-                "(e.g samplingrate:16000)" % (file)
-            )
-
-            logger.error(err_msg, exc_info=True)
-
-    # Managing endian option
-    if "endian" in data_options:
-        endian = data_options["endian"]
-
-    # Managing subtype option
-    if "subtype" in data_options:
-        subtype = data_options["subtype"]
-
-    # Managing channels option
-    if "channels" in data_options:
-        try:
-            channels = int(data_options["channels"])
-        except Exception:
-
-            err_msg = (
-                "The number of channels for the file %s must be an integer "
-                "(e.g channels:2)" % (file)
-            )
-
-            logger.error(err_msg, exc_info=True)
-
-    # Reading the file with the soundfile reader
-    try:
-        [signal, fs] = sf.read(
-            file,
-            start=start,
-            stop=stop,
-            samplerate=samplerate,
-            endian=endian,
-            subtype=subtype,
-            channels=channels,
-        )
-
-        signal = signal.astype("float32")
-
-    except RuntimeError as e:
-        err_msg = "cannot read the wav file %s" % (file)
-        e.args = (*e.args, err_msg)
-        raise
-
-    # Set time_steps always last as last dimension
-    if len(signal.shape) > 1:
-        signal = signal.transpose()
-
-    return signal
 
 
 def read_pkl(file, data_options={}, lab2ind=None):

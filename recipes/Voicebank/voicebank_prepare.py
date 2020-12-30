@@ -21,7 +21,7 @@ import tempfile
 import torchaudio
 from torchaudio.transforms import Resample
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.data_io.data_io import read_wav_soundfile
+from speechbrain.data_io.data_io import read_audio
 
 logger = logging.getLogger(__name__)
 TRAIN_CSV = "train.csv"
@@ -186,7 +186,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
         clean_wav = os.path.join(clean_folder, snt_id + ".wav")
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(wav_file)
+        signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
         # Reading the transcript

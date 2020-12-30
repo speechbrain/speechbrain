@@ -12,12 +12,12 @@ import os
 import csv
 import logging
 from speechbrain.utils.data_utils import get_all_files
-import soundfile as sf
 
 from speechbrain.data_io.data_io import (
     load_pkl,
     save_pkl,
     read_kaldi_lab,
+    read_audio,
 )
 
 logger = logging.getLogger(__name__)
@@ -580,7 +580,7 @@ def create_csv(
             continue
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = sf.SoundFile(wav_file)
+        signal = read_audio(wav_file)
         duration = len(signal) / SAMPLERATE
 
         # Retrieving words and check for uppercase

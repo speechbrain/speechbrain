@@ -9,7 +9,7 @@ import torch
 import shutil
 import speechbrain as sb
 import speechbrain.processing.NMF as sb_nmf
-from speechbrain.data_io.data_io import write_wav_soundfile
+from speechbrain.data_io.data_io import write_audio
 from speechbrain.processing.features import spectral_magnitude
 
 
@@ -157,9 +157,6 @@ def main():
         hparams["hop_length"],
     )
 
-    # Fill in some check here, comparing x1 and x2 to some expected result
-    assert True
-
     if hparams["save_reconstructed"]:
         savepath = "results/save/"
         if not os.path.exists("results"):
@@ -169,14 +166,14 @@ def main():
             os.mkdir(savepath)
 
         for i, (x1hat, x2hat) in enumerate(zip(x1hats, x2hats)):
-            write_wav_soundfile(
-                x1hat,
+            write_audio(
                 os.path.join(savepath, "separated_source1_{}.wav".format(i)),
+                x1hat.squeeze(0),
                 16000,
             )
-            write_wav_soundfile(
-                x2hat,
+            write_audio(
                 os.path.join(savepath, "separated_source2_{}.wav".format(i)),
+                x2hat.squeeze(0),
                 16000,
             )
 
