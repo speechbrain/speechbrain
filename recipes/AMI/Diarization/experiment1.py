@@ -306,14 +306,14 @@ def dev_p_tuner(full_csv, split_type):
 
 
 def dev_nn_tuner(full_csv, split_type):
-    """Tuning n_compenents on dev set.
-    Note: This is a very basic tunning for nn based affinity.
-    This is work in progress till we find a better way.
+    """Tuning n_neighbors on dev set.
+    Assuming oracle num of speakers.
     """
 
     DER_list = []
     pval = None
     for nn in range(5, 15):
+
         # Fix this later. Now assumming oracle num of speakers
         n_lambdas = 4
 
@@ -333,7 +333,6 @@ def dev_nn_tuner(full_csv, split_type):
 
         DER_list.append([nn, DER_])
 
-    # Take n_lambdas with minmum DER
     DER_list.sort(key=lambda x: x[1])
     tunned_nn = DER_list[0]
 
@@ -341,7 +340,7 @@ def dev_nn_tuner(full_csv, split_type):
 
 
 def dev_tuner(full_csv, split_type):
-    """Tuning n_compenents on dev set.
+    """Tuning n_components on dev set.
     Note: This is a very basic tunning for nn based affinity.
     This is work in progress till we find a better way.
     """
