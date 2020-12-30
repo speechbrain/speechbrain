@@ -334,10 +334,8 @@ def dev_nn_tuner(full_csv, split_type):
         DER_list.append([nn, DER_])
 
     # Take n_lambdas with minmum DER
-    # tuned_nn = DER_list.index(min(DER_list)) + 1
     DER_list.sort(key=lambda x: x[1])
     tunned_nn = DER_list[0]
-    print("tunneddddddddddd : ", tunned_nn)
 
     return tunned_nn[0]
 
