@@ -229,14 +229,25 @@ def data_io_prep(hparams):
     # NOTE: In this minimal example, also update from valid data
 
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
-    if hparams["blank_index"] != hparams["bos_eos_index"]:
+    if (
+        hparams["blank_index"] != hparams["bos_index"]
+        or hparams["blank_index"] != hparams["eos_index"]
+    ):
         label_encoder.insert_blank(index=hparams["blank_index"])
 
-    label_encoder.insert_bos_eos(
-        bos_label="<eos-bos>",
-        eos_label="<eos-bos>",
-        bos_index=hparams["eos_bos_index"],
-    )
+    if hparams["bos_index"] == hparams["eos_index"]:
+        label_encoder.insert_bos_eos(
+            bos_label="<eos-bos>",
+            eos_label="<eos-bos>",
+            bos_index=hparams["bos_index"],
+        )
+    else:
+        label_encoder.insert_bos_eos(
+            bos_label="<bos>",
+            eos_label="<eos>",
+            bos_index=hparams["bos_index"],
+            eos_index=hparams["eos_index"],
+        )
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(

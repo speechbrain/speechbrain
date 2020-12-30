@@ -39,13 +39,12 @@ emb_size: 128
 dec_neurons: 256
 
 # Outputs
-output_neurons: 41
+output_neurons: 42
 blank_index: 1
-eos_bos_index: 0 # same index for both
+bos_index: 0
+eos_index: 0
 
 # Decoding parameters
-bos_index: !ref <eos_bos_index>
-eos_index: !ref <eos_bos_index>
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
@@ -134,6 +133,7 @@ greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     linear: !ref <seq_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
@@ -141,8 +141,10 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
