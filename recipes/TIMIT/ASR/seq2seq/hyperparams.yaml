@@ -7,13 +7,17 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /media/sam/HitachiX360/TIMIT/  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/dev.csv
+test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
+sorting: ascending
 
 # Feature parameters
 sample_rate: 16000
@@ -37,7 +41,7 @@ dec_neurons: 256
 # Outputs
 output_neurons: 41
 blank_index: 1
-eos_bos_index: 0
+eos_bos_index: 0 # same index for both
 
 # Decoding parameters
 bos_index: !ref <eos_bos_index>
@@ -47,92 +51,28 @@ max_decode_ratio: 1.0
 beam_size: 16
 eos_threshold: 1.5
 
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:timit_prepare.prepare_timit
-        data_folder: !ref <data_folder>
-        splits: ["train", "dev", "test"]
-        save_folder: !ref <data_folder>
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 
-label_encoder: !new:speechbrain.data_io.encoder.TextEncoder
-
-common_dynamic_items:
-    phn_list:
-        func: !name:speechbrain.utils.data_utils.split_by_whitespace
-        argkeys: [phn]
-    phn_encoded_list:
-        func: !ref <label_encoder.encode_sequence>
-        argkeys: [phn_list]
-    phn_encoded:
-        func: !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded_list]
-    phn_encoded_eos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.append_eos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded_list]
-    phn_encoded_bos:
-        func: !new:speechbrain.utils.data_utils.FuncPipeline
-            - !ref <label_encoder.prepend_bos_index>
-            - !name:speechbrain.data_io.data_io.to_longTensor
-        argkeys: [phn_encoded_list]
-    sig:
-        func: !name:speechbrain.data_io.data_io.read_audio
-        argkeys: [wav]
-common_output_keys: ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"]
-
-train_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/train.csv
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <train_data>
-    batch_size: !ref <batch_size>
-    shuffle: False # we use ordered batches for better performance
-
-valid_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/dev.csv
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
-    shuffle: False
-
-test_data: !apply:speechbrain.data_io.dataset.DynamicItemDataset.from_csv
-    csv_path: !ref <data_folder>/test.csv
-    replacements:
-        data_root: !ref <data_folder>
-    dynamic_items: !ref <common_dynamic_items>
-    output_keys: !ref <common_output_keys>
-test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
-    dataset: !ref <valid_data>
-    batch_size: !ref <batch_size>
-    shuffle: False
-
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
 # Can be removed to speed up training a little
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
+#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+ #   openrir_folder: !ref <data_folder>
+  #  babble_prob: 0.0
+  #  reverb_prob: 0.0
+  #  noise_prob: 1.0
+  #  noise_snr_low: 0
+  #  noise_snr_high: 15
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
