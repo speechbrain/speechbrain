@@ -678,7 +678,11 @@ class TextEncoder(CategoricalEncoder):
         self.eos_label = eos_label
 
     def insert_bos_eos(
-        self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS, bos_index=0,
+        self,
+        bos_label=DEFAULT_BOS,
+        eos_label=DEFAULT_EOS,
+        bos_index=0,
+        eos_index=None,
     ):
         """Insert sentence boundary markers in the label set.
 
@@ -694,6 +698,8 @@ class TextEncoder(CategoricalEncoder):
             bos_label, will just use one sentence-boundary label.
         bos_index : int
             Where to insert bos_label. eos_index = bos_index + 1
+        bos_index : optional, int
+            Where to insert eos_label. Default: eos_index = bos_index + 1
         """
         if bos_label == eos_label:
             logger.debug(
@@ -703,7 +709,11 @@ class TextEncoder(CategoricalEncoder):
             self.insert_label(bos_label, bos_index)
         else:
             self.insert_label(bos_label, bos_index)
-            self.insert_label(eos_label, bos_index + 1)
+            if eos_index is None:
+                logger.debug("EOS label not specified, using BOS label + 1")
+                self.insert_label(eos_label, bos_index + 1)
+            else:
+                self.insert_label(eos_label, eos_index)
         self.bos_label = bos_label
         self.eos_label = eos_label
 
