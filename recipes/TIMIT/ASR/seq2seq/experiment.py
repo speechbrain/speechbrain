@@ -80,12 +80,7 @@ class ASR(sb.Brain):
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens)
             self.per_metrics.append(
-                ids,
-                hyps,
-                phns,
-                None,
-                phn_lens,
-                self.hparams.label_encoder.decode_ndim,
+                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim,
             )
 
         return loss
@@ -153,27 +148,128 @@ class ASR(sb.Brain):
                 )
 
 
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+    data_folder = hparams["data_folder"]
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["train_shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["train_shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    datasets = [train_data, valid_data, test_data]
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides(
+        "phn_list",
+        "phn_encoded_list",
+        "phn_encoded",
+        "phn_encoded_eos",
+        "phn_encoded_bos",
+    )
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded_list = label_encoder.encode_sequence(phn_list)
+        yield phn_encoded_list
+        phn_encoded = torch.LongTensor(phn_encoded_list)
+        yield phn_encoded
+        phn_encoded_eos = torch.LongTensor(
+            label_encoder.append_eos_index(phn_encoded_list)
+        )
+        yield phn_encoded_eos
+        phn_encoded_bos = torch.LongTensor(
+            label_encoder.prepend_bos_index(phn_encoded_list)
+        )
+        yield phn_encoded_bos
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    if hparams["blank_index"] != hparams["bos_eos_index"]:
+        label_encoder.insert_blank(index=hparams["blank_index"])
+
+    label_encoder.insert_bos_eos(
+        bos_label="<eos-bos>",
+        eos_label="<eos-bos>",
+        bos_index=hparams["eos_bos_index"],
+    )
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets,
+        ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"],
+    )
+
+    return train_data, valid_data, test_data, label_encoder
+
+
 if __name__ == "__main__":
+    # CLI:
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
-    # Initialize ddp (useful when using multiple gpus with ddp)
-    sb.ddp_init_group(run_opts)
+    # Dataset prep (parsing TIMIT and annotation into csv files)
+    from timit_prepare import prepare_timit  # noqa
 
-    # Create label encoding
-    label_encoder = hparams["label_encoder"]
-    if not label_encoder.load_if_possible("encoder_state.txt"):
-        label_encoder.update_from_didataset(
-            hparams["train_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.update_from_didataset(
-            hparams["valid_data"], output_key="phn_list", sequence_input=True
-        )
-        label_encoder.insert_bos_eos(bos_index=hparams["blank_index"])
-        label_encoder.save("encoder_state.txt")
+    prepare_timit(
+        hparams["data_folder"],
+        splits=["train", "dev", "test"],
+        save_folder=hparams["data_folder"],
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
+    # hparams["label_encoder"] = label_encoder
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -182,6 +278,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -189,10 +286,17 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+    asr_brain.label_encoder = label_encoder
 
+    # Training/validation loop
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
-        hparams["train_loader"],
-        hparams["valid_loader"],
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
     )
-    asr_brain.evaluate(hparams["test_loader"], min_key="PER")
+
+    # Test
+    asr_brain.evaluate(
+        test_data, min_key="PER", **hparams["dataloader_options"]
+    )
