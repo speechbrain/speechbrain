@@ -282,7 +282,9 @@ def read_audio_multichannel(waveforms_obj):
     stop = waveforms_obj.get("stop", start)
     num_frames = stop - start
     for f in files:
-        audio, fs = torchaudio.load(f, num_frames=num_frames, offset=start)
+        audio, fs = torchaudio.load(
+            f, num_frames=num_frames, frame_offset=start
+        )
         waveforms.append(audio)
 
     out = torch.cat(waveforms, 0)
