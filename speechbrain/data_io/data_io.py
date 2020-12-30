@@ -21,7 +21,7 @@ import torchaudio
 import json
 import re
 
-torchaudio.set_audio_backend("soundfile")  # switch backend
+torchaudio.set_audio_backend("sox_io")  # switch backend
 logger = logging.getLogger(__name__)
 
 
@@ -209,7 +209,7 @@ def read_audio(waveforms_obj):
     # which is the torchaudio default
     stop = waveforms_obj.get("stop", start)
     num_frames = stop - start
-    audio, fs = torchaudio.load(path, num_frames=num_frames, offset=start)
+    audio, fs = torchaudio.load(path, num_frames=num_frames, frame_offset=start)
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
 
