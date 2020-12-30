@@ -386,6 +386,7 @@ class EnvCorrupt(torch.nn.Module):
             self.add_noise = AddNoise(
                 mix_prob=noise_prob,
                 csv_file=noise_csv,
+                cache=noise_cache,
                 num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
