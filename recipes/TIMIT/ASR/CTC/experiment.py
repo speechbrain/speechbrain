@@ -192,13 +192,15 @@ if __name__ == "__main__":
     # Dataset prep (parsing TIMIT and annotation into csv files)
     from timit_prepare import prepare_timit  # noqa
 
-    # multi-gpu (ddp) save data preparation 
-    run_on_main(prepare_timit, 
-            kwargs={'data_folder': hparams["data_folder"],
-                  'splits': ["train", "dev", "test"],
-                  'save_folder': hparams["data_folder"]
-                  }
-            )
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_timit,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "splits": ["train", "dev", "test"],
+            "save_folder": hparams["data_folder"],
+        },
+    )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
