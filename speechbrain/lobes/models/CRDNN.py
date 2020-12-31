@@ -29,7 +29,7 @@ class CRDNN(sb.nnet.containers.Sequential):
     cnn_kernelsize : tuple of ints
         The size of the convolutional kernels.
     time_pooling : bool
-        Whether to pool the utterance on the time axis before the LiGRU.
+        Whether to pool the utterance on the time axis before the RNN.
     time_pooling_size : int
         The number of elements to pool on the time axis.
     time_pooling_stride : int
@@ -41,11 +41,14 @@ class CRDNN(sb.nnet.containers.Sequential):
     rnn_class : torch class
         The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
-        The number of recurrent LiGRU layers to include.
+        The number of recurrent RNN layers to include.
     rnn_neurons : int
-        Number of neurons in each layer of the LiGRU.
+        Number of neurons in each layer of the RNN.
     rnn_bidirectional : bool
         Whether this model will process just forward or both directions.
+    rnn_re_init : bool,
+        If True, an orthogonal initialisation will be applied to the recurrent
+        weights.
     dnn_blocks : int
         The number of linear neural blocks to include.
     dnn_neurons : int
