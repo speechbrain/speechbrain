@@ -1,5 +1,5 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 123
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -14,8 +14,8 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 8
-lr: 0.001
+batch_size: 4
+lr: 0.0001
 ctc_weight: 0.2
 
 # Feature parameters
