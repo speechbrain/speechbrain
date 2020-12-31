@@ -192,6 +192,9 @@ if __name__ == "__main__":
     # Dataset prep (parsing TIMIT and annotation into csv files)
     from timit_prepare import prepare_timit  # noqa
 
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
+
     # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_timit,
@@ -204,10 +207,6 @@ if __name__ == "__main__":
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
-    # hparams["label_encoder"] = label_encoder
-
-    # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
