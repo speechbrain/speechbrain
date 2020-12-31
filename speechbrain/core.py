@@ -11,7 +11,9 @@ import torch
 import shutil
 import logging
 import inspect
+import pathlib
 import argparse
+import tempfile
 import subprocess
 import speechbrain as sb
 from datetime import date
@@ -551,6 +553,22 @@ class Brain:
         # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
+
+        # Checkpointer should point at a temporary directory in debug mode
+        if (
+            self.debug
+            and self.checkpointer is not None
+            and hasattr(self.checkpointer, "checkpoints_dir")
+        ):
+            tempdir = tempfile.TemporaryDirectory()
+            logger.info(
+                "Since debug mode is active, switching checkpointer "
+                f"output to temporary directory: {tempdir.name}"
+            )
+            self.checkpointer.checkpoints_dir = pathlib.Path(tempdir.name)
+
+            # Keep reference to tempdir as long as checkpointer exists
+            self.checkpointer.tempdir = tempdir
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
