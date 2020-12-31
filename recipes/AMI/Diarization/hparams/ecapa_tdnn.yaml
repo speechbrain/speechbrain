@@ -6,7 +6,7 @@
 # #################################################
 
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders
 # data: http://groups.inf.ed.ac.uk/ami/download/
