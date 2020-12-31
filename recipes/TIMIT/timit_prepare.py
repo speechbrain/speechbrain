@@ -36,7 +36,7 @@ def prepare_timit(
     kaldi_ali_dev=None,
     kaldi_ali_test=None,
     kaldi_lab_opts=None,
-    phn_set="39",
+    phn_set=39,
     uppercase=False,
 ):
     """
@@ -658,14 +658,14 @@ def get_phoneme_lists(phn_file, phn_set):
         from_60_to_48_phn, from_60_to_39_phn = _get_phonemes()
 
         # Removing end corresponding to q if phn set is not 61
-        if phn_set != "61":
+        if phn_set != 60:
             if phoneme == "q":
                 end = ""
 
         # Converting phns if necessary
-        if phn_set == "48":
+        if phn_set == 48:
             phoneme = from_60_to_48_phn[phoneme]
-        if phn_set == "39":
+        if phn_set == 39:
             phoneme = from_60_to_39_phn[phoneme]
 
         # Appending arrays
@@ -674,7 +674,7 @@ def get_phoneme_lists(phn_file, phn_set):
         if len(end) > 0:
             ends.append(end)
 
-    if phn_set != "61":
+    if phn_set != 60:
         # Filtering out consecutive silences by applying a mask with `True` marking
         # which sils to remove
         # e.g.
