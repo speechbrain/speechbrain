@@ -170,7 +170,7 @@ def data_io_prep(hparams):
     sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    label_encoder.insert_blank(hparams["blank_index"])
+    label_encoder.insert_blank(index=hparams["blank_index"])
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
 
     # 4. Set output:
