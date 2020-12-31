@@ -6,10 +6,10 @@ This directory contains the scripts for speaker diarization on AMI corpus (http:
 The scripts assumes the pre-trained model. Please refer to speechbrain/recipes/VoxCeleb/SpeakerRec/README.md to know more about the available pre-trained models that can easily be downloaded.
 You can also train the speaker embedding model from scratch using instructions in the same file. Use the following command to run diarization on AMI corpus.
 
-`python experiment.py hyperparams.yaml`
+`python experiment.py hparams/xvectors.yaml`
+`python experiment.py hparams/ecapa_tdnn.yaml`
 
 # Performance Summary using Xvector model trainined on VoxCeleb1+VoxCeleb2 dataset
-[Diarization Error Rate on AMI. Condition Orcale VAD and Oracle number of speakers]
-| System          | AMI-Dev    | AMI-Eval |
-|-----------------|------------|------|
-| Xvector + SC  | 4.47 % | 4.49% |
+Xvectors : Dev = 4.34 % | Eval = 4.45 %
+ECAPA   :  Dev = 2.19 % | Eval = 2.74 %
+ECAPA_big: Dev = 2.16 % | Eval = 2.72 %

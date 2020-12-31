@@ -15,7 +15,7 @@ device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-        https://www.dropbox.com/s/2mdnl784ram5w8o/embedding_model.ckpt?dl=1
+        https://www.dropbox.com/s/n5l4llap8b9ipty/embedding_model.ckpt?dl=1
 
 # csv files
 csv_train: !ref <save_folder>/train.csv
@@ -47,7 +47,8 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
         lin_neurons: 192
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-        norm_type: global
+        norm_type: sentence
+        std_norm: False
 
 mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
         norm_type: global
