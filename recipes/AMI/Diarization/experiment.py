@@ -136,7 +136,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-def diarize_dataset(full_csv, split_type, n_lambdas, pval):
+def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     """Diarizes all the recordings in a given dataset
     """
 
@@ -239,6 +239,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
             num_spkrs,
             pval,
             params["affinity"],
+            n_neighbors,
         )
 
     # Concatenate individual RTTM files
@@ -304,8 +305,42 @@ def dev_p_tuner(full_csv, split_type):
     return tuned_p_val
 
 
+def dev_nn_tuner(full_csv, split_type):
+    """Tuning n_neighbors on dev set.
+    Assuming oracle num of speakers.
+    """
+
+    DER_list = []
+    pval = None
+    for nn in range(5, 15):
+
+        # Fix this later. Now assumming oracle num of speakers
+        n_lambdas = 4
+
+        # Process whole dataset for value of n_lambdas
+        concate_rttm_file = diarize_dataset(
+            full_csv, split_type, n_lambdas, pval, nn
+        )
+
+        ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
+        sys_rttm = concate_rttm_file
+        [MS, FA, SER, DER_] = DER(
+            ref_rttm,
+            sys_rttm,
+            params["ignore_overlap"],
+            params["forgiveness_collar"],
+        )
+
+        DER_list.append([nn, DER_])
+
+    DER_list.sort(key=lambda x: x[1])
+    tunned_nn = DER_list[0]
+
+    return tunned_nn[0]
+
+
 def dev_tuner(full_csv, split_type):
-    """Tuning n_compenents on dev set.
+    """Tuning n_components on dev set.
     Note: This is a very basic tunning for nn based affinity.
     This is work in progress till we find a better way.
     """
@@ -372,6 +407,11 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
+    best_nn = None
+    if params["affinity"] == "nn":
+        logger.info("Tuning for nn (Multiple iterations over AMI Dev set)")
+        best_nn = dev_nn_tuner(full_csv, "dev")
+
     n_lambdas = None
     best_pval = None
     if params["affinity"] == "cos":  # oracle num_spkrs or not doesn't matter
@@ -386,8 +426,13 @@ if __name__ == "__main__":  # noqa: C901
             )
             n_lambdas = dev_tuner(full_csv, "dev")
 
+    # Running once more of dev set (optional)
     out_boundaries = diarize_dataset(
-        full_csv, "dev", n_lambdas=n_lambdas, pval=best_pval
+        full_csv,
+        "dev",
+        n_lambdas=n_lambdas,
+        pval=best_pval,
+        n_neighbors=best_nn,
     )
 
     # Evaluating on DEV set
@@ -414,7 +459,11 @@ if __name__ == "__main__":  # noqa: C901
             full_csv.append(row)
 
     out_boundaries = diarize_dataset(
-        full_csv, "eval", n_lambdas=n_lambdas, pval=best_pval
+        full_csv,
+        "eval",
+        n_lambdas=n_lambdas,
+        pval=best_pval,
+        n_neighbors=best_nn,
     )
 
     # Evaluating on EVAL set

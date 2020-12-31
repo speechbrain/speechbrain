@@ -104,7 +104,7 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 | Xvector + PLDA  | VoxCeleb 2 | 4.3% |
 | Xvector + CL    | Voxceleb 2 | 2.9% |
 | ECAPA-TDNN      | Voxceleb 2 | 1.3% |
-| ECAPA-TDNN big  | Voxceleb 2 | 1.2% |
+| ECAPA-TDNN big  | Voxceleb 2 | 1.0% |
 
 
 # Resources
@@ -149,7 +149,12 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 - ecapa-tdnn(model only): https://www.dropbox.com/s/ovrzhwnik651rzj/embedding_model.ckpt?dl=1
 
-- ecapa-tdnn(full exp folder): https://www.dropbox.com/sh/3it4isnwul20lov/AAAlVdQtcWfk3Bld7gmc5Ljea?dl=1
+- big-ecapa-tdnn(full exp folder): https://www.dropbox.com/sh/3it4isnwul20lov/AAAlVdQtcWfk3Bld7gmc5Ljea?dl=1
 
-- ecapa-tdnn(model only): https://www.dropbox.com/s/2mdnl784ram5w8o/embedding_model.ckpt?dl=1
+- big-ecapa-tdnn(model only): https://www.dropbox.com/s/2mdnl784ram5w8o/embedding_model.ckpt?dl=1
+
+- big-ecapa-tdnn-snt_norm(full exp folder): https://www.dropbox.com/sh/ai0c6uyvm3wvz9e/AAD3yHAFpvIGxa4nP9osarFTa?dl=1
+
+- big-ecapa-tdnn-snt_norm(model only): https://www.dropbox.com/s/n5l4llap8b9ipty/embedding_model.ckpt?dl=1
+
 
