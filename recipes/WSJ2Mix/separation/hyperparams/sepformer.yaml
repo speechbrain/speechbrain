@@ -51,6 +51,10 @@ use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
 
+# loss thresholding
+threshold_byloss: True
+threshold: -30
+
 # Neural parameters
 N_encoder_out: 256
 out_channels: 256
