@@ -705,7 +705,7 @@ def affect_init(
     i_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
     j_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
     k_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
-    init_func: function, (unitary_init, complex_init)
+    init_func: function, (unitary_init, quaternion_init)
     init_criterion: str, (glorot, he)
     """
 
@@ -738,7 +738,7 @@ def affect_conv_init(
     j_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
     k_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
     kernel_size: int
-    init_func: function, (unitary_init, complex_init)
+    init_func: function, (unitary_init, quaternion_init)
     init_criterion: str, (glorot, he)
     """
     in_channels = r_weight.size(1)
