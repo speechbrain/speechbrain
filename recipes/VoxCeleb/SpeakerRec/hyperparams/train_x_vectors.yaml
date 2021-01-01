@@ -1,26 +1,29 @@
-# Basic parameters
-seed: 111
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+# ################################
+# Model: Speaker identification with xvectors
+# Authors: Mirco Ravanelli & Nauman Dawalatabad 2020
+# ################################
 
-# Data (csv) files
-data_folder: /localscratch/voxceleb1_2/
-output_folder: !ref results/voxceleb_xvect/<seed>
-save_folder: !ref <output_folder>/save/
+# Basic parameters
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/xvectors/<seed>
+save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# csv files
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/VoxCeleb
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/dev.csv
 
-# Training hyperparameters
+# Training parameters
 number_of_epochs: 100
 batch_size: 256
 lr: 0.001
 lr_final: 0.0001
-device: 'cuda'
-multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
-random_segment: False
+sample_rate: 16000
+sentence_len: 3.0 # seconds
+train_shuffle: True
+random_chunk: False
 
 # Feature parameters
 n_mels: 24
@@ -31,44 +34,15 @@ deltas: False
 # Number of speakers
 out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
-
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:voxceleb_prepare.prepare_voxceleb
-        data_folder: !ref <data_folder>
-        save_folder: !ref <data_folder>
-        splits: ["train", "dev"]
-        split_ratio: [90, 10]
-        seg_dur: 300
-        rand_seed: !ref <seed>
-        random_segment: !ref <random_segment>
-
-# Dataloaders
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
+dataloader_options:
     batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <save_folder>
-    drop_last: False
-
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <save_folder>
-    drop_last: False
+    train_shuffle: !ref <train_shuffle>
+    num_workers: 2
 
 # Data augmentation
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder>
-    openrir_max_noise_len: 3.0  # seconds
+    openrir_max_noise_len: !ref <sentence_len>
     reverb_prob: 1.0
     noise_prob: 1.0
     babble_prob: 0.0
@@ -80,7 +54,6 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: 16000
     speeds: [100]
 
-# Models
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
@@ -88,7 +61,8 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     deltas: !ref <deltas>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
+    norm_type: sentence
+    std_norm: False
 
 embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     in_channels: !ref <n_mels>
