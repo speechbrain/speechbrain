@@ -119,7 +119,7 @@ class Separation(sb.Brain):
 
             if (
                 loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
+            ):  # fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
                     self.scaler.unscale_(self.optimizer)
