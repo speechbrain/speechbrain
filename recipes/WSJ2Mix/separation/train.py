@@ -150,12 +150,23 @@ class Separation(sb.Brain):
             else:
                 loss = loss.mean()
 
-            loss.backward()
-            if self.hparams.clip_grad_norm >= 0:
-                torch.nn.utils.clip_grad_norm_(
-                    self.modules.parameters(), self.hparams.clip_grad_norm
+            if (
+                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+            ):  # the fix for computational problems
+                loss.backward()
+                if self.hparams.clip_grad_norm >= 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.modules.parameters(), self.hparams.clip_grad_norm
+                    )
+                self.optimizer.step()
+            else:
+                self.nonfinite_count += 1
+                logger.info(
+                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                        self.nonfinite_count
+                    )
                 )
-            self.optimizer.step()
+                loss.data = torch.tensor(0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
