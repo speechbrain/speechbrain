@@ -14,6 +14,7 @@ Authors
 import torch
 import math
 import numpy as np
+import torch.nn.functional as F
 from scipy.stats import chi
 from torch.autograd import Variable
 
@@ -361,6 +362,221 @@ def quaternion_linear_rotation_op(
             return output
 
 
+def quaternion_conv_rotation_op(
+    input,
+    r_weight,
+    i_weight,
+    j_weight,
+    k_weight,
+    bias,
+    stride,
+    padding,
+    groups,
+    dilation,
+    scale,
+    zero_kernel,
+    conv1d,
+):
+    """
+    Applies a quaternion rotation transformation to the incoming data:
+    The rotation W*x*W^t can be replaced by R*x following:
+    https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+    Works for unitary and non unitary weights (they will be normalised).
+    The initial size of the input must be a multiple of 4 with the real part
+    equal to zero. Rotations only affect the vector part of a quaternion.
+
+    Arguments
+    ---------
+    input: torch.Tensor
+        Quaternion input tensor to be transformed.
+    conv1d: bool
+        If true, a 1D convolution operation will be applied. Otherwise, a 2D
+        convolution is called.
+    r_weight: torch.Parameter
+        Real part of the quaternion weight matrix of this layer.
+    i_weight: torch.Parameter
+        First imaginary part of the quaternion weight matrix of this layer.
+    j_weight: torch.Parameter
+        Second imaginarypart of the quaternion weight matrix of this layer.
+    k_weight: torch.Parameter
+        Third imaginary part of the quaternion weight matrix of this layer.
+    bias: torch.Parameter
+    scale: torch.Parameter
+        In the context of a spinor neural network, multiple rotations of
+        the input vector x are performed and summed. Hence, the norm of
+        the output vector always increases with the number of layers, making
+        the neural network instable with deep configurations. The scale
+        parameters are learnable parameters that acts like gates by multiplying
+        the output vector with a small trainable parameter.
+    zero_kernel: torch.Paramater
+        The zero kernel is simply a tensor of zeros with require grad = False.
+        Its shape is equivalent to a quaternion component shape. In fact,
+        it is only needed to make the dimensions match when using the rotation
+        matrix : https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+    """
+
+    square_r = r_weight * r_weight
+    square_i = i_weight * i_weight
+    square_j = j_weight * j_weight
+    square_k = k_weight * k_weight
+
+    norm = torch.sqrt(square_r + square_i + square_j + square_k + 0.0001)
+
+    r_n_weight = r_weight / norm
+    i_n_weight = i_weight / norm
+    j_n_weight = j_weight / norm
+    k_n_weight = k_weight / norm
+
+    norm_factor = 2.0
+
+    square_i = norm_factor * (i_n_weight * i_n_weight)
+    square_j = norm_factor * (j_n_weight * j_n_weight)
+    square_k = norm_factor * (k_n_weight * k_n_weight)
+
+    ri = norm_factor * r_n_weight * i_n_weight
+    rj = norm_factor * r_n_weight * j_n_weight
+    rk = norm_factor * r_n_weight * k_n_weight
+
+    ij = norm_factor * i_n_weight * j_n_weight
+    ik = norm_factor * i_n_weight * k_n_weight
+
+    jk = norm_factor * j_n_weight * k_n_weight
+
+    if scale is not None:
+        rot_kernel_1 = torch.cat(
+            [
+                zero_kernel,
+                scale * (1.0 - (square_j + square_k)),
+                scale * (ij - rk),
+                scale * (ik + rj),
+            ],
+            dim=1,
+        )
+        rot_kernel_2 = torch.cat(
+            [
+                zero_kernel,
+                scale * (ij + rk),
+                scale * (1.0 - (square_i + square_k)),
+                scale * (jk - ri),
+            ],
+            dim=1,
+        )
+        rot_kernel_3 = torch.cat(
+            [
+                zero_kernel,
+                scale * (ik - rj),
+                scale * (jk + ri),
+                scale * (1.0 - (square_i + square_j)),
+            ],
+            dim=1,
+        )
+    else:
+        rot_kernel_1 = torch.cat(
+            [zero_kernel, (1.0 - (square_j + square_k)), (ij - rk), (ik + rj)],
+            dim=1,
+        )
+        rot_kernel_2 = torch.cat(
+            [zero_kernel, (ij + rk), (1.0 - (square_i + square_k)), (jk - ri)],
+            dim=1,
+        )
+        rot_kernel_3 = torch.cat(
+            [zero_kernel, (ik - rj), (jk + ri), (1.0 - (square_i + square_j))],
+            dim=1,
+        )
+
+    zero_kernel2 = torch.cat(
+        [zero_kernel, zero_kernel, zero_kernel, zero_kernel], dim=1
+    )
+    global_rot_kernel = torch.cat(
+        [zero_kernel2, rot_kernel_1, rot_kernel_2, rot_kernel_3], dim=0
+    )
+
+    if conv1d:
+        convfunc = F.conv1d
+    else:
+        convfunc = F.conv2d
+
+    return convfunc(
+        input, global_rot_kernel, bias, stride, padding, dilation, groups
+    )
+
+
+def quaternion_conv_op(
+    input,
+    r_weight,
+    i_weight,
+    j_weight,
+    k_weight,
+    bias,
+    stride,
+    padding,
+    groups,
+    dilation,
+    conv1d,
+):
+    """
+    Applies a quaternion convolution transformation to the incoming data:
+    It is important to notice that the forward phase of a QCNN is defined
+    as W * Inputs (with * equal to the Hamilton product). The constructed
+    cat_kernels_4_quaternion is a modified version of the quaternion
+    representation so when we do torch.mm(Input,W) it's equivalent
+    to W * Inputs.
+
+    Arguments
+    ---------
+    input: torch.Tensor
+        Quaternion input tensor to be transformed.
+    conv1d: bool
+        If true, a 1D convolution operation will be applied. Otherwise, a 2D
+        convolution is called.
+    r_weight: torch.Parameter
+        Real part of the quaternion weight matrix of this layer.
+    i_weight: torch.Parameter
+        First imaginary part of the quaternion weight matrix of this layer.
+    j_weight: torch.Parameter
+        Second imaginarypart of the quaternion weight matrix of this layer.
+    k_weight: torch.Parameter
+        Third imaginary part of the quaternion weight matrix of this layer.
+    bias: torch.Parameter
+    stride: int
+        Stride factor of the convolutional filters.
+    padding: int
+        Amount of padding. See torch.nn documentation for more information.
+    groups: int
+        This option specifies the convolutional groups. See torch.nn
+        documentation for more information.
+    dilation: int
+        Dilation factor of the convolutional filters.
+    """
+
+    cat_kernels_4_r = torch.cat(
+        [r_weight, -i_weight, -j_weight, -k_weight], dim=1
+    )
+    cat_kernels_4_i = torch.cat(
+        [i_weight, r_weight, -k_weight, j_weight], dim=1
+    )
+    cat_kernels_4_j = torch.cat(
+        [j_weight, k_weight, r_weight, -i_weight], dim=1
+    )
+    cat_kernels_4_k = torch.cat(
+        [k_weight, -j_weight, i_weight, r_weight], dim=1
+    )
+
+    cat_kernels_4_quaternion = torch.cat(
+        [cat_kernels_4_r, cat_kernels_4_i, cat_kernels_4_j, cat_kernels_4_k],
+        dim=0,
+    )
+
+    if conv1d:
+        convfunc = F.conv1d
+    else:
+        convfunc = F.conv2d
+
+    return convfunc(
+        input, cat_kernels_4_quaternion, bias, stride, padding, dilation, groups
+    )
+
+
 def quaternion_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
@@ -485,16 +701,54 @@ def affect_init(
 
     Arguments
     ---------
-    real_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
-    imag_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    r_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    i_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    j_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    k_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
     init_func: function, (unitary_init, complex_init)
-    criterion: str, (glorot, he)
+    init_criterion: str, (glorot, he)
     """
 
     r, i, j, k = init_func(
         r_weight.size(0), r_weight.size(1), None, init_criterion,
     )
 
+    r_weight.data = r.type_as(r_weight.data)
+    i_weight.data = i.type_as(i_weight.data)
+    j_weight.data = j.type_as(j_weight.data)
+    k_weight.data = k.type_as(k_weight.data)
+
+
+def affect_conv_init(
+    r_weight,
+    i_weight,
+    j_weight,
+    k_weight,
+    kernel_size,
+    init_func,
+    init_criterion,
+):
+    """ Applies the weight initialization function given to the parameters.
+    This is specificaly written for convolutional layers.
+
+    Arguments
+    ---------
+    r_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    i_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    j_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    k_weight: torch.Parameters, (nb_quaternion_in, nb_quaternion_out)
+    kernel_size: int
+    init_func: function, (unitary_init, complex_init)
+    init_criterion: str, (glorot, he)
+    """
+    in_channels = r_weight.size(1)
+    out_channels = r_weight.size(0)
+    r, i, j, k = init_func(
+        in_channels,
+        out_channels,
+        kernel_size=kernel_size,
+        criterion=init_criterion,
+    )
     r_weight.data = r.type_as(r_weight.data)
     i_weight.data = i.type_as(i_weight.data)
     j_weight.data = j.type_as(j_weight.data)
