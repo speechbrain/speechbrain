@@ -666,7 +666,7 @@ def get_si_snr_with_pitwrapper(source, estimate_source):
     pit_si_snr = PitWrapper(cal_si_snr)
     loss, perms = pit_si_snr(source, estimate_source)
 
-    return loss.mean()
+    return loss
 
 
 def cal_si_snr(source, estimate_source):
