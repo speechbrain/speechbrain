@@ -335,18 +335,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     print(msg)
 
-    csv_output = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-        ]
-    ]
+    csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id",]]
 
     # For assiging unique ID to each chunk
     my_sep = "--"
@@ -384,11 +373,9 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
                 audio_id,
                 str(audio_duration),
                 wav_file,
-                "wav",
-                wav_opt,
+                start_sample,
+                stop_sample,
                 spk_id,
-                "string",
-                " ",
             ]
             entry.append(csv_line)
         else:
@@ -414,11 +401,9 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
                     chunk,
                     str(audio_duration),
                     wav_file,
-                    "wav",
-                    start_stop,
+                    start_sample,
+                    end_sample,
                     spk_id,
-                    "string",
-                    " ",
                 ]
                 entry.append(csv_line)
 
@@ -456,9 +441,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [
-        ["ID", "duration", "wav", "wav_format", "wav_opts"]
-    ]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav"]]  # noqa E231
 
     for data_folder in data_folders:
 
@@ -491,8 +474,6 @@ def prepare_csv_enrol_test(data_folders, save_folder):
                 id,
                 audio_duration,
                 wav,
-                "wav",
-                "",
             ]
 
             enrol_csv.append(csv_line)
@@ -523,8 +504,6 @@ def prepare_csv_enrol_test(data_folders, save_folder):
                 id,
                 audio_duration,
                 wav,
-                "wav",
-                "",
             ]
 
             test_csv.append(csv_line)

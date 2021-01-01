@@ -1,53 +1,46 @@
 # ################################
-# Model: ECAPA-TDNN using AAM-softmax
-# Authors: Hwidong Na 2020
+# Model: Speaker identification with ECAPA
+# Authors: Hwidong Na & Mirco Ravanelli
 # ################################
 
-seed: 1234
+# Basic parameters
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-__set_seed_python: !apply:random.seed [!ref <seed>]
-
-# Folders and train_log file
-data_folder: /localscratch/voxceleb1
-output_folder: results/voxceleb1/ecapa-tdnn
-save_folder: !ref <output_folder>/save/
+output_folder: !ref results/ecapa/<seed>
+save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# csv files
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/VoxCeleb
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/dev.csv
 
-# Training hyperparameters
+# Training parameters
 number_of_epochs: 100
 batch_size: 64
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
-device: 'cuda:0'
+sample_rate: 16000
+sentence_len: 3.0 # seconds
+train_shuffle: True
+random_chunk: True
 
 # Feature parameters
 n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
-random_segment: True
-max_frames: 300
 
 # Number of speakers
 out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
+dataloader_options:
+    batch_size: !ref <batch_size>
+    train_shuffle: !ref <train_shuffle>
+    num_workers: 2
 
-# data preparation will generate train.csv, dev.csv
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:voxceleb_prepare.prepare_voxceleb
-        data_folder: !ref <data_folder>
-        save_folder: !ref <data_folder>
-        splits: ["train", "dev"]
-        split_ratio: [90, 10]
-        seg_dur: 300
-        rand_seed: !ref <seed>
-        random_segment: !ref <random_segment>
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
@@ -83,26 +76,9 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: 16000
     speeds: [100]
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
+    norm_type: sentence
+    std_norm: True
 
 modules:
     compute_features: !ref <compute_features>
