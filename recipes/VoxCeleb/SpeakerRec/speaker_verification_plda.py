@@ -19,7 +19,7 @@ import speechbrain as sb
 import numpy
 import pickle
 from tqdm.contrib import tqdm
-from speechbrain.utils.metric_stats import EER
+from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
@@ -92,7 +92,7 @@ def emb_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-def compute_EER(scores_plda):
+def verification_performance(scores_plda):
     """Computes the Equal Error Rate give the PLDA scores"""
     gt_file = os.path.join(params["data_folder"], "meta", "veri_test.txt")
 
@@ -123,7 +123,10 @@ def compute_EER(scores_plda):
 
     # Final EER computation
     eer, th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-    return eer
+    min_dcf, th = minDCF(
+        torch.tensor(positive_scores), torch.tensor(negative_scores)
+    )
+    return eer, min_dcf
 
 
 def download_and_pretrain():
@@ -151,7 +154,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(params_file) as fin:
         params = sb.yaml.load_extended_yaml(fin, overrides)
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
@@ -315,5 +318,6 @@ if __name__ == "__main__":
     del embeddings_stat
 
     # Final EER computation
-    eer = compute_EER(scores_plda)
+    eer, min_dcf = verification_performance(scores_plda)
     logger.info("EER=%f", eer)
+    logger.info("min_dcf=%f", eer)

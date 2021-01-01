@@ -13,12 +13,55 @@ import torch.nn.functional as F
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
+def create_minimal_data(repository_folder, config_file_path):
+    tr_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+        )
+    )
+    cv_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+        )
+    )
+    tt_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
+        )
+    )
+
+    data_folder = "samples/audio_samples/sourcesep_samples"
+    data_folder = os.path.realpath(os.path.join(repository_folder, data_folder))
+
+    with open(config_file_path) as fin:
+        params = sb.yaml.load_extended_yaml(
+            fin,
+            {
+                "data_folder": data_folder,
+                "tr_csv": tr_csv,
+                "cv_csv": cv_csv,
+                "tt_csv": tt_csv,
+            },
+        )
+    return params
+
+
 class CTN_Brain(sb.Brain):
     def compute_forward(self, mixture, stage):
 
-        mixture_w = self.modules.encoder(mixture)
-        est_mask = self.modules.mask_net(mixture_w)
-        est_source = self.modules.decoder(mixture_w, est_mask)
+        mix_w = self.hparams.encoder(mixture)
+        est_mask = self.hparams.mask_net(mix_w)
+        mix_w = torch.stack([mix_w] * 2)
+        sep_h = mix_w * est_mask
+
+        # Decoding
+        est_source = torch.cat(
+            [self.hparams.decoder(sep_h[i]).unsqueeze(-1) for i in range(2)],
+            dim=-1,
+        )
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mixture.size(1)

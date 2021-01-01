@@ -6,8 +6,15 @@ Run the following command to train xvectors:
 
 `python train_speaker_embeddings.py hyperparams/train_x_vectors.yaml`
 
-You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponsing number or speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
+You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponding number or speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
 For voxceleb1 + voxceleb2, see preparation instructions below).
+
+It is possible to train embeddings with more augmentation with the following command:
+
+`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_big.yaml`
+
+It this case, we concatenate waveform dropout, speed change, reverberarion, noise, and noise+rev. The batch is 6 times larger that the original one. This normally leads to
+a performance improvement at the cost of longer training time.
 
 The system trains a TDNN for speaker embeddings coupled with a speaker-id classifier. The speaker-id accuracy should be around 97-98% for both voxceleb1 and voceleb2.
 
@@ -96,7 +103,8 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 |-----------------|------------|------|
 | Xvector + PLDA  | VoxCeleb 2 | 4.3% |
 | Xvector + CL    | Voxceleb 2 | 2.9% |
-| ECAPA-TDNN      | Voxceleb 2 | 1.4% |
+| ECAPA-TDNN      | Voxceleb 2 | 1.3% |
+| ECAPA-TDNN big  | Voxceleb 2 | 1.0% |
 
 
 # Resources
@@ -140,3 +148,13 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 - ecapa-tdnn(full exp folder): https://www.dropbox.com/sh/9tpae97au7yopwj/AABF6weFsd4Gb7EkU7vZco6ha?dl=1
 
 - ecapa-tdnn(model only): https://www.dropbox.com/s/ovrzhwnik651rzj/embedding_model.ckpt?dl=1
+
+- big-ecapa-tdnn(full exp folder): https://www.dropbox.com/sh/3it4isnwul20lov/AAAlVdQtcWfk3Bld7gmc5Ljea?dl=1
+
+- big-ecapa-tdnn(model only): https://www.dropbox.com/s/2mdnl784ram5w8o/embedding_model.ckpt?dl=1
+
+- big-ecapa-tdnn-snt_norm(full exp folder): https://www.dropbox.com/sh/ai0c6uyvm3wvz9e/AAD3yHAFpvIGxa4nP9osarFTa?dl=1
+
+- big-ecapa-tdnn-snt_norm(model only): https://www.dropbox.com/s/n5l4llap8b9ipty/embedding_model.ckpt?dl=1
+
+

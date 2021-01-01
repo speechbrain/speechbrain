@@ -35,7 +35,6 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
 
@@ -91,7 +90,10 @@ class ASR(sb.Brain):
             else:
                 return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
+            if stage == sb.Stage.VALID:
+                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
+            else:
+                p_tokens, scores = self.hparams.test_search(x, wav_lens)
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
@@ -168,7 +170,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
@@ -199,16 +202,14 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+            )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -242,7 +243,8 @@ class ASR(sb.Brain):
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
+        if not os.path.isfile(save_model_path):
+            download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
@@ -251,15 +253,15 @@ class ASR(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from librispeech_prepare import prepare_librispeech  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # If distributed_launch=True then
+    # create ddp_group with the right communication protocol
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -268,26 +270,8 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_librispeech(
-        data_folder=hparams["data_folder"],
-        splits=hparams["train_splits"]
-        + [hparams["dev_split"], "test-clean", "test-other"],
-        merge_lst=hparams["train_splits"],
-        merge_name=hparams["csv_train"],
-        save_folder=hparams["data_folder"],
-    )
-
     # Creating tokenizer must be done after preparation
-    # Specify the bos_id/eos_id if different from blank_id
-    hparams["tokenizer"] = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        csv_train=hparams["csv_train"],
-        csv_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=1.0,
-    )
+    tokenizer = hparams["tokenizer"]()
 
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
@@ -296,12 +280,14 @@ if __name__ == "__main__":
     hparams["ind2lab"] = hparams["test_other_loader"].label_dict["wrd"][
         "index2lab"
     ]
+    hparams["tokenizer"] = tokenizer
 
     # Brain class initialization
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

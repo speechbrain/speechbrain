@@ -164,7 +164,26 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
     yaml.Loader.add_multi_constructor("!apply:", _apply_function)
 
+    # NOTE: Here we apply a somewhat dirty trick.
+    # We change the yaml object construction to be deep=True by default.
+    #
+    # Sometimes in e.g. !apply: calls which would get passed a dictionary
+    # by reference, the dict got passed empty.
+    # This is to do with pyyaml constructors for e.g. mappings and their
+    # behaviour with the default deep=False
+    # See for example https://stackoverflow.com/a/43812995
+    #
+    # In our tests nothing seems to break after changing the default.
+    # But if later weird things start happening in YAML loading,
+    # see this.
+    yaml.constructor.BaseConstructor.construct_object.__defaults__ = (
+        True,
+    )  # deep=True
     hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
+    # Change back to normal default:
+    yaml.constructor.BaseConstructor.construct_object.__defaults__ = (
+        False,
+    )  # deep=False
 
     # Remove items that start with "__"
     removal_keys = [k for k in hparams.keys() if k.startswith("__")]
@@ -280,7 +299,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     ruamel_yaml = ruamel.yaml.YAML()
     preview = ruamel_yaml.load(yaml_stream)
 
-    if overrides is not None:
+    if overrides is not None and overrides != "":
         if isinstance(overrides, str):
             overrides = ruamel_yaml.load(overrides)
         recursive_update(preview, overrides, must_match=overrides_must_match)
