@@ -9,7 +9,6 @@ Authors
 
 import torch
 import torch.nn as nn
-from torch.nn import Module
 from torch.nn.parameter import Parameter
 import torch.nn.functional as F
 import numpy as np
@@ -120,151 +119,6 @@ class complex_linear(nn.Module):
 
         wx = complex_linear_op(x, self.real_weight, self.imag_weight, self.b)
 
-        return wx
-
-
-class complex_convolution(Module):
-    """ This class implements a complex-valued convolutional layer:
-        y = w*x + b. y, W, x and b are thus complex numbers.
-        A complex number is written as: r + xi. A tensor of
-        complex numbers x = [batch, 32] can be understood as
-        [batch, 0:15] = R and [batch, 16:31] = Xi.
-
-        Arguments
-        ---------
-
-        in_channels: int
-            Number of input channels. Please note
-            that these are complex-valued neurons. If 256
-            channels are specified, the real input dimension
-            is 512.
-        out_channels: int
-            Number of output channels. Please note
-            that these are complex-valued neurons. If 256
-            channels are specified, the output dimension
-            will be 512.
-        conv1d: bool
-            If True a 1D convolution will be applied. If False,
-            a 2D convolution will be used.
-        kernel_size: int
-            Kernel size of the convolutional filters.
-        stride: int, optional
-            Default: 1.
-            Stride factor of the convolutional filters.
-        dilation: int, optional
-            Default: 1.
-            Dilation factor of the convolutional filters.
-        padding: int, optional
-            Default: 0.
-            Amount of padding to add.
-        groups: int, optional
-            Default: 1.
-            This option specifies the convolutional groups.
-            See torch.nn documentation for more information.
-        bias: bool, optional
-            Default: True.
-            If True, the additive bias b is adopted.
-        init_criterion: str , optional
-            Default: he.
-            (glorot, he).
-            This parameter controls the initialization criterion of the weights.
-            It is combined with weights_init to build the initialization method of
-            the complex-valued weights.
-        weight_init: str, optional
-            Default: complex.
-            (complex, unitary).
-            This parameter defines the initialization procedure of the
-            complex-valued weights. "complex" will generate random complex-valued
-            weights following the init_criterion and the complex polar form.
-            "unitary" will normalize the weights to lie on the unit circle.
-            More details in: "Deep Complex Networks", Trabelsi C. et al.
-
-     Example
-     -------
-     >>> conv2 = complex_convolution(8, 64, conv1d=False, kernel_size=[3,3])
-     >>> inp_tensor = torch.rand([10, 16, 64, 64])
-     >>> out_tensor = conv2(inp_tensor)
-     >>> out_tensor.shape
-     torch.Size([10, 128, 62, 62])
-     """
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        conv1d,
-        kernel_size,
-        stride=1,
-        dilation=1,
-        padding=0,
-        groups=1,
-        bias=True,
-        init_criterion="glorot",
-        weight_init="complex",
-    ):
-        super(complex_convolution, self).__init__()
-
-        # Setting parameters
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.conv1d = conv1d
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.dilation = dilation
-        self.padding = padding
-        self.groups = groups
-        self.bias = bias
-        self.init_criterion = init_criterion
-        self.weight_init = weight_init
-
-        # Managing the weight initialization and bias by directly setting the
-        # correct function
-        self.winit = {"complex": complex_init, "unitary": unitary_init}[
-            self.weight_init
-        ]
-
-        (self.k_shape, self.w_shape) = get_kernel_and_weight_shape(
-            self.conv1d, self.in_channels, self.out_channels, self.kernel_size
-        )
-
-        self.real_weight = Parameter(torch.Tensor(*self.w_shape))
-        self.imag_weight = Parameter(torch.Tensor(*self.w_shape))
-
-        if self.bias:
-            self.b = Parameter(torch.Tensor(2 * self.out_channels))
-        else:
-            self.b = torch.Tensor(2 * self.out_channels, requires_grad=False)
-
-        affect_conv_init(
-            self.real_weight,
-            self.imag_weight,
-            self.kernel_size,
-            self.winit,
-            self.init_criterion,
-        )
-
-        if self.b.requires_grad:
-            self.b.data.zero_()
-
-    def forward(self, x):
-        """Returns the output of the convolution.
-
-        Arguments
-        ---------
-        x : torch.Tensor (batch, time, channel)
-            input to convolve.
-        """
-
-        wx = complex_conv_op(
-            x,
-            self.conv1d,
-            self.real_weight,
-            self.imag_weight,
-            self.b,
-            self.stride,
-            0,
-            self.dilation,
-        )
         return wx
 
 
@@ -431,7 +285,7 @@ def complex_linear_op(input, real_weight, imag_weight, bias):
 
 
 def complex_conv_op(
-    input, conv1d, real_weight, imag_weight, bias, stride, padding, dilation
+    input, real_weight, imag_weight, bias, stride, padding, dilation, conv1d
 ):
     """Applies a complex convolution to the incoming data.
 
