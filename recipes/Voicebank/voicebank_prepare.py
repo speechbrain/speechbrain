@@ -90,7 +90,7 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_csv_train, save_csv_test, save_csv_valid):
-        logger.debug("Preparation completed in previous run, skipping.")
+        print("Preparation completed in previous run, skipping.")
         return
 
     train_clean_folder = os.path.join(
@@ -118,7 +118,7 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
         test_txts,
     )
 
-    logger.debug("Creating csv files for noisy VoiceBank...")
+    print("Creating csv files for noisy VoiceBank...")
 
     # Creating csv file for training data
     extension = [".wav"]
@@ -218,7 +218,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
         for line in csv_lines:
             csv_writer.writerow(line)
 
-    logger.debug(f"{csv_file} successfully created!")
+    print(f"{csv_file} successfully created!")
 
 
 def check_voicebank_folders(*folders):

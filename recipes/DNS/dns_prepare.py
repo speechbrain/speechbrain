@@ -82,10 +82,10 @@ def prepare_dns(
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder):
-        logger.debug("Preparation completed in previous run.")
+        print("Preparation completed in previous run.")
         return
 
-    logger.info("Creating csv files for the DNS Dataset...")
+    print("Creating csv files for the DNS Dataset...")
 
     # Setting ouput files
     save_csv_noise = os.path.join(save_folder, NOISE_CSV)
@@ -201,7 +201,7 @@ def create_csv(
     if noise_csv and has_target:
         raise ValueError("Expected only one of `noise_csv` and `has_target`")
 
-    logger.debug("Creating csv list: %s" % csv_file)
+    print("Creating csv list: %s" % csv_file)
 
     csv_lines = [["ID", "duration", "wav", "wav_format", "wav_opts"]]
     if noise_csv or has_target:
@@ -275,7 +275,7 @@ def create_csv(
 
     # Writing the csv lines
     _write_csv(csv_lines, csv_file)
-    logger.debug("%s successfully created!" % csv_file)
+    print("%s successfully created!" % csv_file)
 
 
 def _write_csv(csv_lines, csv_file):
