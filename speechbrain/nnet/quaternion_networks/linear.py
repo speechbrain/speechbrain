@@ -48,7 +48,7 @@ class QuaternionLinear(torch.nn.Module):
         Default: quaternion.
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "quaternion" will generate quaternion-valued
+        quaternion-valued weights. "quaternion" will generate quaternion-valued
         weights following the init_criterion and the quaternion  polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Quaternion recurrent neural networks", Parcollet T.
@@ -137,6 +137,10 @@ class QuaternionLinear(torch.nn.Module):
             self.zero_kernel = torch.nn.Parameter(
                 torch.zeros(self.r_weight.shape), requires_grad=False
             )
+        else:
+            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(
+                False
+            )
 
         if self.spinor and self.vector_scale:
             self.scale_param = torch.nn.Parameter(
@@ -144,13 +148,15 @@ class QuaternionLinear(torch.nn.Module):
             )
             torch.nn.init.xavier_uniform_(self.scale_param.data)
         else:
-            self.scale_param = None
+            self.scale_param = torch.Tensor(
+                self.in_features, self.out_features
+            ).requires_grad_(False)
 
         if self.bias:
             self.b = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
             self.b.data.fill_(0)
         else:
-            self.b = None
+            self.b = torch.Tensor(4 * n_neurons).requires_grad_(False)
 
         # Managing the weight initialization and bias
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
@@ -167,6 +173,7 @@ class QuaternionLinear(torch.nn.Module):
             init_criterion,
         )
 
+    @torch.jit.ignore
     def forward(self, x):
         """Returns the linear transformation of input tensor.
 

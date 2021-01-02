@@ -10,6 +10,8 @@ from speechbrain.nnet.quaternion_networks.linear import QuaternionLinear
 from speechbrain.nnet.quaternion_networks.normalization import (
     QuaternionBatchNorm,
 )
+from torch import Tensor
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +39,6 @@ class QuaternionLSTM(torch.nn.Module):
     dropout: float, optional
         Default: 0.0
         It is the dropout factor (must be between 0 and 1).
-    return_hidden: bool, optional
-        Default: False
-        It True, the function returns the last hidden layer.
     bidirectional: bool, optional
         Default: False
         If True, a bidirectioal model that scans the sequence both
@@ -83,7 +82,6 @@ class QuaternionLSTM(torch.nn.Module):
         bias=True,
         dropout=0.0,
         bidirectional=False,
-        return_hidden=False,
         init_criterion="glorot",
         weight_init="quaternion",
         autograd=True,
@@ -95,7 +93,6 @@ class QuaternionLSTM(torch.nn.Module):
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.reshape = False
-        self.return_hidden = return_hidden
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.autograd = autograd
@@ -142,7 +139,7 @@ class QuaternionLSTM(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx: Optional[Tensor] = None):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
@@ -156,12 +153,9 @@ class QuaternionLSTM(torch.nn.Module):
 
         output, hh = self._forward_rnn(x, hx=hx)
 
-        if self.return_hidden:
-            return output, hh
-        else:
-            return output
+        return output, hh
 
-    def _forward_rnn(self, x, hx):
+    def _forward_rnn(self, x, hx: Optional[Tensor]):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
@@ -281,7 +275,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
             self.batch_size = self.batch_size * 2
 
         # Initial state
-        self.h_init = torch.zeros(1, self.hidden_size * 4, requires_grad=False)
+        self.register_buffer("h_init", torch.zeros(1, self.hidden_size * 4))
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
@@ -291,7 +285,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
 
         self.drop_mask_te = torch.tensor([1.0]).float()
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx: Optional[Tensor] = None):
         # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the QuaternionRNN_layer.
 
@@ -336,7 +330,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         ct = self.h_init
 
         # Sampling dropout mask
-        drop_mask = self._sample_drop_mask()
+        drop_mask = self._sample_drop_mask(w)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -390,7 +384,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
             torch.ones(self.N_drop_masks, self.hidden_size * 4,)
         ).data
 
-    def _sample_drop_mask(self,):
+    def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks
         """
         if self.training:
@@ -399,7 +393,9 @@ class QuaternionLSTM_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -424,7 +420,9 @@ class QuaternionLSTM_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=x.device
+                    )
                 ).data
 
 
@@ -453,9 +451,6 @@ class QuaternionRNN(torch.nn.Module):
     dropout: float, optional
         Default: 0.0
         It is the dropout factor (must be between 0 and 1).
-    return_hidden: bool, optional
-        Default: False
-        It True, the function returns the last hidden layer.
     bidirectional: bool, optional
         Default: False
         If True, a bidirectioal model that scans the sequence both
@@ -500,7 +495,6 @@ class QuaternionRNN(torch.nn.Module):
         bias=True,
         dropout=0.0,
         bidirectional=False,
-        return_hidden=False,
         init_criterion="glorot",
         weight_init="quaternion",
         autograd=True,
@@ -513,7 +507,6 @@ class QuaternionRNN(torch.nn.Module):
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.reshape = False
-        self.return_hidden = return_hidden
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.autograd = autograd
@@ -561,7 +554,7 @@ class QuaternionRNN(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx: Optional[Tensor] = None):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
@@ -575,12 +568,9 @@ class QuaternionRNN(torch.nn.Module):
 
         output, hh = self._forward_rnn(x, hx=hx)
 
-        if self.return_hidden:
-            return output, hh
-        else:
-            return output
+        return output, hh
 
-    def _forward_rnn(self, x, hx):
+    def _forward_rnn(self, x, hx: Optional[Tensor]):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
@@ -704,7 +694,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
             self.batch_size = self.batch_size * 2
 
         # Initial state
-        self.h_init = torch.zeros(1, self.hidden_size * 4, requires_grad=False)
+        self.register_buffer("h_init", torch.zeros(1, self.hidden_size * 4))
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
@@ -720,7 +710,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx: Optional[Tensor] = None):
         # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the QuaternionRNN_layer.
 
@@ -762,7 +752,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         hiddens = []
 
         # Sampling dropout mask
-        drop_mask = self._sample_drop_mask()
+        drop_mask = self._sample_drop_mask(w)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -788,7 +778,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
             torch.ones(self.N_drop_masks, self.hidden_size * 4,)
         ).data
 
-    def _sample_drop_mask(self,):
+    def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks
         """
         if self.training:
@@ -797,7 +787,9 @@ class QuaternionRNN_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -822,7 +814,9 @@ class QuaternionRNN_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 2, device=x.device
+                    )
                 ).data
 
 
@@ -862,8 +856,6 @@ class QuaternionLiGRU(torch.nn.Module):
         If True, the additive bias b is adopted.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
-    return_hidden: bool:
-        It True, the function returns the last hidden layer.
     bidirectional: bool
          if True, a bidirectioal model that scans the sequence both
          right-to-left and left-to-right is used.
@@ -905,7 +897,6 @@ class QuaternionLiGRU(torch.nn.Module):
         bias=True,
         dropout=0.0,
         bidirectional=False,
-        return_hidden=False,
         init_criterion="glorot",
         weight_init="quaternion",
         autograd=True,
@@ -918,7 +909,6 @@ class QuaternionLiGRU(torch.nn.Module):
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.reshape = False
-        self.return_hidden = return_hidden
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.autograd = autograd
@@ -963,7 +953,7 @@ class QuaternionLiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx: Optional[Tensor] = None):
         """Returns the output of the QuaternionliGRU.
 
         Arguments
@@ -978,12 +968,9 @@ class QuaternionLiGRU(torch.nn.Module):
         # run ligru
         output, hh = self._forward_ligru(x, hx=hx)
 
-        if self.return_hidden:
-            return output, hh
-        else:
-            return output
+        return output, hh
 
-    def _forward_ligru(self, x, hx):
+    def _forward_ligru(self, x, hx: Optional[Tensor]):
         """Returns the output of the quaternionliGRU.
 
         Arguments
@@ -1109,9 +1096,14 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         if self.normalization == "batchnorm":
             self.norm = QuaternionBatchNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = True
+        else:
+            # Normalization is disabled here. self.norm is only  formally
+            # initialized to avoid jit issues.
+            self.norm = QuaternionBatchNorm(input_size=hidden_size * 2, dim=-1)
+            self.normalize = False
 
         # Initial state
-        self.h_init = torch.zeros(1, self.hidden_size * 4, requires_grad=False)
+        self.register_buffer("h_init", torch.zeros(1, self.hidden_size * 4))
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
@@ -1129,8 +1121,8 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor], Optional[Bool]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[Tensor] = None):
+        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the quaternion liGRU layer.
 
         Arguments
@@ -1176,14 +1168,14 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         hiddens = []
 
         # Sampling dropout mask
-        drop_mask = self._sample_drop_mask()
+        drop_mask = self._sample_drop_mask(w)
 
         # Loop over time axis
         for k in range(w.shape[1]):
             gates = w[:, k] + self.u(ht)
             atr, ati, atj, atk, ztr, zti, ztj, ztk = gates.chunk(8, 1)
             at = torch.cat([atr, ati, atj, atk], dim=-1)
-            zt = torch.cat([ztr, zti, atj, atk], dim=-1)
+            zt = torch.cat([ztr, zti, ztj, ztk], dim=-1)
             zt = torch.sigmoid(zt)
             hcand = self.act(at) * drop_mask
             ht = zt * ht + (1 - zt) * hcand
@@ -1203,11 +1195,12 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         self.N_drop_masks = 16000
         self.drop_mask_cnt = 0
 
-        self.drop_masks = self.drop(
-            torch.ones(self.N_drop_masks, self.hidden_size * 4)
-        ).data
+        self.register_buffer(
+            "drop_masks",
+            self.drop(torch.ones(self.N_drop_masks, self.hidden_size * 4)).data,
+        )
 
-    def _sample_drop_mask(self,):
+    def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks
         """
         if self.training:
@@ -1216,7 +1209,9 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size * 4,)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -1226,6 +1221,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
             self.drop_mask_cnt = self.drop_mask_cnt + self.batch_size
 
         else:
+            self.drop_mask_te = self.drop_mask_te.to(w.device)
             drop_mask = self.drop_mask_te
 
         return drop_mask
@@ -1241,5 +1237,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size * 4, device=x.device
+                    )
                 ).data
