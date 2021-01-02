@@ -237,3 +237,6 @@ class MFCC(torch.nn.Module):
                 mfccs = self.context_window(mfccs)
 
         return mfccs
+
+
+# Add slope features
