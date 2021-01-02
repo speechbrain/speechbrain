@@ -660,7 +660,7 @@ def get_si_snr_with_pitwrapper(source, estimate_source):
     >>> xhat = x[:, :, (1, 0)]
     >>> si_snr = -get_si_snr_with_pitwrapper(x, xhat)
     >>> print(si_snr)
-    tensor(135.2284)
+    tensor([135.2284, 135.2284, 135.2284])
     """
 
     pit_si_snr = PitWrapper(cal_si_snr)
