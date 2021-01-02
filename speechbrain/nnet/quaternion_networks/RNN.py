@@ -1183,7 +1183,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
             gates = w[:, k] + self.u(ht)
             atr, ati, atj, atk, ztr, zti, ztj, ztk = gates.chunk(8, 1)
             at = torch.cat([atr, ati, atj, atk], dim=-1)
-            zt = torch.cat([ztr, zti, atj, atk], dim=-1)
+            zt = torch.cat([ztr, zti, ztj, ztk], dim=-1)
             zt = torch.sigmoid(zt)
             hcand = self.act(at) * drop_mask
             ht = zt * ht + (1 - zt) * hcand
