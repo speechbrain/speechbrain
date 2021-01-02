@@ -76,7 +76,7 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
             ],
             dim=1,
         )
-        if bias is not None:
+        if bias.requires_grad:
             return torch.addmm(bias, input, cat_kernels_4_quaternion)
         else:
             return torch.mm(input, cat_kernels_4_quaternion)
@@ -219,13 +219,13 @@ def quaternion_linear_op(input, r_weight, i_weight, j_weight, k_weight, bias):
 
     # If the input is already [batch*time, N]
     if input.dim() == 2:
-        if bias is not None:
+        if bias.requires_grad:
             return torch.addmm(bias, input, cat_kernels_4_quaternion)
         else:
             return torch.mm(input, cat_kernels_4_quaternion)
     else:
         output = torch.matmul(input, cat_kernels_4_quaternion)
-        if bias is not None:
+        if bias.requires_grad:
             return output + bias
         else:
             return output
@@ -300,7 +300,7 @@ def quaternion_linear_rotation_op(
 
     jk = norm_factor * j_n_weight * k_n_weight
 
-    if scale is not None:
+    if scale.requires_grad:
         rot_kernel_1 = torch.cat(
             [
                 zero_kernel,
@@ -350,13 +350,13 @@ def quaternion_linear_rotation_op(
     )
 
     if input.dim() == 2:
-        if bias is not None:
+        if bias.requires_grad:
             return torch.addmm(bias, input, global_rot_kernel)
         else:
             return torch.mm(input, global_rot_kernel)
     else:
         output = torch.matmul(input, global_rot_kernel)
-        if bias is not None:
+        if bias.requires_grad:
             return output + bias
         else:
             return output
@@ -369,13 +369,13 @@ def quaternion_conv_rotation_op(
     j_weight,
     k_weight,
     bias,
-    stride,
-    padding,
-    groups,
-    dilation,
     scale,
     zero_kernel,
-    conv1d,
+    stride: int,
+    padding: int,
+    groups: int,
+    dilation: int,
+    conv1d: bool,
 ):
     """
     Applies a quaternion rotation transformation to the incoming data:
@@ -442,7 +442,7 @@ def quaternion_conv_rotation_op(
 
     jk = norm_factor * j_n_weight * k_n_weight
 
-    if scale is not None:
+    if scale.requires_grad:
         rot_kernel_1 = torch.cat(
             [
                 zero_kernel,
@@ -492,13 +492,25 @@ def quaternion_conv_rotation_op(
     )
 
     if conv1d:
-        convfunc = F.conv1d
+        return F.conv1d(
+            input=input,
+            weight=global_rot_kernel,
+            bias=bias,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+        )
     else:
-        convfunc = F.conv2d
-
-    return convfunc(
-        input, global_rot_kernel, bias, stride, padding, dilation, groups
-    )
+        return F.conv2d(
+            input=input,
+            weight=global_rot_kernel,
+            bias=bias,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+        )
 
 
 def quaternion_conv_op(
@@ -508,11 +520,11 @@ def quaternion_conv_op(
     j_weight,
     k_weight,
     bias,
-    stride,
-    padding,
-    groups,
-    dilation,
-    conv1d,
+    stride: int,
+    padding: int,
+    groups: int,
+    dilation: int,
+    conv1d: bool,
 ):
     """
     Applies a quaternion convolution transformation to the incoming data:
@@ -568,13 +580,25 @@ def quaternion_conv_op(
     )
 
     if conv1d:
-        convfunc = F.conv1d
+        return F.conv1d(
+            input=input,
+            weight=cat_kernels_4_quaternion,
+            bias=bias,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+        )
     else:
-        convfunc = F.conv2d
-
-    return convfunc(
-        input, cat_kernels_4_quaternion, bias, stride, padding, dilation, groups
-    )
+        return F.conv2d(
+            input=input,
+            weight=cat_kernels_4_quaternion,
+            bias=bias,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+        )
 
 
 def quaternion_init(
