@@ -8,118 +8,8 @@ Authors
 """
 
 import torch
-import torch.nn as nn
-from torch.nn.parameter import Parameter
 import torch.nn.functional as F
 import numpy as np
-
-
-class complex_linear(nn.Module):
-    """ This class implements a fully connected complex-valued
-        linear layer: y = Wx + b. y, W, x and b are thus complex
-        numbers. A complex number is written as: r + xi. A tensor of
-        complex numbers x = [batch, 32] can be understood as
-        [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
-        dimension is cut in half (must be dividible by 2).
-
-    Arguments
-    ---------
-    inp_size: int
-        input size in terms of complex numbers. If input_size
-        is equal to 512 real numbers, then 256 must be given.
-    n_neurons: int
-        number of output neurons (i.e, the dimensionality of the output).
-        Please note that these are complex-valued neurons. If 256 neurons
-        are specified, the output dimension will be 512.
-    bias: bool, optional
-        Default: True.
-        If True, the additive bias b is adopted.
-    init_criterion: str , optional
-        Default: he.
-        (glorot, he).
-        This parameter controls the initialization criterion of the weights.
-        It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
-        (complex, unitary).
-        This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
-        weights following the init_criterion and the complex polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
-        More details in: "Deep Complex Networks", Trabelsi C. et al.
-    device: str, optional
-        Defines in the pytorch style the device that should be used for
-        computations.
-
-    Example
-    -------
-    >>> model = complex_linear(70, 200, bias=True)
-    >>> inp_tensor = torch.rand([100,4,140])
-    >>> out_tensor = model(inp_tensor)
-    >>> out_tensor.shape
-    torch.Size([100, 4, 400])
-    """
-
-    def __init__(
-        self,
-        inp_size,
-        n_neurons,
-        bias,
-        init_criterion="glorot",
-        weight_init="complex",
-        device="cpu",
-    ):
-        super(complex_linear, self).__init__()
-
-        # Setting parameters
-        self.inp_size = inp_size
-        self.n_neurons = n_neurons
-        self.bias = bias
-        self.init_criterion = init_criterion
-        self.weight_init = weight_init
-        self.device = device
-
-        # Two weight matrices are created for the real and imaginary parts of
-        # the weights. This will also allow an easier complex product.
-        self.real_weight = Parameter(
-            torch.Tensor(inp_size, n_neurons).to(self.device)
-        )
-        self.imag_weight = Parameter(
-            torch.Tensor(inp_size, n_neurons).to(self.device)
-        )
-
-        if self.bias:
-            self.b = Parameter(torch.Tensor(2 * n_neurons).to(self.device))
-        else:
-            self.b = torch.tensor(
-                2 * n_neurons, requires_grad=False, device=self.device
-            )
-
-        # Managing the weight initialization and bias
-        self.winit = {"complex": complex_init, "unitary": unitary_init}[
-            self.weight_init
-        ]
-
-        affect_init(
-            self.real_weight, self.imag_weight, self.winit, init_criterion
-        )
-
-        if self.b.requires_grad:
-            self.b.data.zero_()
-
-    def forward(self, x):
-        """Returns the output of the linear operation.
-
-        Arguments
-        ---------
-        x : torch.Tensor (batch, time, channel)
-
-        """
-
-        wx = complex_linear_op(x, self.real_weight, self.imag_weight, self.b)
-
-        return wx
 
 
 def check_complex_input(input_shape):
@@ -145,47 +35,18 @@ def check_complex_input(input_shape):
         )
 
 
-def check_conv_input(input_shape, channels_axis=1):
-    """Check the complex-valued shape for a convolutional layer.
-
-    Arguments
-    ---------
-    input_shape : tuple
-    channels_axis : int, index of the channel axis.
-    """
-    if len(input_shape) not in {3, 4, 5}:
-        raise Exception(
-            "Complex convolution accepts only input of dimension 3, 4 or 5."
-            " input.dim = " + str(input.dim())
-        )
-
-    nb_channels = input_shape[channels_axis]
-    if nb_channels % 2 != 0:
-        print("input.size()" + str(input_shape))
-        raise Exception(
-            "Complex Tensors must have an even number of feature maps."
-            " input.size()[1] = " + str(nb_channels)
-        )
-
-
 def get_real(input, input_type="linear", channels_axis=1):
     """Returns the real components of the complex-valued input.
 
     Arguments
     ---------
-    input : torch.Tensor (batch, time, channel)
-    input_type: str, (linear, convolution)
-    channels_axis : int, index of the channel axis.
+    input: torch.Tensor
+    input_type: str,
+        Default: linear.
+        (convolution, linear)
+    channels_axis : int.
+        Default: 1.
     """
-    if input_type == "linear":
-        check_complex_input(input)
-    elif input_type == "convolution":
-        check_conv_input(input, channels_axis=channels_axis)
-    else:
-        raise Exception(
-            "Input_type must be either 'convolution' or 'linear'."
-            " Found input_type = " + str(input_type)
-        )
 
     if input_type == "linear":
         nb_hidden = input.size()[-1]
@@ -207,19 +68,13 @@ def get_imag(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input : torch.Tensor (batch, time, channel)
-    input_type: str, (linear, convolution)
-    channels_axis : int, index of the channel axis.
+    input: torch.Tensor
+    input_type: str,
+        Default: linear.
+        (convolution, linear)
+    channels_axis : int.
+        Default: 1.
     """
-    if input_type == "linear":
-        check_complex_input(input)
-    elif input_type == "convolution":
-        check_conv_input(input, channels_axis=channels_axis)
-    else:
-        raise Exception(
-            "Input_type must be either 'convolution' or 'linear'."
-            " Found input_type = " + str(input_type)
-        )
 
     if input_type == "linear":
         nb_hidden = input.size()[-1]
@@ -241,9 +96,12 @@ def get_conjugate(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input : torch.Tensor (batch, time, channel)
-    input_type: str, (linear, convolution)
-    channels_axis : int, index of the channel axis.
+    input: torch.Tensor
+    input_type: str,
+        Default: linear.
+        (convolution, linear)
+    channels_axis : int.
+        Default: 1.
     """
     input_imag = get_imag(input, input_type, channels_axis)
     input_real = get_real(input, input_type, channels_axis)
@@ -259,29 +117,31 @@ def complex_linear_op(input, real_weight, imag_weight, bias):
 
     Arguments
     ---------
-    input: torch.Tensor, (batch_size, nb_complex_in * 2)
-    real_weight: torch.Parameters, (nb_complex_in, nb_complex_out)
-    imag_weight: torch.Parameters, (nb_complex_in, nb_complex_out)
-    bias: torch.Parameters, (nb_complex_out * 2)
+    input: torch.Tensor
+        Complex input tensor to be transformed.
+    real_weight: torch.Parameter
+        Real part of the quaternion weight matrix of this layer.
+    imag_weight: torch.Parameter
+        First imaginary part of the quaternion weight matrix of this layer.
+    bias: torch.Parameter
     """
 
     cat_real = torch.cat([real_weight, -imag_weight], dim=0)
     cat_imag = torch.cat([imag_weight, real_weight], dim=0)
     cat_complex = torch.cat([cat_real, cat_imag], dim=1)
-    if bias.requires_grad:
-        if input.dim() == 3:
-            if input.size(0) == 1:
-                input = input.squeeze(0)
-                return torch.addmm(bias, input, cat_complex)
-            else:
-                return input.matmul(cat_complex) + bias
-        else:
+
+    # If the input is already [batch*time, N]
+    if input.dim() == 2:
+        if bias.requires_grad:
             return torch.addmm(bias, input, cat_complex)
-    else:
-        if input.dim() == 3:
-            return input.matmul(cat_complex)
         else:
-            return input.mm(cat_complex)
+            return torch.mm(input, cat_complex)
+    else:
+        output = torch.matmul(input, cat_complex)
+        if bias.requires_grad:
+            return output + bias
+        else:
+            return output
 
 
 def complex_conv_op(
@@ -291,13 +151,22 @@ def complex_conv_op(
 
     Arguments
     ---------
-    input: torch.Tensor, (batch_size, nb_complex_in * 2, *signal_length)
-    real_weight: torch.Parameters, (nb_complex_out, nb_complex_in, *kernel)
-    imag_weight: torch.Parameters, (nb_complex_out, nb_complex_in, *kernel)
-    bias: torch.Parameters, (nb_complex_out * 2)
+    input: torch.Tensor
+        Complex input tensor to be transformed.
+    conv1d: bool
+        If true, a 1D convolution operation will be applied. Otherwise, a 2D
+        convolution is called.
+    real_weight: torch.Parameter
+        Real part of the quaternion weight matrix of this layer.
+    imag_weight: torch.Parameter
+        First imaginary part of the quaternion weight matrix of this layer.
+    bias: torch.Parameter
     stride: int
+        Stride factor of the convolutional filters.
     padding: int
+        Amount of padding. See torch.nn documentation for more information.
     dilation: int
+        Dilation factor of the convolutional filters.
     """
     cat_real = torch.cat([real_weight, -imag_weight], dim=1)
     cat_imag = torch.cat([imag_weight, real_weight], dim=1)
@@ -318,10 +187,15 @@ def unitary_init(
 
     Arguments
     ---------
-    in_features: int
-    out_features: int
-    kernel_size: int
-    criterion: str, (glorot, he)
+    in_features : int
+        Number of real values of the input layer (quaternion // 4)
+    out_features : int
+        Number of real values of the output layer (quaternion // 4)
+    kernel_size : int
+        Kernel_size for convolutional layers (ex: (3,3))
+    criterion: str
+        Default: glorot
+        (glorot, he)
     """
 
     if kernel_size is None:
@@ -336,7 +210,7 @@ def unitary_init(
     v_r = np.random.uniform(-1.0, 1.0, number_of_weights)
     v_i = np.random.uniform(-1.0, 1.0, number_of_weights)
 
-    # Unitary quaternion
+    # Unitary complex
     for i in range(0, number_of_weights):
         norm = np.sqrt(v_r[i] ** 2 + v_i[i] ** 2) + 0.0001
         v_r[i] /= norm
@@ -356,10 +230,15 @@ def complex_init(
 
     Arguments
     ---------
-    in_features: int
-    out_features: int
-    kernel_size: int
-    criterion: str, (glorot, he)
+    in_features : int
+        Number of real values of the input layer (quaternion // 4)
+    out_features : int
+        Number of real values of the output layer (quaternion // 4)
+    kernel_size : int
+        Kernel_size for convolutional layers (ex: (3,3))
+    criterion: str
+        Default: glorot
+        (glorot, he)
     """
 
     if kernel_size is not None:
@@ -395,10 +274,12 @@ def affect_init(real_weight, imag_weight, init_func, criterion):
 
     Arguments
     ---------
-    real_weight: torch.Parameters, (nb_complex_in, nb_complex_out)
-    imag_weight: torch.Parameters, (nb_complex_in, nb_complex_out)
-    init_func: function, (unitary_init, complex_init)
-    criterion: str, (glorot, he)
+    real_weight: torch.Parameters
+    imag_weight: torch.Parameters
+    init_func: function
+        (unitary_init, complex_init)
+    criterion: str
+        (glorot, he)
     """
     a, b = init_func(real_weight.size(0), real_weight.size(1), None, criterion)
     a, b = torch.from_numpy(a), torch.from_numpy(b)
@@ -414,11 +295,13 @@ def affect_conv_init(
 
     Arguments
     ---------
-    real_weight: torch.Parameters, (nb_complex_out, nb_complex_in, *kernel)
-    imag_weight: torch.Parameters, (nb_complex_out, nb_complex_in, *kernel)
+    real_weight: torch.Parameters
+    imag_weight: torch.Parameters
     kernel_size: int
-    init_func: function, (unitary_init, complex_init)
-    criterion: str, (glorot, he)
+    init_func: function
+        (unitary_init, complex_init)
+    criterion: str
+        (glorot, he)
     """
     in_channels = real_weight.size(1)
     out_channels = real_weight.size(0)
@@ -428,25 +311,6 @@ def affect_conv_init(
     a, b = torch.from_numpy(a), torch.from_numpy(b)
     real_weight.data = a.type_as(real_weight.data)
     imag_weight.data = b.type_as(imag_weight.data)
-
-
-def get_kernel_and_weight_shape(conv1d, in_channels, out_channels, kernel_size):
-    """ Returns the kernel size and weight shape for convolutional layers.
-
-    Arguments
-    ---------
-    conv1d: bool
-    in_channels: int
-    out_channels: int
-    kernel_size: int
-    """
-    if conv1d:
-        ks = kernel_size
-        w_shape = (out_channels, in_channels) + tuple((ks,))
-    else:  # in case it is 2d
-        ks = (kernel_size[0], kernel_size[1])
-        w_shape = (out_channels, in_channels) + (*ks,)
-    return ks, w_shape
 
 
 # The following mean function using a list of reduced axes is taken from:
