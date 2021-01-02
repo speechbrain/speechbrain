@@ -150,6 +150,10 @@ class QuaternionConv1d(torch.nn.Module):
             self.zero_kernel = torch.nn.Parameter(
                 torch.zeros(self.r_weight.shape), requires_grad=False
             )
+        else:
+            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(
+                False
+            )
 
         if self.spinor and self.vector_scale:
             self.scale_param = torch.nn.Parameter(
@@ -157,13 +161,15 @@ class QuaternionConv1d(torch.nn.Module):
             )
             torch.nn.init.xavier_uniform_(self.scale_param.data)
         else:
-            self.scale_param = None
+            self.scale_param = torch.Tensor(self.r_weight.shape).requires_grad_(
+                False
+            )
 
         if self.bias:
             self.b = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
             self.b.data.fill_(0)
         else:
-            self.b = None
+            self.b = torch.Tensor(4 * self.out_channels).requires_grad_(False)
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -205,8 +211,8 @@ class QuaternionConv1d(torch.nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
             )
 
         if self.spinor:
@@ -250,7 +256,9 @@ class QuaternionConv1d(torch.nn.Module):
         w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
         return ks, w_shape
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -269,7 +277,7 @@ class QuaternionConv1d(torch.nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = F.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
 
@@ -438,6 +446,10 @@ class QuaternionConv2d(torch.nn.Module):
             self.zero_kernel = torch.nn.Parameter(
                 torch.zeros(self.r_weight.shape), requires_grad=False
             )
+        else:
+            self.zero_kernel = torch.Tensor(self.r_weight.shape).requires_grad_(
+                False
+            )
 
         if self.spinor and self.vector_scale:
             self.scale_param = torch.nn.Parameter(
@@ -445,13 +457,15 @@ class QuaternionConv2d(torch.nn.Module):
             )
             torch.nn.init.xavier_uniform_(self.scale_param.data)
         else:
-            self.scale_param = None
+            self.scale_param = torch.Tensor(self.r_weight.shape).requires_grad_(
+                False
+            )
 
         if self.bias:
             self.b = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
             self.b.data.fill_(0)
         else:
-            self.b = None
+            self.b = torch.Tensor(4 * self.out_channels).requires_grad_(False)
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -491,7 +505,8 @@ class QuaternionConv2d(torch.nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same' or 'valid'. Got %s." % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
             )
 
         if self.spinor:
@@ -504,8 +519,8 @@ class QuaternionConv2d(torch.nn.Module):
                 self.b,
                 scale=self.scale_param,
                 zero_kernel=self.zero_kernel,
-                stride=self.stride,
-                dilation=self.dilation,
+                stride=self.stride[0],
+                dilation=self.dilation[0],
                 padding=0,  # already managed
                 groups=self.groups,
                 conv1d=True,
@@ -518,8 +533,8 @@ class QuaternionConv2d(torch.nn.Module):
                 self.j_weight,
                 self.k_weight,
                 self.b,
-                stride=self.stride,
-                dilation=self.dilation,
+                stride=self.stride[0],
+                dilation=self.dilation[0],
                 padding=0,  # already managed
                 groups=self.groups,
                 conv1d=False,
@@ -551,10 +566,7 @@ class QuaternionConv2d(torch.nn.Module):
         if in_channels % 4 != 0:
             raise ValueError(
                 "Quaternion Tensors must have a dimensions dividible by 4."
-                " input.size()["
-                + str(self.channels_axis)
-                + "] = "
-                + str(self.nb_channels)
+                " input.size()[" + str(-1) + "] = " + str(in_channels)
             )
 
         return in_channels
