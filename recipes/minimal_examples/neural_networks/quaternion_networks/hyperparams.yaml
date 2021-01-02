@@ -61,13 +61,21 @@ model: !new:speechbrain.nnet.containers.Sequential
     RNN: !name:speechbrain.nnet.quaternion_networks.RNN.QuaternionLiGRU
         hidden_size: 64
         bidirectional: True
-    linear: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 43  # 42 phonemes + 1 blank
-        bias: False
-    softmax: !new:speechbrain.nnet.activations.Softmax
-        apply_log: True
 
-modules: {model: !ref <model>, mean_var_norm: !ref <mean_var_norm>}
+jit_module_keys: [model]
+
+lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
+    n_neurons: 43  # 42 phonemes + 1 blank
+    bias: False
+
+softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    model: !ref <model>
+    mean_var_norm: !ref <mean_var_norm>
+    lin: !ref <lin>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
