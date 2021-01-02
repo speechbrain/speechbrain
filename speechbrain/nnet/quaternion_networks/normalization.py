@@ -42,11 +42,11 @@ class QuaternionBatchNorm(torch.nn.Module):
 
     Example
     -------
-    >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> QBN = QuaternionBatchNorm(input_shape=inp_tensor.shape)
-    >>> out_tensor = CBN(inp_tensor)
+    >>> inp_tensor = torch.rand([10, 40])
+    >>> QBN = QuaternionBatchNorm(input_size=40)
+    >>> out_tensor = QBN(inp_tensor)
     >>> out_tensor.shape
-    torch.Size([10, 16, 30])
+    torch.Size([10, 40])
 
     """
 
