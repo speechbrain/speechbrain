@@ -10,7 +10,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-N_epochs: 30
+N_epochs: 25
 N_batch: 1
 lr: 0.002
 
@@ -58,7 +58,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     nrm2: !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
-        pool_type: "avg"
+        pool_type: "max"
         kernel_size: 3
     RNN: !name:speechbrain.nnet.complex_networks.RNN.ComplexLiGRU
         hidden_size: 64
