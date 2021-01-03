@@ -327,7 +327,7 @@ def data_io_prepare(hparams):
     sb.data_io.dataset.set_output_keys(
         datasets, ["id", "sig", "tokens", "tokens_eos", "tokens_bos"],
     )
-    return train_data, train_data, test_datasets, tokenizer
+    return train_data, valid_data, test_datasets, tokenizer
 
 
 if __name__ == "__main__":
