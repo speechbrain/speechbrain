@@ -1,40 +1,34 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and joint seq2seq
 and CTC loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
-
-Using your own hyperparameter file or one of the following:
- * hyperparams/augment_CRDNN.yaml
- * hyperparams/augment_noise_CRDNN.yaml
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
 
 Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
 class ASR(sb.Brain):
-    def compute_forward(self, x, y, stage):
-        ids, wavs, wav_lens = x
-        ids, phns, phn_lens = y
-
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
+        phns_bos, _ = batch.phn_encoded_bos
 
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+            if hasattr(self.hparams, "env_corrupt"):
+                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                phns = torch.cat([phns, phns])
+                phns_bos = torch.cat([phns_bos, phns_bos])
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
@@ -46,9 +40,7 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
-        # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
-        e_in = self.modules.emb(y_in)
+        e_in = self.modules.emb(phns_bos)
         h, _ = self.modules.dec(e_in, x, wav_lens)
 
         # output layer for seq2seq log-probabilities
@@ -65,58 +57,47 @@ class ASR(sb.Brain):
 
         return p_ctc, p_seq, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         if stage == sb.Stage.TRAIN:
             p_ctc, p_seq, wav_lens = predictions
         else:
             p_ctc, p_seq, wav_lens, hyps = predictions
 
-        ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+        ids = batch.id
+        phns_eos, phn_lens_eos = batch.phn_encoded_eos
+        phns, phn_lens = batch.phn_encoded
 
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-
-        # Add phn_lens by one for eos token
-        abs_length = torch.round(phn_lens * phns.shape[1])
-
-        # Append eos token at the end of the label sequences
-        phns_with_eos = sb.data_io.data_io.append_eos_token(
-            phns, length=abs_length, eos_index=self.hparams.eos_index
-        )
-
-        # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
+        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            phns_eos = torch.cat([phns_eos, phns_eos], dim=0)
+            phn_lens_eos = torch.cat([phn_lens_eos, phn_lens_eos], dim=0)
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss_seq = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)
         loss = self.hparams.ctc_weight * loss_ctc
         loss += (1 - self.hparams.ctc_weight) * loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
-            self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
+            self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens)
             self.per_metrics.append(
-                ids, hyps, phns, None, phn_lens, self.hparams.ind2lab
+                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim,
             )
 
         return loss
 
     def fit_batch(self, batch):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets, stage=stage)
-        loss = self.compute_objectives(predictions, targets, stage=stage)
+        predictions = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
@@ -134,22 +115,21 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={
-                        "loss": stage_loss,
-                        "ctc_loss": self.ctc_metrics.summarize("average"),
-                        "seq_loss": self.seq_metrics.summarize("average"),
-                        "PER": per,
-                    },
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": per}, min_keys=["PER"]
-                )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={
+                    "loss": stage_loss,
+                    "ctc_loss": self.ctc_metrics.summarize("average"),
+                    "seq_loss": self.seq_metrics.summarize("average"),
+                    "PER": per,
+                },
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"]
+            )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -169,16 +149,142 @@ class ASR(sb.Brain):
                 )
 
 
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+    data_folder = hparams["data_folder"]
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["train_shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["train_shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    datasets = [train_data, valid_data, test_data]
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides(
+        "phn_list",
+        "phn_encoded_list",
+        "phn_encoded",
+        "phn_encoded_eos",
+        "phn_encoded_bos",
+    )
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded_list = label_encoder.encode_sequence(phn_list)
+        yield phn_encoded_list
+        phn_encoded = torch.LongTensor(phn_encoded_list)
+        yield phn_encoded
+        phn_encoded_eos = torch.LongTensor(
+            label_encoder.append_eos_index(phn_encoded_list)
+        )
+        yield phn_encoded_eos
+        phn_encoded_bos = torch.LongTensor(
+            label_encoder.prepend_bos_index(phn_encoded_list)
+        )
+        yield phn_encoded_bos
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    if (
+        hparams["blank_index"] != hparams["bos_index"]
+        or hparams["blank_index"] != hparams["eos_index"]
+    ):
+        label_encoder.insert_blank(index=hparams["blank_index"])
+
+    if hparams["bos_index"] == hparams["eos_index"]:
+        label_encoder.insert_bos_eos(
+            bos_label="<eos-bos>",
+            eos_label="<eos-bos>",
+            bos_index=hparams["bos_index"],
+        )
+    else:
+        label_encoder.insert_bos_eos(
+            bos_label="<bos>",
+            eos_label="<eos>",
+            bos_index=hparams["bos_index"],
+            eos_index=hparams["eos_index"],
+        )
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets,
+        ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"],
+    )
+
+    return train_data, valid_data, test_data, label_encoder
+
+
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from timit_prepare import prepare_timit  # noqa E402
+    # CLI:
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Dataset prep (parsing TIMIT and annotation into csv files)
+    from timit_prepare import prepare_timit  # noqa
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_timit,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "splits": ["train", "dev", "test"],
+            "save_folder": hparams["data_folder"],
+        },
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -187,24 +293,25 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
-    )
-
-    # Collect index to label conversion dict for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
+    # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+    asr_brain.label_encoder = label_encoder
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
+    # Training/validation loop
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
+    )
+
+    # Test
+    asr_brain.evaluate(
+        test_data, min_key="PER", **hparams["dataloader_options"]
+    )

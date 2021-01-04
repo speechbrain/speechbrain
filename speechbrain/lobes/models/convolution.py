@@ -37,11 +37,11 @@ class ConvolutionFrontEnd(Sequential):
 
     Example
     -------
-    >>> x = torch.rand((8, 120, 40))
-    >>> conv = ConvolutionFrontEnd(input_shape=x.shape, num_blocks=1)
+    >>> x = torch.rand((8, 30, 10))
+    >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
     >>> out = conv(x)
     >>> out.shape
-    torch.Size([8, 120, 40])
+    torch.Size([8, 30, 10])
     """
 
     def __init__(
@@ -59,7 +59,7 @@ class ConvolutionFrontEnd(Sequential):
         norm=BatchNorm2d,
         dropout=0.1,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
         for i in range(num_blocks):
             self.append(
                 ConvBlock,
@@ -73,6 +73,7 @@ class ConvolutionFrontEnd(Sequential):
                 activation=activation,
                 norm=norm,
                 dropout=dropout,
+                layer_name=f"convblock_{i}",
             )
 
 
@@ -98,11 +99,11 @@ class ConvBlock(torch.nn.Module):
 
     Example
     -------
-    >>> x = torch.rand((8, 120, 40))
-    >>> conv = ConvBlock(2, 128, input_shape=x.shape)
+    >>> x = torch.rand((8, 30, 10))
+    >>> conv = ConvBlock(2, 16, input_shape=x.shape)
     >>> out = conv(x)
     >>> x.shape
-    torch.Size([8, 120, 40])
+    torch.Size([8, 30, 10])
     """
 
     def __init__(
@@ -116,12 +117,12 @@ class ConvBlock(torch.nn.Module):
         residual=False,
         conv_module=Conv2d,
         activation=torch.nn.LeakyReLU,
-        norm=BatchNorm2d,
+        norm=None,
         dropout=0.1,
     ):
         super().__init__()
 
-        self.convs = Sequential(input_shape)
+        self.convs = Sequential(input_shape=input_shape)
 
         for i in range(num_layers):
             self.convs.append(
@@ -130,22 +131,27 @@ class ConvBlock(torch.nn.Module):
                 kernel_size=kernel_size,
                 stride=stride if i == num_layers - 1 else 1,
                 dilation=dilation,
+                layer_name=f"conv_{i}",
             )
-            self.convs.append(norm)
-            self.convs.append(activation())
-            self.convs.append(torch.nn.Dropout(dropout))
+            if norm is not None:
+                self.convs.append(norm, layer_name=f"norm_{i}")
+            self.convs.append(activation(), layer_name=f"act_{i}")
+            self.convs.append(
+                torch.nn.Dropout(dropout), layer_name=f"dropout_{i}"
+            )
 
         self.reduce_conv = None
         self.drop = None
         if residual:
-            self.reduce_conv = Sequential(input_shape)
+            self.reduce_conv = Sequential(input_shape=input_shape)
             self.reduce_conv.append(
                 conv_module,
                 out_channels=out_channels,
                 kernel_size=1,
                 stride=stride,
+                layer_name="conv",
             )
-            self.reduce_conv.append(norm)
+            self.reduce_conv.append(norm, layer_name="norm")
             self.drop = torch.nn.Dropout(dropout)
 
     def forward(self, x):

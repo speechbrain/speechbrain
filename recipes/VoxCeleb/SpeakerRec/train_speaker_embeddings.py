@@ -1,137 +1,227 @@
-#!/usr/bin/python
-import os
+#!/usr/bin/python3
+"""Recipe for training speaker embeddings (e.g, xvectors) using the VoxCeleb Dataset.
+We employ an encoder followed by a speaker classifier.
+
+To run this recipe, use the following command:
+> python train_speaker_embeddings.py {hyperparameter_file}
+
+Using your own hyperparameter file or one of the following:
+    hyperparams/train_x_vectors.yaml (for standard xvectors)
+    hyperparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
+
+Author
+    * Mirco Ravanelli 2020
+    * Hwidong Na 2020
+    * Nauman Dawalatabad 2020
+"""
 import sys
+import random
 import torch
-import logging
+import torchaudio
 import speechbrain as sb
-
-logger = logging.getLogger(__name__)
-
-# This flag enable the inbuilt cudnn auto-tuner
-torch.backends.cudnn.benchmark = True
-
-# This hack needed to import data preparation script from ..
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
-from voxceleb_prepare import prepare_voxceleb  # noqa E402
-
-# Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
-
-# Create experiment directory
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
-)
-
-# Prepare data from dev of Voxceleb1
-prepare_voxceleb(
-    data_folder=params.data_folder,
-    save_folder=params.save_folder,
-    splits=["train", "dev"],
-    split_ratio=[90, 10],
-    seg_dur=300,
-    rand_seed=params.seed,
-    random_segment=params.random_segment
-    if hasattr(params, "random_segment")
-    else False,
-    source=params.voxceleb_source
-    if hasattr(params, "voxceleb_source")
-    else None,
-)
+from speechbrain.utils.distributed import run_on_main
 
 
-def _nan_to_zero(t, msg, ids):
-    isnan = t.isnan().long()
-    if int(isnan.sum()) > 0:
-        for idx in isnan.nonzero(as_tuple=True)[0]:
-            err_msg = f"{msg}: {ids[idx]}"
-            logger.error(err_msg, exc_info=True)
-        t = torch.where(t.isnan(), torch.zeros_like(t), t)
-    return t
+class SpeakerBrain(sb.core.Brain):
+    """Class for speaker embedding training"
+    """
 
+    def compute_forward(self, batch, stage):
+        """Computation pipeline based on a encoder + speaker classifier.
+        Data augmentation and environmental corruption are applied to the
+        input speech.
+        """
+        batch = batch.to(self.device)
+        wavs, lens = batch.sig
 
-# Trains speaker embeddings
-class EmbeddingBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
-        ids, wavs, lens = x
-
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-
-        if stage == "train":
+        if stage == sb.Stage.TRAIN:
             # Addding noise and reverberation
-            wavs_aug = params.env_corrupt(wavs, lens, init_params)
-            # For voxceleb2
-            wavs_aug = _nan_to_zero(wavs_aug, "NaN after env_corrupt", ids)
+            wavs_aug = self.modules.env_corrupt(wavs, lens)
 
             # Adding time-domain augmentation
-            wavs_aug = params.augmentation(wavs_aug, lens, init_params)
+            wavs_aug = self.modules.augmentation(wavs_aug, lens)
 
             # Concatenate noisy and clean batches
             wavs = torch.cat([wavs, wavs_aug], dim=0)
             lens = torch.cat([lens, lens], dim=0)
 
         # Feature extraction and normalization
-        feats = params.compute_features(wavs, init_params)
-        feats = params.mean_var_norm(feats, lens)
+        feats = self.modules.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
-        embeddings = params.embedding_model(feats, init_params=init_params)
-        outputs = params.classifier(embeddings, init_params)
+        embeddings = self.modules.embedding_model(feats)
+        outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss using speaker-id as label.
+        """
         predictions, lens = predictions
-        uttid, spkid, _ = targets
+        uttid = batch.id
+        spkid, _ = batch.spk_id_encoded
 
-        spkid, lens = spkid.to(params.device), lens.to(params.device)
-
-        # Concatenate labels
-        if stage == "train":
+        # Concatenate labels (due to data augmentation)
+        if stage == sb.Stage.TRAIN:
             spkid = torch.cat([spkid, spkid], dim=0)
 
-        loss = params.compute_cost(predictions, spkid, lens)
+        loss = self.hparams.compute_cost(predictions, spkid, lens)
 
-        stats = {}
-        if stage != "train":
-            stats["error"] = params.compute_error(predictions, spkid, lens)
+        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+            self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        if hasattr(params.lr_annealing, "on_batch_end"):
-            params.lr_annealing.on_batch_end([params.optimizer])
-        return loss, stats
+        if stage != sb.Stage.TRAIN:
+            self.error_metrics.append(uttid, predictions, spkid, lens)
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, valid_stats["error"]
+        return loss
+
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of an epoch."""
+        if stage != sb.Stage.TRAIN:
+            self.error_metrics = self.hparams.error_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of an epoch."""
+        # Compute/store important stats
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
+        else:
+            stage_stats["ErrorRate"] = self.error_metrics.summarize("average")
+
+        # Perform end-of-iteration things, like annealing, logging, etc.
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"ErrorRate": stage_stats["ErrorRate"]},
+                min_keys=["ErrorRate"],
+            )
+
+
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_folder = hparams["data_folder"]
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    datasets = [train_data, valid_data]
+    label_encoder = sb.data_io.encoder.CategoricalEncoder()
+
+    snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, start, stop, duration):
+        if hparams["random_chunk"]:
+            duration_sample = int(duration * 16000)
+            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            stop = start + snt_len_sample
+        else:
+            start = int(start)
+            stop = int(stop)
+        num_frames = stop - start
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
         )
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
-        params.checkpointer.save_and_keep_only()
+        sig = sig.transpose(0, 1).squeeze(1)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("spk_id")
+    @sb.utils.data_pipeline.provides("spk_id", "spk_id_encoded")
+    def label_pipeline(spk_id):
+        yield spk_id
+        spk_id_encoded = label_encoder.encode_sequence_torch([spk_id])
+        yield spk_id_encoded
+
+    sb.data_io.dataset.add_dynamic_item(datasets, label_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+    label_encoder.update_from_didataset(train_data, output_key="spk_id")
+    label_encoder.update_from_didataset(valid_data, output_key="spk_id")
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "sig", "spk_id_encoded"]
+    )
+
+    return train_data, valid_data, label_encoder
 
 
-# Data loaders
-train_set = params.train_loader()
-valid_set = params.valid_loader()
+if __name__ == "__main__":
 
-# Models to train
-modules = [params.embedding_model, params.classifier]
-first_x, first_y = next(iter(train_set))
+    # This flag enables the inbuilt cudnn auto-tuner
+    torch.backends.cudnn.benchmark = True
 
+    # CLI:
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-# Object initialization for training the embeddings
-embedding_brain = EmbeddingBrain(
-    modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
-)
+    # Load hyperparameters file with command-line overrides
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, overrides)
 
-# Recover checkpoints
-params.checkpointer.recover_if_possible()
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
-# Train the model
-embedding_brain.fit(
-    params.epoch_counter, train_set=train_set, valid_set=valid_set,
-)
-print("Speaker embedding training completed!")
+    # Dataset prep (parsing VoxCeleb and annotation into csv files)
+    from voxceleb_prepare import prepare_voxceleb  # noqa
+
+    run_on_main(
+        prepare_voxceleb,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+            "splits": ["train", "dev"],
+            "split_ratio": [90, 10],
+            "seg_dur": int(hparams["sentence_len"]) * 100,
+        },
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, label_encoder = data_io_prep(hparams)
+
+    # Create experiment directory
+    sb.core.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    # Brain class initialization
+    speaker_brain = SpeakerBrain(
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        run_opts=run_opts,
+        checkpointer=hparams["checkpointer"],
+    )
+
+    # Training
+    speaker_brain.fit(
+        speaker_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        **hparams["dataloader_options"],
+    )

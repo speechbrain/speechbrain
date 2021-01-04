@@ -8,10 +8,9 @@ Authors:
 """
 import torch
 import speechbrain.data_io.wer as wer_io
-import speechbrain.utils.edit_distance as edit_distance
+from speechbrain.utils import edit_distance
 from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import (
-    convert_index_to_lab,
     merge_char,
     split_word,
 )
@@ -170,12 +169,13 @@ class ErrorRateStats(MetricStats):
     Example
     -------
     >>> cer_stats = ErrorRateStats()
+    >>> i2l = {0: 'a', 1: 'b'}
     >>> cer_stats.append(
     ...     ids=['utterance1'],
     ...     predict=torch.tensor([[0, 1, 1]]),
     ...     target=torch.tensor([[0, 1, 0]]),
     ...     target_len=torch.ones(1),
-    ...     ind2lab={0: 'a', 1: 'b'},
+    ...     ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
     ... )
     >>> stats = cer_stats.summarize()
     >>> stats['WER']
@@ -220,8 +220,9 @@ class ErrorRateStats(MetricStats):
         target_len : torch.tensor
             The target outputs' relative lengths, used to undo padding if
             there is padding present in the target.
-        ind2lab : dict
-            Mapping from indices to labels, for writing alignments.
+        ind2lab : callable
+            Callable that maps from indices to labels, operating on batches,
+            for writing alignments.
         """
         self.ids.extend(ids)
 
@@ -232,8 +233,8 @@ class ErrorRateStats(MetricStats):
             target = undo_padding(target, target_len)
 
         if ind2lab is not None:
-            predict = convert_index_to_lab(predict, ind2lab)
-            target = convert_index_to_lab(target, ind2lab)
+            predict = ind2lab(predict)
+            target = ind2lab(target)
 
         if self.merge_tokens:
             predict = merge_char(predict)
@@ -264,7 +265,6 @@ class ErrorRateStats(MetricStats):
 
     def write_stats(self, filestream):
         """Write all relevant info (e.g. error rate alignments) to file.
-
         * See MetricStats.write_stats()
         """
         if not self.summary:
@@ -346,15 +346,15 @@ class BinaryMetricStats(MetricStats):
                 self.labels[self.labels == 0].nonzero(as_tuple=True)
             ]
 
-            threshold = eer_threshold(positive_scores, negative_scores)
+            eer, threshold = EER(positive_scores, negative_scores)
 
         pred = (self.scores >= threshold).float()
         true = self.labels
 
-        TP = self.summary["TP"] = pred.mul(true).sum()
-        TN = self.summary["TN"] = (1.0 - pred).mul(1.0 - true).sum()
-        FP = self.summary["FP"] = pred.mul(1.0 - true).sum()
-        FN = self.summary["FN"] = (1.0 - pred).mul(true).sum()
+        TP = self.summary["TP"] = float(pred.mul(true).sum())
+        TN = self.summary["TN"] = float((1.0 - pred).mul(1.0 - true).sum())
+        FP = self.summary["FP"] = float(pred.mul(1.0 - true).sum())
+        FN = self.summary["FN"] = float((1.0 - pred).mul(true).sum())
 
         self.summary["FAR"] = FP / (TP + TN + eps)
         self.summary["FRR"] = FN / (TP + TN + eps)
@@ -370,7 +370,7 @@ class BinaryMetricStats(MetricStats):
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
             (TP + FP) * (TP + FN) * (TN + FP) * (TN + FN) + eps
-        ).sqrt()
+        ) ** 0.5
 
         if field is not None:
             return self.summary[field]
@@ -378,22 +378,23 @@ class BinaryMetricStats(MetricStats):
             return self.summary
 
 
-def eer_threshold(positive_scores, negative_scores):
-    """Computes the EER threshold
+def EER(positive_scores, negative_scores):
+    """Computes the EER (and its threshold)
 
     Arguments
     ---------
     positive_scores : torch.tensor
-        The scores from entiries of the same class.
+        The scores from entries of the same class.
     negative_scores : torch.tensor
-        The scores from entiries of different classes.
+        The scores from entries of different classes.
 
     Example
     -------
-    >>> postive_scores=torch.tensor([0.6, 0.7, 0.8, 0.5])
-    >>> negative_scores=torch.tensor([0.6, 0.4, 0.3, 0.2])
-    >>> eer_threshold(postive_scores, negative_scores)
-    tensor(0.5500)
+    >>> positive_scores = torch.tensor([0.6, 0.7, 0.8, 0.5])
+    >>> negative_scores = torch.tensor([0.4, 0.3, 0.2, 0.1])
+    >>> val_eer, threshold = EER(positive_scores, negative_scores)
+    >>> val_eer
+    0.0
     """
 
     # Computing candidate thresholds
@@ -404,7 +405,7 @@ def eer_threshold(positive_scores, negative_scores):
     interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
     thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
 
-    # Computing False Rejection Rate
+    # Computing False Rejection Rate (miss detection)
     positive_scores = torch.cat(
         len(thresholds) * [positive_scores.unsqueeze(0)]
     )
@@ -413,7 +414,7 @@ def eer_threshold(positive_scores, negative_scores):
     del positive_scores
     del pos_scores_threshold
 
-    # Computing False Aceptance Rate
+    # Computing False Aceptance Rate (false alarm)
     negative_scores = torch.cat(
         len(thresholds) * [negative_scores.unsqueeze(0)]
     )
@@ -424,4 +425,75 @@ def eer_threshold(positive_scores, negative_scores):
 
     # Finding the threshold for EER
     min_index = (FAR - FRR).abs().argmin()
-    return float(thresholds[min_index])
+
+    # It is possible that eer != fpr != fnr. We return (FAR  + FRR) / 2 as EER.
+    EER = (FAR[min_index] + FRR[min_index]) / 2
+
+    return float(EER), float(thresholds[min_index])
+
+
+def minDCF(
+    positive_scores, negative_scores, c_miss=1.0, c_fa=1.0, p_target=0.01
+):
+    """Computes the minDCF metric normally used to evaluate speaker verification
+    systems. The min_DCF is the minimum of the following C_det function computed
+    within the defined threshold range:
+
+    C_det =  c_miss * p_miss * p_target + c_fa * p_fa * (1 -p_target)
+
+    where p_miss is the missing probability and p_fa is the probability of having
+    a false alarm.
+
+    Arguments
+    ---------
+    positive_scores : torch.tensor
+        The scores from entries of the same class.
+    negative_scores : torch.tensor
+        The scores from entries of different classes.
+    c_miss: float
+         Cost assigned to a missing error (default 1.0).
+    c_fa: float
+        Cost assigned to a false alarm (default 1.0).
+    p_target: float
+        Prior probability of having a target (defaul 0.01).
+
+
+    Example
+    -------
+    >>> positive_scores = torch.tensor([0.6, 0.7, 0.8, 0.5])
+    >>> negative_scores = torch.tensor([0.4, 0.3, 0.2, 0.1])
+    >>> val_minDCF, threshold = minDCF(positive_scores, negative_scores)
+    >>> val_minDCF
+    0.0
+    """
+
+    # Computing candidate thresholds
+    thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
+    thresholds = torch.unique(thresholds)
+
+    # Adding intermediate thresholds
+    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+
+    # Computing False Rejection Rate (miss detection)
+    positive_scores = torch.cat(
+        len(thresholds) * [positive_scores.unsqueeze(0)]
+    )
+    pos_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
+    p_miss = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[1]
+    del positive_scores
+    del pos_scores_threshold
+
+    # Computing False Aceptance Rate (false alarm)
+    negative_scores = torch.cat(
+        len(thresholds) * [negative_scores.unsqueeze(0)]
+    )
+    neg_scores_threshold = negative_scores.transpose(0, 1) > thresholds
+    p_fa = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[1]
+    del negative_scores
+    del neg_scores_threshold
+
+    c_det = c_miss * p_miss * p_target + c_fa * p_fa * (1 - p_target)
+    c_min, min_index = torch.min(c_det, dim=0)
+
+    return float(c_min), float(thresholds[min_index])

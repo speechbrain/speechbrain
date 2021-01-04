@@ -1,0 +1,108 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+# NOTE: Seed does not guarantee replicability with CTC
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+
+# Training params
+device: 'cuda:0'
+N_epochs: 15
+lr: 1.0
+dataloader_options:
+    batch_size: 1
+
+# Special tokens and labels
+blank_index: 0
+bos_index: 1
+num_labels: 45
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU []
+dropout: 0.15
+cnn_blocks: 1
+cnn_channels: (16,)
+cnn_kernelsize: (3, 3)
+rnn_layers: 1
+rnn_neurons: 128
+rnn_bidirectional: True
+dnn_blocks: 1
+dnn_neurons: 128
+
+
+compute_features: !new:speechbrain.lobes.features.MFCC
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, 660]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+enc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <num_labels>
+    bias: False
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <num_labels>
+    consider_as_one_hot: True
+    embedding_dim: !ref <num_labels>
+
+dec: !new:speechbrain.nnet.RNN.GRU
+    input_size: !ref <num_labels> - 1
+    hidden_size: !ref <rnn_neurons>
+    num_layers: 1
+
+dec_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <rnn_neurons>
+    n_neurons: !ref <num_labels>
+    bias: False
+
+Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
+    joint: sum # joint [sum | concat]
+    nonlinearity: !ref <activation>
+
+output: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <num_labels>
+    n_neurons: !ref <num_labels>
+    bias: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    enc: !ref <enc>
+    enc_lin: !ref <enc_lin>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    dec_lin: !ref <dec_lin>
+    Tjoint: !ref <Tjoint>
+    output: !ref <output>
+    mean_var_norm: !ref <mean_var_norm>
+    compute_features: !ref <compute_features>
+
+opt_class: !name:torch.optim.Adadelta
+    lr: !ref <lr>
+
+searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+    decode_network_lst: [!ref <emb>, !ref <dec>, !ref <dec_lin>]
+    tjoint: !ref <Tjoint>
+    classifier_network: [!ref <output>]
+    blank_id: !ref <blank_index>
+    beam_size: 1
+    nbest: 1
+
+compute_cost: !name:speechbrain.nnet.losses.transducer_loss
+    blank_index: !ref <blank_index>
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

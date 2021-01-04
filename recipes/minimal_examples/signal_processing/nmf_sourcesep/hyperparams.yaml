@@ -17,35 +17,32 @@ win_length: 40  # window length (in ms) for stft
 hop_length: 10  # hop length (in ms) for stft
 
 # Experiment flags:
-save_reconstructed: True   # saves the results
-copy_original_files: True    # copies the original files
+save_reconstructed: False   # saves the results
+copy_original_files: False    # copies the original files
 
-train_loader1: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav]
-    output_folder: !ref <output_folder>
-    sentence_sorting: 'original'
+train_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train>
+    output_keys: [wav]
+    sorting: 'original'
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
 
-train_loader2: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train2>
-    batch_size: !ref <N_batch>
-    csv_read: [wav]
-    output_folder: !ref <output_folder>
-    sentence_sorting: 'original'
+train_data2: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train2>
+    output_keys: [wav]
+    sorting: 'original'
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: !ref <N_batch>
-    csv_read: [wav]
-    sentence_sorting: 'original'
-    output_folder: !ref <output_folder>
+test_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_test>
+    output_keys: [wav]
+    sorting: 'original'
     replacements:
-        $data_folder: !ref <data_folder>
+        data_folder: !ref <data_folder>
+
+loader_kwargs:
+    batch_size: !ref <N_batch>
 
 compute_features: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>

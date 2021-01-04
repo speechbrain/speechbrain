@@ -49,12 +49,7 @@ def transducer_loss(
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
     return Transducer.apply(
-        log_probs,
-        targets,
-        input_lens,
-        target_lens,
-        blank_index,
-        reduction=reduction,
+        log_probs, targets, input_lens, target_lens, blank_index, reduction
     )
 
 
@@ -882,7 +877,7 @@ class AdditiveAngularMargin(AngularMargin):
         ---------
         predictions : torch.Tensor
         """
-        cosine = outputs
+        cosine = outputs.float()
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
         phi = cosine * self.cos_m - sine * self.sin_m  # cos(theta + m)
         if self.easy_margin:

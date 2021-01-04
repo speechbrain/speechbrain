@@ -20,7 +20,7 @@ import tempfile
 import torchaudio
 from torchaudio.transforms import Resample
 from speechbrain.utils.data_utils import get_all_files, download_file
-from speechbrain.data_io.data_io import read_wav_soundfile
+from speechbrain.data_io.data_io import read_audio
 
 logger = logging.getLogger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
@@ -182,7 +182,7 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_csv_train, save_csv_test, save_csv_valid):
-        logger.debug("Preparation completed in previous run, skipping.")
+        print("Preparation completed in previous run, skipping.")
         return
 
     train_clean_folder = os.path.join(
@@ -212,6 +212,7 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
 
     logger.debug("Creating lexicon...")
     lexicon = create_lexicon(os.path.join(data_folder, "lexicon.txt"))
+    print("Creating csv files for noisy VoiceBank...")
 
     logger.debug("Collecting files...")
     extension = [".wav"]
@@ -311,7 +312,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
         clean_wav = os.path.join(clean_folder, snt_id + ".wav")
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(wav_file)
+        signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
         # Read text
@@ -344,7 +345,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
         for line in csv_lines:
             csv_writer.writerow(line)
 
-    logger.debug(f"{csv_file} successfully created!")
+    print(f"{csv_file} successfully created!")
 
 
 def check_voicebank_folders(*folders):

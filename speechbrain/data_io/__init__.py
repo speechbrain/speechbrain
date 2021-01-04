@@ -1,24 +1,14 @@
 """Data loading and dataset preprocessing
 """
+import os
 
-from .data_io import (
-    DataLoaderFactory,
-    prepend_bos_token,
-    append_eos_token,
-    convert_index_to_lab,
-    relative_time_to_absolute,
-    length_to_mask,
-    merge_char,
-    split_word,
-)
 
-__all__ = [
-    "DataLoaderFactory",
-    "prepend_bos_token",
-    "append_eos_token",
-    "convert_index_to_lab",
-    "relative_time_to_absolute",
-    "length_to_mask",
-    "merge_char",
-    "split_word",
-]
+def condition(filename):
+    filename = os.path.basename(filename)
+    return filename.endswith(".py") and not filename.startswith("__")
+
+
+files = os.listdir(os.path.dirname(__file__))
+__all__ = [filename[:-3] for filename in files if condition(filename)]
+
+from . import *  # noqa
