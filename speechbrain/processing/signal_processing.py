@@ -10,6 +10,7 @@ Authors
 """
 import torch
 import math
+from packaging import version
 
 
 def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
@@ -204,10 +205,10 @@ def convolve1d(
 
     Example
     -------
-    >>> import soundfile as sf
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal[None, :, None])
-    >>> kernel = torch.rand(1, 10, 1, dtype=signal.dtype)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0).unsqueeze(2)
+    >>> kernel = torch.rand(1, 10, 1)
     >>> signal = convolve1d(signal, kernel, padding=(9, 0))
     """
     if len(waveform.shape) != 3:
@@ -242,29 +243,27 @@ def convolve1d(
         before_index = kernel[..., :rotation_index]
         kernel = torch.cat((after_index, zeros, before_index), dim=-1)
 
-        # Compute FFT for both signals
-        f_signal = torch.rfft(waveform, 1)
-        f_kernel = torch.rfft(kernel, 1)
+        # Multiply in frequency domain to convolve in time domain
+        if version.parse(torch.__version__) > version.parse("1.6.0"):
+            import torch.fft as fft
 
-        # Complex multiply
-        sig_real, sig_imag = f_signal.unbind(-1)
-        ker_real, ker_imag = f_kernel.unbind(-1)
-        f_result = torch.stack(
-            [
-                sig_real * ker_real - sig_imag * ker_imag,
-                sig_real * ker_imag + sig_imag * ker_real,
-            ],
-            dim=-1,
-        )
-
-        # Inverse FFT
-        convolved = torch.irfft(f_result, 1)
-
-        # Because we're using `onesided`, sometimes the output's length
-        # is increased by one in the time dimension. Truncate to ensure
-        # that the length is preserved.
-        if convolved.size(-1) > waveform.size(-1):
-            convolved = convolved[..., : waveform.size(-1)]
+            result = fft.rfft(waveform) * fft.rfft(kernel)
+            convolved = fft.irfft(result, n=waveform.size(-1))
+        else:
+            f_signal = torch.rfft(waveform, 1)
+            f_kernel = torch.rfft(kernel, 1)
+            sig_real, sig_imag = f_signal.unbind(-1)
+            ker_real, ker_imag = f_kernel.unbind(-1)
+            f_result = torch.stack(
+                [
+                    sig_real * ker_real - sig_imag * ker_imag,
+                    sig_real * ker_imag + sig_imag * ker_real,
+                ],
+                dim=-1,
+            )
+            convolved = torch.irfft(
+                f_result, 1, signal_sizes=[waveform.size(-1)]
+            )
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:
@@ -391,9 +390,9 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example
     -------
-    >>> import soundfile as sf
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :, None]
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)
     """

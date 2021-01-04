@@ -1,6 +1,6 @@
 def test_NewBobScheduler():
 
-    from speechbrain.nnet import NewBobScheduler
+    from speechbrain.nnet.schedulers import NewBobScheduler
 
     scheduler = NewBobScheduler(initial_value=0.8)
 

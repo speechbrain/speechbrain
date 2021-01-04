@@ -1,21 +1,19 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-# NOTE: Seed does not guarantee replicability with CTC
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Neural Parameters
+# Training Parameters
 N_epochs: 10
-N_batch: 1
 lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# token infomation
+bos_index: 0 # eos_index = bos_index + 1
+num_labels: 45
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
+activation: !name:torch.nn.LeakyReLU []
 dropout: 0.15
 cnn_blocks: 1
 cnn_channels: (16,)
@@ -26,39 +24,12 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-# token infomation
-bos: 42
-eos: 42
+compute_features: !new:speechbrain.lobes.features.MFCC
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-compute_features: !new:speechbrain.lobes.MFCC
-
-mean_var_norm: !new:speechbrain.processing.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-enc: !new:speechbrain.lobes.CRDNN
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, 660]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -72,16 +43,16 @@ enc: !new:speechbrain.lobes.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-lin: !new:speechbrain.nnet.Linear
+lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 43  # 42 phonemes + 1 eos
+    n_neurons: !ref <num_labels>
     bias: False
 
-emb: !new:speechbrain.nnet.Embedding
-    num_embeddings: 43  # 42 phonemes + 1 bos
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <num_labels>
     embedding_dim: 128
 
-dec: !new:speechbrain.nnet.AttentionalRNNDecoder
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     enc_dim: 128
     input_size: 128
     rnn_type: gru
@@ -90,7 +61,7 @@ dec: !new:speechbrain.nnet.AttentionalRNNDecoder
     attn_dim: !ref <rnn_neurons>
     num_layers: 1
 
-softmax: !new:speechbrain.nnet.Softmax
+softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
@@ -107,11 +78,11 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <bos>
-    eos_index: !ref <eos>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <bos_index> + 1
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 
-compute_cost: !name:speechbrain.nnet.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-per_stats: !name:speechbrain.ErrorRateStats
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

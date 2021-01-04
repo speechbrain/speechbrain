@@ -81,12 +81,12 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.per_file, "w") as w:
                 w.write("CTC loss stats:\n")
                 self.ctc_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
-                print("CTC and PER stats written to ", self.hparams.wer_file)
+                print("CTC and PER stats written to ", self.hparams.per_file)
 
 
 # Begin Recipe!
@@ -98,9 +98,12 @@ if __name__ == "__main__":
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -126,6 +129,7 @@ if __name__ == "__main__":
 
     asr_brain = ASR_Brain(
         modules=hparams["modules"],
+        run_opts=run_opts,
         opt_class=hparams["opt_class"],
         hparams=hparams,
         checkpointer=hparams["checkpointer"],

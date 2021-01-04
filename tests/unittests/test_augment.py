@@ -1,6 +1,6 @@
 import os
 import torch
-import soundfile as sf
+from speechbrain.data_io.data_io import write_audio
 
 
 def test_add_noise(tmpdir):
@@ -14,8 +14,6 @@ def test_add_noise(tmpdir):
     concat, lens = AddNoise._concat_batch(wav_a, a_len, wav_b, b_len)
     assert concat.shape == (3, 10000)
     assert lens.allclose(torch.Tensor([0.8, 1, 1]))
-    print(a_len)
-    print(b_len)
     concat, lens = AddNoise._concat_batch(wav_b, b_len, wav_a, a_len)
     assert concat.shape == (3, 10000)
     assert lens.allclose(torch.Tensor([1, 1, 0.8]))
@@ -26,7 +24,8 @@ def test_add_noise(tmpdir):
 
     # Put noise waveform into temporary file
     noisefile = os.path.join(tmpdir, "noise.wav")
-    sf.write(noisefile, test_noise.squeeze(0).numpy(), 16000)
+    write_audio(noisefile, test_noise.transpose(0, 1), 16000)
+
     csv = os.path.join(tmpdir, "noise.csv")
     with open(csv, "w") as w:
         w.write("ID, duration, wav, wav_format, wav_opts\n")
@@ -58,15 +57,17 @@ def test_add_reverb(tmpdir):
     ir1 = os.path.join(tmpdir, "ir1.wav")
     ir2 = os.path.join(tmpdir, "ir2.wav")
     ir3 = os.path.join(tmpdir, "ir3.wav")
-    sf.write(ir1, impulse_response.squeeze(0).numpy(), 16000)
+    write_audio(ir1, impulse_response.transpose(0, 1), 16000)
+
     impulse_response[0, 0] = 0.0
     impulse_response[0, 10] = 0.5
-    sf.write(ir2, impulse_response.squeeze(0).numpy(), 16000)
+    write_audio(ir2, impulse_response.transpose(0, 1), 16000)
 
     # Check a very simple non-impulse-response case:
     impulse_response[0, 10] = 0.6
     impulse_response[0, 11] = 0.4
-    sf.write(ir3, impulse_response.squeeze(0).numpy(), 16000)
+    # sf.write(ir3, impulse_response.squeeze(0).numpy(), 16000)
+    write_audio(ir3, impulse_response.transpose(0, 1), 16000)
     ir3_result = test_waveform * 0.6 + test_waveform.roll(1, -1) * 0.4
 
     # write ir csv file
@@ -82,7 +83,7 @@ def test_add_reverb(tmpdir):
     assert no_reverb(test_waveform, wav_lens).allclose(test_waveform)
 
     # Normal cases
-    add_reverb = AddReverb(csv, order="original")
+    add_reverb = AddReverb(csv, sorting="original")
     reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
     assert reverbed.allclose(test_waveform[:, 0:1000], atol=1e-1)
     reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
@@ -173,11 +174,18 @@ def test_drop_chunk():
         drop_count_high=1,
         drop_start=100,
         drop_end=200,
+        noise_factor=0.0,
     )
     expected_waveform = test_waveform.clone()
     expected_waveform[:, 100:200] = 0.0
 
     assert dropper(test_waveform, lengths).allclose(expected_waveform)
+
+    # Make sure amplitude is similar before and after
+    dropper = DropChunk(noise_factor=1.0)
+    drop_amplitude = dropper(test_waveform, lengths).abs().mean()
+    orig_amplitude = test_waveform.abs().mean()
+    assert drop_amplitude.allclose(orig_amplitude, atol=1e-2)
 
 
 def test_clip():

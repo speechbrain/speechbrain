@@ -1,17 +1,16 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Training parameters
-number_of_epochs: 30
-batch_size: 8
+# Training Parameters
+N_epochs: 30
 lr: 0.01
+dataloader_options:
+    batch_size: 8
+
+# token infomation
+bos_index: 0 # eos_index = bos_index + 1
+num_chars: 26 # 24 chars + 1 bos + 1 eos
 
 # Model parameters
 rnn_layers: 1
@@ -19,37 +18,8 @@ rnn_neurons: 256
 emb_size: 128
 dropout: 0.0
 
-# Outputs
-output_neurons: 42
-bos_index: !ref <output_neurons> - 1
-eos_index: !ref <output_neurons> - 1
-
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: random
-    csv_read: [phn]
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: random
-    csv_read: [phn]
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: !ref <batch_size>
-    sentence_sorting: random
-    csv_read: [phn]
-    replacements:
-        $data_folder: !ref <data_folder>
-
-model: !new:speechbrain.lobes.RNNLM
-    output_neurons: !ref <output_neurons>
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <num_chars>
     embedding_dim: !ref <emb_size>
     rnn_neurons: !ref <rnn_neurons>
     rnn_layers: !ref <rnn_layers>
@@ -60,10 +30,10 @@ modules: {model: !ref <model>}
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-epoch_counter: !new:speechbrain.EpochCounter
-    limit: !ref <number_of_epochs>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
 
-log_softmax: !new:speechbrain.nnet.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !name:speechbrain.nnet.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss

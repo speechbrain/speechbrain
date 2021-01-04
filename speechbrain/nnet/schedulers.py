@@ -29,7 +29,7 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
     Example
     -------
     >>> from torch.optim import SGD
-    >>> from speechbrain.nnet import Linear
+    >>> from speechbrain.nnet.linear import Linear
     >>> model = Linear(n_neurons=10, input_size=10)
     >>> optimizer = SGD(model.parameters(), lr=0.1)
     >>> update_learning_rate(optimizer, 0.2)
@@ -133,8 +133,9 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch, device):
         del end_of_epoch  # Unused in this class
+        del device  # Unused in here
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
         self.metric_values = data["metric_values"]
@@ -324,8 +325,9 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
+        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -421,8 +423,270 @@ class CyclicCosineScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
+        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
+
+
+@checkpoints.register_checkpoint_hooks
+class ReduceLROnPlateau:
+    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase.
+    The difference from NewBobLRScheduler is that, this one keeps a memory of the last step where do not observe improvement, and compares against that particular loss value as opposed to the most recent loss.
+    Arguments
+    ---------
+    lr_min: float
+        The minimum allowable learning rate
+    factor: float
+        Factor with which to reduce the learning rate
+    patience: int
+        How many epochs to wait before reducing the learning rate
+    Example
+    -------
+    >>> from torch.optim import Adam
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(n_neurons=10, input_size=3)
+    >>> optim = Adam(lr=1.0, params=model.parameters())
+    >>> output = model(inp_tensor)
+    >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2, 1)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=11.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=13.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=14.0)
+    >>> next_lr
+    0.5
+    """
+
+    def __init__(
+        self, lr_min=1e-8, factor=0.5, patience=2, dont_halve_until_epoch=65
+    ):
+        self.lr_min = lr_min
+        self.factor = factor
+        self.patience = patience
+        self.patience_counter = 0
+        self.losses = []
+        self.dont_halve_until_epoch = dont_halve_until_epoch
+
+    def __call__(self, optim_list, current_epoch, current_loss):
+        """
+        Arguments
+        ---------
+        optim_list : list of optimizers
+            The optimizers to update using this scheduler.
+        current_epoch : int
+            Number of times the dataset has been iterated.
+        current_loss : int
+            A number for determining whether to change the learning rate.
+        Returns
+        -------
+        float
+            The learning rate before the update.
+        float
+            The learning rate after the update.
+        """
+        for opt in optim_list:
+            current_lr = opt.param_groups[0]["lr"]
+
+            if current_epoch <= self.dont_halve_until_epoch:
+                next_lr = current_lr
+                self.anchor = current_loss
+            else:
+                if current_loss <= self.anchor:
+                    self.patience_counter = 0
+                    next_lr = current_lr
+                    self.anchor = current_loss
+                elif (
+                    current_loss > self.anchor
+                    and self.patience_counter < self.patience
+                ):
+                    self.patience_counter = self.patience_counter + 1
+                    next_lr = current_lr
+                else:
+                    next_lr = current_lr * self.factor
+                    self.patience_counter = 0
+
+            # impose the lower bound
+            next_lr = max(next_lr, self.lr_min)
+
+        # Updating current loss
+        self.losses.append(current_loss)
+
+        return current_lr, next_lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {
+            "losses": self.losses,
+            "anchor": self.anchor,
+            "patience_counter": self.patience_counter,
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch, device=None):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.anchor = data["anchor"]
+        self.patience_counter = data["patience_counter"]
+
+
+class CyclicLRScheduler:
+    """This implements a cyclical learning rate policy (CLR).
+    The method cycles the learning rate between two boundaries with
+    some constant frequency, as detailed in this paper (https://arxiv.org/abs/1506.01186).
+    The amplitude of the cycle can be scaled on a per-iteration or
+    per-cycle basis.
+    This class has three built-in policies, as put forth in the paper.
+    "triangular":
+        A basic triangular cycle w/ no amplitude scaling.
+    "triangular2":
+        A basic triangular cycle that scales initial amplitude by half each cycle.
+    "exp_range":
+        A cycle that scales initial amplitude by gamma**(cycle iterations) at each
+        cycle iteration.
+    For more detail, please see paper.
+    Arguments
+    -------
+        base_lr: initial learning rate which is the
+            lower boundary in the cycle.
+        max_lr: upper boundary in the cycle. Functionally,
+            it defines the cycle amplitude (max_lr - base_lr).
+            The lr at any cycle is the sum of base_lr
+            and some scaling of the amplitude; therefore
+            max_lr may not actually be reached depending on
+            scaling function.
+        step_size: number of training iterations per
+            half cycle. Authors suggest setting step_size
+            2-8 x training iterations in epoch.
+        mode: one of {triangular, triangular2, exp_range}.
+            Default 'triangular'.
+            Values correspond to policies detailed above.
+            If scale_fn is not None, this argument is ignored.
+        gamma: constant in 'exp_range' scaling function:
+            gamma**(cycle iterations)
+        scale_fn: Custom scaling policy defined by a single
+            argument lambda function, where
+            0 <= scale_fn(x) <= 1 for all x >= 0.
+            mode paramater is ignored
+        scale_mode: {'cycle', 'iterations'}.
+            Defines whether scale_fn is evaluated on
+            cycle number or cycle iterations (training
+            iterations since start of cycle). Default is 'cycle'.
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler = CyclicLRScheduler(base_lr=0.1, max_lr=0.3, step_size=2)
+    >>> scheduler.on_batch_end(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.2
+    >>> scheduler.on_batch_end(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.3
+    >>> scheduler.on_batch_end(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.2
+    """
+
+    def __init__(
+        self,
+        base_lr=0.001,
+        max_lr=0.006,
+        step_size=2000.0,
+        mode="triangular",
+        gamma=1.0,
+        scale_fn=None,
+        scale_mode="cycle",
+    ):
+        super(CyclicLRScheduler, self).__init__()
+
+        self.losses = []
+        self.base_lr = base_lr
+        self.max_lr = max_lr
+        self.step_size = step_size
+        self.mode = mode
+        self.gamma = gamma
+        if scale_fn is None:
+            if self.mode == "triangular":
+                self.scale_fn = lambda x: 1.0
+                self.scale_mode = "cycle"
+            elif self.mode == "triangular2":
+                self.scale_fn = lambda x: 1 / (2.0 ** (x - 1))
+                self.scale_mode = "cycle"
+            elif self.mode == "exp_range":
+                self.scale_fn = lambda x: gamma ** (x)
+                self.scale_mode = "iterations"
+        else:
+            self.scale_fn = scale_fn
+            self.scale_mode = scale_mode
+        self.clr_iterations = 0.0
+
+        self._reset()
+
+    def _reset(self, new_base_lr=None, new_max_lr=None, new_step_size=None):
+        """Resets cycle iterations.
+        Optional boundary/step size adjustment.
+        """
+        if new_base_lr is not None:
+            self.base_lr = new_base_lr
+        if new_max_lr is not None:
+            self.max_lr = new_max_lr
+        if new_step_size is not None:
+            self.step_size = new_step_size
+        self.clr_iterations = 0.0
+
+    def __call__(self, epoch):
+        old_lr = self.current_lr
+        new_lr = self.clr(self.clr_iterations + 1)
+
+        return old_lr, new_lr
+
+    def clr(self, clr_iterations):
+        cycle = math.floor(1 + clr_iterations / (2 * self.step_size))
+        x = abs(clr_iterations / self.step_size - 2 * cycle + 1)
+        if self.scale_mode == "cycle":
+            return self.base_lr + (self.max_lr - self.base_lr) * max(
+                0, (1 - x)
+            ) * self.scale_fn(cycle)
+        else:
+            return self.base_lr + (self.max_lr - self.base_lr) * max(
+                0, (1 - x)
+            ) * self.scale_fn(clr_iterations)
+
+    def on_batch_end(self, opt):
+        """
+        Arguments
+        ---------
+        opt : optimizers
+            The optimizers to update using this scheduler.
+        """
+        self.clr_iterations += 1
+
+        lr = self.clr(self.clr_iterations)
+        current_lr = opt.param_groups[0]["lr"]
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses, "clr_iterations": self.clr_iterations}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch, device):
+        del end_of_epoch  # Unused in this class
+        del device
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.clr_iterations = data["clr_iterations"]

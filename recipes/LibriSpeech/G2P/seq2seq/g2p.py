@@ -20,7 +20,6 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import os
 import sys
 import torch
 import speechbrain as sb
@@ -40,7 +39,7 @@ class G2P(sb.Brain):
         x, _ = self.modules.enc(emb_char)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos)
+        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.hparams.bos)
         e_in = self.modules.emb(y_in)
 
         h, w = self.modules.dec(e_in, x, char_lens)
@@ -67,7 +66,7 @@ class G2P(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns_with_eos = sb.data_io.append_eos_token(
+        phns_with_eos = sb.data_io.data_io.append_eos_token(
             phns, length=abs_length, eos_index=self.hparams.eos
         )
 
@@ -80,8 +79,12 @@ class G2P(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Convert indices to words
             phns = undo_padding(phns, phn_lens)
-            phns = sb.data_io.convert_index_to_lab(phns, self.hparams.ind2lab)
-            seq = sb.data_io.convert_index_to_lab(seq, self.hparams.ind2lab)
+            phns = sb.data_io.data_io.convert_index_to_lab(
+                phns, self.hparams.ind2lab
+            )
+            seq = sb.data_io.data_io.convert_index_to_lab(
+                seq, self.hparams.ind2lab
+            )
             self.per_metrics.append(ids, seq, phns)
 
         return loss
@@ -92,7 +95,8 @@ class G2P(sb.Brain):
         preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
@@ -120,16 +124,15 @@ class G2P(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["PER"])
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats=self.train_stats,
-                    valid_stats=stage_stats,
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": stage_stats["PER"]}, min_keys=["PER"],
-                )
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": stage_stats["PER"]}, min_keys=["PER"],
+            )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -140,29 +143,20 @@ class G2P(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from librispeech_prepare import prepare_librispeech  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare LibriSpeech lexicon
-    prepare_librispeech(
-        data_folder=hparams["data_folder"],
-        splits=[],
-        save_folder=hparams["data_folder"],
-        create_lexicon=True,
     )
 
     # Load index2label dict for decoding
@@ -178,6 +172,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

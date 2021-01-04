@@ -9,7 +9,7 @@ seed: 1236
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 input_type: noisy_wav
 output_folder: !ref results/<input_type>/phn/<seed>
-wer_file: !ref <output_folder>/wer.txt
+per_file: !ref <output_folder>/per.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -51,7 +51,7 @@ dnn_neurons: 512
 output_neurons: 42
 blank_index: !ref <output_neurons> - 1
 
-epoch_counter: !new:speechbrain.EpochCounter
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 train_loader: !new:speechbrain.data_io.DataLoaderFactory
@@ -75,16 +75,16 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [!ref <input_type>, phn]
 
-compute_features: !new:speechbrain.lobes.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-model: !new:CRDNN.CRDNN
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -98,12 +98,12 @@ model: !new:CRDNN.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-output: !new:speechbrain.nnet.Linear
+output: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: !ref <output_neurons>
     bias: True
 
-log_softmax: !new:speechbrain.nnet.Softmax
+log_softmax: !new:speechbrain.nnet.activation.Softmax
     apply_log: True
 
 opt_class: !name:torch.optim.Adadelta
@@ -111,13 +111,13 @@ opt_class: !name:torch.optim.Adadelta
     rho: 0.95
     eps: 1.e-8
 
-lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
 
-normalize: !new:speechbrain.processing.InputNormalization
+normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 modules:
@@ -128,7 +128,7 @@ modules:
 
 jit_module_keys: [model]
 
-checkpointer: !new:speechbrain.Checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
@@ -137,15 +137,15 @@ checkpointer: !new:speechbrain.Checkpointer
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
 
-compute_cost: !name:speechbrain.nnet.ctc_loss
+compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-ctc_stats: !name:speechbrain.MetricStats
-    metric: !name:speechbrain.nnet.ctc_loss
+ctc_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: !ref <blank_index>
         reduction: batch
 
-per_stats: !name:speechbrain.ErrorRateStats
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
-train_logger: !new:speechbrain.FileTrainLogger
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

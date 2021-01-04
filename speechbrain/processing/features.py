@@ -9,11 +9,11 @@ in torch audio toolkit (https://github.com/pytorch/audio).
 Example
 -------
 >>> import torch
->>> import soundfile as sf
->>> signal, fs=sf.read('samples/audio_samples/example1.wav')
->>> signal=torch.tensor(signal).float().unsqueeze(0)
+>>> from speechbrain.data_io.data_io import read_audio
+>>> signal =read_audio('samples/audio_samples/example1.wav')
+>>> signal = signal.unsqueeze(0)
 >>> compute_STFT = STFT(
-...     sample_rate=fs, win_length=25, hop_length=10, n_fft=400
+...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
 ... )
 >>> features = compute_STFT(signal)
 >>> features = spectral_magnitude(features)
@@ -36,6 +36,7 @@ Authors
 import math
 import torch
 import logging
+from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
@@ -143,17 +144,31 @@ class STFT(torch.nn.Module):
             x = x.transpose(1, 2)
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
-        stft = torch.stft(
-            x,
-            self.n_fft,
-            self.hop_length,
-            self.win_length,
-            self.window.to(x.device),
-            self.center,
-            self.pad_mode,
-            self.normalized_stft,
-            self.onesided,
-        )
+        if version.parse(torch.__version__) <= version.parse("1.6.0"):
+            stft = torch.stft(
+                x,
+                self.n_fft,
+                self.hop_length,
+                self.win_length,
+                self.window.to(x.device),
+                self.center,
+                self.pad_mode,
+                self.normalized_stft,
+                self.onesided,
+            )
+        else:
+            stft = torch.stft(
+                x,
+                self.n_fft,
+                self.hop_length,
+                self.win_length,
+                self.window.to(x.device),
+                self.center,
+                self.pad_mode,
+                self.normalized_stft,
+                self.onesided,
+                return_complex=False,
+            )
 
         # Retrieving the original dimensionality (batch,time, channels)
         if len(or_shape) == 3:
@@ -752,7 +767,7 @@ class DCT(torch.nn.Module):
             x = x.reshape(x.shape[0] * x.shape[3], x.shape[1], x.shape[2])
 
         # apply the DCT transform
-        dct = torch.matmul(x, self.dct_mat)
+        dct = torch.matmul(x, self.dct_mat.to(x.device))
 
         # Reshape in the case of multi-channels
         if len(input_shape) == 4:
@@ -787,9 +802,12 @@ class Deltas(torch.nn.Module):
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
-        self.kernel = torch.arange(
-            -self.n, self.n + 1, dtype=torch.float32,
-        ).repeat(input_size, 1, 1)
+        self.register_buffer(
+            "kernel",
+            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
+                input_size, 1, 1
+            ),
+        )
 
     def forward(self, x):
         """Returns the delta coefficients.
@@ -956,6 +974,7 @@ class InputNormalization(torch.nn.Module):
         norm_type="global",
         avg_factor=None,
         requires_grad=False,
+        update_until_epoch=3,
     ):
         super().__init__()
         self.mean_norm = mean_norm
@@ -972,8 +991,9 @@ class InputNormalization(torch.nn.Module):
         self.count = 0
         self.eps = 1e-10
         self.device_inp = torch.device("cpu")
+        self.update_until_epoch = update_until_epoch
 
-    def forward(self, x, lengths, spk_ids=torch.tensor([])):
+    def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
         """Returns the tensor with the sourrounding context.
 
         Arguments
@@ -1059,7 +1079,7 @@ class InputNormalization(torch.nn.Module):
                     self.glob_mean = current_mean
                     self.glob_std = current_std
 
-                else:
+                elif epoch < self.update_until_epoch:
                     if self.avg_factor is None:
                         self.weight = 1 / (self.count + 1)
                     else:
@@ -1169,7 +1189,7 @@ class InputNormalization(torch.nn.Module):
         torch.save(stats, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch, device=None):
+    def _load(self, path, end_of_epoch, device):
         """Load statistic dictionary.
 
         Arguments

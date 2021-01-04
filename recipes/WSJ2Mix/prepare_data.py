@@ -26,12 +26,28 @@ Author
 import os
 import numpy as np
 from tqdm import tqdm
-from speechbrain.data_io.data_io import read_wav_soundfile, write_wav_soundfile
+from speechbrain.data_io.data_io import read_audio, write_audio
 from speechbrain.utils.data_utils import download_file
 from scipy.io import wavfile
 from scipy import signal
 import pickle
 import csv
+
+
+def prepare_wsjmix(datapath, savepath, n_spks=2):
+    """
+    Prepared wsj2mix if n_spks=2 and wsj3mix if n_spks=3.
+
+    Arguments:
+    ----------
+        datapath (str) : path for the wsj0-mix dataset.
+        savepath (str) : path where we save the csv file.
+        n_spks (int): number of speakers
+    """
+    if n_spks == 2:
+        create_wsj_csv(datapath, savepath)
+    if n_spks == 3:
+        create_wsj_csv_3spks(datapath, savepath)
 
 
 # load or create the csv files for the data
@@ -87,6 +103,69 @@ def create_wsj_csv(datapath, savepath):
                     "s2_wav": s2_path,
                     "s2_wav_format": "wav",
                     "s2_wav_opts": None,
+                }
+                writer.writerow(row)
+
+
+def create_wsj_csv_3spks(datapath, savepath):
+    """
+    This function creates the csv files to get the speechbrain data loaders.
+    Arguments:
+        datapath (str) : path for the wsj0-mix dataset.
+        savepath (str) : path where we save the csv file
+    """
+    for set_type in ["tr", "cv", "tt"]:
+        mix_path = os.path.join(datapath, "wav8k/min/" + set_type + "/mix/")
+        s1_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s1/")
+        s2_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s2/")
+        s3_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s3/")
+
+        files = os.listdir(mix_path)
+
+        mix_fl_paths = [mix_path + fl for fl in files]
+        s1_fl_paths = [s1_path + fl for fl in files]
+        s2_fl_paths = [s2_path + fl for fl in files]
+        s3_fl_paths = [s3_path + fl for fl in files]
+
+        csv_columns = [
+            "ID",
+            "duration",
+            "mix_wav",
+            "mix_wav_format",
+            "mix_wav_opts",
+            "s1_wav",
+            "s1_wav_format",
+            "s1_wav_opts",
+            "s2_wav",
+            "s2_wav_format",
+            "s2_wav_opts",
+            "s3_wav",
+            "s3_wav_format",
+            "s3_wav_opts",
+        ]
+
+        with open(savepath + "/wsj_" + set_type + ".csv", "w") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+            writer.writeheader()
+            for i, (mix_path, s1_path, s2_path, s3_path) in enumerate(
+                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, s3_fl_paths)
+            ):
+
+                row = {
+                    "ID": i,
+                    "duration": 1.0,
+                    "mix_wav": mix_path,
+                    "mix_wav_format": "wav",
+                    "mix_wav_opts": None,
+                    "s1_wav": s1_path,
+                    "s1_wav_format": "wav",
+                    "s1_wav_opts": None,
+                    "s2_wav": s2_path,
+                    "s2_wav_format": "wav",
+                    "s2_wav_opts": None,
+                    "s3_wav": s3_path,
+                    "s3_wav_format": "wav",
+                    "s3_wav_opts": None,
                 }
                 writer.writerow(row)
 
@@ -153,7 +232,7 @@ def save_mixture(
 
     sampling_rate = 8000 if save_fs == "wav8k" else 16000
 
-    write_wav_soundfile(
+    write_audio(
         s1,
         output_dir
         + "/"
@@ -167,7 +246,7 @@ def save_mixture(
         + ".wav",
         sampling_rate=sampling_rate,
     )
-    write_wav_soundfile(
+    write_audio(
         s2,
         output_dir
         + "/"
@@ -181,7 +260,7 @@ def save_mixture(
         + ".wav",
         sampling_rate=sampling_rate,
     )
-    write_wav_soundfile(
+    write_audio(
         mix,
         output_dir
         + "/"
@@ -336,8 +415,8 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
                 fid_m.write("{}\n".format(mix_name))
 
                 fs, _ = wavfile.read(os.path.join(wsj0root, line[0]))
-                s1 = read_wav_soundfile(os.path.join(wsj0root, line[0]))
-                s2 = read_wav_soundfile(os.path.join(wsj0root, line[2]))
+                s1 = read_audio(os.path.join(wsj0root, line[0]))
+                s2 = read_audio(os.path.join(wsj0root, line[2]))
 
                 # resample, determine levels for source 1
                 s1_8k = signal.resample(s1, int((fs_read / fs) * len(s1)))

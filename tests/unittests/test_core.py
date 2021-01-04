@@ -1,11 +1,12 @@
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
 
-    filename, overrides = parse_arguments(
-        ["params.yaml", "--seed", "3", "--data_folder", "TIMIT"]
+    filename, run_opts, overrides = parse_arguments(
+        ["params.yaml", "--device=cpu", "--seed=3", "--data_folder", "TIMIT"]
     )
     assert filename == "params.yaml"
-    assert overrides == "data_folder: TIMIT\nseed: 3\n"
+    assert run_opts["device"] == "cpu"
+    assert overrides == "seed: 3\ndata_folder: TIMIT"
 
 
 def test_brain():
@@ -16,11 +17,11 @@ def test_brain():
     model = torch.nn.Linear(in_features=10, out_features=10)
 
     class SimpleBrain(Brain):
-        def compute_forward(self, x, stage):
-            return self.modules.model(x)
+        def compute_forward(self, batch, stage):
+            return self.modules.model(batch[0])
 
-        def compute_objectives(self, predictions, targets, stage):
-            return torch.nn.functional.l1_loss(predictions, targets)
+        def compute_objectives(self, predictions, batch, stage):
+            return torch.nn.functional.l1_loss(predictions, batch[1])
 
     brain = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1))
 
