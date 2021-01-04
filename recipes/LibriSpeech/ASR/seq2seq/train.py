@@ -50,7 +50,7 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        
+
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
@@ -68,7 +68,6 @@ class ASR(sb.Brain):
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
         h, _ = self.modules.dec(e_in, x, wav_lens)
-
         # Output layer for seq2seq log-probabilities
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
@@ -254,7 +253,9 @@ def data_io_prepare(hparams):
         test_datasets[name] = sb.data_io.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
-        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
+        test_datasets[name] = test_datasets[name].filtered_sorted(
+            sort_key="duration"
+        )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
@@ -272,7 +273,7 @@ def data_io_prepare(hparams):
     save_model_path = os.path.join(hparams["save_folder"], "tok_unigram.model")
     save_vocab_path = os.path.join(hparams["save_folder"], "tok_unigram.vocab")
 
-    if hasattr(hparams, "tok_mdl_file"):
+    if "tok_mdl_file" in hparams:
         download_file(
             source=hparams["tok_mdl_file"],
             dest=save_model_path,
@@ -280,7 +281,7 @@ def data_io_prepare(hparams):
         )
         tokenizer.sp.load(save_model_path)
 
-    if hasattr(hparams, "tok_voc_file"):
+    if "tok_voc_file" in hparams:
         download_file(
             source=hparams["tok_voc_file"],
             dest=save_vocab_path,
@@ -311,7 +312,7 @@ def data_io_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "tokens_list", "tokens", "tokens_bos", "tokens_eos",
+        "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
@@ -327,7 +328,7 @@ def data_io_prepare(hparams):
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens", "tokens_eos", "tokens_bos"],
+        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets, tokenizer
 
