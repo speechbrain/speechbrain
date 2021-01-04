@@ -84,11 +84,11 @@ def minWER_loss(
     batch_size = hypotheses_scores.size(0)
     topk = hypotheses_scores.size(1)
     blank_index = torch.tensor(
-        [blank_index], dtype=torch.int, device=hypotheses.device
+        [blank_index], dtype=torch.int32, device=hypotheses.device
     )
     space_token = [] if separator_index is None else [separator_index]
     separator_index = torch.tensor(
-        space_token, dtype=torch.int, device=hypotheses.device
+        space_token, dtype=torch.int32, device=hypotheses.device
     )
 
     # levenshtein_distance tensor will have 4D dimensions
