@@ -159,6 +159,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     kernel_size: 31
     bias: True
     encoder_module: "conformer"
+    conformer_activation: !name:speechbrain.nnet.activations.Swish
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>

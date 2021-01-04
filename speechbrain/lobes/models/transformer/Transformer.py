@@ -10,6 +10,7 @@ import speechbrain as sb
 from typing import Optional
 
 from .conformer import ConformerEncoder
+from speechbrain.nnet.activations import Swish
 
 
 class TransformerInterface(nn.Module):
@@ -60,6 +61,7 @@ class TransformerInterface(nn.Module):
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
+        conformer_activation: Optional[nn.Module] = Swish,
     ):
         super().__init__()
 
@@ -91,13 +93,17 @@ class TransformerInterface(nn.Module):
                     d_ffn=d_ffn,
                     d_model=d_model,
                     dropout=dropout,
-                    activation=activation,
+                    activation=conformer_activation,
                     kernel_size=kernel_size,
                     bias=bias,
                 )
                 assert (
                     normalize_before
                 ), "normalize_before must be True for Conformer"
+
+                assert (
+                    conformer_activation is not None
+                ), "conformer_activation must not be None"
 
         # initialize the decoder
         if num_decoder_layers > 0:
