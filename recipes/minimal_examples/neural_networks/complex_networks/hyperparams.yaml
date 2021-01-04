@@ -58,7 +58,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     nrm2: !name:speechbrain.nnet.complex_networks.complex_normalization.ComplexLayerNorm # yamllint disable-line rule:line-length
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
-        pool_type: "max"
+        pool_type: "avg"
         kernel_size: 3
     RNN: !name:speechbrain.nnet.complex_networks.complex_RNN.ComplexLiGRU
         hidden_size: 64
