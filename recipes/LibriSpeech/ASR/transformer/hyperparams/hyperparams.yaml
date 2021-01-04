@@ -31,7 +31,7 @@ csv_test_other: !ref <data_folder>/test-other.csv
 data_folder_rirs: !ref <data_folder>
 
 # Training parameters
-number_of_epochs: 60
+number_of_epochs: 50
 batch_size: 8
 lr: 1
 ctc_weight: 0.3

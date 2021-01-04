@@ -16,6 +16,8 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     NormalizedEmbedding,
 )
+from speechbrain.nnet.activations import Swish
+
 from speechbrain.data_io.data_io import length_to_mask
 
 
@@ -74,6 +76,7 @@ class TransformerASR(TransformerInterface):
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
+        conformer_activation: Optional[nn.Module] = Swish,
     ):
         super().__init__(
             d_model=d_model,
@@ -147,6 +150,7 @@ class TransformerASR(TransformerInterface):
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_mask,
         )
 
         return encoder_out, decoder_out
