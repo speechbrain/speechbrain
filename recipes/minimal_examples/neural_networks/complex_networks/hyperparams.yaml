@@ -10,7 +10,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-N_epochs: 25
+N_epochs: 30
 N_batch: 1
 lr: 0.002
 
