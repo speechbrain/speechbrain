@@ -50,7 +50,7 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
+        
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
@@ -245,6 +245,7 @@ def data_io_prepare(hparams):
     valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     # test is separate
     test_datasets = {}
@@ -253,6 +254,7 @@ def data_io_prepare(hparams):
         test_datasets[name] = sb.data_io.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
+        test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
