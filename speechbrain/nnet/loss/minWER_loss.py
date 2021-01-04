@@ -83,12 +83,12 @@ def minWER_loss(
     """
     batch_size = hypotheses_scores.size(0)
     topk = hypotheses_scores.size(1)
-    blank_index = torch.tensor([blank_index], dtype=torch.int).to(
-        hypotheses.device
+    blank_index = torch.tensor(
+        [blank_index], dtype=torch.int, device=hypotheses.device
     )
     space_token = [] if separator_index is None else [separator_index]
-    separator_index = torch.tensor(space_token, dtype=torch.int).to(
-        hypotheses.device
+    separator_index = torch.tensor(
+        space_token, dtype=torch.int, device=hypotheses.device
     )
 
     # levenshtein_distance tensor will have 4D dimensions
@@ -103,6 +103,8 @@ def minWER_loss(
         blank_index,
         separator_index,
     )
+    levenshtein_distance = levenshtein_distance.to(hypotheses.device)
+
     # compute the number of word errors for each hypothesis.
     wers = torch.sum(levenshtein_distance[:, :3], 1, dtype=torch.float32)
     # if WER, then normalize by utt length
