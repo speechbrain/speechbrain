@@ -23,7 +23,7 @@ tok_mdl_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 
 tok_voc_file: https://www.dropbox.com/s/4v7yg3wvhk8f7ah/5000_unigram.vocab?dl=1 # yamllint disable-line rule:line-length
 
 # Data files
-data_folder: /disks/disk1/LibriMix/LibriSpeech
+data_folder: !PLACEHOLDER # e.g, /disks/disk1/LibriMix/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
