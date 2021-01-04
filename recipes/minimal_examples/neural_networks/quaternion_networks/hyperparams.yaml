@@ -47,18 +47,18 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 model: !new:speechbrain.nnet.containers.Sequential
     input_shape: [!ref <N_batch>, null, 660]  # input_size
-    conv1: !name:speechbrain.nnet.quaternion_networks.CNN.QuaternionConv1d
+    conv1: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d  # yamllint disable-line rule:line-length
         out_channels: 32
         kernel_size: 3
     act1: !ref <activation>
-    conv2: !name:speechbrain.nnet.quaternion_networks.CNN.QuaternionConv1d
+    conv2: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d  # yamllint disable-line rule:line-length
         out_channels: 64
         kernel_size: 3
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
         pool_type: "avg"
         kernel_size: 3
-    RNN: !name:speechbrain.nnet.quaternion_networks.RNN.QuaternionLiGRU
+    RNN: !name:speechbrain.nnet.quaternion_networks.quaternion_RNN.QuaternionLiGRU  # yamllint disable-line rule:line-length
         hidden_size: 64
         bidirectional: True
 
