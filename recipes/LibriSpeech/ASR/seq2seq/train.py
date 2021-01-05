@@ -68,6 +68,7 @@ class ASR(sb.Brain):
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
         h, _ = self.modules.dec(e_in, x, wav_lens)
+
         # Output layer for seq2seq log-probabilities
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
@@ -136,10 +137,7 @@ class ASR(sb.Brain):
                 predicted_tokens, task="decode_from_list"
             )
 
-            # Convert indices to words
-            target_words = undo_padding(tokens, tokens_lens)
-            target_words = self.tokenizer(target_words, task="decode_from_list")
-
+            target_words = [wrd.split(' ') for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -312,9 +310,10 @@ def data_io_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
+        yield wrd
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
@@ -328,7 +327,7 @@ def data_io_prepare(hparams):
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "wrd","tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets, tokenizer
 
