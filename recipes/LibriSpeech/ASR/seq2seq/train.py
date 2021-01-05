@@ -36,7 +36,6 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from pathlib import Path
 from speechbrain.tokenizers.SentencePiece import SentencePiece
@@ -137,7 +136,7 @@ class ASR(sb.Brain):
                 predicted_tokens, task="decode_from_list"
             )
 
-            target_words = [wrd.split(' ') for wrd in batch.wrd]
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -327,7 +326,7 @@ def data_io_prepare(hparams):
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd","tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets, tokenizer
 

@@ -116,12 +116,12 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_mels: !ref <n_mels>
 
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
+   openrir_folder: !ref <data_folder_rirs>
+   babble_prob: 0.0
+   reverb_prob: 0.0
+   noise_prob: 1.0
+   noise_snr_low: 0
+   noise_snr_high: 15
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
    sample_rate: !ref <sample_rate>
