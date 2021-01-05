@@ -160,7 +160,7 @@ if __name__ == "__main__":
         },
     )
 
-    data, label_encoder = data_io_prep(hparams)
+    datasets, label_encoder = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -183,5 +183,15 @@ if __name__ == "__main__":
     )
     asr_brain.label_encoder = label_encoder
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, data["train"], data["valid"])
-    asr_brain.evaluate(data["test"], min_key="PER")
+    # Fit the data
+    asr_brain.fit(
+        epoch_counter=asr_brain.hparams.epoch_counter,
+        train_set=datasets["train"],
+        valid_set=datasets["valid"],
+        **hparams["dataloader_options"],
+    )
+
+    # Test the checkpoint that does best on validation data (lowest PER)
+    asr_brain.evaluate(
+        datasets["test"], min_key="PER", **hparams["dataloader_options"]
+    )
