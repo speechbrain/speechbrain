@@ -140,11 +140,13 @@ def data_io_prep(hparams):
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
     label_encoder = sb.data_io.encoder.CTCTextEncoder()
