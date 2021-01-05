@@ -15,17 +15,17 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/valid.csv
-csv_test: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/valid.csv
+test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
+sorting: ascending
+dataloader_options:
+    batch_size: !ref <batch_size>
 lr: 1.0
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null
 
 # Set this to the path of a pretrained model to load before training
 # pretrained: model_clean_ep3.ckpt
@@ -53,27 +53,6 @@ blank_index: !ref <output_neurons> - 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [!ref <input_type>, phn]
-
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [!ref <input_type>, phn]
-
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [!ref <input_type>, phn]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
@@ -103,7 +82,7 @@ output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
     bias: True
 
-log_softmax: !new:speechbrain.nnet.activation.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 opt_class: !name:torch.optim.Adadelta

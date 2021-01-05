@@ -12,17 +12,17 @@ To use pretrained model, enter path in `pretrained` field.
 Authors
  * Peter Plantinga 2020
 """
-import os
 import sys
 import torch
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
 class ASR_Brain(sb.Brain):
-    def compute_forward(self, x, stage):
-        ids, wavs, wav_lens = x
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
         wavs = self.modules.augmentation(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
@@ -32,19 +32,22 @@ class ASR_Brain(sb.Brain):
 
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         pout, pout_lens = predictions
-        ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+        phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
-        self.ctc_metrics.append(ids, pout, phns, pout_lens, phn_lens)
+        self.ctc_metrics.append(batch.id, pout, phns, pout_lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
             sequence = sb.decoders.ctc_greedy_decode(
                 pout, pout_lens, blank_id=-1
             )
             self.per_metrics.append(
-                ids, sequence, phns, None, phn_lens, self.hparams.ind2lab
+                ids=batch.id,
+                predict=sequence,
+                target=phns,
+                target_len=phn_lens,
+                ind2lab=self.label_encoder.decode_ndim,
             )
 
         return loss
@@ -63,18 +66,15 @@ class ASR_Brain(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
-
-            # In distributed setting, only want to save model/stats once
-            if self.root_process:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats={"loss": stage_loss, "PER": per},
-                )
-                self.checkpointer.save_and_keep_only(
-                    meta={"PER": per}, min_keys=["PER"],
-                )
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={"loss": stage_loss, "PER": per},
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"],
+            )
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -89,21 +89,78 @@ class ASR_Brain(sb.Brain):
                 print("CTC and PER stats written to ", self.hparams.per_file)
 
 
+def data_io_prep(hparams):
+    """Creates the datasets and their data processing pipelines"""
+
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    # 1. Define audio pipeline:
+    @sb.utils.data_pipeline.takes(hparams["input_type"])
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    # 2. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded = label_encoder.encode_sequence_torch(phn_list)
+        yield phn_encoded
+
+    # 3. Create datasets
+    data = {}
+    for dataset in ["train", "valid", "test"]:
+        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+            csv_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root", hparams["data_folder"]},
+            dynamic_items=[audio_pipeline, text_pipeline],
+            output_keys=["id", "sig", "phn_encoded"],
+        )
+
+    # Sort train dataset and ensure it doesn't get un-sorted
+    if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
+        data["train"] = data["train"].filtered_sorted(
+            sort_key="duration", reverse=hparams["sorting"] == "descending",
+        )
+        hparams["dataloader_options"]["train_shuffle"] = False
+    elif hparams["sorting"] != "random":
+        raise NotImplementedError(
+            "Sorting must be random, ascending, or descending"
+        )
+
+    # 4. Fit encoder to train data
+    label_encoder.insert_blank(index=hparams["blank_index"])
+    label_encoder.update_from_didataset(data["train"], output_key="phn_list")
+
+    return data, label_encoder
+
+
 # Begin Recipe!
 if __name__ == "__main__":
-
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from voicebank_prepare import prepare_voicebank  # noqa E402
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
-    # Initialize ddp (useful only for multi-GPU DDP training)
+    # Initialize ddp (necessary for multi-GPU DDP training)
     sb.ddp_init_group(run_opts)
+
+    # Prepare data on one process
+    from voicebank_prepare import prepare_voicebank  # noqa E402
+
+    run_on_main(
+        prepare_voicebank,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+        },
+    )
+
+    data, label_encoder = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -111,16 +168,6 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    # Prepare data
-    prepare_voicebank(
-        data_folder=hparams["data_folder"], save_folder=hparams["data_folder"],
-    )
-
-    # Collect index to label dictionary for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
 
     # Load pretrained model
     if "pretrained" in hparams:
@@ -134,6 +181,7 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
     )
+    asr_brain.label_encoder = label_encoder
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
+    asr_brain.fit(asr_brain.hparams.epoch_counter, data["train"], data["valid"])
+    asr_brain.evaluate(data["test"], min_key="PER")
