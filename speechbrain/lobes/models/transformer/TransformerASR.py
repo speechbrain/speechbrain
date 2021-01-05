@@ -91,6 +91,7 @@ class TransformerASR(TransformerInterface):
             kernel_size=kernel_size,
             bias=bias,
             encoder_module=encoder_module,
+            conformer_activation=conformer_activation,
         )
 
         self.custom_src_module = ModuleList(
