@@ -65,11 +65,11 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 
 augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: 16000
+    sample_rate: !ref <sample_rate>
     speeds: [100]
 
 augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: 16000
+    sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
 add_rev: !new:speechbrain.lobes.augment.EnvCorrupt

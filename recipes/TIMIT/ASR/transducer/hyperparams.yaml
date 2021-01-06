@@ -60,13 +60,18 @@ nbest: 1
 state_beam: 1.0
 expand_beam: 1.0
 
-dataloader_options:
+# Dataloader options
+train_dataloader_opts:
     batch_size: !ref <batch_size>
 
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

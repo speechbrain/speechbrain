@@ -45,7 +45,14 @@ dnn_neurons: 512
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
-dataloader_options:
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
     batch_size: !ref <batch_size>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
