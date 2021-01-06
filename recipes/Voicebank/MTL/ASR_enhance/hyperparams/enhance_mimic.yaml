@@ -1,0 +1,134 @@
+# ################################
+# Model: VGG2 + LiGRU with time pooling for efficiency
+# Additions: TimeDomainSpecAugment
+# Authors: Mirco Ravanelli & Peter Plantinga 2020
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1255
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/enhance_model/<seed>
+stats_file: !ref <output_folder>/stats.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/valid.csv
+test_annotation: !ref <data_folder>/test.csv
+
+# Training parameters
+number_of_epochs: 50
+batch_size: 8
+lr: 0.0001
+device: 'cuda:0'
+target_type: phn
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+checkpoint_avg: 1
+sorting: ascending
+dataloader_options:
+    batch_size: !ref <batch_size>
+eval_max_key: pesq
+eval_min_key: null
+
+# Loss weights
+enhance_type: masking  # null, mapping, masking
+enhance_weight: 1.0
+mimic_weight: 0.2
+ctc_weight: 0.0
+ctc_type: null  # null, clean, joint
+seq_weight: 0.0
+seq_type: null  # null, clean, joint
+alignment_weight: 0.0
+label_smoothing: 0.1
+
+# Set this to the path of a pretrained model to load before training
+pretrained_path:
+    src_embedding: src_embedding.ckpt
+
+frozen_models: [src_embedding]
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 512
+win_length: 32
+hop_length: 16
+
+# Outputs
+output_neurons: 42
+blank_index: !ref <output_neurons> - 1
+bos_index: !ref <output_neurons> - 1
+eos_index: !ref <output_neurons> - 1
+
+enhance_model: !include:enhance_model.yaml
+    n_fft: !ref <n_fft>
+
+perceptual_model: !include:perceptual_model.yaml
+    n_fft: !ref <n_fft>
+    output_neurons: !ref <output_neurons>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_stft: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+
+spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
+    power: 0.5
+
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+    stft: !ref <compute_stft>
+    istft: !ref <compute_istft>
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+modules:
+    enhance_model: !ref <enhance_model[enhance_model]>
+    src_embedding: !ref <perceptual_model[src_embedding]>
+
+jit_module_keys: [src_embedding]
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        enhance_model: !ref <enhance_model[enhance_model]>
+        counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
+
+enhance_loss: !name:speechbrain.nnet.losses.mse_loss
+mimic_loss: !name:speechbrain.nnet.losses.mse_loss
+
+enhance_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.mse_loss
+        reduction: batch
+mimic_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.mse_loss
+        reduction: batch
+estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:experiment.estoi_eval
+    n_jobs: 30
+pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:experiment.pesq_eval
+    n_jobs: 30
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
