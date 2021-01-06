@@ -56,7 +56,15 @@ opt_class: !name:torch.optim.Adadelta
    rho: 0.95
    eps: 1.e-8
 
-dataloader_options:
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+test_dataloader_opts:
    batch_size: !ref <batch_size>
 
 # Model parameters

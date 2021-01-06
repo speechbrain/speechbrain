@@ -146,7 +146,8 @@ def main():
         range(hparams["N_epochs"]),
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
     # Evaluation is run separately (now just evaluating on valid data)
     gan_brain.evaluate(valid_data)
