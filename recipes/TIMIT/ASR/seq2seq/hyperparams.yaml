@@ -50,12 +50,19 @@ max_decode_ratio: 1.0
 beam_size: 16
 eos_threshold: 1.5
 
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
-
-dataloader_options:
-    batch_size: !ref <batch_size>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global

@@ -36,7 +36,6 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from pathlib import Path
 from speechbrain.tokenizers.SentencePiece import SentencePiece
@@ -222,14 +221,14 @@ def data_io_prepare(hparams):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["train_dataloader_opts"]["train_shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["train_dataloder_opts"]["train_shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -392,7 +391,8 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # Testing
@@ -400,4 +400,6 @@ if __name__ == "__main__":
         asr_brain.hparams.wer_file = os.path.join(
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
-        asr_brain.evaluate(test_datasets[k], **hparams["dataloader_options"])
+        asr_brain.evaluate(
+            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+        )

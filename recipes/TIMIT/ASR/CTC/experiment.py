@@ -119,14 +119,14 @@ def data_io_prep(hparams):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["train_dataloader_opts"]["train_shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["train_dataloader_opts"]["train_shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -140,11 +140,13 @@ def data_io_prep(hparams):
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
     label_encoder = sb.data_io.encoder.CTCTextEncoder()
@@ -230,10 +232,13 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # Test
     asr_brain.evaluate(
-        test_data, min_key="PER", **hparams["dataloader_options"]
+        test_data,
+        min_key="PER",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
     )
