@@ -3,6 +3,7 @@
 Authors
  * Peter Plantinga 2020
  * Abdel Heba 2020
+ * Mirco Ravanelli 2020
 """
 
 import os
@@ -1036,7 +1037,8 @@ class Brain:
         train_set,
         valid_set=None,
         progressbar=None,
-        **loader_kwargs,
+        train_loader_kwargs={},
+        valid_loader_kwargs={},
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -1065,24 +1067,31 @@ class Brain:
             A set of data to use for validation. If a Dataset is given, a
             DataLoader is automatically created. If a DataLoader is given, it is
             used directly.
-        progressbar : bool
-            Whether to display the progress of each epoch in a progressbar.
-        **loader_kwargs : dict
-            Kwargs passed to `make_dataloader()` if train_set or valid_set is a
-            Dataset, not DataLoader. E.G. batch_size, num_workers.
+        train_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the train_loader
+            (if train_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
             DataLoader kwargs are all valid, but these additional kwargs are
             specific to self.make_dataloader(): train_shuffle, train_drop_last
+        valid_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the valid_loader
+            (if valid_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid, but these additional kwargs are
+            specific to self.make_dataloader(): train_shuffle, train_drop_last
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         """
 
         # Sampler should be handled by `make_dataloader`
         self.train_sampler = None
         if isinstance(train_set, Dataset):
             train_set = self.make_dataloader(
-                train_set, stage=sb.Stage.TRAIN, **loader_kwargs
+                train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
         if isinstance(valid_set, Dataset):
             valid_set = self.make_dataloader(
-                valid_set, stage=sb.Stage.VALID, **loader_kwargs
+                valid_set, stage=sb.Stage.VALID, **valid_loader_kwargs
             )
 
         self.on_fit_start()
@@ -1198,7 +1207,7 @@ class Brain:
         max_key=None,
         min_key=None,
         progressbar=None,
-        **loader_kwargs,
+        test_loader_kwargs={},
     ):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
@@ -1213,7 +1222,7 @@ class Brain:
             Key to use for finding best checkpoint, passed to on_evaluate_start
         progressbar : bool
             Whether to display the progress in a progressbar.
-        **loader_kwargs : dict
+        test_loader_kwargs : dict
             Kwargs passed to `make_dataloader()` if test_set is a Dataset, not
             DataLoader. NOTE: loader_kwargs["ckpt_prefix"] gets automatically
             overwritten to None (so that the test DataLoader is not added to
@@ -1227,9 +1236,9 @@ class Brain:
             progressbar = self.progressbar
 
         if isinstance(test_set, Dataset):
-            loader_kwargs["ckpt_prefix"] = None
+            test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
-                test_set, Stage.TEST, **loader_kwargs
+                test_set, Stage.TEST, **test_loader_kwargs
             )
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
