@@ -137,7 +137,7 @@ class ASR(sb.Brain):
                 predicted_tokens, task="decode_from_list"
             )
 
-            target_words = [wrd.split(' ') for wrd in batch.wrd]
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -327,7 +327,7 @@ def data_io_prepare(hparams):
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd","tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets, tokenizer
 

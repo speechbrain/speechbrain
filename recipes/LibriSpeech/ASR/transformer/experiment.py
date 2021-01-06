@@ -165,9 +165,9 @@ class ASR(sb.core.Brain):
 
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage="valid"):
+    def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
-        with torch.no_grad:
+        with torch.no_grad():
             predictions = self.compute_forward(batch, stage=stage)
             loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
