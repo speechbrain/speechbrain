@@ -396,7 +396,8 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # Testing
@@ -404,4 +405,4 @@ if __name__ == "__main__":
         asr_brain.hparams.wer_file = os.path.join(
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
-        asr_brain.evaluate(test_datasets[k], **hparams["dataloader_options"])
+        asr_brain.evaluate(test_datasets[k], **hparams["test_dataloader_opts"])
