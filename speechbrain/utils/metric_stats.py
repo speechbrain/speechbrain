@@ -7,7 +7,7 @@ Authors:
  * Mirco Ravanelli 2020
 """
 import torch
-import speechbrain.data_io.wer as wer_io
+from speechbrain.data_io import wer as wer_io
 from speechbrain.utils import edit_distance
 from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import (
