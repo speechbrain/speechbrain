@@ -12,6 +12,7 @@ import csv
 import sentencepiece as spm
 from speechbrain.data_io.data_io import merge_char
 import speechbrain as sb
+from speechbrain.utils import edit_distance
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ class SentencePiece:
     num_sequences: int
         Default: None
         If not none, use at most this many sequences to train the tokenizer (for large datasets).
-
+    csv_list_to_check: list,
+        List of the csv file which is used for checking the accuracy of recovering words from the tokenizer.
     Example
     -------
     >>> import torch
@@ -94,6 +96,7 @@ class SentencePiece:
         pad_id=-1,
         unk_id=0,
         num_sequences=None,
+        csv_list_to_check=None,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -105,10 +108,8 @@ class SentencePiece:
         self.csv_train = csv_train
         self.csv_read = csv_read
         if self.csv_train is not None:
-            self.text_file = os.path.join(
-                os.path.dirname(csv_train),
-                os.path.splitext(os.path.basename(csv_train))[0] + ".txt",
-            )
+            self.text_file = self.csv_train.replace(".csv", ".txt")
+
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
         )
@@ -128,7 +129,7 @@ class SentencePiece:
             if not os.path.isfile(self.text_file):
                 try:
                     if sb.if_main_process():
-                        self._csv2text()
+                        self._csv2text(self.text_file)
                 finally:
                     sb.ddp_barrier()
             try:
@@ -144,10 +145,16 @@ class SentencePiece:
         logger.info("Tokenizer type: " + self.model_type)
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
+        try:
+            if sb.if_main_process():
+                if csv_list_to_check is not None:
+                    self._check_coverage_from_bpe(csv_list_to_check)
+        finally:
+            sb.ddp_barrier()
 
     def _csv2text(self):
         """
-        Read CSV file and convert specific data entries into text file.
+        Read CSV file and convert specific data entries into text + vocab files.
         """
         if not os.path.isfile(os.path.abspath(self.csv_train)):
             raise ValueError(
@@ -161,7 +168,7 @@ class SentencePiece:
         reader = csv.reader(csv_file)
         headers = next(reader, None)
         if self.csv_read not in headers:
-            raise ValueError(self.csv_read + "must exist in:" + self.csv_train)
+            raise ValueError(self.csv_read + " must exist in:" + self.csv_train)
         index_label = headers.index(self.csv_read)
         text_file = open(self.text_file, "w+")
         row_idx = 0
@@ -213,6 +220,71 @@ class SentencePiece:
             query += " --vocab_size=" + str(self.vocab_size)
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
+
+    def _check_coverage_from_bpe(self, list_csv_files=[]):
+        """
+        Logging the accuracy of the BPE model to recover words from the training text.
+
+        Arguments
+        ---------
+        csv_list_to_check: list,
+            List of the csv file which is used for checking the accuracy of recovering words from the tokenizer.
+        """
+        for csv_file in list_csv_files:
+            if os.path.isfile(os.path.abspath(csv_file)):
+                logger.info(
+                    "==== Accuracy checking for recovering text from tokenizer ==="
+                )
+                fcsv_file = open(csv_file, "r")
+                reader = csv.reader(fcsv_file)
+                headers = next(reader, None)
+                if self.csv_read not in headers:
+                    raise ValueError(
+                        self.csv_read + " must exist in:" + csv_file
+                    )
+                index_label = headers.index(self.csv_read)
+                wrong_recover_list = []
+                for row in reader:
+                    row = row[index_label]
+                    if self.char_format_input:
+                        (row,) = merge_char([row.split()])
+                        row = " ".join(row)
+                    row = row.split("\n")[0]
+                    encoded_id = self.sp.encode_as_ids(row)
+                    decode_text = self.sp.decode_ids(encoded_id)
+                    (details,) = edit_distance.wer_details_for_batch(
+                        ["utt1"],
+                        [row.split(" ")],
+                        [decode_text.split(" ")],
+                        compute_alignments=True,
+                    )
+                    if details["WER"] > 0:
+                        for align in details["alignment"]:
+                            if align[0] != "=" and align[1] is not None:
+                                if align[1] not in wrong_recover_list:
+                                    wrong_recover_list.append(align[1])
+                fcsv_file.close()
+                logger.info("recover words from: " + csv_file)
+                if len(wrong_recover_list) > 0:
+                    logger.warn(
+                        "Wrong recover words: " + str(len(wrong_recover_list))
+                    )
+                    logger.warn(
+                        "Tokenizer vocab size: " + str(self.sp.vocab_size())
+                    )
+                    logger.warn(
+                        "accuracy recovering words: "
+                        + str(
+                            1
+                            - float(len(wrong_recover_list))
+                            / self.sp.vocab_size()
+                        )
+                    )
+                else:
+                    logger.info("Wrong recover words: 0")
+                    logger.warning("accuracy recovering words: " + str(1.0))
+            else:
+                logger.info("No accuracy recover checking for" + csv_file)
 
     def __call__(
         self, batch, batch_lens=None, ind2lab=None, task="encode",

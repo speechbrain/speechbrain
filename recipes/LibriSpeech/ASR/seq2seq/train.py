@@ -230,6 +230,15 @@ class ASR(sb.Brain):
                 replace_existing=True,
             )
             self.hparams.tokenizer.sp.load(save_model_path)
+            # check the word recoving from the tokenizer on a list of csv_files
+            self.hparams.tokenizer._check_coverage_from_bpe(
+                [
+                    self.hparams.csv_train,
+                    self.hparams.csv_valid,
+                    self.hparams.csv_test_clean,
+                    self.hparams.csv_test_other,
+                ]
+            )
 
         if hasattr(self.hparams, "tok_voc_file"):
             download_file(
