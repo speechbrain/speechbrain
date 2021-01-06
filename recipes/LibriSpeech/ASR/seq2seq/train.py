@@ -38,7 +38,6 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from pathlib import Path
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
 # Define training procedure
@@ -257,14 +256,7 @@ def data_io_prepare(hparams):
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     # defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        csv_train=hparams["train_csv"],
-        csv_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-    )
+    tokenizer = hparams["tokenizer"]()
 
     """Loads the sentence piece tokenizer specified in the yaml file"""
     save_model_path = os.path.join(hparams["save_folder"], "tok_unigram.model")
