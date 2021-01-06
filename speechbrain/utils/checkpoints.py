@@ -57,6 +57,7 @@ import pathlib
 import inspect
 import shutil
 import logging
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -826,6 +827,11 @@ class Checkpointer:
                 loadpath = checkpoint.paramfiles[name]
             except KeyError:
                 if self.allow_partial_load:
+                    continue
+                elif "dataloader" in name:
+                    MSG = f"Loading checkpoint from {checkpoint.path}, \
+                            but missing a load path for {name}"
+                    warnings.warn(MSG, UserWarning)
                     continue
                 else:
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
