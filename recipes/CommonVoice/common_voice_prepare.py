@@ -250,7 +250,6 @@ def create_csv(
 
     # Start processing lines
     total_duration = 0.0
-    max_duration = 0.0
     for line in tzip(loaded_csv):
 
         line = line[0]
@@ -272,10 +271,6 @@ def create_csv(
 
         duration = info.num_frames / info.sample_rate
         total_duration += duration
-
-        if duration > max_duration:
-            max_duration = duration
-            print(max_duration)
 
         # Getting transcript
         words = line.split("\t")[2]
