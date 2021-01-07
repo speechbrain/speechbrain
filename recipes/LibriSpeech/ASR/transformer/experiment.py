@@ -131,9 +131,7 @@ class ASR(sb.core.Brain):
                 stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
-                predicted_words = self.hparams.tokenizer(
-                    hyps, task="decode_from_list"
-                )
+                predicted_words = self.tokenizer(hyps, task="decode_from_list")
 
                 # Convert indices to words
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -284,8 +282,12 @@ def data_io_prepare(hparams):
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     """Loads the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tok_unigram.model")
-    save_vocab_path = os.path.join(hparams["save_folder"], "tok_unigram.vocab")
+    save_model_path = os.path.join(
+        hparams["save_folder"], "{}_unigram.model".format(hparams["vocab_size"])
+    )
+    save_vocab_path = os.path.join(
+        hparams["save_folder"], "{}_unigram.vocab".format(hparams["vocab_size"])
+    )
 
     if "tok_mdl_file" in hparams:
         download_file(
@@ -405,4 +407,8 @@ if __name__ == "__main__":
         asr_brain.hparams.wer_file = os.path.join(
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
-        asr_brain.evaluate(test_datasets[k], **hparams["test_dataloader_opts"])
+        asr_brain.evaluate(
+            test_datasets[k],
+            max_key="ACC",
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+        )

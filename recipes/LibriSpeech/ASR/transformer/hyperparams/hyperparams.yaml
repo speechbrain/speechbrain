@@ -17,8 +17,8 @@ train_log: !ref <output_folder>/train_log.txt
 lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/lr1/big_batchmean/save/CKPT+2020-11-30+02-35-44+00/model.ckpt # yamllint disable-line rule:line-length
 
 # Tokenizer model
-tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/5000_unigram.model # yamllint disable-line rule:line-length
-tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/5000_unigram.vocab # yamllint disable-line rule:line-length
+tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/tok_unigram.model # yamllint disable-line rule:line-length
+tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/tok_unigram.vocab # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER
