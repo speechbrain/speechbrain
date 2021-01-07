@@ -53,6 +53,10 @@ class SentencePiece:
         Default: 1.0, Amount of characters covered by the model, good defaults
         are: 0.9995 for languages with rich character set like Japanse or
         Chinese and 1.0 for other languages with small character set.
+    user_defined_symbols: string
+        Default: None,
+        String contained a list of symbols separated by comma.
+        User defined symbols are handled as one piece in any context.
     max_sentencepiece_length: int
         Deault: 10,
         Maximum number of characters for the tokens.
@@ -90,6 +94,7 @@ class SentencePiece:
         model_type="unigram",
         char_format_input=False,
         character_coverage=1.0,
+        user_defined_symbols=None,
         max_sentencepiece_length=10,
         bos_id=-1,
         eos_id=-1,
@@ -123,6 +128,7 @@ class SentencePiece:
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
         self.num_sequences = num_sequences
+        self.user_defined_symbols = user_defined_symbols
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
@@ -218,6 +224,9 @@ class SentencePiece:
         if self.model_type not in ["char"]:
             # include vocab_size
             query += " --vocab_size=" + str(self.vocab_size)
+        if self.user_defined_symbols is not None:
+            print(self.user_defined_symbols)
+            query += " --user_defined_symbols=" + self.user_defined_symbols
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
