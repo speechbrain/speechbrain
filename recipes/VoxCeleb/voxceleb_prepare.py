@@ -428,7 +428,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [["ID", "duration", "wav"]]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
 
     for data_folder in data_folders:
 
@@ -456,12 +456,10 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             signal, fs = torchaudio.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
+            start_sample = 0
+            stop_sample = signal.shape[0]
 
-            csv_line = [
-                id,
-                audio_duration,
-                wav,
-            ]
+            csv_line = [id, audio_duration, wav, start_sample, stop_sample]
 
             enrol_csv.append(csv_line)
 
@@ -486,12 +484,10 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             signal, fs = torchaudio.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
+            start_sample = 0
+            stop_sample = signal.shape[0]
 
-            csv_line = [
-                id,
-                audio_duration,
-                wav,
-            ]
+            csv_line = [id, audio_duration, wav, start_sample, stop_sample]
 
             test_csv.append(csv_line)
 
