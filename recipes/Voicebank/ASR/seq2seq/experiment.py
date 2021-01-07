@@ -255,7 +255,7 @@ def data_io_prep(hparams):
         data["train"] = data["train"].filtered_sorted(
             sort_key="duration", reverse=hparams["sorting"] == "descending",
         )
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
         raise NotImplementedError(
             "Sorting must be random, ascending, or descending"
@@ -316,10 +316,13 @@ if __name__ == "__main__":
         epoch_counter=asr_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Test checkpoint that performs best on validation data (lowest WER)
     asr_brain.evaluate(
-        datasets["test"], min_key="WER", **hparams["dataloader_options"]
+        datasets["test"],
+        min_key="WER",
+        test_loader_kwargs=hparams["dataloader_options"],
     )
