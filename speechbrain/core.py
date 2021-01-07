@@ -1141,6 +1141,7 @@ class Brain:
                         >= ckpt_interval_minutes * 60.0
                     ):
                         self._save_mid_epoch_ckpt()
+                        last_ckpt_time = time.time()
 
             # Run train "on_stage_end" on all processes
             self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
