@@ -36,10 +36,8 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from pathlib import Path
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
 # Define training procedure
@@ -68,6 +66,7 @@ class ASR(sb.Brain):
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
         h, _ = self.modules.dec(e_in, x, wav_lens)
+
         # Output layer for seq2seq log-probabilities
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
@@ -136,10 +135,7 @@ class ASR(sb.Brain):
                 predicted_tokens, task="decode_from_list"
             )
 
-            # Convert indices to words
-            target_words = undo_padding(tokens, tokens_lens)
-            target_words = self.tokenizer(target_words, task="decode_from_list")
-
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -224,14 +220,14 @@ def data_io_prepare(hparams):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["train_dataloder_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -260,14 +256,7 @@ def data_io_prepare(hparams):
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     # defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        csv_train=hparams["train_csv"],
-        csv_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-    )
+    tokenizer = hparams["tokenizer"]()
 
     """Loads the sentence piece tokenizer specified in the yaml file"""
     save_model_path = os.path.join(hparams["save_folder"], "tok_unigram.model")
@@ -289,17 +278,6 @@ def data_io_prepare(hparams):
         )
         tokenizer.sp.load(save_model_path)
 
-    if (tokenizer.sp.eos_id() + 1) == (tokenizer.sp.bos_id() + 1) == 0 and not (
-        hparams["eos_index"]
-        == hparams["bos_index"]
-        == hparams["blank_index"]
-        == hparams["unk_index"]
-        == 0
-    ):
-        raise ValueError(
-            "Desired indexes for special tokens do not agree with loaded tokenizer special tokens !"
-        )
-
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -312,9 +290,10 @@ def data_io_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
+        yield wrd
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
@@ -328,7 +307,7 @@ def data_io_prepare(hparams):
 
     # 4. Set output:
     sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets, tokenizer
 
@@ -393,7 +372,8 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # Testing
@@ -401,4 +381,6 @@ if __name__ == "__main__":
         asr_brain.hparams.wer_file = os.path.join(
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
-        asr_brain.evaluate(test_datasets[k], **hparams["dataloader_options"])
+        asr_brain.evaluate(
+            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+        )

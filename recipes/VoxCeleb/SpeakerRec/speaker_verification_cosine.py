@@ -2,8 +2,11 @@
 """Recipe for training a speaker verification system based on cosine distance.
 The cosine distance is computed on the top of pre-trained embeddings.
 The pre-trained model is automatically downloaded from the web if not specified.
+This recipe is designed to work on a single GPU.
+
 To run this recipe, run the following command:
     >  python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn.yaml
+
 Authors
     * Hwidong Na 2020
     * Mirco Ravanelli 2020
@@ -11,6 +14,7 @@ Authors
 import os
 import sys
 import torch
+import torchaudio
 import logging
 import speechbrain as sb
 from tqdm.contrib import tqdm
@@ -40,8 +44,10 @@ def compute_embedding_loop(data_loader):
     embedding_dict = {}
 
     with torch.no_grad():
-        for (batch,) in tqdm(data_loader, dynamic_ncols=True):
-            seg_ids, wavs, lens = batch
+        for batch in tqdm(data_loader, dynamic_ncols=True):
+            seg_ids = batch.id
+            wavs, lens = batch.sig
+
             found = False
             for seg_id in seg_ids:
                 if seg_id not in embedding_dict:
@@ -135,6 +141,67 @@ def download_and_pretrain():
     )
 
 
+def data_io_prep(params):
+    "Creates the dataloaders and their data processing pipelines."
+
+    data_folder = params["data_folder"]
+
+    # 1. Declarations:
+
+    # Train data (used for normalization)
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=params["train_data"], replacements={"data_root": data_folder},
+    )
+    train_data = train_data.filtered_sorted(
+        sort_key="duration", select_n=params["n_train_snts"]
+    )
+
+    # Enrol data
+    enrol_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+    )
+    enrol_data = enrol_data.filtered_sorted(sort_key="duration")
+
+    # Test data
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=params["test_data"], replacements={"data_root": data_folder},
+    )
+    test_data = enrol_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, enrol_data, test_data]
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "start", "stop")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, start, stop):
+        start = int(start)
+        stop = int(stop)
+        num_frames = stop - start
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
+        sig = sig.transpose(0, 1).squeeze(1)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Set output:
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig"])
+
+    # 4 Create dataloaders
+    train_dataloader = sb.data_io.dataloader.make_dataloader(
+        train_data, **params["train_dataloader_opts"]
+    )
+    enrol_dataloader = sb.data_io.dataloader.make_dataloader(
+        enrol_data, **params["enrol_dataloader_opts"]
+    )
+    test_dataloader = sb.data_io.dataloader.make_dataloader(
+        test_data, **params["test_dataloader_opts"]
+    )
+
+    return train_dataloader, enrol_dataloader, test_dataloader
+
+
 if __name__ == "__main__":
     # Logger setup
     logger = logging.getLogger(__name__)
@@ -158,7 +225,7 @@ if __name__ == "__main__":
     prepare_voxceleb(
         data_folder=params["data_folder"],
         save_folder=params["save_folder"],
-        splits=["train", "dev", "test"] if "score_norm" in params else ["test"],
+        splits=["train", "dev", "test"],
         split_ratio=[90, 10],
         seg_dur=300,
         rand_seed=params["seed"],
@@ -167,14 +234,11 @@ if __name__ == "__main__":
         else None,
     )
 
+    # here we create the datasets objects as well as tokenization and encoding
+    train_dataloader, test_dataloader, enrol_dataloader = data_io_prep(params)
+
     # Dictionary to store the last waveform read for each speaker
     wav_stored = {}
-
-    # Data loaders
-    if "train_loader" in params:
-        train_set_loader = params["train_loader"]().get_dataloader()
-    enrol_set_loader = params["enrol_loader"]().get_dataloader()
-    test_set_loader = params["test_loader"]().get_dataloader()
 
     # Pretrain the model (download it if needed)
     download_and_pretrain()
@@ -190,15 +254,15 @@ if __name__ == "__main__":
     print("Computing enroll/test embeddings...")
 
     # First run
-    enrol_dict = compute_embedding_loop(enrol_set_loader)
-    test_dict = compute_embedding_loop(test_set_loader)
+    enrol_dict = compute_embedding_loop(enrol_dataloader)
+    test_dict = compute_embedding_loop(test_dataloader)
 
     # Second run (normalization stats are more stable)
-    enrol_dict = compute_embedding_loop(enrol_set_loader)
-    test_dict = compute_embedding_loop(test_set_loader)
+    enrol_dict = compute_embedding_loop(enrol_dataloader)
+    test_dict = compute_embedding_loop(test_dataloader)
 
     if "score_norm" in params:
-        train_dict = compute_embedding_loop(train_set_loader)
+        train_dict = compute_embedding_loop(train_dataloader)
 
     # Compute the EER
     print("Computing EER..")
