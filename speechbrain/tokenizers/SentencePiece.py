@@ -64,6 +64,10 @@ class SentencePiece:
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
     eos_id: int
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
+    split_by_whitespace: bool,
+        Default: True,
+        If False, allow the sentenciepiece to extract piece crossing multiple words.
+        This feature is important for : Chinese/Japenese/Korean.
     num_sequences: int
         Default: None
         If not none, use at most this many sequences to train the tokenizer (for large datasets).
@@ -100,6 +104,7 @@ class SentencePiece:
         eos_id=-1,
         pad_id=-1,
         unk_id=0,
+        split_by_whitespace=True,
         num_sequences=None,
         csv_list_to_check=None,
     ):
@@ -128,6 +133,7 @@ class SentencePiece:
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
         self.num_sequences = num_sequences
+        self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
@@ -225,8 +231,9 @@ class SentencePiece:
             # include vocab_size
             query += " --vocab_size=" + str(self.vocab_size)
         if self.user_defined_symbols is not None:
-            print(self.user_defined_symbols)
             query += " --user_defined_symbols=" + self.user_defined_symbols
+        if not self.split_by_whitespace:
+            query += " --split_by_whitespace=false"
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
