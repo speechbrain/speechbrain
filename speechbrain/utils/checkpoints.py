@@ -561,10 +561,10 @@ class Checkpointer:
             The function is called with Checkpoint namedtuples.
         max_key : str, optional
             The checkpoint with the highest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         min_key : str, optional
             The checkpoint with the lowest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -613,10 +613,10 @@ class Checkpointer:
             The function is called with Checkpoint namedtuples.
         max_key : str, optional
             The checkpoint with the highest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         min_key : str, optional
             The checkpoint with the lowest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -643,10 +643,22 @@ class Checkpointer:
             def importance_key(ckpt):
                 return ckpt.meta[max_key]
 
+            def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
+                if old_predicate is not None:
+                    return max_key in ckpt.meta and old_predicate(ckpt)
+                else:
+                    return max_key in ckpt.meta
+
         elif min_key and not importance_key:
 
             def importance_key(ckpt):
                 return -ckpt.meta[min_key]
+
+            def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
+                if old_predicate is not None:
+                    return min_key in ckpt.meta and old_predicate(ckpt)
+                else:
+                    return min_key in ckpt.meta
 
         elif min_key or max_key:
             raise ValueError(
@@ -696,8 +708,10 @@ class Checkpointer:
             The function is called with Checkpoint namedtuples.
         max_key : str, optional
             The checkpoint with the highest value for this key will be loaded.
+            Only checkpoints with this key will be considered!
         min_key : str, optional
             The checkpoint with the lowest value for this key will be loaded.
+            Only checkpoints with this key will be considered!
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
