@@ -255,12 +255,15 @@ def data_io_prepare(hparams):
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
-    # defining tokenizer and loading it
-    tokenizer = hparams["tokenizer"]()
-
     """Loads the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tok_unigram.model")
-    save_vocab_path = os.path.join(hparams["save_folder"], "tok_unigram.vocab")
+    save_model_path = os.path.join(
+        hparams["save_folder"],
+        str(hparams["output_neurons"]) + "_" + hparams["token_type"] + ".model",
+    )
+    save_vocab_path = os.path.join(
+        hparams["save_folder"],
+        str(hparams["output_neurons"]) + "_" + hparams["token_type"] + ".vocab",
+    )
 
     if "tok_mdl_file" in hparams:
         download_file(
@@ -268,7 +271,7 @@ def data_io_prepare(hparams):
             dest=save_model_path,
             replace_existing=True,
         )
-        tokenizer.sp.load(save_model_path)
+        # tokenizer.sp.load(save_model_path)
 
     if "tok_voc_file" in hparams:
         download_file(
@@ -276,7 +279,9 @@ def data_io_prepare(hparams):
             dest=save_vocab_path,
             replace_existing=True,
         )
-        tokenizer.sp.load(save_model_path)
+        # tokenizer.sp.load(save_model_path)
+    # defining tokenizer and loading it
+    tokenizer = hparams["tokenizer"]()
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
