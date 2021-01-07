@@ -71,10 +71,6 @@ class SpeakerBrain(sb.core.Brain):
         # Embeddings + speaker classifier
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
-        print(outputs.shape)
-        import sys
-
-        sys, exit(0)
 
         return outputs, lens
 
