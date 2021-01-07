@@ -335,7 +335,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     print(msg)
 
-    csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id",]]
+    csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id"]]
 
     # For assiging unique ID to each chunk
     my_sep = "--"
@@ -356,18 +356,9 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
         if random_segment:
             audio_duration = signal.shape[0] / SAMPLERATE
-
             start_sample = 0
             stop_sample = signal.shape[0]
-            sample_dur = int(seg_dur / 100 * SAMPLERATE)
-            wav_opt = (
-                "start:"
-                + str(start_sample)
-                + " stop:"
-                + str(stop_sample)
-                + " frames:"
-                + str(sample_dur)
-            )
+
             # Composition of the csv_line
             csv_line = [
                 audio_id,
@@ -391,10 +382,6 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
                 mean_sig = torch.mean(np.abs(signal[start_sample:end_sample]))
                 if mean_sig < amp_th:
                     continue
-
-                start_stop = (
-                    "start:" + str(start_sample) + " stop:" + str(end_sample)
-                )
 
                 # Composition of the csv_line
                 csv_line = [
@@ -441,7 +428,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [["ID", "duration", "wav"]]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
 
     for data_folder in data_folders:
 
@@ -469,12 +456,10 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             signal, fs = torchaudio.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
+            start_sample = 0
+            stop_sample = signal.shape[0]
 
-            csv_line = [
-                id,
-                audio_duration,
-                wav,
-            ]
+            csv_line = [id, audio_duration, wav, start_sample, stop_sample]
 
             enrol_csv.append(csv_line)
 
@@ -499,12 +484,10 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             signal, fs = torchaudio.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
+            start_sample = 0
+            stop_sample = signal.shape[0]
 
-            csv_line = [
-                id,
-                audio_duration,
-                wav,
-            ]
+            csv_line = [id, audio_duration, wav, start_sample, stop_sample]
 
             test_csv.append(csv_line)
 

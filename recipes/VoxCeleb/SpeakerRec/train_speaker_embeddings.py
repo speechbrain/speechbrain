@@ -132,7 +132,7 @@ def data_io_prep(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop, duration):
         if hparams["random_chunk"]:
-            duration_sample = int(duration * 16000)
+            duration_sample = int(duration * hparams["sample_rate"])
             start = random.randint(0, duration_sample - snt_len_sample - 1)
             stop = start + snt_len_sample
         else:
@@ -223,5 +223,6 @@ if __name__ == "__main__":
         speaker_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )

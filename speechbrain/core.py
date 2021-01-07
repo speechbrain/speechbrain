@@ -3,6 +3,7 @@
 Authors
  * Peter Plantinga 2020
  * Abdel Heba 2020
+ * Mirco Ravanelli 2020
 """
 
 import os
@@ -583,6 +584,12 @@ class Brain:
             # Keep reference to tempdir as long as checkpointer exists
             self.checkpointer.tempdir = tempdir
 
+        # Sampler should be handled by `make_dataloader`
+        # or if you provide a DataLoader directly, you can set
+        # this.train_sampler = your_sampler
+        # to have your_sampler.set_epoch() called on each epoch.
+        self.train_sampler = None
+
         # Automatic mixed precision init
         if self.auto_mix_prec:
             self.scaler = torch.cuda.amp.GradScaler()
@@ -683,13 +690,7 @@ class Brain:
         pass
 
     def make_dataloader(
-        self,
-        dataset,
-        stage,
-        ckpt_prefix="dataloader-",
-        train_shuffle=None,
-        train_drop_last=None,
-        **loader_kwargs,
+        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs,
     ):
         """Creates DataLoaders for Datasets
 
@@ -703,23 +704,6 @@ class Brain:
         The Stage.TRAIN DataLoader is handled specially. It has extra args for
         shuffle and drop_last. In DDP a DistributedSampler is created (unless
         dataset is an IterableDataset).
-
-        The reason for those specific training args is that most dataloader
-        args can be shared among all stages. This allows a convenient syntax,
-        especially in conjuction with YAML
-
-        .. code-block:: yaml
-            loader_spec:
-                batch_size: 32
-                num_workers: 2
-                pin_memory: True
-                train_drop_last: True
-
-        And then calling ``fit()`` simply:
-
-        .. code-block:: python
-            brain.fit(epochs, traindata, validdata, **hparams["loader_spec"])
-
 
         NOTE
         ----
@@ -746,32 +730,13 @@ class Brain:
             Prefix to use for SaveableDataLoader Checkpoint name. The Stage
             name is added to this to create the full key. Set to None to not
             save the DataLoader.
-        train_shuffle : bool
-            To shuffle training data or not. Shuffling should really only
-            matter for the train stage.
-            The default is None, which mostly leads to the same behaviour as
-            False. However, specifying False explicitly lets you specify
-            loader_kwargs["shuffle"]=True and still have train_shuffle = False.
-            If train_shuffle=None, and loader_kwargs["shuffle"]=True,
-            train_shuffle is set to True, as well.
-        train_drop_last : bool
-            Drop last incomplete training batch and drop last uneven training
-            data in DDP.
-            The default is None, which mostly leads to the same behaviour as
-            False. However, specifying False explicitly lets you specify
-            loader_kwargs["drop_last"]=True and still have train_drop_last =
-            False. If train_drop_last=None, and
-            loader_kwargs["drop_last"]=True, train_drop_last is set to True, as
-            well.
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
             E.G. batch_size, num_workers, pin_memory
         """
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
-            loader_kwargs = self._train_loader_specifics(
-                dataset, train_shuffle, train_drop_last, loader_kwargs
-            )
+            loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
         dataloader = sb.data_io.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
@@ -785,60 +750,41 @@ class Brain:
             self.checkpointer.add_recoverable(ckpt_key, dataloader)
         return dataloader
 
-    def _train_loader_specifics(
-        self, dataset, train_shuffle, train_drop_last, loader_kwargs
-    ):
-        """Special handling for the Stage.TRAIN DataLoader"""
-        # Drop last usually should not be used in validation/test but it is
-        # often fine for training.
-        if loader_kwargs.get("drop_last", False) and train_drop_last is None:
-            # loader_kwargs["drop_last"] == True, train_drop_last==None
-            train_drop_last = True
-        elif train_drop_last is None:
-            train_drop_last = False
-
+    def _train_loader_specifics(self, dataset, loader_kwargs):
         sampler = loader_kwargs.get("sampler", None)
         # Shuffling should really only matter for the train stage. Shuffling
         # will also lead to more padding in batches if the order was otherwise
         # sorted by length.
-        if loader_kwargs.get("shuffle", False) and train_shuffle is None:
-            # loader_kwargs["shuffle"] == True, train_shuffle==None
-            train_shuffle = True
-            # Should delete shuffle because you can't set both Sampler and
-            # shuffle
-            # NOTE: the dict of loader options may get used elsewhere!
-            # However, this del doesn't touch those because loader_kwargs comes
-            # from a **kwargs dict.
-            del loader_kwargs["shuffle"]
-        elif train_shuffle is None:
-            train_shuffle = False
-        if train_shuffle:
+        shuffle = loader_kwargs.get("shuffle", False)
+        if shuffle:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both train_shuffle=True (or shuffle=True) "
+                    "Cannot specify both shuffle=True "
                     "and a sampler in loader_kwargs"
                 )
             sampler = ReproducibleRandomSampler(dataset)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
+            # Delete the shuffle flag, since you cannot specify both a sampler and
+            # shuffling:
+            del loader_kwargs["shuffle"]
 
         # Possibly make a DistributedSampler or a wrapper for some other sampler
         if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            drop_last = loader_kwargs.get("drop_last", False)
             # num_replicas arg is equal to world_size
             # and retrieved automatically within
             # DistributedSampler obj.
             if sampler is not None:
                 self.train_sampler = DistributedSamplerWrapper(
-                    sampler, rank=self.rank, drop_last=train_drop_last
+                    sampler, rank=self.rank, drop_last=drop_last
                 )
             elif loader_kwargs.get("batch_sampler") is None:
-                # Currently, to get here train_shuffle must be False.
-                # Still, we can keep passing shuffle=train_shuffle
+                # Currently to get here, shuffle == False, so not passing it.
+                # Otherwise we'd have to handle deleting it (but it is already
+                # deleted).
                 self.train_sampler = DistributedSampler(
-                    dataset,
-                    rank=self.rank,
-                    shuffle=train_shuffle,
-                    drop_last=train_drop_last,
+                    dataset, rank=self.rank, drop_last=drop_last
                 )
             else:  # batch_sampler was specified
                 # TODO: Could a DistributedSamplerWrapper actually work
@@ -1036,7 +982,8 @@ class Brain:
         train_set,
         valid_set=None,
         progressbar=None,
-        **loader_kwargs,
+        train_loader_kwargs={},
+        valid_loader_kwargs={},
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -1065,24 +1012,27 @@ class Brain:
             A set of data to use for validation. If a Dataset is given, a
             DataLoader is automatically created. If a DataLoader is given, it is
             used directly.
+        train_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the train_loader
+            (if train_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid.
+        valid_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the valid_loader
+            (if valid_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
-        **loader_kwargs : dict
-            Kwargs passed to `make_dataloader()` if train_set or valid_set is a
-            Dataset, not DataLoader. E.G. batch_size, num_workers.
-            DataLoader kwargs are all valid, but these additional kwargs are
-            specific to self.make_dataloader(): train_shuffle, train_drop_last
         """
 
-        # Sampler should be handled by `make_dataloader`
-        self.train_sampler = None
         if isinstance(train_set, Dataset):
             train_set = self.make_dataloader(
-                train_set, stage=sb.Stage.TRAIN, **loader_kwargs
+                train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
         if isinstance(valid_set, Dataset):
             valid_set = self.make_dataloader(
-                valid_set, stage=sb.Stage.VALID, **loader_kwargs
+                valid_set, stage=sb.Stage.VALID, **valid_loader_kwargs
             )
 
         self.on_fit_start()
@@ -1101,7 +1051,9 @@ class Brain:
             # Reset nonfinite count to 0 each epoch
             self.nonfinite_count = 0
 
-            if self.train_sampler is not None:
+            if self.train_sampler is not None and hasattr(
+                "set_epoch", self.train_sampler
+            ):
                 self.train_sampler.set_epoch(epoch)
 
             # Only show progressbar if requested and main_process
@@ -1198,7 +1150,7 @@ class Brain:
         max_key=None,
         min_key=None,
         progressbar=None,
-        **loader_kwargs,
+        test_loader_kwargs={},
     ):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
@@ -1213,7 +1165,7 @@ class Brain:
             Key to use for finding best checkpoint, passed to on_evaluate_start
         progressbar : bool
             Whether to display the progress in a progressbar.
-        **loader_kwargs : dict
+        test_loader_kwargs : dict
             Kwargs passed to `make_dataloader()` if test_set is a Dataset, not
             DataLoader. NOTE: loader_kwargs["ckpt_prefix"] gets automatically
             overwritten to None (so that the test DataLoader is not added to
@@ -1227,9 +1179,9 @@ class Brain:
             progressbar = self.progressbar
 
         if isinstance(test_set, Dataset):
-            loader_kwargs["ckpt_prefix"] = None
+            test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
-                test_set, Stage.TEST, **loader_kwargs
+                test_set, Stage.TEST, **test_loader_kwargs
             )
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
