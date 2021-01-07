@@ -4,13 +4,12 @@
 # Authors:  Abdel Heba 2021
 # ############################################################################
 
-output_folder: !ref results/1K_subword_BPE_960h_LM/
+output_folder: !ref results/1K_subword_unigram_960h_LM/
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: /users/samova/aheba/database_spbrain/LibriSpeech
-#train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-train_splits: ["train-clean-100"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 train_csv: !ref <data_folder>/train.csv
