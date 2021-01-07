@@ -12,20 +12,16 @@ import os
 import csv
 import re
 import logging
-import torch
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
-from speechbrain.data_io.data_io import read_audio
 
 logger = logging.getLogger(__name__)
-SAMPLERATE = 16000
 
 
 def prepare_common_voice(
     data_folder,
     save_folder,
-    path_to_wav,
     train_tsv_file=None,
     dev_tsv_file=None,
     test_tsv_file=None,
@@ -44,16 +40,6 @@ def prepare_common_voice(
         This path should include the lang: /datasets/CommonVoice/en/
     save_folder : str
         The directory where to store the csv files.
-    path_to_wav : str
-        Path to store the converted wav files.
-        By default Common Voice uses .mp3 audio files. SoundFile cannot process
-        .mp3 files. If not already done, and if path_to_wav doesn't exist, then
-        audiofiles are converted to .wav 16Khz.
-        Please note that more than 100GB may be required for the FULL
-        english dataset. Finally, converting the entire dataset may be long.
-        An alternative is to convert the files before using this preparer.
-        Indeed, if path_to_wav exists, the data_preparer will just assume that
-        wav files already exist.
     train_tsv_file : str, optional
         Path to the Train Common Voice .tsv file (cs)
     dev_tsv_file : str, optional
@@ -75,7 +61,6 @@ def prepare_common_voice(
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
     >>> data_folder = '/datasets/CommonVoice/en'
     >>> save_folder = 'exp/CommonVoice_exp'
-    >>> path_to_wav = '/datasets/CommonVoice/en/clips_wav_100h'
     >>> train_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
     >>> dev_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
     >>> test_tsv_file = '/datasets/CommonVoice/en/test.tsv'
@@ -84,7 +69,6 @@ def prepare_common_voice(
     >>> prepare_common_voice( \
                  data_folder, \
                  save_folder, \
-                 path_to_wav, \
                  train_tsv_file, \
                  dev_tsv_file, \
                  test_tsv_file, \
@@ -109,18 +93,6 @@ def prepare_common_voice(
         test_tsv_file = data_folder + "/test.tsv"
     else:
         test_tsv_file = test_tsv_file
-
-    # Test if files have already been converted to wav by checking if
-    # path_to_wav exists.
-    if os.path.exists(path_to_wav):
-        msg = "%s already exists, we will check for missing .wav files." % (
-            path_to_wav
-        )
-        print(msg)
-    else:
-        msg = "%s doesn't exist, we will convert .mp3 files." % (path_to_wav)
-        print(msg)
-        os.makedirs(path_to_wav)
 
     # Setting the save folder
     if not os.path.exists(save_folder):
@@ -153,18 +125,16 @@ def prepare_common_voice(
 
         # Convert .mp3 files if required
         msg = "Converting train audio files to .wav if needed ..."
-        print(msg)
-        convert_mp3_wav(
-            data_folder, train_tsv_file, path_to_wav, SAMPLERATE,
-        )
+
+        # convert_mp3_wav(
+        #    data_folder, train_tsv_file, path_to_wav, SAMPLERATE,
+        # )
 
         create_csv(
             train_tsv_file,
-            path_to_wav,
             save_csv_train,
             data_folder,
             accented_letters,
-            duration_threshold,
             language,
         )
 
@@ -174,18 +144,9 @@ def prepare_common_voice(
         # Convert .mp3 files if required
         msg = "Converting validation audio files to .wav if needed ..."
         print(msg)
-        convert_mp3_wav(
-            data_folder, dev_tsv_file, path_to_wav, SAMPLERATE,
-        )
 
         create_csv(
-            dev_tsv_file,
-            path_to_wav,
-            save_csv_dev,
-            data_folder,
-            accented_letters,
-            duration_threshold,
-            language,
+            dev_tsv_file, save_csv_dev, data_folder, accented_letters, language,
         )
 
     # Creating csv file for test data
@@ -194,78 +155,14 @@ def prepare_common_voice(
         # Convert .mp3 files if required
         msg = "Converting test audio files to .wav if needed ..."
         print(msg)
-        convert_mp3_wav(
-            data_folder, test_tsv_file, path_to_wav, SAMPLERATE,
-        )
 
         create_csv(
             test_tsv_file,
-            path_to_wav,
             save_csv_test,
             data_folder,
             accented_letters,
-            duration_threshold,
             language,
         )
-
-
-def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
-    """
-    Convert the list of audio files given in the tsv_file that follows
-    the standard Common Voice format (for instance see train.tsv).
-    From .mp3 to .wav with the given samplerate.
-
-    Returns
-    -------
-    None
-    """
-
-    # Check if the given tsv exists
-    if not os.path.isfile(tsv_file):
-        msg = "%s doesn't exist, verify your dataset!" % (tsv_file)
-        print(msg)
-        raise FileNotFoundError(msg)
-
-    # We load and skip the header
-    loaded_csv = open(tsv_file, "r").readlines()[1:]
-
-    nb_samples = str(len(loaded_csv))
-    msg = "%s files to convert ..." % (str(nb_samples))
-    print(msg)
-
-    for line in tzip(loaded_csv):
-
-        # Get the first element of tzip (correspong to the line)
-        line = line[0]
-
-        # Path is at indice 1 in Common Voice tsv files. And .mp3 files
-        # are located in datasets/lang/clips/
-        mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[-2].split("/")[-1]
-        new_wav_path = path_to_wav + "/" + file_name + ".wav"
-
-        # If corresponding wav file already exists, continue to the next one
-        if os.path.isfile(new_wav_path):
-            continue
-
-        # Convert to wav with torchaudio
-        if os.path.isfile(mp3_path):
-            try:
-                sig, orig_rate = torchaudio.load(mp3_path)
-
-                # !! STEREO DETECTED, ME MUST GO TO MONO !!
-                if sig.shape[0] == 2:
-                    sig = torch.mean(sig, dim=0).unsqueeze(0)
-            except RuntimeError:
-                msg = "Error loading: %s" % (str(len(file_name)))
-                print(msg)
-                continue
-            res = torchaudio.transforms.Resample(orig_rate, samplerate)
-            sig = res(sig)
-            torchaudio.save(new_wav_path, sig, samplerate)
-        else:
-            msg = "%s doesn't exist! Skipping it ..." % (str(len(file_name)))
-            print(msg)
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -295,13 +192,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
 
 def create_csv(
-    orig_tsv_file,
-    path_to_wav,
-    csv_file,
-    data_folder,
-    accented_letters=False,
-    duration_threshold=10,
-    language="en",
+    orig_tsv_file, csv_file, data_folder, accented_letters=False, language="en",
 ):
     """
     Creates the csv file given a list of wav files.
@@ -310,17 +201,11 @@ def create_csv(
     ---------
     orig_tsv_file : str
         Path to the Common Voice tsv file (standard file).
-    path_to_wav : str
-        Path of the audio wav files.
     data_folder : str
         Path of the CommonVoice dataset.
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    duration_threshold : int
-        Max duration (in seconds) to use as a threshold to filter sentences.
-        The CommonVoice dataset contains very long utterance mostly containing
-        noise due to open microphones.
 
     Returns
     -------
@@ -330,11 +215,6 @@ def create_csv(
     # Check if the given files exists
     if not os.path.isfile(orig_tsv_file):
         msg = "\t%s doesn't exist, verify your dataset!" % (orig_tsv_file)
-        print(msg)
-        raise FileNotFoundError(msg)
-
-    if not os.path.exists(path_to_wav):
-        msg = "\t%s doesn't exists, we need wav files !" % (path_to_wav)
         print(msg)
         raise FileNotFoundError(msg)
 
@@ -370,6 +250,7 @@ def create_csv(
 
     # Start processing lines
     total_duration = 0.0
+    max_duration = 0.0
     for line in tzip(loaded_csv):
 
         line = line[0]
@@ -378,24 +259,23 @@ def create_csv(
         # are located in datasets/lang/clips/
         mp3_path = data_folder + "/clips/" + line.split("\t")[1]
         file_name = mp3_path.split(".")[-2].split("/")[-1]
-        wav_path = path_to_wav + "/" + file_name + ".wav"
         spk_id = line.split("\t")[0]
         snt_id = file_name
 
         # Reading the signal (to retrieve duration in seconds)
-        if os.path.isfile(wav_path):
-            signal = read_audio(wav_path)
+        if os.path.isfile(mp3_path):
+            info = torchaudio.info(mp3_path)
         else:
             msg = "\tError loading: %s" % (str(len(file_name)))
             print(msg)
             continue
 
-        duration = signal.shape[0] / SAMPLERATE
+        duration = info.num_frames / info.sample_rate
         total_duration += duration
 
-        # Filter long and noisy samples
-        if duration > duration_threshold:
-            continue
+        if duration > max_duration:
+            max_duration = duration
+            print(max_duration)
 
         # Getting transcript
         words = line.split("\t")[2]
@@ -444,7 +324,7 @@ def create_csv(
         csv_line = [
             snt_id,
             str(duration),
-            wav_path,
+            mp3_path,
             "wav",
             "",
             spk_id,

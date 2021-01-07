@@ -278,17 +278,6 @@ def data_io_prepare(hparams):
         )
         tokenizer.sp.load(save_model_path)
 
-    if (tokenizer.sp.eos_id() + 1) == (tokenizer.sp.bos_id() + 1) == 0 and not (
-        hparams["eos_index"]
-        == hparams["bos_index"]
-        == hparams["blank_index"]
-        == hparams["unk_index"]
-        == 0
-    ):
-        raise ValueError(
-            "Desired indexes for special tokens do not agree with loaded tokenizer special tokens !"
-        )
-
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
