@@ -194,7 +194,7 @@ def data_io_prepare(hparams):
             key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["dataloader_options"]["huffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
@@ -203,7 +203,7 @@ def data_io_prepare(hparams):
             key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -335,9 +335,14 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Test
     asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
-    asr_brain.evaluate(test_set, min_key="WER", **hparams["dataloader_options"])
+    asr_brain.evaluate(
+        test_set,
+        min_key="WER",
+        test_loader_kwargs=hparams["dataloader_options"],
+    )

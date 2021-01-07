@@ -154,14 +154,14 @@ def data_io_prep(hparams):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["train_shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["train_shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
