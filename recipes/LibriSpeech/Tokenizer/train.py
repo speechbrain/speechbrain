@@ -1,8 +1,14 @@
 #!/usr/bin/env/python3
 """Recipe for training a BPE tokenizer with librispeech.
+The tokenizer coverts words into sub-word units that can
+be used to train a language (LM) or an acoustic model (AM). 
+When doing a speech recognition experiment you have to make 
+sure that the acoustic and language models are trained with 
+the same tokinizer. Otherwise a token mismatch is introduced 
+and beamsearch will produce bas results when combining AM and LM.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams/bpe_1k.yaml
+> python train.py hyperparams/bpe_1k.yaml
 
 
 Authors
