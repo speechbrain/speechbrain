@@ -43,18 +43,16 @@ deltas: False
 
 # Dataloader options
 train_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 valid_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 enrol_dataloader_opts:
-   batch_size: 1
-   drop_last: False
+    batch_size: 1
 
 test_dataloader_opts:
-   batch_size: 1
-   drop_last: False
+    batch_size: 1
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank

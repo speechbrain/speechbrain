@@ -37,7 +37,9 @@ from speechbrain.utils.data_utils import download_file
 class VerificationBrain(sb.core.Brain):
     def fit_batch(self, batch):
         out, target_discrim = self.compute_forward(batch)
-        loss = self.compute_objectives(out, target_discrim, stage=sb.Stage.TRAIN)
+        loss = self.compute_objectives(
+            out, target_discrim, stage=sb.Stage.TRAIN
+        )
         loss.backward()
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -190,7 +192,7 @@ class VerificationBrain(sb.core.Brain):
         with torch.no_grad():
             for batch in tqdm(data_loader, dynamic_ncols=True):
                 seg_ids = batch.id
-                wavs,  lens = batch.sig
+                wavs, lens = batch.sig
                 wavs, lens = (
                     wavs.to(self.device),
                     lens.to(self.device),
@@ -384,8 +386,6 @@ def data_io_prep(hparams):
         replacements={"data_root": data_folder},
     )
 
-
-
     datasets = [train_data, valid_data, enrol_data, test_data]
     snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
 
@@ -409,11 +409,8 @@ def data_io_prep(hparams):
 
     sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
 
-
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys(
-        datasets, ["id", "sig"]
-    )
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig"])
 
     # 4 Create dataloaders
     train_dataloader = sb.data_io.dataloader.make_dataloader(
@@ -430,7 +427,7 @@ def data_io_prep(hparams):
         test_data, **hparams["test_dataloader_opts"]
     )
 
-    return  train_dataloader, valid_dataloader, enrol_dataloader, test_dataloader 
+    return train_dataloader, valid_dataloader, enrol_dataloader, test_dataloader
 
 
 if __name__ == "__main__":
@@ -461,14 +458,18 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["data_folder"],
-            "splits": ["train", "dev","test"],
+            "splits": ["train", "dev", "test"],
             "split_ratio": [90, 10],
             "seg_dur": int(hparams["sentence_len"]) * 100,
         },
     )
 
-
-    train_dataloader, valid_dataloader, enrol_dataloader, test_dataloader = data_io_prep(hparams)
+    (
+        train_dataloader,
+        valid_dataloader,
+        enrol_dataloader,
+        test_dataloader,
+    ) = data_io_prep(hparams)
 
     # Dictionary to store the last waveform read for each speaker
     wav_stored = {}
@@ -488,7 +489,9 @@ if __name__ == "__main__":
 
     # Train the speaker verification model
     verifier.fit(
-        hparams["epoch_counter"], train_set=train_dataloader, valid_set=valid_dataloader,
+        hparams["epoch_counter"],
+        train_set=train_dataloader,
+        valid_set=valid_dataloader,
     )
 
     print("Speaker verification model training completed!")

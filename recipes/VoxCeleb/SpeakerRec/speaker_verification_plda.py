@@ -22,7 +22,6 @@ import pickle
 from tqdm.contrib import tqdm
 from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
-from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
@@ -147,6 +146,7 @@ def get_utt_ids_for_test(ids, data_dict):
 
     return mod, seg
 
+
 def data_io_prep(params):
     "Creates the dataloaders and their data processing pipelines."
 
@@ -190,7 +190,6 @@ def data_io_prep(params):
         return sig
 
     sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
-
 
     # 3. Set output:
     sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "spk_id"])
@@ -246,7 +245,6 @@ if __name__ == "__main__":
     # Initialize PLDA vars
     modelset, segset = [], []
     embeddings = numpy.empty(shape=[0, params["emb_dim"]], dtype=numpy.float64)
-
 
     # Embedding file for train data
     xv_file = os.path.join(

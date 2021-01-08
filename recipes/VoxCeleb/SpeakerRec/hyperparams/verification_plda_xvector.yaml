@@ -37,13 +37,13 @@ emb_dim: 512
 
 # Dataloader options
 train_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 enrol_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
@@ -72,4 +72,3 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: 512
-
