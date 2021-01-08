@@ -428,7 +428,9 @@ def prepare_csv_enrol_test(data_folders, save_folder):
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     # logger.debug(msg)
 
-    csv_output_head = [["ID", "duration", "wav", "start", "stop", "spk_id"]]  # noqa E231
+    csv_output_head = [
+        ["ID", "duration", "wav", "start", "stop", "spk_id"]
+    ]  # noqa E231
 
     for data_folder in data_folders:
 
@@ -460,7 +462,14 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             stop_sample = signal.shape[0]
             [spk_id, sess_id, utt_id] = wav.split("/")[-3:]
 
-            csv_line = [id, audio_duration, wav, start_sample, stop_sample, spk_id]
+            csv_line = [
+                id,
+                audio_duration,
+                wav,
+                start_sample,
+                stop_sample,
+                spk_id,
+            ]
 
             enrol_csv.append(csv_line)
 
@@ -489,7 +498,14 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             stop_sample = signal.shape[0]
             [spk_id, sess_id, utt_id] = wav.split("/")[-3:]
 
-            csv_line = [id, audio_duration, wav, start_sample, stop_sample, spk_id]
+            csv_line = [
+                id,
+                audio_duration,
+                wav,
+                start_sample,
+                stop_sample,
+                spk_id,
+            ]
 
             test_csv.append(csv_line)
 
