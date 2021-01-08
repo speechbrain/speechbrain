@@ -141,7 +141,7 @@ class SentencePiece:
             if not os.path.isfile(self.text_file):
                 try:
                     if sb.if_main_process():
-                        self._csv2text(self.text_file)
+                        self._csv2text()
                 finally:
                     sb.ddp_barrier()
             try:

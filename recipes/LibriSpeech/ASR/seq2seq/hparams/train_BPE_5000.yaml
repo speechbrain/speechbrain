@@ -17,9 +17,8 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch
-# The tokenizer is trained with: 
-# LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
+# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
+# The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
 language_model_file: https://www.dropbox.com/s/x5czm16p66c1i2g/lm_model.ckpt?dl=1 # yamllint disable-line rule:line-length
 tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 # yamllint disable-line rule:line-length
 
@@ -40,7 +39,7 @@ test_csv:
 
 
 # Training parameters
-number_of_epochs: 25
+number_of_epochs: 0 #25
 number_of_ctc_epochs: !ref <number_of_epochs>
 batch_size: 8
 lr: 1.0
