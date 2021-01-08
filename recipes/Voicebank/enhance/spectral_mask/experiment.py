@@ -190,7 +190,7 @@ def data_io_prep(hparams):
     return data
 
 
-def create_enhanced_folder(folder):
+def create_folder(folder):
     if not os.path.isdir(folder):
         os.makedirs(folder)
 
@@ -235,9 +235,7 @@ if __name__ == "__main__":
         )
 
     # Create the folder to save enhanced files (+ support for DDP)
-    run_on_main(
-        create_enhanced_folder, kwargs={"folder": hparams["enhanced_folder"]},
-    )
+    run_on_main(create_folder, kwargs={"folder": hparams["enhanced_folder"]})
 
     se_brain = SEBrain(
         modules=hparams["modules"],

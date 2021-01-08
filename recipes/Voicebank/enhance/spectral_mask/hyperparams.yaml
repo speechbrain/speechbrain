@@ -45,8 +45,7 @@ dataloader_options:
 waveform_target: False  # Switch to TRUE to
 
 # Change this import to use a different model
-#models: !include:models/CNNTransformer.yaml
-models: !include:models/BLSTM.yaml
+models: !include:models/CNNTransformer.yaml
     N_fft: !ref <N_fft>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -67,7 +66,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
 # To use STOI loss, switch "waveform_target" to True
-#compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
+# compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
 
 compute_STFT: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <Sample_rate>

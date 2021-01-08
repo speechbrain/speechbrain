@@ -7,41 +7,41 @@ import speechbrain as sb
 from pesq import pesq
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.utils.distributed import run_on_main
 
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        ids, wavs, lens = x
-        wavs, lens = wavs.to(self.device), lens.to(self.device)
-        wavs = torch.unsqueeze(wavs, -1)
-        predict_wav = self.hparams.model(wavs)[:, :, 0]
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        noisy_wavs, lens = batch.noisy_sig
+        noisy_wavs = torch.unsqueeze(noisy_wavs, -1)
+        predict_wavs = self.modules.model(noisy_wavs)[:, :, 0]
 
-        return predict_wav
+        return predict_wavs
 
-    def compute_objectives(self, predict_wav, targets, stage):
-        ids, target_wav, lens = targets
-        target_wav, lens = target_wav.to(self.device), lens.to(self.device)
+    def compute_objectives(self, predict_wavs, batch, stage):
+        clean_wavs, lens = batch.clean_sig
 
-        loss = self.hparams.compute_cost(predict_wav, target_wav, lens)
+        loss = self.hparams.compute_cost(predict_wavs, clean_wavs, lens)
         self.loss_metric.append(
-            ids, predict_wav, target_wav, lens, reduction="batch"
+            batch.id, predict_wavs, clean_wavs, lens, reduction="batch"
         )
 
         if stage != sb.Stage.TRAIN:
 
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
-                ids, predict_wav, target_wav, lens, reduction="batch"
+                batch.id, predict_wavs, clean_wavs, lens, reduction="batch"
             )
             self.pesq_metric.append(
-                ids, predict=predict_wav, target=target_wav, lengths=lens
+                batch.id, predict=predict_wavs, target=clean_wavs, lengths=lens
             )
 
             # Write wavs to file
             if stage == sb.Stage.TEST:
-                lens = lens * target_wav.shape[1]
-                for name, pred_wav, length in zip(ids, predict_wav, lens):
+                lens = lens * clean_wavs.shape[1]
+                for name, pred_wav, length in zip(batch.id, predict_wavs, lens):
                     name += ".wav"
                     enhance_path = os.path.join(
                         self.hparams.enhanced_folder, name
@@ -106,6 +106,49 @@ class SEBrain(sb.Brain):
             )
 
 
+def data_io_prep(hparams):
+    """Creates data processing pipeline"""
+
+    # Define audio piplines
+    @sb.utils.data_pipeline.takes("noisy_wav")
+    @sb.utils.data_pipeline.provides("noisy_sig")
+    def noisy_pipeline(noisy_wav):
+        return sb.data_io.data_io.read_audio(noisy_wav)
+
+    @sb.utils.data_pipeline.takes("clean_wav")
+    @sb.utils.data_pipeline.provides("clean_sig")
+    def clean_pipeline(clean_wav):
+        return sb.data_io.data_io.read_audio(clean_wav)
+
+    # Define datasets
+    data = {}
+    for dataset in ["train", "valid", "test"]:
+        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+            csv_path=hparams["train_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[noisy_pipeline, clean_pipeline],
+            output_keys=["id", "noisy_sig", "clean_sig"],
+        )
+
+    # Sort train dataset
+    if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
+        data["train"] = data["train"].filtered_sorted(
+            sort_key="duration", reverse=hparams["sorting"] == "descending"
+        )
+        hparams["dataloader_options"]["shuffle"] = False
+    elif hparams["sorting"] != "random":
+        raise NotImplementedError(
+            "Sorting must be random, ascending, or descending"
+        )
+
+    return data
+
+
+def create_folder(folder):
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
+
+
 # Recipe begins!
 if __name__ == "__main__":
 
@@ -116,6 +159,20 @@ if __name__ == "__main__":
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.ddp_init_group(run_opts)
+
+    # Data preparation
+    from voicebank_prepare import prepare_voicebank  # noqa
+
+    run_on_main(
+        prepare_voicebank,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+        },
+    )
+
+    # Create dataset objects
+    datasets = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -132,14 +189,7 @@ if __name__ == "__main__":
         )
 
     # Create the folder to save enhanced files (+ support for DDP)
-    try:
-        # all writing command must be done with the main_process
-        if sb.if_main_process():
-            if not os.path.isdir(hparams["enhanced_folder"]):
-                os.makedirs(hparams["enhanced_folder"])
-    finally:
-        # wait for main_process if ddp is used
-        sb.ddp_barrier()
+    run_on_main(create_folder, kwargs={"folder": hparams["enhanced_folder"]})
 
     se_brain = SEBrain(
         modules=hparams["modules"],
@@ -151,10 +201,16 @@ if __name__ == "__main__":
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        se_brain.hparams.epoch_counter,
-        train_set=hparams["train_loader"](),
-        valid_set=hparams["valid_loader"](),
+        epoch_counter=se_brain.hparams.epoch_counter,
+        train_set=datasets["train"],
+        valid_set=datasets["valid"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Load best checkpoint for evaluation
-    test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="pesq")
+    test_stats = se_brain.evaluate(
+        test_set=datasets["test"],
+        max_key="pesq",
+        test_loader_kwargs=hparams["dataloader_options"],
+    )
