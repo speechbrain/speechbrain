@@ -17,12 +17,9 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch
-# The tokenizer is trained with 
-# LibriSpeech/Tokenizer/hyperparams/1K_unigram_subword_bpe.yaml
+# The tokenizer is trained with LibriSpeech/Tokenizer/hyperparams/1K_unigram_subword_bpe.yaml
 language_model_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-
-
 
 # Data files
 data_folder: !PLACEHOLDER
