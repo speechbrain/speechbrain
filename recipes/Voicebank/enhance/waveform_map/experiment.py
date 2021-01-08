@@ -121,10 +121,10 @@ def data_io_prep(hparams):
         return sb.data_io.data_io.read_audio(clean_wav)
 
     # Define datasets
-    data = {}
+    datasets = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams["train_annotation"],
+        datasets[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+            csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
@@ -132,7 +132,7 @@ def data_io_prep(hparams):
 
     # Sort train dataset
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
-        data["train"] = data["train"].filtered_sorted(
+        datasets["train"] = datasets["train"].filtered_sorted(
             sort_key="duration", reverse=hparams["sorting"] == "descending"
         )
         hparams["dataloader_options"]["shuffle"] = False
@@ -141,7 +141,7 @@ def data_io_prep(hparams):
             "Sorting must be random, ascending, or descending"
         )
 
-    return data
+    return datasets
 
 
 def create_folder(folder):
