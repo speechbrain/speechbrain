@@ -149,14 +149,14 @@ def data_io_prep(hparams):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["train_shuffle"] = False
+        hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -276,10 +276,13 @@ if __name__ == "__main__":
         align_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        **hparams["dataloader_options"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Test
     align_brain.evaluate(
-        test_data, max_key="accuracy", **hparams["dataloader_options"]
+        test_data,
+        max_key="accuracy",
+        test_loader_kwargs=hparams["dataloader_options"],
     )
