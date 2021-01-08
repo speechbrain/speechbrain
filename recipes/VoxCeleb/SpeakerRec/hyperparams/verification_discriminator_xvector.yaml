@@ -13,10 +13,10 @@ save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
 # csv files
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_enrol: !ref <data_folder>/enrol.csv
-csv_test: !ref <data_folder>/test.csv
+train_annotation: !ref <save_folder>/train.csv
+valid_annotation: !ref <save_folder>/dev.csv
+enrol_annotation: !ref <save_folder>/enrol.csv
+test_annotation: !ref <save_folder>/test.csv
 
 # Training hyperparameters
 number_of_epochs: 25
@@ -24,10 +24,9 @@ batch_size: 128
 lr: 0.0002500
 lr_final: 0.00005000
 freeze_embeddings: False
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
-random_segment: False
+sentence_len: 3
+sample_rate: 16000
+random_chunk: False
 
 # Pretrain from web (as an alternative specify a file)
 pretrain_embeddings: True
@@ -42,16 +41,20 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:voxceleb_prepare.prepare_voxceleb
-        data_folder: !ref <data_folder>
-        save_folder: !ref <data_folder>
-        splits: ["train", "dev", "test"]
-        split_ratio: [90, 10]
-        seg_dur: 300
-        rand_seed: !ref <seed>
-        random_segment: !ref <random_segment>
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+enrol_dataloader_opts:
+   batch_size: 1
+   drop_last: False
+
+test_dataloader_opts:
+   batch_size: 1
+   drop_last: False
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
@@ -92,7 +95,7 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     rir_scale_factor: 1.0
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: 16000
+    sample_rate: !ref <sample_rate>
     speeds: [100]
 
 modules:
@@ -104,41 +107,6 @@ modules:
     mean_var_norm: !ref <mean_var_norm>
     bn_emb: !ref <bn_emb>
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_enrol>
-    batch_size: 1
-    csv_read: [wav]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: 1
-    csv_read: [wav]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
