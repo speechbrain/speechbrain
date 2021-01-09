@@ -7,7 +7,10 @@ Authors
 import torch
 import logging
 from speechbrain.nnet.complex_networks.complex_ops import (
-    complex_linear,
+    affect_init,
+    complex_init,
+    unitary_init,
+    complex_linear_op,
     check_complex_input,
 )
 
@@ -70,6 +73,11 @@ class ComplexLinear(torch.nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
+        # When initialising with speechbrain the input_shape is an integer !
+        # we need to transform it into a list it works with all the question ops
+        if isinstance(input_shape, int):
+            input_shape = [1, input_shape]
+
         # Check the complex_valued form of the input
         check_complex_input(input_shape)
 
@@ -77,12 +85,27 @@ class ComplexLinear(torch.nn.Module):
         self.in_features = input_shape[-1] // 2
         self.out_features = self.n_neurons
 
-        self.linear = complex_linear(
-            self.in_features,
-            self.out_features,
-            self.bias,
-            self.init_criterion,
-            self.weight_init,
+        # Two weight matrices are created for the real and imaginary parts of
+        # the weights. This will also allow an easier complex product.
+        self.real_weight = torch.nn.Parameter(
+            torch.Tensor(self.in_features, self.out_features)
+        )
+        self.imag_weight = torch.nn.Parameter(
+            torch.Tensor(self.in_features, self.out_features)
+        )
+
+        if self.bias:
+            self.b = torch.nn.Parameter(torch.Tensor(2 * self.out_features))
+        else:
+            self.b = torch.Tensor(2 * self.out_features).requires_grad_(False)
+
+        # Managing the weight initialization and bias
+        self.winit = {"complex": complex_init, "unitary": unitary_init}[
+            self.weight_init
+        ]
+
+        affect_init(
+            self.real_weight, self.imag_weight, self.winit, init_criterion
         )
 
     def forward(self, x):
@@ -93,6 +116,6 @@ class ComplexLinear(torch.nn.Module):
         x : torch.Tensor
             input to transform linearly.
         """
-        wx = self.linear(x)
+        wx = complex_linear_op(x, self.real_weight, self.imag_weight, self.b)
 
         return wx

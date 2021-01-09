@@ -37,11 +37,11 @@ class ConvolutionFrontEnd(Sequential):
 
     Example
     -------
-    >>> x = torch.rand((8, 120, 40))
+    >>> x = torch.rand((8, 30, 10))
     >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
     >>> out = conv(x)
     >>> out.shape
-    torch.Size([8, 120, 40])
+    torch.Size([8, 30, 10])
     """
 
     def __init__(
@@ -99,11 +99,11 @@ class ConvBlock(torch.nn.Module):
 
     Example
     -------
-    >>> x = torch.rand((8, 120, 40))
-    >>> conv = ConvBlock(2, 128, input_shape=x.shape)
+    >>> x = torch.rand((8, 30, 10))
+    >>> conv = ConvBlock(2, 16, input_shape=x.shape)
     >>> out = conv(x)
     >>> x.shape
-    torch.Size([8, 120, 40])
+    torch.Size([8, 30, 10])
     """
 
     def __init__(

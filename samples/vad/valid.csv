@@ -1,6 +1,0 @@
-ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts, speech, speech_format, speech_opts
-
-example_1, 2, $data_folder/valid.wav, wav, start:0 stop:32000, spk04, string,  , 0.38 2, string, label_func:True
-example_2, 2, $data_folder/valid.wav, wav, start:32000 stop:64000, spk04, string,  , 0 0.7, string, label_func:True
-example_3, 2, $data_folder/valid.wav, wav, start:64000 stop:96000, spk06, string,  , 0.1 1.88, string, label_func:True
-example_3, 2, $data_folder/valid.wav, wav, start:96000 stop:128000, spk06, string,  , , string, label_func:True

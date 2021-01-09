@@ -9,21 +9,22 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Folders and train_log file
 voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
 data_folder: /localscratch/voxceleb1
-output_folder: results/voxceleb1_2/speaker_verification_ecapa_tdnn_snorm_newmode
+output_folder: results/voxceleb1_2/speaker_verification_ecapa_big
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-        https://www.dropbox.com/s/n5l4llap8b9ipty/embedding_model.ckpt?dl=1
+   https://www.dropbox.com/s/n5l4llap8b9ipty/embedding_model.ckpt?dl=1
 
 # csv files
-csv_train: !ref <save_folder>/train.csv
-csv_enrol: !ref <save_folder>/enrol.csv
-csv_test: !ref <save_folder>/test.csv
+train_data: !ref <save_folder>/train.csv
+enrol_data: !ref <save_folder>/enrol.csv
+test_data: !ref <save_folder>/test.csv
 
 batch_size: 32
 score_norm: 't-norm' # z-norm t-norm s-norm none
+n_train_snts: 300000 # used for normalization stats
 
 # Feature parameters
 n_mels: 80
@@ -31,54 +32,36 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+enrol_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
-        n_mels: !ref <n_mels>
-        left_frames: !ref <left_frames>
-        right_frames: !ref <right_frames>
-        deltas: !ref <deltas>
+   n_mels: !ref <n_mels>
+   left_frames: !ref <left_frames>
+   right_frames: !ref <right_frames>
+   deltas: !ref <deltas>
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-        input_size: !ref <n_mels>
-        channels: [1024, 1024, 1024, 1024, 3072]
-        kernel_sizes: [5, 3, 3, 3, 1]
-        dilations: [1, 2, 3, 4, 1]
-        attention_channels: 128
-        lin_neurons: 192
+   input_size: !ref <n_mels>
+   channels: [1024, 1024, 1024, 1024, 3072]
+   kernel_sizes: [5, 3, 3, 3, 1]
+   dilations: [1, 2, 3, 4, 1]
+   attention_channels: 128
+   lin_neurons: 192
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-        norm_type: sentence
-        std_norm: False
+   norm_type: sentence
+   std_norm: False
 
 mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-        norm_type: global
-        std_norm: False
-
-# Training data are used for score normalization
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-        csv_file: !ref <csv_train>
-        batch_size: !ref <batch_size>
-        csv_read: [wav]
-        sentence_sorting: ascending
-        replacements:
-                $data_folder: !ref <data_folder>
-        output_folder: !ref <output_folder>/save/
-        select_n_sentences: 300000
-
-enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-        csv_file: !ref <csv_enrol>
-        batch_size: !ref <batch_size>
-        csv_read: [wav]
-        sentence_sorting: ascending
-        replacements:
-                $data_folder: !ref <data_folder>
-        output_folder: !ref <output_folder>/save/
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-        csv_file: !ref <csv_test>
-        batch_size: !ref <batch_size>
-        csv_read: [wav]
-        sentence_sorting: ascending
-        replacements:
-                $data_folder: !ref <data_folder>
-        output_folder: !ref <output_folder>/save/
+   norm_type: global
+   std_norm: False
