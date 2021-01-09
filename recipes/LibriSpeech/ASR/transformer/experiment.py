@@ -34,7 +34,7 @@ import sys
 import torch
 from pathlib import Path
 import logging
-
+import sentencepiece as spm
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
@@ -91,7 +91,8 @@ class ASR(sb.core.Brain):
             hyps = None
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
-                # for the sake of efficeincy, we only perform beamsearch with limited capacity and no LM to give user some idea of how the AM is doing
+                # for the sake of efficeincy, we only perform beamsearch with limited capacity
+                # and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
@@ -131,9 +132,9 @@ class ASR(sb.core.Brain):
                 stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
-                predicted_words = self.tokenizer(hyps, task="decode_from_list")
-
-                # Convert indices to words
+                predicted_words = [
+                    tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
+                ]
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
                 self.wer_metric.append(ids, predicted_words, target_words)
 
@@ -222,7 +223,7 @@ class ASR(sb.core.Brain):
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
+        download_file(self.hparams.language_model_file, save_model_path)
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(
@@ -285,25 +286,17 @@ def data_io_prepare(hparams):
     save_model_path = os.path.join(
         hparams["save_folder"], "{}_unigram.model".format(hparams["vocab_size"])
     )
-    save_vocab_path = os.path.join(
-        hparams["save_folder"], "{}_unigram.vocab".format(hparams["vocab_size"])
-    )
 
-    if "tok_mdl_file" in hparams:
+    if "tokenizer_file" in hparams:
         download_file(
-            source=hparams["tok_mdl_file"],
+            source=hparams["tokenizer_file"],
             dest=save_model_path,
             replace_existing=True,
         )
 
-    if "tok_voc_file" in hparams:
-        download_file(
-            source=hparams["tok_voc_file"],
-            dest=save_vocab_path,
-            replace_existing=True,
-        )
-
-    tokenizer = hparams["tokenizer"]()
+    # Defining tokenizer and loading it
+    tokenizer = spm.SentencePieceProcessor()
+    tokenizer.load(save_model_path)
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -321,7 +314,7 @@ def data_io_prepare(hparams):
     )
     def text_pipeline(wrd):
         yield wrd
-        tokens_list = tokenizer.sp.encode_as_ids(wrd)
+        tokens_list = tokenizer.encode_as_ids(wrd)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
@@ -390,7 +383,7 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
 
     # if a language model is specified it is loaded
-    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
+    if hasattr(asr_brain.hparams, "language_model_file"):
         asr_brain.load_lm()
 
     # Training
