@@ -425,7 +425,7 @@ class CyclicCosineScheduler:
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
-        del device
+        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]

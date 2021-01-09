@@ -437,19 +437,22 @@ def _construct_object(loader, callable_string, node):
 
 
 def _construct_name(loader, callable_string, node):
-    callable_ = pydoc.locate(callable_string)
-    if callable_ is None:
-        raise ImportError("There is no such callable as %s" % callable_string)
+    name = pydoc.locate(callable_string)
+    if name is None:
+        raise ImportError("There is no such entity as %s" % callable_string)
 
-    if not (inspect.isclass(callable_) or inspect.isroutine(callable_)):
-        raise ValueError(
-            f"!name:{callable_string} should be class or function, "
-            f"but is {callable_}"
-        )
+    if not (inspect.isclass(name) or inspect.isroutine(name)):
+        args, kwargs = _load_node(loader, node)
+        if args or kwargs:
+            raise ValueError(
+                f"!name:{callable_string} should be class or function, "
+                f"if you specify args or kwargs. Instead it is {name}"
+            )
+        return name
 
     try:
         args, kwargs = _load_node(loader, node)
-        return functools.partial(callable_, *args, **kwargs)
+        return functools.partial(name, *args, **kwargs)
     except TypeError as e:
         err_msg = "Invalid argument to callable %s" % callable_string
         e.args = (err_msg, *e.args)
