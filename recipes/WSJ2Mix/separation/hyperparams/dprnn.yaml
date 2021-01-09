@@ -43,7 +43,7 @@ training_signal_len: 32000
 
 # Augment parameters
 use_wavedrop: False
-use_speedperturb: False
+use_speedperturb: True
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
