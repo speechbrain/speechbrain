@@ -7,10 +7,10 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+seed: 2234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-data_folder: !PLACEHOLDER
+data_folder: /localscratch/noisy-vctk-16k
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 output_folder: !ref ./results/FCN_stoi/<seed>
@@ -19,8 +19,15 @@ train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/FCN_enhanced
 
 # Basic parameters
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
+
+# FFT paremeters
+Sample_rate: 16000
+Win_length: 32
+Hop_length: 16
+N_fft: 512
+window_fn: !name:torch.hamming_window
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
@@ -28,12 +35,20 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-number_of_epochs: 15
+number_of_epochs: 20
 N_batch: 1
 lr: 0.001
-device: 'cuda'
-Sample_rate: 16000
-max_length: !ref <Sample_rate> * 10
+device: 'cuda:0'
+
+# Neural parameters
+kernel_size: 55
+base_channels: 30
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:voicebank_prepare.prepare_voicebank
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -57,112 +72,103 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
-    summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-
-conv1: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv2: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv3: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv4: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv5: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv6: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv7: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
-    kernel_size: 55
-
-conv_out: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 1
-    kernel_size: 55
 
 activation: !new:torch.nn.LeakyReLU
     negative_slope: 0.3
 
-activation_tanh: !new:torch.nn.Tanh
-
-IN0: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN1: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN2: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN3: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN4: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN5: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN6: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-IN7: !new:speechbrain.nnet.normalization.InstanceNorm1d
-    track_running_stats: False
-    affine: True
-
-
 model: !new:speechbrain.nnet.containers.Sequential
-    - !ref <IN0>
-    - !ref <conv1>
-    - !ref <IN1>
-    - !ref <activation>
-    - !ref <conv2>
-    - !ref <IN2>
-    - !ref <activation>
-    - !ref <conv3>
-    - !ref <IN3>
-    - !ref <activation>
-    - !ref <conv4>
-    - !ref <IN4>
-    - !ref <activation>
-    - !ref <conv5>
-    - !ref <IN5>
-    - !ref <activation>
-    - !ref <conv6>
-    - !ref <IN6>
-    - !ref <activation>
-    - !ref <conv7>
-    - !ref <IN7>
-    - !ref <activation>
-    - !ref <conv_out>
+    input_shape: [!ref <N_batch>, null, 1]
+    IN0: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: 1
+        track_running_stats: False
+        affine: True
+    conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN1: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act1: !ref <activation>
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN2: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act12: !ref <activation>
+    conv3: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN3: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act3: !ref <activation>
+    conv4: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN4: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act4: !ref <activation>
+    conv5: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN5: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act5: !ref <activation>
+    conv6: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN6: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act6: !ref <activation>
+    conv7: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN7: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act7: !ref <activation>
+    conv_out: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1
+        kernel_size: !ref <kernel_size>
 
+modules:
+    model: !ref <model>
 
-compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
-
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
-        optimizer: !ref <optimizer>
         counter: !ref <epoch_counter>
+
+compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    n_fft: !ref <N_fft>
+    window_fn: !ref <window_fn>
+compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    window_fn: !ref <window_fn>
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

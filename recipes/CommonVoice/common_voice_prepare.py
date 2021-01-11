@@ -116,10 +116,10 @@ def prepare_common_voice(
         msg = "%s already exists, we will check for missing .wav files." % (
             path_to_wav
         )
-        logger.info(msg)
+        print(msg)
     else:
         msg = "%s doesn't exist, we will convert .mp3 files." % (path_to_wav)
-        logger.info(msg)
+        print(msg)
         os.makedirs(path_to_wav)
 
     # Setting the save folder
@@ -135,13 +135,13 @@ def prepare_common_voice(
     if skip(save_csv_train, save_csv_dev, save_csv_test):
 
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
-        logger.info(msg)
+        print(msg)
 
         msg = "%s already exists, skipping data preparation!" % (save_csv_dev)
-        logger.info(msg)
+        print(msg)
 
         msg = "%s already exists, skipping data preparation!" % (save_csv_test)
-        logger.info(msg)
+        print(msg)
 
         return
 
@@ -153,7 +153,7 @@ def prepare_common_voice(
 
         # Convert .mp3 files if required
         msg = "Converting train audio files to .wav if needed ..."
-        logger.info(msg)
+        print(msg)
         convert_mp3_wav(
             data_folder, train_tsv_file, path_to_wav, SAMPLERATE,
         )
@@ -173,7 +173,7 @@ def prepare_common_voice(
 
         # Convert .mp3 files if required
         msg = "Converting validation audio files to .wav if needed ..."
-        logger.info(msg)
+        print(msg)
         convert_mp3_wav(
             data_folder, dev_tsv_file, path_to_wav, SAMPLERATE,
         )
@@ -193,7 +193,7 @@ def prepare_common_voice(
 
         # Convert .mp3 files if required
         msg = "Converting test audio files to .wav if needed ..."
-        logger.info(msg)
+        print(msg)
         convert_mp3_wav(
             data_folder, test_tsv_file, path_to_wav, SAMPLERATE,
         )
@@ -223,7 +223,7 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
     # Check if the given tsv exists
     if not os.path.isfile(tsv_file):
         msg = "%s doesn't exist, verify your dataset!" % (tsv_file)
-        logger.error(msg)
+        print(msg)
         raise FileNotFoundError(msg)
 
     # We load and skip the header
@@ -231,7 +231,7 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
 
     nb_samples = str(len(loaded_csv))
     msg = "%s files to convert ..." % (str(nb_samples))
-    logger.info(msg)
+    print(msg)
 
     for line in tzip(loaded_csv):
 
@@ -258,14 +258,14 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
                     sig = torch.mean(sig, dim=0).unsqueeze(0)
             except RuntimeError:
                 msg = "Error loading: %s" % (str(len(file_name)))
-                logger.debug(msg)
+                print(msg)
                 continue
             res = torchaudio.transforms.Resample(orig_rate, samplerate)
             sig = res(sig)
             torchaudio.save(new_wav_path, sig, samplerate)
         else:
             msg = "%s doesn't exist! Skipping it ..." % (str(len(file_name)))
-            logger.debug(msg)
+            print(msg)
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -330,12 +330,12 @@ def create_csv(
     # Check if the given files exists
     if not os.path.isfile(orig_tsv_file):
         msg = "\t%s doesn't exist, verify your dataset!" % (orig_tsv_file)
-        logger.error(msg)
+        print(msg)
         raise FileNotFoundError(msg)
 
     if not os.path.exists(path_to_wav):
         msg = "\t%s doesn't exists, we need wav files !" % (path_to_wav)
-        logger.error(msg)
+        print(msg)
         raise FileNotFoundError(msg)
 
     # We load and skip the header
@@ -343,11 +343,11 @@ def create_csv(
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
-    logger.info(msg)
+    print(msg)
 
     # Adding some Prints
     msg = "Creating csv lists in %s ..." % (csv_file)
-    logger.info(msg)
+    print(msg)
 
     csv_lines = [
         [
@@ -370,7 +370,9 @@ def create_csv(
 
     # Start processing lines
     total_duration = 0.0
-    for line in loaded_csv:
+    for line in tzip(loaded_csv):
+
+        line = line[0]
 
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
@@ -385,7 +387,7 @@ def create_csv(
             signal = read_wav_soundfile(wav_path)
         else:
             msg = "\tError loading: %s" % (str(len(file_name)))
-            logger.debug(msg)
+            print(msg)
             continue
 
         duration = signal.shape[0] / SAMPLERATE
@@ -422,6 +424,7 @@ def create_csv(
             words = "".join(
                 [c for c in nfkd_form if not unicodedata.combining(c)]
             )
+            words = words.replace("'", " ")
 
         # Remove multiple spaces
         words = re.sub(" +", " ", words)
@@ -469,11 +472,11 @@ def create_csv(
 
     # Final prints
     msg = "%s sucessfully created!" % (csv_file)
-    logger.info(msg)
+    print(msg)
     msg = "Number of samples: %s " % (str(len(loaded_csv)))
-    logger.info(msg)
+    print(msg)
     msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
-    logger.info(msg)
+    print(msg)
 
 
 def check_commonvoice_folders(data_folder):

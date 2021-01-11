@@ -24,6 +24,10 @@ class SincConv(nn.Module):
 
     Arguments
     ---------
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
     out_channels: int
         It is the number of output channels.
     kernel_size: int
@@ -56,7 +60,7 @@ class SincConv(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = SincConv(out_channels=25, kernel_size=11)
+    >>> conv = SincConv(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
     >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16000, 25])
@@ -66,6 +70,8 @@ class SincConv(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape=None,
+        in_channels=None,
         stride=1,
         dilation=1,
         padding="same",
@@ -85,6 +91,13 @@ class SincConv(nn.Module):
         self.min_low_hz = min_low_hz
         self.min_band_hz = min_band_hz
 
+        # input shape inference
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
+
         # Initialize Sinc filters
         self._init_sinc_conv()
 
@@ -98,6 +111,7 @@ class SincConv(nn.Module):
 
         """
         x = x.transpose(1, -1)
+        self.device = x.device
 
         unsqueeze = x.ndim == 2
         if unsqueeze:
@@ -138,6 +152,28 @@ class SincConv(nn.Module):
 
         return wx
 
+    def _check_input_shape(self, shape):
+        """
+        Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = 1
+        else:
+            raise ValueError(
+                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
+
     def _get_sinc_filters(self,):
         """This functions creates the sinc-filters to used for sinc-conv.
         """
@@ -153,6 +189,8 @@ class SincConv(nn.Module):
         band = (high - low)[:, 0]
 
         # Passing from n_ to the corresponding f_times_t domain
+        self.n_ = self.n_.to(self.device)
+        self.window_ = self.window_.to(self.device)
         f_times_t_low = torch.matmul(low, self.n_)
         f_times_t_high = torch.matmul(high, self.n_)
 
@@ -205,7 +243,7 @@ class SincConv(nn.Module):
 
         # Hamming window
         n_lin = torch.linspace(
-            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2)),
+            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2))
         )
         self.window_ = 0.54 - 0.46 * torch.cos(
             2 * math.pi * n_lin / self.kernel_size
@@ -227,7 +265,9 @@ class SincConv(nn.Module):
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -246,7 +286,7 @@ class SincConv(nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = nn.functional.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
 
@@ -357,8 +397,8 @@ class Conv1d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)
@@ -371,7 +411,9 @@ class Conv1d(nn.Module):
 
         return wx
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -390,7 +432,7 @@ class Conv1d(nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = F.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
 
@@ -407,7 +449,9 @@ class Conv1d(nn.Module):
         elif len(shape) == 3:
             in_channels = shape[2]
         else:
-            raise ValueError("conv1d expects 2d, 3d inputs. Got " + len(shape))
+            raise ValueError(
+                "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
+            )
 
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:

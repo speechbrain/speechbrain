@@ -68,14 +68,6 @@ class Embedding(nn.Module):
         consider_as_one_hot=False,
         blank_id=0,
     ):
-        if not isinstance(num_embeddings, int):
-            raise ValueError("num_embeddings must be integer.")
-        if not isinstance(embedding_dim, int):
-            raise ValueError("embedding_dim must be integer.")
-        if not isinstance(consider_as_one_hot, bool):
-            raise ValueError("consider_as_one_hot must be boolean.")
-        if not isinstance(blank_id, int):
-            raise ValueError("blank_id must be integer")
 
         super().__init__()
         self.num_embeddings = num_embeddings
@@ -97,7 +89,7 @@ class Embedding(nn.Module):
             one_hot = torch.eye(self.embedding_dim)
             if self.blank_id + 1 != self.num_embeddings:
                 self.Embedding.weight.data[self.blank_id + 1 :] = one_hot[
-                    self.blank_id + 1 :
+                    self.blank_id :
                 ]
             if self.blank_id != 0:
                 self.Embedding.weight.data[: self.blank_id] = one_hot[
