@@ -8,7 +8,7 @@
 # Authors:  Jianyuan Zhong
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 16
+seed: 11234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -17,8 +17,8 @@ train_log: !ref <output_folder>/train_log.txt
 lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/lr1/big_batchmean/save/CKPT+2020-11-30+02-35-44+00/model.ckpt # yamllint disable-line rule:line-length
 
 # Tokenizer model
-tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/tok_unigram.model # yamllint disable-line rule:line-length
-tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/tok_unigram.vocab # yamllint disable-line rule:line-length
+tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/5000_unigram.model # yamllint disable-line rule:line-length
+tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/5000_unigram.vocab # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER
@@ -88,9 +88,9 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_search_interval: 10
 valid_beam_size: 10
-test_beam_size: 30
-lm_weight: 0.60
-ctc_weight_decode: 0.40
+test_beam_size: 60
+lm_weight: 0.50
+ctc_weight_decode: 0.70
 
 ############################## models ################################
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece

@@ -2,166 +2,218 @@
 import os
 import sys
 import torch
+import logging
+import glob
+from datasets import load_dataset
 
 import speechbrain as sb
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
-from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.data_utils import download_file
 
-# This hack needed to import data preparation script from ..
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
-from librispeech_prepare import prepare_librispeech  # noqa E402
-from librispeech_lm_prepare import prepare_lm_corpus  # noqa E402
 
-# Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
-
-# Create experiment directory
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
-)
-
-modules = torch.nn.ModuleList([params.model])
-checkpointer = sb.utils.checkpoints.Checkpointer(
-    checkpoints_dir=params.save_folder,
-    recoverables={
-        "model": modules,
-        "optimizer": params.optimizer,
-        "scheduler": params.lr_annealing,
-        "counter": params.epoch_counter,
-    },
-)
-
-steps = 0
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
 class LM(sb.core.Brain):
-    def compute_forward(self, y, stage="train", init_params=False):
-        ids, chars, char_lens = y
-        index2lab = params.label_loader.label_dict["char"]["index2lab"]
-        bpe, _ = params.bpe_tokenizer(
-            chars, char_lens, index2lab, task="encode", init_params=init_params
-        )
-        bpe = bpe.to(params.device)
+    def compute_forward(self, batch, stage):
+        """Forward computations from the sentence batches to the output probabilities."""
+        tokens_bos = batch["tokens_bos"].to(self.device)
+        logits = self.hparams.model(tokens_bos)
+        pred = self.hparams.log_softmax(logits)
+        return pred
 
-        y_in = prepend_bos_token(bpe, bos_index=params.bos_index)
-        logits = params.model(y_in, init_params=init_params)
-        pout = params.log_softmax(logits)
-        return pout
-
-    def compute_objectives(self, predictions, targets, stage="train"):
-        pout = predictions
-        ids, chars, char_lens = targets
-        index2lab = params.label_loader.label_dict["char"]["index2lab"]
-        bpe, bpe_lens = params.bpe_tokenizer(
-            chars, char_lens, index2lab, task="encode"
-        )
-        bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
-
-        abs_length = torch.round(bpe_lens * bpe.shape[1])
-
-        # Append eos token at the end of the label sequences
-        bpe_with_eos = append_eos_token(
-            bpe, length=abs_length, eos_index=params.eos_index
-        )
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss given predictions and targets."""
+        tokens_eos = batch["tokens_eos"].to(self.device)
+        tokens_len = batch["tokens_len"].to(self.device)
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
-        loss = params.compute_cost(pout, bpe_with_eos, length=rel_length)
+        rel_length = (tokens_len + 1) / tokens_eos.shape[1]
+        loss = self.hparams.compute_cost(
+            predictions, tokens_eos, length=rel_length
+        )
 
-        return loss, {}
+        return loss
 
     def fit_batch(self, batch):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(predictions, inputs)
-        (loss / params.accu_steps).backward()
-        global steps
-        steps += 1
-        if steps % params.accu_steps == 0:
+        """Train the parameters given a single batch in input"""
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
+
+        (loss / self.hparams.accu_steps).backward()
+
+        if self.step % self.hparams.accu_steps == 0:
+            # gradient clipping & early stop if loss is not fini
+            self.check_gradients(loss)
+
             self.optimizer.step()
             self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
-        return stats
 
-    def evaluate_batch(self, batch, stage="valid"):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs, stage=stage)
-        loss, stats = self.compute_objectives(predictions, inputs, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        val_loss = summarize_average(valid_stats["loss"])
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, val_loss
-        )
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
-
-        checkpointer.save_and_keep_only(
-            meta={"loss": val_loss},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
-        )
-
-    def load_tokenizer(self):
-        save_model_path = params.save_folder + "/tok_unigram.model"
-        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
-
-        if hasattr(params, "tok_mdl_file"):
-            download_file(
-                params.tok_mdl_file, save_model_path, replace_existing=True
+    def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
             )
-            params.bpe_tokenizer.sp.load(save_model_path)
-        if hasattr(params, "tok_voc_file"):
-            download_file(
-                params.tok_voc_file, save_vocab_path, replace_existing=True
+            self.checkpointer.save_and_keep_only(
+                meta=stage_stats, min_keys=["loss"],
             )
 
 
-# Prepare data
-prepare_librispeech(
-    data_folder=params.data_folder,
-    splits=params.train_splits + [params.dev_split],
-    merge_lst=params.train_splits,
-    merge_name=params.csv_label,
-    save_folder=params.data_folder,
-)
+def data_io_prepare(hparams):
+    """Loads the sentence piece tokenizer specified in the yaml file"""
+    save_model_path = os.path.join(
+        hparams["save_folder"],
+        "{}_unigram.model".format(hparams["output_neurons"]),
+    )
+    save_vocab_path = os.path.join(
+        hparams["save_folder"],
+        "{}_unigram.vocab".format(hparams["output_neurons"]),
+    )
 
-prepare_lm_corpus(
-    data_folder=params.data_folder,
-    save_folder=params.data_folder,
-    filename=params.filename,
-)
+    if "tok_mdl_file" in hparams:
+        download_file(
+            source=hparams["tok_mdl_file"],
+            dest=save_model_path,
+            replace_existing=True,
+        )
 
-_ = params.label_loader()
-train_set = params.train_loader()
-valid_set = params.valid_loader()
-first_y = next(iter(train_set))
+    if "tok_voc_file" in hparams:
+        download_file(
+            source=hparams["tok_voc_file"],
+            dest=save_vocab_path,
+            replace_existing=True,
+        )
 
-lm_brain = LM(
-    modules=modules, optimizer=params.optimizer, first_inputs=first_y,
-)
-if params.multigpu:
-    params.model = torch.nn.DataParallel(params.model)
-# Load latest checkpoint to resume training
-checkpointer.recover_if_possible()
+    tokenizer = hparams["tokenizer"]()
 
-lm_brain.load_tokenizer()
-lm_brain.fit(params.epoch_counter, train_set, valid_set)
+    """grap all the .txt files for transcripts"""
+    logging.info("generating datasets...")
+    data_folder = hparams["data_folder"]
+    train_transcripts = glob.glob(
+        os.path.join(data_folder, "train*/**/*.trans.txt"), recursive=True
+    )
+    dev_transcripts = glob.glob(
+        os.path.join(data_folder, "dev*/**/*.trans.txt"), recursive=True
+    )
+    test_transcripts = glob.glob(
+        os.path.join(data_folder, "test*/**/*.trans.txt"), recursive=True
+    )
 
-# Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
-test_stats = lm_brain.evaluate(params.valid_loader())
-params.train_logger.log_stats(
-    stats_meta={"Epoch loaded": params.epoch_counter.current},
-    test_stats=test_stats,
-)
+    """prepare data and generate datasets"""
+    datasets = load_dataset(
+        "dataset.py",
+        data_files={
+            "train": train_transcripts,
+            "dev": dev_transcripts,
+            "test": test_transcripts,
+        },
+    )
+    if not os.path.exists(hparams["dataset_cache_path"]):
+        logging.info("Cannot find pre-made dataset")
+        logging.info(
+            "tokenizing and batching dataset to {}".format(
+                hparams["dataset_cache_path"]
+            )
+        )
+
+        def encode(data):  # encode the data using the pretrained dataset
+            text = data["text"]
+            tokens_list = [tokenizer.sp.encode_as_ids(t) for t in text]
+            tokens_bos = [
+                torch.tensor([hparams["bos_index"]] + (tl))
+                for tl in tokens_list
+            ]
+            tokens_eos = [
+                torch.tensor(tl + [hparams["eos_index"]]) for tl in tokens_list
+            ]
+            token_len = [torch.tensor([len(t_eos)]) for t_eos in tokens_eos]
+            tokens_bos = torch.nn.utils.rnn.pad_sequence(
+                tokens_bos, batch_first=True
+            )
+            tokens_eos = torch.nn.utils.rnn.pad_sequence(
+                tokens_eos, batch_first=True
+            )
+            tokens_len = torch.cat(token_len, dim=0)
+            return {
+                "tokens_bos": tokens_bos.tolist(),
+                "tokens_eos": tokens_eos.tolist(),
+                "tokens_len": tokens_len.tolist(),
+            }
+
+        datasets = datasets.map(
+            encode, batched=True, batch_size=hparams["batch_size"] * 20
+        )
+        datasets.save_to_disk(hparams["dataset_cache_path"])
+        logging.info("Complete!")
+    else:
+        logging.info(
+            "Found exiting pre-made dataset, load it from {}".format(
+                hparams["dataset_cache_path"]
+            )
+        )
+        datasets = datasets.load_from_disk(hparams["dataset_cache_path"])
+        datasets.set_format(
+            type="torch", columns=["tokens_bos", "tokens_eos", "tokens_len"]
+        )
+
+    train_data = sb.data_io.dataloader.SaveableDataLoader(
+        datasets["train"], batch_size=hparams["batch_size"], shuffle=False
+    )
+    valid_data = sb.data_io.dataloader.SaveableDataLoader(
+        datasets["train"], batch_size=hparams["batch_size"], shuffle=False
+    )
+    test_data = sb.data_io.dataloader.SaveableDataLoader(
+        datasets["train"], batch_size=hparams["batch_size"], shuffle=False
+    )
+
+    from tqdm import tqdm
+
+    pbar = tqdm(train_data)
+    for i, batch in enumerate(pbar):
+        pass
+
+    return train_data, valid_data, test_data
+
+
+if __name__ == "__main__":
+    # CLI:
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, overrides)
+
+    # If distributed_launch=True then
+    # create ddp_group with the right communication protocol
+    sb.ddp_init_group(run_opts)
+
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    # here we create the datasets objects as well as tokenization and encoding
+    train_data, valid_data, test_data = data_io_prepare(hparams)
+
+    lm_brain = LM(
+        modules=hparams["modules"],
+        opt_class=hparams["optimizer"],
+        hparams=hparams,
+        run_opts=run_opts,
+        checkpointer=hparams["checkpointer"],
+    )
+
+    lm_brain.fit(
+        lm_brain.hparams.epoch_counter, train_data, valid_data,
+    )
+
+    # evaluation
+    test_stats = lm_brain.evaluate(test_data, min_key="loss",)
