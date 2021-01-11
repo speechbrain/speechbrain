@@ -777,7 +777,10 @@ class Brain:
             # DistributedSampler obj.
             if sampler is not None:
                 self.train_sampler = DistributedSamplerWrapper(
-                    sampler, rank=self.rank, drop_last=drop_last
+                    sampler,
+                    rank=self.rank,
+                    drop_last=drop_last,
+                    num_replicas=torch.distributed.get_world_size(),
                 )
             elif loader_kwargs.get("batch_sampler") is None:
                 # Currently to get here, shuffle == False, so not passing it.
@@ -1052,7 +1055,7 @@ class Brain:
             self.nonfinite_count = 0
 
             if self.train_sampler is not None and hasattr(
-                "set_epoch", self.train_sampler
+                self.train_sampler, "set_epoch"
             ):
                 self.train_sampler.set_epoch(epoch)
 
