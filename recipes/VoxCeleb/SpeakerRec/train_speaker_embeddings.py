@@ -1,137 +1,141 @@
-#!/usr/bin/python
-import os
+#!/usr/bin/python3
+"""Recipe for training speaker embeddings (e.g, xvectors) using the VoxCeleb Dataset.
+We employ an encoder followed by a speaker classifier.
+
+To run this recipe, use the following command:
+> python train_speaker_embeddings.py {hyperparameter_file}
+
+Using your own hyperparameter file or one of the following:
+    hyperparams/train_x_vectors.yaml (for standard xvectors)
+    hyperparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
+
+Author
+    * Mirco Ravanelli 2020
+    * Hwidong Na 2020
+    * Nauman Dawalatabad 2020
+"""
 import sys
 import torch
-import logging
 import speechbrain as sb
 
-logger = logging.getLogger(__name__)
 
-# This flag enable the inbuilt cudnn auto-tuner
-torch.backends.cudnn.benchmark = True
+class XvectorBrain(sb.core.Brain):
+    """Class for speaker embedding training"
+    """
 
-# This hack needed to import data preparation script from ..
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
-from voxceleb_prepare import prepare_voxceleb  # noqa E402
-
-# Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
-
-# Create experiment directory
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
-)
-
-# Prepare data from dev of Voxceleb1
-prepare_voxceleb(
-    data_folder=params.data_folder,
-    save_folder=params.save_folder,
-    splits=["train", "dev"],
-    split_ratio=[90, 10],
-    seg_dur=300,
-    rand_seed=params.seed,
-    random_segment=params.random_segment
-    if hasattr(params, "random_segment")
-    else False,
-    source=params.voxceleb_source
-    if hasattr(params, "voxceleb_source")
-    else None,
-)
-
-
-def _nan_to_zero(t, msg, ids):
-    isnan = t.isnan().long()
-    if int(isnan.sum()) > 0:
-        for idx in isnan.nonzero(as_tuple=True)[0]:
-            err_msg = f"{msg}: {ids[idx]}"
-            logger.error(err_msg, exc_info=True)
-        t = torch.where(t.isnan(), torch.zeros_like(t), t)
-    return t
-
-
-# Trains speaker embeddings
-class EmbeddingBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
+    def compute_forward(self, x, stage):
+        """Computation pipeline based on a encoder + speaker classifier.
+        Data augmentation and environmental corruption are applied to the
+        input speech.
+        """
         ids, wavs, lens = x
+        wavs, lens = wavs.to(self.device), lens.to(self.device)
 
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-
-        if stage == "train":
+        if stage == sb.Stage.TRAIN:
             # Addding noise and reverberation
-            wavs_aug = params.env_corrupt(wavs, lens, init_params)
-            # For voxceleb2
-            wavs_aug = _nan_to_zero(wavs_aug, "NaN after env_corrupt", ids)
+            wavs_aug = self.modules.env_corrupt(wavs, lens)
 
             # Adding time-domain augmentation
-            wavs_aug = params.augmentation(wavs_aug, lens, init_params)
+            wavs_aug = self.modules.augmentation(wavs_aug, lens)
 
             # Concatenate noisy and clean batches
             wavs = torch.cat([wavs, wavs_aug], dim=0)
             lens = torch.cat([lens, lens], dim=0)
 
         # Feature extraction and normalization
-        feats = params.compute_features(wavs, init_params)
-        feats = params.mean_var_norm(feats, lens)
+        feats = self.modules.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
-        embeddings = params.embedding_model(feats, init_params=init_params)
-        outputs = params.classifier(embeddings, init_params)
+        embeddings = self.modules.embedding_model(feats)
+        outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, stage):
+        """Computes the loss using speaker-id as label.
+        """
         predictions, lens = predictions
         uttid, spkid, _ = targets
 
-        spkid, lens = spkid.to(params.device), lens.to(params.device)
+        spkid, lens = spkid.to(self.device), lens.to(self.device)
 
-        # Concatenate labels
-        if stage == "train":
+        # Concatenate labels (due to data augmentation)
+        if stage == sb.Stage.TRAIN:
             spkid = torch.cat([spkid, spkid], dim=0)
 
-        loss = params.compute_cost(predictions, spkid, lens)
+        loss = self.hparams.compute_cost(predictions, spkid, lens)
 
-        stats = {}
-        if stage != "train":
-            stats["error"] = params.compute_error(predictions, spkid, lens)
+        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+            self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        if hasattr(params.lr_annealing, "on_batch_end"):
-            params.lr_annealing.on_batch_end([params.optimizer])
-        return loss, stats
+        if stage != sb.Stage.TRAIN:
+            self.error_metrics.append(uttid, predictions, spkid, lens)
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, valid_stats["error"]
-        )
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
-        params.checkpointer.save_and_keep_only()
+        return loss
+
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of an epoch."""
+        if stage != sb.Stage.TRAIN:
+            self.error_metrics = self.hparams.error_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of an epoch."""
+        # Compute/store important stats
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
+        else:
+            stage_stats["ErrorRate"] = self.error_metrics.summarize("average")
+
+        # Perform end-of-iteration things, like annealing, logging, etc.
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"ErrorRate": stage_stats["ErrorRate"]},
+                min_keys=["ErrorRate"],
+            )
 
 
-# Data loaders
-train_set = params.train_loader()
-valid_set = params.valid_loader()
+if __name__ == "__main__":
 
-# Models to train
-modules = [params.embedding_model, params.classifier]
-first_x, first_y = next(iter(train_set))
+    # This flag enables the inbuilt cudnn auto-tuner
+    torch.backends.cudnn.benchmark = True
 
+    # Load hyperparameters file with command-line overrides
+    hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = sb.yaml.load_extended_yaml(fin, overrides)
 
-# Object initialization for training the embeddings
-embedding_brain = EmbeddingBrain(
-    modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
-)
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
-# Recover checkpoints
-params.checkpointer.recover_if_possible()
+    # Create experiment directory
+    sb.core.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
 
-# Train the model
-embedding_brain.fit(
-    params.epoch_counter, train_set=train_set, valid_set=valid_set,
-)
-print("Speaker embedding training completed!")
+    # Data loaders
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+
+    # Brain class initialization
+    xvect_brain = XvectorBrain(
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        run_opts=run_opts,
+        checkpointer=hparams["checkpointer"],
+    )
+
+    # Training
+    xvect_brain.fit(xvect_brain.hparams.epoch_counter, train_set, valid_set)

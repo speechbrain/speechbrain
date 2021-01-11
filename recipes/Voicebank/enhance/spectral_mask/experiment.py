@@ -21,6 +21,7 @@ class SEBrain(sb.Brain):
 
         # mask with "signal approximation (SA)"
         mask = self.hparams.model(feats)
+        mask = torch.squeeze(mask, 2)
         predict_spec = torch.mul(mask, feats)
 
         # Also return predicted wav
@@ -66,7 +67,9 @@ class SEBrain(sb.Brain):
                         self.hparams.enhanced_folder, name
                     )
                     torchaudio.save(
-                        enhance_path, predict_wav[: int(length)].cpu(), 16000
+                        enhance_path,
+                        torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
+                        16000,
                     )
 
         return loss
@@ -113,7 +116,7 @@ class SEBrain(sb.Brain):
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["pesq"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -153,15 +156,13 @@ class SEBrain(sb.Brain):
 # Recipe begins!
 if __name__ == "__main__":
 
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from voicebank_prepare import prepare_voicebank  # noqa E402
-
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -173,29 +174,31 @@ if __name__ == "__main__":
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 
-        hparams["hparams"]["tensorboard_train_logger"] = TensorboardLogger(
+        hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs"]
         )
 
-    # Create the folder to save enhanced files
-    if not os.path.exists(hparams["enhanced_folder"]):
-        os.mkdir(hparams["enhanced_folder"])
-
-    # Prepare data
-    prepare_voicebank(
-        data_folder=hparams["data_folder"], save_folder=hparams["data_folder"],
-    )
+    # Create the folder to save enhanced files (+ support for DDP)
+    try:
+        # all writing command must be done with the main_process
+        if sb.if_main_process():
+            if not os.path.isdir(hparams["enhanced_folder"]):
+                os.makedirs(hparams["enhanced_folder"])
+    finally:
+        # wait for main_process if ddp is used
+        sb.ddp_barrier()
 
     se_brain = SEBrain(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
         opt_class=hparams["opt_class"],
+        hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
     )
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        hparams["epoch_counter"],
+        se_brain.hparams.epoch_counter,
         train_set=hparams["train_loader"](),
         valid_set=hparams["valid_loader"](),
     )

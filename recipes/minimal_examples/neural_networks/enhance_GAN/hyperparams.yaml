@@ -3,72 +3,27 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
+models: !include:models.yaml
+
 data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Neural Parameters
 N_epochs: 5
-N_batch: 2
+data: !include:data.yaml
+    data_folder: !ref <data_folder>
+    N_epochs: !ref <N_epochs>
+
+train_loader: !ref <data[train_loader]>
+valid_loader: !ref <data[valid_loader]>
+test_loader: !ref <data[test_loader]>
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+
+modules:
+    generator: !ref <models[generator]>
+    discriminator: !ref <models[discriminator]>
+
 lr: 0.004
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-generator: !new:speechbrain.nnet.containers.Sequential
-    - [null, null, 1]  # input_shape
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 32
-      kernel_size: 11
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 1
-      kernel_size: 11
-    - !new:torch.nn.Tanh
-
-discriminator: !new:speechbrain.nnet.containers.Sequential
-    - [null, null, 1]  # input_shape
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 32
-      kernel_size: 11
-      stride: 8
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 1
-      kernel_size: 11
-      stride: 8
-    - !new:torch.nn.Sigmoid
-
-modules: {generator: !ref <generator>, discriminator: !ref <discriminator>}
-
 g_opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-
 d_opt_class: !name:torch.optim.Adam
     lr: !ref <lr> / 4
-
-add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss

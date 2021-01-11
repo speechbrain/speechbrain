@@ -1272,7 +1272,7 @@ class HMMAligner(torch.nn.Module):
         >>> phns = [[0., 1.]]
         >>> ends = [[2, 4]]
         >>> mean_acc = aligner.calc_accuracy(alignments, ends, phns)
-        >>> mean_acc
+        >>> mean_acc.item()
         75.0
         """
         acc_hist = []
@@ -1293,9 +1293,9 @@ class HMMAligner(torch.nn.Module):
             acc_hist.append(acc)
 
         acc_hist = torch.tensor(acc_hist)
-        mean_acc = acc_hist.mean().item()
+        mean_acc = acc_hist.mean()
 
-        return mean_acc
+        return mean_acc.unsqueeze(0)
 
     def collapse_alignments(self, alignments):
         """
@@ -1340,8 +1340,9 @@ class HMMAligner(torch.nn.Module):
         torch.save(self.align_dict, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch, device=None):
+    def _load(self, path, end_of_epoch, device):
         del end_of_epoch  # Not used here.
+        del device
         self.align_dict = torch.load(path)
 
 
