@@ -9,10 +9,6 @@ import h5py
 from torch.utils.data import DistributedSampler
 from speechbrain.data_io.data_io import DataLoaderFactory
 
-# names of variables when loading inference results of pre-trained teachers.
-TEA_KEYS = ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"]
-TEA_NAME = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"]
-
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -61,6 +57,14 @@ class ASR(sb.Brain):
 
         return p_ctc, p_seq, wav_lens
 
+    def def_tea_name(self):
+        # define teacher variable name
+        tea_name = []
+        for tea_num in range(self.hparams.num_tea):
+            tea = "t{}".format(tea_num)
+            tea_name.append(tea)
+        return tea_name
+
     def compute_objectives(
         self, predictions, targets, data_dict, batch_id, stage
     ):
@@ -91,13 +95,14 @@ class ASR(sb.Brain):
 
         # load teacher inference results
         item_tea_list = [None, None, None, None]
+        tea_name = self.def_tea_name()
         for tea_num in range(self.hparams.num_tea):
             for i in range(4):
-                item_tea = data_dict[str(batch_id)][TEA_NAME[tea_num]][
-                    TEA_KEYS[i]
+                item_tea = data_dict[str(batch_id)][tea_name[tea_num]][
+                    self.hparams.tea_keys[i]
                 ][()]
 
-                if TEA_KEYS[i].startswith("wer"):
+                if self.hparams.tea_keys[i].startswith("wer"):
                     item_tea = torch.tensor(item_tea)
                 else:
                     item_tea = torch.from_numpy(item_tea)
@@ -400,15 +405,9 @@ def load_teachers(hparams):
     Load results of inference of teacher models stored on disk.
     Note: Run experiment_save_teachers.py beforehand to generate .hdf5 files.
     """
-    if "augmentation" in hparams.keys():
-        path = hparams["tea_infer_dir"] + "/tea_infer_{}batch.hdf5".format(
-            hparams["batch_size"]
-        )
-    else:
-        path = hparams[
-            "tea_infer_dir"
-        ] + "/tea_infer_noAug_{}batch.hdf5".format(hparams["batch_size"])
-
+    path = hparams["tea_infer_dir"] + "/tea_infer_{}batch.hdf5".format(
+        hparams["batch_size"]
+    )
     f = h5py.File(path, "r")
     train_dict = f["train"]
     valid_dict = f["valid"]

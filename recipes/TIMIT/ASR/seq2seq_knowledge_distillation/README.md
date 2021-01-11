@@ -12,12 +12,11 @@ three parts: teacher model training, inference running on teacher models, studen
 #### 1. Teacher model training
 Before doing distillation, we require finishing N teacher models training. Here, we propose to set N=10 as in the referenced paper.
 
-Please go to directory `teacher_models_training`. Models training could be done in parallel.
-using `experiment_teacher.py`.
+Models training can be done in parallel using `experiment_teacher.py`.
 
 Example:
 ```
-python experiment_teacher.py hyperparams/tea0.yaml --data_folder /path-to/data_folder --seed 1234
+python experiment_teacher.py hyperparams/teachers/tea0.yaml --data_folder /path-to/data_folder --seed 1234
 ```
 
 #### 2. Run inference on all teacher models

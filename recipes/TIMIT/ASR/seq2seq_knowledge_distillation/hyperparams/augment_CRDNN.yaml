@@ -48,9 +48,12 @@ temperature: 1
 # distillation weight alpha
 alpha: 1
 
+# variable name when loading teacher inference
+tea_keys: ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"]
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.3
+dropout: 0.25
 cnn_blocks: 2
 cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)

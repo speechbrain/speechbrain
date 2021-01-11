@@ -63,6 +63,8 @@ tea_models_dir: !PLACEHOLDER
 temperature: 1
 # distillation weight alpha
 alpha: 1
+# different stages in dataset
+stage: ["train", "valid", "test"]
 
 # tea0
 tea0_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
