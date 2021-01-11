@@ -25,7 +25,6 @@ test_data: !ref <save_folder>/test.csv
 
 batch_size: 32
 score_norm: 't-norm' # z-norm t-norm s-norm none
-n_train_snts: 300000 # used for normalization stats
 
 # Feature parameters
 n_mels: 80
@@ -35,14 +34,13 @@ deltas: False
 
 # Dataloader options
 train_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 enrol_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: !ref <batch_size>
-
+    batch_size: !ref <batch_size>
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
@@ -65,4 +63,3 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
-

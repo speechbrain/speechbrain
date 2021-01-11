@@ -14,6 +14,7 @@ Authors
 import os
 import sys
 import torch
+import torchaudio
 import logging
 import speechbrain as sb
 import numpy
@@ -21,7 +22,6 @@ import pickle
 from tqdm.contrib import tqdm
 from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
-from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
@@ -51,8 +51,9 @@ def emb_computation_loop(split, set_loader, stat_file):
         segset = []
         with tqdm(set_loader, dynamic_ncols=True) as t:
 
-            for wav in t:
-                ids, wavs, lens = wav[0]
+            for batch in t:
+                ids = batch.id
+                wavs, lens = batch.sig
                 mod = [x for x in ids]
                 seg = [x for x in ids]
                 modelset = modelset + mod
@@ -146,6 +147,67 @@ def get_utt_ids_for_test(ids, data_dict):
     return mod, seg
 
 
+def data_io_prep(params):
+    "Creates the dataloaders and their data processing pipelines."
+
+    data_folder = params["data_folder"]
+
+    # 1. Declarations:
+
+    # Train data (used for normalization)
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=params["train_data"], replacements={"data_root": data_folder},
+    )
+    train_data = train_data.filtered_sorted(
+        sort_key="duration", select_n=params["n_train_snts"]
+    )
+
+    # Enrol data
+    enrol_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+    )
+    enrol_data = enrol_data.filtered_sorted(sort_key="duration")
+
+    # Test data
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=params["test_data"], replacements={"data_root": data_folder},
+    )
+    test_data = enrol_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, enrol_data, test_data]
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "start", "stop")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, start, stop):
+        start = int(start)
+        stop = int(stop)
+        num_frames = stop - start
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
+        sig = sig.transpose(0, 1).squeeze(1)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Set output:
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "spk_id"])
+
+    # 4 Create dataloaders
+    train_dataloader = sb.data_io.dataloader.make_dataloader(
+        train_data, **params["train_dataloader_opts"]
+    )
+    enrol_dataloader = sb.data_io.dataloader.make_dataloader(
+        enrol_data, **params["enrol_dataloader_opts"]
+    )
+    test_dataloader = sb.data_io.dataloader.make_dataloader(
+        test_data, **params["test_dataloader_opts"]
+    )
+
+    return train_dataloader, enrol_dataloader, test_dataloader
+
+
 if __name__ == "__main__":
 
     # Logger setup
@@ -177,14 +239,12 @@ if __name__ == "__main__":
         rand_seed=params["seed"],
     )
 
+    # here we create the datasets objects as well as tokenization and encoding
+    train_dataloader, test_dataloader, enrol_dataloader = data_io_prep(params)
+
     # Initialize PLDA vars
     modelset, segset = [], []
     embeddings = numpy.empty(shape=[0, params["emb_dim"]], dtype=numpy.float64)
-
-    # Train set
-    train_set = params["train_loader"]()
-    train_set = train_set.get_dataloader()
-    ind2lab = params["train_loader"].label_dict["spk_id"]["index2lab"]
 
     # Embedding file for train data
     xv_file = os.path.join(
@@ -211,16 +271,13 @@ if __name__ == "__main__":
     # Computing training embeddigs (skip it of if already extracted)
     if not os.path.exists(xv_file):
         logger.info("Extracting embeddings from Training set..")
-        with tqdm(train_set, dynamic_ncols=True) as t:
-            for wav, spk_id in t:
-                _, wav, lens = wav
-                snt_id, spk_id, lens = spk_id
-
-                # For modelset
-                spk_id_str = convert_index_to_lab(spk_id, ind2lab)
+        with tqdm(train_dataloader, dynamic_ncols=True) as t:
+            for batch in t:
+                snt_id = batch.id
+                wav, lens = batch.sig
+                spk_ids = batch.spk_id
 
                 # Flattening speaker ids
-                spk_ids = [sid[0] for sid in spk_id_str]
                 modelset = modelset + spk_ids
 
                 # For segset
@@ -272,15 +329,9 @@ if __name__ == "__main__":
     test_stat_file = os.path.join(params["save_folder"], "stat_test.pkl")
     ndx_file = os.path.join(params["save_folder"], "ndx.pkl")
 
-    # Data loader
-    enrol_set = params["enrol_loader"]()
-    enrol_set = enrol_set.get_dataloader()
-    test_set = params["test_loader"]()
-    test_set = test_set.get_dataloader()
-
     # Compute enrol and Test embeddings
-    enrol_obj = emb_computation_loop("enrol", enrol_set, enrol_stat_file)
-    test_obj = emb_computation_loop("test", test_set, test_stat_file)
+    enrol_obj = emb_computation_loop("enrol", enrol_dataloader, enrol_stat_file)
+    test_obj = emb_computation_loop("test", test_dataloader, test_stat_file)
 
     # Prepare Ndx Object
     if not os.path.isfile(ndx_file):
@@ -311,8 +362,8 @@ if __name__ == "__main__":
     logger.info("Computing EER... ")
 
     # Cleaning variable
-    del enrol_set
-    del test_set
+    del enrol_dataloader
+    del test_dataloader
     del enrol_obj
     del test_obj
     del embeddings_stat
@@ -320,4 +371,4 @@ if __name__ == "__main__":
     # Final EER computation
     eer, min_dcf = verification_performance(scores_plda)
     logger.info("EER=%f", eer)
-    logger.info("min_dcf=%f", eer)
+    logger.info("min_dcf=%f", min_dcf)

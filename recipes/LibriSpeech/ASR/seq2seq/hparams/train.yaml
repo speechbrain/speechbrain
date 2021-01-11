@@ -15,11 +15,11 @@ output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 
-# Tokenizer model
-tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
+# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch
+# The tokenizer is trained with LibriSpeech/Tokenizer/hyperparams/1K_unigram_subword_bpe.yaml
+language_model_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
+tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 
 # Data files
 data_folder: !PLACEHOLDER
@@ -42,8 +42,6 @@ number_of_ctc_epochs: 5
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
-token_type: unigram  # ["unigram", "bpe", "char"]
-character_coverage: 1.0
 sorting: ascending
 
 # Feature parameters
@@ -111,14 +109,6 @@ lm_rnn_layers: 2
 lm_rnn_neurons: 2048
 lm_dnn_blocks: 1
 lm_dnn_neurons: 512
-
-tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
-   model_dir: !ref <save_folder>
-   vocab_size: !ref <output_neurons>
-   csv_train: !ref <train_csv>
-   csv_read: wrd
-   model_type: "unigram" # ["unigram", "bpe", "char"]
-   character_coverage: 1.0
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
