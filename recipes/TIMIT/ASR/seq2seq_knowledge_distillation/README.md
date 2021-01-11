@@ -10,7 +10,7 @@ To speed up student distillation from multiple teachers, we separate the whole p
 three parts: teacher model training, inference running on teacher models, student distillation.
 
 #### 1. Teacher model training
-Before doing distillation, we require finishing 10 teacher models training.
+Before doing distillation, we require finishing N teacher models training. Here, we propose to set N=10 as in the referenced paper.
 
 Please go to directory `teacher_models_training`. Models training could be done in parallel.
 using `experiment_teacher.py`.
@@ -21,7 +21,8 @@ python experiment_teacher.py hyperparams/tea0.yaml --data_folder /path-to/data_f
 ```
 
 #### 2. Run inference on all teacher models
-This part run inference on all teacher models and store them on disk using `experiment_save_teachers.py`.
+This part run inference on all teacher models and store them on disk using `experiment_save_teachers.py`. It is only required that you setup the `tea_models_dir` variable corresponding to the path to a txt file. The latter txt file needs to contain 
+a list of paths pointing to each teacher model.ckpt. We decided to work with a file so it can easily scale to hundreds of teachers. 
 
 Example:
 ```
@@ -29,7 +30,7 @@ python experiment_save_teachers.py hyperparams/augment_CRDNN_save_teachers.yaml 
 ```
 
 #### 3. Student distillation
-This is the main part for distillation using `experiment_kd.py`
+This is the main part for distillation using `experiment_kd.py`. Here, the variable `pretrain` might be used to use a pre-trained teacher as the student. Note that if set to `True`, a path to the corresponding `model.ckpt` must be given in `pretrain_st_dir` 
 
 Example:
 ```
