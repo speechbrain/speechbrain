@@ -127,15 +127,15 @@ class SentencePiece:
             logger.info("Train tokenizer with type:" + self.model_type)
             if not os.path.isfile(self.text_file):
                 try:
-                    if sb.if_main_process():
+                    if sb.utils.distributed.if_main_process():
                         self._csv2text()
                 finally:
-                    sb.ddp_barrier()
+                    sb.utils.distributed.ddp_barrier()
             try:
-                if sb.if_main_process():
+                if sb.utils.distributed.if_main_process():
                     self._train_BPE()
             finally:
-                sb.ddp_barrier()
+                sb.utils.distributed.ddp_barrier()
         else:
             logger.info("Tokenizer is already trained.")
         logger.info("==== Loading Tokenizer ===")
