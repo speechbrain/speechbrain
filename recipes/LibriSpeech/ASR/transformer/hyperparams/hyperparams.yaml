@@ -10,18 +10,19 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 16
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+#output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/con_big
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/lr1/big_batchmean/save/CKPT+2020-11-30+02-35-44+00/model.ckpt # yamllint disable-line rule:line-length
 
-# Tokenizer model
-tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/tok_unigram.model # yamllint disable-line rule:line-length
-tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc/save/tok_unigram.vocab # yamllint disable-line rule:line-length
+# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
+# # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
+language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
+tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 # yamllint disable-line rule:line-length
 
 # Data files
-data_folder: !PLACEHOLDER
+data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
@@ -38,14 +39,11 @@ test_csv:
 # Training parameters
 number_of_epochs: 60
 batch_size: 8
-lr: 1
+lr: 1.0
 ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
-rank: null
-device: 'cuda'
-token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 # Feature parameters
@@ -93,18 +91,6 @@ lm_weight: 0.60
 ctc_weight_decode: 0.40
 
 ############################## models ################################
-tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: !ref <save_folder>
-    vocab_size: !ref <output_neurons>
-    csv_train: !ref <train_csv>
-    csv_read: wrd
-    model_type: "unigram" # ["unigram", "bpe", "char"]
-    max_sentencepiece_length: 16
-    character_coverage: 1
-    pad_id: -1
-    bos_id: !ref <bos_index>
-    eos_id: !ref <eos_index>
-    unk_id: !ref <unk_index>
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -189,7 +175,6 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     using_eos_threshold: False
     length_normalization: True
 
-############ Hyperparameters to pass to the Brain class ##############
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
 
