@@ -30,7 +30,7 @@ class LM(sb.core.Brain):
         tokens_len = batch["tokens_len"].to(self.device)
 
         # convert to speechbrain-style relative length
-        rel_length = tokens_len / tokens_len.max()
+        rel_length = tokens_len / tokens_eos.shape[-1]
         loss = self.hparams.compute_cost(
             predictions, tokens_eos, length=rel_length
         )
@@ -175,10 +175,10 @@ def data_io_prepare(hparams, run_opts):
         sampler=train_sampler,
     )
     valid_data = sb.data_io.dataloader.SaveableDataLoader(
-        datasets["train"], batch_size=hparams["batch_size"], shuffle=False
+        datasets["train"], batch_size=hparams["batch_size"], shuffle=False,
     )
     test_data = sb.data_io.dataloader.SaveableDataLoader(
-        datasets["train"], batch_size=hparams["batch_size"], shuffle=False
+        datasets["train"], batch_size=hparams["batch_size"], shuffle=False,
     )
 
     return train_data, valid_data, test_data

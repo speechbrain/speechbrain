@@ -14,9 +14,9 @@ tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 64
+batch_size: 80
 lr: 0.001
-accu_steps: 16 # Gradient accumulation to simulate large batch training
+accu_steps: 1 # Gradient accumulation to simulate large batch training
 
 # Model parameters
 emb_size: 128
