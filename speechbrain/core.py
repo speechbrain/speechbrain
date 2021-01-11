@@ -37,7 +37,7 @@ DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
-MID_EPOCH_CKPT_FLAG = "brain_mid_epoch_ckpt"
+INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 
 
 def create_experiment_directory(
@@ -1085,8 +1085,8 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         ckpt_interval_minutes : float, None
-            Time in minutes between mid-epoch checkpoints. Set to None to
-            not save mid-epoch checkpoints.
+            Time in minutes between intra-epoch checkpoints. Set to None to
+            not save intra-epoch checkpoints.
         """
 
         # Sampler should be handled by `make_dataloader`
@@ -1119,7 +1119,7 @@ class Brain:
             if self.train_sampler is not None:
                 self.train_sampler.set_epoch(epoch)
 
-            # Time since last mid-epoch checkpoint
+            # Time since last intra-epoch checkpoint
             last_ckpt_time = time.time()
 
             # Only show progressbar if requested and main_process
@@ -1140,7 +1140,7 @@ class Brain:
                         and time.time() - last_ckpt_time
                         >= ckpt_interval_minutes * 60.0
                     ):
-                        self._save_mid_epoch_ckpt()
+                        self._save_intra_epoch_ckpt()
                         last_ckpt_time = time.time()
 
             # Run train "on_stage_end" on all processes
@@ -1178,16 +1178,16 @@ class Brain:
             if self.debug and epoch == self.debug_epochs:
                 break
 
-    def _save_mid_epoch_ckpt(self):
-        """Saves a CKPT with specific mid-epoch flag"""
-        # Only save mid-epoch checkpoint on main process:
+    def _save_intra_epoch_ckpt(self):
+        """Saves a CKPT with specific intra-epoch flag"""
+        # Only save intra-epoch checkpoint on main process:
         try:
             if sb.if_main_process():
                 self.checkpointer.save_and_keep_only(
                     end_of_epoch=False,
                     num_to_keep=1,
-                    ckpt_predicate=lambda c: MID_EPOCH_CKPT_FLAG in c.meta,
-                    meta={MID_EPOCH_CKPT_FLAG: True},
+                    ckpt_predicate=lambda c: INTRA_EPOCH_CKPT_FLAG in c.meta,
+                    meta={INTRA_EPOCH_CKPT_FLAG: True},
                 )
         finally:
             sb.ddp_barrier()
