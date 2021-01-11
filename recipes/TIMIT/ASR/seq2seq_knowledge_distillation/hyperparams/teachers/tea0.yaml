@@ -16,7 +16,7 @@ csv_test: !ref <data_folder>/test.csv
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
-lr: 0.001
+lr: 0.0003
 ctc_weight: 0.2
 
 # For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
