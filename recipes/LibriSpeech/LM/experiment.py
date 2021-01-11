@@ -4,6 +4,8 @@ import sys
 import torch
 import logging
 import glob
+import sentencepiece as spm
+
 from datasets import load_dataset
 
 import speechbrain as sb
@@ -28,7 +30,7 @@ class LM(sb.core.Brain):
         tokens_len = batch["tokens_len"].to(self.device)
 
         # convert to speechbrain-style relative length
-        rel_length = (tokens_len + 1) / tokens_eos.shape[1]
+        rel_length = tokens_len / tokens_len.max()
         loss = self.hparams.compute_cost(
             predictions, tokens_eos, length=rel_length
         )
@@ -67,32 +69,23 @@ class LM(sb.core.Brain):
             )
 
 
-def data_io_prepare(hparams):
+def data_io_prepare(hparams, run_opts):
     """Loads the sentence piece tokenizer specified in the yaml file"""
     save_model_path = os.path.join(
         hparams["save_folder"],
         "{}_unigram.model".format(hparams["output_neurons"]),
     )
-    save_vocab_path = os.path.join(
-        hparams["save_folder"],
-        "{}_unigram.vocab".format(hparams["output_neurons"]),
-    )
 
-    if "tok_mdl_file" in hparams:
+    if "tokenizer_file" in hparams:
         download_file(
-            source=hparams["tok_mdl_file"],
+            source=hparams["tokenizer_file"],
             dest=save_model_path,
             replace_existing=True,
         )
 
-    if "tok_voc_file" in hparams:
-        download_file(
-            source=hparams["tok_voc_file"],
-            dest=save_vocab_path,
-            replace_existing=True,
-        )
-
-    tokenizer = hparams["tokenizer"]()
+    # Defining tokenizer and loading it
+    tokenizer = spm.SentencePieceProcessor()
+    tokenizer.load(save_model_path)
 
     """grap all the .txt files for transcripts"""
     logging.info("generating datasets...")
@@ -160,12 +153,26 @@ def data_io_prepare(hparams):
             )
         )
         datasets = datasets.load_from_disk(hparams["dataset_cache_path"])
-        datasets.set_format(
-            type="torch", columns=["tokens_bos", "tokens_eos", "tokens_len"]
+
+    datasets.set_format(
+        type="torch", columns=["tokens_bos", "tokens_eos", "tokens_len"]
+    )
+
+    if run_opts["distributed_launch"]:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(
+            datasets["train"],
+            num_replicas=torch.distributed.get_world_size(),
+            rank=run_opts["local_rank"],
+            shuffle=False,
         )
+    else:
+        train_sampler = None
 
     train_data = sb.data_io.dataloader.SaveableDataLoader(
-        datasets["train"], batch_size=hparams["batch_size"], shuffle=False
+        datasets["train"],
+        batch_size=hparams["batch_size"],
+        shuffle=False,
+        sampler=train_sampler,
     )
     valid_data = sb.data_io.dataloader.SaveableDataLoader(
         datasets["train"], batch_size=hparams["batch_size"], shuffle=False
@@ -173,12 +180,6 @@ def data_io_prepare(hparams):
     test_data = sb.data_io.dataloader.SaveableDataLoader(
         datasets["train"], batch_size=hparams["batch_size"], shuffle=False
     )
-
-    from tqdm import tqdm
-
-    pbar = tqdm(train_data)
-    for i, batch in enumerate(pbar):
-        pass
 
     return train_data, valid_data, test_data
 
@@ -200,8 +201,8 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data = data_io_prepare(hparams)
+    # here we create the dataloader objects as well as tokenization and encoding
+    train_data, valid_data, test_data = data_io_prepare(hparams, run_opts)
 
     lm_brain = LM(
         modules=hparams["modules"],
