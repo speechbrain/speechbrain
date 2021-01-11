@@ -1,6 +1,6 @@
 # ################################
-# Model: SepFormer for source separation
-# https://arxiv.org/abs/2010.13154
+# Model: DualPath RNN for source separation
+# https://arxiv.org/abs/1910.06379
 #
 # Dataset : WSJ0-mix
 # ################################
@@ -11,29 +11,26 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
-data_folder: '/network/tmp1/subakany/wsj0-mix/2speakers' # wsj2mix or wsj3mix
-experiment_name: 1-dprnn
-output_folder: !ref results/<experiment_name>/<seed>
+data_folder: !PLACEHOLDER # e.g. '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
+output_folder: !ref results/dprnn/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-tr_csv: !ref <data_folder>/wsj_tr.csv
-cv_csv: !ref <data_folder>/wsj_cv.csv
-tt_csv: !ref <data_folder>/wsj_tt.csv
+train_data: !ref <save_folder>/wsj_tr.csv
+valid_data: !ref <save_folder>/wsj_cv.csv
+test_data: !ref <save_folder>/wsj_tt.csv
+
 
 # Experiment params
 auto_mix_prec: True
-device: 'cuda:0'
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
-sentence_sorting: random
 progressbar: True
-save_audio: True # Save estimated sources on disk
-audio_to_save: 10 # Saves only N audio files
+save_audio: False # Save estimated sources on disk
 sample_rate: 8000
 
 # Training parameters
 N_epochs: 200
-N_batch: 1
+batch_size: 1
 lr: 0.00015
 clip_grad_norm: 5
 loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
@@ -46,7 +43,7 @@ training_signal_len: 32000
 
 # Augment parameters
 use_wavedrop: False
-use_speedperturb: False
+use_speedperturb: True
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
@@ -57,31 +54,10 @@ out_channels: 256
 kernel_size: 16
 kernel_stride: 8
 
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:prepare_data.prepare_wsjmix
-        datapath: !ref <data_folder>
-        savepath: !ref <data_folder>
-        n_spks: !ref <num_spks>
-
-# Dataloaders
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <tr_csv>
-    batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
-    csv_read: [mix_wav, s1_wav, s2_wav] # add s3_wav for wsj3mix
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <cv_csv>
-    batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
-    csv_read: [mix_wav, s1_wav, s2_wav] # add s3_wav for wsj3mix
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <tt_csv>
-    batch_size: 1 # must be 1 for a correct eval
-    sentence_sorting: !ref <sentence_sorting>
-    csv_read: [mix_wav, s1_wav, s2_wav] # add s3_wav for wsj3mix
+# Dataloader options
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: 3
 
 speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     perturb_prob: 1.0

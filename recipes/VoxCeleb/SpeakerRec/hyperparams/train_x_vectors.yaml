@@ -22,7 +22,7 @@ lr: 0.001
 lr_final: 0.0001
 sample_rate: 16000
 sentence_len: 3.0 # seconds
-train_shuffle: True
+shuffle: True
 random_chunk: False
 
 # Feature parameters
@@ -36,7 +36,7 @@ out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
 dataloader_options:
     batch_size: !ref <batch_size>
-    train_shuffle: !ref <train_shuffle>
+    shuffle: !ref <shuffle>
     num_workers: 2
 
 # Data augmentation

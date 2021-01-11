@@ -8,7 +8,7 @@
 # Authors:  Jianyuan Zhong
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 11234
+seed: 1
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
