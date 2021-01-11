@@ -777,7 +777,10 @@ class Brain:
             # DistributedSampler obj.
             if sampler is not None:
                 self.train_sampler = DistributedSamplerWrapper(
-                    sampler, rank=self.rank, drop_last=drop_last
+                    sampler,
+                    rank=self.rank,
+                    shuffle=shuffle,
+                    drop_last=drop_last,
                 )
             elif loader_kwargs.get("batch_sampler") is None:
                 # Currently to get here, shuffle == False, so not passing it.
