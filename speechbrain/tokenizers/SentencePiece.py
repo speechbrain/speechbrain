@@ -158,11 +158,11 @@ class SentencePiece:
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
         try:
-            if sb.if_main_process():
+            if sb.utils.distributed.if_main_process():
                 if csv_list_to_check is not None:
                     self._check_coverage_from_bpe(csv_list_to_check)
         finally:
-            sb.ddp_barrier()
+            sb.utils.distributed.ddp_barrier()
 
     def _csv2text(self):
         """
