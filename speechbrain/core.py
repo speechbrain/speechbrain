@@ -1052,7 +1052,7 @@ class Brain:
             self.nonfinite_count = 0
 
             if self.train_sampler is not None and hasattr(
-                "set_epoch", self.train_sampler
+                self.train_sampler, "set_epoch"
             ):
                 self.train_sampler.set_epoch(epoch)
 
