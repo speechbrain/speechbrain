@@ -784,7 +784,10 @@ class Brain:
                 # Otherwise we'd have to handle deleting it (but it is already
                 # deleted).
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, drop_last=drop_last
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle,
+                    drop_last=drop_last,
                 )
             else:  # batch_sampler was specified
                 # TODO: Could a DistributedSamplerWrapper actually work
