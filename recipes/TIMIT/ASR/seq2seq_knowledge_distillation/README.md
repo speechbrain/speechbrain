@@ -5,6 +5,7 @@ the error rate metric to the teacher selection rather than solely focusing on th
 This way, we directly distillate and optimize the student toward the relevant metric for speech recognition.
 For details please refer to: https://arxiv.org/abs/2005.09310
 
+
 ### Training steps
 To speed up student distillation from multiple teachers, we separate the whole procedure into
 three parts: teacher model training, inference running on teacher models, student distillation.
