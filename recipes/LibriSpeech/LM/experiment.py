@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import torch
 import logging
 import glob
 import sentencepiece as spm
@@ -19,22 +18,19 @@ logger = logging.getLogger(__name__)
 class LM(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the sentence batches to the output probabilities."""
-        tokens_bos = batch["tokens_bos"].to(self.device)
+        batch = batch.to(self.device)
+        tokens_bos, _ = batch.tokens_bos
         logits = self.hparams.model(tokens_bos)
         pred = self.hparams.log_softmax(logits)
         return pred
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        tokens_eos = batch["tokens_eos"].to(self.device)
-        tokens_len = batch["tokens_len"].to(self.device)
-
-        # convert to speechbrain-style relative length
-        rel_length = tokens_len / tokens_eos.shape[-1]
+        batch = batch.to(self.device)
+        tokens_eos, tokens_len = batch.tokens_eos
         loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=rel_length
+            predictions, tokens_eos, length=tokens_len
         )
-
         return loss
 
     def fit_batch(self, batch):
@@ -51,14 +47,33 @@ class LM(sb.core.Brain):
             self.optimizer.step()
             self.optimizer.zero_grad()
 
+            if isinstance(
+                self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
+            ) or isinstance(
+                self.hparams.lr_annealing,
+                sb.nnet.schedulers.CyclicCosineScheduler,
+            ):
+                self.hparams.lr_annealing(self.optimizer)
+
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            if not (
+                isinstance(
+                    self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
+                )
+                or isinstance(
+                    self.hparams.lr_annealing,
+                    sb.nnet.schedulers.CyclicCosineScheduler,
+                )
+            ):
+                old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
+                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            else:
+                old_lr = self.hparams.lr_annealing.current_lr
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -119,26 +134,12 @@ def data_io_prepare(hparams, run_opts):
 
         def encode(data):  # encode the data using the pretrained dataset
             text = data["text"]
-            tokens_list = [tokenizer.sp.encode_as_ids(t) for t in text]
-            tokens_bos = [
-                torch.tensor([hparams["bos_index"]] + (tl))
-                for tl in tokens_list
-            ]
-            tokens_eos = [
-                torch.tensor(tl + [hparams["eos_index"]]) for tl in tokens_list
-            ]
-            token_len = [torch.tensor([len(t_eos)]) for t_eos in tokens_eos]
-            tokens_bos = torch.nn.utils.rnn.pad_sequence(
-                tokens_bos, batch_first=True
-            )
-            tokens_eos = torch.nn.utils.rnn.pad_sequence(
-                tokens_eos, batch_first=True
-            )
-            tokens_len = torch.cat(token_len, dim=0)
+            tokens_list = [tokenizer.encode_as_ids(t) for t in text]
+            tokens_bos = [[hparams["bos_index"]] + (tl) for tl in tokens_list]
+            tokens_eos = [tl + [hparams["eos_index"]] for tl in tokens_list]
             return {
-                "tokens_bos": tokens_bos.tolist(),
-                "tokens_eos": tokens_eos.tolist(),
-                "tokens_len": tokens_len.tolist(),
+                "tokens_bos": tokens_bos,
+                "tokens_eos": tokens_eos,
             }
 
         datasets = datasets.map(
@@ -154,31 +155,12 @@ def data_io_prepare(hparams, run_opts):
         )
         datasets = datasets.load_from_disk(hparams["dataset_cache_path"])
 
-    datasets.set_format(
-        type="torch", columns=["tokens_bos", "tokens_eos", "tokens_len"]
-    )
+    datasets.set_format(type="torch", columns=["tokens_bos", "tokens_eos"])
 
-    if run_opts["distributed_launch"]:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            datasets["train"],
-            num_replicas=torch.distributed.get_world_size(),
-            rank=run_opts["local_rank"],
-            shuffle=False,
-        )
-    else:
-        train_sampler = None
-
-    train_data = sb.data_io.dataloader.SaveableDataLoader(
+    train_data, valid_data, test_data = (
         datasets["train"],
-        batch_size=hparams["batch_size"],
-        shuffle=False,
-        sampler=train_sampler,
-    )
-    valid_data = sb.data_io.dataloader.SaveableDataLoader(
-        datasets["train"], batch_size=hparams["batch_size"], shuffle=False,
-    )
-    test_data = sb.data_io.dataloader.SaveableDataLoader(
-        datasets["train"], batch_size=hparams["batch_size"], shuffle=False,
+        datasets["dev"],
+        datasets["test"],
     )
 
     return train_data, valid_data, test_data
@@ -213,8 +195,16 @@ if __name__ == "__main__":
     )
 
     lm_brain.fit(
-        lm_brain.hparams.epoch_counter, train_data, valid_data,
+        lm_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # evaluation
-    test_stats = lm_brain.evaluate(test_data, min_key="loss",)
+    test_stats = lm_brain.evaluate(
+        test_data,
+        min_key="loss",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+    )
