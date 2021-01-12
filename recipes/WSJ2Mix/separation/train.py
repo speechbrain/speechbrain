@@ -504,7 +504,13 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects
-    train_data, valid_data, test_data = data_io_prep(hparams)
+    if hparams["dynamic_mixing"]:
+        from dynamic_mixing import dynamic_mix_data_prep  # noqa
+
+        train_data = dynamic_mix_data_prep(hparams)
+        _, valid_data, test_data = data_io_prep(hparams)
+    else:
+        train_data, valid_data, test_data = data_io_prep(hparams)
 
     # Brain class initialization
     separator = Separation(
