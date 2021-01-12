@@ -1043,11 +1043,11 @@ class Brain:
                             break
 
                     # Only run validation "on_stage_end" on main process
+                    self.step = 0
                     run_on_main(
                         self.on_stage_end,
                         args=[Stage.VALID, avg_valid_loss, epoch],
                     )
-                self.step = 0
 
             # Debug mode only runs a few epochs
             if self.debug and epoch == self.debug_epochs:
