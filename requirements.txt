@@ -1,5 +1,6 @@
 -r lint-requirements.txt
 cmake>=3.18.0
+datasets>=1.2.0
 joblib>=0.14.1
 numpy>=1.17.0
 pre-commit>=2.3.0
