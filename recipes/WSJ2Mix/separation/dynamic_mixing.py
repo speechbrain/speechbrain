@@ -86,8 +86,12 @@ def dynamic_mix_data_prep(hparams):
 
         # padding left
         sources, _ = batch_pad_right(sources)
+        mixture = torch.sum(sources, 0)
+        if torch.max(torch.abs(mixture)) > 0.9:
+            sources = sources * 0.9
+            mixture = torch.sum(sources, 0)
 
-        yield torch.sum(sources, 0)
+        yield mixture
         for i in range(hparams["num_spks"]):
             yield sources[i]
 
