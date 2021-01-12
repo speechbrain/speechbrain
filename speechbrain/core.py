@@ -16,6 +16,7 @@ import pathlib
 import argparse
 import tempfile
 import subprocess
+import datasets
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -781,13 +782,17 @@ class Brain:
                     rank=self.rank,
                     drop_last=drop_last,
                     num_replicas=torch.distributed.get_world_size(),
+                    shuffle=shuffle,
                 )
             elif loader_kwargs.get("batch_sampler") is None:
                 # Currently to get here, shuffle == False, so not passing it.
                 # Otherwise we'd have to handle deleting it (but it is already
                 # deleted).
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, drop_last=drop_last
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle,
+                    drop_last=drop_last,
                 )
             else:  # batch_sampler was specified
                 # TODO: Could a DistributedSamplerWrapper actually work
@@ -1029,11 +1034,15 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
-        if isinstance(train_set, Dataset):
+        if isinstance(train_set, Dataset) or isinstance(
+            train_set, datasets.arrow_dataset.Dataset
+        ):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
-        if isinstance(valid_set, Dataset):
+        if isinstance(valid_set, Dataset) or isinstance(
+            train_set, datasets.arrow_dataset.Dataset
+        ):
             valid_set = self.make_dataloader(
                 valid_set, stage=sb.Stage.VALID, **valid_loader_kwargs
             )
@@ -1181,7 +1190,9 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        if isinstance(test_set, Dataset):
+        if isinstance(test_set, Dataset) or isinstance(
+            test_set, datasets.arrow_dataset.Dataset
+        ):
             test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
                 test_set, Stage.TEST, **test_loader_kwargs
