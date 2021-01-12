@@ -34,6 +34,7 @@ class ASR_Brain(sb.Brain):
                 wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
+                batch.sig = wavs, wav_lens
                 phns = torch.cat([phns, phns], dim=0)
                 phn_lens = torch.cat([phn_lens, phn_lens])
                 batch.phn_encoded = phns, phn_lens
