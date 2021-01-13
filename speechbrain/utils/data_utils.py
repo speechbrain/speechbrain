@@ -274,7 +274,7 @@ def download_file(
         If True, replaces the existing files.
     """
     try:
-        if sb.if_main_process():
+        if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
                 def update_to(self, b=1, bsize=1, tsize=None):
@@ -311,7 +311,7 @@ def download_file(
                 print(f"Extracting {dest} to {dest_unpack}")
                 shutil.unpack_archive(dest, dest_unpack)
     finally:
-        sb.ddp_barrier()
+        sb.utils.distributed.ddp_barrier()
 
 
 class FuncPipeline:
