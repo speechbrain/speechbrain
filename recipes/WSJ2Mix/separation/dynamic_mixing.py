@@ -4,6 +4,8 @@ import torchaudio
 from pathlib import Path
 import torch
 from speechbrain.utils.data_utils import batch_pad_right
+import random
+from speechbrain.processing.signal_processing import rescale
 
 
 def build_spk_hashtable(train_data):
@@ -61,7 +63,7 @@ def dynamic_mix_data_prep(hparams):
         )
         # select two speakers randomly
         sources = []
-        for spk in speakers:
+        for i, spk in enumerate(speakers):
             c_file = np.random.choice(spk_hashtable[spk])
             # select random offset
             length = torchaudio.info(c_file).num_frames
@@ -77,6 +79,12 @@ def dynamic_mix_data_prep(hparams):
                 c_file, frame_offset=start, num_frames=stop - start
             )
             tmp = tmp[0]  # remove channel dim and normalize
+            if i == 0:
+                lvl = np.clip(random.normalvariate(-16.7, 7), -45, 0)
+                tmp = rescale(tmp, torch.tensor([len(tmp)]), lvl, scale="dB")
+            else:
+                lvl = np.clip(random.normalvariate(2.52, 4), -45, 0)
+                tmp = rescale(tmp, torch.tensor([len(tmp)]), lvl, scale="dB")
             sources.append(tmp)
 
         # we mix the sources together
@@ -87,8 +95,9 @@ def dynamic_mix_data_prep(hparams):
         # padding left
         sources, _ = batch_pad_right(sources)
         mixture = torch.sum(sources, 0)
-        if torch.max(torch.abs(mixture)) > 0.9:
-            sources = sources * 0.9
+        peak = torch.max(torch.abs(mixture))
+        if peak > 0.9:
+            sources = sources * (0.9 / peak)
             mixture = torch.sum(sources, 0)
 
         yield mixture
