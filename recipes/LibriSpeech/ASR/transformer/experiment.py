@@ -340,7 +340,7 @@ if __name__ == "__main__":
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # 1.  # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
