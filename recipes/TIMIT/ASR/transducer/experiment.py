@@ -231,7 +231,7 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
