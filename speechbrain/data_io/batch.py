@@ -5,9 +5,9 @@ Authors
 """
 import collections
 import torch
-import speechbrain.utils.data_utils
 from speechbrain.utils.data_utils import mod_default_collate
 from speechbrain.utils.data_utils import recursive_to
+from speechbrain.utils.data_utils import batch_pad_right
 from torch.utils.data._utils.collate import default_convert
 from torch.utils.data._utils.pin_memory import (
     pin_memory as recursive_pin_memory,
@@ -103,7 +103,7 @@ class PaddedBatch:
         examples,
         padded_keys=None,
         device_prep_keys=None,
-        padding_func=speechbrain.utils.data_utils.batch_pad_right,
+        padding_func=batch_pad_right,
         padding_kwargs={},
         apply_default_convert=True,
         nonpadded_stack=True,
