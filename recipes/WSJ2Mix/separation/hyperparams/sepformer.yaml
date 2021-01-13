@@ -38,19 +38,18 @@ limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
 training_signal_len: 32000
-dynamic_mixing: True
+dynamic_mixing: False # Set it to True to dynamically create mixture at training time
 
 # Parameters for data augmentation
 use_wavedrop: False
-use_speedperturb: False
+use_speedperturb: True
 use_speedperturb_sameforeachsource: False
-
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
 
 # loss thresholding
-threshold_byloss: True
+threshold_byloss: False
 threshold: -30
 
 # Neural parameters
