@@ -162,7 +162,7 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
