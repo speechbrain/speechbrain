@@ -96,8 +96,8 @@ def dynamic_mix_data_prep(hparams):
         sources, _ = batch_pad_right(sources)
         mixture = torch.sum(sources, 0)
         peak = torch.max(torch.abs(mixture))
-        if peak > 0.9:
-            sources = sources * (0.9 / peak)
+        if peak > 1:
+            sources = sources / peak
             mixture = torch.sum(sources, 0)
 
         yield mixture
