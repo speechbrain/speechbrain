@@ -962,7 +962,10 @@ class Brain:
             )
         if isinstance(valid_set, Dataset):
             valid_set = self.make_dataloader(
-                valid_set, stage=sb.Stage.VALID, **valid_loader_kwargs
+                valid_set,
+                stage=sb.Stage.VALID,
+                ckpt_prefix=None,
+                **valid_loader_kwargs,
             )
 
         self.on_fit_start()
@@ -1023,7 +1026,6 @@ class Brain:
             self.step = 0
 
             # Validation stage
-            avg_valid_loss = None
             if valid_set is not None:
                 self.on_stage_start(Stage.VALID, epoch)
                 self.modules.eval()
