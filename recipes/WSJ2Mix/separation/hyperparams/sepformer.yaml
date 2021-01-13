@@ -11,7 +11,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
-data_folder: /media/sam/HitachiX360/wsj0-mix/2speakers/ # e.g. '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
+data_folder: !PLACEHOLDER # e.g. '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
 output_folder: !ref results/sepformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -20,7 +20,7 @@ valid_data: !ref <save_folder>/wsj_cv.csv
 test_data: !ref <save_folder>/wsj_tt.csv
 
 # Experiment params
-auto_mix_prec: True
+auto_mix_prec: False # Set it to True for dynamic mixture creation
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True
@@ -50,8 +50,8 @@ max_shift: 8000
 # Neural parameters
 N_encoder_out: 256
 out_channels: 256
-kernel_size: 128
-kernel_stride: 64
+kernel_size: 16
+kernel_stride: 8
 
 # Dataloader options
 dataloader_opts:
@@ -78,7 +78,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 
 
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -87,7 +87,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -99,8 +99,8 @@ MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     num_spks: !ref <num_spks>
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
-    num_layers: 1
-    K: 100
+    num_layers: 2
+    K: 250
     intra_model: !ref <SBtfintra>
     inter_model: !ref <SBtfinter>
     norm: ln
