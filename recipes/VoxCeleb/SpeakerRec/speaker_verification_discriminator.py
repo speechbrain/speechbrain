@@ -24,8 +24,10 @@ Author
 import os
 import sys
 import torch
+import torchaudio
 import random
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 from tqdm.contrib import tqdm
 from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
@@ -34,9 +36,10 @@ from speechbrain.utils.data_utils import download_file
 # Trains (pre-trained) speaker embeddings + binary discriminator
 class VerificationBrain(sb.core.Brain):
     def fit_batch(self, batch):
-        inputs, _ = batch
-        out, target_discrim = self.compute_forward(inputs)
-        loss = self.compute_objectives(out, target_discrim)
+        out, target_discrim = self.compute_forward(batch)
+        loss = self.compute_objectives(
+            out, target_discrim, stage=sb.Stage.TRAIN
+        )
         loss.backward()
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -44,9 +47,8 @@ class VerificationBrain(sb.core.Brain):
 
         return loss.detach().cpu()
 
-    def evaluate_batch(self, batch, stage="test"):
-        inputs, target_class = batch
-        out, target_discrim = self.compute_forward(inputs, stage=stage)
+    def evaluate_batch(self, batch, stage):
+        out, target_discrim = self.compute_forward(batch)
         loss = self.compute_objectives(out, target_discrim, stage=stage)
         return loss.detach().cpu()
 
@@ -188,29 +190,30 @@ class VerificationBrain(sb.core.Brain):
 
         self.modules.eval()
         with torch.no_grad():
-            for (batch,) in tqdm(data_loader, dynamic_ncols=True):
-                seg_ids, wavs, lens = batch
+            for batch in tqdm(data_loader, dynamic_ncols=True):
+                seg_ids = batch.id
+                wavs, lens = batch.sig
                 wavs, lens = (
-                    wavs.to(self.hparams.device),
-                    lens.to(self.hparams.device),
+                    wavs.to(self.device),
+                    lens.to(self.device),
                 )
                 emb = self.compute_embeddings(wavs, lens)
                 for i, seg_id in enumerate(seg_ids):
                     embedding_dict[seg_id] = emb[i].detach().clone()
+
         return embedding_dict
 
-    def compute_forward(self, x, stage="train"):
+    def compute_forward(self, batch):
         """Computes the output of the speaker verification system composed of
         a (pre-trained) speaker embedding newtwork followed by a binary
         discriminator.
         """
-        seg_ids, wav_anchor, lens = x
+        seg_ids = batch.id
+        wav_anchor, lens = batch.sig
+        wav_anchor = wav_anchor.to(self.device)
+        lens = lens.to(self.device)
 
         # Get positive and negative samples
-        wav_anchor, lens = (
-            wav_anchor.to(self.hparams.device),
-            lens.to(self.hparams.device),
-        )
         wav_pos = self.get_positive_sample(wav_anchor, seg_ids)
         wav_neg = self.get_negative_sample(wav_anchor)
         wavs = torch.cat([wav_anchor, wav_pos, wav_neg])
@@ -226,7 +229,7 @@ class VerificationBrain(sb.core.Brain):
 
         return outputs, target_discrim
 
-    def compute_objectives(self, outputs, target_discrim, stage="train"):
+    def compute_objectives(self, outputs, target_discrim, stage):
         """Computes the Binary Cross-Entropy Loss (BPE) using targets derived
         from positive and negative samples.
         """
@@ -238,7 +241,7 @@ class VerificationBrain(sb.core.Brain):
         )
 
         stats = {}
-        if stage != "train":
+        if stage != sb.Stage.TRAIN:
             stats["loss"] = loss
 
         return loss
@@ -275,8 +278,8 @@ class VerificationBrain(sb.core.Brain):
         """
         # Computing  enrollment and test embeddings
         print("Computing enroll/test embeddings...")
-        self.enrol_dict = self.compute_embeddings_loop(enrol_set)
-        self.test_dict = self.compute_embeddings_loop(test_set)
+        self.enrol_dict = self.compute_embeddings_loop(enrol_dataloader)
+        self.test_dict = self.compute_embeddings_loop(test_dataloader)
 
         print("Computing EER..")
         # Reading standard verification split
@@ -357,6 +360,76 @@ class VerificationBrain(sb.core.Brain):
         )
 
 
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_folder = hparams["data_folder"]
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    enrol_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["enrol_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    datasets = [train_data, valid_data, enrol_data, test_data]
+    snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, start, stop, duration):
+        if hparams["random_chunk"]:
+            duration_sample = int(duration * hparams["sample_rate"])
+            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            stop = start + snt_len_sample
+        else:
+            start = int(start)
+            stop = int(stop)
+        num_frames = stop - start
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
+        sig = sig.transpose(0, 1).squeeze(1)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Set output:
+    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig"])
+
+    # 4 Create dataloaders
+    train_dataloader = sb.data_io.dataloader.make_dataloader(
+        train_data, **hparams["train_dataloader_opts"]
+    )
+    valid_dataloader = sb.data_io.dataloader.make_dataloader(
+        valid_data, **hparams["valid_dataloader_opts"]
+    )
+
+    enrol_dataloader = sb.data_io.dataloader.make_dataloader(
+        enrol_data, **hparams["enrol_dataloader_opts"]
+    )
+    test_dataloader = sb.data_io.dataloader.make_dataloader(
+        test_data, **hparams["test_dataloader_opts"]
+    )
+
+    return train_dataloader, valid_dataloader, enrol_dataloader, test_dataloader
+
+
 if __name__ == "__main__":
 
     # This flag enable the inbuilt cudnn auto-tuner
@@ -374,13 +447,29 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Data loaders
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    enrol_set = hparams["enrol_loader"]()
-    enrol_set = enrol_set.get_dataloader()
-    test_set = hparams["test_loader"]()
-    test_set = test_set.get_dataloader()
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # Dataset prep (parsing VoxCeleb and annotation into csv files)
+    from voxceleb_prepare import prepare_voxceleb  # noqa
+
+    run_on_main(
+        prepare_voxceleb,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+            "splits": ["train", "dev", "test"],
+            "split_ratio": [90, 10],
+            "seg_dur": int(hparams["sentence_len"]) * 100,
+        },
+    )
+
+    (
+        train_dataloader,
+        valid_dataloader,
+        enrol_dataloader,
+        test_dataloader,
+    ) = data_io_prep(hparams)
 
     # Dictionary to store the last waveform read for each speaker
     wav_stored = {}
@@ -400,7 +489,9 @@ if __name__ == "__main__":
 
     # Train the speaker verification model
     verifier.fit(
-        hparams["epoch_counter"], train_set=train_set, valid_set=valid_set,
+        hparams["epoch_counter"],
+        train_set=train_dataloader,
+        valid_set=valid_dataloader,
     )
 
     print("Speaker verification model training completed!")

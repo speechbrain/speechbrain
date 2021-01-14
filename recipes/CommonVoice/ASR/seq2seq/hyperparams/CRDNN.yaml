@@ -21,26 +21,33 @@ dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: True
 language: it # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
-train_csv: !ref <save_folder>/train.csv
-valid_csv: !ref <save_folder>/dev.csv
-test_csv: !ref <save_folder>/test.csv
+train_csv: !ref <data_folder>/train.csv
+valid_csv: !ref <data_folder>/dev.csv
+test_csv: !ref <data_folder>/test.csv
 
 # We remove utterance slonger than 8s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 8.0
 
 # Training parameters
-number_of_epochs: 35
-number_of_ctc_epochs: 30
+number_of_epochs: 50
+number_of_ctc_epochs: 40
 lr: 1.0
 ctc_weight: 0.3
-sorting: descending
+sorting: ascending
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-batch_size: 6
+# Must be 6 per GPU to fit 16GB of VRAM
+batch_size: 12
+test_batch_size: 8
+
 dataloader_options:
     batch_size: !ref <batch_size>
+    num_workers: 6
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: 6
 
 # BPE parameters
 token_type: unigram  # ["unigram", "bpe", "char"]

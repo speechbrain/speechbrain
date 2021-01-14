@@ -158,7 +158,7 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Data preparation
     from voicebank_prepare import prepare_voicebank  # noqa

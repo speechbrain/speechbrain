@@ -469,6 +469,7 @@ class ReduceLROnPlateau:
         self.patience_counter = 0
         self.losses = []
         self.dont_halve_until_epoch = dont_halve_until_epoch
+        self.anchor = 99999
 
     def __call__(self, optim_list, current_epoch, current_loss):
         """

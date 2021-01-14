@@ -69,10 +69,7 @@ class ASR(sb.core.Brain):
             else:
                 return p_seq, wav_lens
         else:
-            if stage == sb.Stage.VALID:
-                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
-            else:
-                p_tokens, scores = self.hparams.test_search(x, wav_lens)
+            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -217,19 +214,13 @@ def data_io_prepare(hparams):
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
-    valid_data = valid_data.filtered_sorted(
-        sort_key="duration",
-        key_max_value={"duration": hparams["avoid_if_longer_than"]},
-    )
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
-    test_data = valid_data.filtered_sorted(
-        sort_key="duration",
-        key_max_value={"duration": hparams["avoid_if_longer_than"]},
-    )
+    test_data = valid_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
 
@@ -289,7 +280,7 @@ if __name__ == "__main__":
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Dataset preparation (parsing CommonVoice)
     from common_voice_prepare import prepare_common_voice  # noqa
@@ -336,7 +327,7 @@ if __name__ == "__main__":
         train_data,
         valid_data,
         train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
     # Test
@@ -344,5 +335,5 @@ if __name__ == "__main__":
     asr_brain.evaluate(
         test_set,
         min_key="WER",
-        test_loader_kwargs=hparams["dataloader_options"],
+        test_loader_kwargs=hparams["test_dataloader_options"],
     )

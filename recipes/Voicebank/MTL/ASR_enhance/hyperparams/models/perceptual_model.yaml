@@ -1,0 +1,60 @@
+# Perceptual model hyperparameters
+# Author: Peter Plantinga 2020
+
+# Src embedding parameters
+src_dropout: 0.1
+cnn_blocks: 2
+cnn_channels: (100, 200)
+cnn_kernelsize: (3, 3)
+rnn_layers: 4
+rnn_neurons: 512
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 512
+
+# Recognizer params
+dec_neurons: 256
+dec_rnn_type: gru
+dec_attn_type: location
+dec_attn_dim: 256
+emb_size: 128
+
+# Outputs
+output_neurons: !PLACEHOLDER
+
+src_embedding: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_fft> // 2 + 1]
+    activation: !name:torch.nn.LeakyReLU
+    dropout: !ref <src_dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: False
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+tgt_embedding: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+
+recognizer: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    rnn_type: !ref <dec_rnn_type>
+    attn_type: !ref <dec_attn_type>
+    enc_dim: !ref <dnn_neurons>
+    input_size: !ref <emb_size>
+    hidden_size: !ref <dec_neurons>
+    attn_dim: !ref <dec_attn_dim>
+    channels: 20
+    kernel_size: 20
+    num_layers: 1
+
+ctc_output: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
+
+seq_output: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>
