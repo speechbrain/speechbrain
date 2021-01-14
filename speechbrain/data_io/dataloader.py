@@ -39,7 +39,6 @@ from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
-import datasets
 from speechbrain.data_io.batch import PaddedBatch
 from speechbrain.data_io.dataset import DynamicItemDataset
 from speechbrain.data_io.sampler import ReproducibleRandomSampler
@@ -78,10 +77,6 @@ def make_dataloader(dataset, **loader_kwargs):
     # PaddedBatch as default collation for DynamicItemDataset
     if "collate_fn" not in loader_kwargs and isinstance(
         dataset, DynamicItemDataset
-    ):
-        loader_kwargs["collate_fn"] = PaddedBatch
-    if "collate_fn" not in loader_kwargs and isinstance(
-        dataset, datasets.arrow_dataset.Dataset
     ):
         loader_kwargs["collate_fn"] = PaddedBatch
     # Reproducible random sampling

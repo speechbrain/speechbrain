@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 import glob
+import torch
 import sentencepiece as spm
 
 from datasets import load_dataset
@@ -84,7 +85,7 @@ class LM(sb.core.Brain):
             )
 
 
-def data_io_prepare(hparams, run_opts):
+def data_io_prepare(hparams):
     """Loads the sentence piece tokenizer specified in the yaml file"""
     save_model_path = os.path.join(
         hparams["save_folder"],
@@ -124,38 +125,6 @@ def data_io_prepare(hparams, run_opts):
             "test": test_transcripts,
         },
     )
-    if not os.path.exists(hparams["dataset_cache_path"]):
-        logging.info("Cannot find pre-made dataset")
-        logging.info(
-            "tokenizing and batching dataset to {}".format(
-                hparams["dataset_cache_path"]
-            )
-        )
-
-        def encode(data):  # encode the data using the pretrained dataset
-            text = data["text"]
-            tokens_list = [tokenizer.encode_as_ids(t) for t in text]
-            tokens_bos = [[hparams["bos_index"]] + (tl) for tl in tokens_list]
-            tokens_eos = [tl + [hparams["eos_index"]] for tl in tokens_list]
-            return {
-                "tokens_bos": tokens_bos,
-                "tokens_eos": tokens_eos,
-            }
-
-        datasets = datasets.map(
-            encode, batched=True, batch_size=hparams["batch_size"] * 20
-        )
-        datasets.save_to_disk(hparams["dataset_cache_path"])
-        logging.info("Complete!")
-    else:
-        logging.info(
-            "Found exiting pre-made dataset, load it from {}".format(
-                hparams["dataset_cache_path"]
-            )
-        )
-        datasets = datasets.load_from_disk(hparams["dataset_cache_path"])
-
-    datasets.set_format(type="torch", columns=["tokens_bos", "tokens_eos"])
 
     train_data, valid_data, test_data = (
         datasets["train"],
@@ -163,6 +132,37 @@ def data_io_prepare(hparams, run_opts):
         datasets["test"],
     )
 
+    # convert huggingface's dataset to DynamicItemDataset via a magical function
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+        train_data
+    )
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+        valid_data
+    )
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+        test_data
+    )
+
+    datasets = [train_data, valid_data, test_data]
+
+    # 3. Define text pipeline:
+    # TODO: implement text augmentations piplines
+    @sb.utils.data_pipeline.takes("text")
+    @sb.utils.data_pipeline.provides("text", "tokens_bos", "tokens_eos")
+    def text_pipeline(text):
+        yield text
+        tokens_list = tokenizer.encode_as_ids(text)
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield tokens_bos
+        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield tokens_eos
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "text", "tokens_bos", "tokens_eos"],
+    )
     return train_data, valid_data, test_data
 
 
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     )
 
     # here we create the dataloader objects as well as tokenization and encoding
-    train_data, valid_data, test_data = data_io_prepare(hparams, run_opts)
+    train_data, valid_data, test_data = data_io_prepare(hparams)
 
     lm_brain = LM(
         modules=hparams["modules"],

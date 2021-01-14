@@ -1,27 +1,27 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2223
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/RNN/<seed>
+output_folder: !ref results/Transformer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
-dataset_cache_path: !PLACEHOLDER
 
 # Tokenizer model
 tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 80
-lr: 0.001
-accu_steps: 1 # Gradient accumulation to simulate large batch training
+batch_size: 16
+lr: 10
+accu_steps: 8 # Gradient accumulation to simulate large batch training
 
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    pin_memory: True
 
 valid_dataloader_opts:
     batch_size: 1
@@ -30,7 +30,7 @@ test_dataloader_opts:
     batch_size: 1
 
 # Outputs
-output_neurons: 5000 # index(blank/eos/bos) = 0
+output_neurons: 5000
 blank_index: 0
 bos_index: 1
 eos_index: 2
@@ -53,7 +53,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: 12
-    num_encoder_layers: 16
+    num_encoder_layers: 12
     num_decoder_layers: 0
     d_ffn: 3072
     dropout: 0.0
@@ -74,13 +74,13 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 optimizer: !name:torch.optim.Adam
-    lr: !ref <lr>
+    lr: 0
     betas: (0.9, 0.98)
     eps: 0.000000001
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr>
-    n_warmup_steps: 2500000
+    n_warmup_steps: 250000
     model_size: !ref <d_model>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter

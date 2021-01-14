@@ -7,7 +7,6 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
-dataset_cache_path: !PLACEHOLDER
 
 # Tokenizer model
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
