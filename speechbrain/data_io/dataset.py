@@ -7,6 +7,7 @@ Authors
 
 import copy
 import contextlib
+from types import MethodType
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.data_io.data_io import load_data_json, load_data_csv
@@ -358,6 +359,19 @@ class DynamicItemDataset(Dataset):
         """Load a data prep CSV file and create a Dataset based on it."""
         data = load_data_csv(csv_path, replacements)
         return cls(data, dynamic_items, output_keys)
+
+    @classmethod
+    def from_arrow_dataset(
+        cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
+    ):
+        """loading a prepared huggingface dataset"""
+        # define an unbound method to generate puesdo keys
+        def keys(self):
+            return [i for i in range(dataset.__len__())]
+
+        # bind this method to arrow dataset
+        dataset.keys = MethodType(keys, dataset)
+        return cls(dataset, dynamic_items, output_keys)
 
 
 class FilteredSortedDynamicItemDataset(DynamicItemDataset):
