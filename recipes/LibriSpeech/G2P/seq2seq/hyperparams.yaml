@@ -8,73 +8,37 @@ data_folder: /localscratch/LibriSpeech
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-input_lexicon: !ref <data_folder>/lexicon.csv
-oov: !ref <data_folder>/oov.csv
-wer_file: !ref <output_folder>/wer.txt
+input_lexicon: !ref <save_folder>/lexicon.csv
+oov: !ref <save_folder>/oov.csv
+wer_file: !ref <save_folder>/wer.txt
 
 # These three files are created from lexicon.csv.
-csv_train: !ref <data_folder>/lexicon_tr.csv
-csv_valid: !ref <data_folder>/lexicon_dev.csv
-csv_test: !ref <data_folder>/lexicon_test.csv
-
+train_data: !ref <save_folder>/lexicon_tr.csv
+valid_data: !ref <save_folder>/lexicon_dev.csv
+test_data: !ref <save_folder>/lexicon_test.csv
+sorting: random #ascending
 
 # Neural Parameters
-N_epochs: 20
-N_batch: 1024
+N_epochs: 100
+batch_size: 1024
 lr: 0.002
 
 # Model parameters
 enc_dropout: 0.5
 enc_neurons: 512
 enc_num_layers: 4
-
 dec_dropout: 0.5
 dec_neurons: 512
 dec_att_neurons: 256
 dec_num_layers: 4
-
 embedding_dim: 512
 
 # Special Token infomation
-bos: 40
-eos: 40
+bos_index: 0
+eos_index: 0
 
-# Data preparation
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:librispeech_prepare.prepare_librispeech
-        data_folder: !ref <data_folder>
-        save_folder: !ref <data_folder>
-        create_lexicon: True
-
-# Data loaders
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    csv_read: [graphemes, phonemes]
-    batch_size: !ref <N_batch>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    drop_last: False # Set it to True with multigpu_backend: data_parallel
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    csv_read: [graphemes, phonemes]
-    batch_size: !ref <N_batch>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    drop_last: False #  Set it to True with multigpu_backend: data_parallel
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [graphemes, phonemes]
-    batch_size: !ref <N_batch>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    replacements:
-        $data_folder: !ref <data_folder>
+dataloader_opts:
+    batch_size: !ref <batch_size>
 
 # Models
 enc: !new:speechbrain.nnet.RNN.LSTM
@@ -107,7 +71,7 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     attn_dim: !ref <dec_att_neurons>
     num_layers: !ref <dec_num_layers>
 
-softmax: !new:speechbrain.nnet.activations.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
@@ -128,8 +92,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <bos>
-    eos_index: !ref <eos>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
     min_decode_ratio: 0
     max_decode_ratio: 1.35
     beam_size: 16
@@ -145,12 +109,16 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.8
     patient: 0
 
-compute_cost: !name:speechbrain.nnet.losses.nll_loss
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: 0.1
+
+seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.nll_loss
+        label_smoothing: 0.1
+        reduction: batch
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
-per_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-    split_tokens: True
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>

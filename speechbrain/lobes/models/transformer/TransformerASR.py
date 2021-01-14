@@ -140,6 +140,7 @@ class TransformerASR(TransformerInterface):
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
         )
 
         return encoder_out, decoder_out

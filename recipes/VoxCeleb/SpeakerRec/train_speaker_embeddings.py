@@ -183,7 +183,7 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Dataset prep (parsing VoxCeleb and annotation into csv files)
     from voxceleb_prepare import prepare_voxceleb  # noqa
