@@ -28,6 +28,7 @@ import torch.nn.functional as F
 import torchaudio
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
+from speechbrain.utils.distributed import run_on_main
 from torch.cuda.amp import autocast
 import numpy as np
 from tqdm import tqdm
@@ -41,12 +42,12 @@ class Separation(sb.Brain):
         """Forward computations from the mixture to the separated signals."""
 
         # Unpack lists and put tensors in the right device
-        ids, mix, mix_lens = mix
+        mix, mix_lens = mix
         mix, mix_lens = mix.to(self.device), mix_lens.to(self.device)
 
         # Convert targets to tensor
         targets = torch.cat(
-            [targets[i][1].unsqueeze(-1) for i in range(self.hparams.num_spks)],
+            [targets[i][0].unsqueeze(-1) for i in range(self.hparams.num_spks)],
             dim=-1,
         ).to(self.device)
 
@@ -94,8 +95,10 @@ class Separation(sb.Brain):
     def fit_batch(self, batch):
         """Trains one batch"""
         # Unpacking batch list
-        mixture = batch[0]
-        targets = batch[1:]
+        mixture = batch.mix_sig
+        targets = [batch.s1_sig, batch.s2_sig]
+        if self.hparams.num_spks == 3:
+            targets.append(batch.s3_sig)
 
         if self.hparams.auto_mix_prec:
             with autocast():
@@ -104,9 +107,18 @@ class Separation(sb.Brain):
                 )
                 loss = self.compute_objectives(predictions, targets)
 
+                # hard threshold the easy dataitems
+                if self.hparams.threshold_byloss:
+                    th = self.hparams.threshold
+                    loss_to_keep = loss[loss > th]
+                    if loss_to_keep.nelement() > 0:
+                        loss = loss_to_keep.mean()
+                else:
+                    loss = loss.mean()
+
             if (
-                loss < self.hparams.loss_upper_lim
-            ):  # fix for computational problems
+                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+            ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
                     self.scaler.unscale_(self.optimizer)
@@ -118,7 +130,7 @@ class Separation(sb.Brain):
             else:
                 self.nonfinite_count += 1
                 logger.info(
-                    "infinite loss! it happened {} times so far - skipping this batch".format(
+                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
                         self.nonfinite_count
                     )
                 )
@@ -128,21 +140,43 @@ class Separation(sb.Brain):
                 mixture, targets, sb.Stage.TRAIN
             )
             loss = self.compute_objectives(predictions, targets)
-            loss.backward()
-            if self.hparams.clip_grad_norm >= 0:
-                torch.nn.utils.clip_grad_norm_(
-                    self.modules.parameters(), self.hparams.clip_grad_norm
+
+            if self.hparams.threshold_byloss:
+                th = self.hparams.threshold
+                loss_to_keep = loss[loss > th]
+                if loss_to_keep.nelement() > 0:
+                    loss = loss_to_keep.mean()
+            else:
+                loss = loss.mean()
+
+            if (
+                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+            ):  # the fix for computational problems
+                loss.backward()
+                if self.hparams.clip_grad_norm >= 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.modules.parameters(), self.hparams.clip_grad_norm
+                    )
+                self.optimizer.step()
+            else:
+                self.nonfinite_count += 1
+                logger.info(
+                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                        self.nonfinite_count
+                    )
                 )
-            self.optimizer.step()
+                loss.data = torch.tensor(0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
-        mixture = batch[0]
-        targets = batch[1:]
-        snt_id = batch[0][0]
+        snt_id = batch.id
+        mixture = batch.mix_sig
+        targets = [batch.s1_sig, batch.s2_sig]
+        if self.hparams.num_spks == 3:
+            targets.append(batch.s3_sig)
 
         predictions, targets = self.compute_forward(mixture, targets, stage)
         loss = self.compute_objectives(predictions, targets)
@@ -240,6 +274,7 @@ class Separation(sb.Brain):
                     )
                 for i, new_target in enumerate(new_targets):
                     targets[:, :, i] = new_targets[i][:, 0:min_len]
+
         mix = targets.sum(-1)
         return mix, targets
 
@@ -267,7 +302,7 @@ class Separation(sb.Brain):
             if layer != child_layer:
                 self.reset_layer_recursively(child_layer)
 
-    def save_results(self, test_loader):
+    def save_results(self, test_data):
         """This script computes the SDR and SI-SNR metrics and saves
         them into a csv file"""
 
@@ -284,20 +319,26 @@ class Separation(sb.Brain):
         all_sisnrs_i = []
         csv_columns = ["snt_id", "sdr", "sdr_i", "si-snr", "si-snr_i"]
 
+        test_loader = sb.data_io.dataloader.make_dataloader(
+            test_data, **self.hparams.dataloader_opts
+        )
+
         with open(save_file, "w") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
             writer.writeheader()
 
             # Loop over all test sentence
-            with tqdm(test_loader.get_dataloader(), dynamic_ncols=True) as t:
+            with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
 
                     # Apply Separation
-                    mixture = batch[0]
-                    snt_id = batch[0][0]
-                    targets = batch[1:]
+                    mixture, mix_len = batch.mix_sig
+                    snt_id = batch.id
+                    targets = [batch.s1_sig, batch.s2_sig]
+                    if self.hparams.num_spks == 3:
+                        targets.append(batch.s3_sig)
                     predictions, targets = self.compute_forward(
-                        mixture, targets, sb.Stage.TEST
+                        batch.mix_sig, targets, sb.Stage.TEST
                     )
 
                     # Compute SI-SNR
@@ -305,7 +346,7 @@ class Separation(sb.Brain):
 
                     # Compute SI-SNR improvement
                     mixture_signal = torch.stack(
-                        [batch[0][1]] * self.hparams.num_spks, dim=-1
+                        [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
                     sisnr_baseline = self.compute_objectives(
@@ -395,6 +436,71 @@ class Separation(sb.Brain):
         )
 
 
+def data_io_prep(hparams):
+    """Creates data processing pipeline"""
+
+    # 1. Define datasets
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    datasets = [train_data, valid_data, test_data]
+
+    # 2. Provide audio pipelines
+
+    @sb.utils.data_pipeline.takes("mix_wav")
+    @sb.utils.data_pipeline.provides("mix_sig")
+    def audio_pipeline_mix(mix_wav):
+        mix_sig = sb.data_io.data_io.read_audio(mix_wav)
+        return mix_sig
+
+    @sb.utils.data_pipeline.takes("s1_wav")
+    @sb.utils.data_pipeline.provides("s1_sig")
+    def audio_pipeline_s1(s1_wav):
+        s1_sig = sb.data_io.data_io.read_audio(s1_wav)
+        return s1_sig
+
+    @sb.utils.data_pipeline.takes("s2_wav")
+    @sb.utils.data_pipeline.provides("s2_sig")
+    def audio_pipeline_s2(s2_wav):
+        s2_sig = sb.data_io.data_io.read_audio(s2_wav)
+        return s2_sig
+
+    if hparams["num_spks"] == 3:
+
+        @sb.utils.data_pipeline.takes("s3_wav")
+        @sb.utils.data_pipeline.provides("s3_sig")
+        def audio_pipeline_s3(s3_wav):
+            s3_sig = sb.data_io.data_io.read_audio(s3_wav)
+            return s3_sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
+    if hparams["num_spks"] == 3:
+        sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
+        sb.data_io.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
+        )
+    else:
+        sb.data_io.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
+        )
+
+    return train_data, valid_data, test_data
+
+
 if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
@@ -403,7 +509,7 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
     logger = logging.getLogger(__name__)
@@ -415,10 +521,26 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Data loaders
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    test_set = hparams["test_loader"]()
+    # Data preparation
+    from prepare_data import prepare_wsjmix  # noqa
+
+    run_on_main(
+        prepare_wsjmix,
+        kwargs={
+            "datapath": hparams["data_folder"],
+            "savepath": hparams["save_folder"],
+            "n_spks": hparams["num_spks"],
+        },
+    )
+
+    # Create dataset objects
+    if hparams["dynamic_mixing"]:
+        from dynamic_mixing import dynamic_mix_data_prep  # noqa
+
+        train_data = dynamic_mix_data_prep(hparams)
+        _, valid_data, test_data = data_io_prep(hparams)
+    else:
+        train_data, valid_data, test_data = data_io_prep(hparams)
 
     # Brain class initialization
     separator = Separation(
@@ -435,8 +557,14 @@ if __name__ == "__main__":
 
     if not hparams["test_only"]:
         # Training
-        separator.fit(separator.hparams.epoch_counter, train_set, valid_set)
+        separator.fit(
+            separator.hparams.epoch_counter,
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["dataloader_opts"],
+            valid_loader_kwargs=hparams["dataloader_opts"],
+        )
 
     # Eval
-    separator.evaluate(test_set, min_key="si-snr")
-    separator.save_results(test_set)
+    separator.evaluate(test_data, min_key="si-snr")
+    separator.save_results(test_data)
