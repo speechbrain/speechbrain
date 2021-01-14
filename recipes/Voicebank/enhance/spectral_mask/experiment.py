@@ -24,7 +24,9 @@ class SEBrain(sb.Brain):
         predict_spec = torch.mul(mask, noisy_feats)
 
         # Also return predicted wav
-        predict_wav = self.resynthesize(torch.expm1(predict_spec), noisy_wavs)
+        predict_wav = self.hparams.resynth(
+            torch.expm1(predict_spec), noisy_wavs
+        )
 
         return predict_spec, predict_wav
 
@@ -125,31 +127,6 @@ class SEBrain(sb.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
-
-    def resynthesize(self, predictions, noisy_wavs):
-
-        # Extract noisy phase
-        feats = self.hparams.compute_STFT(noisy_wavs)
-        phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
-        complex_predictions = torch.mul(
-            torch.unsqueeze(predictions, -1),
-            torch.cat(
-                (
-                    torch.unsqueeze(torch.cos(phase), -1),
-                    torch.unsqueeze(torch.sin(phase), -1),
-                ),
-                -1,
-            ),
-        )
-
-        # Get the predicted waveform
-        pred_wavs = self.hparams.compute_ISTFT(complex_predictions)
-
-        # Normalize the waveform
-        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
-        pred_wavs = pred_wavs / abs_max * 0.99
-        padding = (0, noisy_wavs.shape[1] - pred_wavs.shape[1])
-        return torch.nn.functional.pad(pred_wavs, padding)
 
 
 def data_io_prep(hparams):

@@ -81,6 +81,10 @@ compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <Hop_length>
     window_fn: !ref <window_fn>
 
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+    stft: !ref <compute_STFT>
+    istft: !ref <compute_ISTFT>
+
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
 
