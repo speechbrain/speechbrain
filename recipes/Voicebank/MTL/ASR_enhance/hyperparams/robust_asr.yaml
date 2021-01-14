@@ -17,7 +17,7 @@ tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
 data_folder_rirs: !ref <data_folder>
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/valid.csv
@@ -90,10 +90,10 @@ coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
 
-enhance_model: !include:enhance_model.yaml
+enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
 
-asr_model: !include:asr_model.yaml
+asr_model: !include:models/asr_model.yaml
     n_mels: !ref <n_mels>
     output_neurons: !ref <output_neurons>
 

@@ -12,7 +12,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/valid.csv
 test_annotation: !ref <data_folder>/test.csv
@@ -63,7 +63,7 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
 # Import perceptual model hyperparams
-model: !include:perceptual_model.yaml
+model: !include:models/perceptual_model.yaml
     output_neurons: !ref <output_neurons>
     n_fft: !ref <n_fft>
 
