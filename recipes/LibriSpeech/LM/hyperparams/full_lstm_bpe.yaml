@@ -1,3 +1,11 @@
+# ############################################################################
+# Model: RNNLM of E2E ASR
+# Tokens: unigram
+# losses: NLL
+# Training: Librispeech 960h transcript + LM corpus
+# Authors:  Ju-Chieh Chou 2020, Jianyuan Zhong 2021
+# ############################################################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2223
 __set_seed: !apply:torch.manual_seed [!ref <seed>]

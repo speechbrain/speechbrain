@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Recipe for training a Language Model with librispeech train-960 transcript and lm_corpus.
+
+To run this recipe, do the following:
+> pip install datasets
+> python experiment.py hyperparams.yaml --data_folder <local_path_to_librispeech_dataset>
+
+Authors
+ * Jianyuan Zhong 2021
+ * Ju-Chieh Chou 2020
+"""
 import os
 import sys
 import logging
