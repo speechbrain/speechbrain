@@ -86,6 +86,49 @@ class LM(sb.core.Brain):
 
 
 def data_io_prepare(hparams):
+    """grap all the .txt files for transcripts"""
+    logging.info("generating datasets...")
+    data_folder = hparams["data_folder"]
+    train_transcripts = glob.glob(
+        os.path.join(data_folder, "train*/**/*.trans.txt"), recursive=True
+    )
+    dev_transcripts = glob.glob(
+        os.path.join(data_folder, "dev*/**/*.trans.txt"), recursive=True
+    )
+    test_transcripts = glob.glob(
+        os.path.join(data_folder, "test*/**/*.trans.txt"), recursive=True
+    )
+
+    """prepare data and generate datasets"""
+    datasets = load_dataset(
+        "dataset.py",
+        lm_corpus_path=hparams["lm_corpus_path"],
+        data_files={
+            "train": train_transcripts,
+            "dev": dev_transcripts,
+            "test": test_transcripts,
+        },
+    )
+
+    train_data, valid_data, test_data = (
+        datasets["train"],
+        datasets["dev"],
+        datasets["test"],
+    )
+
+    """convert huggingface's dataset to DynamicItemDataset via a magical function"""
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+        train_data
+    )
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+        valid_data
+    )
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+        test_data
+    )
+
+    datasets = [train_data, valid_data, test_data]
+
     """Loads the sentence piece tokenizer specified in the yaml file"""
     save_model_path = os.path.join(
         hparams["save_folder"],
@@ -103,49 +146,7 @@ def data_io_prepare(hparams):
     tokenizer = spm.SentencePieceProcessor()
     tokenizer.load(save_model_path)
 
-    """grap all the .txt files for transcripts"""
-    logging.info("generating datasets...")
-    data_folder = hparams["data_folder"]
-    train_transcripts = glob.glob(
-        os.path.join(data_folder, "train*/**/*.trans.txt"), recursive=True
-    )
-    dev_transcripts = glob.glob(
-        os.path.join(data_folder, "dev*/**/*.trans.txt"), recursive=True
-    )
-    test_transcripts = glob.glob(
-        os.path.join(data_folder, "test*/**/*.trans.txt"), recursive=True
-    )
-
-    """prepare data and generate datasets"""
-    datasets = load_dataset(
-        "dataset.py",
-        data_files={
-            "train": train_transcripts,
-            "dev": dev_transcripts,
-            "test": test_transcripts,
-        },
-    )
-
-    train_data, valid_data, test_data = (
-        datasets["train"],
-        datasets["dev"],
-        datasets["test"],
-    )
-
-    # convert huggingface's dataset to DynamicItemDataset via a magical function
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
-        train_data
-    )
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
-        valid_data
-    )
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
-        test_data
-    )
-
-    datasets = [train_data, valid_data, test_data]
-
-    # 3. Define text pipeline:
+    """Define text pipeline"""
     # TODO: implement text augmentations piplines
     @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides("text", "tokens_bos", "tokens_eos")
