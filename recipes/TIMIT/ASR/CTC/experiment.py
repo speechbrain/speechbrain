@@ -40,7 +40,6 @@ class ASR_Brain(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
-        ids = batch.id
         phns, phn_lens = batch.phn_encoded
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corrupt"):
@@ -48,19 +47,18 @@ class ASR_Brain(sb.Brain):
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
-        self.ctc_metrics.append(ids, pout, phns, pout_lens, phn_lens)
+        self.ctc_metrics.append(batch.id, pout, phns, pout_lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
             sequence = sb.decoders.ctc_greedy_decode(
                 pout, pout_lens, blank_id=self.hparams.blank_index
             )
             self.per_metrics.append(
-                ids,
-                sequence,
-                phns,
-                None,
-                phn_lens,
-                self.label_encoder.decode_ndim,
+                ids=batch.id,
+                predict=sequence,
+                target=phns,
+                target_len=phn_lens,
+                ind2lab=self.label_encoder.decode_ndim,
             )
 
         return loss
@@ -195,7 +193,7 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # multi-gpu (ddp) save data preparation
     run_on_main(

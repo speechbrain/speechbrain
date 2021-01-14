@@ -34,6 +34,7 @@ class ASR_Brain(sb.Brain):
                 wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
+                batch.sig = wavs, wav_lens
                 phns = torch.cat([phns, phns], dim=0)
                 phn_lens = torch.cat([phn_lens, phn_lens])
                 batch.phn_encoded = phns, phn_lens
@@ -230,7 +231,7 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
