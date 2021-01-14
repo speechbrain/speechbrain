@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1319
+seed: 1365
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/robust_asr/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -24,7 +24,7 @@ valid_annotation: !ref <data_folder>/valid.csv
 test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 20
+number_of_epochs: 40
 ctc_epochs: 0
 batch_size: 8
 lr: 0.0001
@@ -32,14 +32,20 @@ token_type: unigram
 target_type: wrd
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
-dataloader_options:
-    batch_size: !ref <batch_size>
 character_coverage: 1.0
 eval_max_key: null
-eval_min_key: wrdER
+eval_min_key: null
+train_loader_options:
+    batch_size: !ref <batch_size>
+valid_loader_options:
+    batch_size: !ref <batch_size>
+    shuffle: False
+test_loader_options:
+    batch_size: !ref <batch_size>
+    shuffle: False
 
 # Loss weights
-enhance_type: masking  # null, mapping, masking
+enhance_type: masking  # null, mapping, masking, noisy, clean
 enhance_weight: 0.0
 mimic_weight: 0.0
 ctc_weight: 1.0
@@ -48,13 +54,14 @@ seq_weight: 1.0
 seq_type: joint  # null, clean, joint
 alignment_weight: 0.0
 label_smoothing: 0.1
+mask_weight: 0.5
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
     enhance_model: enhance_model.ckpt
 
-frozen_models: [enhance_model, src_embedding, lm_model]
-unfreeze_epoch: 4
+frozen_models: [enhance_model, lm_model, src_embedding]
+unfreeze_epoch: 6
 unfrozen_models: [src_embedding]
 
 # Feature parameters
@@ -160,7 +167,7 @@ opt_class: !name:torch.optim.Adam
 lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
     initial_value: !ref <lr>
     decay_factor: 0.5
-    decay_drop: 3
+    decay_drop: 5
 
 modules:
     enhance_model: !ref <enhance_model[enhance_model]>

@@ -2,7 +2,7 @@
 # Author: Peter Plantinga 2020
 
 # Src embedding parameters
-src_dropout: 0.0
+src_dropout: 0.1
 cnn_blocks: 2
 cnn_channels: (100, 200)
 cnn_kernelsize: (3, 3)
@@ -29,7 +29,7 @@ src_embedding: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: True
+    time_pooling: False
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>

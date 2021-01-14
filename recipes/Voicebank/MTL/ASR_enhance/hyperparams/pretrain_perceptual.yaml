@@ -4,7 +4,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1253
+seed: 1256
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/perceptual_model/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -25,10 +25,16 @@ lr: 0.0005
 sorting: ascending
 target_type: phn
 checkpoint_avg: 1
-dataloader_options:
-    batch_size: !ref <batch_size>
 eval_min_key: phnER
 eval_max_key: null
+train_loader_options:
+    batch_size: !ref <batch_size>
+valid_loader_options:
+    batch_size: 30
+    shuffle: False
+test_loader_options:
+    batch_size: 30
+    shuffle: False
 
 # Loss weights
 enhance_type: null  # null, mapping, masking
@@ -63,11 +69,6 @@ model: !include:perceptual_model.yaml
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-augment: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    speeds: [97, 103]
-    drop_freq_prob: 0
-    drop_chunk_prob: 0
 
 compute_stft: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>

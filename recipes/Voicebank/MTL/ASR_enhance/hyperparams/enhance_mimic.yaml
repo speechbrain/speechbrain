@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1255
+seed: 1260
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/enhance_model/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -27,15 +27,21 @@ target_type: phn
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
 checkpoint_avg: 1
 sorting: ascending
-dataloader_options:
+train_loader_options:
     batch_size: !ref <batch_size>
+valid_loader_options:
+    batch_size: 30
+    shuffle: False
+test_loader_options:
+    batch_size: 30
+    shuffle: False
 eval_max_key: pesq
 eval_min_key: null
 
 # Loss weights
 enhance_type: masking  # null, mapping, masking
 enhance_weight: 1.0
-mimic_weight: 0.2
+mimic_weight: 0.15
 ctc_weight: 0.0
 ctc_type: null  # null, clean, joint
 seq_weight: 0.0

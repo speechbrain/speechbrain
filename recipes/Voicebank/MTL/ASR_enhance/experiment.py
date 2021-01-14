@@ -44,13 +44,14 @@ class ASR_Brain(sb.Brain):
 
         predictions = {}
         if self.hparams.enhance_type is not None:
-            noisy_wavs, noisy_feats, lens = self.prepare_feats(batch.noisy_sig)
-            phase_wavs = noisy_wavs
+            phase_wavs, noisy_feats, lens = self.prepare_feats(batch.noisy_sig)
 
             # Mask with "signal approximation (SA)"
             if self.hparams.enhance_type == "masking":
                 mask = self.modules.enhance_model(noisy_feats)
-                predictions["feats"] = torch.mul(mask, noisy_feats)
+                m = self.hparams.mask_weight
+                predictions["feats"] = m * torch.mul(mask, noisy_feats)
+                predictions["feats"] += (1 - m) * noisy_feats
             elif self.hparams.enhance_type == "mapping":
                 predictions["feats"] = self.modules.enhance_model(noisy_feats)
             elif self.hparams.enhance_type == "noisy":
@@ -103,16 +104,13 @@ class ASR_Brain(sb.Brain):
         """Prepare log-magnitude spectral features expected by enhance model"""
         wavs, wav_lens = signal
 
-        if self.stage == sb.Stage.TRAIN:
-            if augment and hasattr(self.hparams, "augment"):
-                wavs = self.hparams.augment(wavs, wav_lens)
-            if hasattr(self.hparams, "env_corr"):
-                if augment:
-                    wavs_noise = self.hparams.env_corr(wavs, wav_lens)
-                    wavs = torch.cat([wavs, wavs_noise], dim=0)
-                else:
-                    wavs = torch.cat([wavs, wavs], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
+        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
+            if augment:
+                wavs_noise = self.hparams.env_corr(wavs, wav_lens)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+            else:
+                wavs = torch.cat([wavs, wavs], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
 
         feats = self.hparams.compute_stft(wavs)
         feats = self.hparams.spectral_magnitude(feats)
@@ -412,7 +410,7 @@ def data_io_prep(hparams):
         data["train"] = data["train"].filtered_sorted(
             sort_key="duration", reverse=hparams["sorting"] == "descending",
         )
-        hparams["dataloader_options"]["shuffle"] = False
+        hparams["train_loader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
         raise NotImplementedError(
             "Sorting must be random, ascending, or descending"
@@ -517,14 +515,14 @@ if __name__ == "__main__":
         epoch_counter=asr_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_loader_options"],
+        valid_loader_kwargs=hparams["valid_loader_options"],
     )
 
     # Evaluate best checkpoint, using lowest or highest value on validation
     asr_brain.evaluate(
-        test_set=datasets["test"],
+        test_set=datasets["valid"],
         max_key=hparams["eval_max_key"],
         min_key=hparams["eval_min_key"],
-        test_loader_kwargs=hparams["dataloader_options"],
+        test_loader_kwargs=hparams["test_loader_options"],
     )
