@@ -13,7 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/valid.csv
 test_annotation: !ref <data_folder>/test.csv
@@ -67,10 +67,10 @@ blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
-enhance_model: !include:enhance_model.yaml
+enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
 
-perceptual_model: !include:perceptual_model.yaml
+perceptual_model: !include:models/perceptual_model.yaml
     n_fft: !ref <n_fft>
     output_neurons: !ref <output_neurons>
 
