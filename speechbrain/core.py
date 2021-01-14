@@ -24,7 +24,7 @@ from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torch.nn import DataParallel as DP
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
@@ -956,11 +956,11 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
-        if isinstance(train_set, Dataset):
+        if not isinstance(train_set, DataLoader):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
-        if isinstance(valid_set, Dataset):
+        if not isinstance(valid_set, DataLoader):
             valid_set = self.make_dataloader(
                 valid_set,
                 stage=sb.Stage.VALID,
