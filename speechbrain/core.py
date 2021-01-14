@@ -403,6 +403,7 @@ class Brain:
     Example
     -------
     >>> from torch.optim import SGD
+    >>> from torch.utils.data import TensorDataset
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, batch, stage):
     ...         return self.modules.model(batch[0])
@@ -410,7 +411,7 @@ class Brain:
     ...         return torch.nn.functional.l1_loss(predictions, batch[0])
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
-    >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
+    >>> brain.fit(range(1), TensorDataset(torch.rand(10, 10), torch.rand(10, 10)))
     """
 
     def __init__(  # noqa: C901
@@ -960,7 +961,7 @@ class Brain:
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
-        if not isinstance(valid_set, DataLoader):
+        if valid_set is not None and not isinstance(valid_set, DataLoader):
             valid_set = self.make_dataloader(
                 valid_set,
                 stage=sb.Stage.VALID,
