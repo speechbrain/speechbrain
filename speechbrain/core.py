@@ -780,7 +780,6 @@ class Brain:
                     sampler,
                     rank=self.rank,
                     drop_last=drop_last,
-                    num_replicas=torch.distributed.get_world_size(),
                     shuffle=shuffle,
                 )
             elif loader_kwargs.get("batch_sampler") is None:

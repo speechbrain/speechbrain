@@ -365,10 +365,11 @@ class DynamicItemDataset(Dataset):
         cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """loading a prepared huggingface dataset"""
-
+        # define an unbound method to generate puesdo keys
         def keys(self):
             return [i for i in range(dataset.__len__())]
 
+        # bind this method to arrow dataset
         dataset.keys = MethodType(keys, dataset)
         return cls(dataset, dynamic_items, output_keys)
 

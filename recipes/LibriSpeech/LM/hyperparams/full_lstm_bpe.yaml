@@ -8,6 +8,11 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 
+# path to the lm_corpus
+# if set to null, it will automatically download from the internet
+# in the case when there is no internet access, set this to your local file
+lm_corpus_path: null
+
 # Tokenizer model
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 
