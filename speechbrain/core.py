@@ -16,7 +16,6 @@ import pathlib
 import argparse
 import tempfile
 import subprocess
-import datasets
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -1034,15 +1033,11 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
-        if isinstance(train_set, Dataset) or isinstance(
-            train_set, datasets.arrow_dataset.Dataset
-        ):
+        if isinstance(train_set, Dataset):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
-        if isinstance(valid_set, Dataset) or isinstance(
-            train_set, datasets.arrow_dataset.Dataset
-        ):
+        if isinstance(valid_set, Dataset):
             valid_set = self.make_dataloader(
                 valid_set, stage=sb.Stage.VALID, **valid_loader_kwargs
             )
@@ -1190,9 +1185,7 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        if isinstance(test_set, Dataset) or isinstance(
-            test_set, datasets.arrow_dataset.Dataset
-        ):
+        if isinstance(test_set, Dataset):
             test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
                 test_set, Stage.TEST, **test_loader_kwargs
