@@ -1,3 +1,11 @@
+# ############################################################################
+# Model: Transformer LM of E2E ASR
+# Tokens: unigram
+# losses: NLL
+# Training: Librispeech 960h transcript + LM corpus
+# Authors:  Jianyuan Zhong 2021
+# ############################################################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2223
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
@@ -18,7 +26,7 @@ tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 16
+batch_size: 32
 lr: 10
 accu_steps: 8 # Gradient accumulation to simulate large batch training
 
