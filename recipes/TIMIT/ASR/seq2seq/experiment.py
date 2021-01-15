@@ -13,6 +13,7 @@ Authors
 import sys
 import torch
 import speechbrain as sb
+from hyperyaml import load_hyperyaml
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -268,7 +269,7 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
+        hparams = load_hyperyaml(fin, overrides)
 
     # Dataset prep (parsing TIMIT and annotation into csv files)
     from timit_prepare import prepare_timit  # noqa

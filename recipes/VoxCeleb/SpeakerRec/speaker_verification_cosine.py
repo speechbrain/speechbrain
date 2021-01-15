@@ -18,6 +18,7 @@ import torchaudio
 import logging
 import speechbrain as sb
 from tqdm.contrib import tqdm
+from hyperyaml import load_hyperyaml
 from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 
@@ -211,7 +212,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, overrides)
+        params = load_hyperyaml(fin, overrides)
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
 
     # Create experiment directory

@@ -7,6 +7,7 @@ import os
 import torch
 import numpy as np
 import speechbrain as sb
+from hyperyaml import load_hyperyaml
 
 
 class VADBrain(sb.Brain):
@@ -116,7 +117,7 @@ def main():
     data_folder = "../../../../../samples/audio_samples/vad"
     data_folder = os.path.abspath(experiment_dir + data_folder)
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin)
+        hparams = load_hyperyaml(fin)
 
     # Data IO creation
     train_data, valid_data = data_prep(data_folder, hparams)

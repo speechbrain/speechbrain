@@ -1,5 +1,6 @@
 import os
 import speechbrain as sb
+from hyper.yaml import load_hyperyaml
 from speechbrain.data_io.data_io import read_audio, write_audio
 
 output_folder = os.path.join("results", "speed_perturb")
@@ -15,7 +16,7 @@ def main():
         ),
     }
     with open(hyperparams_file) as fin:
-        hyperparams = sb.load_extended_yaml(fin, overrides)
+        hyperparams = load_hyperyaml(fin, overrides)
 
     sb.create_experiment_directory(
         experiment_directory=output_folder,

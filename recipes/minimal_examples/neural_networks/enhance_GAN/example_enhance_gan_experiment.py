@@ -3,9 +3,10 @@
 The generator and the discriminator are based on convolutional networks.
 """
 
+import torch
 import pathlib
 import speechbrain as sb
-import torch
+from hyperyaml import load_hyperyaml
 
 
 class EnhanceGanBrain(sb.Brain):
@@ -133,7 +134,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin)
+        hparams = load_hyperyaml(fin)
 
     # Dataset creation
     train_data, valid_data = data_prep(data_folder)
