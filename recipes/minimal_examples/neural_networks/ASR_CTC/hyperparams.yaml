@@ -3,19 +3,19 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Neural Parameters
+# Training params
 N_epochs: 15
-N_batch: 1
 lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# Special tokens and labels
+blank_index: 0
+num_labels: 44
+
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
+activation: !name:torch.nn.LeakyReLU []
 dropout: 0.15
 cnn_blocks: 1
 cnn_channels: (16,)
@@ -25,29 +25,6 @@ rnn_neurons: 128
 rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -70,14 +47,14 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 43  # 42 phonemes + 1 blank
+    n_neurons: !ref <num_labels>
     bias: False
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: 42
+    blank_index: !ref <blank_index>
 
 modules:
     model: !ref <model>

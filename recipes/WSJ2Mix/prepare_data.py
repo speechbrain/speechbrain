@@ -26,7 +26,7 @@ Author
 import os
 import numpy as np
 from tqdm import tqdm
-from speechbrain.data_io.data_io import read_wav_soundfile, write_wav_soundfile
+from speechbrain.data_io.data_io import read_audio, write_audio
 from speechbrain.utils.data_utils import download_file
 from scipy.io import wavfile
 from scipy import signal
@@ -232,7 +232,7 @@ def save_mixture(
 
     sampling_rate = 8000 if save_fs == "wav8k" else 16000
 
-    write_wav_soundfile(
+    write_audio(
         s1,
         output_dir
         + "/"
@@ -246,7 +246,7 @@ def save_mixture(
         + ".wav",
         sampling_rate=sampling_rate,
     )
-    write_wav_soundfile(
+    write_audio(
         s2,
         output_dir
         + "/"
@@ -260,7 +260,7 @@ def save_mixture(
         + ".wav",
         sampling_rate=sampling_rate,
     )
-    write_wav_soundfile(
+    write_audio(
         mix,
         output_dir
         + "/"
@@ -415,8 +415,8 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
                 fid_m.write("{}\n".format(mix_name))
 
                 fs, _ = wavfile.read(os.path.join(wsj0root, line[0]))
-                s1 = read_wav_soundfile(os.path.join(wsj0root, line[0]))
-                s2 = read_wav_soundfile(os.path.join(wsj0root, line[2]))
+                s1 = read_audio(os.path.join(wsj0root, line[0]))
+                s2 = read_audio(os.path.join(wsj0root, line[2]))
 
                 # resample, determine levels for source 1
                 s1_8k = signal.resample(s1, int((fs_read / fs) * len(s1)))

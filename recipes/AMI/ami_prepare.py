@@ -437,9 +437,7 @@ def prepare_csv(
             f.write("%s\n" % line_str)
 
     # Create CSV from subsegments
-    csv_output_head = [
-        ["ID", "duration", "wav", "wav_format", "wav_opts"]
-    ]  # noqa E231
+    csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
 
     entry = []
     for row in SUBSEGMENTS:
@@ -463,15 +461,13 @@ def prepare_csv(
         start_sample = int(float(strt) * SAMPLERATE)
         end_sample = int(float(end) * SAMPLERATE)
 
-        start_stop = "start:" + str(start_sample) + " stop:" + str(end_sample)
-
         # Composition of the csv_line
         csv_line = [
             subsegment_ID,
             dur,
             wav_file_path,
-            "wav",
-            start_stop,
+            str(start_sample),
+            str(end_sample),
         ]
 
         entry.append(csv_line)

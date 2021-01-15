@@ -335,18 +335,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     print(msg)
 
-    csv_output = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-        ]
-    ]
+    csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id"]]
 
     # For assiging unique ID to each chunk
     my_sep = "--"
@@ -367,28 +356,17 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
         if random_segment:
             audio_duration = signal.shape[0] / SAMPLERATE
-
             start_sample = 0
             stop_sample = signal.shape[0]
-            sample_dur = int(seg_dur / 100 * SAMPLERATE)
-            wav_opt = (
-                "start:"
-                + str(start_sample)
-                + " stop:"
-                + str(stop_sample)
-                + " frames:"
-                + str(sample_dur)
-            )
+
             # Composition of the csv_line
             csv_line = [
                 audio_id,
                 str(audio_duration),
                 wav_file,
-                "wav",
-                wav_opt,
+                start_sample,
+                stop_sample,
                 spk_id,
-                "string",
-                " ",
             ]
             entry.append(csv_line)
         else:
@@ -405,20 +383,14 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
                 if mean_sig < amp_th:
                     continue
 
-                start_stop = (
-                    "start:" + str(start_sample) + " stop:" + str(end_sample)
-                )
-
                 # Composition of the csv_line
                 csv_line = [
                     chunk,
                     str(audio_duration),
                     wav_file,
-                    "wav",
-                    start_stop,
+                    start_sample,
+                    end_sample,
                     spk_id,
-                    "string",
-                    " ",
                 ]
                 entry.append(csv_line)
 
@@ -457,7 +429,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
     # logger.debug(msg)
 
     csv_output_head = [
-        ["ID", "duration", "wav", "wav_format", "wav_opts"]
+        ["ID", "duration", "wav", "start", "stop", "spk_id"]
     ]  # noqa E231
 
     for data_folder in data_folders:
@@ -486,13 +458,17 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             signal, fs = torchaudio.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
+            start_sample = 0
+            stop_sample = signal.shape[0]
+            [spk_id, sess_id, utt_id] = wav.split("/")[-3:]
 
             csv_line = [
                 id,
                 audio_duration,
                 wav,
-                "wav",
-                "",
+                start_sample,
+                stop_sample,
+                spk_id,
             ]
 
             enrol_csv.append(csv_line)
@@ -518,13 +494,17 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             signal, fs = torchaudio.load(wav)
             signal = signal.squeeze(0)
             audio_duration = signal.shape[0] / SAMPLERATE
+            start_sample = 0
+            stop_sample = signal.shape[0]
+            [spk_id, sess_id, utt_id] = wav.split("/")[-3:]
 
             csv_line = [
                 id,
                 audio_duration,
                 wav,
-                "wav",
-                "",
+                start_sample,
+                stop_sample,
+                spk_id,
             ]
 
             test_csv.append(csv_line)

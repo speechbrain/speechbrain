@@ -7,29 +7,25 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1988
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/vanilla_NN/<seed>
+output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/TIMIT
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/dev.csv
+test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 10
 batch_size: 256
 lr: 0.0003
-
-# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
-# These options will be set by that script, and will override these.
+sorting: ascending # choose between ascending, descending and random
 device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Feature parameters
 sample_rate: 16000
@@ -40,9 +36,9 @@ n_mels: 40
 states_per_phoneme: 3
 
 # Outputs
-ground_truth_phn_set: 61 # {61, 48, 39}
-output_neurons: !ref <ground_truth_phn_set> * <states_per_phoneme> + 1
-blank_index: !ref <ground_truth_phn_set> * <states_per_phoneme>
+phn_set: 60 # {60, 48, 39}
+output_neurons: 183
+blank_index: 182
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -53,37 +49,11 @@ init_training_type: 'forward' # 'forward' or 'viterbi' or 'ctc'
 switch_training_type: 'forward'
 switch_training_epoch: 2
 
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:timit_prepare.prepare_timit
-        data_folder: !ref <data_folder>
-        splits: ["train", "dev", "test"]
-        save_folder: !ref <data_folder>
+dataloader_options:
+    batch_size: !ref <batch_size>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn, ground_truth_phn_ends]
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn, ground_truth_phn_ends]
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn, ground_truth_phn_ends]
-
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
