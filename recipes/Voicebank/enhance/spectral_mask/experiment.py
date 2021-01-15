@@ -8,60 +8,64 @@ from pesq import pesq
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.utils.distributed import run_on_main
 
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        ids, wavs, lens = x
-        wavs, lens = wavs.to(self.device), lens.to(self.device)
-        feats = self.hparams.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
-        feats = torch.log1p(feats)
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        noisy_wavs, lens = batch.noisy_sig
+        noisy_feats = self.compute_feats(noisy_wavs)
 
         # mask with "signal approximation (SA)"
-        mask = self.hparams.model(feats)
+        mask = self.modules.model(noisy_feats)
         mask = torch.squeeze(mask, 2)
-        predict_spec = torch.mul(mask, feats)
+        predict_spec = torch.mul(mask, noisy_feats)
 
         # Also return predicted wav
-        predict_wav = self.resynthesize(torch.expm1(predict_spec), x)
+        predict_wav = self.hparams.resynth(
+            torch.expm1(predict_spec), noisy_wavs
+        )
 
         return predict_spec, predict_wav
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_feats(self, wavs):
+        feats = self.hparams.compute_STFT(wavs)
+        feats = spectral_magnitude(feats, power=0.5)
+        feats = torch.log1p(feats)
+        return feats
+
+    def compute_objectives(self, predictions, batch, stage):
         predict_spec, predict_wav = predictions
-        ids, target_wav, lens = targets
-        target_wav, lens = target_wav.to(self.device), lens.to(self.device)
+        clean_wavs, lens = batch.clean_sig
 
         if getattr(self.hparams, "waveform_target", False):
-            loss = self.hparams.compute_cost(predict_wav, target_wav, lens)
+            loss = self.hparams.compute_cost(predict_wav, clean_wavs, lens)
             self.loss_metric.append(
-                ids, predict_wav, target_wav, lens, reduction="batch"
+                batch.id, predict_wav, clean_wavs, lens, reduction="batch"
             )
         else:
-            targets = self.hparams.compute_STFT(target_wav)
-            targets = spectral_magnitude(targets, power=0.5)
-            targets = torch.log1p(targets)
-            loss = self.hparams.compute_cost(predict_spec, targets, lens)
+            clean_spec = self.compute_feats(clean_wavs)
+            loss = self.hparams.compute_cost(predict_spec, clean_spec, lens)
             self.loss_metric.append(
-                ids, predict_spec, targets, lens, reduction="batch"
+                batch.id, predict_spec, clean_spec, lens, reduction="batch"
             )
 
         if stage != sb.Stage.TRAIN:
 
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
-                ids, predict_wav, target_wav, lens, reduction="batch"
+                batch.id, predict_wav, clean_wavs, lens, reduction="batch"
             )
             self.pesq_metric.append(
-                ids, predict=predict_wav, target=target_wav, lengths=lens
+                batch.id, predict=predict_wav, target=clean_wavs, lengths=lens
             )
 
             # Write wavs to file
             if stage == sb.Stage.TEST:
-                lens = lens * target_wav.shape[1]
-                for name, pred_wav, length in zip(ids, predict_wav, lens):
+                lens = lens * clean_wavs.shape[1]
+                for name, pred_wav, length in zip(batch.id, predict_wav, lens):
                     name += ".wav"
                     enhance_path = os.path.join(
                         self.hparams.enhanced_folder, name
@@ -124,33 +128,48 @@ class SEBrain(sb.Brain):
                 test_stats=stats,
             )
 
-    def resynthesize(self, predictions, inputs):
-        ids, wavs, lens = inputs
-        lens = lens * wavs.shape[1]
-        wavs = wavs.to(self.device)
 
-        # Extract noisy phase
-        feats = self.hparams.compute_STFT(wavs)
-        phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
-        complex_predictions = torch.mul(
-            torch.unsqueeze(predictions, -1),
-            torch.cat(
-                (
-                    torch.unsqueeze(torch.cos(phase), -1),
-                    torch.unsqueeze(torch.sin(phase), -1),
-                ),
-                -1,
-            ),
+def data_io_prep(hparams):
+    """Creates data processing pipeline"""
+
+    # Define audio piplines
+    @sb.utils.data_pipeline.takes("noisy_wav")
+    @sb.utils.data_pipeline.provides("noisy_sig")
+    def noisy_pipeline(noisy_wav):
+        return sb.data_io.data_io.read_audio(noisy_wav)
+
+    @sb.utils.data_pipeline.takes("clean_wav")
+    @sb.utils.data_pipeline.provides("clean_sig")
+    def clean_pipeline(clean_wav):
+        return sb.data_io.data_io.read_audio(clean_wav)
+
+    # Define datasets
+    datasets = {}
+    for dataset in ["train", "valid", "test"]:
+        datasets[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+            csv_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[noisy_pipeline, clean_pipeline],
+            output_keys=["id", "noisy_sig", "clean_sig"],
         )
 
-        # Get the predicted waveform
-        pred_wavs = self.hparams.compute_ISTFT(complex_predictions)
+    # Sort train dataset
+    if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
+        datasets["train"] = datasets["train"].filtered_sorted(
+            sort_key="duration", reverse=hparams["sorting"] == "descending"
+        )
+        hparams["dataloader_options"]["shuffle"] = False
+    elif hparams["sorting"] != "random":
+        raise NotImplementedError(
+            "Sorting must be random, ascending, or descending"
+        )
 
-        # Normalize the waveform
-        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
-        pred_wavs = pred_wavs / abs_max * 0.99
-        padding = (0, wavs.shape[1] - pred_wavs.shape[1])
-        return torch.nn.functional.pad(pred_wavs, padding)
+    return datasets
+
+
+def create_folder(folder):
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
 
 
 # Recipe begins!
@@ -162,7 +181,21 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # Data preparation
+    from voicebank_prepare import prepare_voicebank  # noqa
+
+    run_on_main(
+        prepare_voicebank,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+        },
+    )
+
+    # Create dataset objects
+    datasets = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -179,14 +212,7 @@ if __name__ == "__main__":
         )
 
     # Create the folder to save enhanced files (+ support for DDP)
-    try:
-        # all writing command must be done with the main_process
-        if sb.if_main_process():
-            if not os.path.isdir(hparams["enhanced_folder"]):
-                os.makedirs(hparams["enhanced_folder"])
-    finally:
-        # wait for main_process if ddp is used
-        sb.ddp_barrier()
+    run_on_main(create_folder, kwargs={"folder": hparams["enhanced_folder"]})
 
     se_brain = SEBrain(
         modules=hparams["modules"],
@@ -198,10 +224,16 @@ if __name__ == "__main__":
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        se_brain.hparams.epoch_counter,
-        train_set=hparams["train_loader"](),
-        valid_set=hparams["valid_loader"](),
+        epoch_counter=se_brain.hparams.epoch_counter,
+        train_set=datasets["train"],
+        valid_set=datasets["valid"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Load best checkpoint for evaluation
-    test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="pesq")
+    test_stats = se_brain.evaluate(
+        test_set=datasets["test"],
+        max_key="pesq",
+        test_loader_kwargs=hparams["dataloader_options"],
+    )

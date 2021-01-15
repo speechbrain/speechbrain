@@ -1,6 +1,6 @@
 import os
 import shutil
-from speechbrain.data_io.data_io import read_wav_soundfile, merge_csvs
+from speechbrain.data_io.data_io import read_audio, merge_csvs
 from speechbrain.utils.data_utils import download_file
 
 try:
@@ -88,7 +88,7 @@ def prepare_TAS(data_folder, type, train_splits):
         df = pd.read_csv(os.path.join(data_folder, split) + ".csv")
         for i in range(len(df)):
             ID.append(ID_start + i)
-            signal = read_wav_soundfile(os.path.join(data_folder, df.path[i]))
+            signal = read_audio(os.path.join(data_folder, df.path[i]))
             duration.append(signal.shape[0] / 16000)
 
             wav.append(os.path.join(data_folder, df.path[i]))

@@ -613,11 +613,15 @@ def compute_masked_loss(
     """
     mask = torch.ones_like(targets)
     if length is not None:
-        mask = length_to_mask(
+        length_mask = length_to_mask(
             length * targets.shape[1], max_len=targets.shape[1],
         )
-        if len(targets.shape) == 3:
-            mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
+
+        # Handle any dimensionality of input
+        while len(length_mask.shape) < len(mask.shape):
+            length_mask = length_mask.unsqueeze(-1)
+        length_mask = length_mask.type(mask.dtype)
+        mask *= length_mask
 
     # Compute, then reduce loss
     loss = loss_fn(predictions, targets) * mask
@@ -660,13 +664,13 @@ def get_si_snr_with_pitwrapper(source, estimate_source):
     >>> xhat = x[:, :, (1, 0)]
     >>> si_snr = -get_si_snr_with_pitwrapper(x, xhat)
     >>> print(si_snr)
-    tensor(135.2284)
+    tensor([135.2284, 135.2284, 135.2284])
     """
 
     pit_si_snr = PitWrapper(cal_si_snr)
     loss, perms = pit_si_snr(source, estimate_source)
 
-    return loss.mean()
+    return loss
 
 
 def cal_si_snr(source, estimate_source):

@@ -1,0 +1,83 @@
+# ################################
+# Model: FCN SE baseline
+# From paper: "End-to-End Waveform Utterance Enhancement for Direct Evaluation
+# Metrics Optimization by Fully Convolutional Neural Networks", TASLP, 2018
+# Authors: Szu-Wei, Fu 2020
+# ################################
+
+# Neural parameters
+kernel_size: 55
+base_channels: 80  # Use 30 for small version
+
+model: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, 1]
+    IN0: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: 1
+        track_running_stats: False
+        affine: True
+    conv1: !name:speechbrain.nnet.CNN.Conv1d  # Can be replaced with SincConv
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN1: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act1: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN2: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act2: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv3: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN3: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act3: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv4: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN4: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act4: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv5: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN5: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act5: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv6: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN6: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act6: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv7: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    IN7: !new:speechbrain.nnet.normalization.InstanceNorm1d
+        input_size: !ref <base_channels>
+        track_running_stats: False
+        affine: True
+    act7: !new:torch.nn.LeakyReLU
+        negative_slope: 0.3
+    conv_out: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1
+        kernel_size: !ref <kernel_size>
