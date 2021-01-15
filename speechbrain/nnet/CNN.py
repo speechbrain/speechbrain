@@ -265,7 +265,9 @@ class SincConv(nn.Module):
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -284,7 +286,7 @@ class SincConv(nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = nn.functional.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
 
@@ -395,8 +397,8 @@ class Conv1d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)
@@ -409,7 +411,9 @@ class Conv1d(nn.Module):
 
         return wx
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -428,7 +432,7 @@ class Conv1d(nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = F.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
 
