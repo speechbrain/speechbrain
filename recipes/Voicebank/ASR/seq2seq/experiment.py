@@ -271,8 +271,8 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
-    # Needed to run experiment with distributed system
-    sb.ddp_init_group(run_opts)
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Prepare data
     from voicebank_prepare import prepare_voicebank  # noqa E402
