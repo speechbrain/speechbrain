@@ -9,6 +9,7 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 import pytest
 import pathlib
 import speechbrain as sb
+from hyperyaml import load_hyperyaml
 
 
 class TransducerBrain(sb.Brain):
@@ -140,7 +141,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin)
+        hparams = load_hyperyaml(fin)
 
     # Dataset creation
     train_data, valid_data, label_encoder = data_prep(data_folder, hparams)

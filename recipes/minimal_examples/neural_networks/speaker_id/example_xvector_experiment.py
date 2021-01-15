@@ -5,6 +5,7 @@ x-vectors. The encoder is based on TDNNs. The classifier is a MLP.
 
 import pathlib
 import speechbrain as sb
+from hyperyaml import load_hyperyaml
 
 
 # Trains xvector model
@@ -104,7 +105,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin)
+        hparams = load_hyperyaml(fin)
 
     # Dataset creation
     train_data, valid_data = data_prep(data_folder, hparams)

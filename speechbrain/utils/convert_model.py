@@ -13,8 +13,8 @@ Authors
 
 import torch
 import argparse
-import speechbrain as sb
 from collections import OrderedDict
+from hyperyaml import load_hyperyaml
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     with open(args.hparams) as f:
-        hparams = sb.load_extended_yaml(f, overrides={"data_folder": "asdf"})
+        hparams = load_hyperyaml(f, overrides={"data_folder": "asdf"})
 
     ckpt = torch.load(args.old_ckpt)
     assert len(hparams[args.hparams_key].state_dict()) == len(ckpt)

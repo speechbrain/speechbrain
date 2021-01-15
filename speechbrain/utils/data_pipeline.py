@@ -3,9 +3,7 @@ A pipeline for data transformations.
 
 Example
 -------
->>> #We expect this to be used via extended YAML,
->>> # for a dataset:
->>> from speechbrain.yaml import load_extended_yaml
+>>> from hyperyaml import load_hyperyaml
 >>> yamlstring = '''
 ... pipeline: !new:speechbrain.utils.data_pipeline.DataPipeline
 ...     static_data_keys: [a, b]
@@ -18,7 +16,7 @@ Example
 ...             provides: bar
 ...     output_keys: ["foo", "bar"]
 ... '''
->>> hparams = load_extended_yaml(yamlstring)
+>>> hparams = load_hyperyaml(yamlstring)
 >>> hparams["pipeline"]({"a":1, "b":2})
 {'foo': 3, 'bar': 1}
 

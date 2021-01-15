@@ -10,6 +10,7 @@ Mirco Ravanelli, 2020
 import os
 import sys
 import speechbrain as sb
+from hyperyaml import load_hyperyaml
 from speechbrain.utils.data_utils import download_file
 from local.create_mixtures_from_metadata import create_mixture
 import json
@@ -22,7 +23,7 @@ URL_METADATA = (
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
+    params = load_hyperyaml(fin, overrides)
 
 metadata_folder = params.metadata_folder
 if not os.path.exists(metadata_folder):
