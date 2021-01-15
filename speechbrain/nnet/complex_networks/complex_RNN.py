@@ -6,8 +6,8 @@ Authors
 
 import torch
 import logging
-from speechbrain.nnet.complex_networks.linear import ComplexLinear
-from speechbrain.nnet.complex_networks.normalization import (
+from speechbrain.nnet.complex_networks.complex_linear import ComplexLinear
+from speechbrain.nnet.complex_networks.complex_normalization import (
     ComplexBatchNorm,
     ComplexLayerNorm,
 )
