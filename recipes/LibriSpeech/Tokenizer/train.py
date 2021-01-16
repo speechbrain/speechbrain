@@ -17,7 +17,7 @@ Authors
 
 import sys
 import speechbrain as sb
-from hyper.yaml import load_hyperyaml
+from hyper.yaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 if __name__ == "__main__":
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = load_hyperyaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol

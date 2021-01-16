@@ -9,7 +9,7 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 
 import pathlib
 import speechbrain as sb
-from hyperyaml import load_hyperyaml
+from hyperpyyaml import load_hyperpyyaml
 
 
 class CTCBrain(sb.Brain):
@@ -112,7 +112,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = load_hyperyaml(fin)
+        hparams = load_hyperpyyaml(fin)
 
     # Dataset creation
     train_data, valid_data = data_prep(data_folder, hparams)

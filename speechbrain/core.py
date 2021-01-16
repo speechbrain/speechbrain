@@ -29,7 +29,7 @@ from torch.nn import DataParallel as DP
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from hyperyaml import resolve_references
+from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.data_io.dataloader import SaveableDataLoader
 from speechbrain.data_io.sampler import DistributedSamplerWrapper
@@ -143,7 +143,7 @@ def parse_arguments(arg_list):
     run_opts : dict
         Run options, such as distributed, device, etc.
     overrides : dict
-        The overrides to pass to ``load_hyperyaml``.
+        The overrides to pass to ``load_hyperpyyaml``.
 
     Example
     -------

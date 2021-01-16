@@ -14,7 +14,7 @@ Authors
 import torch
 import argparse
 from collections import OrderedDict
-from hyperyaml import load_hyperyaml
+from hyperpyyaml import load_hyperpyyaml
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     with open(args.hparams) as f:
-        hparams = load_hyperyaml(f, overrides={"data_folder": "asdf"})
+        hparams = load_hyperpyyaml(f, overrides={"data_folder": "asdf"})
 
     ckpt = torch.load(args.old_ckpt)
     assert len(hparams[args.hparams_key].state_dict()) == len(ckpt)
