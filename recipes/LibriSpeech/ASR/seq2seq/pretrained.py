@@ -48,6 +48,11 @@ class ASR(torch.nn.Module):
         self.device = self.hparams["device"]
 
         # Creating directory where pre-trained models are stored
+        if not os.path.isabs(self.hparams["save_folder"]):
+            dirname = os.path.dirname(__file__)
+            self.hparams["save_folder"] = os.path.join(
+                dirname, self.hparams["save_folder"]
+            )
         if not os.path.isdir(self.hparams["save_folder"]):
             os.makedirs(self.hparams["save_folder"])
 
@@ -56,7 +61,6 @@ class ASR(torch.nn.Module):
 
         # Load pretrained modules
         self.load_tokenizer()
-        self.load_lm()
         self.load_asr()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -99,11 +103,9 @@ class ASR(torch.nn.Module):
             str(self.hparams["output_neurons"]) + "_unigram.model",
         )
 
-        # Donwloanding from the web
+        # Downloading from the web
         download_file(
-            source=self.hparams["tok_mdl_file"],
-            dest=save_model_path,
-            replace_existing=True,
+            source=self.hparams["tok_mdl_file"], dest=save_model_path,
         )
 
         # Initialize and pre-train the tokenizer
@@ -122,16 +124,5 @@ class ASR(torch.nn.Module):
             download_file(self.hparams["asr_ckpt_file"], save_model_path)
 
         self.mod.asr_model.load_state_dict(
-            torch.load(save_model_path), strict=True
+            torch.load(save_model_path, map_location=self.device), strict=True
         )
-
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams["save_folder"], "lm_model.ckpt"
-        )
-        download_file(self.hparams["lm_ckpt_file"], save_model_path)
-
-        # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path, map_location=self.device)
-        self.mod.lm_model.load_state_dict(state_dict, strict=True)
