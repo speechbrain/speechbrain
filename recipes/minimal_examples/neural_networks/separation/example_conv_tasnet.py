@@ -8,7 +8,7 @@ import torch
 import pathlib
 import speechbrain as sb
 import torch.nn.functional as F
-from hyperyaml import load_hyperyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
@@ -130,7 +130,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = load_hyperyaml(fin)
+        hparams = load_hyperpyyaml(fin)
 
     # Dataset creation
     train_data, valid_data = data_prep(data_folder, hparams)

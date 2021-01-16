@@ -27,7 +27,7 @@ import torch
 import torchaudio
 import random
 import speechbrain as sb
-from hyperyaml import load_hyperyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from tqdm.contrib import tqdm
 from speechbrain.utils.metric_stats import EER, minDCF
@@ -439,7 +439,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = load_hyperyaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
     sb.core.create_experiment_directory(

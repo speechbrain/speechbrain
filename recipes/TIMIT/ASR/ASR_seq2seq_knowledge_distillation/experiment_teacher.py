@@ -6,7 +6,7 @@ import speechbrain as sb
 
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
-from hyperyaml import load_hyperyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
@@ -25,7 +25,7 @@ from timit_prepare import prepare_timit  # noqa E402
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
-    params = load_hyperyaml(fin, overrides)
+    params = load_hyperpyyaml(fin, overrides)
 
 # Create experiment directory
 sb.core.create_experiment_directory(

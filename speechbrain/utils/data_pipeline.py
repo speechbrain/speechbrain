@@ -3,7 +3,7 @@ A pipeline for data transformations.
 
 Example
 -------
->>> from hyperyaml import load_hyperyaml
+>>> from hyperpyyaml import load_hyperpyyaml
 >>> yamlstring = '''
 ... pipeline: !new:speechbrain.utils.data_pipeline.DataPipeline
 ...     static_data_keys: [a, b]
@@ -16,7 +16,7 @@ Example
 ...             provides: bar
 ...     output_keys: ["foo", "bar"]
 ... '''
->>> hparams = load_hyperyaml(yamlstring)
+>>> hparams = load_hyperpyyaml(yamlstring)
 >>> hparams["pipeline"]({"a":1, "b":2})
 {'foo': 3, 'bar': 1}
 

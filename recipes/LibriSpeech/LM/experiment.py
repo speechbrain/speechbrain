@@ -17,7 +17,7 @@ import torch
 import sentencepiece as spm
 
 from datasets import load_dataset
-from hyper.yaml import load_hyperyaml
+from hyper.yaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = load_hyperyaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol

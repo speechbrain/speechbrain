@@ -1,6 +1,6 @@
 import os
 import speechbrain as sb
-from hyper.yaml import load_hyperyaml
+from hyper.yaml import load_hyperpyyaml
 from speechbrain.data_io.data_io import read_audio, write_audio
 
 output_folder = os.path.join("results", "drop_freq")
@@ -16,7 +16,7 @@ def main():
         ),
     }
     with open(hyperparams_file) as fin:
-        hyperparams = load_hyperyaml(fin, overrides)
+        hyperparams = load_hyperpyyaml(fin, overrides)
 
     sb.create_experiment_directory(
         experiment_directory=output_folder,

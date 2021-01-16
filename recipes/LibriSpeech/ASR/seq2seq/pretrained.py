@@ -26,7 +26,7 @@ Authors
 
 import os
 import torch
-from hyperyaml import load_hyperyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 
@@ -43,7 +43,7 @@ class ASR(torch.nn.Module):
 
         # Loading modules defined in the yaml file
         with open(hparams_file) as fin:
-            self.hparams = load_hyperyaml(fin, overrides)
+            self.hparams = load_hyperpyyaml(fin, overrides)
 
         self.device = self.hparams["device"]
 
