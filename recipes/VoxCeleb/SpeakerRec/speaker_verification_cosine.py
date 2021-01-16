@@ -14,7 +14,7 @@ import torch
 import logging
 import speechbrain as sb
 from tqdm.contrib import tqdm
-from speechbrain.utils.metric_stats import EER
+from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 
 
@@ -26,7 +26,7 @@ def compute_embedding(wavs, lens):
         wavs, lens = wavs.to(params["device"]), lens.to(params["device"])
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, lens)
-        emb = params["embedding_model"](feats)
+        emb = params["embedding_model"](feats, lens)
         emb = params["mean_var_norm_emb"](
             emb, torch.ones(emb.shape[0]).to(params["device"])
         )
@@ -59,39 +59,65 @@ def get_verification_scores(veri_test):
     """ Computes positive and negative scores given the verification split.
     """
     scores = []
-    labs = []
     positive_scores = []
     negative_scores = []
-    cnt = 0
+
+    save_file = os.path.join(params["output_folder"], "scores.txt")
+    s_file = open(save_file, "w")
 
     # Cosine similarity initialization
     similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
-    # Loop over all the verification tests
-    scores = []
+    # creating cohort for score normalization
+    if "score_norm" in params:
+        train_cohort = torch.stack(list(train_dict.values()))
+
     for i, line in enumerate(veri_test):
 
         # Reading verification file (enrol_file test_file label)
-        labs.append(int(line.split(" ")[0].rstrip().split(".")[0].strip()))
+        lab_pair = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
         test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
         enrol = enrol_dict[enrol_id]
         test = test_dict[test_id]
-        scores.append(similarity(enrol, test)[0])
 
-        # Gathering batches
-        if cnt == params["batch_size"] - 1 or i == len(veri_test) - 1:
-            # Putting scores in the corresponding lists
-            for j, score in enumerate(scores):
-                if labs[j] == 1:
-                    positive_scores.append(score)
-                else:
-                    negative_scores.append(score)
-            scores = []
-            labs = []
-            cnt = 0
-            continue
-        cnt = cnt + 1
+        if "score_norm" in params:
+            # Getting norm stats for enrol impostors
+            enrol_rep = enrol.repeat(train_cohort.shape[0], 1, 1)
+            score_e_c = similarity(enrol_rep, train_cohort)
+            mean_e_c = torch.mean(score_e_c, dim=0)
+            std_e_c = torch.std(score_e_c, dim=0)
+
+            # Getting norm stats for test impostors
+            test_rep = test.repeat(train_cohort.shape[0], 1, 1)
+            score_t_c = similarity(test_rep, train_cohort)
+            mean_t_c = torch.mean(score_t_c, dim=0)
+            std_t_c = torch.std(score_t_c, dim=0)
+
+        # Compute the score for the given sentence
+        score = similarity(enrol, test)[0]
+
+        # Perform score normalization
+        if "score_norm" in params:
+            if params["score_norm"] == "z-norm":
+                score = (score - mean_e_c) / std_e_c
+            elif params["score_norm"] == "t-norm":
+                score = (score - mean_t_c) / std_t_c
+            elif params["score_norm"] == "s-norm":
+                score = (score - mean_e_c) / std_e_c
+                score += (score - mean_t_c) / std_t_c
+                score = 0.5 * score
+
+        # write score file
+        s_file.write("%s %s %i %f\n" % (enrol_id, test_id, lab_pair, score))
+        scores.append(score)
+
+        if lab_pair == 1:
+            positive_scores.append(score)
+        else:
+            negative_scores.append(score)
+
+    s_file.close()
     return positive_scores, negative_scores
 
 
@@ -116,7 +142,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(params_file) as fin:
         params = sb.yaml.load_extended_yaml(fin, overrides)
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
@@ -132,7 +158,9 @@ if __name__ == "__main__":
     prepare_voxceleb(
         data_folder=params["data_folder"],
         save_folder=params["save_folder"],
-        splits=["test"],
+        splits=["train", "dev", "test"] if "score_norm" in params else ["test"],
+        split_ratio=[90, 10],
+        seg_dur=300,
         rand_seed=params["seed"],
         source=params["voxceleb_source"]
         if "voxceleb_source" in params
@@ -143,6 +171,8 @@ if __name__ == "__main__":
     wav_stored = {}
 
     # Data loaders
+    if "train_loader" in params:
+        train_set_loader = params["train_loader"]().get_dataloader()
     enrol_set_loader = params["enrol_loader"]().get_dataloader()
     test_set_loader = params["test_loader"]().get_dataloader()
 
@@ -167,6 +197,9 @@ if __name__ == "__main__":
     enrol_dict = compute_embedding_loop(enrol_set_loader)
     test_dict = compute_embedding_loop(test_set_loader)
 
+    if "score_norm" in params:
+        train_dict = compute_embedding_loop(train_set_loader)
+
     # Compute the EER
     print("Computing EER..")
     # Reading standard verification split
@@ -179,3 +212,8 @@ if __name__ == "__main__":
 
     eer, th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
     logger.info("EER=%f", eer * 100)
+
+    min_dcf, th = minDCF(
+        torch.tensor(positive_scores), torch.tensor(negative_scores)
+    )
+    logger.info("minDCF=%f", min_dcf * 100)

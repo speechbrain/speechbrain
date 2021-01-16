@@ -56,6 +56,14 @@ slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
 
+
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:prepare.prepare_TAS
+        data_folder: !ref <data_folder>
+        type: "direct"
+        train_splits: !ref <train_splits>
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 

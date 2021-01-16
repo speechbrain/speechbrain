@@ -5,6 +5,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
+ * Abdel HEBA 2020
 """
 
 import os
@@ -24,6 +25,7 @@ from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 import h5py
 import math
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +209,7 @@ class DataLoaderFactory(torch.nn.Module):
             self.dataset,
             batch_size=self.batch_size,
             shuffle=self.shuffle if sampler is None else False,
-            pin_memory=(sampler is not None),
+            pin_memory=False,
             drop_last=self.drop_last,
             num_workers=self.num_workers,
             collate_fn=self.batch_creation,
@@ -426,7 +428,11 @@ class DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            save_pkl(label_dict, label_dict_file)
+            try:
+                if sb.if_main_process():
+                    save_pkl(label_dict, label_dict_file)
+            finally:
+                sb.ddp_barrier()
 
         return label_dict
 
@@ -1329,8 +1335,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            label_dict_file = self.output_folder + "/label_dict.pkl"
-            save_pkl(label_dict, label_dict_file)
+            try:
+                label_dict_file = self.output_folder + "/label_dict.pkl"
+                if sb.if_main_process():
+                    save_pkl(label_dict, label_dict_file)
+            finally:
+                sb.ddp_barrier()
         return label_dict
 
 
@@ -2273,7 +2283,11 @@ class TensorSaver(torch.nn.Module):
 
         # Creating the save folder if it does not exist
         if not os.path.exists(self.save_folder):
-            os.makedirs(self.save_folder)
+            try:
+                if sb.if_main_process():
+                    os.makedirs(self.save_folder)
+            finally:
+                sb.ddp_barrier()
 
         # Check specified format
         if self.save_format not in self.supported_formats:
@@ -2286,9 +2300,13 @@ class TensorSaver(torch.nn.Module):
 
         # Create the csv file (if specified)
         if self.save_csv:
-            self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
-            open(self.save_csv_path, "w").close()
-            self.first_line_csv = True
+            try:
+                self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
+                if sb.if_main_process():
+                    open(self.save_csv_path, "w").close()
+                self.first_line_csv = True
+            finally:
+                sb.ddp_barrier()
 
     def forward(self, data, data_id, data_len):
         """
@@ -2306,7 +2324,11 @@ class TensorSaver(torch.nn.Module):
             data = 10 * data.log10()
 
         # Writing data on disk (in parallel)
-        self.write_batch(data, data_id, data_len)
+        try:
+            if sb.if_main_process():
+                self.write_batch(data, data_id, data_len)
+        finally:
+            sb.ddp_barrier()
 
     def write_batch(self, data, data_id, data_len):
         """

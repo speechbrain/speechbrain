@@ -161,6 +161,22 @@ def test_load_extended_yaml(tmpdir):
     things = load_extended_yaml(yaml)
     assert things["a"] == 3
 
+    # Apply method
+    yaml = """
+    a: "A STRING"
+    common_kwargs:
+        thing1: !ref <a.lower>
+        thing2: 2
+    c: !apply:speechbrain.TestThing.from_keys
+        args:
+            - 1
+            - 2
+        kwargs: !ref <common_kwargs>
+    """
+    things = load_extended_yaml(yaml)
+    assert things["c"].kwargs["thing1"]() == "a string"
+    assert things["c"].specific_key() == "a string"
+
     # Refattr:
     yaml = """
     thing1: "A string"

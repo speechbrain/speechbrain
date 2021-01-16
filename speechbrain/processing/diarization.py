@@ -979,7 +979,7 @@ class Spec_Clust_unorm:
 
 
 def do_spec_clustering(
-    diary_obj, out_rttm_file, rec_id, k, pval, affinity_type
+    diary_obj, out_rttm_file, rec_id, k, pval, affinity_type, n_neighbors
 ):
     """
     Performs spectral clustering on embeddings. This function calls specific
@@ -1013,7 +1013,7 @@ def do_spec_clustering(
             random_state=1234,
             affinity="nearest_neighbors",
         )
-        clust_obj.perform_sc(diary_obj.stat1)
+        clust_obj.perform_sc(diary_obj.stat1, n_neighbors)
         labels = clust_obj.labels_
 
     # Convert labels to speaker boundaries

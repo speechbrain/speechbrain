@@ -92,3 +92,19 @@ def test_EER():
     ).nonzero(as_tuple=False).size(0)
 
     assert correct > 900 and correct < 1100
+
+
+def test_minDCF():
+    from speechbrain.utils.metric_stats import minDCF
+
+    positive_scores = torch.tensor([0.1, 0.2, 0.3])
+    negative_scores = torch.tensor([0.4, 0.5, 0.6])
+    min_dcf, threshold = minDCF(positive_scores, negative_scores)
+    assert (0.01 - min_dcf) < 1e-4
+    assert threshold >= 0.6
+
+    positive_scores = torch.tensor([0.4, 0.5, 0.6])
+    negative_scores = torch.tensor([0.1, 0.2, 0.3])
+    min_dcf, threshold = minDCF(positive_scores, negative_scores)
+    assert min_dcf == 0
+    assert threshold > 0.3 and threshold < 0.4
