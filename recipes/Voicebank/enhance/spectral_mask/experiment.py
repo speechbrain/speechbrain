@@ -92,7 +92,7 @@ class SEBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
