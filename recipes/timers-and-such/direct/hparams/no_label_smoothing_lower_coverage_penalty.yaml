@@ -9,14 +9,14 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1986
+seed: 1
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/BPE51/<seed>
+output_folder: !ref results/no_label_smoothing_lower_coverage_penalty/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/timers-and-such
+data_folder: /home/lugosch/data/timers-and-such #/localscratch/timers-and-such
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
@@ -55,14 +55,6 @@ max_decode_ratio: 10.0
 slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
-
-
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:prepare.prepare_TAS
-        data_folder: !ref <data_folder>
-        type: "direct"
-        train_splits: !ref <train_splits>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -164,7 +156,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     temperature: !ref <temperature>
     using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 1.5
+    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -190,7 +182,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
+    label_smoothing: 0.
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
