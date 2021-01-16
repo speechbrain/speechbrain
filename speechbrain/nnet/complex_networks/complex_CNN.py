@@ -9,8 +9,10 @@ import logging
 import torch.nn.functional as F
 from speechbrain.nnet.CNN import get_padding_elem
 from speechbrain.nnet.complex_networks.complex_ops import (
-    complex_convolution,
-    check_conv_input,
+    unitary_init,
+    complex_init,
+    affect_conv_init,
+    complex_conv_op,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,21 +105,32 @@ class ComplexConv1d(torch.nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
-        check_conv_input(input_shape, channels_axis=-1)
         self.in_channels = self._check_input(input_shape) // 2
 
-        self.conv = complex_convolution(
-            self.in_channels,
-            self.out_channels,
-            conv1d=True,
-            kernel_size=self.kernel_size,
-            stride=self.stride,
-            dilation=self.dilation,
-            padding=0,
-            groups=self.groups,
-            bias=self.bias,
-            init_criterion=self.init_criterion,
-            weight_init=self.weight_init,
+        # Managing the weight initialization and bias by directly setting the
+        # correct function
+
+        (self.k_shape, self.w_shape) = self._get_kernel_and_weight_shape()
+
+        self.real_weight = torch.nn.Parameter(torch.Tensor(*self.w_shape))
+        self.imag_weight = torch.nn.Parameter(torch.Tensor(*self.w_shape))
+
+        if self.bias:
+            self.b = torch.nn.Parameter(torch.Tensor(2 * self.out_channels))
+            self.b.data.fill_(0)
+        else:
+            self.b = None
+
+        self.winit = {"complex": complex_init, "unitary": unitary_init}[
+            self.weight_init
+        ]
+
+        affect_conv_init(
+            self.real_weight,
+            self.imag_weight,
+            self.kernel_size,
+            self.winit,
+            self.init_criterion,
         )
 
     def forward(self, x):
@@ -149,7 +162,16 @@ class ComplexConv1d(torch.nn.Module):
                 % (self.padding)
             )
 
-        wx = self.conv(x)
+        wx = complex_conv_op(
+            x,
+            self.real_weight,
+            self.imag_weight,
+            self.b,
+            stride=self.stride,
+            padding=0,
+            dilation=self.dilation,
+            conv1d=True,
+        )
 
         wx = wx.transpose(1, -1)
         return wx
@@ -185,7 +207,9 @@ class ComplexConv1d(torch.nn.Module):
         if len(input_shape) == 3:
             in_channels = input_shape[2]
         else:
-            raise ValueError("conv1d expects 3d inputs. Got " + input_shape)
+            raise ValueError(
+                "ComplexConv1d expects 3d inputs. Got " + input_shape
+            )
 
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:
@@ -194,7 +218,24 @@ class ComplexConv1d(torch.nn.Module):
                 % (self.kernel_size)
             )
 
+        # Check complex format
+        if in_channels % 2 != 0:
+            raise ValueError(
+                "Complex Tensors must have a dimensions dividible by 2."
+                " input.size()["
+                + str(self.channels_axis)
+                + "] = "
+                + str(self.nb_channels)
+            )
+
         return in_channels
+
+    def _get_kernel_and_weight_shape(self):
+        """ Returns the kernel size and weight shape for convolutional layers.
+        """
+        ks = self.kernel_size
+        w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
+        return ks, w_shape
 
 
 class ComplexConv2d(nn.Module):
@@ -296,18 +337,30 @@ class ComplexConv2d(nn.Module):
 
         self.in_channels = self._check_input(input_shape) // 2
 
-        self.conv = complex_convolution(
-            self.in_channels,
-            self.out_channels,
-            conv1d=False,
-            kernel_size=self.kernel_size,
-            stride=self.stride,
-            dilation=self.dilation,
-            padding=0,
-            groups=self.groups,
-            bias=self.bias,
-            init_criterion=self.init_criterion,
-            weight_init=self.weight_init,
+        # Managing the weight initialization and bias by directly setting the
+        # correct function
+
+        (self.k_shape, self.w_shape) = self._get_kernel_and_weight_shape()
+
+        self.real_weight = torch.nn.Parameter(torch.Tensor(*self.w_shape))
+        self.imag_weight = torch.nn.Parameter(torch.Tensor(*self.w_shape))
+
+        if self.bias:
+            self.b = torch.nn.Parameter(torch.Tensor(2 * self.out_channels))
+            self.b.data.fill_(0)
+        else:
+            self.b = None
+
+        self.winit = {"complex": complex_init, "unitary": unitary_init}[
+            self.weight_init
+        ]
+
+        affect_conv_init(
+            self.real_weight,
+            self.imag_weight,
+            self.kernel_size,
+            self.winit,
+            self.init_criterion,
         )
 
     def forward(self, x, init_params=False):
@@ -324,10 +377,6 @@ class ComplexConv2d(nn.Module):
 
         # (batch, channel, feature, time)
         x = x.transpose(1, -1)
-
-        # If (batch, time, feature) -> (batch, 1, time, feature)
-        if self.unsqueeze:
-            x = x.unsqueeze(1)
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -347,14 +396,27 @@ class ComplexConv2d(nn.Module):
                 % (self.padding)
             )
 
-        wx = self.conv(x)
-
-        if self.unsqueeze:
-            wx = wx.squeeze(1)
+        wx = complex_conv_op(
+            x,
+            self.real_weight,
+            self.imag_weight,
+            self.b,
+            stride=self.stride,
+            padding=0,
+            dilation=self.dilation,
+            conv1d=False,
+        )
 
         wx = wx.transpose(1, -1)
 
         return wx
+
+    def _get_kernel_and_weight_shape(self):
+        """ Returns the kernel size and weight shape for convolutional layers.
+        """
+        ks = (self.kernel_size[0], self.kernel_size[1])
+        w_shape = (self.out_channels, self.in_channels) + (*ks,)
+        return ks, w_shape
 
     def _manage_padding(self, x, kernel_size, dilation, stride):
         """This function performs zero-padding on the time and frequency axes
@@ -404,6 +466,16 @@ class ComplexConv2d(nn.Module):
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)
+            )
+
+        # Check complex format
+        if in_channels % 2 != 0:
+            raise ValueError(
+                "Complex Tensors must have a dimensions dividible by 2."
+                " input.size()["
+                + str(self.channels_axis)
+                + "] = "
+                + str(self.nb_channels)
             )
 
         return in_channels

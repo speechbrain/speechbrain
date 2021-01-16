@@ -61,6 +61,13 @@ temperature: 1.25
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:prepare.prepare_TAS
+        data_folder: !ref <data_folder>
+        type: "multistage"
+        train_splits: !ref <train_splits>
+
 # Dataloaders
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>

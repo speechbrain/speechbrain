@@ -37,6 +37,11 @@ N_batch: 1
 lr: 0.0005
 device: 'cuda:0'
 
+# Data preparation will generate train.csv, dev.csv, and test.csv files
+__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
+    prep_function: !name:voicebank_prepare.prepare_voicebank
+        data_folder: !ref <data_folder>
+        save_folder: !ref <data_folder>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
