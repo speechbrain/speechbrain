@@ -63,6 +63,7 @@ def dynamic_mix_data_prep(hparams):
         )
         # select two speakers randomly
         sources = []
+        first_lvl = None
         for i, spk in enumerate(speakers):
             c_file = np.random.choice(spk_hashtable[spk])
             # select random offset
@@ -79,11 +80,13 @@ def dynamic_mix_data_prep(hparams):
                 c_file, frame_offset=start, num_frames=stop - start
             )
             tmp = tmp[0]  # remove channel dim and normalize
+
             if i == 0:
                 lvl = np.clip(random.normalvariate(-16.7, 7), -45, 0)
                 tmp = rescale(tmp, torch.tensor([len(tmp)]), lvl, scale="dB")
+                first_lvl = lvl
             else:
-                lvl = np.clip(random.normalvariate(2.52, 4), -45, 0)
+                lvl = np.clip(first_lvl - random.normalvariate(2.52, 4), -45, 0)
                 tmp = rescale(tmp, torch.tensor([len(tmp)]), lvl, scale="dB")
             sources.append(tmp)
 
@@ -109,4 +112,5 @@ def dynamic_mix_data_prep(hparams):
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
 
+    train_data[0]
     return train_data
