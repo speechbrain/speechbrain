@@ -10,8 +10,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-#output_folder: !ref results/transformer/<seed>
-output_folder: !ref results/con_big
+output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -19,7 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 # LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
 # # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
 language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
-tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 # yamllint disable-line rule:line-length
+tokenizer_file: ../../Tokenizer/pre-trained/5000_unigram.model # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
@@ -37,7 +36,7 @@ test_csv:
     - !ref <data_folder>/test-other.csv
 
 # Training parameters
-number_of_epochs: 60
+number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.3
@@ -54,6 +53,7 @@ n_mels: 80
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
+    shuffle: True
 
 valid_dataloader_opts:
     batch_size: 1
