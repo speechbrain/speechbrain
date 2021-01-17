@@ -1,31 +1,42 @@
-# SLU recipes with the Timers and Such v0.1 dataset
-This folder contains recipe for spoken language understanding(SLU) with the Timers and Such v0.1 dataset.
-The dataset is open - source and can be downloaded here: https: // zenodo.org / record / 4110812  # .X8cXSHVKg5k
+# SLU recipes for Timers and Such v0.1
+This folder contains recipes for spoken language understanding (SLU) with [Timers and Such v0.1](https://zenodo.org/record/4110812), an SLU dataset with a large (train/dev/test) set of synthetic speech and a small (train/dev/test) set of real speech.
 
-# Direct recipe
-The "direct" convers the input speech into semantics directly with ASR - based transfer learning.
-We encode input waveforms into features using a model trained on LibriSpeech,
-then feed the features into a seq2seq model to map them to semantics.
+### LM recipe
+This recipe trains a language model (LM) on Timers and Such transcripts. (It is not necessary to run this before running the other recipes, as they download a trained checkpoint.)
+
+### Decoupled recipe
+The "decoupled" recipe uses an ASR model (using the LibriSpeech seq2seq recipe) to map speech to text and a separate NLU model, trained on the true transcripts rather than the ASR output, to map text to semantics using an attention-based seq2seq model.
+The ASR model uses either the LibriSpeech LM (`train_LS_LM.yaml`) or the Timers and Such LM (`train_TAS_LM.yaml`).
 
 ```
-cd direct
-python train.py hparams / train.yaml
+cd decoupled
+python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
 ```
 
-# Multistage recipe
-The "multistage" recipe first converts speech to text and finally converts text to semantics.
-We transcribe each minibatch using a model trained on LibriSpeech, then we feed the transcriptions into
-a seq2seq model to map them to semantics.
+### Multistage recipe
+The "multistage" recipe is similar to the decoupled recipe, but instead of using the true transcripts to train the NLU model, we use transcripts predicted by the ASR model, again using either the LibriSpeech LM (`train_LS_LM.yaml`) or the Timers and Such LM (`train_TAS_LM.yaml`).
 
 ```
 cd multistage
-python train.py hparams / train.yaml
+python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
+```
+
+### Direct recipe
+The "direct" maps the input speech to directly to semantics using a seq2seq model.
+The encoder is pre-trained using the LibriSpeech seq2seq recipe.
+
+```
+cd direct
+python train.py hparams/train.yaml
 ```
 
 # Performance summary
 
-[Sentence Accuracy with the Timers and Such v0.1 dataset]
+[Sentence accuracy on Timers and Such v0.1, measured using 5 random seeds.]
 | System | Synthetic | Real |
 |----------------- | ------------ | ------|
-| Direct | 95.7 % | 75.5 % |
-| Multistage | 75.4 % | 78.2 % |
+| Decoupled (LibriSpeech LM) | 18.7% ± 5.1% | 23.6% ± 7.3% |
+| Decoupled (Timers and Such LM) | 31.9% ± 3.9% | 44.4% ± 6.9% |
+| Multistage (LibriSpeech LM) | 69.9% ± 2.5% | 69.8% ± 3.5% |
+| Multistage (Timers and Such LM) | 73.1% ± 8.7% | 75.3% ± 4.2% |
+| Direct | 96.1% ± 0.2% | 74.5% ± 6.9% |

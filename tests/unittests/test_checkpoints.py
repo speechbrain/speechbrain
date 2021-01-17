@@ -179,7 +179,8 @@ def test_checkpoint_deletion(tmpdir):
     c3 = recoverer.save_checkpoint(meta={"epoch_ckpt": True})
     recoverer.delete_checkpoints(
         num_to_keep=1,
-        importance_keys=[lambda c: c.meta["unixtime"], lambda c: c.meta["foo"]],
+        max_keys=["foo"],
+        importance_keys=[lambda c: c.meta["unixtime"]],
         ckpt_predicate=lambda c: "epoch_ckpt" not in c.meta,
     )
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
