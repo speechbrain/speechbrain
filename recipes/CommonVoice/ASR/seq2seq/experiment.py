@@ -280,7 +280,7 @@ if __name__ == "__main__":
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Dataset preparation (parsing CommonVoice)
     from common_voice_prepare import prepare_common_voice  # noqa
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         train_data,
         valid_data,
         train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
     # Test
@@ -335,5 +335,5 @@ if __name__ == "__main__":
     asr_brain.evaluate(
         test_set,
         min_key="WER",
-        test_loader_kwargs=hparams["dataloader_options"],
+        test_loader_kwargs=hparams["test_dataloader_options"],
     )

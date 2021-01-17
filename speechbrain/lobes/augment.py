@@ -467,7 +467,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
         than this will be cut into pieces.
     """
     try:
-        if sb.if_main_process():
+        if sb.utils.distributed.if_main_process():
             with open(csv_file, "w") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
                 for line in open(filelist):
@@ -512,4 +512,4 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             ",".join((ID, str(duration), filename, ext, "\n"))
                         )
     finally:
-        sb.ddp_barrier()
+        sb.utils.distributed.ddp_barrier()

@@ -20,7 +20,7 @@ valid_data: !ref <save_folder>/wsj_cv.csv
 test_data: !ref <save_folder>/wsj_tt.csv
 
 # Experiment params
-auto_mix_prec: True
+auto_mix_prec: False # Set it to True for dynamic mixture creation
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True
@@ -38,13 +38,19 @@ limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
 training_signal_len: 32000
+dynamic_mixing: False # Set it to True to dynamically create mixture at training time
 
-# Augment parameters
+# Parameters for data augmentation
 use_wavedrop: False
 use_speedperturb: True
+use_speedperturb_sameforeachsource: False
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
+
+# loss thresholding
+threshold_byloss: False
+threshold: -30
 
 # Neural parameters
 N_encoder_out: 256

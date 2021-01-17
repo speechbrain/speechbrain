@@ -7,6 +7,7 @@ import speechbrain as sb
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.utils.distributed import run_on_main
 
 torchaudio.set_audio_backend("sox_io")
 
@@ -17,11 +18,11 @@ except ImportError:
 
 
 class SEBrain(sb.core.Brain):
-    def compute_forward(self, x, stage):
-        ids, wavs, lens = x
-        wavs, lens = wavs.to(self.device), lens.to(self.device)
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        noisy_wavs, lens = batch.noisy_sig
 
-        feats = self.hparams.compute_STFT(wavs)
+        feats = self.hparams.compute_STFT(noisy_wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
 
@@ -29,16 +30,18 @@ class SEBrain(sb.core.Brain):
 
         # Also return predicted wav
         if stage != sb.Stage.TRAIN:
-            predict_wav = self.resynthesize(torch.expm1(predict_spec), wavs)
+            predict_wav = self.hparams.resynth(
+                torch.expm1(predict_spec), noisy_wavs
+            )
         else:
             predict_wav = None
 
         return predict_spec, predict_wav
 
-    def compute_objectives(self, predictions, cleans, stage):
+    def compute_objectives(self, predictions, batch, stage):
         predict_spec, predict_wav = predictions
-        ids, clean_wav, lens = cleans
-        clean_wav, lens = clean_wav.to(self.device), lens.to(self.device)
+        ids = batch.id
+        clean_wav, lens = batch.clean_sig
 
         feats = self.hparams.compute_STFT(clean_wav)
         feats = spectral_magnitude(feats, power=0.5)
@@ -56,7 +59,7 @@ class SEBrain(sb.core.Brain):
                 ids, predict_wav, clean_wav, lens, reduction="batch"
             )
             self.pesq_metric.append(
-                ids, predict=predict_wav, target=clean_wav, lengths=lens
+                batch.id, predict=predict_wav, target=clean_wav, lengths=lens
             )
 
         # Write wavs to file
@@ -69,28 +72,10 @@ class SEBrain(sb.core.Brain):
                 torchaudio.save(
                     enhance_path,
                     torch.unsqueeze(wav[: int(length)].cpu(), 0),
-                    16000,
+                    self.hparams.Sample_rate,
                 )
 
         return loss
-
-    def fit_batch(self, batch):
-        cleans = batch[0]
-        ids, clean_wavs, lens = cleans
-
-        # Dynamically mix noises
-        noisy_wavs = self.hparams.add_noise(clean_wavs, lens)
-
-        predictions = self.compute_forward(
-            [ids, noisy_wavs, lens], sb.Stage.TRAIN
-        )
-        loss = self.compute_objectives(predictions, cleans, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-
-        return loss.detach().cpu()
 
     def on_stage_start(self, stage, epoch=None):
         self.loss_metric = MetricStats(metric=self.hparams.compute_cost)
@@ -100,13 +85,13 @@ class SEBrain(sb.core.Brain):
         def pesq_eval(pred_wav, target_wav):
             return pesq(
                 fs=16000,
-                ref=target_wav.numpy(),
-                deg=pred_wav.numpy(),
+                ref=target_wav.cpu().numpy(),
+                deg=pred_wav.cpu().numpy(),
                 mode="wb",
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
 
@@ -149,30 +134,50 @@ class SEBrain(sb.core.Brain):
                 test_stats=stats,
             )
 
-    def resynthesize(self, predictions, noisy_wav):
-        # Extract noisy phase
-        feats = self.hparams.compute_STFT(noisy_wav)
-        phase = torch.atan2(feats[..., 1], feats[..., 0])
-        complex_predictions = torch.mul(
-            torch.unsqueeze(predictions, -1),
-            torch.cat(
-                (
-                    torch.unsqueeze(torch.cos(phase), -1),
-                    torch.unsqueeze(torch.sin(phase), -1),
-                ),
-                -1,
-            ),
+
+def data_io_prep(hparams):
+    """Creates data processing pipeline"""
+
+    # Define audio piplines
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
+    def train_pipeline(wav):
+        clean_sig = sb.data_io.data_io.read_audio(wav)
+        noisy_sig = hparams["add_noise"](
+            clean_sig.unsqueeze(0), torch.Tensor([1])
         )
+        return clean_sig, noisy_sig.squeeze(0)
 
-        # Get the predicted waveform
-        pred_wavs = self.hparams.compute_ISTFT(complex_predictions)
+    @sb.utils.data_pipeline.takes("wav", "target")
+    @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
+    def eval_pipeline(wav, target):
+        clean_sig = sb.data_io.data_io.read_audio(wav)
+        noisy_sig = sb.data_io.data_io.read_audio(target)
+        return clean_sig, noisy_sig
 
-        # Normalize the waveform
-        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
-        pred_wavs = pred_wavs / abs_max * 0.99
+    # Define datasets
+    train_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[train_pipeline],
+        output_keys=["id", "clean_sig", "noisy_sig"],
+    )
 
-        padding = (0, noisy_wav.shape[1] - pred_wavs.shape[1])
-        return torch.nn.functional.pad(pred_wavs, padding)
+    valid_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[eval_pipeline],
+        output_keys=["id", "clean_sig", "noisy_sig"],
+    )
+
+    test_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[eval_pipeline],
+        output_keys=["id", "clean_sig", "noisy_sig"],
+    )
+
+    return train_set, valid_set, test_set
 
 
 # Recipe begins!
@@ -184,7 +189,20 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # Data preparation
+    from dns_prepare import prepare_dns  # noq
+
+    run_on_main(
+        prepare_dns,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
+            "valid_folder": hparams["valid_folder"],
+            "seg_size": 10.0,
+        },
+    )
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -203,12 +221,15 @@ if __name__ == "__main__":
     # Create the folder to save enhanced files (+ support for DDP)
     try:
         # all writing command must be done with the main_process
-        if sb.if_main_process():
+        if sb.utils.distributed.if_main_process():
             if not os.path.isdir(hparams["enhanced_folder"]):
                 os.makedirs(hparams["enhanced_folder"])
     finally:
         # wait for main_process if ddp is used
-        sb.ddp_barrier()
+        sb.utils.distributed.ddp_barrier()
+
+    # Create dataset objects
+    train_set, valid_set, test_set = data_io_prep(hparams)
 
     se_brain = SEBrain(
         modules=hparams["modules"],
@@ -220,10 +241,12 @@ if __name__ == "__main__":
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        se_brain.hparams.epoch_counter,
-        train_set=hparams["train_loader"](),
-        valid_set=hparams["valid_loader"](),
+        epoch_counter=se_brain.hparams.epoch_counter,
+        train_set=train_set,
+        valid_set=valid_set,
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Load best checkpoint for evaluation
-    test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="pesq")
+    test_stats = se_brain.evaluate(test_set, max_key="pesq")
