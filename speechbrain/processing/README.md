@@ -77,7 +77,7 @@ add_noise: !speechbrain.processing.speech_augmentation.AddNoise
 The `.csv` file is passed to this function through the csv_file parameter. This file will be processed in the same way that speech is processed, with ordering, batching, and caching options. When loaded, this function can be simply used to add noise:
 
 ```
-hyperparams = load_extended_yaml(open("hyperparams.yaml"))
+hyperparams = load_hyperpyyaml(open("hyperparams.yaml"))
 noisy_wav = hyperparams.add_noise(wav)
 ```
 
@@ -111,7 +111,7 @@ compute_spectrogram: !speechbrain.processing.features.spectrogram
 
 ```
 # experiment.py
-hyperparams = load_extended_yaml(open("hyperparams.yaml"))
+hyperparams = load_hyperpyyaml(open("hyperparams.yaml"))
 
 def spec_augment(wav):
     feat = speed_perturb(wav)

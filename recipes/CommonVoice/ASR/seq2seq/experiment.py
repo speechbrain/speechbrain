@@ -4,6 +4,7 @@ import torch
 import logging
 import speechbrain as sb
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
@@ -279,7 +280,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol

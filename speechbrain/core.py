@@ -29,6 +29,7 @@ from torch.nn import DataParallel as DP
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.data_io.dataloader import SaveableDataLoader
 from speechbrain.data_io.sampler import DistributedSamplerWrapper
@@ -79,7 +80,7 @@ def create_experiment_directory(
                     experiment_directory, "hyperparams.yaml"
                 )
                 with open(hyperparams_to_save) as f:
-                    resolved_yaml = sb.resolve_references(f, overrides)
+                    resolved_yaml = resolve_references(f, overrides)
                 with open(hyperparams_filename, "w") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
@@ -142,7 +143,7 @@ def parse_arguments(arg_list):
     run_opts : dict
         Run options, such as distributed, device, etc.
     overrides : dict
-        The overrides to pass to ``load_extended_yaml``.
+        The overrides to pass to ``load_hyperpyyaml``.
 
     Example
     -------
