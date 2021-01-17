@@ -14,14 +14,7 @@
 # limitations under the License.
 
 # Lint as: python3
-"""
-Librispeech language modeling dataset.
-
-    this is an extented from huggingface's official implemenation to allow the use of train-960 trainscript and lm_corpus for LM training
-
-Authors
- * Jianyuan Zhong 2021
-"""
+"""Librispeech language modeling dataset."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -106,5 +99,5 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
                         r"\d+-\d+-\d+\s", "", line
                     )  # remove ids in transcripts
                     text = line.strip()
-                    if text:  # Skip empty lines.
+                    if text and len(text) < 1000:  # Skip empty lines.
                         yield key, {"text": text}
