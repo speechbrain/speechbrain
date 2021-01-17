@@ -1,6 +1,7 @@
 # ############################################################################
-# Model: Multistage SLU
-# Encoder: Pre-trained ASR -> transcript -> LSTM
+# Model: Decoupled SLU
+# Encoder: transcript -> LSTM
+# (train time: ground truth transcript, test time: from LibriSpeech ASR)
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
@@ -11,24 +12,20 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/BPE51/<seed>
+output_folder: !ref results/LS_LM/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: /localscratch/timers-and-such
-# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
-# then data_folder_rirs should be /localscratch/xxx_corpus
-# otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 dev_split: dev-real
-csv_train: !ref <data_folder>/train-type=multistage.csv
-csv_valid: !ref <data_folder>/<dev_split>-type=multistage.csv
-csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
-csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
+csv_train: !ref <data_folder>/train-type=decoupled.csv
+csv_valid: !ref <data_folder>/<dev_split>-type=decoupled.csv
+csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
+csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 asr_hparam_file:
-    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained.yaml
+    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
 number_of_epochs: 1
@@ -40,7 +37,6 @@ token_type: unigram # ["unigram", "bpe", "char"]
 
 
 # Model params
-sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 num_asr_tokens: 1000
@@ -61,27 +57,20 @@ temperature: 1.25
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# Data preparation will generate train.csv, dev.csv, and test.csv files
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:prepare.prepare_TAS
-        data_folder: !ref <data_folder>
-        type: "multistage"
-        train_splits: !ref <train_splits>
-
 # Dataloaders
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: random
     output_folder: !ref <output_folder>
-    csv_read: [wav, semantics]
+    csv_read: [transcript, semantics]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, semantics]
+    csv_read: [transcript, semantics]
 
 test_real_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_real>
@@ -137,14 +126,6 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
-
 
 modules:
     asr_model: !ref <asr_model>
@@ -153,7 +134,6 @@ modules:
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    env_corrupt: !ref <env_corrupt>
 
 
 model: !new:torch.nn.ModuleList
@@ -190,10 +170,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

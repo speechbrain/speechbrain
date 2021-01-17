@@ -1,14 +1,10 @@
 #!/usr/bin/env/python3
 """
 
-Recipe for "multistage" (speech -> ASR -> text -> NLU -> semantics) SLU.
+Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
 
-We transcribe each minibatch using a model trained on LibriSpeech,
-then feed the transcriptions into a seq2seq model to map them to semantics.
-
-(The transcriptions could be done offline to make training faster;
-the benefit of doing it online is that we can use augmentation
-and sample many possible transcriptions.)
+We encode input waveforms into features using a model trained on LibriSpeech,
+then feed the features into a seq2seq model to map them to semantics.
 
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 
@@ -19,13 +15,16 @@ Authors
  * Loren Lugosch, Mirco Ravanelli 2020
 """
 
+import os
 import sys
 import torch
 import speechbrain as sb
-from hyper.yaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
+import jsonlines
+import ast
+import pandas as pd
 
 
 # Define training procedure
@@ -63,33 +62,16 @@ class SLU(sb.Brain):
             target_tokens, self.hparams.bos_index
         )
 
-        # Forward pass
-        words, asr_tokens = self.modules.asr_model.transcribe(
-            wavs.detach(), wav_lens
-        )
+        # ASR encoder forward pass
+        with torch.no_grad():
+            ASR_encoder_out = self.modules.asr_model.encode(
+                wavs.detach(), wav_lens
+            )
 
-        # Pad examples to have same length.
-        max_length = max([len(t) for t in asr_tokens])
-        if max_length == 0:
-            max_length = 1  # The ASR may output empty transcripts.
-        for t in asr_tokens:
-            t += [0] * (max_length - len(t))
-        asr_tokens = torch.tensor([t for t in asr_tokens])
-
-        # Manage length of predicted tokens
-        asr_tokens_lens = torch.tensor(
-            [max(len(t), 1) for t in asr_tokens]
-        ).float()
-        asr_tokens_lens = asr_tokens_lens / asr_tokens_lens.max()
-
-        asr_tokens, asr_tokens_lens = (
-            asr_tokens.to(self.device),
-            asr_tokens_lens.to(self.device),
-        )
-        embedded_transcripts = self.hparams.input_emb(asr_tokens)
-        encoder_out = self.hparams.slu_enc(embedded_transcripts)
+        # SLU forward pass
+        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
         e_in = self.hparams.output_emb(y_in)
-        h, _ = self.hparams.dec(e_in, encoder_out, asr_tokens_lens)
+        h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
 
         # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
@@ -100,23 +82,22 @@ class SLU(sb.Brain):
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            return p_seq, asr_tokens_lens
+            return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                encoder_out, asr_tokens_lens
-            )
-            return p_seq, asr_tokens_lens, p_tokens
+            p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
+            return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
         """Computes the loss (NLL) given predictions and targets."""
+        show_results_every = 100  # plots results every N iterations
 
         if (
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            p_seq, decoded_transcript_lens = predictions
+            p_seq, wav_lens = predictions
         else:
-            p_seq, decoded_transcript_lens, predicted_tokens = predictions
+            p_seq, wav_lens, predicted_tokens = predictions
 
         ids, target_semantics, target_semantics_lens = targets
         target_tokens, target_token_lens = self.hparams.tokenizer(
@@ -166,12 +147,10 @@ class SLU(sb.Brain):
             target_semantics = sb.data_io.data_io.convert_index_to_lab(
                 target_semantics, self.hparams.ind2lab
             )
-            for i in range(len(target_semantics)):
-                print(" ".join(predicted_semantics[i]).replace("|", ","))
-                print(" ".join(target_semantics[i]).replace("|", ","))
-                print("")
+            self.log_outputs(predicted_semantics, target_semantics)
 
             if stage != sb.Stage.TRAIN:
+                # TODO use different metric
                 self.wer_metric.append(
                     ids, predicted_semantics, target_semantics
                 )
@@ -179,7 +158,35 @@ class SLU(sb.Brain):
                     ids, predicted_semantics, target_semantics
                 )
 
+            if stage == sb.Stage.TEST:
+                # write to "predictions.jsonl"
+                with jsonlines.open(
+                    hparams["output_folder"] + "/predictions.jsonl", mode="a"
+                ) as writer:
+                    for i in range(len(predicted_semantics)):
+                        try:
+                            dict = ast.literal_eval(
+                                " ".join(predicted_semantics[i]).replace(
+                                    "|", ","
+                                )
+                            )
+                        except SyntaxError:  # need this if the output is not a valid dictionary
+                            dict = {
+                                "scenario": "none",
+                                "action": "none",
+                                "entities": [],
+                            }
+                        dict["file"] = id_to_file[ids[i]]
+                        writer.write(dict)
+
         return loss
+
+    def log_outputs(self, predicted_semantics, target_semantics):
+        """ TODO: log these to a file instead of stdout """
+        for i in range(len(target_semantics)):
+            print(" ".join(predicted_semantics[i]).replace("|", ","))
+            print(" ".join(target_semantics[i]).replace("|", ","))
+            print("")
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -187,8 +194,7 @@ class SLU(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
+        self.optimizer.step()
         self.optimizer.zero_grad()
         self.batch_count += 1
         return loss.detach()
@@ -240,7 +246,7 @@ class SLU(sb.Brain):
                 self.wer_metric.write_stats(w)
 
     def load_tokenizer(self):
-        """Loads the sentence piece tokinizer specified in the yaml file"""
+        """Loads the sentence piece tokenizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
@@ -261,17 +267,28 @@ class SLU(sb.Brain):
 
 
 if __name__ == "__main__":
+    # This hack needed to import data preparation script from ../
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.dirname(current_dir))
+    from prepare import prepare_SLURP
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+        hparams = sb.load_extended_yaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
+    )
+
+    # Prepare data
+    prepare_SLURP(
+        data_folder=hparams["data_folder"],
+        slu_type="direct",
+        train_splits=hparams["train_splits"],
     )
 
     # Creating tokenizer must be done after preparation
@@ -290,9 +307,8 @@ if __name__ == "__main__":
     # Load index2label dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
-    test_real_set = hparams["test_real_loader"]()
-    test_synth_set = hparams["test_synth_loader"]()
-    hparams["ind2lab"] = hparams["test_real_loader"].label_dict["semantics"][
+    test_set = hparams["test_loader"]()
+    hparams["ind2lab"] = hparams["test_loader"].label_dict["semantics"][
         "index2lab"
     ]
 
@@ -301,19 +317,19 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
     slu_brain.load_tokenizer()
 
     # Training
-    show_results_every = 250  # plots results every N iterations
+    show_results_every = 100  # plots results every N iterations
     slu_brain.fit(slu_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
-    slu_brain.evaluate(test_real_set)
-    slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_synth.txt"
-    )
-    slu_brain.evaluate(test_synth_set)
+    print("Creating id_to_file mapping...")
+    id_to_file = {}
+    df = pd.read_csv(hparams["csv_test"])
+    for i in range(len(df)):
+        id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
+    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    slu_brain.evaluate(test_set)

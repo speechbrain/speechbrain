@@ -8,14 +8,13 @@
 
 # Pretrained models to download
 asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
-lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 save_folder: pretrained_models
+lm_hparam_file:
+    ../../../LM/hparams/pretrained.yaml
 
 # Device selection
 device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Feature parameters
 sample_rate: 16000
@@ -54,15 +53,6 @@ lm_weight: 0.50
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
-
-# LM Model parameters
-lm_emb_size: 128
-lm_activation: !name:torch.nn.LeakyReLU
-lm_dropout: 0.0
-lm_rnn_layers: 2
-lm_rnn_neurons: 2048
-lm_dnn_blocks: 1
-lm_dnn_neurons: 512
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -120,16 +110,9 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    activation: !ref <lm_activation>
-    dropout: !ref <lm_dropout>
-    rnn_layers: !ref <lm_rnn_layers>
-    rnn_neurons: !ref <lm_rnn_neurons>
-    dnn_blocks: !ref <lm_dnn_blocks>
-    dnn_neurons: !ref <lm_dnn_neurons>
-    return_hidden: True  # For inference
+lm_model: !new:recipes.LibriSpeech.LM.inference.pretrained.LM
+    hparams_file: !ref <lm_hparam_file>
+    overrides: {'device': !ref <device>}
 
 asr_model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]

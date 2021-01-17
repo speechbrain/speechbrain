@@ -16,23 +16,26 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/timers-and-such
+data_folder: /localscratch/code/slurp
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-synth", "train-real"]
-dev_split: dev-real
+train_splits: ["train", "train_synthetic"]
+dev_split: devel
 csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
-csv_test_real: !ref <data_folder>/test-real-type=direct.csv
-csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
-asr_hparam_file: ../../../recipes/LibriSpeech/ASR/seq2seq/inference/hparams/pretrained.yaml
-lm_hparam_file: ../../../recipes/LibriSpeech/LM/inference/hparams/pretrained.yaml
+csv_test: !ref <data_folder>/test-type=direct.csv
+asr_hparam_file:
+    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
+device: 'cuda:0'
+ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
-sorting: ascending
 
 # Model parameters
 sample_rate: 16000
@@ -52,16 +55,35 @@ slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
 
-dataloader_opts:
-    batch_size: !ref <batch_size>
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+# Dataloaders
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    sentence_sorting: random
+    output_folder: !ref <output_folder>
+    csv_read: [wav, semantics]
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, semantics]
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, semantics]
+
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.inference.pretrained.ASR
+asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
-    overrides: {'lm_hparam_file': !ref <lm_hparam_file>}
+    overrides: {'device': !ref <device>}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]
@@ -113,18 +135,6 @@ model: !new:torch.nn.ModuleList
     - [!ref <asr_model>, !ref <slu_enc>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
-tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: !ref <save_folder>
-    vocab_size: !ref <output_neurons>
-    csv_train: !ref <csv_train>
-    csv_read: "semantics"
-    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
-    character_coverage: 1.0
-    num_sequences: 10000
-    bos_id: !ref <bos_index>
-    eos_id: !ref <eos_index>
-    csv_list_to_check: [!ref <csv_train>, !ref <csv_valid>]
-
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
     decoder: !ref <dec>
@@ -138,7 +148,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     temperature: !ref <temperature>
     using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 1.5
+    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
