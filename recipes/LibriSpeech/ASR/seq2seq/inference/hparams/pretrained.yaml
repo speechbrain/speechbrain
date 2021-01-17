@@ -11,12 +11,10 @@ asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 save_folder: pretrained_models
 lm_hparam_file:
-    ../../../recipes/LibriSpeech/LM/hyperparams/pretrained.yaml
+    ../../../LM/hparams/pretrained.yaml
 
 # Device selection
 device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Feature parameters
 sample_rate: 16000
@@ -112,7 +110,7 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-lm_model: !new:recipes.LibriSpeech.LM.pretrained.LM
+lm_model: !new:recipes.LibriSpeech.LM.inference.pretrained.LM
     hparams_file: !ref <lm_hparam_file>
     overrides: {'device': !ref <device>}
 
