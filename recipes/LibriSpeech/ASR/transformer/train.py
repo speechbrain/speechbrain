@@ -5,7 +5,8 @@ between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with
 language model.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+> python train.py hparams/transformer.yaml
+> python train.py hparams/conformer.yaml
 
 With the default hyperparameters, the system employs a convolutional frontend (ContextNet) and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
