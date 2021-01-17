@@ -715,7 +715,6 @@ class Brain:
                     rank=self.rank,
                     shuffle=shuffle,
                     drop_last=drop_last,
-                    num_replicas=torch.distributed.get_world_size(),
                 )
             else:  # batch_sampler was specified
                 # TODO: Could a DistributedSamplerWrapper actually work
