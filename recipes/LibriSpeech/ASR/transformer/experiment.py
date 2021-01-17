@@ -193,7 +193,7 @@ class ASR(sb.core.Brain):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.if_main_process():
+        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             epoch_stats = {
                 "epoch": epoch,
                 "lr": self.hparams.cosine_annealing.current_lr,
