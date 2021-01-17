@@ -1,0 +1,85 @@
+# ##################################################
+# Model: Speaker Diarization Baseline
+# Embeddings: Deep embedding
+# Clustering Technique: Spectral clustering
+# Authors: Nauman Dawalatabad 2020
+# #################################################
+
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Folders
+# data: http://groups.inf.ed.ac.uk/ami/download/
+data_folder: /network/datasets/ami/amicorpus
+manual_annot_folder: /miniscratch/nauman/ami_public_manual
+output_folder: results/ami/sd_ecapa_tdnn/
+save_folder: !ref <output_folder>/save
+device: 'cuda:0'
+
+# Embedding model
+embedding_file:
+        https://www.dropbox.com/s/2mdnl784ram5w8o/embedding_model.ckpt?dl=1
+model_dir: !ref <save_folder>/emb_model
+
+# Some more exp folders (for cleaner structure)
+embedding_dir: !ref <save_folder>/emb
+csv_dir: !ref <save_folder>/csv
+ref_rttm_dir: !ref <save_folder>/ref_rttms
+sys_rttm_dir: !ref <save_folder>/sys_rttms
+der_dir: !ref <save_folder>/DER
+
+# AMI: csv files
+csv_diary_dev: !ref <csv_dir>/ami_dev.subsegments.csv
+csv_diary_eval: !ref <csv_dir>/ami_eval.subsegments.csv
+
+# Spectral feature parameters
+n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Xvector model
+emb_dim: 192
+batch_size: 512
+
+# AMI data_prep parameters
+split_type: 'full_corpus_asr'
+skip_TNO: True
+mic_type: 'Lapel'
+vad_type: 'oracle'
+max_subseg_dur: 3.0
+overlap: 1.5
+
+# Spectral Clustering parameters
+affinity: 'nn'  # use 'cos' for cosine affinity
+max_num_spkrs: 10
+oracle_n_spkrs: True
+
+# DER evaluation parameters
+ignore_overlap: True
+forgiveness_collar: 0.25
+
+dataloader_opts:
+        batch_size: !ref <batch_size>
+
+# Functions
+compute_features: !new:speechbrain.lobes.features.Fbank
+        n_mels: !ref <n_mels>
+        left_frames: !ref <left_frames>
+        right_frames: !ref <right_frames>
+        deltas: !ref <deltas>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: global
+
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
+        norm_type: global
+        std_norm: False
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+        input_size: !ref <n_mels>
+        channels: [1024, 1024, 1024, 1024, 3072]
+        kernel_sizes: [5, 3, 3, 3, 1]
+        dilations: [1, 2, 3, 4, 1]
+        attention_channels: 128
+        lin_neurons: !ref <emb_dim>

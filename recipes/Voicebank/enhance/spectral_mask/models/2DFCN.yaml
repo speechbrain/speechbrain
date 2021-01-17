@@ -1,0 +1,66 @@
+# ################################
+# Model: 2D FCN SE baseline
+# Authors: Szu-Wei, Fu 2020
+# ################################
+
+# Neural parameters
+kernel_size: (9,9)
+base_channels: 64
+N_fft: !PLACEHOLDER
+
+model: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <N_fft> // 2 + 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN1: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act1: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv2: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN2: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act2: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv3: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN3: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act3: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv4: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN4: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act4: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv5: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN5: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act5: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv6: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN6: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act6: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv7: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN7: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act7: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv8: !name:speechbrain.nnet.CNN.Conv2d
+        padding: valid
+        out_channels: 257
+        kernel_size: (257,1)
+    act8: !new:torch.nn.Sigmoid

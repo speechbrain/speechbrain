@@ -27,12 +27,17 @@ def test_error_rate_stats():
     from speechbrain.utils.metric_stats import ErrorRateStats
 
     wer_stats = ErrorRateStats()
+    i2l = {1: "hello", 2: "world", 3: "the"}
+
+    def mapper(batch):
+        return [[i2l[int(x)] for x in seq] for seq in batch]
+
     wer_stats.append(
         ids=["utterance1", "utterance2"],
         predict=[[3, 2, 1], [2, 3]],
         target=torch.tensor([[3, 2, 0], [2, 1, 0]]),
         target_len=torch.tensor([0.67, 0.67]),
-        ind2lab={1: "hello", 2: "world", 3: "the"},
+        ind2lab=mapper,
     )
     summary = wer_stats.summarize()
     assert summary["WER"] == 50.0

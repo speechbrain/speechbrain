@@ -1,6 +1,5 @@
 -r lint-requirements.txt
 cmake>=3.18.0
-h5py>=2.10.0
 joblib>=0.14.1
 numpy>=1.17.0
 pre-commit>=2.3.0
@@ -12,6 +11,6 @@ sentencepiece>=0.1.91
 SoundFile>=0.10.0
 sphinx-rtd-theme==0.4.3
 Sphinx>=3.0.4
-torch==1.7.0
-torchaudio==0.7
+torch==1.7.1
+torchaudio==0.7.2
 tqdm>=4.42.0

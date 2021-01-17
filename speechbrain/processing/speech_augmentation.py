@@ -15,9 +15,9 @@ Authors
 # Importing libraries
 import math
 import torch
-import soundfile as sf  # noqa
 import torch.nn.functional as F
-from speechbrain.data_io.data_io import DataLoaderFactory
+from speechbrain.data_io.legacy import ExtendedCSVDataset
+from speechbrain.data_io.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
@@ -35,14 +35,14 @@ class AddNoise(torch.nn.Module):
     csv_file : str
         The name of a csv file containing the location of the
         noise audio files. If none is provided, white noise will be used.
-    csv_read : list, None, optional
+    csv_keys : list, None, optional
         Default: None . One data entry for the noise data should be specified.
         If None, the csv file is expected to have only one data entry.
-    order : str
+    sorting : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
-    do_cache : bool
-        Whether or not to store noise files in the cache.
+    num_workers : int
+        Number of workers in the DataLoader (See PyTorch DataLoader docs).
     snr_low : int
         The low end of the mixing ratios, in decibels.
     snr_high : int
@@ -67,18 +67,19 @@ class AddNoise(torch.nn.Module):
 
     Example
     -------
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> import pytest
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
-    >>> clean = torch.tensor([signal], dtype=torch.float32)
     >>> noisy = noisifier(clean, torch.ones(1))
     """
 
     def __init__(
         self,
         csv_file=None,
-        csv_read=None,
-        order="random",
-        do_cache=False,
+        csv_keys=None,
+        sorting="random",
         num_workers=0,
         snr_low=0,
         snr_high=0,
@@ -91,9 +92,8 @@ class AddNoise(torch.nn.Module):
         super().__init__()
 
         self.csv_file = csv_file
-        self.csv_read = csv_read
-        self.order = order
-        self.do_cache = do_cache
+        self.csv_keys = csv_keys
+        self.sorting = sorting
         self.num_workers = num_workers
         self.snr_low = snr_low
         self.snr_high = snr_high
@@ -172,16 +172,20 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                data_factory = DataLoaderFactory(
-                    csv_file=self.csv_file,
-                    csv_read=self.csv_read,
-                    sentence_sorting=self.order,
-                    batch_size=batch_size,
-                    cache=self.do_cache,
+                dataset = ExtendedCSVDataset(
+                    csvpath=self.csv_file,
+                    output_keys=self.csv_keys,
+                    sorting=self.sorting
+                    if self.sorting != "random"
+                    else "original",
                     replacements=self.replacements,
-                    num_workers=self.num_workers,
                 )
-                self.data_loader = data_factory().get_dataloader()
+                self.data_loader = make_dataloader(
+                    dataset,
+                    batch_size=batch_size,
+                    num_workers=self.num_workers,
+                    shuffle=(self.sorting == "random"),
+                )
                 self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
@@ -261,11 +265,12 @@ class AddNoise(torch.nn.Module):
     def _load_noise_batch(self):
         """Load a batch of noises, restarting iteration if necessary."""
         try:
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
+            # Don't necessarily know the key
+            noises, lens = next(self.noise_data).at_position(0)
         except StopIteration:
             self.noise_data = iter(self.data_loader)
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
-        return noise_batch, noise_len
+            noises, lens = next(self.noise_data).at_position(0)
+        return noises, lens
 
 
 class AddReverb(torch.nn.Module):
@@ -276,12 +281,9 @@ class AddReverb(torch.nn.Module):
     csv_file : str
         The name of a csv file containing the location of the
         impulse response files.
-    order : str
+    sorting : str
         The order to iterate the csv file, from one of
         the following options: random, original, ascending, and descending.
-    do_cache : bool
-        Whether or not to lazily load the files to a
-        cache and read the data from the cache.
     reverb_prob : float
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
@@ -297,28 +299,39 @@ class AddReverb(torch.nn.Module):
 
     Example
     -------
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> import pytest
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
-    >>> clean = torch.tensor([signal], dtype=torch.float32)
     >>> reverbed = reverb(clean, torch.ones(1))
     """
 
     def __init__(
         self,
         csv_file,
-        order="random",
-        do_cache=False,
+        sorting="random",
         reverb_prob=1.0,
         rir_scale_factor=1.0,
         replacements={},
     ):
         super().__init__()
         self.csv_file = csv_file
-        self.order = order
-        self.do_cache = do_cache
+        self.sorting = sorting
         self.reverb_prob = reverb_prob
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
+
+        # Create a data loader for the RIR waveforms
+        dataset = ExtendedCSVDataset(
+            csvpath=self.csv_file,
+            sorting=self.sorting if self.sorting != "random" else "original",
+            replacements=self.replacements,
+        )
+        self.data_loader = make_dataloader(
+            dataset, shuffle=(self.sorting == "random")
+        )
+        self.rir_data = iter(self.data_loader)
 
     def forward(self, waveforms, lengths):
         """
@@ -368,21 +381,11 @@ class AddReverb(torch.nn.Module):
         return rev_waveform
 
     def _load_rir(self, waveforms):
-        if not hasattr(self, "data_loader"):
-            data_factory = DataLoaderFactory(
-                csv_file=self.csv_file,
-                sentence_sorting=self.order,
-                cache=self.do_cache,
-                replacements=self.replacements,
-            )
-            self.data_loader = data_factory().get_dataloader()
-            self.rir_data = iter(self.data_loader)
-
         try:
-            wav_id, rir_waveform, length = next(self.rir_data)[0]
+            rir_waveform, length = next(self.rir_data).at_position(0)
         except StopIteration:
             self.rir_data = iter(self.data_loader)
-            wav_id, rir_waveform, length = next(self.rir_data)[0]
+            rir_waveform, length = next(self.rir_data).at_position(0)
 
         # Make sure RIR has correct channels
         if len(rir_waveform.shape) == 2:
@@ -413,9 +416,10 @@ class SpeedPerturb(torch.nn.Module):
 
     Example
     -------
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[90])
-    >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> perturbator = SpeedPerturb(orig_freq=16000, speeds=[90])
+    >>> clean = signal.unsqueeze(0)
     >>> perturbed = perturbator(clean)
     >>> clean.shape
     torch.Size([1, 52173])
@@ -486,9 +490,10 @@ class Resample(torch.nn.Module):
 
     Example
     -------
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :]
-    >>> resampler = Resample(orig_freq=rate, new_freq=rate // 2)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
+    >>> resampler = Resample(orig_freq=16000, new_freq=8000)
     >>> resampled = resampler(signal)
     >>> signal.shape
     torch.Size([1, 52173])
@@ -792,14 +797,14 @@ class AddBabble(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
     >>> babbler = AddBabble()
-    >>> factory = DataLoaderFactory(
-    ...     csv_file='samples/audio_samples/csv_example3.csv',
-    ...     batch_size=5,
+    >>> dataset = ExtendedCSVDataset(
+    ...     csvpath='samples/audio_samples/csv_example3.csv',
     ... )
-    >>> loader = iter(factory().get_dataloader())
-    >>> ids, batch, lengths = next(loader)[0]
-    >>> noisy = babbler(batch, lengths)
+    >>> loader = make_dataloader(dataset, batch_size=5)
+    >>> speech, lengths = next(iter(loader)).at_position(0)
+    >>> noisy = babbler(speech, lengths)
     """
 
     def __init__(
@@ -885,9 +890,9 @@ class DropFreq(torch.nn.Module):
 
     Example
     -------
+    >>> from speechbrain.data_io.data_io import read_audio
     >>> dropper = DropFreq()
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> dropped_signal = dropper(signal.unsqueeze(0))
     """
 
@@ -990,12 +995,17 @@ class DropChunk(torch.nn.Module):
         The probability that the batch of signals will
         have a portion dropped. By default, every batch
         has portions dropped.
+    noise_factor : float
+        The factor relative to average amplitude of an utterance
+        to use for scaling the white noise inserted. 1 keeps
+        the average amplitude the same, while 0 inserts all 0's.
 
     Example
     -------
-    >>> dropper = DropChunk(drop_start=100, drop_end=200)
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> from speechbrain.data_io.data_io import read_audio
+    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = signal.unsqueeze(0) # [batch, time, channels]
     >>> length = torch.ones(1)
     >>> dropped_signal = dropper(signal, length)
     >>> float(dropped_signal[:, 150])
@@ -1011,6 +1021,7 @@ class DropChunk(torch.nn.Module):
         drop_start=0,
         drop_end=None,
         drop_prob=1,
+        noise_factor=0.0,
     ):
         super().__init__()
         self.drop_length_low = drop_length_low
@@ -1020,6 +1031,7 @@ class DropChunk(torch.nn.Module):
         self.drop_start = drop_start
         self.drop_end = drop_end
         self.drop_prob = drop_prob
+        self.noise_factor = noise_factor
 
         # Validate low < high
         if drop_length_low > drop_length_high:
@@ -1059,6 +1071,9 @@ class DropChunk(torch.nn.Module):
         if torch.rand(1) > self.drop_prob:
             return dropped_waveform
 
+        # Store original amplitude for computing white noise amplitude
+        clean_amplitude = compute_amplitude(waveforms, lengths.unsqueeze(1))
+
         # Pick a number of times to drop
         drop_times = torch.randint(
             low=self.drop_count_low,
@@ -1094,9 +1109,21 @@ class DropChunk(torch.nn.Module):
                 low=start_min, high=start_max + 1, size=(drop_times[i],),
             )
 
+            end = start + length
+
             # Update waveform
-            for j in range(drop_times[i]):
-                dropped_waveform[i, start[j] : start[j] + length[j]] = 0
+            if not self.noise_factor:
+                for j in range(drop_times[i]):
+                    dropped_waveform[i, start[j] : end[j]] = 0.0
+            else:
+                # Uniform distribution of -2 to +2 * avg amplitude should
+                # preserve the average for normalization
+                noise_max = 2 * clean_amplitude[i] * self.noise_factor
+                for j in range(drop_times[i]):
+                    # zero-center the noise distribution
+                    noise_vec = torch.rand(length[j], device=waveforms.device)
+                    noise_vec = 2 * noise_max * noise_vec - noise_max
+                    dropped_waveform[i, start[j] : end[j]] = noise_vec
 
         return dropped_waveform
 
@@ -1116,9 +1143,10 @@ class DoClip(torch.nn.Module):
 
     Example
     -------
+    >>> from speechbrain.data_io.data_io import read_audio
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> clipped_signal = clipper(torch.tensor(signal).unsqueeze(0))
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> clipped_signal = clipper(signal.unsqueeze(0))
     >>> "%.2f" % clipped_signal.max()
     '0.01'
     """

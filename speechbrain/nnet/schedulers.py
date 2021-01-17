@@ -425,7 +425,7 @@ class CyclicCosineScheduler:
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
-        del device
+        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -451,7 +451,7 @@ class ReduceLROnPlateau:
     >>> model = Linear(n_neurons=10, input_size=3)
     >>> optim = Adam(lr=1.0, params=model.parameters())
     >>> output = model(inp_tensor)
-    >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2)
+    >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2, 1)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=11.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=13.0)
@@ -461,13 +461,15 @@ class ReduceLROnPlateau:
     """
 
     def __init__(
-        self, lr_min=1e-8, factor=0.5, patience=2,
+        self, lr_min=1e-8, factor=0.5, patience=2, dont_halve_until_epoch=65
     ):
         self.lr_min = lr_min
         self.factor = factor
         self.patience = patience
         self.patience_counter = 0
         self.losses = []
+        self.dont_halve_until_epoch = dont_halve_until_epoch
+        self.anchor = 99999
 
     def __call__(self, optim_list, current_epoch, current_loss):
         """
@@ -489,10 +491,7 @@ class ReduceLROnPlateau:
         for opt in optim_list:
             current_lr = opt.param_groups[0]["lr"]
 
-            # last_p_epochs = self.loses[-self.patience:]
-            # print(self.patience_counter)
-            # print(self.patience)
-            if current_epoch == 1:
+            if current_epoch <= self.dont_halve_until_epoch:
                 next_lr = current_lr
                 self.anchor = current_loss
             else:
