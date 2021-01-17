@@ -5,7 +5,8 @@ between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with
 language model.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+> python train.py hparams/transformer.yaml
+> python train.py hparams/conformer.yaml
 
 With the default hyperparameters, the system employs a convolutional frontend (ContextNet) and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
@@ -193,7 +194,7 @@ class ASR(sb.core.Brain):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.if_main_process():
+        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             epoch_stats = {
                 "epoch": epoch,
                 "lr": self.hparams.cosine_annealing.current_lr,
@@ -241,27 +242,6 @@ def data_io_prepare(hparams):
     train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
-
-    if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "random":
-        pass
-
-    else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
 
     valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
