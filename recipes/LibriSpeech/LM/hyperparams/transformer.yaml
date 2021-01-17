@@ -26,7 +26,7 @@ tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 32
+batch_size: 16
 lr: 10
 accu_steps: 8 # Gradient accumulation to simulate large batch training
 
