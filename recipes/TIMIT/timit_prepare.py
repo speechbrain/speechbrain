@@ -14,10 +14,10 @@ import logging
 from speechbrain.utils.data_utils import get_all_files
 
 from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
     load_pkl,
     save_pkl,
     read_kaldi_lab,
+    read_audio,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def prepare_timit(
     kaldi_ali_dev=None,
     kaldi_ali_test=None,
     kaldi_lab_opts=None,
-    phn_set="39",
+    phn_set=39,
     uppercase=False,
 ):
     """
@@ -580,8 +580,8 @@ def create_csv(
             continue
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(wav_file)
-        duration = signal.shape[0] / SAMPLERATE
+        signal = read_audio(wav_file)
+        duration = len(signal) / SAMPLERATE
 
         # Retrieving words and check for uppercase
         if uppercase:
@@ -658,14 +658,14 @@ def get_phoneme_lists(phn_file, phn_set):
         from_60_to_48_phn, from_60_to_39_phn = _get_phonemes()
 
         # Removing end corresponding to q if phn set is not 61
-        if phn_set != "61":
+        if phn_set != 60:
             if phoneme == "q":
                 end = ""
 
         # Converting phns if necessary
-        if phn_set == "48":
+        if phn_set == 48:
             phoneme = from_60_to_48_phn[phoneme]
-        if phn_set == "39":
+        if phn_set == 39:
             phoneme = from_60_to_39_phn[phoneme]
 
         # Appending arrays
@@ -674,7 +674,7 @@ def get_phoneme_lists(phn_file, phn_set):
         if len(end) > 0:
             ends.append(end)
 
-    if phn_set != "61":
+    if phn_set != 60:
         # Filtering out consecutive silences by applying a mask with `True` marking
         # which sils to remove
         # e.g.

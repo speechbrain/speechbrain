@@ -12,19 +12,16 @@ Authors
 import sys
 import torch
 import speechbrain as sb
-
+from speechbrain.utils.distributed import run_on_main
 
 # Define training procedure
-class ASR_Brain(sb.Brain):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.training_type = hparams["init_training_type"]
-        print("Starting training type:", self.training_type)
 
-    def compute_forward(self, x, stage):
-        """Forward computations from the waveform batches to the output probabilities."""
-        ids, wavs, wav_lens = x
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+
+class AlignBrain(sb.Brain):
+    def compute_forward(self, batch, stage):
+        """Computations from the waveform to the output probabilities."""
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
 
         # Adding augmentation when specified:
         if stage == sb.Stage.TRAIN:
@@ -44,11 +41,12 @@ class ASR_Brain(sb.Brain):
         pout = self.hparams.log_softmax(out)
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         """Computes the loss with the specified alignement algorithm"""
         pout, pout_lens = predictions
-        ids, phns, phn_lens = targets[0]
-        _, ends, end_lens = targets[1]
+        ids = batch.id
+        phns, phn_lens = batch.phn_encoded
+        phn_ends, _ = batch.phn_ends
 
         if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
             phns = torch.cat([phns, phns], dim=0)
@@ -59,6 +57,8 @@ class ASR_Brain(sb.Brain):
         phns = self.hparams.aligner.expand_phns_by_states_per_phoneme(
             phns, phn_lens
         )
+
+        phns = phns.int()
 
         if self.training_type == "forward":
             forward_scores = self.hparams.aligner(
@@ -85,38 +85,13 @@ class ASR_Brain(sb.Brain):
             self.hparams.aligner.store_alignments(ids, alignments)
 
         if stage != sb.Stage.TRAIN:
-            self.accuracy_metrics.append(ids, alignments, ends, phns_orig)
+            self.accuracy_metrics.append(ids, alignments, phn_ends, phns_orig)
 
         return loss
 
-    def fit_batch(self, batch):
-        """
-        Modify slightly from original version as batch returns ends as well.
-        Only first 2 lines are modified
-        """
-        inputs, phns, ends = batch
-        targets = phns, ends
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach().cpu()
-
-    def evaluate_batch(self, batch, stage):
-        """
-        Modify slightly from original version as batch returns ends as well.
-        Only first 2 lines are modified.
-        """
-        inputs, phns, ends = batch
-        targets = phns, ends
-        out = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(out, targets, stage=stage)
-        return loss.detach().cpu()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
+        self.training_type = self.hparams.init_training_type
         if stage != sb.Stage.TRAIN:
             self.accuracy_metrics = self.hparams.accuracy_stats()
 
@@ -128,9 +103,9 @@ class ASR_Brain(sb.Brain):
                     "Please specify `switch_training_epoch` in `params`"
                 )
             if (
-                self.hparams.epoch_counter.current + 1
+                self.hparams.epoch_counter.current
                 == self.hparams.switch_training_epoch
-            ):
+            ) and stage == sb.Stage.VALID:
                 self.training_type = self.hparams.switch_training_type
                 print("Switching to training type", self.training_type)
 
@@ -149,7 +124,7 @@ class ASR_Brain(sb.Brain):
                 valid_stats={"loss": stage_loss, "accuracy": acc},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"accuracy": acc}, min_keys=["accuracy"],
+                meta={"accuracy": acc}, max_keys=["accuracy"],
             )
 
         elif stage == sb.Stage.TEST:
@@ -159,16 +134,124 @@ class ASR_Brain(sb.Brain):
             )
 
 
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_folder = hparams["data_folder"]
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_options"]["shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    datasets = [train_data, valid_data, test_data]
+    label_encoder = sb.data_io.encoder.TextEncoder()
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded = label_encoder.encode_sequence_torch(phn_list)
+        yield phn_encoded
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 4. Define end sample pipeline
+    # (end sample is used to retrieve the golden alignment )
+
+    @sb.utils.data_pipeline.takes("ground_truth_phn_ends")
+    @sb.utils.data_pipeline.provides("phn_ends")
+    def phn_ends_pipeline(ground_truth_phn_ends):
+        phn_ends = ground_truth_phn_ends.strip().split()
+        phn_ends = [int(i) for i in phn_ends]
+        phn_ends = torch.Tensor(phn_ends)
+        return phn_ends
+
+    sb.data_io.dataset.add_dynamic_item(datasets, phn_ends_pipeline)
+
+    # 5. Fit encoder:
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+
+    # 6. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "sig", "phn_encoded", "phn_ends"]
+    )
+
+    return train_data, valid_data, test_data, label_encoder
+
+
 # Begin Recipe!
 if __name__ == "__main__":
 
-    # Load hyperparameters file with command-line overrides
+    # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+
+    # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
+    # Dataset prep (parsing TIMIT and annotation into csv files)
+    from timit_prepare import prepare_timit  # noqa
+
     # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_timit,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "splits": ["train", "dev", "test"],
+            "save_folder": hparams["data_folder"],
+            "phn_set": hparams["phn_set"],
+        },
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -177,18 +260,29 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Collect index to label dictionary for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
-    asr_brain = ASR_Brain(
+    # Trainer initialization
+    align_brain = AlignBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+    align_brain.label_encoder = label_encoder
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"](), max_key="accuracy")
+    # Training/validation loop
+    print("Starting training type:", hparams["init_training_type"])
+    align_brain.fit(
+        align_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
+    )
+
+    # Test
+    align_brain.evaluate(
+        test_data,
+        max_key="accuracy",
+        test_loader_kwargs=hparams["dataloader_options"],
+    )

@@ -3,15 +3,20 @@
 Authors
  * Peter Plantinga 2020
  * Abdel Heba 2020
+ * Mirco Ravanelli 2020
 """
 
 import os
 import sys
+import yaml
+import time
 import torch
 import shutil
 import logging
 import inspect
+import pathlib
 import argparse
+import tempfile
 import subprocess
 import speechbrain as sb
 from datetime import date
@@ -19,16 +24,22 @@ from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
+from torch.utils.data import DataLoader
 from torch.nn import DataParallel as DP
+from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from speechbrain.data_io.data_io import DataLoaderFactory
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.data_io.dataloader import SaveableDataLoader
+from speechbrain.data_io.sampler import DistributedSamplerWrapper
+from speechbrain.data_io.sampler import ReproducibleRandomSampler
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
+INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 
 
 def create_experiment_directory(
@@ -58,7 +69,7 @@ def create_experiment_directory(
     """
     try:
         # all writing command must be done with the main_process
-        if sb.if_main_process():
+        if sb.utils.distributed.if_main_process():
             if not os.path.isdir(experiment_directory):
                 os.makedirs(experiment_directory)
 
@@ -108,7 +119,7 @@ def create_experiment_directory(
                     fo.write(description_str)
     finally:
         # wait for main_process if ddp is used
-        sb.ddp_barrier()
+        sb.utils.distributed.ddp_barrier()
 
 
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
@@ -152,6 +163,26 @@ def parse_arguments(arg_list):
         type=str,
         help="a yaml-formatted file using the extended YAML syntax "
         "defined by SpeechBrain.",
+    )
+    parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Run the experiment with only a few batches for all "
+        "datasets, to ensure code runs without crashing.",
+    )
+    parser.add_argument(
+        "--debug_batches",
+        type=int,
+        default=2,
+        help="Number of batches to run in debug mode.",
+    )
+    parser.add_argument(
+        "--debug_epochs",
+        type=int,
+        default=2,
+        help="Number of epochs to run in debug mode. "
+        "If a non-positive number is passed, all epochs are run.",
     )
     parser.add_argument(
         "--log_config",
@@ -219,6 +250,12 @@ def parse_arguments(arg_list):
         type=bool,
         help="If True, displays a progressbar indicating dataset progress.",
     )
+    parser.add_argument(
+        "--ckpt_interval_minutes",
+        type=float,
+        help="Amount of time between saving intra-epoch checkpoints "
+        "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -245,9 +282,9 @@ def parse_arguments(arg_list):
                 + "if data_parallel_count = -1, then use all gpus."
             )
 
-    # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
-    # If run_opts["local_rank"] exists
-    # Otherwise use OS.environ["LOCAL_RANK"]
+    # For DDP, the device args must equal to local_rank used by
+    # torch.distributed.launch. If run_opts["local_rank"] exists,
+    # use os.environ["LOCAL_RANK"]
     local_rank = None
     if "local_rank" in run_opts:
         local_rank = run_opts["local_rank"]
@@ -279,110 +316,6 @@ def _convert_to_yaml(overrides):
     return yaml_string.strip()
 
 
-def if_main_process():
-    """Check if the current process is the main process and authorized to run I/O commands.
-    In DDP mode, the main process is the one with RANK == 0.
-    In standard mode, the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
-    """
-    if "RANK" in os.environ:
-        if os.environ["RANK"] == "":
-            return False
-        else:
-            if int(os.environ["RANK"]) == 0:
-                return True
-            return False
-    return True
-
-
-def ddp_barrier():
-    """ In DDP mode, this function will synchronizes all processes.
-    torch.distributed.barrier() will lock blocks processes until the whole group enters this function
-    """
-    if torch.distributed.is_initialized():
-        torch.distributed.barrier()
-
-
-def ddp_init_group(run_opts):
-    """
-    This function will initialize the ddp group if
-    distributed_launch=True bool is given in the python command line.
-
-    The ddp group will use distributed_backend arg for setting the DDP communication protocol.
-    `RANK` Unix variable will be used for registring the subprocess to the ddp group.
-
-    Arguments
-    ---------
-    run_opts: list
-        a list of arguments to parse, most often from `sys.argv[1:]`
-    """
-    if run_opts["distributed_launch"]:
-        if "local_rank" not in run_opts:
-            sys.exit(
-                "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
-            )
-        else:
-            if run_opts["local_rank"] + 1 > torch.cuda.device_count():
-                sys.exit(
-                    "Killing process " + str() + "\n"
-                    "To use DDP backend, start your script with:\n\t"
-                    "python -m torch.distributed.lunch [args]\n\t"
-                    "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
-                )
-        if "RANK" in os.environ is None or os.environ["RANK"] == "":
-            sys.exit(
-                "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
-            )
-        rank = int(os.environ["RANK"])
-
-        if run_opts["distributed_backend"] == "nccl":
-            if not torch.distributed.is_nccl_available():
-                logger.info("NCCL is not supported in your machine.")
-                raise ValueError("NCCL is not supported in your machine.")
-        elif run_opts["distributed_backend"] == "gloo":
-            if not torch.distributed.is_gloo_available():
-                logger.info("GLOO is not supported in your machine.")
-                raise ValueError("GLOO is not supported in your machine.")
-        elif run_opts["distributed_backend"] == "mpi":
-            if not torch.distributed.is_mpi_available():
-                logger.info("MPI is not supported in your machine.")
-                raise ValueError("MPI is not supported in your machine.")
-        else:
-            logger.info(
-                run_opts["distributed_backend"]
-                + " communcation protocol doesn't exist."
-            )
-            raise ValueError(
-                run_opts["distributed_backend"]
-                + " communcation protocol doesn't exist."
-            )
-        # rank arg is used to set the right rank of the current process for ddp.
-        # if you have 2 servers with 2 gpu:
-        # server1:
-        #   GPU0: local_rank=device=0, rank=0
-        #   GPU1: local_rank=device=1, rank=1
-        # server2:
-        #   GPU0: local_rank=device=0, rank=2
-        #   GPU1: local_rank=device=1, rank=3
-        torch.distributed.init_process_group(
-            backend=run_opts["distributed_backend"], rank=rank
-        )
-    else:
-        logger.info(
-            "Distributed_launch flag is disable, this experiment will be executed without DDP."
-        )
-        if "local_rank" in run_opts and run_opts["local_rank"] > 0:
-            sys.exit(
-                "DDP is disabled, no subprocess is accepted, signle GPU is then performed\n\t"
-                "for multiGPU DDP training, please use --distributed_launch=True\n\t"
-                "python -m torch.distributed.lunch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
-            )
-
-
 class Stage(Enum):
     """Simple enum to track stage of experiments."""
 
@@ -391,6 +324,7 @@ class Stage(Enum):
     TEST = auto()
 
 
+@sb.utils.checkpoints.register_checkpoint_hooks
 class Brain:
     r"""Brain class abstracts away the details of data loops.
 
@@ -432,6 +366,14 @@ class Brain:
         e.g. self.hparams.model(x)
     run_opts : dict
         A set of options to change the runtime environment, including
+            debug : bool
+                If true, this will only iterate a few batches for all
+                datasets, to ensure code runs without crashing.
+            debug_batches : int
+                Number of batches to run in debug mode, Default 2.
+            debug_epochs : int
+                Number of epochs to run in debug mode, Default 2.
+                If a non-positive number is passed, all epochs are run.
             jit_module_keys : list of str
                 List of keys in modules that should be jit compiled.
             distributed_count : int
@@ -445,11 +387,15 @@ class Brain:
                 Activate it only with cuda.
             max_grad_norm : float
                 Default implementation of ``fit_batch()`` uses
-                ``clip_grad_norm_`` with this value.
+                ``clip_grad_norm_`` with this value. Default: 5.
             nonfinite_patience : int
                 Number of times to ignore non-finite losses before stopping.
+                Default: 3.
             progressbar : bool
-                Whether to display a progressbar when training.
+                Whether to display a progressbar when training. Default: True.
+            ckpt_interval_minutes : float
+                Amount of time between saving intra-epoch checkpoints,
+                in minutes, default: 15.0. If non-positive, these are not saved.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -458,10 +404,10 @@ class Brain:
     -------
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
-    ...     def compute_forward(self, x, stage):
-    ...         return self.modules.model(x)
-    ...     def compute_objectives(self, predictions, targets, stage):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
+    ...     def compute_forward(self, batch, stage):
+    ...         return self.modules.model(batch[0])
+    ...     def compute_objectives(self, predictions, batch, stage):
+    ...         return torch.nn.functional.l1_loss(predictions, batch[0])
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
@@ -480,6 +426,9 @@ class Brain:
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
+            "debug": False,
+            "debug_batches": 2,
+            "debug_epochs": 2,
             "device": "cpu",
             "data_parallel_count": -1,
             "data_parallel_backend": False,
@@ -490,14 +439,13 @@ class Brain:
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "progressbar": True,
+            "ckpt_interval_minutes": 15.0,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: "
-                        + arg
-                        + " arg is override by command line input"
+                        "Info: " + arg + " arg overridden by command line input"
                     )
                 setattr(self, arg, run_opts[arg])
             else:
@@ -514,10 +462,12 @@ class Brain:
         if self.data_parallel_backend and self.distributed_launch:
             sys.exit(
                 "To use data_parallel backend, start you script with:\n\t"
-                "python experiment.py hyperparams.yaml --data_parallel_backend=True --data_parallel_count=2"
+                "python experiment.py hyperparams.yaml "
+                "--data_parallel_backend=True --data_parallel_count=2"
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.lunch [args]\n"
-                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                "experiment.py hyperparams.yaml --distributed_launch=True "
+                "--distributed_backend=nccl"
             )
 
         # Switch to the right context
@@ -530,6 +480,28 @@ class Brain:
         # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
+
+        # Checkpointer should point at a temporary directory in debug mode
+        if (
+            self.debug
+            and self.checkpointer is not None
+            and hasattr(self.checkpointer, "checkpoints_dir")
+        ):
+            tempdir = tempfile.TemporaryDirectory()
+            logger.info(
+                "Since debug mode is active, switching checkpointer "
+                f"output to temporary directory: {tempdir.name}"
+            )
+            self.checkpointer.checkpoints_dir = pathlib.Path(tempdir.name)
+
+            # Keep reference to tempdir as long as checkpointer exists
+            self.checkpointer.tempdir = tempdir
+
+        # Sampler should be handled by `make_dataloader`
+        # or if you provide a DataLoader directly, you can set
+        # this.train_sampler = your_sampler
+        # to have your_sampler.set_epoch() called on each epoch.
+        self.train_sampler = None
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
@@ -552,19 +524,30 @@ class Brain:
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.lunch [args]\n\t"
-                        "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                        "python -m torch.distributed.launch [args]\n\t"
+                        "experiment.py hyperparams.yaml "
+                        "--distributed_launch=True --distributed_backend=nccl"
                     )
                 else:
                     logger.warn(
-                        "To use DDP, please add sb.ddp_init_group() into your exp.py"
+                        "To use DDP, please add "
+                        "sb.utils.distributed.ddp_init_group() into your exp.py"
                     )
                     logger.info(
-                        "Only the main process is alive, all other subprocess were killed."
+                        "Only the main process is alive, "
+                        "all other subprocess were killed."
                     )
             # force the models to start and remain synchronized
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
+
+        # Prepare iterating variables
+        self.avg_train_loss = 0.0
+        self.step = 0
+
+        # Add this class to the checkpointer for intra-epoch checkpoints
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable("brain", self)
 
     def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -630,6 +613,125 @@ class Brain:
         """
         pass
 
+    def make_dataloader(
+        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs,
+    ):
+        """Creates DataLoaders for Datasets
+
+        This is used by ``fit()`` and ``evaluate()`` if they just receive
+        Datasets.
+
+        Alternatively, this can be called from outside the Brain subclass.
+        In that case, the DataLoader should be passed to ``fit()`` in place
+        of the dataset.
+
+        The Stage.TRAIN DataLoader is handled specially. It has extra args for
+        shuffle and drop_last. In DDP a DistributedSampler is created (unless
+        dataset is an IterableDataset).
+
+        NOTE
+        ----
+        Some important DataLoader arguments are passed via **loader_kwargs,
+        e.g. batch_size, num_workers, pin_memory
+
+        NOTE
+        ----
+        By default, ``evaluate()`` specifies ckpt_prefix=None to stop the test
+        DataLoader being added to the checkpointer. If you need to add a
+        recoverable after saving checkpoints (e.g. at test time, after
+        checkpointing the training), and still be able to recover reasonably,
+        you should probably specify allow_partial_load=True.
+
+        Arguments
+        ---------
+        dataset : Dataset
+            A set of data to use to create data loader. If the Dataset is a
+            DynamicItemDataset, PaddedBatch is used as the default collate_fn,
+            unless specified in loader_kwargs.
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+        ckpt_prefix: str, None
+            Prefix to use for SaveableDataLoader Checkpoint name. The Stage
+            name is added to this to create the full key. Set to None to not
+            save the DataLoader.
+        **loader_kwargs : dict
+            Additional keyword arguments to the DataLoader.
+            E.G. batch_size, num_workers, pin_memory
+        """
+        # TRAIN stage is handled specially.
+        if stage == sb.Stage.TRAIN:
+            loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
+        dataloader = sb.data_io.dataloader.make_dataloader(
+            dataset, **loader_kwargs
+        )
+
+        if (
+            self.checkpointer is not None
+            and ckpt_prefix is not None
+            and isinstance(dataloader, SaveableDataLoader)
+        ):
+            ckpt_key = ckpt_prefix + stage.name
+            self.checkpointer.add_recoverable(ckpt_key, dataloader)
+        return dataloader
+
+    def _train_loader_specifics(self, dataset, loader_kwargs):
+        sampler = loader_kwargs.get("sampler", None)
+        # Shuffling should really only matter for the train stage. Shuffling
+        # will also lead to more padding in batches if the order was otherwise
+        # sorted by length.
+        shuffle = loader_kwargs.get("shuffle", False)
+        if shuffle:
+            if sampler is not None:
+                raise ValueError(
+                    "Cannot specify both shuffle=True "
+                    "and a sampler in loader_kwargs"
+                )
+            sampler = ReproducibleRandomSampler(dataset)
+            self.train_sampler = sampler
+            loader_kwargs["sampler"] = self.train_sampler
+            # Delete the shuffle flag, since you cannot specify both a sampler and
+            # shuffling:
+            del loader_kwargs["shuffle"]
+
+        # Possibly make a DistributedSampler or a wrapper for some other sampler
+        if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            drop_last = loader_kwargs.get("drop_last", False)
+            # num_replicas arg is equal to world_size
+            # and retrieved automatically within
+            # DistributedSampler obj.
+            if sampler is not None:
+                self.train_sampler = DistributedSamplerWrapper(
+                    sampler,
+                    rank=self.rank,
+                    drop_last=drop_last,
+                    shuffle=shuffle,
+                )
+            elif loader_kwargs.get("batch_sampler") is None:
+                # Currently to get here, shuffle == False, so not passing it.
+                # Otherwise we'd have to handle deleting it (but it is already
+                # deleted).
+                self.train_sampler = DistributedSampler(
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle,
+                    drop_last=drop_last,
+                    num_replicas=torch.distributed.get_world_size(),
+                )
+            else:  # batch_sampler was specified
+                # TODO: Could a DistributedSamplerWrapper actually work
+                # just fine for wrapping a BatchSampler, as well?
+                logger.warning(
+                    "Cannot automatically solve distributed sampling "
+                    "when using a BatchSampler."
+                )
+            loader_kwargs["sampler"] = self.train_sampler
+        elif self.distributed_launch and isinstance(dataset, IterableDataset):
+            logger.warning(
+                "Cannot automatically solve distributed sampling "
+                "for IterableDataset"
+            )
+        return loader_kwargs
+
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
         if distributed_count is more than 0 and backend is ddp.
@@ -637,7 +739,8 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* mp.spawn since jit modules cannot be pickled.
+        # Run this *after* starting all processes since jit modules cannot be
+        # pickled.
         self._compile_jit()
 
         # Wrap modules with parallel backend after jit
@@ -714,21 +817,19 @@ class Brain:
         -------
         detached loss
         """
-        inputs, labels = batch
-
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(inputs, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+                outputs = self.compute_forward(batch, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
-            outputs = self.compute_forward(inputs, Stage.TRAIN)
-            loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+            outputs = self.compute_forward(batch, Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             loss.backward()
             if self.check_gradients(loss):
                 self.optimizer.step()
@@ -801,17 +902,23 @@ class Brain:
         -------
         detached loss
         """
-        inputs, targets = batch
-        out = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(out, targets, stage=stage)
+
+        out = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def fit(
-        self, epoch_counter, train_set, valid_set=None, progressbar=None,
+        self,
+        epoch_counter,
+        train_set,
+        valid_set=None,
+        progressbar=None,
+        train_loader_kwargs={},
+        valid_loader_kwargs={},
     ):
         """Iterate epochs and datasets to improve objective.
 
-        Relies on the existence of mulitple functions that can (or should) be
+        Relies on the existence of multiple functions that can (or should) be
         overridden. The following methods are used and expected to have a
         certain behavior:
 
@@ -820,41 +927,52 @@ class Brain:
         * ``update_average()``
 
         If the initialization was done with distributed_count > 0 and the
-        distributed_backend is ddp, this method will spawn the correct number
-        of processes and run a portion of the training data on the
-        corresponding device.
+        distributed_backend is ddp, this will generally handle multiprocess
+        logic, like splitting the training data into subsets for each device and
+        only saving a checkpoint on the main process.
 
         Arguments
         ---------
         epoch_counter : iterable
             each call should return an integer indicating the epoch count.
-        train_set : DataLoader
-            A set of data to use for training.
-        valid_set : DataLoader
-            A set of data to use for validation.
+        train_set : Dataset, DataLoader
+            A set of data to use for training. If a Dataset is given, a
+            DataLoader is automatically created. If a DataLoader is given, it is
+            used directly.
+        valid_set : Dataset, DataLoader
+            A set of data to use for validation. If a Dataset is given, a
+            DataLoader is automatically created. If a DataLoader is given, it is
+            used directly.
+        train_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the train_loader
+            (if train_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid.
+        valid_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` for making the valid_loader
+            (if valid_set is a Dataset, not DataLoader).
+            E.G. batch_size, num_workers.
+            DataLoader kwargs are all valid.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+
+        if not isinstance(train_set, DataLoader):
+            train_set = self.make_dataloader(
+                train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
+            )
+        if valid_set is not None and not isinstance(valid_set, DataLoader):
+            valid_set = self.make_dataloader(
+                valid_set,
+                stage=sb.Stage.VALID,
+                ckpt_prefix=None,
+                **valid_loader_kwargs,
+            )
+
         self.on_fit_start()
 
         if progressbar is None:
             progressbar = self.progressbar
-
-        # Use factories to get loaders
-        self.train_sampler = None
-        if isinstance(train_set, DataLoaderFactory):
-            if self.distributed_launch:
-                # num_replicas arg is equal to word_size
-                # and retrieved automatically within
-                # DistributedSampler obj.
-                self.train_sampler = DistributedSampler(
-                    dataset=train_set.dataset,
-                    rank=self.rank,
-                    shuffle=train_set.shuffle,
-                )
-            train_set = train_set.get_dataloader(self.train_sampler)
-        if isinstance(valid_set, DataLoaderFactory):
-            valid_set = valid_set.get_dataloader()
 
         # Iterate epochs
         for epoch in epoch_counter:
@@ -862,44 +980,90 @@ class Brain:
             # Training stage
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
-            avg_train_loss = 0.0
 
             # Reset nonfinite count to 0 each epoch
             self.nonfinite_count = 0
 
-            if self.train_sampler is not None:
+            if self.train_sampler is not None and hasattr(
+                self.train_sampler, "set_epoch"
+            ):
                 self.train_sampler.set_epoch(epoch)
 
+            # Time since last intra-epoch checkpoint
+            last_ckpt_time = time.time()
+
             # Only show progressbar if requested and main_process
-            disable = not (progressbar and sb.if_main_process())
-            with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
-                for self.step, batch in enumerate(t):
+            enable = progressbar and sb.utils.distributed.if_main_process()
+            with tqdm(
+                train_set,
+                initial=self.step,
+                dynamic_ncols=True,
+                disable=not enable,
+            ) as t:
+                for batch in t:
+                    self.step += 1
                     loss = self.fit_batch(batch)
-                    avg_train_loss = self.update_average(loss, avg_train_loss)
-                    t.set_postfix(train_loss=avg_train_loss)
-            self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
+                    self.avg_train_loss = self.update_average(
+                        loss, self.avg_train_loss
+                    )
+                    t.set_postfix(train_loss=self.avg_train_loss)
+
+                    # Debug mode only runs a few batches
+                    if self.debug and self.step == self.debug_batches:
+                        break
+
+                    if (
+                        self.checkpointer is not None
+                        and self.ckpt_interval_minutes is not None
+                        and time.time() - last_ckpt_time
+                        >= self.ckpt_interval_minutes * 60.0
+                    ):
+                        run_on_main(self._save_intra_epoch_ckpt)
+                        last_ckpt_time = time.time()
+
+            # Run train "on_stage_end" on all processes
+            self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
+            self.avg_train_loss = 0.0
+            self.step = 0
 
             # Validation stage
-            avg_valid_loss = None
             if valid_set is not None:
                 self.on_stage_start(Stage.VALID, epoch)
                 self.modules.eval()
                 avg_valid_loss = 0.0
                 with torch.no_grad():
-                    for self.step, batch in enumerate(
-                        tqdm(valid_set, dynamic_ncols=True, disable=disable)
+                    for batch in tqdm(
+                        valid_set, dynamic_ncols=True, disable=not enable
                     ):
+                        self.step += 1
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss
                         )
-                    try:
-                        if sb.if_main_process():
-                            self.on_stage_end(
-                                Stage.VALID, avg_valid_loss, epoch
-                            )
-                    finally:
-                        sb.ddp_barrier()
+
+                        # Debug mode only runs a few batches
+                        if self.debug and self.step == self.debug_batches:
+                            break
+
+                    # Only run validation "on_stage_end" on main process
+                    self.step = 0
+                    run_on_main(
+                        self.on_stage_end,
+                        args=[Stage.VALID, avg_valid_loss, epoch],
+                    )
+
+            # Debug mode only runs a few epochs
+            if self.debug and epoch == self.debug_epochs:
+                break
+
+    def _save_intra_epoch_ckpt(self):
+        """Saves a CKPT with specific intra-epoch flag"""
+        self.checkpointer.save_and_keep_only(
+            end_of_epoch=False,
+            num_to_keep=1,
+            ckpt_predicate=lambda c: INTRA_EPOCH_CKPT_FLAG in c.meta,
+            meta={INTRA_EPOCH_CKPT_FLAG: True},
+        )
 
     def _compile_jit(self):
         """This should be run *after* mp.spawn, since jit modules
@@ -942,20 +1106,33 @@ class Brain:
                         )
                     self.modules[name] = module
 
-    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
+    def evaluate(
+        self,
+        test_set,
+        max_key=None,
+        min_key=None,
+        progressbar=None,
+        test_loader_kwargs={},
+    ):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
 
         Arguments
         ---------
-        test_set : list of DataLoaders
-            This list will be zipped before iterating.
+        test_set : Dataset, DataLoader
+            If a DataLoader is given, it is iterated directly. Otherwise passed
+            to self.make_dataloader()
         max_key : str
             Key to use for finding best checkpoint, passed to on_evaluate_start
         min_key : str
             Key to use for finding best checkpoint, passed to on_evaluate_start
         progressbar : bool
             Whether to display the progress in a progressbar.
+        test_loader_kwargs : dict
+            Kwargs passed to `make_dataloader()` if test_set is a Dataset, not
+            DataLoader. NOTE: loader_kwargs["ckpt_prefix"] gets automatically
+            overwritten to None (so that the test DataLoader is not added to
+            the checkpointer).
 
         Returns
         -------
@@ -964,26 +1141,32 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        # Get test loader from factory
-        if isinstance(test_set, DataLoaderFactory):
-            test_set = test_set.get_dataloader()
-
+        if not isinstance(test_set, DataLoader):
+            test_loader_kwargs["ckpt_prefix"] = None
+            test_set = self.make_dataloader(
+                test_set, Stage.TEST, **test_loader_kwargs
+            )
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
         avg_test_loss = 0.0
-        disable = not progressbar
         with torch.no_grad():
-            for self.step, batch in enumerate(
-                tqdm(test_set, dynamic_ncols=True, disable=disable)
+            for batch in tqdm(
+                test_set, dynamic_ncols=True, disable=not progressbar
             ):
+                self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
-            try:
-                if sb.if_main_process():
-                    self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
-            finally:
-                sb.ddp_barrier()
+
+                # Debug mode only runs a few batches
+                if self.debug and self.step == self.debug_batches:
+                    break
+
+            # Only run evaluation "on_stage_end" on main process
+            run_on_main(
+                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
+            )
+        self.step = 0
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.
@@ -1004,3 +1187,21 @@ class Brain:
             avg_loss -= avg_loss / (self.step + 1)
             avg_loss += float(loss) / (self.step + 1)
         return avg_loss
+
+    @sb.utils.checkpoints.mark_as_saver
+    def _save(self, path):
+        save_dict = {
+            "step": self.step,
+            "avg_train_loss": self.avg_train_loss,
+        }
+        with open(path, "w") as w:
+            w.write(yaml.dump(save_dict))
+
+    @sb.utils.checkpoints.mark_as_loader
+    def _recover(self, path, end_of_epoch, device):
+        del end_of_epoch
+        del device
+        with open(path) as f:
+            save_dict = yaml.safe_load(f)
+        self.step = save_dict["step"]
+        self.avg_train_loss = save_dict["avg_train_loss"]

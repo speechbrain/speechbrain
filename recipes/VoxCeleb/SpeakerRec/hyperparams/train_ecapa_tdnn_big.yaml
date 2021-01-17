@@ -1,42 +1,45 @@
 # ################################
-# Model: ECAPA-TDNN using AAM-softmax
-# Authors: Hwidong Na 2020
+# Model: Speaker identification with ECAPA
+# Authors: Hwidong Na & Mirco Ravanelli
 # ################################
 
-seed: 1234
+# Basic parameters
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-__set_seed_python: !apply:random.seed [!ref <seed>]
-
-# Folders and train_log file
-data_folder: /localscratch/voxceleb1
-output_folder: results/voxceleb1/ecapa-tdnn_1024_augmore
-save_folder: !ref <output_folder>/save/
+output_folder: !ref results/ecapa_big/<seed>
+save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# csv files
-csv_train: !ref <save_folder>/train.csv
-csv_valid: !ref <save_folder>/dev.csv
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/dev.csv
 
-# Training hyperparameters
-number_of_epochs: 15
-batch_size: 50
+# Training parameters
+number_of_epochs: 10
+batch_size: 32
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
-device: 'cuda:0'
-nonfinite_patience: 10000
+sample_rate: 16000
+sentence_len: 3.0 # seconds
+shuffle: True
+random_chunk: True
 
 # Feature parameters
 n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
-random_segment: True
-max_frames: 300
 
 # Number of speakers
 out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 2
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
@@ -62,11 +65,11 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 
 augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: 16000
+    sample_rate: !ref <sample_rate>
     speeds: [100]
 
 augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: 16000
+    sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
 add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
@@ -96,26 +99,9 @@ add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_high: 15
     rir_scale_factor: 1.0
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: random
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
+    std_norm: False
 
 modules:
     compute_features: !ref <compute_features>

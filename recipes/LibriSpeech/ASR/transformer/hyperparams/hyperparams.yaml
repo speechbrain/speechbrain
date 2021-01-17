@@ -1,5 +1,5 @@
 # ############################################################################
-# Model: E2E ASR with Transformer (LAS)
+# Model: E2E ASR with Transformer
 # Encoder: Transformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
@@ -10,53 +10,58 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/Contextnet_Transformer/<seed>
+#output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/con_big
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
-# Tokenizer model
-tok_mdl_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 # yamllint disable-line rule:line-length
-tok_voc_file: https://www.dropbox.com/s/4v7yg3wvhk8f7ah/5000_unigram.vocab?dl=1 # yamllint disable-line rule:line-length
+
+# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
+# # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
+language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
+tokenizer_file: /network/tmp1/jianyuan.zhong/TransformerASR/ddp/test_toc1/save/5000_unigram.model # yamllint disable-line rule:line-length
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_split: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev-clean.csv
-csv_test_clean: !ref <data_folder>/test-clean.csv
-csv_test_other: !ref <data_folder>/test-other.csv
+data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+train_csv: !ref <data_folder>/train.csv
+valid_csv: !ref <data_folder>/dev-clean.csv
+test_csv:
+    - !ref <data_folder>/test-clean.csv
+    - !ref <data_folder>/test-other.csv
 
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
-lr: 1
+lr: 1.0
 ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
-rank: null
-device: 'cuda'
-token_type: unigram # ["unigram", "bpe", "char"]
+sorting: random
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
 ####################### Model parameters ###########################
-
-# Contextnet
-# this configuration is adapted from: https://arxiv.org/pdf/2005.03191.pdf
-alpha: 1
-dropout: 0.1
-num_blocks: 9
-conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
-strides: (1, 2, 1, 1, 1, 1, 1, 2, 1)
-
 # Transformer
 d_model: 768
 nhead: 8
@@ -85,56 +90,7 @@ test_beam_size: 30
 lm_weight: 0.60
 ctc_weight_decode: 0.40
 
-####################### Data Loaders ############################
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: random
-    output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
-    add_padding_label: True
-    drop_last: True
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: 4
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
-    add_padding_label: True
-    drop_last: True
-
-test_clean_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test_clean>
-    batch_size: 1
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
-    add_padding_label: True
-    drop_last: False
-
-test_other_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test_other>
-    batch_size: 1
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
-    add_padding_label: True
-    drop_last: False
-
 ############################## models ################################
-tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: !ref <save_folder>
-    vocab_size: !ref <output_neurons>
-    csv_train: !ref <csv_train>
-    csv_read: wrd
-    model_type: "unigram" # ["unigram", "bpe", "char"]
-    max_sentencepiece_length: 16
-    character_coverage: 0.9995
-    pad_id: -1
-    bos_id: !ref <bos_index>
-    eos_id: !ref <eos_index>
-    unk_id: !ref <unk_index>
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -218,17 +174,6 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     temperature_lm: 1.15
     using_eos_threshold: False
     length_normalization: True
-
-############ Hyperparameters to pass to the Brain class ##############
-__data_prep: !apply:speechbrain.utils.data_utils.prepare_data
-    prep_function: !name:librispeech_prepare.prepare_librispeech
-        data_folder: !ref <data_folder>
-        tr_splits: !ref <train_splits>
-        dev_splits: !ref <dev_split>
-        te_splits: !ref <test_splits>
-        merge_lst: !ref <train_splits>
-        merge_name: !ref <csv_train>
-        save_folder: !ref <data_folder>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1

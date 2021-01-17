@@ -57,6 +57,7 @@ import pathlib
 import inspect
 import shutil
 import logging
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +269,8 @@ You can essentially add any info you want to meta when saving a checkpoint.
 The only default key in meta is "unixtime".
 Checkpoint.paramfiles is a dict from recoverable name to parameter filepath.
 """
+# Creating a hash allows making checkpoint sets
+Checkpoint.__hash__ = lambda self: hash(self.path)
 
 
 def ckpt_recency(ckpt):
@@ -526,12 +529,10 @@ class Checkpointer:
 
         if keep_recent:
             importance_keys.append(ckpt_recency)
-        for key in max_keys:
-            importance_keys.append(lambda ckpt, key=key: ckpt.meta[key])
-        for key in min_keys:
-            importance_keys.append(lambda ckpt, key=key: -ckpt.meta[key])
         self.delete_checkpoints(
             num_to_keep=num_to_keep,
+            max_keys=max_keys,
+            min_keys=min_keys,
             importance_keys=importance_keys,
             ckpt_predicate=ckpt_predicate,
         )
@@ -560,10 +561,10 @@ class Checkpointer:
             The function is called with Checkpoint namedtuples.
         max_key : str, optional
             The checkpoint with the highest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         min_key : str, optional
             The checkpoint with the lowest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -612,10 +613,10 @@ class Checkpointer:
             The function is called with Checkpoint namedtuples.
         max_key : str, optional
             The checkpoint with the highest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         min_key : str, optional
             The checkpoint with the lowest value for this key will
-            be returned.
+            be returned. Only checkpoints with this key will be considered!
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -642,10 +643,22 @@ class Checkpointer:
             def importance_key(ckpt):
                 return ckpt.meta[max_key]
 
+            def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
+                if old_predicate is not None:
+                    return max_key in ckpt.meta and old_predicate(ckpt)
+                else:
+                    return max_key in ckpt.meta
+
         elif min_key and not importance_key:
 
             def importance_key(ckpt):
                 return -ckpt.meta[min_key]
+
+            def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
+                if old_predicate is not None:
+                    return min_key in ckpt.meta and old_predicate(ckpt)
+                else:
+                    return min_key in ckpt.meta
 
         elif min_key or max_key:
             raise ValueError(
@@ -695,8 +708,10 @@ class Checkpointer:
             The function is called with Checkpoint namedtuples.
         max_key : str, optional
             The checkpoint with the highest value for this key will be loaded.
+            Only checkpoints with this key will be considered!
         min_key : str, optional
             The checkpoint with the lowest value for this key will be loaded.
+            Only checkpoints with this key will be considered!
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -747,6 +762,8 @@ class Checkpointer:
         self,
         *,
         num_to_keep=1,
+        min_keys=None,
+        max_keys=None,
         importance_keys=[ckpt_recency],
         ckpt_predicate=None,
     ):
@@ -769,6 +786,12 @@ class Checkpointer:
             Number of checkpoints to keep.
             Defaults to 10. You choose to keep 0. This deletes all
             checkpoints remaining after filtering. Must be >=0
+        min_keys : list, optional
+            List of strings representing keys in the meta. The lowest of
+            these values will be kept, up to num_to_keep.
+        max_keys : list, optional
+            List of strings representing keys in the meta. The highest of
+            these values will be kept, up to num_to_keep.
         importance_keys : list, optional
             A list of key functions used in sorting (see the sorted built-in).
             Each callable defines a sort order and num_to_keep checkpoints are
@@ -791,18 +814,26 @@ class Checkpointer:
         """
         if num_to_keep < 0:
             raise ValueError("Number of checkpoints to keep must be positive.")
-        ckpts = self.list_checkpoints()
-        ckpts = list(filter(ckpt_predicate, ckpts))
-        # First sort by recency, so that importance being equal,
-        # the most recent ones are kept
-        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
-        protected_checkpoints = []
-        for importance_key in importance_keys:
-            to_keep = sorted(ckpts, key=importance_key, reverse=True)[
-                :num_to_keep
-            ]
-            protected_checkpoints.extend(to_keep)
-        for ckpt in ckpts:
+
+        # Build a list of potential deletions and protected checkpoints
+        potential_deletions = set()
+        protected_checkpoints = set()
+        keys = [{"min_key": key} for key in min_keys or []]
+        keys.extend([{"max_key": key} for key in max_keys or []])
+        keys.extend([{"importance_key": key} for key in importance_keys])
+
+        # Don't consider checkpoints for deletion that don't have a listed key
+        for key_kwargs in keys:
+            key_kwargs["ckpt_predicate"] = ckpt_predicate
+            potential_deletions.update(self.find_checkpoints(**key_kwargs))
+            protected_checkpoints.update(
+                self.find_checkpoints(
+                    max_num_checkpoints=num_to_keep, **key_kwargs
+                )
+            )
+
+        # Delete unprotected checkpoints
+        for ckpt in potential_deletions:
             if ckpt not in protected_checkpoints:
                 Checkpointer._delete_checkpoint(ckpt)
 
@@ -826,6 +857,11 @@ class Checkpointer:
                 loadpath = checkpoint.paramfiles[name]
             except KeyError:
                 if self.allow_partial_load:
+                    continue
+                elif "dataloader" in name:
+                    MSG = f"Loading checkpoint from {checkpoint.path}, \
+                            but missing a load path for {name}"
+                    warnings.warn(MSG, UserWarning)
                     continue
                 else:
                     MSG = f"Loading checkpoint from {checkpoint.path}, \

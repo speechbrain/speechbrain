@@ -2,50 +2,23 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Neural Parameters
+# Training Parameters
 N_epochs: 10
-N_batch: 1
 lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# token infomation
+bos_index: 0 # eos_index = bos_index + 1
+num_phns: 45 # 43 phonemes + 1 bos + 1 eos
+num_chars: 26 # 24 chars + 1 bos + 1 eos
+
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 rnn_layers: 1
 rnn_neurons: 128
 rnn_bidirectional: True
-
-# token infomation
-bos: 42
-eos: 42
-blank: 42
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [char, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [char, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [char, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
 
 enc: !new:speechbrain.nnet.RNN.LSTM
     input_shape: [null, null, 128]
@@ -56,15 +29,15 @@ enc: !new:speechbrain.nnet.RNN.LSTM
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <rnn_neurons>
-    n_neurons: 43  # 42 phonemes + 1 eos
+    n_neurons: !ref <num_phns>
     bias: False
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 28  # 27 chars + 1 bos
+    num_embeddings: !ref <num_chars>
     embedding_dim: 128
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 43  # 42 phonemes + 1 bos
+    num_embeddings: !ref <num_phns>
     embedding_dim: 128
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
@@ -92,9 +65,8 @@ searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    bos_index: !ref <bos>
-    eos_index: !ref <eos>
-    blank_index: !ref <blank>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <bos_index> + 1
     min_decode_ratio: 0
     max_decode_ratio: 0.1
 

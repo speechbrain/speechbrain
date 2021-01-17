@@ -14,23 +14,25 @@ Author
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
-import os
 import sys
+import random
 import torch
+import torchaudio
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
-class XvectorBrain(sb.core.Brain):
+class SpeakerBrain(sb.core.Brain):
     """Class for speaker embedding training"
     """
 
-    def compute_forward(self, x, stage):
+    def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
         Data augmentation and environmental corruption are applied to the
         input speech.
         """
-        ids, wavs, lens = x
-        wavs, lens = wavs.to(self.device), lens.to(self.device)
+        batch = batch.to(self.device)
+        wavs, lens = batch.sig
 
         if stage == sb.Stage.TRAIN:
             # Addding waveform dropout in time and freq
@@ -72,13 +74,12 @@ class XvectorBrain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using speaker-id as label.
         """
         predictions, lens = predictions
-        uttid, spkid, _ = targets
-
-        spkid, lens = spkid.to(self.device), lens.to(self.device)
+        uttid = batch.id
+        spkid, _ = batch.spk_id_encoded
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
@@ -124,23 +125,101 @@ class XvectorBrain(sb.core.Brain):
             )
 
 
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_folder = hparams["data_folder"]
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+
+    datasets = [train_data, valid_data]
+    label_encoder = sb.data_io.encoder.CategoricalEncoder()
+
+    snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, start, stop, duration):
+        if hparams["random_chunk"]:
+            duration_sample = int(duration * hparams["sample_rate"])
+            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            stop = start + snt_len_sample
+        else:
+            start = int(start)
+            stop = int(stop)
+        num_frames = stop - start
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
+        sig = sig.transpose(0, 1).squeeze(1)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("spk_id")
+    @sb.utils.data_pipeline.provides("spk_id", "spk_id_encoded")
+    def label_pipeline(spk_id):
+        yield spk_id
+        spk_id_encoded = label_encoder.encode_sequence_torch([spk_id])
+        yield spk_id_encoded
+
+    sb.data_io.dataset.add_dynamic_item(datasets, label_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+    label_encoder.update_from_didataset(train_data, output_key="spk_id")
+    label_encoder.update_from_didataset(valid_data, output_key="spk_id")
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "sig", "spk_id_encoded"]
+    )
+
+    return train_data, valid_data, label_encoder
+
+
 if __name__ == "__main__":
 
-    # This flag enable the inbuilt cudnn auto-tuner
+    # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
-    # This hack needed to import data preparation script from ..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from voxceleb_prepare import prepare_voxceleb  # noqa E402
+    # CLI:
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = sb.yaml.load_extended_yaml(fin, overrides)
+        hparams = sb.load_extended_yaml(fin, overrides)
 
-        # Initialize ddp (useful only for multi-GPU DDP training)
-        sb.ddp_init_group(run_opts)
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # Dataset prep (parsing VoxCeleb and annotation into csv files)
+    from voxceleb_prepare import prepare_voxceleb  # noqa
+
+    run_on_main(
+        prepare_voxceleb,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+            "splits": ["train", "dev"],
+            "split_ratio": [90, 10],
+            "seg_dur": int(hparams["sentence_len"]) * 100,
+        },
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, label_encoder = data_io_prep(hparams)
 
     # Create experiment directory
     sb.core.create_experiment_directory(
@@ -149,23 +228,8 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data from dev of Voxceleb1
-    prepare_voxceleb(
-        data_folder=hparams["data_folder"],
-        save_folder=hparams["save_folder"],
-        splits=["train", "dev"],
-        split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=hparams["seed"],
-        random_segment=hparams["random_segment"],
-    )
-
-    # Data loaders
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-
     # Brain class initialization
-    xvect_brain = XvectorBrain(
+    speaker_brain = SpeakerBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
@@ -174,4 +238,10 @@ if __name__ == "__main__":
     )
 
     # Training
-    xvect_brain.fit(xvect_brain.hparams.epoch_counter, train_set, valid_set)
+    speaker_brain.fit(
+        speaker_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
+    )
