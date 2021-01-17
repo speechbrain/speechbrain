@@ -1,6 +1,6 @@
 import os
 import speechbrain as sb
-from hyper.yaml import load_hyperpyyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.data_io.data_io import read_audio, write_audio
 
 output_folder = os.path.join("results", "drop_chunk")
