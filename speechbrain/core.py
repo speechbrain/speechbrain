@@ -681,7 +681,7 @@ class Brain:
         # will also lead to more padding in batches if the order was otherwise
         # sorted by length.
         shuffle = loader_kwargs.get("shuffle", False)
-        if shuffle:
+        if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
                     "Cannot specify both shuffle=True "
@@ -707,6 +707,9 @@ class Brain:
                     drop_last=drop_last,
                     shuffle=shuffle,
                 )
+
+                # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+                loader_kwargs["shuffle"] = False
             elif loader_kwargs.get("batch_sampler") is None:
                 # Currently to get here, shuffle == False, so not passing it.
                 # Otherwise we'd have to handle deleting it (but it is already
@@ -717,6 +720,9 @@ class Brain:
                     shuffle=shuffle,
                     drop_last=drop_last,
                 )
+
+                # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+                loader_kwargs["shuffle"] = False
             else:  # batch_sampler was specified
                 # TODO: Could a DistributedSamplerWrapper actually work
                 # just fine for wrapping a BatchSampler, as well?
