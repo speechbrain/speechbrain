@@ -1,46 +1,46 @@
 # ############################################################################
-# Model: Direct SLU
-# Encoder: Pre-trained ASR encoder -> LSTM
+# Model: NLU (no audio)
+# Encoder: transcript -> LSTM
+# (train time AND test time: ground truth transcript)
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
-# Training: Timers and Such
+# Training: SLURP
 # Authors:  Loren Lugosch, Mirco Ravanelli 2020
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/BPE51/<seed>
+output_folder: !ref results/LS_LM/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/timers-and-such
-data_folder_rirs: !ref <data_folder>
-train_splits: ["train-synth", "train-real"]
-dev_split: dev-real
-csv_train: !ref <data_folder>/train-type=direct.csv
-csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
-csv_test_real: !ref <data_folder>/test-real-type=direct.csv
-csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
-asr_hparam_file: ../../../recipes/LibriSpeech/ASR/seq2seq/inference/hparams/pretrained.yaml
-lm_hparam_file: ../../../recipes/LibriSpeech/LM/inference/hparams/pretrained.yaml
+data_folder: /localscratch/code/slurp
+train_splits: ["train", "train_synthetic"]
+dev_split: devel
+csv_train: !ref <data_folder>/train-type=decoupled.csv
+csv_valid: !ref <data_folder>/<dev_split>-type=decoupled.csv
+csv_test: !ref <data_folder>/test-type=decoupled.csv
+asr_hparam_file:
+    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
 
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 6
 batch_size: 16
 lr: 0.0003
+device: 'cuda:0'
+ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
-sorting: ascending
 
-# Model parameters
-sample_rate: 16000
+
+# Model params
 emb_size: 128
 dec_neurons: 512
+num_asr_tokens: 1000
 output_neurons: 51 # index(blank/eos/bos) = 0
 blank_index: 0
-ASR_encoder_dim: 512
 encoder_dim: 256
 
 # Decoding parameters
@@ -48,31 +48,56 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 10.0
+asr_beam_size: 1
 slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
 
-dataloader_opts:
-    batch_size: !ref <batch_size>
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+# Dataloaders
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    sentence_sorting: random
+    output_folder: !ref <output_folder>
+    csv_read: [transcript, semantics]
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [transcript, semantics]
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [transcript, semantics]
+
+
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.inference.pretrained.ASR
+asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
-    overrides: {'lm_hparam_file': !ref <lm_hparam_file>}
+    overrides: {'beam_size': !ref <asr_beam_size>}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <ASR_encoder_dim>]
+    input_shape: [null, null, !ref <emb_size>]
     lstm: !new:speechbrain.nnet.RNN.LSTM
-        input_size: !ref <ASR_encoder_dim>
+        input_size: !ref <emb_size>
         bidirectional: True
         hidden_size: !ref <encoder_dim>
         num_layers: 2
     linear: !new:speechbrain.nnet.linear.Linear
         input_size: !ref <encoder_dim> * 2
         n_neurons: !ref <encoder_dim>
+
+input_emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <num_asr_tokens>
+    embedding_dim: !ref <emb_size>
 
 output_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
@@ -93,37 +118,19 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
 
 modules:
     asr_model: !ref <asr_model>
     slu_enc: !ref <slu_enc>
+    input_emb: !ref <input_emb>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    env_corrupt: !ref <env_corrupt>
+
 
 model: !new:torch.nn.ModuleList
-    - [!ref <asr_model>, !ref <slu_enc>, !ref <output_emb>,
+    - [!ref <asr_model>, !ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
-
-tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: !ref <save_folder>
-    vocab_size: !ref <output_neurons>
-    csv_train: !ref <csv_train>
-    csv_read: "semantics"
-    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
-    character_coverage: 1.0
-    num_sequences: 10000
-    bos_id: !ref <bos_index>
-    eos_id: !ref <eos_index>
-    csv_list_to_check: [!ref <csv_train>, !ref <csv_valid>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
@@ -138,7 +145,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     temperature: !ref <temperature>
     using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 1.5
+    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -155,10 +162,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

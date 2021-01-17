@@ -24,7 +24,7 @@ from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.nn import DataParallel as DP
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
@@ -1120,7 +1120,8 @@ class Brain:
         Arguments
         ---------
         test_set : Dataset, DataLoader
-            This list will be zipped before iterating.
+            If a DataLoader is given, it is iterated directly. Otherwise passed
+            to self.make_dataloader()
         max_key : str
             Key to use for finding best checkpoint, passed to on_evaluate_start
         min_key : str
@@ -1140,7 +1141,7 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        if isinstance(test_set, Dataset):
+        if not isinstance(test_set, DataLoader):
             test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
                 test_set, Stage.TEST, **test_loader_kwargs
