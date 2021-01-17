@@ -9,6 +9,7 @@ import torch
 import shutil
 import speechbrain as sb
 import speechbrain.processing.NMF as sb_nmf
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.data_io.data_io import write_audio
 from speechbrain.processing.features import spectral_magnitude
 
@@ -98,7 +99,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/sourcesep_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = load_hyperpyyaml(fin, {"data_folder": data_folder})
 
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
