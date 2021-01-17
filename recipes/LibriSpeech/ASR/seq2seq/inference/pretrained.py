@@ -10,7 +10,7 @@ Example
 -------
 >>> import torchaudio
 >>> asr_model = ASR()
->>> audio_file='../../../../samples/audio_samples/example2.flac'
+>>> audio_file='../../../../../samples/audio_samples/example2.flac'
 >>> # Make sure your output is sampled at 16 kHz
 >>> wav, fs = torchaudio.load(audio_file)
 >>> wav_lens = torch.tensor([1]).float()
