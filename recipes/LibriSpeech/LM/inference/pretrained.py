@@ -35,9 +35,9 @@ Authors
 
 import os
 import torch
-import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 import sentencepiece as spm
+from hyperpyyaml import load_hyperpyyaml
 
 
 class RNNLM(torch.nn.Module):
@@ -52,7 +52,7 @@ class RNNLM(torch.nn.Module):
 
         # Loading modules defined in the yaml file
         with open(hparams_file) as fin:
-            self.hparams = sb.load_extended_yaml(fin, overrides)
+            self.hparams = load_hyperpyyaml(fin, overrides)
 
         self.device = self.hparams["device"]
 

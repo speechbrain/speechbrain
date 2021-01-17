@@ -37,6 +37,7 @@ from pathlib import Path
 import logging
 import sentencepiece as spm
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 
@@ -315,7 +316,7 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol

@@ -7,15 +7,12 @@ Authors:
  * Mirco Ravanelli 2020
 """
 import torch
-from speechbrain.data_io import wer as wer_io
-from speechbrain.utils import edit_distance
 from joblib import Parallel, delayed
-from speechbrain.data_io.data_io import (
-    merge_char,
-    split_word,
-)
+from speechbrain.utils import edit_distance
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
+from speechbrain.data_io.data_io import merge_char, split_word
+from speechbrain.data_io.wer import print_wer_summary, print_alignments
 
 
 def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=30):
@@ -270,8 +267,8 @@ class ErrorRateStats(MetricStats):
         if not self.summary:
             self.summarize()
 
-        wer_io.print_wer_summary(self.summary, filestream)
-        wer_io.print_alignments(self.scores, filestream)
+        print_wer_summary(self.summary, filestream)
+        print_alignments(self.scores, filestream)
 
 
 class BinaryMetricStats(MetricStats):
