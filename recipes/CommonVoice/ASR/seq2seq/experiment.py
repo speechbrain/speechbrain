@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import torch
+import logging
 import speechbrain as sb
 import torchaudio
 from speechbrain.tokenizers.SentencePiece import SentencePiece
@@ -30,6 +31,8 @@ other possible variations.
 Authors
  * Titouan Parcollet 2020
 """
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -285,6 +288,13 @@ if __name__ == "__main__":
     # Dataset preparation (parsing CommonVoice)
     from common_voice_prepare import prepare_common_voice  # noqa
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # Due to DDP, we do the preparation ONLY on the main python process
     run_on_main(
         prepare_common_voice,
@@ -297,13 +307,6 @@ if __name__ == "__main__":
             "accented_letters": hparams["accented_letters"],
             "language": hparams["language"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
