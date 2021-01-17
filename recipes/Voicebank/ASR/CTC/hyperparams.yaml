@@ -5,26 +5,30 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/noisy_inputs/<seed>
-cer_file: !ref <output_folder>/cer.txt
+seed: 1236
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+input_type: noisy_wav
+output_folder: !ref results/<input_type>/phn/<seed>
+per_file: !ref <output_folder>/per.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-pretrained: clean_model.ckpt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/noisy-vctk-16k/
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/valid.csv
-csv_test: !ref <data_folder>/valid.csv
-loaders: noisy_loaders
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/valid.csv
+test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 40
+number_of_epochs: 50
 batch_size: 8
+sorting: ascending
+dataloader_options:
+    batch_size: !ref <batch_size>
 lr: 1.0
-device: 'cuda:0'
+
+# Set this to the path of a pretrained model to load before training
+# pretrained: model_clean_ep3.ckpt
 
 # Feature parameters
 sample_rate: 16000
@@ -44,58 +48,22 @@ dnn_blocks: 2
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 44
+output_neurons: 42
 blank_index: !ref <output_neurons> - 1
-
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-clean_loaders:
-    train: !new:speechbrain.data_io.DataLoaderFactory
-        csv_file: !ref <csv_train>
-        batch_size: !ref <batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <output_folder>
-        csv_read: [clean_wav, char]
-        avoid_if_longer_than: 10
-    valid: !new:speechbrain.data_io.DataLoaderFactory
-        csv_file: !ref <csv_valid>
-        batch_size: !ref <batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <output_folder>
-        csv_read: [clean_wav, char]
-    test: !new:speechbrain.data_io.DataLoaderFactory
-        csv_file: !ref <csv_test>
-        batch_size: !ref <batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <output_folder>
-        csv_read: [clean_wav, char]
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
 
-noisy_loaders:
-    train: !new:speechbrain.data_io.DataLoaderFactory
-        csv_file: !ref <csv_train>
-        batch_size: !ref <batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <output_folder>
-        csv_read: [noisy_wav, char]
-        avoid_if_longer_than: 10
-    valid: !new:speechbrain.data_io.DataLoaderFactory
-        csv_file: !ref <csv_valid>
-        batch_size: !ref <batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <output_folder>
-        csv_read: [noisy_wav, char]
-    test: !new:speechbrain.data_io.DataLoaderFactory
-        csv_file: !ref <csv_test>
-        batch_size: !ref <batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <output_folder>
-        csv_read: [noisy_wav, char]
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
-model: !new:speechbrain.lobes.CRDNN
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -109,52 +77,54 @@ model: !new:speechbrain.lobes.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-output: !new:speechbrain.nnet.Linear
+output: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: !ref <output_neurons>
-    bias: False
+    bias: True
 
-jit_modules:
-    model: !ref <model>
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
     rho: 0.95
     eps: 1.e-8
 
-lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
 
-checkpointer: !new:speechbrain.Checkpointer
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+modules:
+    model: !ref <model>
+    output: !ref <output>
+    normalize: !ref <normalize>
+    augmentation: !ref <augmentation>
+
+jit_module_keys: [model]
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
         output: !ref <output>
+        counter: !ref <epoch_counter>
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
-        counter: !ref <epoch_counter>
 
-hparams:
-    cer_file: !ref <cer_file>
-    loaders: !ref <loaders>
-    output: !ref <output>
-    lr_annealing: !ref <lr_annealing>
-    normalize: !ref <normalize>
-    epoch_counter: !ref <epoch_counter>
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    compute_cost: !name:speechbrain.nnet.ctc_loss
+compute_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
+ctc_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: !ref <blank_index>
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: !ref <sample_rate>
-        speeds: [95, 100, 105]
-    compute_features: !new:speechbrain.lobes.Fbank
-        sample_rate: !ref <sample_rate>
-        n_fft: !ref <n_fft>
-        n_mels: !ref <n_mels>
-    cer_computer: !name:speechbrain.ErrorRateStats
+        reduction: batch
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
