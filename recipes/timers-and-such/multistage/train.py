@@ -22,7 +22,7 @@ Authors
 import sys
 import torch
 import speechbrain as sb
-from hyper.yaml import load_hyperpyyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
