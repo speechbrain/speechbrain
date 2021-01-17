@@ -13,7 +13,7 @@ import math
 from packaging import version
 
 
-def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
+def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
     """Compute amplitude of a batch of waveforms.
 
     Arguments
@@ -31,6 +31,7 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
     scale: str
         Whether to compute amplitude in "dB" or "linear" scale.
         Choose between ["linear", "dB"].
+
     Returns
     -------
     The average amplitude of the waveforms.
@@ -48,9 +49,11 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
     assert scale in ["linear", "dB"]
 
     if amp_type == "avg":
-        out = (
-            torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True) / lengths
-        )
+        if lengths is None:
+            out = torch.mean(torch.abs(waveforms), dim=1, keepdim=True)
+        else:
+            wav_sum = torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True)
+            out = wav_sum / lengths
     elif amp_type == "peak":
         out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
     else:
@@ -64,7 +67,7 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
         raise NotImplementedError
 
 
-def normalize(waveforms, lengths, amp_type="avg", eps=1e-14):
+def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
     """
     This function normalizes a signal to unitary average or peak amplitude.
 
@@ -478,3 +481,48 @@ def overlap_and_add(signal, frame_step):
     result.index_add_(-2, frame, subframe_signal)
     result = result.view(*outer_dimensions, -1)
     return result
+
+
+def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
+    """Function for resynthesizing waveforms from enhanced mags.
+
+    Arguments
+    ---------
+    enhanced_mag : torch.Tensor
+        Predicted spectral magnitude, should be three dimensional.
+    noisy_inputs : torch.Tensor
+        The noisy waveforms before any processing, to extract phase.
+    lengths : torch.Tensor
+        The length of each waveform for normalization
+    stft : torch.nn.Module
+        Module for computing the STFT for extracting phase.
+    istft : torch.nn.Module
+        Module for computing the iSTFT for resynthesis.
+
+    Returns
+    -------
+    enhanced_wav : torch.Tensor
+        The resynthesized waveforms of the enhanced magnitudes with noisy phase
+    """
+
+    # Extract noisy phase from inputs
+    noisy_feats = stft(noisy_inputs)
+    noisy_phase = torch.atan2(noisy_feats[:, :, :, 1], noisy_feats[:, :, :, 0])
+
+    # Combine with enhanced magnitude
+    complex_predictions = torch.mul(
+        torch.unsqueeze(enhanced_mag, -1),
+        torch.cat(
+            (
+                torch.unsqueeze(torch.cos(noisy_phase), -1),
+                torch.unsqueeze(torch.sin(noisy_phase), -1),
+            ),
+            -1,
+        ),
+    )
+    pred_wavs = istft(complex_predictions, sig_length=noisy_inputs.shape[1])
+
+    # Normalize. Since we're using peak amplitudes, ignore lengths
+    pred_wavs = normalize(pred_wavs, amp_type="peak")
+
+    return pred_wavs

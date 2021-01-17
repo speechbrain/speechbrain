@@ -1,0 +1,24 @@
+emb_channels: 1024
+emb_kernel_size: 3
+emb_padding: same
+enhancer_size: 512
+enhancer_layers: 8
+enhancer_heads: 8
+enhancer_causal: False
+enhancer_drop_rate: 0.1
+n_fft: 512
+data_folder: asdf
+
+enhance_model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
+    output_size: !ref <n_fft> // 2 + 1
+    d_model: !ref <n_fft> // 2
+    output_activation: !name:torch.nn.ReLU
+    activation: !name:torch.nn.LeakyReLU
+    dropout: !ref <enhancer_drop_rate>
+    num_layers: !ref <enhancer_layers>
+    d_ffn: !ref <enhancer_size>
+    nhead: !ref <enhancer_heads>
+    causal: !ref <enhancer_causal>
+    custom_emb_module: !new:embedding.CNNEmbedding
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        base_channels: !ref <emb_channels>
