@@ -30,7 +30,7 @@ import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import run_on_main
 from torch.cuda.amp import autocast
-from hyper.yaml import load_hyperpyyaml
+from hyperpyyaml import load_hyperpyyaml
 import numpy as np
 from tqdm import tqdm
 import csv

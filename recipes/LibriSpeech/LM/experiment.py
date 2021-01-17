@@ -17,7 +17,7 @@ import torch
 import sentencepiece as spm
 
 from datasets import load_dataset
-from hyper.yaml import load_hyperpyyaml
+from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file

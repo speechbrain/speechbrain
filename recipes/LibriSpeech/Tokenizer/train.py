@@ -17,7 +17,7 @@ Authors
 
 import sys
 import speechbrain as sb
-from hyper.yaml import load_hyperpyyaml
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 if __name__ == "__main__":
