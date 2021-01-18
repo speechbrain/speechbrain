@@ -1,35 +1,33 @@
 import speechbrain as sb
 import numpy as np
 import torchaudio
-from pathlib import Path
 import torch
-from speechbrain.utils.data_utils import batch_pad_right
-import random
-from speechbrain.processing.signal_processing import rescale
+import glob
+import os
+from pathlib import Path
 
 
-def build_spk_hashtable(train_data):
+def build_spk_hashtable(hparams):
+
+    wsj0_utterances = glob.glob(
+        os.path.join(hparams["wsj0_tr"], "**/*.wav"), recursive=True
+    )
 
     spk_hashtable = {}
-    for ex_id in train_data:
-        s1_wav = train_data[ex_id]["s1_wav"]
-        s2_wav = train_data[ex_id]["s2_wav"]
+    for utt in wsj0_utterances:
+
+        spk_id = Path(utt).stem[:3]
+        torchaudio.info(utt)
+        assert torchaudio.info(utt).sample_rate == 8000
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
         # id of speaker 1 is 019 utterance id is o031a
         # id of speaker 2 is 01v utterance id is 01vo030q
-        s1_id = Path(s1_wav).stem.split("_")[0][:3]
-        if s1_id not in spk_hashtable.keys():
-            spk_hashtable[s1_id] = [s1_wav]
-        else:
-            spk_hashtable[s1_id].append(s1_wav)
 
-        s2_id = Path(s1_wav).stem.split("_")[2][:3]
-
-        if s2_id not in spk_hashtable.keys():
-            spk_hashtable[s2_id] = [s2_wav]
+        if spk_id not in spk_hashtable.keys():
+            spk_hashtable[spk_id] = [utt]
         else:
-            spk_hashtable[s2_id].append(s2_wav)
+            spk_hashtable[spk_id].append(utt)
 
     # calculate weights for each speaker ( len of list of utterances)
     spk_weights = [len(spk_hashtable[x]) for x in spk_hashtable.keys()]
@@ -48,7 +46,7 @@ def dynamic_mix_data_prep(hparams):
     # we build an dictionary where keys are speakers id and entries are list
     # of utterances files of that speaker
 
-    spk_hashtable, spk_weights = build_spk_hashtable(train_data.data)
+    spk_hashtable, spk_weights = build_spk_hashtable(hparams)
     spk_list = [x for x in spk_hashtable.keys()]
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
@@ -64,30 +62,37 @@ def dynamic_mix_data_prep(hparams):
         # select two speakers randomly
         sources = []
         first_lvl = None
-        for i, spk in enumerate(speakers):
-            c_file = np.random.choice(spk_hashtable[spk])
+        spk_files = [
+            np.random.choice(spk_hashtable[spk], 1, False)[0]
+            for spk in speakers
+        ]
+        minlen = min(
+            *[torchaudio.info(x).num_frames for x in spk_files],
+            hparams["training_signal_len"],
+        )
+
+        for i, spk_file in enumerate(spk_files):
+
             # select random offset
-            length = torchaudio.info(c_file).num_frames
+            length = torchaudio.info(spk_file).num_frames
             start = 0
             stop = length
-            if length > hparams["training_signal_len"]:  # take a random window
-                start = np.random.randint(
-                    0, length - hparams["training_signal_len"]
-                )
-                stop = start + hparams["training_signal_len"]
+            if length > minlen:  # take a random window
+                start = np.random.randint(0, length - minlen)
+                stop = start + minlen
 
             tmp, _ = torchaudio.load(
-                c_file, frame_offset=start, num_frames=stop - start
+                spk_file, frame_offset=start, num_frames=stop - start
             )
             tmp = tmp[0]  # remove channel dim and normalize
+            tmp = tmp / tmp.abs().max()
 
             if i == 0:
-                lvl = np.clip(random.normalvariate(-16.7, 7), -45, 0)
-                tmp = rescale(tmp, torch.tensor([len(tmp)]), lvl, scale="dB")
+                lvl = 10 ** (np.random.uniform(-2.5, 0) / 20)
+                tmp = tmp * lvl
                 first_lvl = lvl
             else:
-                lvl = np.clip(first_lvl - random.normalvariate(2.52, 4), -45, 0)
-                tmp = rescale(tmp, torch.tensor([len(tmp)]), lvl, scale="dB")
+                tmp = tmp * (-first_lvl)
             sources.append(tmp)
 
         # we mix the sources together
@@ -96,12 +101,17 @@ def dynamic_mix_data_prep(hparams):
         # no difference however for bsz=1 :)
 
         # padding left
-        sources, _ = batch_pad_right(sources)
+        # sources, _ = batch_pad_right(sources)
+
+        sources = torch.stack(sources)
         mixture = torch.sum(sources, 0)
-        peak = torch.max(torch.abs(mixture))
-        if peak > 1:
-            sources = sources / peak
-            mixture = torch.sum(sources, 0)
+        max_amp = max(
+            torch.abs(mixture).max().item(),
+            *[x.item() for x in torch.abs(sources).max(dim=-1)[0]],
+        )
+        mix_scaling = 1 / max_amp * 0.9
+        sources = sources * mix_scaling
+        mixture = mix_scaling * mixture
 
         yield mixture
         for i in range(hparams["num_spks"]):
@@ -112,5 +122,4 @@ def dynamic_mix_data_prep(hparams):
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
 
-    train_data[0]
     return train_data
