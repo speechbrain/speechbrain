@@ -108,8 +108,8 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-    hparams_file: ../../../../recipes/LibriSpeech/LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
+lm_model: !new:recipes.timers-and-such.LM.pretrained.pretrained.LM
+    hparams_file: ../../../../recipes/timers-and-such/LM/pretrained/hparams/pretrained.yaml
     overrides: {'device': !ref <device>}
 
 asr_model: !new:torch.nn.ModuleList
