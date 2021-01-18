@@ -5,7 +5,7 @@ import torch
 import glob
 import os
 from pathlib import Path
-
+from oct2py import Oct2Py
 
 def build_spk_hashtable(hparams):
 
@@ -84,7 +84,16 @@ def dynamic_mix_data_prep(hparams):
             tmp, fs_read = torchaudio.load(
                 spk_file, frame_offset=start, num_frames=stop - start
             )
+
             tmp = tmp[0]  # remove channel dim and normalize
+
+            oc = Oct2Py()
+            filedir = os.path.dirname(os.path.realpath(__file__))
+            oc.addpath(os.path.join(Path(filedir).parent, "meta"))
+            tmp = oc.activlev(tmp.numpy().tolist(), fs_read, "n")
+            tmp, _ = tmp[:-1].squeeze(), tmp[-1]
+
+            tmp = torch.from_numpy(tmp).float()
 
             if i == 0:
                 lvl = 10 ** (np.random.uniform(-2.5, 0) / 20)
