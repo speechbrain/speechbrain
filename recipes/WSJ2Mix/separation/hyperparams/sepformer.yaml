@@ -11,7 +11,8 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
-data_folder: !PLACEHOLDER # e.g. '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
+# e.g. '/localscratch/wsj0-mix/2speakers' # wsj2mix or wsj3mix
+data_folder: !PLACEHOLDER
 output_folder: !ref results/sepformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -38,7 +39,10 @@ limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
 training_signal_len: 32000
-dynamic_mixing: False # Set it to True to dynamically create mixture at training time
+# Set it to True to dynamically create mixture at training time
+dynamic_mixing: True
+# path to wsj0 train split, convert all data to 8kHz before
+wsj0_tr: /media/sam/2dd9b2ed-0240-4592-941b-6ec18d7fadc5/WSJ8K/wsj0/si_tr_s/
 
 # Parameters for data augmentation
 use_wavedrop: False
@@ -83,7 +87,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 
 
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 1
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -92,7 +96,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 1
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
