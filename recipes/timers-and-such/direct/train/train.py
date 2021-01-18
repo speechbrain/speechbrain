@@ -16,10 +16,8 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import os
 import sys
 import torch
-import sentencepiece as spm
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
@@ -228,13 +226,7 @@ def data_io_prepare(hparams):
 
     datasets = [train_data, valid_data, test_real_data, test_synth_data]
 
-    # load tokenizer
-    tokenizer = spm.SentencePieceProcessor()
-    tokenizer_file = (
-        str(hparams["output_neurons"]) + "_" + hparams["token_type"] + ".model"
-    )
-    tokenizer_file = os.path.join(hparams["save_folder"], tokenizer_file)
-    tokenizer.load(tokenizer_file)
+    tokenizer = hparams["tokenizer"].spm
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")

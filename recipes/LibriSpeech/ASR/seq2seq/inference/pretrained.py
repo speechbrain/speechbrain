@@ -3,7 +3,7 @@ A "ready-to-use" English speech recognizer based on the LibriSpeech seq2seq reci
 The class can be used either to run only the encoder (encode()) to extract features
 or to run the entire encoder-decoder-attention model (transcribe()) to transcribe the speech.
 It expects input speech signals sampled at 16 kHz. The system achieves
-a WER=3.07% on LibriSpeech test clean. Despite being quite robust, there is no guarantee
+a WER=3.09% on LibriSpeech test clean. Despite being quite robust, there is no guarantee
 that this model works well for other tasks.
 
 Example
@@ -36,7 +36,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 class ASR(torch.nn.Module):
     def __init__(
         self,
-        hparams_file="hparams/pretrained.yaml",
+        hparams_file="hparams/pretrained_BPE1000.yaml",
         overrides={},
         freeze_params=True,
     ):

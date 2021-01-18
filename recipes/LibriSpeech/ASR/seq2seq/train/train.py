@@ -5,7 +5,7 @@ between them. Decoding is performed with beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml
+> python train.py hparams/train_BPE1000.yaml
 
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
@@ -38,7 +38,6 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
-import sentencepiece as spm
 from pathlib import Path
 
 
@@ -196,19 +195,6 @@ class ASR(sb.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams.output_folder, "save", "lm_model.ckpt"
-        )
-        if not os.path.isfile(save_model_path):
-            download_file(self.hparams.language_model_file, save_model_path)
-
-        # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path, map_location=self.device)
-        self.hparams.lm_model.load_state_dict(state_dict, strict=True)
-        self.hparams.lm_model.eval()
-
 
 def data_io_prepare(hparams):
 
@@ -268,8 +254,8 @@ def data_io_prepare(hparams):
         )
 
     # Defining tokenizer and loading it
-    tokenizer = spm.SentencePieceProcessor()
-    tokenizer.load(save_model_path)
+    # To avoid mismatch, we have to use the same tokenizer used for LM training
+    tokenizer = hparams["lm_model"].tokenizer
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -320,7 +306,6 @@ if __name__ == "__main__":
     from librispeech_prepare import prepare_librispeech  # noqa
 
     # multi-gpu (ddp) save data preparation
-
     run_on_main(
         prepare_librispeech,
         kwargs={

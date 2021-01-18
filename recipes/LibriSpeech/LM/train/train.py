@@ -3,7 +3,7 @@
 
 To run this recipe, do the following:
 > pip install datasets
-> python experiment.py hyperparams.yaml --data_folder <local_path_to_librispeech_dataset>
+> python train.py hparams/<hparam_file>.yaml --data_folder <local_path_to_librispeech_dataset>
 
 Authors
  * Jianyuan Zhong 2021
@@ -14,13 +14,9 @@ import sys
 import logging
 import glob
 import torch
-import sentencepiece as spm
-
 from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 
 
 logger = logging.getLogger(__name__)
@@ -140,22 +136,7 @@ def data_io_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    """Loads the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(
-        hparams["save_folder"],
-        "{}_unigram.model".format(hparams["output_neurons"]),
-    )
-
-    if "tokenizer_file" in hparams:
-        download_file(
-            source=hparams["tokenizer_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
-
-    # Defining tokenizer and loading it
-    tokenizer = spm.SentencePieceProcessor()
-    tokenizer.load(save_model_path)
+    tokenizer = hparams["tokenizer"].spm
 
     """Define text pipeline"""
     # TODO: implement text augmentations piplines
@@ -186,7 +167,7 @@ if __name__ == "__main__":
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
