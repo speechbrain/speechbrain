@@ -71,7 +71,10 @@ class LM(sb.core.Brain):
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         stage_stats = {"loss": stage_loss}
-        if stage == sb.Stage.VALID:
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
+
+        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             if not (
                 isinstance(
                     self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
@@ -85,6 +88,7 @@ class LM(sb.core.Brain):
                 sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             else:
                 old_lr = self.hparams.lr_annealing.current_lr
+
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -185,7 +189,7 @@ if __name__ == "__main__":
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
-    sb.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
