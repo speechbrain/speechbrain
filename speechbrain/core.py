@@ -1020,7 +1020,7 @@ class Brain:
 
                     if (
                         self.checkpointer is not None
-                        and self.ckpt_interval_minutes is not None
+                        and self.ckpt_interval_minutes > 0
                         and time.time() - last_ckpt_time
                         >= self.ckpt_interval_minutes * 60.0
                     ):
