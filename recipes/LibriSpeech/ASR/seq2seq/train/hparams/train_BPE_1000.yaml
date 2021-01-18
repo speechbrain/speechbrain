@@ -16,16 +16,15 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch
-# The tokenizer is trained with LibriSpeech/Tokenizer/hyperparams/1K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
-tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+# Language model (LM) parameter file
+# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
+# for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
+# # object. In this case, it is based on 1000 tokens.
+lm_hparam_file: ../../../LM/inference/hparams/pretrained_RNNLM_BPE1000.yaml
 
 # Data files
-data_folder: !PLACEHOLDER
-# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
-# then data_folder_rirs should be /localscratch/xxx_corpus
-# otherwise the dataset will automatically be downloaded
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+# noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
@@ -81,7 +80,7 @@ dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
 dec_neurons: 1024
-output_neurons: 1000  # index(blank/eos/bos/unk) = 0
+output_neurons: 1000  # Number of tokens (same as LM)
 blank_index: 0
 bos_index: 0
 eos_index: 0
@@ -188,16 +187,9 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
    label_smoothing: 0.1
 
-lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-   output_neurons: !ref <output_neurons>
-   embedding_dim: !ref <emb_size>
-   activation: !ref <lm_activation>
-   dropout: !ref <lm_dropout>
-   rnn_layers: !ref <lm_rnn_layers>
-   rnn_neurons: !ref <lm_rnn_neurons>
-   dnn_blocks: !ref <lm_dnn_blocks>
-   dnn_neurons: !ref <lm_dnn_neurons>
-   return_hidden: True  # For inference
+# Models
+lm_model: !new:recipes.LibriSpeech.LM.inference.pretrained.LM
+   hparams_file: !ref <lm_hparam_file>
 
 modules:
    enc: !ref <enc>
