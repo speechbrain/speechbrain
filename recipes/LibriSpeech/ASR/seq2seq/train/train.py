@@ -34,12 +34,14 @@ Authors
 import os
 import sys
 import torch
+import logging
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -302,6 +304,13 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # 1.  # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
 
@@ -317,13 +326,6 @@ if __name__ == "__main__":
             "merge_lst": hparams["train_splits"],
             "merge_name": hparams["train_csv"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # here we create the datasets objects as well as tokenization and encoding

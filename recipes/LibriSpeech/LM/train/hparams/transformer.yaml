@@ -56,7 +56,6 @@ d_model: 768
 # BPE
 tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
-    save_file: !ref <save_folder>/tokenizer.model
 
 # Functions
 model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
