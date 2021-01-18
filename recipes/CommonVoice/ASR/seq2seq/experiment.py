@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import sys
 import torch
+import logging
 import speechbrain as sb
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
@@ -30,6 +32,8 @@ other possible variations.
 Authors
  * Titouan Parcollet 2020
 """
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -276,7 +280,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
@@ -284,6 +288,13 @@ if __name__ == "__main__":
 
     # Dataset preparation (parsing CommonVoice)
     from common_voice_prepare import prepare_common_voice  # noqa
+
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
 
     # Due to DDP, we do the preparation ONLY on the main python process
     run_on_main(
@@ -297,13 +308,6 @@ if __name__ == "__main__":
             "accented_letters": hparams["accented_letters"],
             "language": hparams["language"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
