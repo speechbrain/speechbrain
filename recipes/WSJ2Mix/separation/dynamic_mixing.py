@@ -5,6 +5,7 @@ import torch
 import glob
 import os
 from pathlib import Path
+from oct2py import octave
 
 
 def build_spk_hashtable(hparams):
@@ -50,6 +51,11 @@ def dynamic_mix_data_prep(hparams):
     spk_list = [x for x in spk_hashtable.keys()]
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
+    filedir = os.path.dirname(os.path.realpath(__file__))
+    octave.addpath(
+        os.path.join(Path(filedir).parent, "meta")
+    )  # add the matlab functions to octave dir here
+
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides("mix_sig", "s1_sig", "s2_sig")
     def audio_pipeline(
@@ -81,18 +87,22 @@ def dynamic_mix_data_prep(hparams):
                 start = np.random.randint(0, length - minlen)
                 stop = start + minlen
 
-            tmp, _ = torchaudio.load(
+            tmp, fs_read = torchaudio.load(
                 spk_file, frame_offset=start, num_frames=stop - start
             )
             tmp = tmp[0]  # remove channel dim and normalize
-            tmp = tmp / tmp.abs().max()
+
+            tmp = octave.activlev(tmp.numpy().tolist(), fs_read, "n")
+            tmp, _ = tmp[:-1].squeeze(), tmp[-1]
+
+            tmp = torch.from_numpy(tmp)
 
             if i == 0:
                 lvl = 10 ** (np.random.uniform(-2.5, 0) / 20)
                 tmp = tmp * lvl
                 first_lvl = lvl
             else:
-                tmp = tmp * (-first_lvl)
+                tmp = tmp * -first_lvl
             sources.append(tmp)
 
         # we mix the sources together
@@ -121,5 +131,16 @@ def dynamic_mix_data_prep(hparams):
     sb.data_io.dataset.set_output_keys(
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
+
+    from speechbrain.processing.signal_processing import compute_amplitude
+
+    s1_amp = []
+    s2_amp = []
+    for i in range(len(train_data)):
+        batch = train_data[i]
+        s1 = batch["s1_sig"]
+        s2 = batch["s2_sig"]
+        s1_amp.append(compute_amplitude(s1, scale="dB", amp_type="avg").item())
+        s2_amp.append(compute_amplitude(s2, scale="dB", amp_type="avg").item())
 
     return train_data
