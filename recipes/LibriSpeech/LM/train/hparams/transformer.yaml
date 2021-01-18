@@ -22,7 +22,7 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 lm_corpus_path: null
 
 # Tokenizer model
-tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1
+tokenizer_file: ../Tokenizer/pre-trained/5000_unigram.model
 
 # Training parameters
 number_of_epochs: 20
