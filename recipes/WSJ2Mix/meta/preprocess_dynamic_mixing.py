@@ -47,7 +47,8 @@ def resample_folder(input_folder, output_folder, fs, regex):
         audio, _ = tmp[:-1].squeeze(), tmp[-1]
 
         audio = torch.from_numpy(audio)
-        audio = audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
+        if torch.max(torch.abs(audio)) > 1:
+            audio = audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
         os.makedirs(
             Path(
                 os.path.join(
@@ -63,7 +64,6 @@ def resample_folder(input_folder, output_folder, fs, regex):
             audio,
             fs,
         )
-    torchaudio.shutdown_sox()
 
 
 if __name__ == "__main__":
