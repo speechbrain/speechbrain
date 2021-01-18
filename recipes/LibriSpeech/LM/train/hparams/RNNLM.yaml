@@ -59,7 +59,6 @@ eos_index: 0
 # BPE
 tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
-    save_file: !ref <save_folder>/tokenizer.model
 
 
 # Functions

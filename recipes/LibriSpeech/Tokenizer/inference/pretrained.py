@@ -35,7 +35,7 @@ class tokenizer:
 
         if "http" in tokenizer_file:
             temp_dir = tempfile.TemporaryDirectory()
-            save_file = os.path.join(str(temp_dir), "tok.model")
+            save_file = os.path.join(temp_dir.name, "tok.model")
             download_file(
                 source=tokenizer_file, dest=save_file, replace_existing=True,
             )

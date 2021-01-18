@@ -15,7 +15,7 @@ device: 'cuda:0'
 emb_size: 128
 num_asr_tokens: 1000
 
-net: !new:speechbrain.lobes.models.RNNLM.RNNLM
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     output_neurons: !ref <num_asr_tokens>
     embedding_dim: !ref <emb_size>
     activation: !name:torch.nn.LeakyReLU

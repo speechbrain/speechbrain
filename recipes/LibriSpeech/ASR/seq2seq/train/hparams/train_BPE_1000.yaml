@@ -9,7 +9,7 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
-seed: 16
+seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt

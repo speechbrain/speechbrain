@@ -5,8 +5,8 @@ Example
 -------
 >>> import torch
 >>> from pretrained import LM
->>> lm = LM()
-
+>>> # RNN LM
+>>> lm = LM('hparams/pretrained_RNNLM_BPE1000.yaml')
 >>> # Next word prediction
 >>> text = "THE CAT IS ON"
 >>> encoded_text = lm.tokenizer.encode_as_ids(text)
@@ -26,7 +26,6 @@ Example
 >>>
 >>> encoded_text = encoded_text[0,1:].tolist()
 >>> print(lm.tokenizer.decode(encoded_text))
-
 
 Authors
  * Loren Lugosch 2020
@@ -65,7 +64,7 @@ class LM(torch.nn.Module):
             os.makedirs(self.hparams["save_folder"])
 
         # putting modules on the right device
-        self.net = self.hparams["net"].to(self.device)
+        self.model = self.hparams["model"].to(self.device)
 
         # Load pretrained modules
         self.load_lm()
@@ -75,13 +74,13 @@ class LM(torch.nn.Module):
 
         # If we don't want to backprop, freeze the pretrained parameters
         if freeze_params:
-            self.net.eval()
-            for p in self.net.parameters():
+            self.model.eval()
+            for p in self.model.parameters():
                 p.requires_grad = False
 
     def forward(self, x, hx=None):
         """Compute the LM probabilities given and encoded input."""
-        return self.net.forward(x, hx)
+        return self.model.forward(x, hx)
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""
@@ -90,4 +89,4 @@ class LM(torch.nn.Module):
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
-        self.net.load_state_dict(state_dict, strict=True)
+        self.model.load_state_dict(state_dict, strict=True)
