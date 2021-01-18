@@ -23,16 +23,16 @@ csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/dev-real-type=direct.csv
 csv_test_real: !ref <data_folder>/test-real-type=direct.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
-asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/inference/hparams/pretrained_BPE1000.yaml
-lm_hparam_file: ../../../../recipes/LibriSpeech/LM/inference/hparams/pretrained_RNNLM_BPE1000.yaml
-tokenizer_file: ../../Tokenizer/inference/pretrained_tok/51_unigram.model
+asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
+lm_hparam_file: ../../../../recipes/LibriSpeech/LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
+tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
 # Training parameters
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
-sorting: ascending
+sorting: random
 
 # Model parameters
 sample_rate: 16000
@@ -58,7 +58,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.inference.pretrained.ASR
+asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
     overrides: {'lm_hparam_file': !ref <lm_hparam_file>}
 
@@ -112,7 +112,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <asr_model>, !ref <slu_enc>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
-tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
