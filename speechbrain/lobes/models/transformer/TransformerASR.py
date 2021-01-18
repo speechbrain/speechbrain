@@ -6,6 +6,7 @@ Authors
 
 import torch  # noqa 42
 from torch import nn
+from typing import Optional
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
@@ -15,6 +16,8 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     NormalizedEmbedding,
 )
+from speechbrain.nnet.activations import Swish
+
 from speechbrain.data_io.data_io import length_to_mask
 
 
@@ -70,6 +73,10 @@ class TransformerASR(TransformerInterface):
         activation=nn.ReLU,
         positional_encoding=True,
         normalize_before=False,
+        kernel_size: Optional[int] = 31,
+        bias: Optional[bool] = True,
+        encoder_module: Optional[str] = "transformer",
+        conformer_activation: Optional[nn.Module] = Swish,
     ):
         super().__init__(
             d_model=d_model,
@@ -81,6 +88,10 @@ class TransformerASR(TransformerInterface):
             activation=activation,
             positional_encoding=positional_encoding,
             normalize_before=normalize_before,
+            kernel_size=kernel_size,
+            bias=bias,
+            encoder_module=encoder_module,
+            conformer_activation=conformer_activation,
         )
 
         self.custom_src_module = ModuleList(

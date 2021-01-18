@@ -107,13 +107,13 @@ def prepare_common_voice(
     if skip(save_csv_train, save_csv_dev, save_csv_test):
 
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
-        print(msg)
+        logger.info(msg)
 
         msg = "%s already exists, skipping data preparation!" % (save_csv_dev)
-        print(msg)
+        logger.info(msg)
 
         msg = "%s already exists, skipping data preparation!" % (save_csv_test)
-        print(msg)
+        logger.info(msg)
 
         return
 
@@ -122,13 +122,6 @@ def prepare_common_voice(
 
     # Creating csv file for training data
     if train_tsv_file is not None:
-
-        # Convert .mp3 files if required
-        msg = "Converting train audio files to .wav if needed ..."
-
-        # convert_mp3_wav(
-        #    data_folder, train_tsv_file, path_to_wav, SAMPLERATE,
-        # )
 
         create_csv(
             train_tsv_file,
@@ -141,20 +134,12 @@ def prepare_common_voice(
     # Creating csv file for dev data
     if dev_tsv_file is not None:
 
-        # Convert .mp3 files if required
-        msg = "Converting validation audio files to .wav if needed ..."
-        print(msg)
-
         create_csv(
             dev_tsv_file, save_csv_dev, data_folder, accented_letters, language,
         )
 
     # Creating csv file for test data
     if test_tsv_file is not None:
-
-        # Convert .mp3 files if required
-        msg = "Converting test audio files to .wav if needed ..."
-        print(msg)
 
         create_csv(
             test_tsv_file,
@@ -215,7 +200,7 @@ def create_csv(
     # Check if the given files exists
     if not os.path.isfile(orig_tsv_file):
         msg = "\t%s doesn't exist, verify your dataset!" % (orig_tsv_file)
-        print(msg)
+        logger.info(msg)
         raise FileNotFoundError(msg)
 
     # We load and skip the header
@@ -223,11 +208,11 @@ def create_csv(
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
-    print(msg)
+    logger.info(msg)
 
     # Adding some Prints
     msg = "Creating csv lists in %s ..." % (csv_file)
-    print(msg)
+    logger.info(msg)
 
     csv_lines = [
         [
@@ -266,7 +251,7 @@ def create_csv(
             info = torchaudio.info(mp3_path)
         else:
             msg = "\tError loading: %s" % (str(len(file_name)))
-            print(msg)
+            logger.info(msg)
             continue
 
         duration = info.num_frames / info.sample_rate
@@ -347,11 +332,11 @@ def create_csv(
 
     # Final prints
     msg = "%s sucessfully created!" % (csv_file)
-    print(msg)
+    logger.info(msg)
     msg = "Number of samples: %s " % (str(len(loaded_csv)))
-    print(msg)
+    logger.info(msg)
     msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
-    print(msg)
+    logger.info(msg)
 
 
 def check_commonvoice_folders(data_folder):

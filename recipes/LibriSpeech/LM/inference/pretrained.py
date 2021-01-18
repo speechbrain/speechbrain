@@ -4,9 +4,9 @@ Pre-trained LM on LibriSpeech for inference.
 Example
 -------
 >>> import torch
->>> from pretrained import RNNLM
->>> lm = RNNLM()
-
+>>> from pretrained import LM
+>>> # RNN LM
+>>> lm = LM('hparams/pretrained_RNNLM_BPE1000.yaml')
 >>> # Next word prediction
 >>> text = "THE CAT IS ON"
 >>> encoded_text = lm.tokenizer.encode_as_ids(text)
@@ -27,7 +27,6 @@ Example
 >>> encoded_text = encoded_text[0,1:].tolist()
 >>> print(lm.tokenizer.decode(encoded_text))
 
-
 Authors
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
@@ -35,15 +34,14 @@ Authors
 
 import os
 import torch
-import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-import sentencepiece as spm
+from hyperpyyaml import load_hyperpyyaml
 
 
-class RNNLM(torch.nn.Module):
+class LM(torch.nn.Module):
     def __init__(
         self,
-        hparams_file="hparams/pretrained_RNNLM.yaml",
+        hparams_file="hparams/pretrained_RNNLM_BPE1000.yaml",
         overrides={},
         freeze_params=True,
     ):
@@ -52,7 +50,7 @@ class RNNLM(torch.nn.Module):
 
         # Loading modules defined in the yaml file
         with open(hparams_file) as fin:
-            self.hparams = sb.load_extended_yaml(fin, overrides)
+            self.hparams = load_hyperpyyaml(fin, overrides)
 
         self.device = self.hparams["device"]
 
@@ -66,23 +64,23 @@ class RNNLM(torch.nn.Module):
             os.makedirs(self.hparams["save_folder"])
 
         # putting modules on the right device
-        self.net = self.hparams["net"].to(self.device)
+        self.model = self.hparams["model"].to(self.device)
 
         # Load pretrained modules
         self.load_lm()
 
         # Load tokenizer
-        self.load_tokenizer()
+        self.tokenizer = self.hparams["tokenizer"].spm
 
         # If we don't want to backprop, freeze the pretrained parameters
         if freeze_params:
-            self.net.eval()
-            for p in self.net.parameters():
+            self.model.eval()
+            for p in self.model.parameters():
                 p.requires_grad = False
 
     def forward(self, x, hx=None):
         """Compute the LM probabilities given and encoded input."""
-        return self.net.forward(x, hx)
+        return self.model.forward(x, hx)
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""
@@ -91,19 +89,4 @@ class RNNLM(torch.nn.Module):
 
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
-        self.net.load_state_dict(state_dict, strict=True)
-
-    def load_tokenizer(self):
-        """Loads the sentence piece tokenizer specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams["save_folder"], "tokenizer.model",
-        )
-
-        # Downloading from the web
-        download_file(
-            source=self.hparams["tok_mdl_file"], dest=save_model_path,
-        )
-
-        # Initialize and pre-train the tokenizer
-        self.tokenizer = spm.SentencePieceProcessor()
-        self.tokenizer.load(save_model_path)
+        self.model.load_state_dict(state_dict, strict=True)

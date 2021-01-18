@@ -27,6 +27,7 @@ import numpy as np
 import torchaudio
 import speechbrain as sb
 from tqdm.contrib import tqdm
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.PLDA_LDA import StatObject_SB
@@ -413,7 +414,7 @@ if __name__ == "__main__":  # noqa: C901
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, overrides)
+        params = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing VoxCeleb and annotation into csv files)
     from ami_prepare import prepare_ami  # noqa
