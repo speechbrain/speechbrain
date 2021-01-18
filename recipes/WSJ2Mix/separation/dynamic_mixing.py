@@ -121,15 +121,4 @@ def dynamic_mix_data_prep(hparams):
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
 
-    from speechbrain.processing.signal_processing import compute_amplitude
-
-    s1_amp = []
-    s2_amp = []
-    for i in range(len(train_data)):
-        batch = train_data[i]
-        s1 = batch["s1_sig"]
-        s2 = batch["s2_sig"]
-        s1_amp.append(compute_amplitude(s1, scale="dB", amp_type="avg").item())
-        s2_amp.append(compute_amplitude(s2, scale="dB", amp_type="avg").item())
-
     return train_data
