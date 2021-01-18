@@ -43,6 +43,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
