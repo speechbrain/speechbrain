@@ -35,7 +35,7 @@ class SLU(sb.Brain):
             task="encode",
         )
         target_tokens = target_tokens.to(self.device)
-        y_in = sb.data_io.data_io.prepend_bos_token(
+        y_in = sb.dataio.dataio.prepend_bos_token(
             target_tokens, self.hparams.bos_index
         )
 
@@ -98,7 +98,7 @@ class SLU(sb.Brain):
         abs_length = torch.round(target_token_lens * target_tokens.shape[1])
 
         # Append eos token at the end of the label sequences
-        target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
+        target_tokens_with_eos = sb.dataio.dataio.append_eos_token(
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
 
@@ -124,7 +124,7 @@ class SLU(sb.Brain):
             target_semantics = undo_padding(
                 target_semantics, target_semantics_lens
             )
-            target_semantics = sb.data_io.data_io.convert_index_to_lab(
+            target_semantics = sb.dataio.dataio.convert_index_to_lab(
                 target_semantics, self.hparams.ind2lab
             )
             for i in range(len(target_semantics)):

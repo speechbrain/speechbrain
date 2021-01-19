@@ -3,7 +3,7 @@ import torch
 
 def test_ConcatDatasetBatchSampler():
     from torch.utils.data import TensorDataset, ConcatDataset, DataLoader
-    from speechbrain.data_io.sampler import (
+    from speechbrain.dataio.sampler import (
         ReproducibleRandomSampler,
         ConcatDatasetBatchSampler,
     )

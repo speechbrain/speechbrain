@@ -61,7 +61,7 @@ class PaddedBatch:
     ['ex1', 'ex2']
     >>> # torch.Tensors get padded
     >>> type(batch.foo)
-    <class 'speechbrain.data_io.batch.PaddedData'>
+    <class 'speechbrain.dataio.batch.PaddedData'>
     >>> batch.foo.data
     tensor([[1., 0.],
             [2., 1.]])
