@@ -24,11 +24,7 @@ csv_valid: !ref <data_folder>/dev-real-type=multistage.csv
 csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
 asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
-#lm_hparam_file: ../../../../recipes/LibriSpeech/LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
-
-# ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
-
 
 # Training parameters
 number_of_epochs: 1

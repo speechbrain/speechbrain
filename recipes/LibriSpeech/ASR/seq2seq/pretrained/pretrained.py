@@ -30,7 +30,6 @@ import os
 import torch
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
 class ASR(torch.nn.Module):
@@ -62,7 +61,7 @@ class ASR(torch.nn.Module):
         self.mod = torch.nn.ModuleDict(self.hparams["modules"]).to(self.device)
 
         # Load pretrained modules
-        self.load_tokenizer()
+        self.tokenizer = self.hparams["tokenizer"].spm
         self.load_asr()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -92,30 +91,12 @@ class ASR(torch.nn.Module):
                 encoder_out, wav_lens
             )
 
-            predicted_words = self.mod.tokenizer(
-                predicted_tokens, task="decode_from_list"
-            )
+            predicted_words = [
+                self.tokenizer.decode_ids(predicted_tokens[i])
+                for i in range(len(predicted_tokens))
+            ]
 
         return predicted_words, predicted_tokens
-
-    def load_tokenizer(self):
-        """Loads the sentence piece tokenizer specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams["save_folder"],
-            str(self.hparams["output_neurons"]) + "_unigram.model",
-        )
-
-        # Downloading from the web
-        download_file(
-            source=self.hparams["tok_mdl_file"], dest=save_model_path,
-        )
-
-        # Initialize and pre-train the tokenizer
-        self.mod.tokenizer = SentencePiece(
-            model_dir=self.hparams["save_folder"],
-            vocab_size=self.hparams["output_neurons"],
-        )
-        self.mod.tokenizer.sp.load(save_model_path)
 
     def load_asr(self):
         """Loads the AM specified in the yaml file"""
