@@ -5,7 +5,7 @@ between them. Decoding is performed with beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+> python train.py hparams/train.yaml
 
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard  GRU. Beamsearch coupled with a RNN

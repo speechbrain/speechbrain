@@ -1,4 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env/python3
+"""Recipe for training a speech enhancement system with the DNS dataset.
+
+To run this recipe, do the following:
+> python train.py hparams/{hyperparam_file}.yaml
+
+Authors
+ * Chien-Feng Liao 2020
+"""
 import os
 import sys
 import torch

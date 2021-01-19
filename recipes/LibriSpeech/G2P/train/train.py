@@ -4,7 +4,7 @@ The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
 
 To run this recipe, do the following:
-> python train.py hyperparams.yaml
+> python train.py hparams/train.yaml
 
 With the default hyperparameters, the system employs an LSTM encoder.
 The decoder is based on a standard  GRU. The neural network is trained with

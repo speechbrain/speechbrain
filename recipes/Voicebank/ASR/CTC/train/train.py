@@ -1,8 +1,8 @@
-#!/usr/bin/env python3
+#/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and CTC loss on Voicebank
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/noisy-vctk
+> python train.py hparams/{hyperparameter file} --data_folder /path/to/noisy-vctk
 
 Use your own hyperparameter file or the provided `hyperparams.yaml`
 
