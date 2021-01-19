@@ -13,6 +13,7 @@ import json
 import random
 import numpy as np
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import get_all_files
 from local.create_mixtures_metadata import create_metadata
 from local.create_mixtures_from_metadata import create_mixture
@@ -22,7 +23,7 @@ from tqdm import tqdm
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
+    params = load_hyperpyyaml(fin, overrides)
 
 # setting seeds for reproducible code.
 np.random.seed(params.seed)

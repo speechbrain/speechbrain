@@ -425,7 +425,7 @@ class CyclicCosineScheduler:
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
-        del device
+        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -469,6 +469,7 @@ class ReduceLROnPlateau:
         self.patience_counter = 0
         self.losses = []
         self.dont_halve_until_epoch = dont_halve_until_epoch
+        self.anchor = 99999
 
     def __call__(self, optim_list, current_epoch, current_loss):
         """
