@@ -26,9 +26,6 @@ csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
 asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000_TAS_LM.yaml
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
-# ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained_LS_LM.yaml
-
-
 # Training parameters
 number_of_epochs: 1
 batch_size: 16
