@@ -183,9 +183,7 @@ def dataio_prep(hparams):
     label_encoder.update_from_didataset(valid_data, output_key="spk_id")
 
     # 4. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "spk_id_encoded"]
-    )
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "spk_id_encoded"])
 
     return train_data, valid_data, label_encoder
 
