@@ -17,7 +17,6 @@ def build_spk_hashtable(hparams):
     for utt in wsj0_utterances:
 
         spk_id = Path(utt).stem[:3]
-
         assert torchaudio.info(utt).sample_rate == 8000
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
@@ -125,5 +124,6 @@ def dynamic_mix_data_prep(hparams):
     sb.data_io.dataset.set_output_keys(
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
+    train_data[0]
 
     return train_data
