@@ -50,9 +50,6 @@ class SLU(sb.Brain):
             wavs.detach(), wav_lens
         )
 
-        print(asr_tokens)
-        sys.exit()
-
         # Pad examples to have same length.
         asr_tokens_lens = torch.tensor([max(len(t), 1) for t in asr_tokens])
         max_length = asr_tokens_lens.max().item()
