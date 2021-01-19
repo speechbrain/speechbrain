@@ -1,6 +1,6 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
@@ -36,27 +36,35 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
-
+compute_features: !new:speechbrain.lobes.features.MFCC
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 linear1: !new:speechbrain.nnet.linear.Linear
+    input_size: 660
     n_neurons: 1024
     bias: False
 
 activation: !new:torch.nn.LeakyReLU
 
 linear2: !new:speechbrain.nnet.linear.Linear
+    input_size: 1024
     n_neurons: 2
     bias: False
+
+modules:
+    linear1: !ref <linear1>
+    linear2: !ref <linear2>
+    mean_var_norm: !ref <mean_var_norm>
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-compute_error: !name:speechbrain.nnet.losses.classification_error
-
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch

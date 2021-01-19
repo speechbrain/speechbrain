@@ -1,42 +1,27 @@
 #!/usr/bin/python
 import os
-import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
 import torch
-from speechbrain.utils.classification_metrics import BinaryMetrics
-from speechbrain.data_io.data_io import DataLoaderFactory
 import numpy as np
-
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/vad"
-data_folder = os.path.abspath(experiment_dir + data_folder)
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+import speechbrain as sb
 
 
-class VADBrain(sb.core.Brain):
-    def on_training_start(self):
-        self.metrics_train = BinaryMetrics()
-        self.metrics_valid = BinaryMetrics()
-
-    def compute_forward(
-        self, x, train_mode=True, init_params=False, stage=None
-    ):
+class VADBrain(sb.Brain):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = params.compute_features(wavs, init_params)
-        feats = params.mean_var_norm(feats, lens)
-        x = params.rnn(feats, init_params=init_params)
-        outputs = params.lin(x, init_params)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x, _ = self.modules.rnn(feats)
+        outputs = self.modules.lin(x)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, targets, stage=True):
         predictions, lens = predictions
 
-        targets = targets[1].to(predictions.device)
+        ids, targets, lens = targets
+        targets = targets.to(predictions.device)
         predictions = predictions[:, : targets.shape[-1], 0]
-        loss = params.compute_BCE_cost(
+        loss = self.hparams.compute_BCE_cost(
             torch.nn.BCEWithLogitsLoss(reduction="none"),
             predictions,
             targets,
@@ -44,23 +29,25 @@ class VADBrain(sb.core.Brain):
         )
 
         # compute metrics
-        if stage != "valid":
-            self.metrics_train.update(torch.sigmoid(predictions), targets)
-        else:
-            self.metrics_valid.update(torch.sigmoid(predictions), targets)
-        stats = {"loss": loss}  # dummy for now
-        return loss, stats
+        self.binary_metrics.append(ids, torch.sigmoid(predictions), targets)
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d completed" % epoch)
-        print("Train loss: %.4f" % summarize_average(train_stats["loss"]))
-        print("Train Precision: %.2f" % self.metrics_train.get_precision())
-        print("Train Recall: %.2f" % self.metrics_train.get_recall())
-        self.metrics_train.reset()
-        self.metrics_valid.reset()
+        return loss
+
+    def on_stage_start(self, stage, epoch=None):
+        self.binary_metrics = sb.utils.metric_stats.BinaryMetricStats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+            train_summary = self.binary_metrics.summarize(threshold=0.5)
+
+            print("Epoch %d completed" % epoch)
+            print("Train loss: %.4f" % stage_loss)
+            print("Train Precision: %.2f" % train_summary["precision"])
+            print("Train Recall: %.2f" % train_summary["recall"])
 
 
-def parsing_func(params, string):
+def parsing_func(hparams, string):
     boundaries = string.split(" ")
     # we group by two
     # 0.01 is 10 ms hop size ...
@@ -68,7 +55,7 @@ def parsing_func(params, string):
     boundaries = [int(float(x) / 0.01) for x in boundaries]
     boundaries = list(zip(boundaries[::2], boundaries[1::2]))
 
-    gt = torch.zeros(int(np.ceil(params.example_length * (1 / 0.01))))
+    gt = torch.zeros(int(np.ceil(hparams["example_length"] * (1 / 0.01))))
 
     for indxs in boundaries:
         start, stop = indxs
@@ -77,23 +64,31 @@ def parsing_func(params, string):
     return gt
 
 
-train_set = DataLoaderFactory(
-    params.csv_train,
-    params.N_batch,
-    ["wav", "speech"],
-    replacements={"$data_folder": params.data_folder},
-    label_parsing_func=lambda x: parsing_func(params, x),
-)
+def main():
+    experiment_dir = os.path.dirname(os.path.abspath(__file__))
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    data_folder = "../../../../../samples/vad"
+    data_folder = os.path.abspath(experiment_dir + data_folder)
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-first_x, first_y = next(iter(train_set()))
-vad_brain = VADBrain(
-    modules=[params.rnn, params.lin],
-    optimizer=params.optimizer,
-    first_inputs=[first_x],
-)
-vad_brain.fit(range(params.N_epochs), train_set(), train_set())
-test_stats = vad_brain.evaluate(train_set())
+    train_set = sb.data_io.data_io.DataLoaderFactory(
+        hparams["csv_train"],
+        hparams["N_batch"],
+        ["wav", "speech"],
+        replacements={"$data_folder": hparams["data_folder"]},
+        label_parsing_func=lambda x: parsing_func(hparams, x),
+    )()
+
+    vad_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
+    vad_brain.fit(range(hparams["N_epochs"]), train_set)
+
+    assert vad_brain.train_loss < 0.01
+
+
+if __name__ == "__main__":
+    main()
 
 
 def test_error():
-    assert summarize_average(test_stats["loss"]) < 0.01
+    main()

@@ -65,7 +65,7 @@ METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 
 
-def torch_recovery(obj, path, end_of_epoch):
+def torch_recovery(obj, path, end_of_epoch, device=None):
     """Loads a torch.nn.Module state_dict from the given path instantly.
 
     This can be made the default for torch.nn.Modules with:
@@ -79,6 +79,8 @@ def torch_recovery(obj, path, end_of_epoch):
         Path where to load from
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
+    device : str
+        Torch device, where to map the loaded parameters.
 
     Returns
     -------
@@ -86,7 +88,10 @@ def torch_recovery(obj, path, end_of_epoch):
         Given object is modified in place
     """
     del end_of_epoch  # Unused
-    obj.load_state_dict(torch.load(path), strict=True)
+    try:
+        obj.load_state_dict(torch.load(path, map_location=device), strict=True)
+    except TypeError:
+        obj.load_state_dict(torch.load(path, map_location=device))
 
 
 def torch_save(obj, path):
@@ -171,9 +176,9 @@ def mark_as_loader(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), True)
+        sig.bind(object(), pathlib.Path("testpath"), True, None)
     except TypeError:
-        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch)"
+        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch, device)"
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
@@ -202,7 +207,7 @@ def register_checkpoint_hooks(cls):
     ...             fo.write(str(self.param))
     ...
     ...     @mark_as_loader
-    ...     def load(self, path, end_of_epoch):
+    ...     def load(self, path, end_of_epoch, device=None):
     ...         del end_of_epoch  # Unused here
     ...         with open(path) as fi:
     ...             self.param = int(fi.read())
@@ -672,6 +677,7 @@ class Checkpointer:
         max_key=None,
         min_key=None,
         ckpt_predicate=None,
+        device=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
 
@@ -697,6 +703,8 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
+        device : torch.device
+            Device to load models to.
 
         Returns
         -------
@@ -709,12 +717,12 @@ class Checkpointer:
             importance_key, max_key, min_key, ckpt_predicate,
         )
         if chosen_ckpt is not None:
-            self.load_checkpoint(chosen_ckpt)
+            self.load_checkpoint(chosen_ckpt, device)
         else:
             logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
-    def load_checkpoint(self, checkpoint):
+    def load_checkpoint(self, checkpoint, device=None):
         """Loads the specified checkpoint.
 
         Arguments
@@ -722,7 +730,7 @@ class Checkpointer:
         checkpoint : Checkpoint
             Checkpoint to load
         """
-        self._call_load_hooks(checkpoint)
+        self._call_load_hooks(checkpoint, device)
 
     def list_checkpoints(self):
         """List all checkpoints in the checkpoints directory.
@@ -805,7 +813,7 @@ class Checkpointer:
         shutil.rmtree(checkpoint.path)
         logger.info(f"Deleted checkpoint in {checkpoint.path}")
 
-    def _call_load_hooks(self, checkpoint):
+    def _call_load_hooks(self, checkpoint, device=None):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         logger.info(f"Loading a checkpoint from {checkpoint.path}")
@@ -823,14 +831,17 @@ class Checkpointer:
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
                             but missing a load path for {name}"
                     raise RuntimeError(MSG)
+
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](obj, loadpath, end_of_epoch)
+                self.custom_load_hooks[name](
+                    obj, loadpath, end_of_epoch, device
+                )
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, end_of_epoch)
+                default_hook(obj, loadpath, end_of_epoch, device)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \

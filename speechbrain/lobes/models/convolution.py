@@ -37,13 +37,16 @@ class ConvolutionFrontEnd(Sequential):
 
     Example
     -------
-    >>> conv = ConvolutionFrontEnd(1)
     >>> x = torch.rand((8, 120, 40))
-    >>> out = conv(x, True)
+    >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
+    >>> out = conv(x)
+    >>> out.shape
+    torch.Size([8, 120, 40])
     """
 
     def __init__(
         self,
+        input_shape,
         num_blocks=3,
         num_layers_per_block=5,
         out_channels=[128, 256, 512],
@@ -56,8 +59,10 @@ class ConvolutionFrontEnd(Sequential):
         norm=BatchNorm2d,
         dropout=0.1,
     ):
-        blocks = [
-            ConvBlock(
+        super().__init__(input_shape=input_shape)
+        for i in range(num_blocks):
+            self.append(
+                ConvBlock,
                 num_layers=num_layers_per_block,
                 out_channels=out_channels[i],
                 kernel_size=kernel_sizes[i],
@@ -68,11 +73,8 @@ class ConvolutionFrontEnd(Sequential):
                 activation=activation,
                 norm=norm,
                 dropout=dropout,
+                layer_name=f"convblock_{i}",
             )
-            for i in range(num_blocks)
-        ]
-
-        super().__init__(*blocks)
 
 
 class ConvBlock(torch.nn.Module):
@@ -97,62 +99,65 @@ class ConvBlock(torch.nn.Module):
 
     Example
     -------
-    >>> conv = ConvBlock(2, 128)
     >>> x = torch.rand((8, 120, 40))
-    >>> out = conv(x, True)
+    >>> conv = ConvBlock(2, 128, input_shape=x.shape)
+    >>> out = conv(x)
+    >>> x.shape
+    torch.Size([8, 120, 40])
     """
 
     def __init__(
         self,
         num_layers,
         out_channels,
+        input_shape,
         kernel_size=3,
         stride=1,
         dilation=1,
         residual=False,
         conv_module=Conv2d,
         activation=torch.nn.LeakyReLU,
-        norm=BatchNorm2d,
+        norm=None,
         dropout=0.1,
     ):
         super().__init__()
-        blocks = [
-            Sequential(
-                conv_module(
-                    out_channels=out_channels,
-                    kernel_size=kernel_size,
-                    stride=stride if i == num_layers - 1 else 1,
-                    dilation=dilation,
-                ),
-                norm(),
-                activation(),
-                torch.nn.Dropout(dropout),
-            )
-            for i in range(num_layers)
-        ]
 
-        self.convs = Sequential(*blocks)
+        self.convs = Sequential(input_shape=input_shape)
+
+        for i in range(num_layers):
+            self.convs.append(
+                conv_module,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride if i == num_layers - 1 else 1,
+                dilation=dilation,
+                layer_name=f"conv_{i}",
+            )
+            if norm is not None:
+                self.convs.append(norm, layer_name=f"norm_{i}")
+            self.convs.append(activation(), layer_name=f"act_{i}")
+            self.convs.append(
+                torch.nn.Dropout(dropout), layer_name=f"dropout_{i}"
+            )
 
         self.reduce_conv = None
         self.drop = None
         if residual:
-            self.reduce_conv = Sequential(
-                conv_module(out_channels, 1, stride), norm()
+            self.reduce_conv = Sequential(input_shape=input_shape)
+            self.reduce_conv.append(
+                conv_module,
+                out_channels=out_channels,
+                kernel_size=1,
+                stride=stride,
+                layer_name="conv",
             )
+            self.reduce_conv.append(norm, layer_name="norm")
             self.drop = torch.nn.Dropout(dropout)
 
-    def forward(self, x, init_params=False):
-        out = self.convs(x, init_params)
+    def forward(self, x):
+        out = self.convs(x)
         if self.reduce_conv:
-            out = out + self.reduce_conv(x, init_params)
+            out = out + self.reduce_conv(x)
             out = self.drop(x)
 
-        if init_params:
-            self._reset_params()
-
         return out
-
-    def _reset_params(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                torch.nn.init.kaiming_normal_(p)

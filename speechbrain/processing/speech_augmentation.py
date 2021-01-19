@@ -172,7 +172,7 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                data_loader = DataLoaderFactory(
+                data_factory = DataLoaderFactory(
                     csv_file=self.csv_file,
                     csv_read=self.csv_read,
                     sentence_sorting=self.order,
@@ -181,7 +181,7 @@ class AddNoise(torch.nn.Module):
                     replacements=self.replacements,
                     num_workers=self.num_workers,
                 )
-                self.data_loader = data_loader()
+                self.data_loader = data_factory().get_dataloader()
                 self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
@@ -320,15 +320,6 @@ class AddReverb(torch.nn.Module):
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
 
-        # Create a data loader for the RIR waveforms
-        self.data_loader = DataLoaderFactory(
-            csv_file=self.csv_file,
-            sentence_sorting=self.order,
-            cache=self.do_cache,
-            replacements=self.replacements,
-        )
-        self.rir_data = iter(self.data_loader())
-
     def forward(self, waveforms, lengths):
         """
         Arguments
@@ -377,10 +368,20 @@ class AddReverb(torch.nn.Module):
         return rev_waveform
 
     def _load_rir(self, waveforms):
+        if not hasattr(self, "data_loader"):
+            data_factory = DataLoaderFactory(
+                csv_file=self.csv_file,
+                sentence_sorting=self.order,
+                cache=self.do_cache,
+                replacements=self.replacements,
+            )
+            self.data_loader = data_factory().get_dataloader()
+            self.rir_data = iter(self.data_loader)
+
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
-            self.rir_data = iter(self.data_loader())
+            self.rir_data = iter(self.data_loader)
             wav_id, rir_waveform, length = next(self.rir_data)[0]
 
         # Make sure RIR has correct channels
@@ -792,11 +793,11 @@ class AddBabble(torch.nn.Module):
     Example
     -------
     >>> babbler = AddBabble()
-    >>> dataloader = DataLoaderFactory(
+    >>> factory = DataLoaderFactory(
     ...     csv_file='samples/audio_samples/csv_example3.csv',
     ...     batch_size=5,
     ... )
-    >>> loader = iter(dataloader())
+    >>> loader = iter(factory().get_dataloader())
     >>> ids, batch, lengths = next(loader)[0]
     >>> noisy = babbler(batch, lengths)
     """
@@ -851,7 +852,7 @@ class AddBabble(torch.nn.Module):
 
         # Rescale and add to mixture
         babble_amplitude = compute_amplitude(babble_waveform, babble_len)
-        babble_waveform *= new_noise_amplitude / babble_amplitude
+        babble_waveform *= new_noise_amplitude / (babble_amplitude + 1e-14)
         babbled_waveform += babble_waveform
 
         return babbled_waveform
@@ -943,7 +944,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
+        drop_filter = torch.zeros(1, filter_length, 1, device=waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency
@@ -989,10 +990,14 @@ class DropChunk(torch.nn.Module):
         The probability that the batch of signals will
         have a portion dropped. By default, every batch
         has portions dropped.
+    noise_factor : float
+        The factor relative to average amplitude of an utterance
+        to use for scaling the white noise inserted. 1 keeps
+        the average amplitude the same, while 0 inserts all 0's.
 
     Example
     -------
-    >>> dropper = DropChunk(drop_start=100, drop_end=200)
+    >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> length = torch.ones(1)
@@ -1010,6 +1015,7 @@ class DropChunk(torch.nn.Module):
         drop_start=0,
         drop_end=None,
         drop_prob=1,
+        noise_factor=0.0,
     ):
         super().__init__()
         self.drop_length_low = drop_length_low
@@ -1019,6 +1025,7 @@ class DropChunk(torch.nn.Module):
         self.drop_start = drop_start
         self.drop_end = drop_end
         self.drop_prob = drop_prob
+        self.noise_factor = noise_factor
 
         # Validate low < high
         if drop_length_low > drop_length_high:
@@ -1058,6 +1065,9 @@ class DropChunk(torch.nn.Module):
         if torch.rand(1) > self.drop_prob:
             return dropped_waveform
 
+        # Store original amplitude for computing white noise amplitude
+        clean_amplitude = compute_amplitude(waveforms, lengths.unsqueeze(1))
+
         # Pick a number of times to drop
         drop_times = torch.randint(
             low=self.drop_count_low,
@@ -1086,16 +1096,28 @@ class DropChunk(torch.nn.Module):
                 start_max = lengths[i]
             if start_max < 0:
                 start_max += lengths[i]
-            start_max -= length.max()
+            start_max = max(0, start_max - length.max())
 
             # Pick starting locations
             start = torch.randint(
                 low=start_min, high=start_max + 1, size=(drop_times[i],),
             )
 
+            end = start + length
+
             # Update waveform
-            for j in range(drop_times[i]):
-                dropped_waveform[i, start[j] : start[j] + length[j]] = 0
+            if not self.noise_factor:
+                for j in range(drop_times[i]):
+                    dropped_waveform[i, start[j] : end[j]] = 0.0
+            else:
+                # Uniform distribution of -2 to +2 * avg amplitude should
+                # preserve the average for normalization
+                noise_max = 2 * clean_amplitude[i] * self.noise_factor
+                for j in range(drop_times[i]):
+                    # zero-center the noise distribution
+                    noise_vec = torch.rand(length[j], device=waveforms.device)
+                    noise_vec = 2 * noise_max * noise_vec - noise_max
+                    dropped_waveform[i, start[j] : end[j]] = noise_vec
 
         return dropped_waveform
 

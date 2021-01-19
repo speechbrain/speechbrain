@@ -1,7 +1,7 @@
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: False
 tensorboard_logs: runs
 
@@ -39,7 +39,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+compute_features: !new:speechbrain.lobes.features.MFCC
     left_frames: 1
     right_frames: 1
 
@@ -47,16 +47,27 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 linear1: !new:speechbrain.nnet.linear.Linear
+    input_size: 180
     n_neurons: 128
     bias: False
 
 activation: !new:torch.nn.LeakyReLU
 
 linear2: !new:speechbrain.nnet.linear.Linear
+    input_size: 128
     n_neurons: 180
     bias: False
 
+modules:
+    linear1: !ref <linear1>
+    linear2: !ref <linear2>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+loss_tracker: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.mse_loss
+        reduction: batch

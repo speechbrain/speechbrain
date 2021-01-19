@@ -11,6 +11,7 @@ import logging
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,10 @@ class SincConv(nn.Module):
 
     Arguments
     ---------
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
     out_channels: int
         It is the number of output channels.
     kernel_size: int
@@ -55,8 +60,8 @@ class SincConv(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = SincConv(out_channels=25, kernel_size=11)
-    >>> out_tensor = conv(inp_tensor, init_params=True)
+    >>> conv = SincConv(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
+    >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16000, 25])
     """
@@ -65,11 +70,11 @@ class SincConv(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape=None,
+        in_channels=None,
         stride=1,
         dilation=1,
         padding="same",
-        groups=1,
-        bias=True,
         padding_mode="reflect",
         sample_rate=16000,
         min_low_hz=50,
@@ -81,31 +86,22 @@ class SincConv(nn.Module):
         self.stride = stride
         self.dilation = dilation
         self.padding = padding
-        self.groups = groups
-        self.bias = bias
         self.padding_mode = padding_mode
-        self.unsqueeze = False
         self.sample_rate = sample_rate
         self.min_low_hz = min_low_hz
         self.min_band_hz = min_band_hz
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
+        # input shape inference
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
-        self.in_channels = self._check_input(first_input)
-        self.device = first_input.device
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
 
         # Initialize Sinc filters
-        self._init_sinc_conv(first_input)
+        self._init_sinc_conv()
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
@@ -114,12 +110,11 @@ class SincConv(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        if init_params:
-            self.init_params(x)
-
         x = x.transpose(1, -1)
+        self.device = x.device
 
-        if self.unsqueeze:
+        unsqueeze = x.ndim == 2
+        if unsqueeze:
             x = x.unsqueeze(1)
 
         if self.padding == "same":
@@ -148,16 +143,36 @@ class SincConv(nn.Module):
             stride=self.stride,
             padding=0,
             dilation=self.dilation,
-            bias=None,
-            groups=1,
         )
 
-        if self.unsqueeze:
+        if unsqueeze:
             wx = wx.squeeze(1)
 
         wx = wx.transpose(1, -1)
 
         return wx
+
+    def _check_input_shape(self, shape):
+        """
+        Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = 1
+        else:
+            raise ValueError(
+                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
 
     def _get_sinc_filters(self,):
         """This functions creates the sinc-filters to used for sinc-conv.
@@ -174,6 +189,8 @@ class SincConv(nn.Module):
         band = (high - low)[:, 0]
 
         # Passing from n_ to the corresponding f_times_t domain
+        self.n_ = self.n_.to(self.device)
+        self.window_ = self.window_.to(self.device)
         f_times_t_low = torch.matmul(low, self.n_)
         f_times_t_high = torch.matmul(high, self.n_)
 
@@ -198,23 +215,12 @@ class SincConv(nn.Module):
         band_pass = band_pass / (2 * band[:, None])
 
         # Setting up the filter coefficients
-        filters = (
-            (band_pass)
-            .view(self.out_channels, 1, self.kernel_size)
-            .to(self.device)
-        )
+        filters = band_pass.view(self.out_channels, 1, self.kernel_size)
 
         return filters
 
-    def _init_sinc_conv(self, first_input):
-        """
-        Initializes the parameters of the sinc_conv layer.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
+    def _init_sinc_conv(self):
+        """Initializes the parameters of the sinc_conv layer."""
 
         # Initialize filterbanks such that they are equally spaced in Mel scale
         high_hz = self.sample_rate / 2 - (self.min_low_hz + self.min_band_hz)
@@ -232,22 +238,22 @@ class SincConv(nn.Module):
         self.band_hz_ = (hz[1:] - hz[:-1]).unsqueeze(1)
 
         # Maiking freq and bands learnable
-        self.low_hz_ = nn.Parameter(self.low_hz_).to(self.device)
-        self.band_hz_ = nn.Parameter(self.band_hz_).to(self.device)
+        self.low_hz_ = nn.Parameter(self.low_hz_)
+        self.band_hz_ = nn.Parameter(self.band_hz_)
 
         # Hamming window
         n_lin = torch.linspace(
-            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2)),
+            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2))
         )
         self.window_ = 0.54 - 0.46 * torch.cos(
             2 * math.pi * n_lin / self.kernel_size
-        ).to(self.device)
+        )
 
         # Time axis  (only half is needed due to symmetry)
         n = (self.kernel_size - 1) / 2.0
         self.n_ = (
             2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
-        ).to(self.device)
+        )
 
     def _to_mel(self, hz):
         """Converts frequency in Hz to the mel scale.
@@ -259,7 +265,9 @@ class SincConv(nn.Module):
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -278,28 +286,9 @@ class SincConv(nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = nn.functional.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
-
-    def _check_input(self, x):
-        """
-        Checks the input and returns the number of input channels.
-        """
-        if len(x.shape) == 2:
-            self.unsqueeze = True
-            in_channels = 1
-        elif len(x.shape) == 3:
-            in_channels = x.shape[2]
-        else:
-            raise ValueError("conv1d expects 2d, 3d inputs. Got " + len(x))
-        # Kernel size must be odd
-        if self.kernel_size % 2 == 0:
-            raise ValueError(
-                "The field kernel size must be an odd number. Got %s."
-                % (self.kernel_size)
-            )
-        return in_channels
 
 
 class Conv1d(nn.Module):
@@ -311,6 +300,10 @@ class Conv1d(nn.Module):
         It is the number of output channels.
     kernel_size: int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
     stride: int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
@@ -323,17 +316,14 @@ class Conv1d(nn.Module):
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    groups: int
-        This option specifies the convolutional groups. See torch.nn
-        documentation for more information.
-    bias: bool
-        If True, the additive bias b is adopted.
 
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16])
-    >>> cnn_1d = Conv1d(out_channels=8, kernel_size=5)
-    >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
+    >>> cnn_1d = Conv1d(
+    ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=5
+    ... )
+    >>> out_tensor = cnn_1d(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 40, 8])
     """
@@ -342,6 +332,8 @@ class Conv1d(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape=None,
+        in_channels=None,
         stride=1,
         dilation=1,
         padding="same",
@@ -351,41 +343,32 @@ class Conv1d(nn.Module):
         skip_transpose=False,
     ):
         super().__init__()
-        self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
         self.padding = padding
-        self.groups = groups
-        self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
         self.skip_transpose = skip_transpose
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
-        self.in_channels = self._check_input(first_input)
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
 
         self.conv = nn.Conv1d(
-            self.in_channels,
-            self.out_channels,
+            in_channels,
+            out_channels,
             self.kernel_size,
             stride=self.stride,
             dilation=self.dilation,
             padding=0,
-            groups=self.groups,
-            bias=self.bias,
-        ).to(first_input.device)
+            groups=groups,
+            bias=bias,
+        )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
@@ -394,9 +377,6 @@ class Conv1d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        if init_params:
-            self.init_params(x)
-
         if not self.skip_transpose:
             x = x.transpose(1, -1)
 
@@ -417,8 +397,8 @@ class Conv1d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)
@@ -431,7 +411,9 @@ class Conv1d(nn.Module):
 
         return wx
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self, x, kernel_size: int, dilation: int, stride: int,
+    ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -450,24 +432,27 @@ class Conv1d(nn.Module):
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
         # Applying padding
-        x = F.pad(x, tuple(padding), mode=self.padding_mode)
+        x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
 
-    def _check_input(self, x):
+    def _check_input_shape(self, shape):
         """
-        Checks the input and returns the number of input channels.
+        Checks the input shape and returns the number of input channels.
         """
 
-        if len(x.shape) == 2:
+        if len(shape) == 2:
             self.unsqueeze = True
             in_channels = 1
         elif self.skip_transpose:
-            in_channels = x.shape[1]
-        elif len(x.shape) == 3:
-            in_channels = x.shape[2]
+            in_channels = shape[1]
+        elif len(shape) == 3:
+            in_channels = shape[2]
         else:
-            raise ValueError("conv1d expects 2d, 3d inputs. Got " + len(x))
+            raise ValueError(
+                "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
+            )
+
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:
             raise ValueError(
@@ -487,6 +472,10 @@ class Conv2d(nn.Module):
     kernel_size: tuple
         Kernel size of the 2d convolutional filters over time and frequency
         axis.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
     stride: int
         Stride factor of the 2d convolutional filters over time and frequency
         axis.
@@ -508,8 +497,10 @@ class Conv2d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
-    >>> cnn_2d = Conv2d(out_channels=5, kernel_size=(7,3))
-    >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
+    >>> cnn_2d = Conv2d(
+    ...     input_shape=inp_tensor.shape, out_channels=5, kernel_size=(7, 3)
+    ... )
+    >>> out_tensor = cnn_2d(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 40, 16, 5])
     """
@@ -518,6 +509,8 @@ class Conv2d(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape=None,
+        in_channels=None,
         stride=(1, 1),
         dilation=(1, 1),
         padding="same",
@@ -535,41 +528,32 @@ class Conv2d(nn.Module):
         if isinstance(dilation, int):
             dilation = (dilation, dilation)
 
-        self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
         self.padding = padding
-        self.groups = groups
-        self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
-        self.in_channels = self._check_input(first_input)
+        if in_channels is None:
+            in_channels = self._check_input(input_shape)
 
         # Weights are initialized following pytorch approach
         self.conv = nn.Conv2d(
-            self.in_channels,
-            self.out_channels,
+            in_channels,
+            out_channels,
             self.kernel_size,
             stride=self.stride,
             padding=0,
             dilation=self.dilation,
-            groups=self.groups,
-            bias=self.bias,
-        ).to(first_input.device)
+            groups=groups,
+            bias=bias,
+        )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
@@ -578,9 +562,6 @@ class Conv2d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        if init_params:
-            self.init_params(x)
-
         x = x.transpose(1, -1)
 
         if self.unsqueeze:
@@ -596,7 +577,7 @@ class Conv2d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same' or 'valid'. Got %s." % (self.padding)
+                "Padding must be 'same' or 'valid'. Got " + self.padding
             )
 
         wx = self.conv(x)
@@ -608,7 +589,13 @@ class Conv2d(nn.Module):
 
         return wx
 
-    def _manage_padding(self, x, kernel_size, dilation, stride):
+    def _manage_padding(
+        self,
+        x,
+        kernel_size: Tuple[int, int],
+        dilation: Tuple[int, int],
+        stride: Tuple[int, int],
+    ):
         """This function performs zero-padding on the time and frequency axises
         such that their lengths is unchanged after the convolution.
 
@@ -633,23 +620,23 @@ class Conv2d(nn.Module):
         padding = padding_time + padding_freq
 
         # Applying padding
-        x = nn.functional.pad(x, tuple(padding), mode=self.padding_mode)
+        x = nn.functional.pad(x, padding, mode=self.padding_mode)
 
         return x
 
-    def _check_input(self, x):
+    def _check_input(self, shape):
         """
-        Checks the input and returns the number of input channels.
+        Checks the input shape and returns the number of input channels.
         """
-        if len(x.shape) == 3:
+        if len(shape) == 3:
             self.unsqueeze = True
             in_channels = 1
 
-        elif len(x.shape) == 4:
-            in_channels = x.shape[3]
+        elif len(shape) == 4:
+            in_channels = shape[3]
 
         else:
-            raise ValueError("conv1d expects 3d or 4d inputs. Got " + len(x))
+            raise ValueError("Expected 3d or 4d inputs. Got " + len(shape))
 
         # Kernel size must be odd
         if self.kernel_size[0] % 2 == 0 or self.kernel_size[1] % 2 == 0:
@@ -668,10 +655,12 @@ class DepthwiseSeparableConv1d(nn.Module):
 
     Arguments
     ---------
-    ut_channels: int
+    out_channels: int
         It is the number of output channels.
     kernel_size: int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        Expected shape of the input.
     stride: int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
@@ -689,10 +678,10 @@ class DepthwiseSeparableConv1d(nn.Module):
 
     Example
     -------
-    >>> conv = DepthwiseSeparableConv1d(256, 3)
     >>> inp = torch.randn([8, 120, 40])
-    >>> out = conv(inp, True)
-    >>> print(out.shape)
+    >>> conv = DepthwiseSeparableConv1d(256, 3, input_shape=inp.shape)
+    >>> out = conv(inp)
+    >>> out.shape
     torch.Size([8, 120, 256])
     """
 
@@ -700,66 +689,42 @@ class DepthwiseSeparableConv1d(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape,
         stride=1,
         dilation=1,
         padding="same",
         bias=True,
-        padding_mode="reflect",
     ):
         super().__init__()
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.dilation = dilation
-        self.padding = padding
-        self.bias = bias
-        self.padding_mode = padding_mode
 
-    def _check_input(self, x):
-        """
-        Checks the input.
-        Input must be 3d tensor.
-        """
-        assert x.dim() == 3, "input must be a 3d tensor"
+        assert len(input_shape) == 3, "input must be a 3d tensor"
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        bz, time, chn = first_input.shape
+        bz, time, chn = input_shape
 
         self.depthwise = Conv1d(
             chn,
-            self.kernel_size,
-            stride=self.stride,
-            dilation=self.dilation,
-            padding=self.padding,
+            kernel_size,
+            input_shape=input_shape,
+            stride=stride,
+            dilation=dilation,
+            padding=padding,
             groups=chn,
-            bias=self.bias,
+            bias=bias,
         )
 
-        self.pointwise = Conv1d(self.out_channels, kernel_size=1)
+        self.pointwise = Conv1d(
+            out_channels, kernel_size=1, input_shape=input_shape,
+        )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
         ---------
         x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
-
         """
-        self._check_input(x)
-
-        if init_params:
-            self.init_params(x)
-
-        return self.pointwise(self.depthwise(x, init_params), init_params)
+        return self.pointwise(self.depthwise(x))
 
 
 class DepthwiseSeparableConv2d(nn.Module):
@@ -790,10 +755,10 @@ class DepthwiseSeparableConv2d(nn.Module):
 
     Example
     -------
-    >>> conv = DepthwiseSeparableConv2d(256, (3, 3))
-    >>> inp = torch.randn([8, 120, 40])
-    >>> out = conv(inp, True)
-    >>> print(out.shape)
+    >>> inp = torch.randn([8, 120, 40, 1])
+    >>> conv = DepthwiseSeparableConv2d(256, (3, 3), input_shape=inp.shape)
+    >>> out = conv(inp)
+    >>> out.shape
     torch.Size([8, 120, 40, 256])
     """
 
@@ -801,11 +766,11 @@ class DepthwiseSeparableConv2d(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape,
         stride=(1, 1),
         dilation=(1, 1),
         padding="same",
         bias=True,
-        padding_mode="reflect",
     ):
         super().__init__()
 
@@ -817,65 +782,46 @@ class DepthwiseSeparableConv2d(nn.Module):
         if isinstance(dilation, int):
             dilation = (dilation, dilation)
 
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.dilation = dilation
-        self.padding = padding
-        self.bias = bias
-        self.padding_mode = padding_mode
+        assert len(input_shape) in {3, 4}, "input must be a 3d or 4d tensor"
+        self.unsqueeze = len(input_shape) == 3
 
-    def _check_input(self, x):
-        """
-        Checks the input and return a tensor in 4d
-        Input must be 3d tensor.
-        """
-        assert x.dim() == 3 or x.dim() == 4, "input must be a 3d tensor"
-        if x.dim() == 3:
-            x = x.unsqueeze(-1)
-        return x
-
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        bz, time, chn1, chn2 = first_input.shape
+        bz, time, chn1, chn2 = input_shape
 
         self.depthwise = Conv2d(
             chn2,
-            self.kernel_size,
-            stride=self.stride,
-            dilation=self.dilation,
-            padding=self.padding,
+            kernel_size,
+            input_shape=input_shape,
+            stride=stride,
+            dilation=dilation,
+            padding=padding,
             groups=chn2,
-            bias=self.bias,
+            bias=bias,
         )
 
-        self.pointwise = Conv2d(self.out_channels, kernel_size=(1, 1))
+        self.pointwise = Conv2d(
+            out_channels, kernel_size=(1, 1), input_shape=input_shape,
+        )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
         ---------
         x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
-
         """
-        x = self._check_input(x)
+        if self.unsqueeze:
+            x = x.unsqueeze(1)
 
-        if init_params:
-            self.init_params(x)
+        out = self.pointwise(self.depthwise(x))
 
-        return self.pointwise(self.depthwise(x, init_params), init_params)
+        if self.unsqueeze:
+            out = out.squeeze(1)
+
+        return out
 
 
-def get_padding_elem(L_in, stride, kernel_size, dilation):
+def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     """This function computes the number of elements to add for zero-padding.
 
     Arguments

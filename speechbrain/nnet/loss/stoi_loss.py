@@ -8,6 +8,7 @@ import torch
 import torchaudio
 import numpy as np
 
+torchaudio.set_audio_backend("sox_io")
 smallVal = np.finfo("float").eps  # To avoid divide by zero
 
 
@@ -95,7 +96,31 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
     return [x_sil, y_sil]
 
 
-def stoi_loss(y_pred_batch, y_true_batch, lens):
+def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
+    """Compute the STOI score and return -1 * that score
+
+    This function can be used as a loss function for training
+    with SGD-based updates.
+
+    Arguments
+    ---------
+    y_pred_batch : torch.Tensor
+        The degraded (enhanced) waveforms
+    y_true_batch : torch.Tensor
+        The clean (reference) waveforms
+    lens : torch.Tensor
+        The relative lengths of the waveforms within the batch.
+    reduction : str
+        The type of reduction ("mean" or "batch") to use.
+
+    Example
+    -------
+    >>> a = torch.sin(torch.arange(16000, dtype=torch.float32)).unsqueeze(0)
+    >>> b = a + 0.001
+    >>> -stoi_loss(b, a, torch.ones(1))
+    tensor(0.7...)
+    """
+
     y_pred_batch = torch.squeeze(y_pred_batch, dim=-1)
     y_true_batch = torch.squeeze(y_true_batch, dim=-1)
 
@@ -107,7 +132,7 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
 
     octave_band = thirdoct(fs=10000, nfft=512, num_bands=15, min_freq=150)
     c = 5.62341325  # 10^(-Beta/20) with Beta = -15
-    D = 0
+    D = torch.zeros(batch_size)
     resampler = torchaudio.transforms.Resample(fs, 10000)
     for i in range(0, batch_size):  # Run over mini-batches
         y_true = y_true_batch[i, 0 : int(lens[i] * y_pred_batch.shape[1])]
@@ -150,6 +175,9 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
         yn = y - torch.mean(y, dim=-1, keepdim=True)
         yn = yn / (torch.norm(yn, dim=-1, keepdim=True) + smallVal)
         d = torch.sum(xn * yn)
-        D = D + d / (J * M)
+        D[i] = d / (J * M)
 
-    return -(D / (batch_size))
+    if reduction == "mean":
+        return -D.mean()
+
+    return -D

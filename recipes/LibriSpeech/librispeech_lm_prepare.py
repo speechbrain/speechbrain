@@ -57,7 +57,7 @@ def prepare_lm_corpus(
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder, filename, conf):
-        logger.info("Skipping preparation, completed in previous run.")
+        print("Skipping preparation, completed in previous run.")
         return
 
     data_path = os.path.join(data_folder, "librispeech-lm-norm.txt.gz")
@@ -142,7 +142,7 @@ def create_hdf5(
 
     # Preliminary prints
     msg = "\tCreating hdf5 in  %s..." % (hdf5_file)
-    logger.info(msg)
+    print(msg)
 
     snt_cnt = 0
     all_wrds, all_chars = [], []
@@ -184,4 +184,4 @@ def create_hdf5(
 
     # Final print
     msg = "\t%s sucessfully created!" % (hdf5_file)
-    logger.info(msg)
+    print(msg)
