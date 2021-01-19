@@ -3,7 +3,7 @@
 and CTC loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
+> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
 
 Authors
  * Mirco Ravanelli 2020
@@ -83,7 +83,7 @@ class ASR(sb.Brain):
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
-            self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens)
+            self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens_eos)
             self.per_metrics.append(
                 ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim,
             )

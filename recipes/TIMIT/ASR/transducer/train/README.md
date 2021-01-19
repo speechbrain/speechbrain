@@ -8,4 +8,4 @@ Before running this recipe, make sure numba is installed (pip install numba)
 
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 2020-05-22 | augment_noise_CRDNN.yaml |  12.8 | 14.2 | Not Available | 1xV100 32GB |
+| 2020-05-22 | train.yaml |  12.8 | 14.2 | Not Available | 1xV100 32GB |
