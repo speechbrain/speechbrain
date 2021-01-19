@@ -7,7 +7,7 @@ The CSV files must itemize all the sentences, features, and labels to use in an 
  ```
 ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts
 
-example1, 3.260, $data_folder/example1.wav, wav, , spk01, string, 
+example1, 3.260, $data_folder/example1.wav, wav, , spk01, string,
 example2, 2.068, $data_folder/example2.flac, flac, , spk02, string,
 example3, 2.890, $data_folder/example3.sph, wav, , spk03, string,
 example4, 2.180, $data_folder/example4.raw, raw, samplerate:16000 subtype:PCM_16 endian:LITTLE channels:1, spk04, string,
@@ -15,32 +15,32 @@ example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, 
  ```
 
 The first line shows the fields that are specified in the CSV file. The mandatory fields are the following:
-- **ID**: it is the unique sentence identifier. It must be different for each sentence. 
-- **duration**: it reports how much each sentence lasts in seconds. As we will see later, this can be useful for processing the sentence in ascending or descending order according to their lengths. 
+- **ID**: it is the unique sentence identifier. It must be different for each sentence.
+- **duration**: it reports how much each sentence lasts in seconds. As we will see later, this can be useful for processing the sentence in ascending or descending order according to their lengths.
 
 After these two mandatory fields, the CSV contains a variable number of optional fields that depend on the features and labels
-we want to read. Each feature/label takes exactly three columns: **[data_name][data_format][data_opts]**. 
+we want to read. Each feature/label takes exactly three columns: **[data_name][data_format][data_opts]**.
 
-- **data_name** is the name given to the data-entry to read (e.g, wav) and contains the paths where the current element is saved (for wav and pkl format) or the label string (for string format). 
+- **data_name** is the name given to the data-entry to read (e.g, wav) and contains the paths where the current element is saved (for wav and pkl format) or the label string (for string format).
 - **data_format** specifies the format of the data_name. The currently supported formats are wav, pkl, or string.
 - **data_opts** specifies additional options that are passed to the data_reader.
 
 Each line contains a different sentence. For instance, the first line contains:
  ```
-example1, 3.260, $data_folder/example1.wav, wav, , spk01, string, 
+example1, 3.260, $data_folder/example1.wav, wav, , spk01, string,
  ```
-For the sentence called *example1*, we have two elements: the wav features read from  $data_folder/example1.wav and the 
-corresponding spk_id label "spk01" which is directly specified as a string.  
+For the sentence called *example1*, we have two elements: the wav features read from  $data_folder/example1.wav and the
+corresponding spk_id label "spk01" which is directly specified as a string.
 
 ### Audio file reader
-The audio files are read with [**soundfile**](https://pypi.org/project/SoundFile/), and we thus support all its audio formats.  We indeed can read files in *wav*, *flac*, *sphere*, and *raw* formats. Note that audio data in *raw* format are stored without header and thus some options such as *samplerate*, *dtype*, *endian*, and *channels* must be specified in the field data_opts.  
+The audio files are read with [**soundfile**](https://pypi.org/project/SoundFile/), and we thus support all its audio formats.  We indeed can read files in *wav*, *flac*, *sphere*, and *raw* formats. Note that audio data in *raw* format are stored without header and thus some options such as *samplerate*, *dtype*, *endian*, and *channels* must be specified in the field data_opts.
 
 In some cases, users might want to just read a portion of the audio file. It is possible to specify the portion to read by properly setting the data_ops as shown in the following line:
 
 ```
 example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
 ```
-In this case, we read the audio from sample 10000 to sample 26000. 
+In this case, we read the audio from sample 10000 to sample 26000.
 
 Soundfile can also read multi-channel data, as you can see in *samples/audio_samples/csv_example_multichannel.csv*
 
@@ -51,17 +51,17 @@ ID, duration, pkl_fea, pkl_fea_format, pkl_fea_opts
 
 example1, 3.260, $data_folder/your_pkl_file, pkl,
 ```
-The content of the pkl file must be numpy array. 
+The content of the pkl file must be numpy array.
 
 ### String labels
 In speechbrain labels can be specified in a pkl file or, more directly, in a simple text string.
-In the example reported in the CSV file section, we report speaker-identities as strings (e.g, example1 => spk01, 
-example2 => spk02, ..). 
+In the example reported in the CSV file section, we report speaker-identities as strings (e.g, example1 => spk01,
+example2 => spk02, ..).
 
 The big advantage of this modality is that users do not have to necessarily convert all these labels into the corresponding integer numbers (as required for instance during neural network training). Speechbrain will do it for you by automatically creating a label dictionary, as described in the following sub-section.
 
 ### Label dictionary
-When reading a string label, a label dictionary is automatically created. In particular, during the initialization of the data_loader, we read all the data and we automatically create a dictionary that maps each label into a corresponding integer. 
+When reading a string label, a label dictionary is automatically created. In particular, during the initialization of the data_loader, we read all the data and we automatically create a dictionary that maps each label into a corresponding integer.
 
 Note that we also support a list of labels for each sentence. This can be useful to set up phonemes or word labels for speech recognition. In this case, it is simply necessary to add a space between the labels, as shown in this example:
 ```
@@ -96,10 +96,10 @@ This parameter specifies how to sort the data before the batch creation:
 - **ascending**: sorts the data in ascending order using the "duration" field in the csv file.
 - **descending**  sorts the data in descending order using the "duration" field in the csv file.
 - **random**  sort the data randomly
-- **original**  keeps the original sequence of data defined in the csv file. 
+- **original**  keeps the original sequence of data defined in the csv file.
 
 Note that if the data are sorted in ascending or descending order the batches will approximately have the same size and the need for zero paddings is minimized. Instead, if sentence_sorting is set to random, the batches might be composed of both short and long sequences and several zeros might be added in the batch. When possible, it is desirable to
-sort the data. This way, we use more efficiently the computational resources, without wasting time on processing time steps composed on zeros only. 
+sort the data. This way, we use more efficiently the computational resources, without wasting time on processing time steps composed on zeros only.
 
 
 ### Data Loader
@@ -112,5 +112,5 @@ Data are stored while the total RAM used in less or equal than cache_ram_percent
 
 
 ## Data preparation
-**The data_preparation is the process of creating the CSV file starting from a certain dataset**.  
+**The data_preparation is the process of creating the CSV file starting from a certain dataset**.
 Since every dataset is formatted in a different way, typically a different data_preparation script must be designed. Even though we will provide data_preparation scripts for several popular datasets (see data_preparation.py), in general, this part should be **done by the users**. In *samples/audio_samples* you can find some examples of CSV files from which it is possible to easily infer the type of information required in input by speechbrain.
