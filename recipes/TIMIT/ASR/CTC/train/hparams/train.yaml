@@ -1,5 +1,11 @@
+# ################################
+# Model: VGG2 + LiGRU with time pooling for efficiency
+# Additions: TimeDomainSpecAugment
+# Authors: Mirco Ravanelli & Peter Plantinga 2020
+# ################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 42
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -8,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+open_rir_folder: !ref <data_folder> # where to store noisy data for augment
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/dev.csv
 test_annotation: !ref <data_folder>/test.csv
@@ -15,9 +22,8 @@ test_annotation: !ref <data_folder>/test.csv
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
-lr: 0.001
-ctc_weight: 0.2
-sorting: ascending
+lr: 1.0
+sorting: ascending # choose between ascending, descending and random
 
 # Feature parameters
 sample_rate: 16000
@@ -35,20 +41,10 @@ rnn_neurons: 512
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
-emb_size: 128
-dec_neurons: 256
 
 # Outputs
-output_neurons: 42
-blank_index: 1
-bos_index: 0
-eos_index: 0
-
-# Decoding parameters
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 16
-eos_threshold: 1.5
+output_neurons: 40
+blank_index: !ref <output_neurons> - 1
 
 # Dataloader options
 train_dataloader_opts:
@@ -60,32 +56,31 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: !ref <batch_size>
 
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
+# Can be removed to improve speed
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <open_rir_folder>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-
-# Can be removed to speed up training a little
-#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
- #   openrir_folder: !ref <data_folder>
-  #  babble_prob: 0.0
-  #  reverb_prob: 0.0
-  #  noise_prob: 1.0
-  #  noise_snr_low: 0
-  #  noise_snr_high: 15
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -99,67 +94,18 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-
-dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dnn_neurons>
-    input_size: !ref <emb_size>
-    rnn_type: gru
-    attn_type: location
-    hidden_size: !ref <dec_neurons>
-    attn_dim: 256
-    num_layers: 1
-    scaling: 1.0
-    channels: 10
-    kernel_size: 100
-    re_init: True
-    dropout: 0.5
-
-ctc_lin: !new:speechbrain.nnet.linear.Linear
+output: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
-
-seq_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <dec_neurons>
-    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
+    n_neurons: !ref <output_neurons>
+    bias: True
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
-
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
-
-greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
-    embedding: !ref <emb>
-    decoder: !ref <dec>
-    linear: !ref <seq_lin>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-
-beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
-    embedding: !ref <emb>
-    decoder: !ref <dec>
-    linear: !ref <seq_lin>
-    ctc_linear: !ref <ctc_lin>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <beam_size>
-
-model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
-
-opt_class: !name:torch.optim.Adam
+opt_class: !name:torch.optim.Adadelta
+    rho: 0.95
     lr: !ref <lr>
+    eps: 1.e-8
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
@@ -168,22 +114,24 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     patient: 0
 
 modules:
-    enc: !ref <enc>
-    emb: !ref <emb>
-    dec: !ref <dec>
-    ctc_lin: !ref <ctc_lin>
-    seq_lin: !ref <seq_lin>
+    model: !ref <model>
+    output: !ref <output>
     normalize: !ref <normalize>
+    env_corrupt: !ref <env_corrupt>
 
-jit_module_keys: [enc]
+jit_module_keys: [model]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
-        normalize: !ref <normalize>
-        lr_annealing: !ref <lr_annealing>
+        output: !ref <output>
+        scheduler: !ref <lr_annealing>
+        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
+
+compute_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -191,11 +139,6 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 ctc_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: !ref <blank_index>
-        reduction: batch
-
-seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.nll_loss
-        label_smoothing: 0.1
         reduction: batch
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

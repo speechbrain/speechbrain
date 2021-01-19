@@ -17,6 +17,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+openrir_folder: !ref <data_folder> # where storing the noisy data for augment
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/dev.csv
 test_annotation: !ref <data_folder>/test.csv
@@ -87,7 +88,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <output_folder>
+    openrir_folder: !ref <openrir_folder>
     babble_prob: 0.0
     reverb_prob: 0.0
     noise_prob: 1.0

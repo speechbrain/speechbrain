@@ -1,17 +1,12 @@
-#!/usr/bin/env/python3
-"""Recipe for doing ASR with phoneme targets with
-Transducer loss on the TIMIT dataset.
+#!/usr/bin/env python3
+"""Recipe for doing ASR with phoneme targets and CTC loss on the TIMIT dataset
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
-
-Using your own hyperparameter file or one of the following:
- * hyperparams.yaml
+> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
 
 Authors
- * Abdel Heba 2020
  * Mirco Ravanelli 2020
- * Ju-Chieh Chou 2020
+ * Peter Plantinga 2020
 """
 import sys
 import torch
@@ -29,86 +24,58 @@ class ASR_Brain(sb.Brain):
         "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        phns, phn_lens = batch.phn_encoded
-
         # Adding optional augmentation when specified:
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "env_corrupt"):
                 wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                batch.sig = wavs, wav_lens
-                phns = torch.cat([phns, phns], dim=0)
-                phn_lens = torch.cat([phn_lens, phn_lens])
-                batch.phn_encoded = phns, phn_lens
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        # Model computations
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
-        x = self.modules.enc(feats)
-        x = self.modules.enc_lin(x)
+        out = self.modules.model(feats)
+        out = self.modules.output(out)
+        pout = self.hparams.log_softmax(out)
 
-        # Prepend bos token at the beginning
-        y_in = sb.data_io.data_io.prepend_bos_token(
-            phns, self.hparams.blank_index
-        )
-        e_in = self.modules.emb(y_in)
-        h, _ = self.modules.dec(e_in)
-        h = self.modules.dec_lin(h)
-
-        # Joint network
-        # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
-        # add timeseq_dim to the decoder tensor: [B,U,H_dec] => [B,1,U,H_dec]
-        joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
-
-        # output layer for seq2seq log-probabilities
-        logits = self.modules.output(joint)
-        p_transducer = self.hparams.log_softmax(logits)
-
-        if stage == sb.Stage.VALID:
-            hyps, scores, _, _ = self.hparams.Greedysearcher(x)
-            return p_transducer, hyps
-
-        elif stage == sb.Stage.TEST:
-            (
-                best_hyps,
-                best_scores,
-                nbest_hyps,
-                nbest_scores,
-            ) = self.hparams.Beamsearcher(x)
-            return p_transducer, best_hyps
-        return p_transducer
+        return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the loss."
-        ids = batch.id
-        _, wav_lens = batch.sig
+        "Given the network predictions and targets computed the CTC loss."
+        pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
-        if stage != sb.Stage.TRAIN:
-            predictions, hyps = predictions
 
-        phns = phns.long()
-        loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
-        self.transducer_metrics.append(
-            ids, predictions, phns, wav_lens, phn_lens
-        )
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corrupt"):
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+
+        loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
+        self.ctc_metrics.append(batch.id, pout, phns, pout_lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
+            sequence = sb.decoders.ctc_greedy_decode(
+                pout, pout_lens, blank_id=self.hparams.blank_index
+            )
             self.per_metrics.append(
-                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim
+                ids=batch.id,
+                predict=sequence,
+                target=phns,
+                target_len=phn_lens,
+                ind2lab=self.label_encoder.decode_ndim,
             )
 
         return loss
 
     def on_stage_start(self, stage, epoch):
-        self.transducer_metrics = self.hparams.transducer_stats()
+        "Gets called when a stage (either training, validation, test) starts."
+        self.ctc_metrics = self.hparams.ctc_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -117,30 +84,26 @@ class ASR_Brain(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats={"loss": stage_loss, "PER": per},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"]
+                meta={"PER": per}, min_keys=["PER"],
             )
 
-        if stage == sb.Stage.TEST:
+        elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
-                w.write("Transducer loss stats:\n")
-                self.transducer_metrics.write_stats(w)
+                w.write("CTC loss stats:\n")
+                self.ctc_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
-                print(
-                    "Transducer and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+                print("CTC and PER stats written to ", self.hparams.wer_file)
 
 
 def data_io_prep(hparams):
