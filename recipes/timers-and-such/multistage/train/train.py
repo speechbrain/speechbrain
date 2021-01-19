@@ -73,7 +73,7 @@ class SLU(sb.Brain):
         # SLU forward pass
         encoder_out = self.hparams.slu_enc(embedded_transcripts)
         e_in = self.hparams.output_emb(tokens_bos)
-        h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
+        h, _ = self.hparams.dec(e_in, encoder_out, asr_tokens_lens)
 
         # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
@@ -84,10 +84,12 @@ class SLU(sb.Brain):
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            return p_seq, wav_lens
+            return p_seq, asr_tokens_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
-            return p_seq, wav_lens, p_tokens
+            p_tokens, scores = self.hparams.beam_searcher(
+                encoder_out, asr_tokens_lens
+            )
+            return p_seq, asr_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
@@ -96,9 +98,9 @@ class SLU(sb.Brain):
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            p_seq, wav_lens = predictions
+            p_seq, asr_tokens_lens = predictions
         else:
-            p_seq, wav_lens, predicted_tokens = predictions
+            p_seq, asr_tokens_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
