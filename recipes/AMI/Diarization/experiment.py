@@ -268,19 +268,8 @@ def dev_p_tuner(full_csv, split_type):
     """
 
     DER_list = []
-    prange = [
-        0.0025,
-        0.0050,
-        0.006,
-        0.007,
-        0.008,
-        0.009,
-        0.010,
-        0.025,
-        0.050,
-        0.075,
-        0.100,
-    ]
+    prange = np.arange(0.002, 0.015, 0.001)
+
     n_lambdas = None
     for p_v in prange:
         # Process whole dataset for value of p_v
