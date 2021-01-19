@@ -1,12 +1,26 @@
 """
-LM trained on Timers and Such
+LM trained on Timers and Such.
 
-Example
+Example usage (text generation):
 -------
->>> import torchaudio
->>> lm = LM()
 
-TODO forward()?
+>>> import torch
+>>> from pretrained import LM
+>>> lm = LM('hparams/pretrained.yaml')
+>>>
+>>> text = "SET A"
+>>> encoded_text = lm.tokenizer.encode_as_ids(text)
+>>> encoded_text = torch.tensor([0] + encoded_text) # bos token + the
+>>> encoded_text = encoded_text.unsqueeze(0).to(lm.device)
+>>>
+>>> for i in range(19):
+>>>     prob_out, _ = lm(encoded_text)
+>>>     index = torch.argmax(prob_out[0,-1,:]).unsqueeze(0)
+>>>     encoded_text = torch.cat([encoded_text, index.unsqueeze(0)], dim=1)
+>>>
+>>>
+>>> encoded_text = encoded_text[0,1:].tolist()
+>>> print(lm.tokenizer.decode(encoded_text)) # Should be something like "SET A TIMER FOR ONE HOUR AND SEVEN MINUTES ⁇  ⁇  ⁇  ⁇  ⁇  ⁇  ⁇  ⁇  ⁇  ⁇ "
 
 Authors
  * Loren Lugosch 2020
@@ -48,6 +62,9 @@ class LM(torch.nn.Module):
 
         # Load pretrained modules
         self.load_lm()
+
+        # Load tokenizer
+        self.tokenizer = self.hparams["tokenizer"].spm
 
         # If we don't want to backprop, freeze the pretrained parameters
         if freeze_params:

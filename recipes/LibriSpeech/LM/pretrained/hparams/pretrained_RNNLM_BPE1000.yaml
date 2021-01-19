@@ -6,7 +6,7 @@
 # Authors:  Loren Lugosch 2020
 # ############################################################################
 
-save_folder: pretrained_models
+save_folder: model_checkpoints
 lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 device: 'cuda:0'
