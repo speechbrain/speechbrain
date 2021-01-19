@@ -11,8 +11,8 @@ from joblib import Parallel, delayed
 from speechbrain.utils import edit_distance
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
-from speechbrain.data_io.data_io import merge_char, split_word
-from speechbrain.data_io.wer import print_wer_summary, print_alignments
+from speechbrain.dataio.dataio import merge_char, split_word
+from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
 def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=30):

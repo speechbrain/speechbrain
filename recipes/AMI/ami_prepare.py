@@ -13,7 +13,7 @@ import glob
 import csv
 from ami_splits import get_AMI_split
 
-from speechbrain.data_io.data_io import (
+from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
 )
