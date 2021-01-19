@@ -10,7 +10,7 @@ Authors:
  * Aku Rouhe 2020
 """
 import speechbrain.utils.edit_distance as edit_distance
-import speechbrain.data_io.wer as wer_io
+import speechbrain.dataio.wer as wer_io
 
 
 # These internal utilities read Kaldi-style text/utt2spk files:
