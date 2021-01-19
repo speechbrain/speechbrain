@@ -1,4 +1,4 @@
-#/usr/bin/env python3
+# /usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and CTC loss on Voicebank
 
 To run this recipe, do the following:

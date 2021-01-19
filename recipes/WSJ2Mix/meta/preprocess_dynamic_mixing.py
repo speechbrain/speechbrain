@@ -42,7 +42,6 @@ def resample_folder(input_folder, output_folder, fs, regex):
         tmp = octave.activlev(audio.tolist(), fs_read, "n")
         audio, _ = tmp[:-1].squeeze(), tmp[-1]
 
-
         os.makedirs(
             Path(
                 os.path.join(
@@ -55,8 +54,12 @@ def resample_folder(input_folder, output_folder, fs, regex):
         sf.write(
             os.path.join(
                 output_folder, Path(f).relative_to(Path(input_folder))
-            ), audio, format="WAV", subtype="FLOAT", samplerate=fs)
-
+            ),
+            audio,
+            format="WAV",
+            subtype="FLOAT",
+            samplerate=fs,
+        )
 
 
 if __name__ == "__main__":
