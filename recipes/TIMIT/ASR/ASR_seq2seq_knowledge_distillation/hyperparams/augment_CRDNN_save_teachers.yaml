@@ -442,21 +442,21 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending

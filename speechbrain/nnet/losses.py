@@ -17,7 +17,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from itertools import permutations
-from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.decoders.ctc import filter_ctc_output
 
 

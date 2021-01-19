@@ -10,7 +10,7 @@ import contextlib
 from types import MethodType
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
-from speechbrain.data_io.data_io import load_data_json, load_data_csv
+from speechbrain.dataio.dataio import load_data_json, load_data_csv
 import logging
 
 logger = logging.getLogger(__name__)
@@ -80,8 +80,8 @@ class DynamicItemDataset(Dataset):
     ...     "provides": "words"}]
 
     With these, different views of the data can be loaded:
-    >>> from speechbrain.data_io.dataloader import SaveableDataLoader
-    >>> from speechbrain.data_io.batch import PaddedBatch
+    >>> from speechbrain.dataio.dataloader import SaveableDataLoader
+    >>> from speechbrain.dataio.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
     >>> dataloader = SaveableDataLoader(dataset, collate_fn=PaddedBatch,
     ...     batch_size=2)

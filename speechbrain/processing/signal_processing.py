@@ -205,7 +205,7 @@ def convolve1d(
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = torch.rand(1, 10, 1)
@@ -390,7 +390,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)

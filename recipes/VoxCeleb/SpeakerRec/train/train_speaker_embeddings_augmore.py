@@ -126,24 +126,24 @@ class SpeakerBrain(sb.core.Brain):
             )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
 
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data]
-    label_encoder = sb.data_io.encoder.CategoricalEncoder()
+    label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
     snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
 
@@ -165,7 +165,7 @@ def data_io_prep(hparams):
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("spk_id")
@@ -175,7 +175,7 @@ def data_io_prep(hparams):
         spk_id_encoded = label_encoder.encode_sequence_torch([spk_id])
         yield spk_id_encoded
 
-    sb.data_io.dataset.add_dynamic_item(datasets, label_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, label_pipeline)
 
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
@@ -183,7 +183,7 @@ def data_io_prep(hparams):
     label_encoder.update_from_didataset(valid_data, output_key="spk_id")
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "spk_id_encoded"]
     )
 
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    train_data, valid_data, label_encoder = data_io_prep(hparams)
+    train_data, valid_data, label_encoder = dataio_prep(hparams)
 
     # Create experiment directory
     sb.core.create_experiment_directory(
