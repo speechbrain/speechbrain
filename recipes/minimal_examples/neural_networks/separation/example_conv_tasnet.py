@@ -1,57 +1,20 @@
-#!/usr/bin/python
-"""
-A minimal example on the conv-tasnet model
-
-Author
-    * Cem Subakan 2020
+#!/usr/bin/env/python3
+"""This minimal example trains a speech separation system with on a tiny dataset.
+The architecture is based on ConvTasnet and expectes in input mixtures of two
+speakers.
 """
 
-import os
 import torch
+import pathlib
 import speechbrain as sb
 import torch.nn.functional as F
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
-def create_minimal_data(repository_folder, config_file_path):
-    tr_csv = os.path.realpath(
-        os.path.join(
-            repository_folder,
-            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
-        )
-    )
-    cv_csv = os.path.realpath(
-        os.path.join(
-            repository_folder,
-            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
-        )
-    )
-    tt_csv = os.path.realpath(
-        os.path.join(
-            repository_folder,
-            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
-        )
-    )
-
-    data_folder = "samples/audio_samples/sourcesep_samples"
-    data_folder = os.path.realpath(os.path.join(repository_folder, data_folder))
-
-    with open(config_file_path) as fin:
-        params = sb.yaml.load_extended_yaml(
-            fin,
-            {
-                "data_folder": data_folder,
-                "tr_csv": tr_csv,
-                "cv_csv": cv_csv,
-                "tt_csv": tt_csv,
-            },
-        )
-    return params
-
-
-class CTN_Brain(sb.Brain):
+class SepBrain(sb.Brain):
     def compute_forward(self, mixture, stage):
-
+        "Given an input batch it computes the two estimated sources."
         mix_w = self.hparams.encoder(mixture)
         est_mask = self.hparams.mask_net(mix_w)
         mix_w = torch.stack([mix_w] * 2)
@@ -74,37 +37,20 @@ class CTN_Brain(sb.Brain):
         return est_source
 
     def compute_objectives(self, predictions, targets):
-        if self.hparams.loss_fn == "sisnr":
-            loss = get_si_snr_with_pitwrapper(targets, predictions)
-            return loss
-        else:
-            raise ValueError("Not Correct Loss Function Type")
+        "Given the network predictions and targets computed the PIT loss."
+        loss = get_si_snr_with_pitwrapper(targets, predictions)
+        return loss
 
     def fit_batch(self, batch):
-        # train_onthefly option enables data augmentation,
-        # by creating random mixtures within the batch
-        if self.hparams.train_onthefly:
-            bs = batch[0][1].shape[0]
-            perm = torch.randperm(bs)
-
-            T = 24000
-            Tmax = max((batch[0][1].shape[-1] - T) // 10, 1)
-            Ts = torch.randint(0, Tmax, (1,))
-            source1 = batch[1][1][perm, Ts : Ts + T].to(self.device)
-            source2 = batch[2][1][:, Ts : Ts + T].to(self.device)
-
-            ws = torch.ones(2).to(self.device)
-            ws = ws / ws.sum()
-
-            inputs = ws[0] * source1 + ws[1] * source2
-            targets = torch.cat(
-                [source1.unsqueeze(1), source2.unsqueeze(1)], dim=1
-            )
-        else:
-            inputs = batch[0][1].to(self.device)
-            targets = torch.cat(
-                [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
-            ).to(self.device)
+        """Fits a training batch."""
+        inputs = batch.mix_sig.data.to(self.device)
+        targets = torch.cat(
+            [
+                batch.source1.data.unsqueeze(-1),
+                batch.source2.data.unsqueeze(-1),
+            ],
+            dim=-1,
+        ).to(self.device)
 
         predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets)
@@ -115,9 +61,14 @@ class CTN_Brain(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
-        inputs = batch[0][1].to(self.device)
+        """Evaluates a batch"""
+        inputs = batch.mix_sig.data.to(self.device)
         targets = torch.cat(
-            [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
+            [
+                batch.source1.data.unsqueeze(-1),
+                batch.source2.data.unsqueeze(-1),
+            ],
+            dim=-1,
         ).to(self.device)
 
         predictions = self.compute_forward(inputs, stage)
@@ -125,15 +76,10 @@ class CTN_Brain(sb.Brain):
         return loss.detach()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         elif stage == sb.Stage.VALID:
-            if self.hparams.use_tensorboard:
-                self.hparams.train_logger.log_stats(
-                    {"Epoch": epoch},
-                    {"loss": -self.train_loss},
-                    {"loss": -stage_loss},
-                )
             print("Completed epoch %d" % epoch)
             print("Train SI-SNR: %.3f" % -self.train_loss)
             print("Valid SI-SNR: %.3f" % -stage_loss)
@@ -141,49 +87,70 @@ class CTN_Brain(sb.Brain):
             print("Test SI-SNR: %.3f" % -stage_loss)
 
 
+def data_prep(data_folder, hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=data_folder / "minimal_example_convtasnet_tr.csv",
+        replacements={"data_root": data_folder},
+    )
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=data_folder / "minimal_example_convtasnet_cv.csv",
+        replacements={"data_root": data_folder},
+    )
+    datasets = [train_data, valid_data]
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("mix_wav", "s1_wav", "s2_wav")
+    @sb.utils.data_pipeline.provides("mix_sig", "source1", "source2")
+    def audio_pipeline(mix_wav, s1_wav, s2_wav):
+        mix_sig = sb.data_io.data_io.read_audio(mix_wav)
+        yield mix_sig
+        source1 = sb.data_io.data_io.read_audio(s1_wav)
+        yield source1
+        source2 = sb.data_io.data_io.read_audio(s2_wav)
+        yield source2
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets, ["id", "mix_sig", "source1", "source2"]
+    )
+
+    return train_data, valid_data
+
+
 def main():
-    experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    params_file = os.path.join(experiment_dir, "hyperparams.yaml")
-    sourcesep_samples_dir = os.path.realpath(
-        os.path.join(
-            experiment_dir,
-            "..",
-            "..",
-            "..",
-            "..",
-            "samples",
-            "audio_samples",
-            "sourcesep_samples",
-        )
+    experiment_dir = pathlib.Path(__file__).resolve().parent
+    hparams_file = experiment_dir / "hyperparams.yaml"
+    data_folder = "../../../../samples/audio_samples/sourcesep_samples"
+    data_folder = (experiment_dir / data_folder).resolve()
+
+    # Load model hyper parameters:
+    with open(hparams_file) as fin:
+        hparams = load_hyperpyyaml(fin)
+
+    # Dataset creation
+    train_data, valid_data = data_prep(data_folder, hparams)
+
+    # Trainer initialization
+    sep_brain = SepBrain(hparams["modules"], hparams["opt_class"], hparams)
+
+    # Training/validation loop
+    sep_brain.fit(
+        range(hparams["N_epochs"]),
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
     )
+    # Evaluation is run separately (now just evaluating on valid data)
+    sep_brain.evaluate(valid_data)
 
-    with open(params_file) as fin:
-        hparams = sb.yaml.load_extended_yaml(
-            fin, {"data_folder": sourcesep_samples_dir},
-        )
-
-    if hparams["use_tensorboard"]:
-        from speechbrain.utils.train_logger import TensorboardLogger
-
-        hparams["train_logger"] = TensorboardLogger(hparams["tensorboard_logs"])
-
-    train_loader = hparams["train_loader"]()
-    val_loader = hparams["val_loader"]()
-    test_loader = hparams["test_loader"]()
-
-    ctn = CTN_Brain(hparams["modules"], hparams["opt_class"], hparams)
-
-    ctn.fit(
-        ctn.hparams.epoch_counter,
-        train_set=train_loader,
-        valid_set=val_loader,
-        progressbar=hparams["progressbar"],
-    )
-
-    ctn.evaluate(test_loader)
-
-    # Integration test: check that the model overfits the training data
-    assert -ctn.train_loss > 10.0
+    # Check if model overfits for integration test
+    assert sep_brain.train_loss < 5.0
 
 
 if __name__ == "__main__":

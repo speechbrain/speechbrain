@@ -24,11 +24,12 @@ import csv
 import glob
 import shutil
 import numpy as np
+import torchaudio
 import speechbrain as sb
 from tqdm.contrib import tqdm
-
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import download_file
-from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing import diarization as diar
 from speechbrain.utils.DER import DER
@@ -96,8 +97,9 @@ def embedding_computation_loop(split, set_loader, stat_file):
         # Different data may have different statistics
         params["mean_var_norm_emb"].count = 0
 
-        for wav in set_loader:  # t:
-            ids, wavs, lens = wav[0]
+        for batch in set_loader:  # t:
+            ids = batch.id
+            wavs, lens = batch.sig
 
             mod = [x for x in ids]
             seg = [x for x in ids]
@@ -105,7 +107,13 @@ def embedding_computation_loop(split, set_loader, stat_file):
             segset = segset + seg
 
             # Embedding computation
-            emb = compute_embeddings(wavs, lens).squeeze(1).cpu().numpy()
+            emb = (
+                compute_embeddings(wavs, lens)
+                .contiguous()
+                .squeeze(1)
+                .cpu()
+                .numpy()
+            )
             embeddings = np.concatenate((embeddings, emb), axis=0)
 
         modelset = np.array(modelset, dtype="|O")
@@ -195,14 +203,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
         diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
         # Setup a dataloader for above one recording (above csv)
-        diary_set = DataLoaderFactory(
-            new_csv_file,
-            params["diary_loader"].batch_size,
-            params["diary_loader"].csv_read,
-            params["diary_loader"].sentence_sorting,
-        )
-
-        diary_set_loader = diary_set.forward().get_dataloader()
+        diary_set_loader = data_io_prep(params, new_csv_file)
 
         # Putting modules on the device
         params["compute_features"].to(params["device"])
@@ -360,6 +361,41 @@ def dev_tuner(full_csv, split_type):
     return tuned_n_lambdas
 
 
+def data_io_prep(hparams, csv_file):
+    "Creates the datasets and their data processing pipelines."
+
+    # 1. Datasets
+    data_folder = hparams["data_folder"]
+    dataset = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=csv_file, replacements={"data_root": data_folder},
+    )
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "start", "stop")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, start, stop):
+        start = int(start)
+        stop = int(stop)
+        num_frames = stop - start
+        sig, fs = torchaudio.load(
+            wav, num_frames=num_frames, frame_offset=start
+        )
+        sig = sig.transpose(0, 1).squeeze(1)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item([dataset], audio_pipeline)
+
+    # 3. Set output:
+    sb.data_io.dataset.set_output_keys([dataset], ["id", "sig"])
+
+    # 4. create dataloader:
+    dataloader = sb.data_io.dataloader.make_dataloader(
+        dataset, **params["dataloader_opts"]
+    )
+
+    return dataloader
+
+
 # Begin!
 if __name__ == "__main__":  # noqa: C901
 
@@ -367,7 +403,25 @@ if __name__ == "__main__":  # noqa: C901
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, overrides)
+        params = load_hyperpyyaml(fin, overrides)
+
+    # Dataset prep (parsing VoxCeleb and annotation into csv files)
+    from ami_prepare import prepare_ami  # noqa
+
+    run_on_main(
+        prepare_ami,
+        kwargs={
+            "data_folder": params["data_folder"],
+            "save_folder": params["save_folder"],
+            "manual_annot_folder": params["manual_annot_folder"],
+            "split_type": params["split_type"],
+            "skip_TNO": params["skip_TNO"],
+            "mic_type": params["mic_type"],
+            "vad_type": params["vad_type"],
+            "max_subseg_dur": params["max_subseg_dur"],
+            "overlap": params["overlap"],
+        },
+    )
 
     # Create experiment directory
     sb.core.create_experiment_directory(

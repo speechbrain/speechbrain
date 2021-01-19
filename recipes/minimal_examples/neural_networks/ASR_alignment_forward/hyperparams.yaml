@@ -1,18 +1,12 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-# NOTE: Seed does not guarantee replicability with CTC
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Neural Parameters
+# Training params
 N_epochs: 10
-N_batch: 1
 lr: 0.004
+dataloader_options:
+    batch_size: 1
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -26,28 +20,6 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, phn]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
@@ -70,7 +42,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 42  # 42 phonemes, no blank
+    n_neurons: 43  # 43 phonemes, no blank
     bias: False
 
 modules:

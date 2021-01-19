@@ -960,7 +960,7 @@ class LiGRU(torch.nn.Module):
         # Computing the feature dimensionality
         if len(input_shape) > 3:
             self.reshape = True
-        self.fea_dim = torch.prod(torch.tensor(input_shape[2:]))
+        self.fea_dim = float(torch.prod(torch.tensor(input_shape[2:])))
         self.batch_size = input_shape[0]
         self.rnn = self._init_layers()
 
@@ -1113,15 +1113,9 @@ class LiGRU_Layer(torch.nn.Module):
 
         # Initial state
         self.register_buffer("h_init", torch.zeros(1, self.hidden_size))
-        # self.h_init = torch.zeros(1, self.hidden_size, requires_grad=False)
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
-
-        # Initilizing dropout
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
-
-        self.drop_mask_te = torch.tensor([1.0]).float()
 
         # Setting the activation function
         if nonlinearity == "tanh":
@@ -1200,8 +1194,6 @@ class LiGRU_Layer(torch.nn.Module):
         the dropout masks are sampled in advance.
         """
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
-        self.drop_mask_te = torch.tensor([1.0]).float()
-
         self.N_drop_masks = 16000
         self.drop_mask_cnt = 0
 
@@ -1209,6 +1201,7 @@ class LiGRU_Layer(torch.nn.Module):
             "drop_masks",
             self.drop(torch.ones(self.N_drop_masks, self.hidden_size)).data,
         )
+        self.register_buffer("drop_mask_te", torch.tensor([1.0]).float())
 
     def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks"""

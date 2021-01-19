@@ -14,7 +14,7 @@ import torch
 import logging
 import torchaudio
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.data_io.data_io import read_wav_soundfile
+from speechbrain.data_io.data_io import read_audio
 from speechbrain.processing.speech_augmentation import AddNoise
 
 logger = logging.getLogger(__name__)
@@ -232,7 +232,7 @@ def create_csv(
             target_file = os.path.join(target_folder, "clean_fileid_" + fileid)
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(wav_file)
+        signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
         if noise_csv:
