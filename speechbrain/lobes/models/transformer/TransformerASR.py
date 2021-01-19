@@ -18,7 +18,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 
-from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.dataio.dataio import length_to_mask
 
 
 class TransformerASR(TransformerInterface):
