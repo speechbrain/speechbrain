@@ -1,8 +1,6 @@
 ID, duration, wav, wav_format, wav_opts
 
-example1, 3.260, samples/audio_samples/example1.wav, wav, 
-example2, 2.068, samples/audio_samples/example2.flac, flac, 
-example3, 2.890, samples/audio_samples/example3.sph, wav, 
-example4, 2.180, samples/audio_samples/example4.raw, raw, samplerate:16000 subtype:PCM_16 endian:LITTLE channels:1 
-example5, 1.00, samples/audio_samples/example5.wav, wav, start:10000 stop:26000 
+example1, 3.260, samples/audio_samples/example1.wav, wav,
+example2, 2.068, samples/audio_samples/example2.flac, flac,
+example5, 1.00, samples/audio_samples/example5.wav, wav, start:10000 stop:26000
 

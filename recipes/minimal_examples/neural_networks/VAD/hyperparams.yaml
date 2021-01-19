@@ -4,16 +4,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 sample_rate: 16000
 example_length: 2
 
-# Data files
-data_folder: !PLACEHOLDER
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/train.csv
-csv_test: !ref <data_folder>/train.csv
 
-# Neural Parameters
+# Training params
 N_epochs: 15
-N_batch: 2
 lr: 0.01
+dataloader_options:
+    batch_size: 1
+
+# Feature parameters
 n_mfcc: 20
 
 # Model parameters

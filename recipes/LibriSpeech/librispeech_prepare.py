@@ -91,10 +91,10 @@ def prepare_librispeech(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        print("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
     else:
-        print("Data_preparation...")
+        logger.info("Data_preparation...")
 
     # Additional checks to make sure the data folder contains Librispeech
     check_librispeech_folders(data_folder, splits)
@@ -159,10 +159,12 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     """
     # If the lexicon file does not exist, download it
     lexicon_url = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
-    lexicon_path = os.path.join(data_folder, "librispeech-lexicon.txt")
+    lexicon_path = os.path.join(save_folder, "librispeech-lexicon.txt")
 
     if not os.path.isfile(lexicon_path):
-        print("Lexicon file not found. Downloading from %s." % lexicon_url)
+        logger.info(
+            "Lexicon file not found. Downloading from %s." % lexicon_url
+        )
         download_file(lexicon_url, lexicon_path)
 
     # Get list of all words in the transcripts
@@ -183,7 +185,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
 
     # Create lexicon.csv
     header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
-    lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
+    lexicon_csv_path = os.path.join(save_folder, "lexicon.csv")
     with open(lexicon_csv_path, "w") as f:
         f.write(header)
         for idx in range(len(lexicon_words)):
@@ -210,10 +212,10 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
                 + "\n"
             )
             f.write(line)
-    print("Lexicon written to %s." % lexicon_csv_path)
+    logger.info("Lexicon written to %s." % lexicon_csv_path)
 
     # Split lexicon.csv in train, validation, and test splits
-    split_lexicon(data_folder, [98, 1, 1])
+    split_lexicon(save_folder, [98, 1, 1])
 
 
 def split_lexicon(data_folder, split_ratio):
@@ -289,7 +291,7 @@ def create_csv(
 
     # Preliminary prints
     msg = "Creating csv lists in  %s..." % (csv_file)
-    print(msg)
+    logger.info(msg)
 
     csv_lines = [
         [
@@ -361,7 +363,7 @@ def create_csv(
 
     # Final print
     msg = "%s sucessfully created!" % (csv_file)
-    print(msg)
+    logger.info(msg)
 
 
 def skip(splits, save_folder, conf):
