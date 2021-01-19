@@ -50,9 +50,9 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Spectral Clustering parameters
-affinity: 'nn' # use 'cos' for cosine affinity
+affinity: 'cos' # use 'cos' for cosine affinity
 max_num_spkrs: 10
-oracle_n_spkrs: True
+oracle_n_spkrs: False
 
 # DER evaluation parameters
 ignore_overlap: True
