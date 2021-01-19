@@ -7,11 +7,11 @@ from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 import h5py
 
-import speechbrain.data_io.wer as wer_io
+import speechbrain.dataio.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
-from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
+from speechbrain.dataio.dataio import convert_index_to_lab
+from speechbrain.dataio.dataio import prepend_bos_token
+from speechbrain.dataio.dataio import append_eos_token
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher

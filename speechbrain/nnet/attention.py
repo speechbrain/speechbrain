@@ -11,7 +11,7 @@ import logging
 import torch.nn as nn
 import numpy as np
 from typing import Optional
-from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
 

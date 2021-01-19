@@ -361,28 +361,28 @@ class VerificationBrain(sb.core.Brain):
         )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
 
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    enrol_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["enrol_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
@@ -408,23 +408,23 @@ def data_io_prep(hparams):
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig"])
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
     # 4 Create dataloaders
-    train_dataloader = sb.data_io.dataloader.make_dataloader(
+    train_dataloader = sb.dataio.dataloader.make_dataloader(
         train_data, **hparams["train_dataloader_opts"]
     )
-    valid_dataloader = sb.data_io.dataloader.make_dataloader(
+    valid_dataloader = sb.dataio.dataloader.make_dataloader(
         valid_data, **hparams["valid_dataloader_opts"]
     )
 
-    enrol_dataloader = sb.data_io.dataloader.make_dataloader(
+    enrol_dataloader = sb.dataio.dataloader.make_dataloader(
         enrol_data, **hparams["enrol_dataloader_opts"]
     )
-    test_dataloader = sb.data_io.dataloader.make_dataloader(
+    test_dataloader = sb.dataio.dataloader.make_dataloader(
         test_data, **hparams["test_dataloader_opts"]
     )
 
@@ -470,7 +470,7 @@ if __name__ == "__main__":
         valid_dataloader,
         enrol_dataloader,
         test_dataloader,
-    ) = data_io_prep(hparams)
+    ) = dataio_prep(hparams)
 
     # Dictionary to store the last waveform read for each speaker
     wav_stored = {}
