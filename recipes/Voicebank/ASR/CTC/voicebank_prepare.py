@@ -1,1 +1,0 @@
-../../voicebank_prepare.py

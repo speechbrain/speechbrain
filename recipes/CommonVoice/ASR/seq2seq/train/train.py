@@ -14,7 +14,7 @@ The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+> python train.py hparams/train.yaml
 
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard GRU and BeamSearch (no LM).

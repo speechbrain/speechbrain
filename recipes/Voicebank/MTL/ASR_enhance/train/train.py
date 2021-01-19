@@ -2,7 +2,7 @@
 """Recipe for multi-task learning, using seq2seq and enhancement objectives.
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/noisy-vctk
+> python train.py hparams/{hyperparameter file} --data_folder /path/to/noisy-vctk
 
 Use your own hyperparameter file or the provided `hyperparams.yaml`
 The different losses can be turned on and off, and pre-trained models
