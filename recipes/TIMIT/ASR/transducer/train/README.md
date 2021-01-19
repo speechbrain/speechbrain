@@ -1,5 +1,7 @@
 # TIMIT ASR with Transducer models.
 This folder contains the scripts to train a RNNT system using TIMIT.
+TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
+
 
 # Extra-Dependencies
 Before running this recipe, make sure numba is installed. Otherwise, run: 

@@ -1,12 +1,11 @@
 # TIMIT ASR with CTC models.
 This folder contains the scripts to train a CTC system using TIMIT.
-
+TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
 # How to run
 python train.py train/train.yaml
 
 # Results
-
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
 | 20-05-22 | train.yaml |  --.- | --.- | Not Available | 1xV100 32GB |

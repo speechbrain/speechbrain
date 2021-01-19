@@ -1,6 +1,6 @@
 # TIMIT ASR with seq2seq models.
 This folder contains the scripts to train a seq2seq RNNN-based system using TIMIT.
-
+TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
 # How to run
 python train.py train/train.yaml
