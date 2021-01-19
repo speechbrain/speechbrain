@@ -51,17 +51,14 @@ class SLU(sb.Brain):
         )
 
         # Pad examples to have same length.
-        max_length = max([len(t) for t in asr_tokens])
-        if max_length == 0:
-            max_length = 1  # The ASR may output empty transcripts.
+        # Manage length of predicted tokens
+        asr_tokens_lens = torch.tensor([max(len(t), 1) for t in asr_tokens])
+        max_length = asr_tokens_lens.max().item()
         for t in asr_tokens:
             t += [0] * (max_length - len(t))
         asr_tokens = torch.tensor([t for t in asr_tokens])
 
-        # Manage length of predicted tokens
-        asr_tokens_lens = torch.tensor(
-            [max(len(t), 1) for t in asr_tokens]
-        ).float()
+        asr_tokens_lens = asr_tokens_lens.float()
         asr_tokens_lens = asr_tokens_lens / asr_tokens_lens.max()
 
         asr_tokens, asr_tokens_lens = (
