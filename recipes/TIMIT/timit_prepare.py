@@ -14,10 +14,10 @@ import logging
 from speechbrain.utils.data_utils import get_all_files
 
 from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
     load_pkl,
     save_pkl,
     read_kaldi_lab,
+    read_audio,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def prepare_timit(
     kaldi_ali_dev=None,
     kaldi_ali_test=None,
     kaldi_lab_opts=None,
-    phn_set="39",
+    phn_set=39,
     uppercase=False,
 ):
     """
@@ -119,14 +119,14 @@ def prepare_timit(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        print("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains TIMIT
     _check_timit_folders(uppercase, data_folder)
 
-    msg = "\tCreating csv file for the TIMIT Dataset.."
-    print(msg)
+    msg = "Creating csv file for the TIMIT Dataset.."
+    logger.info(msg)
 
     # Creating csv file for training data
     if "train" in splits:
@@ -504,8 +504,8 @@ def create_csv(
     """
 
     # Adding some Prints
-    msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    print(msg)
+    msg = "Creating csv lists in  %s..." % (csv_file)
+    logger.info(msg)
 
     # Reading kaldi labels if needed:
     snt_no_lab = 0
@@ -557,11 +557,11 @@ def create_csv(
             if snt_id not in lab.keys():
                 missing_lab = False
                 msg = (
-                    "\tThe sentence %s does not have a corresponding "
+                    "The sentence %s does not have a corresponding "
                     "kaldi label" % (snt_id)
                 )
 
-                print(msg)
+                logger.info(msg)
                 snt_no_lab = snt_no_lab + 1
             else:
                 snt_lab_path = os.path.join(kaldi_lab_dir, snt_id + ".pkl")
@@ -574,14 +574,14 @@ def create_csv(
                     "corresponding kaldi label. Please check data and "
                     "kaldi labels (check %s and %s)." % (data_folder, kaldi_lab)
                 )
-                print(err_msg, exc_info=True)
+                logger.debutg(err_msg)
 
         if missing_lab:
             continue
 
         # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(wav_file)
-        duration = signal.shape[0] / SAMPLERATE
+        signal = read_audio(wav_file)
+        duration = len(signal) / SAMPLERATE
 
         # Retrieving words and check for uppercase
         if uppercase:
@@ -639,8 +639,8 @@ def create_csv(
 
     # Writing the csv lines
     _write_csv(csv_lines, csv_file)
-    msg = "\t%s sucessfully created!" % (csv_file)
-    print(msg)
+    msg = "%s sucessfully created!" % (csv_file)
+    logger.info(msg)
 
 
 def get_phoneme_lists(phn_file, phn_set):
@@ -658,14 +658,14 @@ def get_phoneme_lists(phn_file, phn_set):
         from_60_to_48_phn, from_60_to_39_phn = _get_phonemes()
 
         # Removing end corresponding to q if phn set is not 61
-        if phn_set != "61":
+        if phn_set != 60:
             if phoneme == "q":
                 end = ""
 
         # Converting phns if necessary
-        if phn_set == "48":
+        if phn_set == 48:
             phoneme = from_60_to_48_phn[phoneme]
-        if phn_set == "39":
+        if phn_set == 39:
             phoneme = from_60_to_39_phn[phoneme]
 
         # Appending arrays
@@ -674,7 +674,7 @@ def get_phoneme_lists(phn_file, phn_set):
         if len(end) > 0:
             ends.append(end)
 
-    if phn_set != "61":
+    if phn_set != 60:
         # Filtering out consecutive silences by applying a mask with `True` marking
         # which sils to remove
         # e.g.

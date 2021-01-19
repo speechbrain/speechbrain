@@ -70,7 +70,7 @@ def DER(
     Example
     -------
     >>> import pytest
-    >>> pytest.skip('Skipping..')
+    >>> pytest.skip('Skipping because of Perl dependency')
     >>> ref_rttm = "../../samples/rttm_samples/ref_rttm/ES2014c.rttm"
     >>> sys_rttm = "../../samples/rttm_samples/sys_rttm/ES2014c.rttm"
     >>> ignore_overlap = True
