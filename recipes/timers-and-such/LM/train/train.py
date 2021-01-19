@@ -31,7 +31,7 @@ class LM(sb.Brain):
             tokens.to(self.device),
             tokens_lens.to(self.device),
         )
-        tokens_with_bos = sb.data_io.data_io.prepend_bos_token(
+        tokens_with_bos = sb.dataio.dataio.prepend_bos_token(
             tokens, bos_index=self.hparams.asr_model.hparams["bos_index"]
         )
         logits = self.hparams.net(tokens_with_bos)
@@ -48,7 +48,7 @@ class LM(sb.Brain):
         abs_length = torch.round(tokens_lens * tokens.shape[1])
 
         # Append eos token at the end of the label sequences
-        target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
+        target_tokens_with_eos = sb.dataio.dataio.append_eos_token(
             tokens,
             length=abs_length,
             eos_index=self.hparams.asr_model.hparams[
