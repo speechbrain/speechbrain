@@ -13,14 +13,15 @@ import os
 import argparse
 from pathlib import Path
 import tqdm
-import soundfile as sf
+import torchaudio
+import torch
 import glob
 from oct2py import octave
 from scipy import signal
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively +"
-    " apply ITU normalization "
+    " apply ITU-T P.56 normalization "
     "It --input_folder to --output_folder and "
     "resamples all audio files with specified format to --fs."
 )
@@ -38,12 +39,16 @@ def resample_folder(input_folder, output_folder, fs, regex):
     files = glob.glob(os.path.join(input_folder, regex), recursive=True)
     for f in tqdm.tqdm(files):
 
-        audio, fs_read = sf.read(f)
+        audio, fs_read = torchaudio.load(f)
+        audio = audio[0].numpy()
         audio = signal.resample(audio, int((fs_read / fs) * len(audio)))
 
         tmp = octave.activlev(audio.tolist(), fs_read, "n")
         audio, _ = tmp[:-1].squeeze(), tmp[-1]
 
+        audio = torch.from_numpy(audio)
+        if torch.max(torch.abs(audio)) > 1:
+            audio = audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
         os.makedirs(
             Path(
                 os.path.join(
@@ -52,11 +57,13 @@ def resample_folder(input_folder, output_folder, fs, regex):
             ).parent,
             exist_ok=True,
         )
-
-        sf.write(
+        torchaudio.save(
             os.path.join(
                 output_folder, Path(f).relative_to(Path(input_folder))
-            ), audio, format="WAV", subtype="FLOAT", samplerate=fs)
+            ),
+            audio,
+            fs,
+        )
 
 
 if __name__ == "__main__":
