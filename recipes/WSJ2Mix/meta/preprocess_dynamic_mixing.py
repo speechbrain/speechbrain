@@ -41,9 +41,9 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
         audio, fs_read = torchaudio.load(f)
         audio = audio[0].numpy()
-        audio = signal.resample(audio, int((fs_read / fs) * len(audio)))
+        audio = signal.resample_poly(audio, fs, fs_read)
 
-        tmp = octave.activlev(audio.tolist(), fs_read, "n")
+        tmp = octave.activlev(audio.tolist(), fs, "n")
         audio, _ = tmp[:-1].squeeze(), tmp[-1]
 
         peak = np.max(np.abs(audio))
