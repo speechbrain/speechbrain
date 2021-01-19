@@ -9,11 +9,7 @@ Authors
 """
 import torch
 from torch import nn
-from speechbrain.nnet.embedding import Embedding
-from speechbrain.nnet.RNN import LiGRU, LSTM, GRU, RNN  # noqa E401
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import LayerNorm
+import speechbrain as sb
 
 
 class RNNLM(nn.Module):
@@ -23,7 +19,8 @@ class RNNLM(nn.Module):
     Arguments
     ---------
     output_neurons : int
-        Number of entries in embedding table, also the number of neurons in output layer.
+        Number of entries in embedding table, also the number of neurons in
+        output layer.
     embedding_dim : int
         Default : 128
         Size of embedding vectors.
@@ -51,7 +48,7 @@ class RNNLM(nn.Module):
     -------
     >>> model = RNNLM(output_neurons=5)
     >>> inputs = torch.Tensor([[1, 2, 3]])
-    >>> outputs = model(inputs, init_params=True)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([1, 3, 5])
     """
@@ -62,7 +59,7 @@ class RNNLM(nn.Module):
         embedding_dim=128,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
-        rnn_class=LSTM,
+        rnn_class=sb.nnet.RNN.LSTM,
         rnn_layers=2,
         rnn_neurons=1024,
         rnn_re_init=False,
@@ -71,39 +68,41 @@ class RNNLM(nn.Module):
         dnn_neurons=512,
     ):
         super().__init__()
-        self.embedding = Embedding(
+        self.embedding = sb.nnet.embedding.Embedding(
             num_embeddings=output_neurons, embedding_dim=embedding_dim
         )
         self.dropout = nn.Dropout(p=dropout)
         self.rnn = rnn_class(
+            input_size=embedding_dim,
             hidden_size=rnn_neurons,
             num_layers=rnn_layers,
             dropout=dropout,
             re_init=rnn_re_init,
-            return_hidden=True,
         )
         self.return_hidden = return_hidden
         self.reshape = False
 
-        dnn_blocks_lst = []
+        self.dnn = sb.nnet.containers.Sequential(
+            input_shape=[None, None, rnn_neurons]
+        )
         for block_index in range(dnn_blocks):
-            dnn_blocks_lst.extend(
-                [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
-                    ),
-                    LayerNorm(),
-                    activation(),
-                    torch.nn.Dropout(p=dropout),
-                ]
+            self.dnn.append(
+                sb.nnet.linear.Linear,
+                n_neurons=dnn_neurons,
+                bias=True,
+                layer_name="linear",
             )
+            self.dnn.append(sb.nnet.normalization.LayerNorm, layer_name="norm")
+            self.dnn.append(activation(), layer_name="act")
+            self.dnn.append(torch.nn.Dropout(p=dropout), layer_name="dropout")
 
-        self.dnn = Sequential(*dnn_blocks_lst)
-        self.out = Linear(n_neurons=output_neurons)
+        self.out = sb.nnet.linear.Linear(
+            input_size=dnn_neurons, n_neurons=output_neurons
+        )
 
-    def forward(self, x, hx=None, init_params=False):
+    def forward(self, x, hx=None):
 
-        x = self.embedding(x, init_params=init_params)
+        x = self.embedding(x)
         x = self.dropout(x)
 
         # If 2d tensor, add a time-axis
@@ -112,14 +111,14 @@ class RNNLM(nn.Module):
             x = x.unsqueeze(dim=1)
             self.reshape = True
 
-        x, h = self.rnn(x, hx, init_params=init_params)
-        x = self.dnn(x, init_params=init_params)
-        out = self.out(x, init_params=init_params)
+        x, hidden = self.rnn(x, hx)
+        x = self.dnn(x)
+        out = self.out(x)
 
         if self.reshape:
             out = out.squeeze(dim=1)
 
         if self.return_hidden:
-            return out, h
+            return out, hidden
         else:
             return out

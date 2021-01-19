@@ -7,8 +7,10 @@ def test_SincConv():
     from speechbrain.nnet.CNN import SincConv
 
     input = torch.rand([4, 16000])
-    convolve = SincConv(out_channels=8, kernel_size=65, padding="same")
-    output = convolve(input, init_params=True)
+    convolve = SincConv(
+        input_shape=input.shape, out_channels=8, kernel_size=65, padding="same"
+    )
+    output = convolve(input)
     assert output.shape[-1] == 8
 
 
@@ -17,8 +19,10 @@ def test_Conv1d():
     from speechbrain.nnet.CNN import Conv1d
 
     input = torch.tensor([-1, -1, -1, -1]).unsqueeze(0).unsqueeze(2).float()
-    convolve = Conv1d(out_channels=1, kernel_size=1, padding="same")
-    output = convolve(input, init_params=True)
+    convolve = Conv1d(
+        out_channels=1, kernel_size=1, input_shape=input.shape, padding="same"
+    )
+    output = convolve(input)
     assert input.shape == output.shape
 
     convolve.conv.weight = torch.nn.Parameter(
@@ -34,8 +38,13 @@ def test_Conv2d():
     from speechbrain.nnet.CNN import Conv2d
 
     input = torch.rand([4, 11, 32, 1])
-    convolve = Conv2d(out_channels=1, kernel_size=(1, 1), padding="same")
-    output = convolve(input, init_params=True)
+    convolve = Conv2d(
+        out_channels=1,
+        input_shape=input.shape,
+        kernel_size=(1, 1),
+        padding="same",
+    )
+    output = convolve(input)
     assert output.shape[-1] == 1
 
     convolve.conv.weight = torch.nn.Parameter(

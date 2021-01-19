@@ -1,0 +1,29 @@
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+models: !include:models.yaml
+
+data_folder: !PLACEHOLDER
+N_epochs: 5
+data: !include:data.yaml
+    data_folder: !ref <data_folder>
+    N_epochs: !ref <N_epochs>
+
+train_loader: !ref <data[train_loader]>
+valid_loader: !ref <data[valid_loader]>
+test_loader: !ref <data[test_loader]>
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+
+modules:
+    generator: !ref <models[generator]>
+    discriminator: !ref <models[discriminator]>
+
+lr: 0.004
+g_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+d_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr> / 4
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss

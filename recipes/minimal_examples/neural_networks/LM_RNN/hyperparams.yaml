@@ -1,6 +1,6 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
@@ -23,23 +23,6 @@ dropout: 0.0
 output_neurons: 42
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
-
-# Functions
-model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    rnn_neurons: !ref <rnn_neurons>
-    rnn_layers: !ref <rnn_layers>
-    dropout: !ref <dropout>
-
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
-
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -64,5 +47,23 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [phn]
     replacements:
         $data_folder: !ref <data_folder>
+
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_layers: !ref <rnn_layers>
+    dropout: !ref <dropout>
+
+modules: {model: !ref <model>}
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss

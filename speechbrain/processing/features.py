@@ -18,11 +18,11 @@ Example
 >>> features = compute_STFT(signal)
 >>> features = spectral_magnitude(features)
 >>> compute_fbanks = Filterbank(n_mels=40)
->>> features = compute_fbanks(features, init_params=True)
->>> compute_mfccs = DCT(n_out=20)
->>> features = compute_mfccs(features, init_params=True)
->>> compute_deltas = Deltas()
->>> delta1 = compute_deltas(features, init_params=True)
+>>> features = compute_fbanks(features)
+>>> compute_mfccs = DCT(input_size=40, n_out=20)
+>>> features = compute_mfccs(features)
+>>> compute_deltas = Deltas(input_size=20)
+>>> delta1 = compute_deltas(features)
 >>> delta2 = compute_deltas(delta1)
 >>> features = torch.cat([features, delta1, delta2], dim=2)
 >>> compute_cw = ContextWindow(left_frames=5, right_frames=5)
@@ -36,6 +36,7 @@ Authors
 import math
 import torch
 import logging
+from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
@@ -143,17 +144,31 @@ class STFT(torch.nn.Module):
             x = x.transpose(1, 2)
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
-        stft = torch.stft(
-            x,
-            self.n_fft,
-            self.hop_length,
-            self.win_length,
-            self.window.to(x.device),
-            self.center,
-            self.pad_mode,
-            self.normalized_stft,
-            self.onesided,
-        )
+        if version.parse(torch.__version__) <= version.parse("1.6.0"):
+            stft = torch.stft(
+                x,
+                self.n_fft,
+                self.hop_length,
+                self.win_length,
+                self.window.to(x.device),
+                self.center,
+                self.pad_mode,
+                self.normalized_stft,
+                self.onesided,
+            )
+        else:
+            stft = torch.stft(
+                x,
+                self.n_fft,
+                self.hop_length,
+                self.win_length,
+                self.window.to(x.device),
+                self.center,
+                self.pad_mode,
+                self.normalized_stft,
+                self.onesided,
+                return_complex=False,
+            )
 
         # Retrieving the original dimensionality (batch,time, channels)
         if len(or_shape) == 3:
@@ -388,7 +403,7 @@ class Filterbank(torch.nn.Module):
     >>> import torch
     >>> compute_fbanks = Filterbank()
     >>> inputs = torch.randn([10, 101, 201])
-    >>> features = compute_fbanks(inputs, init_params=True)
+    >>> features = compute_fbanks(inputs)
     >>> features.shape
     torch.Size([10, 101, 40])
     """
@@ -468,18 +483,7 @@ class Filterbank(torch.nn.Module):
         # Replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        self.band = self.band.to(self.device_inp)
-        self.f_central = self.f_central.to(self.device_inp)
-        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
-
-    def forward(self, spectrogram, init_params=False):
+    def forward(self, spectrogram):
         """Returns the FBANks.
 
         Arguments
@@ -487,9 +491,6 @@ class Filterbank(torch.nn.Module):
         x : tensor
             A batch of spectrogram tensors.
         """
-        if init_params:
-            self.init_params(spectrogram)
-
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
             self.all_freqs_mat.shape[1], 1
@@ -595,7 +596,7 @@ class Filterbank(torch.nn.Module):
         right_side = -slope + 1.0
 
         # Adding zeros for negative values
-        zero = torch.zeros(1).to(self.device_inp)
+        zero = torch.zeros(1, device=self.device_inp)
         fbank_matrix = torch.max(
             zero, torch.min(left_side, right_side)
         ).transpose(0, 1)
@@ -711,6 +712,8 @@ class DCT(torch.nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        Expected size of the last dimension in the input.
     n_out : int
         Number of output coefficients.
     ortho_norm : bool
@@ -719,60 +722,38 @@ class DCT(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> compute_mfccs = DCT()
     >>> inputs = torch.randn([10, 101, 40])
-    >>> features = compute_mfccs(inputs, init_params=True)
+    >>> compute_mfccs = DCT(input_size=inputs.size(-1))
+    >>> features = compute_mfccs(inputs)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
 
     def __init__(
-        self, n_out=20, ortho_norm=True,
+        self, input_size, n_out=20, ortho_norm=True,
     ):
         super().__init__()
-        self.n_out = n_out
-        self.ortho_norm = ortho_norm
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        self.n_in = first_input.size(-1)
-
-        if self.n_out > self.n_in:
-            err_msg = (
+        if n_out > input_size:
+            raise ValueError(
                 "Cannot select more DCT coefficients than inputs "
-                "(n_out=%i, n_in=%i)" % (self.n_out, self.n_in)
+                "(n_out=%i, n_in=%i)" % (n_out, input_size)
             )
-            raise ValueError(err_msg)
 
         # Generate matix for DCT transformation
-        self.dct_mat = self._create_dct(first_input.device)
+        n = torch.arange(float(input_size))
+        k = torch.arange(float(n_out)).unsqueeze(1)
+        dct = torch.cos(math.pi / float(input_size) * (n + 0.5) * k)
 
-    def _create_dct(self, device):
-        """Compute the matrix for the DCT transformation.
-
-        Arguments
-        ---------
-        device : str
-            A torch device to use for storing the dct matrix.
-        """
-        n = torch.arange(float(self.n_in), device=device)
-        k = torch.arange(float(self.n_out), device=device).unsqueeze(1)
-        dct = torch.cos(math.pi / float(self.n_in) * (n + 0.5) * k)
-
-        if self.ortho_norm:
+        if ortho_norm:
             dct[0] *= 1.0 / math.sqrt(2.0)
-            dct *= math.sqrt(2.0 / float(self.n_in))
+            dct *= math.sqrt(2.0 / float(input_size))
         else:
             dct *= 2.0
 
-        return dct.t()
+        self.dct_mat = dct.t()
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the DCT of the input tensor.
 
         Arguments
@@ -780,16 +761,13 @@ class DCT(torch.nn.Module):
         x : tensor
             A batch of tensors to transform, usually fbank features.
         """
-        if init_params:
-            self.init_params(x)
-
         # Managing multi-channels case
         input_shape = x.shape
         if len(input_shape) == 4:
             x = x.reshape(x.shape[0] * x.shape[3], x.shape[1], x.shape[2])
 
         # apply the DCT transform
-        dct = torch.matmul(x, self.dct_mat)
+        dct = torch.matmul(x, self.dct_mat.to(x.device))
 
         # Reshape in the case of multi-channels
         if len(input_shape) == 4:
@@ -810,34 +788,25 @@ class Deltas(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
-    >>> compute_deltas = Deltas()
     >>> inputs = torch.randn([10, 101, 20])
-    >>> features = compute_deltas(inputs, init_params=True)
+    >>> compute_deltas = Deltas(input_size=inputs.size(-1))
+    >>> features = compute_deltas(inputs)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
 
     def __init__(
-        self, window_length=5,
+        self, input_size, window_length=5,
     ):
         super().__init__()
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        self.device = first_input.device
         self.kernel = torch.arange(
-            -self.n, self.n + 1, device=self.device, dtype=torch.float32,
-        ).repeat(first_input.shape[2], 1, 1)
+            -self.n, self.n + 1, dtype=torch.float32,
+        ).repeat(input_size, 1, 1)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the delta coefficients.
 
         Arguments
@@ -845,9 +814,6 @@ class Deltas(torch.nn.Module):
         x : tensor
             A batch of tensors.
         """
-        if init_params:
-            self.init_params(x)
-
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape
@@ -1005,6 +971,7 @@ class InputNormalization(torch.nn.Module):
         norm_type="global",
         avg_factor=None,
         requires_grad=False,
+        update_until_epoch=3,
     ):
         super().__init__()
         self.mean_norm = mean_norm
@@ -1021,8 +988,9 @@ class InputNormalization(torch.nn.Module):
         self.count = 0
         self.eps = 1e-10
         self.device_inp = torch.device("cpu")
+        self.update_until_epoch = update_until_epoch
 
-    def forward(self, x, lengths, spk_ids=torch.tensor([])):
+    def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
         """Returns the tensor with the sourrounding context.
 
         Arguments
@@ -1108,7 +1076,7 @@ class InputNormalization(torch.nn.Module):
                     self.glob_mean = current_mean
                     self.glob_std = current_std
 
-                else:
+                elif epoch < self.update_until_epoch:
                     if self.avg_factor is None:
                         self.weight = 1 / (self.count + 1)
                     else:
@@ -1143,13 +1111,13 @@ class InputNormalization(torch.nn.Module):
         if self.mean_norm:
             current_mean = torch.mean(x, dim=0).detach().data
         else:
-            current_mean = torch.tensor([0.0]).to(x.device)
+            current_mean = torch.tensor([0.0], device=x.device)
 
         # Compute current std
         if self.std_norm:
             current_std = torch.std(x, dim=0).detach().data
         else:
-            current_std = torch.tensor([1.0]).to(x.device)
+            current_std = torch.tensor([1.0], device=x.device)
 
         # Improving numerical stability of std
         current_std = torch.max(
@@ -1218,7 +1186,7 @@ class InputNormalization(torch.nn.Module):
         torch.save(stats, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch):
+    def _load(self, path, end_of_epoch, device):
         """Load statistic dictionary.
 
         Arguments
@@ -1229,5 +1197,5 @@ class InputNormalization(torch.nn.Module):
             If True, the training has completed a full epoch.
         """
         del end_of_epoch  # Unused here.
-        stats = torch.load(path)
+        stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)

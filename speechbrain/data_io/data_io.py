@@ -5,11 +5,13 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
+ * Abdel HEBA 2020
 """
 
 import os
 import re
 import csv
+import time
 import torch
 import psutil
 import random
@@ -23,6 +25,7 @@ from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 import h5py
 import math
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -160,13 +163,14 @@ class DataLoaderFactory(torch.nn.Module):
         else:
             self.shuffle = False
 
-    def forward(self):
+    def forward(self, sampler=None):
         """
-        Output:
-        dataloader: It is a list returning all the dataloaders created.
+        Returns
+        -------
+        dataset : torch.utils.data.Dataset
+            A dataset object for the data to be loaded
         """
 
-        # create data dictionary
         data_dict = self.generate_data_dict()
 
         self.label_dict = self.label_dict_creation(data_dict)
@@ -177,7 +181,7 @@ class DataLoaderFactory(torch.nn.Module):
             self.csv_read = data_dict["data_entries"]
 
         # Creating a dataloader
-        dataset = DatasetFactory(
+        self.dataset = DatasetFactory(
             data_dict,
             self.label_dict,
             self.supported_formats,
@@ -187,17 +191,32 @@ class DataLoaderFactory(torch.nn.Module):
             self.label_parsing_func,
         )
 
-        self.dataloader = DataLoader(
-            dataset,
+        # Return the factory to pass to Brain class.
+        return self
+
+    def get_dataloader(self, sampler=None):
+        """Get a dataloader for this dataset.
+
+        Arguments
+        ---------
+        sampler : torch.utils.data.Sampler
+
+        Returns
+        -------
+        dataloader : torch.utils.data.DataLoader
+        """
+        dataloader = DataLoader(
+            self.dataset,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
+            shuffle=self.shuffle if sampler is None else False,
             pin_memory=False,
             drop_last=self.drop_last,
             num_workers=self.num_workers,
             collate_fn=self.batch_creation,
+            sampler=sampler,
         )
 
-        return self.dataloader
+        return dataloader
 
     def batch_creation(self, data_lists):
         """
@@ -409,7 +428,11 @@ class DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            save_pkl(label_dict, label_dict_file)
+            try:
+                if sb.if_main_process():
+                    save_pkl(label_dict, label_dict_file)
+            finally:
+                sb.ddp_barrier()
 
         return label_dict
 
@@ -1312,8 +1335,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
 
         # saving the label_dict:
         if self.output_folder is not None:
-            label_dict_file = self.output_folder + "/label_dict.pkl"
-            save_pkl(label_dict, label_dict_file)
+            try:
+                label_dict_file = self.output_folder + "/label_dict.pkl"
+                if sb.if_main_process():
+                    save_pkl(label_dict, label_dict_file)
+            finally:
+                sb.ddp_barrier()
         return label_dict
 
 
@@ -1942,6 +1969,12 @@ def read_string(string, data_options={}, lab2ind=None):
     if callable(lab2ind):
         return lab2ind(string)
 
+    # Try decoding string
+    try:
+        string = string.decode("utf-8")
+    except AttributeError:
+        pass
+
     # Splitting elements with ' '
     string = string.split(" ")
 
@@ -2250,7 +2283,11 @@ class TensorSaver(torch.nn.Module):
 
         # Creating the save folder if it does not exist
         if not os.path.exists(self.save_folder):
-            os.makedirs(self.save_folder)
+            try:
+                if sb.if_main_process():
+                    os.makedirs(self.save_folder)
+            finally:
+                sb.ddp_barrier()
 
         # Check specified format
         if self.save_format not in self.supported_formats:
@@ -2263,9 +2300,13 @@ class TensorSaver(torch.nn.Module):
 
         # Create the csv file (if specified)
         if self.save_csv:
-            self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
-            open(self.save_csv_path, "w").close()
-            self.first_line_csv = True
+            try:
+                self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
+                if sb.if_main_process():
+                    open(self.save_csv_path, "w").close()
+                self.first_line_csv = True
+            finally:
+                sb.ddp_barrier()
 
     def forward(self, data, data_id, data_len):
         """
@@ -2283,7 +2324,11 @@ class TensorSaver(torch.nn.Module):
             data = 10 * data.log10()
 
         # Writing data on disk (in parallel)
-        self.write_batch(data, data_id, data_len)
+        try:
+            if sb.if_main_process():
+                self.write_batch(data, data_id, data_len)
+        finally:
+            sb.ddp_barrier()
 
     def write_batch(self, data, data_id, data_len):
         """
@@ -2585,8 +2630,24 @@ def load_pkl(file):
     -------
     The loaded object
     """
-    with open(file, "rb") as f:
-        return pickle.load(f)
+
+    # Deals with the situation where two processes are trying
+    # to access the same label dictionary by creating a lock
+    count = 100
+    while count > 0:
+        if os.path.isfile(file + ".lock"):
+            time.sleep(1)
+            count -= 1
+        else:
+            break
+
+    try:
+        open(file + ".lock", "w").close()
+        with open(file, "rb") as f:
+            return pickle.load(f)
+    finally:
+        if os.path.isfile(file + ".lock"):
+            os.remove(file + ".lock")
 
 
 def prepend_bos_token(label, bos_index):

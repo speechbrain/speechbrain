@@ -24,7 +24,6 @@ def test_tokenizer():
         torch.Tensor([1.0, 0.75]),
         dict_int2lab,
         task="encode",
-        init_params=True,
     )
     lens = (encoded_seq_pieces * encoded_seq_ids.shape[1]).int()
     # decode from torch tensors (batch, batch_lens)
@@ -126,7 +125,6 @@ def test_tokenizer():
         torch.Tensor([1.0, 0.7037037037037037]),
         dict_int2lab,
         task="encode",
-        init_params=True,
     )
     lens = (encoded_seq_pieces * encoded_seq_ids.shape[1]).int()
     # decode from torch tensors (batch, batch_lens)

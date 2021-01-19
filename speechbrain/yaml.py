@@ -10,19 +10,19 @@ import ast
 import yaml
 import copy
 import pydoc
+import os.path
 import inspect
 import functools
 import ruamel.yaml
 import operator as op
 from io import StringIO
-from types import SimpleNamespace
 from speechbrain.utils.data_utils import recursive_update
 
 
 # NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
 def load_extended_yaml(
-    yaml_stream, overrides=None, overrides_must_match=True, return_dict=False
+    yaml_stream, overrides=None, overrides_must_match=True,
 ):
     r'''This function implements the SpeechBrain extended YAML syntax
 
@@ -38,7 +38,7 @@ def load_extended_yaml(
 
     .. code-block:: yaml
 
-        alignment_saver: !!python/object/new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !!python/object/new:speechbrain.data_io.TensorSaver
             kwargs: {save_dir: results/asr/ali}
 
     However, due to the extensive use within speechbrain yaml files, we have
@@ -46,7 +46,7 @@ def load_extended_yaml(
 
     .. code-block:: yaml
 
-        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !new:speechbrain.data_io.TensorSaver
             save_dir: results/asr/ali
 
     In this example, the alignment_saver will be an instance of the
@@ -56,7 +56,7 @@ def load_extended_yaml(
     .. code-block:: python
 
         import speechbrain.data_io.data_io
-        alignment_saver = speechbrain.data_io.data_io.TensorSaver(
+        alignment_saver = speechbrain.data_io.TensorSaver(
             save_dir='exp/asr/ali'
         )
 
@@ -64,17 +64,19 @@ def load_extended_yaml(
 
         !!python/name: => !name:
         !!python/module: => !module:
+        !!python/object/apply: => !apply:
 
     **References and copies**
 
     Allows internal references to any node in the file. Any node with
     tag ``!ref`` will create an object reference to the yaml object at the
-    ``<key.subkey>`` location within the yaml itself, following reference chains.
+    ``<key.subkey>`` location within the yaml itself,
+    following reference chains.
 
     .. code-block:: yaml
 
         output_folder: results/asr
-        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !new:speechbrain.data_io.TensorSaver
             save_dir: !ref <output_folder>
 
     Strings values are handled specially: references are substituted but
@@ -84,7 +86,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         output_folder: results/asr
-        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !new:speechbrain.data_io.TensorSaver
             save_dir: !ref <output_folder>/ali  # results/asr/ali
 
     A more complex example for demonstration purposes:
@@ -92,7 +94,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         key1: {a: !new:object {arg1: 1}}
-        key2: !ref <key1.a>
+        key2: !ref <key1[a]>
 
     Here, ``key2`` will contain a reference to the ``a`` object, so changing
     ``a.arg1`` will also change ``key2.arg1``. If you need a
@@ -102,7 +104,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         key1: {a: !new:object {arg1: 1}}
-        key2: !copy <key1.a>
+        key2: !copy <key1[a]>
 
     These will also implement very basic arithmetic, so:
 
@@ -133,10 +135,8 @@ def load_extended_yaml(
 
     Returns
     -------
-    SimpleNamespace
-        Namespace that reflects the structure of ``yaml_stream``. The namespace
-        provides convenient "dot" access to all the first-level items in
-        the yaml file.
+    hparams : dict
+        Reflects the structure of ``yaml_stream``.
 
     Example
     -------
@@ -146,7 +146,7 @@ def load_extended_yaml(
     ...     b: !ref <a>
     ... """
     >>> params = load_extended_yaml(yaml_string)
-    >>> params.thing
+    >>> params["thing"]
     Counter({'b': 3})
     '''
     yaml_stream = resolve_references(
@@ -162,13 +162,99 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!new:", _construct_object)
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
+    yaml.Loader.add_multi_constructor("!apply:", _apply_function)
 
-    # If requested, return a dictionary as normal yaml (preserves order)
-    if return_dict:
-        return yaml.load(yaml_stream, Loader=yaml.Loader)
+    # NOTE: Here we apply a somewhat dirty trick.
+    # We change the yaml object construction to be deep=True by default.
+    #
+    # Sometimes in e.g. !apply: calls which would get passed a dictionary
+    # by reference, the dict got passed empty.
+    # This is to do with pyyaml constructors for e.g. mappings and their
+    # behaviour with the default deep=False
+    # See for example https://stackoverflow.com/a/43812995
+    #
+    # In our tests nothing seems to break after changing the default.
+    # But if later weird things start happening in YAML loading,
+    # see this.
+    yaml.constructor.BaseConstructor.construct_object.__defaults__ = (
+        True,
+    )  # deep=True
+    hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
+    # Change back to normal default:
+    yaml.constructor.BaseConstructor.construct_object.__defaults__ = (
+        False,
+    )  # deep=False
 
-    # Return a namespace for clean dot-notation
-    return SimpleNamespace(**yaml.load(yaml_stream, Loader=yaml.Loader))
+    # Remove items that start with "__"
+    removal_keys = [k for k in hparams.keys() if k.startswith("__")]
+    for key in removal_keys:
+        del hparams[key]
+
+    return hparams
+
+
+class RefTag:
+    """Class for dumping !ref tags to yaml
+
+    Arguments
+    ---------
+    ref_str : str
+        String including yaml keys in `<key>` notation
+
+    Example
+    -------
+    See ``dump_extended_yaml``
+    """
+
+    yaml_tag = "!ref"
+
+    def __init__(self, ref_str):
+        self.ref_str = ref_str
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        return representer.represent_scalar(cls.yaml_tag, node.ref_str)
+
+
+class Placeholder:
+    """Class for dumping !PLACEHOLDER tags to yaml
+
+    Example
+    -------
+    See ``dump_extended_yaml``
+    """
+
+    yaml_tag = "!PLACEHOLDER"
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        return representer.represent_scalar(cls.yaml_tag, "")
+
+
+def dump_extended_yaml(yaml_tree, output_stream, *args, **kwargs):
+    r"""Dump yaml including placeholder and reference tags.
+
+    Arguments
+    ---------
+    yaml_tree : dict
+        An object to dump
+    output_stream : stream
+        A file stream for putting the yaml
+    *args, **kwargs
+        Arguments to forward to ruamel.yaml.YAML().dump()
+
+    Example
+    -------
+    >>> to_yaml = {'a': Placeholder(), 'b': RefTag('<a>')}
+    >>> stringio = StringIO()
+    >>> dump_extended_yaml(to_yaml, stringio)
+    >>> stringio.getvalue()
+    'a: !PLACEHOLDER\nb: !ref <a>\n'
+    """
+    ruamel_yaml = ruamel.yaml.YAML()
+    ruamel_yaml.representer.add_representer(RefTag, RefTag.to_yaml)
+    ruamel_yaml.representer.add_representer(Placeholder, Placeholder.to_yaml)
+    ruamel_yaml.dump(yaml_tree, output_stream, *args, **kwargs)
 
 
 def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
@@ -197,22 +283,27 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     >>> yaml_string = """
     ... constants:
     ...     a: 3
-    ...     b: !ref <constants.a>
+    ...     b: !ref <constants[a]>
     ... """
     >>> overrides = {'constants': {'a': 4}}
     >>> resolve_references(yaml_string, overrides).getvalue()
     'constants:\n  a: 4\n  b: 4\n'
     '''
+    # find imported yaml location relative to main yaml file
+    file_path = None
+    if hasattr(yaml_stream, "name"):
+        file_path = os.path.dirname(os.path.realpath(yaml_stream.name))
+
     # Load once to store references and apply overrides
     # using ruamel.yaml to preserve the tags
     ruamel_yaml = ruamel.yaml.YAML()
     preview = ruamel_yaml.load(yaml_stream)
 
-    if overrides is not None:
+    if overrides is not None and overrides != "":
         if isinstance(overrides, str):
             overrides = ruamel_yaml.load(overrides)
         recursive_update(preview, overrides, must_match=overrides_must_match)
-    _walk_tree_and_resolve(current_node=preview, tree=preview)
+    _walk_tree_and_resolve("root", preview, preview, overrides, file_path)
 
     # Dump back to string so we can load with bells and whistles
     yaml_stream = StringIO()
@@ -222,47 +313,89 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     return yaml_stream
 
 
-def _walk_tree_and_resolve(current_node, tree):
+def _walk_tree_and_resolve(key, current_node, tree, overrides, file_path):
     """A recursive function for resolving ``!ref`` and ``!copy`` tags.
 
+    Loads additional yaml files if ``!include:`` tags are used.
     Also throws an error if ``!PLACEHOLDER`` tags are encountered.
 
     Arguments
     ---------
+    key : str
+        The fully-qualified path to current node.
     current_node : node
         A node in the yaml tree loaded with ruamel.yaml.
     tree : node
         The base node in the yaml tree loaded with ruamel.yaml.
+    overrides : dict
+        A set of overrides to pass to any ``!includes:`` files.
+    file_path : str
+        The location of the directory storing the main yaml file
 
     Returns
     -------
     yaml.Node
         A yaml tree with all references resolved.
     """
-    if (
-        hasattr(current_node, "tag")
-        and current_node.tag.value == "!PLACEHOLDER"
-    ):
-        MSG = "Replace !PLACEHOLDER values in YAML."
-        raise ValueError(MSG)
-    elif hasattr(current_node, "tag") and current_node.tag.value in [
-        "!ref",
-        "!copy",
-    ]:
-        copy_mode = current_node.tag.value == "!copy"
-        current_node = recursive_resolve(
-            reference=current_node.value,
-            reference_list=[],
-            full_tree=tree,
-            copy_mode=copy_mode,
-        )
-    elif isinstance(current_node, list):
-        for i, item in enumerate(current_node):
-            current_node[i] = _walk_tree_and_resolve(item, tree)
-    elif isinstance(current_node, dict):
-        for k, v in current_node.items():
-            current_node[k] = _walk_tree_and_resolve(v, tree)
 
+    # Walk sequence and resolve
+    if isinstance(current_node, list):
+        for i, sub_node in enumerate(current_node):
+            sub_key = i if key == "root" else f"{key}[{i}]"
+            current_node[i] = _walk_tree_and_resolve(
+                sub_key, sub_node, tree, overrides, file_path
+            )
+
+    # Walk mapping and resolve.
+    elif isinstance(current_node, dict):
+        for k, sub_node in current_node.items():
+            sub_key = k if key == "root" else f"{key}[{k}]"
+            current_node[k] = _walk_tree_and_resolve(
+                sub_key, sub_node, tree, overrides, file_path
+            )
+
+    # Base case, handle tags
+    if hasattr(current_node, "tag"):
+        tag_value = current_node.tag.value or ""
+
+        # Placeholders should have been replaced before now
+        if tag_value == "!PLACEHOLDER":
+            raise ValueError(f"'{key}' is a !PLACEHOLDER and must be replaced.")
+
+        # Resolve references to other nodes
+        elif tag_value in ["!ref", "!copy"]:
+            copy_mode = tag_value == "!copy"
+            current_node = recursive_resolve(
+                reference=current_node.value,
+                reference_list=[],
+                full_tree=tree,
+                copy_mode=copy_mode,
+            )
+
+        # Include external yaml files
+        elif tag_value.startswith("!include:"):
+            filename = tag_value[len("!include:") :]
+
+            # Update overrides with child keys
+            if isinstance(current_node, dict):
+                if overrides:
+                    recursive_update(overrides, current_node)
+                else:
+                    overrides = dict(current_node)
+
+            if file_path is not None:
+                filename = os.path.join(file_path, filename)
+            with open(filename) as f:
+                included_yaml = resolve_references(f, overrides)
+
+            # Append resolved yaml to current node
+            ruamel_yaml = ruamel.yaml.YAML()
+            current_node = ruamel_yaml.load(included_yaml)
+            # recursive_update(current_node, included_dict)
+
+            # current_node.yaml_set_tag(None)
+
+    # Return node after all resolution is done.
     return current_node
 
 
@@ -339,6 +472,25 @@ def _construct_module(loader, module_name, node):
     return module
 
 
+def _apply_function(loader, callable_string, node):
+    callable_ = pydoc.locate(callable_string)
+    if callable_ is None:
+        raise ImportError("There is no such callable as %s" % callable_string)
+
+    if not inspect.isroutine(callable_):
+        raise ValueError(
+            f"!apply:{callable_string} should be a callable, but is {callable_}"
+        )
+
+    try:
+        args, kwargs = _load_node(loader, node)
+        return callable_(*args, **kwargs)
+    except TypeError as e:
+        err_msg = "Invalid argument to callable %s" % callable_string
+        e.args = (err_msg, *e.args)
+        raise
+
+
 def deref(ref, full_tree, copy_mode=False):
     """Find the value referred to by a reference in dot-notation
 
@@ -358,19 +510,33 @@ def deref(ref, full_tree, copy_mode=False):
 
     Example
     -------
-    >>> deref('<constants.a.b>', {'constants': {'a': {'b': 'c'}}})
+    >>> deref('constants[a][b]', {'constants': {'a': {'b': 'c'}}})
     'c'
     """
 
+    # Collect the attribute reference
+    attr = None
+    if "." in ref:
+        ref, attr = ref.split(".", maxsplit=1)
+
     # Follow references in dot notation
     branch = full_tree
-    for part in ref[1:-1].split("."):
+    for part in ref.split("["):
+        part = part.strip("]")
         if part not in branch:
             raise ValueError('The reference "%s" is not valid' % ref)
         branch = branch[part]
 
+    # Copy node if requested
     if copy_mode:
         return copy.deepcopy(branch)
+
+    # To refer to an attribute, we add this special node
+    if attr is not None:
+        node = ruamel.yaml.comments.CommentedSeq()
+        node += [branch, attr]
+        node.yaml_set_tag("!apply:getattr")
+        return node
 
     return branch
 
@@ -381,7 +547,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
     Arguments
     ---------
     reference : str
-        a string containing '<x.y>' in it where x.y refers
+        a string containing '<x[y]>' in it where x[y] refers
         to a scalar node in the file.
     reference_list : list
         list of prior references in the chain, in order
@@ -419,7 +585,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
 
     # First check for a full match. These replacements preserve type.
     if reference_finder.fullmatch(reference):
-        value = deref(reference, full_tree, copy_mode)
+        value = deref(reference.strip("<>"), full_tree, copy_mode)
         reference_list += [reference]
         return recursive_resolve(value, reference_list, full_tree, copy_mode)
 
@@ -429,7 +595,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
 
     # Do replacements within the string (interpolation)
     def replace_fn(x, tree=full_tree, copy_mode=copy_mode):
-        return str(deref(x[0], full_tree=tree, copy_mode=copy_mode))
+        return str(deref(x[0].strip("<>"), full_tree=tree, copy_mode=copy_mode))
 
     sub = reference_finder.sub(replace_fn, reference)
     reference = recursive_resolve(sub, reference_list, full_tree, copy_mode)

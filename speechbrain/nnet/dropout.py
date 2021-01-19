@@ -39,7 +39,7 @@ class Dropout2d(nn.Module):
         self.inplace = inplace
         self.drop = nn.Dropout2d(p=self.drop_rate, inplace=self.inplace)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Applies dropout 2d to the input tensor.
 
         Arguments

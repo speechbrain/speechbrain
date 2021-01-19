@@ -52,15 +52,16 @@ class ContextNet(Sequential):
 
     Example
     -------
-    >>> block = ContextNet()
-    >>> inp = torch.randn([8, 120, 40])
-    >>> out = block(inp, True)
-    >>> print(out.shape)
-    torch.Size([8, 15, 640])
+    >>> inp = torch.randn([8, 48, 40])
+    >>> block = ContextNet(input_shape=inp.shape, num_blocks=14)
+    >>> out = block(inp)
+    >>> out.shape
+    torch.Size([8, 6, 640])
     """
 
     def __init__(
         self,
+        input_shape,
         out_channels=640,
         conv_channels=None,
         kernel_size=3,
@@ -76,69 +77,60 @@ class ContextNet(Sequential):
         norm=BatchNorm1d,
         residuals=None,
     ):
+        super().__init__(input_shape=input_shape)
+
         if conv_channels is None:
             conv_channels = [*[256] * 10, *[512] * 11]
         if strides is None:
-            strides = [
-                1,
-                1,
-                2,
-                1,
-                1,
-                1,
-                2,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                2,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-            ]
+            strides = [1] * num_blocks
+            strides[2] = 2
+            strides[6] = 2
+            strides[13] = 2
         if residuals is None:
             residuals = [True] * num_blocks
 
-        blocks = [
-            DepthwiseSeparableConv1d(conv_channels[0], kernel_size,),
-            norm(),
-            activation(beta) if isinstance(activation, Swish) else activation(),
-        ]
+        self.append(
+            DepthwiseSeparableConv1d,
+            conv_channels[0],
+            kernel_size,
+            layer_name="conv_start",
+        )
+        self.append(norm, layer_name="norm_start")
+
+        if isinstance(activation, Swish):
+            self.append(activation(beta), layer_name="act_start")
+        else:
+            self.append(activation(), layer_name="act_start")
 
         for i in range(num_blocks):
             channels = int(conv_channels[i] * alpha)
-            blocks.append(
-                ContextNetBlock(
-                    out_channels=channels,
-                    kernel_size=kernel_size,
-                    num_layers=num_layers,
-                    inner_dim=inner_dim,
-                    stride=strides[i],
-                    beta=beta,
-                    dropout=dropout,
-                    activation=activation,
-                    se_activation=se_activation,
-                    norm=norm,
-                    residual=residuals[i],
-                )
+            self.append(
+                ContextNetBlock,
+                out_channels=channels,
+                kernel_size=kernel_size,
+                num_layers=num_layers,
+                inner_dim=inner_dim,
+                stride=strides[i],
+                beta=beta,
+                dropout=dropout,
+                activation=activation,
+                se_activation=se_activation,
+                norm=norm,
+                residual=residuals[i],
+                layer_name=f"block_{i}",
             )
 
-        blocks.extend(
-            [
-                DepthwiseSeparableConv1d(out_channels, kernel_size,),
-                norm(),
-                activation(beta)
-                if isinstance(activation, Swish)
-                else activation(),
-            ]
+        self.append(
+            DepthwiseSeparableConv1d,
+            out_channels,
+            kernel_size,
+            layer_name="conv_end",
         )
-        super().__init__(*blocks)
+        self.append(norm, layer_name="norm_end")
+        if isinstance(activation, Swish):
+            self.append(activation(beta), layer_name="act_end")
+        else:
+            self.append(activation(), layer_name="act_end")
 
 
 class SEmodule(torch.nn.Module):
@@ -155,43 +147,48 @@ class SEmodule(torch.nn.Module):
 
     Example
     -------
-    >>> net = SEmodule(64)
     >>> inp = torch.randn([8, 120, 40])
-    >>> out = net(inp, True)
-    >>> print(out.shape)
+    >>> net = SEmodule(input_shape=inp.shape, inner_dim=64)
+    >>> out = net(inp)
+    >>> out.shape
     torch.Size([8, 120, 40])
     """
 
     def __init__(
-        self, inner_dim, activation=torch.nn.Sigmoid, norm=BatchNorm1d,
+        self,
+        input_shape,
+        inner_dim,
+        activation=torch.nn.Sigmoid,
+        norm=BatchNorm1d,
     ):
         super().__init__()
         self.inner_dim = inner_dim
         self.norm = norm
         self.activation = activation
 
-    def init_params(self, first_input):
-        bz, t, chn = first_input.shape
-        self.conv = Sequential(
-            DepthwiseSeparableConv1d(chn, 1, 1), self.norm(), self.activation()
+        bz, t, chn = input_shape
+        self.conv = Sequential(input_shape=input_shape)
+        self.conv.append(
+            DepthwiseSeparableConv1d, out_channels=chn, kernel_size=1, stride=1,
         )
+        self.conv.append(self.norm)
+        self.conv.append(self.activation())
+
         self.avg_pool = AdaptivePool(1)
         self.bottleneck = Sequential(
-            Linear(n_neurons=self.inner_dim),
+            Linear(input_size=input_shape[-1], n_neurons=self.inner_dim),
             self.activation(),
-            Linear(n_neurons=chn),
+            Linear(input_size=self.inner_dim, n_neurons=chn),
             self.activation(),
         )
 
-    def forward(self, x, init_params=False):
-        if init_params:
-            self.init_params(x)
+    def forward(self, x):
 
         bz, t, chn = x.shape
 
-        x = self.conv(x, init_params)
+        x = self.conv(x)
         avg = self.avg_pool(x)
-        avg = self.bottleneck(avg, init_params)
+        avg = self.bottleneck(avg)
         context = avg.repeat(1, t, 1)
         return x * context
 
@@ -226,10 +223,10 @@ class ContextNetBlock(torch.nn.Module):
 
     Example
     -------
-    >>> block = ContextNetBlock(256, 3, 5, 12, 2)
     >>> inp = torch.randn([8, 120, 40])
-    >>> out = block(inp, True)
-    >>> print(out.shape)
+    >>> block = ContextNetBlock(256, 3, 5, 12, input_shape=inp.shape, stride=2)
+    >>> out = block(inp)
+    >>> out.shape
     torch.Size([8, 60, 256])
     """
 
@@ -239,6 +236,7 @@ class ContextNetBlock(torch.nn.Module):
         kernel_size,
         num_layers,
         inner_dim,
+        input_shape,
         stride=1,
         beta=1,
         dropout=0.15,
@@ -250,38 +248,47 @@ class ContextNetBlock(torch.nn.Module):
         super().__init__()
         self.residual = residual
 
-        blocks = []
-
+        self.Convs = Sequential(input_shape=input_shape)
         for i in range(num_layers):
-            blocks.extend(
-                [
-                    DepthwiseSeparableConv1d(
-                        out_channels,
-                        kernel_size,
-                        stride=stride if i == num_layers - 1 else 1,
-                    ),
-                    norm(),
-                ]
+            self.Convs.append(
+                DepthwiseSeparableConv1d,
+                out_channels,
+                kernel_size,
+                stride=stride if i == num_layers - 1 else 1,
             )
+            self.Convs.append(norm)
 
-        self.Convs = Sequential(*blocks)
-        self.SE = SEmodule(inner_dim, activation=se_activation, norm=norm)
+        self.SE = SEmodule(
+            input_shape=self.Convs.get_output_shape(),
+            inner_dim=inner_dim,
+            activation=se_activation,
+            norm=norm,
+        )
         self.drop = Dropout(dropout)
         self.reduced_cov = None
         if residual:
-            self.reduced_cov = Sequential(
-                Conv1d(out_channels, kernel_size=3, stride=stride), norm()
+            self.reduced_cov = Sequential(input_shape=input_shape)
+            self.reduced_cov.append(
+                Conv1d, out_channels, kernel_size=3, stride=stride,
             )
+            self.reduced_cov.append(norm)
 
         if isinstance(activation, Swish):
             self.activation = activation(beta)
         else:
             self.activation = activation()
 
-    def forward(self, x, init_params=False):
-        out = self.Convs(x, init_params)
-        out = self.SE(out, init_params)
+        self._reset_params()
+
+    def forward(self, x):
+        out = self.Convs(x)
+        out = self.SE(out)
         if self.reduced_cov:
-            out = out + self.reduced_cov(x, init_params)
+            out = out + self.reduced_cov(x)
         out = self.activation(out)
         return self.drop(out)
+
+    def _reset_params(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                torch.nn.init.kaiming_normal_(p)
