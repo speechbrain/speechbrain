@@ -6,6 +6,7 @@ import glob
 import os
 from pathlib import Path
 
+
 def build_spk_hashtable(hparams):
 
     wsj0_utterances = glob.glob(
