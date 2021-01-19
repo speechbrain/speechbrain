@@ -1,11 +1,10 @@
 import speechbrain as sb
 import numpy as np
-import torchaudio
+import soundfile as sf
 import torch
 import glob
 import os
 from pathlib import Path
-from oct2py import Oct2Py
 
 def build_spk_hashtable(hparams):
 
@@ -17,8 +16,8 @@ def build_spk_hashtable(hparams):
     for utt in wsj0_utterances:
 
         spk_id = Path(utt).stem[:3]
-        torchaudio.info(utt)
-        assert torchaudio.info(utt).sample_rate == 8000
+
+        assert sf.SoundFile(utt).samplerate == 8000
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
         # id of speaker 1 is 019 utterance id is o031a
@@ -67,34 +66,25 @@ def dynamic_mix_data_prep(hparams):
             for spk in speakers
         ]
         minlen = min(
-            *[torchaudio.info(x).num_frames for x in spk_files],
+            *[len(sf.SoundFile(x)) for x in spk_files],
             hparams["training_signal_len"],
         )
 
         for i, spk_file in enumerate(spk_files):
 
             # select random offset
-            length = torchaudio.info(spk_file).num_frames
+            length = len(sf.SoundFile(spk_file))
             start = 0
             stop = length
             if length > minlen:  # take a random window
                 start = np.random.randint(0, length - minlen)
                 stop = start + minlen
 
-            tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start
+            tmp, fs_read = sf.read(
+                spk_file, start=start, stop=stop, dtype="float32"
             )
 
-            tmp = tmp[0]  # remove channel dim and normalize
-
-            oc = Oct2Py()
-            filedir = os.path.dirname(os.path.realpath(__file__))
-            oc.addpath(os.path.join(Path(filedir).parent, "meta"))
-            tmp = oc.activlev(tmp.numpy().tolist(), fs_read, "n")
-            tmp, _ = tmp[:-1].squeeze(), tmp[-1]
-
-            tmp = torch.from_numpy(tmp).float()
-
+            tmp = torch.from_numpy(tmp)  # remove channel dim and normalize
             if i == 0:
                 lvl = 10 ** (np.random.uniform(-2.5, 0) / 20)
                 tmp = tmp * lvl
