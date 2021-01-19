@@ -1,7 +1,7 @@
 import speechbrain as sb
 import numpy as np
-import soundfile as sf
 import torch
+import torchaudio
 import glob
 import os
 from pathlib import Path
@@ -18,7 +18,7 @@ def build_spk_hashtable(hparams):
 
         spk_id = Path(utt).stem[:3]
 
-        assert sf.SoundFile(utt).samplerate == 8000
+        assert torchaudio.info(utt).sample_rate == 8000
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
         # id of speaker 1 is 019 utterance id is o031a
@@ -67,25 +67,30 @@ def dynamic_mix_data_prep(hparams):
             for spk in speakers
         ]
         minlen = min(
-            *[len(sf.SoundFile(x)) for x in spk_files],
+            *[torchaudio.info(x).num_frames for x in spk_files],
             hparams["training_signal_len"],
         )
 
         for i, spk_file in enumerate(spk_files):
 
             # select random offset
-            length = len(sf.SoundFile(spk_file))
+            length = torchaudio.info(spk_file).num_frames
             start = 0
             stop = length
             if length > minlen:  # take a random window
                 start = np.random.randint(0, length - minlen)
                 stop = start + minlen
 
-            tmp, fs_read = sf.read(
-                spk_file, start=start, stop=stop, dtype="float32"
+            tmp, fs_read = torchaudio.load(
+                spk_file,
+                frame_offset=start,
+                num_frames=stop - start,
+                normalize=False,
             )
 
-            tmp = torch.from_numpy(tmp)  # remove channel dim and normalize
+            peak = float(Path(spk_file).stem.split("_peak_")[-1])
+
+            tmp = tmp[0] * peak  # remove channel dim and normalize
             if i == 0:
                 lvl = 10 ** (np.random.uniform(-2.5, 0) / 20)
                 tmp = tmp * lvl
