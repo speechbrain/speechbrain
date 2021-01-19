@@ -26,5 +26,5 @@ model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     dnn_neurons: 512
     return_hidden: True  # For inference
 
-tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
