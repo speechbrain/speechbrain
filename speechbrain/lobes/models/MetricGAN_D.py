@@ -1,6 +1,6 @@
 """Discriminator used in MetricGAN
 
-WORK-IN-PROGRESS 
+WORK-IN-PROGRESS
 
 Authors
 * Szu-Wei Fu 2020
@@ -81,8 +81,8 @@ class MetricGAN_D(nn.Module):
         out = self.Linear3(out)
 
         return out
-      
-      
+
+
 #    def __init__(
 #        self, kernel_size=(5, 5), base_channels=15, activation=nn.LeakyReLU,
 #    ):
