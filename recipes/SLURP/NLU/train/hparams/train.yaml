@@ -19,15 +19,15 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: /localscratch/SLURP
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train_synthetic", "train_real"]
-csv_train: !ref <data_folder>/train-type=direct.csv
-csv_valid: !ref <data_folder>/devel-type=direct.csv
-csv_test: !ref <data_folder>/test-type=direct.csv
+csv_train: !ref <data_folder>/train-type=decoupled.csv
+csv_valid: !ref <data_folder>/devel-type=decoupled.csv
+csv_test: !ref <data_folder>/test-type=decoupled.csv
 asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
-asr_tokenizer_file: ../../../../recipes/LibriSpeech/Tokenizer/inference/pretrained_tok/1000_unigram.model
+asr_tokenizer_file: ../../../../recipes/LibriSpeech/Tokenizer/pretrained/pretrained_tok/1000_unigram.model
 slu_tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
 # Training parameters
-number_of_epochs: 20
+number_of_epochs: 10
 batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
@@ -102,7 +102,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
-asr_tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+asr_tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <asr_tokenizer_file>
 
 slu_tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.pretrained.tokenizer
