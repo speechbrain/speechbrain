@@ -240,6 +240,13 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_timit,
@@ -253,13 +260,6 @@ if __name__ == "__main__":
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
 
     # Trainer initialization
     align_brain = AlignBrain(

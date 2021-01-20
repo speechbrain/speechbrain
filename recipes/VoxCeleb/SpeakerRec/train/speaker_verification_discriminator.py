@@ -24,6 +24,7 @@ Author
 import os
 import sys
 import torch
+import logging
 import torchaudio
 import random
 import speechbrain as sb
@@ -433,6 +434,8 @@ def data_io_prep(hparams):
 
 if __name__ == "__main__":
 
+    logger = logging.getLogger(__name__)
+
     # This flag enable the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
@@ -495,4 +498,4 @@ if __name__ == "__main__":
         valid_set=valid_dataloader,
     )
 
-    print("Speaker verification model training completed!")
+    logger.info("Speaker verification model training completed!")

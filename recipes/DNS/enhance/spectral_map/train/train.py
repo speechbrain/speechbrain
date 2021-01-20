@@ -10,6 +10,7 @@ Authors
 import os
 import sys
 import torch
+import logging
 import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -18,6 +19,7 @@ from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
 
+logger = logging.getLogger(__name__)
 torchaudio.set_audio_backend("sox_io")
 
 try:
@@ -203,6 +205,13 @@ if __name__ == "__main__":
     # Data preparation
     from dns_prepare import prepare_dns  # noq
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     run_on_main(
         prepare_dns,
         kwargs={
@@ -211,13 +220,6 @@ if __name__ == "__main__":
             "valid_folder": hparams["valid_folder"],
             "seg_size": 10.0,
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     if hparams["use_tensorboard"]:
