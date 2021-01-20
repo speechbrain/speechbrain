@@ -23,8 +23,7 @@ csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/devel-type=direct.csv
 csv_test: !ref <data_folder>/test-type=direct.csv
 asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
-#tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
-tokenizer_file: ../../../../recipes/timers-and-such/Tokenizer/pretrained/pretrained_tok/51_unigram.model
+tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
 # Training parameters
 number_of_epochs: 1
@@ -110,8 +109,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <asr_model>, !ref <slu_enc>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
-#tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.pretrained.tokenizer
-tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.pretrained.tokenizer
+tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
