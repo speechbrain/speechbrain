@@ -90,16 +90,16 @@ class ASR_Brain(sb.Brain):
                 print("CTC and PER stats written to ", self.hparams.per_file)
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
-    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 1. Define audio pipeline:
     @sb.utils.data_pipeline.takes(hparams["input_type"])
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     # 2. Define text pipeline:
@@ -114,7 +114,7 @@ def data_io_prep(hparams):
     # 3. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root", hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         },
     )
 
-    datasets, label_encoder = data_io_prep(hparams)
+    datasets, label_encoder = dataio_prep(hparams)
 
     # Load pretrained model
     if "pretrained" in hparams:

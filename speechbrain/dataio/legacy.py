@@ -1,5 +1,5 @@
 """SpeechBrain Extended CSV Compatibility"""
-from speechbrain.data_io.dataset import DynamicItemDataset
+from speechbrain.dataio.dataset import DynamicItemDataset
 import collections
 import csv
 import pickle

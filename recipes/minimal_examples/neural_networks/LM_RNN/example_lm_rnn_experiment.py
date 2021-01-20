@@ -43,16 +43,16 @@ def data_prep(data_folder, hparams):
     "Creates the datasets and their data processing pipelines."
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "train.json",
         replacements={"data_root": data_folder},
     )
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "dev.json",
         replacements={"data_root": data_folder},
     )
     datasets = [train_data, valid_data]
-    char_encoder = sb.data_io.encoder.TextEncoder()
+    char_encoder = sb.dataio.encoder.TextEncoder()
 
     # 2. Define char pipeline:
     @sb.utils.data_pipeline.takes("char")
@@ -68,7 +68,7 @@ def data_prep(data_folder, hparams):
         char_encoded_eos = char_encoder.append_eos_index(char_encoded).long()
         yield char_encoded_eos
 
-    sb.data_io.dataset.add_dynamic_item(datasets, char_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, char_pipeline)
 
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
@@ -77,7 +77,7 @@ def data_prep(data_folder, hparams):
     char_encoder.update_from_didataset(valid_data, output_key="char_list")
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets, ["id", "char_encoded_bos", "char_encoded_eos"]
     )
     return train_data, valid_data

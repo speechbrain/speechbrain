@@ -14,7 +14,7 @@ import torch
 import logging
 import torchaudio
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.data_io.data_io import read_audio
+from speechbrain.dataio.dataio import read_audio
 from speechbrain.processing.speech_augmentation import AddNoise
 
 logger = logging.getLogger(__name__)

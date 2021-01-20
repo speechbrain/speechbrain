@@ -6,7 +6,7 @@ Example
 -------
 >>> import torch
 >>>
->>> from speechbrain.data_io.data_io import read_audio
+>>> from speechbrain.dataio.dataio import read_audio
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
 >>> from speechbrain.processing.multi_mic import GccPhat, SrpPhat, Music
@@ -92,7 +92,7 @@ class Covariance(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>>
@@ -200,7 +200,7 @@ class DelaySum(torch.nn.Module):
         -------
         >>> import torch
 
-        >>> from speechbrain.data_io.data_io import read_audio
+        >>> from speechbrain.dataio.dataio import read_audio
         >>> from speechbrain.processing.features import STFT, ISTFT
         >>> from speechbrain.processing.multi_mic import Covariance
         >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
@@ -346,7 +346,7 @@ class Mvdr(torch.nn.Module):
         -------
         >>> import torch
 
-        >>> from speechbrain.data_io.data_io import read_audio
+        >>> from speechbrain.dataio.dataio import read_audio
         >>> from speechbrain.processing.features import STFT, ISTFT
         >>> from speechbrain.processing.multi_mic import Covariance
         >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
@@ -522,7 +522,7 @@ class Gev(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> import torch
     >>>
     >>> from speechbrain.processing.features import STFT, ISTFT
@@ -667,7 +667,7 @@ class GccPhat(torch.nn.Module):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT, ISTFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
@@ -874,7 +874,7 @@ class SrpPhat(torch.nn.Module):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import SrpPhat
@@ -1068,7 +1068,7 @@ class Music(torch.nn.Module):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import SrpPhat
@@ -1263,7 +1263,7 @@ def doas2taus(doas, mics, fs, c=343.0):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.multi_mic import sphere, doas2taus
 
     >>> xs = read_audio('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
@@ -1299,7 +1299,7 @@ def tdoas2taus(tdoas):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus
@@ -1347,7 +1347,7 @@ def steering(taus, n_fft):
     Example:
     --------f
     >>> import torch
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus, steering
