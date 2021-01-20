@@ -347,7 +347,7 @@ class ASR_Brain(sb.Brain):
         self.hparams.modules["lm_model"].load_state_dict(state_dict)
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
     # 1. define tokenizer
@@ -361,18 +361,18 @@ def data_io_prep(hparams):
             character_coverage=hparams["character_coverage"],
         )
     else:
-        tokenizer = sb.data_io.encoder.CTCTextEncoder()
+        tokenizer = sb.dataio.encoder.CTCTextEncoder()
 
     # 2. Define audio pipelines:
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_sig")
     def noisy_pipeline(wav):
-        return sb.data_io.data_io.read_audio(wav)
+        return sb.dataio.dataio.read_audio(wav)
 
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_sig")
     def clean_pipeline(wav):
-        return sb.data_io.data_io.read_audio(wav)
+        return sb.dataio.dataio.read_audio(wav)
 
     # 3. Define target pipeline:
     token_keys = ["tokens_bos", "tokens_eos", "tokens"]
@@ -397,7 +397,7 @@ def data_io_prep(hparams):
     # 4. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root", hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline, target_pipeline],
@@ -489,7 +489,7 @@ if __name__ == "__main__":
         },
     )
 
-    datasets, tokenizer = data_io_prep(hparams)
+    datasets, tokenizer = dataio_prep(hparams)
 
     # Load pretrained models
     if "pretrained_path" in hparams:

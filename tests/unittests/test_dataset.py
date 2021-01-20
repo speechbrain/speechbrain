@@ -1,5 +1,5 @@
 def test_dynamic_item_dataset():
-    from speechbrain.data_io.dataset import DynamicItemDataset
+    from speechbrain.dataio.dataset import DynamicItemDataset
     import operator
 
     data = {
@@ -27,7 +27,7 @@ def test_dynamic_item_dataset():
 
 
 def test_filtered_sorted_dynamic_item_dataset():
-    from speechbrain.data_io.dataset import DynamicItemDataset
+    from speechbrain.dataio.dataset import DynamicItemDataset
     import operator
 
     data = {

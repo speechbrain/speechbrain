@@ -2,7 +2,7 @@ import torch
 
 
 def test_saveable_dataloader(tmpdir):
-    from speechbrain.data_io.dataloader import SaveableDataLoader
+    from speechbrain.dataio.dataloader import SaveableDataLoader
 
     save_file = tmpdir + "/dataloader.ckpt"
     dataset = torch.randn(10, 1)
@@ -24,7 +24,7 @@ def test_saveable_dataloader(tmpdir):
 
 def test_saveable_dataloader_multiprocess(tmpdir):
     # Same test as above, but with multiprocess dataloading
-    from speechbrain.data_io.dataloader import SaveableDataLoader
+    from speechbrain.dataio.dataloader import SaveableDataLoader
 
     save_file = tmpdir + "/dataloader.ckpt"
     dataset = torch.randn(10, 1)

@@ -39,7 +39,7 @@ class ReproducibleRandomSampler(RandomSampler):
     -------
     >>> import torch
     >>> from speechbrain.utils.checkpoints import Checkpointer
-    >>> from speechbrain.data_io.dataloader import SaveableDataLoader
+    >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> # An example "dataset"
     >>> dataset = torch.arange(10).unsqueeze(1)
     >>> # Create the random sampler:

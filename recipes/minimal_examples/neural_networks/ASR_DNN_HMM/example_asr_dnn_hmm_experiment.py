@@ -60,11 +60,11 @@ def data_prep(data_folder, hparams):
     "Creates the datasets and their data processing pipelines."
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "train.json",
         replacements={"data_root": data_folder},
     )
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "dev.json",
         replacements={"data_root": data_folder},
     )
@@ -74,23 +74,23 @@ def data_prep(data_folder, hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("ali")
     @sb.utils.data_pipeline.provides("alignments")
     def alignment_pipeline(ali):
-        alignments = sb.data_io.data_io.load_pickle(ali)
-        alignments = sb.data_io.data_io.to_longTensor(alignments)
+        alignments = sb.dataio.dataio.load_pickle(ali)
+        alignments = sb.dataio.dataio.to_longTensor(alignments)
         return alignments
 
-    sb.data_io.dataset.add_dynamic_item(datasets, alignment_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, alignment_pipeline)
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "alignments"])
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "alignments"])
 
     return train_data, valid_data
 

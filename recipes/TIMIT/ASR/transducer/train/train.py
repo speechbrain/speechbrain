@@ -49,7 +49,7 @@ class ASR_Brain(sb.Brain):
         x = self.modules.enc_lin(x)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.data_io.prepend_bos_token(
+        y_in = sb.dataio.dataio.prepend_bos_token(
             phns, self.hparams.blank_index
         )
         e_in = self.modules.emb(y_in)
@@ -141,13 +141,13 @@ class ASR_Brain(sb.Brain):
                 )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
 
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
@@ -173,29 +173,29 @@ def data_io_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
-    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("phn")
@@ -206,14 +206,14 @@ def data_io_prep(hparams):
         phn_encoded = label_encoder.encode_sequence_torch(phn_list)
         yield phn_encoded
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
     label_encoder.insert_blank(index=hparams["blank_index"])
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
 
     return train_data, valid_data, test_data, label_encoder
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
+    train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)
 
     # Trainer initialization
     asr_brain = ASR_Brain(

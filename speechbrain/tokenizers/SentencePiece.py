@@ -10,7 +10,7 @@ import torch
 import logging
 import csv
 import sentencepiece as spm
-from speechbrain.data_io.data_io import merge_char
+from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 import speechbrain as sb
 
