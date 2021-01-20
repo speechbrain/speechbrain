@@ -14,8 +14,8 @@ Authors
 import os
 import sys
 import torch
-import torchaudio
 import logging
+import torchaudio
 import speechbrain as sb
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     params["mean_var_norm_emb"].to(params["device"])
 
     # Computing  enrollment and test embeddings
-    print("Computing enroll/test embeddings...")
+    logger.info("Computing enroll/test embeddings...")
 
     # First run
     enrol_dict = compute_embedding_loop(enrol_dataloader)
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         train_dict = compute_embedding_loop(train_dataloader)
 
     # Compute the EER
-    print("Computing EER..")
+    logger.info("Computing EER..")
     # Reading standard verification split
     gt_file = os.path.join(params["data_folder"], "meta", "veri_test.txt")
     with open(gt_file) as f:

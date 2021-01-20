@@ -221,7 +221,7 @@ def data_io_prepare(hparams):
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     test_data = valid_data.filtered_sorted(sort_key="duration")
