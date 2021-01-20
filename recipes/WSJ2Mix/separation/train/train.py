@@ -523,7 +523,7 @@ if __name__ == "__main__":
     )
 
     # Data preparation
-    from prepare_data import prepare_wsjmix  # noqa
+    from recipes.WSJ2Mix.prepare_data import prepare_wsjmix  # noqa
 
     run_on_main(
         prepare_wsjmix,
