@@ -288,7 +288,7 @@ class AddReverb(torch.nn.Module):
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
     rir_scale_factor: float
-        It compresses or dilates the given impuse response.
+        It compresses or dilates the given impulse response.
         If 0 < scale_factor < 1, the impulse response is compressed
         (less reverb), while if scale_factor > 1 it is dilated
         (more reverb).

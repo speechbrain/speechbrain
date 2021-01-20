@@ -1,5 +1,5 @@
 """
-Data reading and writing
+Data reading and writing.
 
 Authors
  * Mirco Ravanelli 2020
@@ -23,27 +23,6 @@ import re
 
 torchaudio.set_audio_backend("sox_io")  # switch backend
 logger = logging.getLogger(__name__)
-
-
-def _recursive_format(data, replacements):
-    # Data: dict or list, replacements : dict
-    # Replaces string keys in replacements by their values
-    # at all levels of data (in str values)
-    # Works in-place.
-    if isinstance(data, dict):
-        for key, item in data.items():
-            if isinstance(item, dict) or isinstance(item, list):
-                _recursive_format(item, replacements)
-            elif isinstance(item, str):
-                data[key] = item.format_map(replacements)
-            # If not dict, list or str, do nothing
-    if isinstance(data, list):
-        for i, item in enumerate(data):
-            if isinstance(item, dict) or isinstance(item, list):
-                _recursive_format(item, replacements)
-            elif isinstance(item, str):
-                data[i] = item.format_map(replacements)
-            # If not dict, list or str, do nothing
 
 
 def load_data_json(json_path, replacements={}):
@@ -80,11 +59,31 @@ def load_data_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
-    # TODO: Example / unittest
     with open(json_path, "r") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
     return out_json
+
+
+def _recursive_format(data, replacements):
+    # Data: dict or list, replacements : dict
+    # Replaces string keys in replacements by their values
+    # at all levels of data (in str values)
+    # Works in-place.
+    if isinstance(data, dict):
+        for key, item in data.items():
+            if isinstance(item, dict) or isinstance(item, list):
+                _recursive_format(item, replacements)
+            elif isinstance(item, str):
+                data[key] = item.format_map(replacements)
+            # If not dict, list or str, do nothing
+    if isinstance(data, list):
+        for i, item in enumerate(data):
+            if isinstance(item, dict) or isinstance(item, list):
+                _recursive_format(item, replacements)
+            elif isinstance(item, str):
+                data[i] = item.format_map(replacements)
+            # If not dict, list or str, do nothing
 
 
 def load_data_csv(csv_path, replacements={}):
@@ -162,9 +161,9 @@ def load_data_csv(csv_path, replacements={}):
 
 
 def read_audio(waveforms_obj):
-    """General audio loading, based on custom notation
+    """General audio loading, based on a custom notation
 
-    Expected use case is specifically in conjunction with Datasets
+    Expected use case is in conjunction with Datasets
     specified by JSON.
 
     The custom notation:
@@ -215,9 +214,9 @@ def read_audio(waveforms_obj):
 
 
 def read_audio_multichannel(waveforms_obj):
-    """General audio loading, based on custom notation
+    """General audio loading, based on a custom notation
 
-    Expected use case is specifically in conjunction with Datasets
+    Expected use case is in conjunction with Datasets
     specified by JSON.
 
     The custom notation:
@@ -233,7 +232,7 @@ def read_audio_multichannel(waveforms_obj):
         ]
     }
 
-    Or you can specify a single file more succintly:
+    Or you can specify a single file more succinctly:
     {"files": "/path/to/wav2.wav"}
 
     Offset number samples and stop number samples also can be specified to read
@@ -432,19 +431,19 @@ def convert_index_to_lab(batch, ind2lab):
 
 def relative_time_to_absolute(batch, relative_lens, rate):
     """
-    Converts SpeechBrain style relative length to absolute duration
+    Converts SpeechBrain style relative length to the absolute duration
 
     Operates on batch level.
 
     Arguments
     ---------
     batch : torch.tensor
-        Sequences to determine duration for.
+        Sequences to determine the duration for.
     relative_lens : torch.tensor
         The relative length of each sequence in batch. The longest sequence in
         the batch needs to have relative length 1.0.
     rate : float
-        The rate at which sequence elements occur in real world time. Sample
+        The rate at which sequence elements occur in real-world time. Sample
         rate, if batch is raw wavs (recommended) or 1/frame_shift if batch is
         features. This has to have 1/s as the unit.
 
@@ -594,58 +593,6 @@ class IterativeCSVWriter:
         return expanded
 
 
-def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
-    """
-    Read labels in kaldi format
-
-    Uses kaldi IO
-
-    Arguments
-    ---------
-    kaldi_ali : str
-        Path to directory where kaldi alignents are stored.
-    kaldi_lab_opts : str
-        A string that contains the options for reading the kaldi alignments.
-
-    Returns
-    -------
-    dict
-        A dictionary contaning the labels
-
-    Note
-    ----
-    This depends on kaldi-io-for-python. Install it separately.
-    See: https://github.com/vesis84/kaldi-io-for-python
-
-    Example
-    -------
-    This example requires kaldi files
-    ```
-    lab_folder = '/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali'
-    read_kaldi_lab(lab_folder, 'ali-to-pdf')
-    ```
-    """
-    # EXTRA TOOLS
-    try:
-        import kaldi_io
-    except ImportError:
-        raise ImportError("Could not import kaldi_io. Install it to use this.")
-    # Reading the Kaldi labels
-    lab = {
-        k: v
-        for k, v in kaldi_io.read_vec_int_ark(
-            "gunzip -c "
-            + kaldi_ali
-            + "/ali*.gz | "
-            + kaldi_lab_opts
-            + " "
-            + kaldi_ali
-            + "/final.mdl ark:- ark:-|",
-        )
-    }
-    return lab
-
-
 def write_txt_file(data, filename, sampling_rate=None):
     """
     Write data in text format
@@ -732,7 +679,7 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
     length : torch.LongTensor
         Containing the length of each sequence in the batch. Must be 1D.
     max_len : int
-        Max length for the mask, also the size of second dimension.
+        Max length for the mask, also the size of the second dimension.
     dtype : torch.dtype, default: None
         The dtype of the generated mask.
     device: torch.device, default: None
@@ -958,13 +905,13 @@ def merge_char(sequences, space="_"):
     Arguments
     ---------
     sequences : list
-        Each item contains a list, and this list contains character sequence.
+        Each item contains a list, and this list contains a character sequence.
     space : string
         The token represents space. Default: _
 
     Returns
     -------
-    The list contain word sequences for each sentence.
+    The list contains word sequences for each sentence.
 
     Example:
     >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
@@ -1028,13 +975,13 @@ def split_word(sequences, space="_"):
     Arguments
     ---------
     sequences : list
-        Each item contains a list, and this list contains words sequence.
+        Each item contains a list, and this list contains a words sequence.
     space : string
         The token represents space. Default: _
 
     Returns
     -------
-    The list contain word sequences for each sentence.
+    The list contains word sequences for each sentence.
 
     Example:
     >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
