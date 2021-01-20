@@ -61,12 +61,12 @@ class VADBrain(sb.Brain):
 def data_prep(data_folder, hparams):
     "Creates the datasets and their data processing pipelines."
 
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=os.path.join(data_folder, "train.json"),
         replacements={"data_folder": data_folder},
     )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=os.path.join(data_folder, "valid.json"),
         replacements={"data_folder": data_folder},
     )
@@ -77,7 +77,7 @@ def data_prep(data_folder, hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     # 2. vad targets creation from annotated speech boundaries
@@ -101,11 +101,11 @@ def data_prep(data_folder, hparams):
 
         return gt
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
-    sb.data_io.dataset.add_dynamic_item(datasets, vad_targets)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, vad_targets)
 
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "target"])
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "target"])
 
     return train_data, valid_data
 

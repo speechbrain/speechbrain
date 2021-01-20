@@ -3,7 +3,7 @@ import os
 
 
 def test_read_audio(tmpdir):
-    from speechbrain.data_io.data_io import read_audio, write_audio
+    from speechbrain.dataio.dataio import read_audio, write_audio
 
     test_waveform = torch.rand(16000)
     wavfile = os.path.join(tmpdir, "wave.wav")
@@ -21,7 +21,7 @@ def test_read_audio(tmpdir):
 
 
 def test_read_audio_multichannel(tmpdir):
-    from speechbrain.data_io.data_io import read_audio_multichannel, write_audio
+    from speechbrain.dataio.dataio import read_audio_multichannel, write_audio
 
     test_waveform = torch.rand(16000, 2)
     wavfile = os.path.join(tmpdir, "wave.wav")

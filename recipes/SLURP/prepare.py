@@ -6,7 +6,7 @@ try:
 except ModuleNotFoundError:
     print("Error: pandas must be installed to run this recipe.")
     print("Install using `pip install pandas`.")
-from speechbrain.data_io.data_io import read_wav_soundfile, merge_csvs
+from speechbrain.dataio.dataio import read_wav_soundfile, merge_csvs
 
 # from speechbrain.utils.data_utils import download_file
 
