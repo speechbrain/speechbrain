@@ -1,3 +1,10 @@
+# Speech separation with WSJMIX
+This folder contains some popular recipes for the WSJMIX task (2/3 sources).
+
+# SepFormer recipe
+
+# DualPath RNN recipe
+
 # ConvTasnet Recipe
 
 * This recipe is able to train several different source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
@@ -10,9 +17,10 @@ pip install mir_eval
 To run it:
 
 ```
-python experiment.py hyperparams / convtasnet.yaml
+python train.py hyperparams/convtasnet.yaml
 ```
 Make sure you modified the paths inside the parameter file before running the recipe.
+
 
 # WSJ0-2mix dataset creation
 * If not available in the "wsj0mixpath" variable of the parameter file, this recipe creates the standard WSJ0 - 2Mix dataset from scratch.  To generate it you need to own the standard WSJ0 dataset(available though LDC at https: // catalog.ldc.upenn.edu / LDC93S6A).
