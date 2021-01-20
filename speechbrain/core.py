@@ -31,9 +31,9 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.data_io.dataloader import SaveableDataLoader
-from speechbrain.data_io.sampler import DistributedSamplerWrapper
-from speechbrain.data_io.sampler import ReproducibleRandomSampler
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.dataio.sampler import DistributedSamplerWrapper
+from speechbrain.dataio.sampler import ReproducibleRandomSampler
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -662,7 +662,7 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
-        dataloader = sb.data_io.dataloader.make_dataloader(
+        dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
 

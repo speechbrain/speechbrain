@@ -38,7 +38,7 @@ def build_spk_hashtable(hparams):
 def dynamic_mix_data_prep(hparams):
 
     # 1. Define datasets
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
@@ -116,8 +116,8 @@ def dynamic_mix_data_prep(hparams):
         for i in range(hparams["num_spks"]):
             yield sources[i]
 
-    sb.data_io.dataset.add_dynamic_item([train_data], audio_pipeline)
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline)
+    sb.dataio.dataset.set_output_keys(
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
 

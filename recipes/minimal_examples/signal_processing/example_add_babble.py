@@ -1,7 +1,7 @@
 import os
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.data_io.data_io import read_audio, write_audio
+from speechbrain.dataio.dataio import read_audio, write_audio
 
 output_folder = os.path.join("results", "add_babble")
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +25,7 @@ def main():
         overrides=overrides,
     )
 
-    dataloader = sb.data_io.dataloader.make_dataloader(
+    dataloader = sb.dataio.dataloader.make_dataloader(
         dataset=hyperparams["sample_data"], batch_size=hyperparams["batch_size"]
     )
     for (id, (wav, wav_len),) in iter(dataloader):

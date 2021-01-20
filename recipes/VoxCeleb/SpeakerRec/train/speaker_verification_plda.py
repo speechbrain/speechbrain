@@ -148,7 +148,7 @@ def get_utt_ids_for_test(ids, data_dict):
     return mod, seg
 
 
-def data_io_prep(params):
+def dataio_prep(params):
     "Creates the dataloaders and their data processing pipelines."
 
     data_folder = params["data_folder"]
@@ -156,7 +156,7 @@ def data_io_prep(params):
     # 1. Declarations:
 
     # Train data (used for normalization)
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["train_data"], replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
@@ -164,13 +164,13 @@ def data_io_prep(params):
     )
 
     # Enrol data
-    enrol_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["enrol_data"], replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["test_data"], replacements={"data_root": data_folder},
     )
     test_data = enrol_data.filtered_sorted(sort_key="duration")
@@ -190,19 +190,19 @@ def data_io_prep(params):
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig", "spk_id"])
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "spk_id"])
 
     # 4 Create dataloaders
-    train_dataloader = sb.data_io.dataloader.make_dataloader(
+    train_dataloader = sb.dataio.dataloader.make_dataloader(
         train_data, **params["train_dataloader_opts"]
     )
-    enrol_dataloader = sb.data_io.dataloader.make_dataloader(
+    enrol_dataloader = sb.dataio.dataloader.make_dataloader(
         enrol_data, **params["enrol_dataloader_opts"]
     )
-    test_dataloader = sb.data_io.dataloader.make_dataloader(
+    test_dataloader = sb.dataio.dataloader.make_dataloader(
         test_data, **params["test_dataloader_opts"]
     )
 
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_dataloader, test_dataloader, enrol_dataloader = data_io_prep(params)
+    train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
 
     # Initialize PLDA vars
     modelset, segset = [], []

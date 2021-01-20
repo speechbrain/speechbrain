@@ -15,7 +15,7 @@ from collections import Counter
 import logging
 import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
-from speechbrain.data_io.data_io import (
+from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     merge_csvs,

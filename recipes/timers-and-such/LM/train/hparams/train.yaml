@@ -48,28 +48,28 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Dataloaders
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: random
     output_folder: !ref <output_folder>
     csv_read: [transcript]
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [transcript]
 
-test_real_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_real_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_test_real>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [transcript]
 
-test_synth_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_synth_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
     csv_file: !ref <csv_test_synth>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending

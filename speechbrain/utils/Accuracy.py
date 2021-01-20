@@ -4,7 +4,7 @@ Authors
 * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.dataio.dataio import length_to_mask
 
 
 def Accuracy(log_probablities, targets, length=None):
