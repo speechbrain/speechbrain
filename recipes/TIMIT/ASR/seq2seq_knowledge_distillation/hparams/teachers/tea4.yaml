@@ -1,29 +1,23 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/tea9/<seed>
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/tea4/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/dev.csv
+test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
 lr: 0.0003
 ctc_weight: 0.2
-
-# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
-# These options will be set by that script, and will override these.
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
+sorting: ascending
 
 # Feature parameters
 sample_rate: 16000
@@ -32,7 +26,7 @@ n_mels: 40
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+dropout: 0.3
 cnn_blocks: 2
 cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
@@ -47,16 +41,36 @@ dec_neurons: 256
 # Outputs
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
-
-# Decoding parameters
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
+
+# Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
 eos_threshold: 1.5
 
-# Functions
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
@@ -97,9 +111,6 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
-model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
-
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
@@ -122,11 +133,16 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -137,7 +153,6 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.8
     patient: 0
 
-# Modules to have train/eval/optimizer called on
 modules:
     enc: !ref <enc>
     emb: !ref <emb>
@@ -146,48 +161,15 @@ modules:
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
 
-# Names of modules to be compiled with torch.jit.script
 jit_module_keys: [enc]
-
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
-
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-
-compute_features: !new:speechbrain.lobes.features.Fbank
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    n_mels: !ref <n_mels>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
         normalize: !ref <normalize>
-        counter: !ref <epoch_counter>
         lr_annealing: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

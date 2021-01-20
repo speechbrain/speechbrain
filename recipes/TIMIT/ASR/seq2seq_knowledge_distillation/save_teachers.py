@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import os
 import sys
 import torch
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
 
 from tqdm.contrib import tqdm
 import h5py
@@ -11,43 +12,32 @@ import numpy as np
 
 # Define training procedure
 class ASR(sb.Brain):
-    def __init__(self, tea_modules_list=None, hparams=None):
+    def __init__(self, tea_modules_list=None, hparams=None, run_opts=None):
         super(ASR, self).__init__(
-            modules=None, opt_class=None, hparams=hparams, checkpointer=None
+            modules=None,
+            opt_class=None,
+            hparams=hparams,
+            run_opts=run_opts,
+            checkpointer=None,
         )
 
         # Initialize teacher parameters
         tea_modules_list_ = []
         for tea_modules in tea_modules_list:
             tea_modules_ = torch.nn.ModuleList(tea_modules)
+            tea_modules_ = tea_modules_.to(self.device)
             tea_modules_list_.append(tea_modules_)
         self.tea_modules_list = tea_modules_list_
 
-    def compute_forward_tea(self, x, y):
-        ids, wavs, wav_lens = x
-        ids, phns, phn_lens = y
-
-        wavs, wav_lens = (
-            wavs.to(self.hparams.device),
-            wav_lens.to(self.hparams.device),
-        )
-        phns, phn_lens = (
-            phns.to(self.hparams.device),
-            phn_lens.to(self.hparams.device),
-        )
-
-        if hasattr(self.hparams, "augmentation"):
-            wavs = self.hparams.augmentation(wavs, wav_lens)
+    def compute_forward_tea(self, batch):
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
+        phns_bos, _ = batch.phn_encoded_bos
+        phns, phn_lens = batch.phn_encoded
 
         feats = self.hparams.compute_features(wavs)
         feats = self.hparams.normalize(feats, wav_lens)
         apply_softmax = torch.nn.Softmax(dim=-1)
-
-        ind2lab = self.hparams.train_loader.label_dict["phn"]["index2lab"]
-        phns_decode = sb.utils.data_utils.undo_padding(phns, phn_lens)
-        phns_decode = sb.data_io.data_io.convert_index_to_lab(
-            phns_decode, ind2lab
-        )
 
         # run inference to each teacher model
         tea_dict_list = []
@@ -63,11 +53,7 @@ class ASR(sb.Brain):
                     ctc_logits_tea / self.hparams.temperature
                 )
 
-                # Prepend bos token at the beginning
-                y_in_tea = sb.data_io.data_io.prepend_bos_token(
-                    phns, bos_index=self.hparams.bos_index
-                )
-                e_in_tea = tea_emb_list[num](y_in_tea)
+                e_in_tea = tea_emb_list[num](phns_bos)
                 h_tea, _ = tea_dec_list[num](e_in_tea, x_tea, wav_lens)
 
                 # output layer for seq2seq log-probabilities
@@ -77,14 +63,19 @@ class ASR(sb.Brain):
                 )
 
                 # WER from output layer of CTC
-                sequence_ctc = sb.decoders.ctc.ctc_greedy_decode(
+                sequence_ctc = sb.decoders.ctc_greedy_decode(
                     p_ctc_tea, wav_lens, blank_id=self.hparams.blank_index
                 )
-                sequence_ctc = sb.data_io.data_io.convert_index_to_lab(
-                    sequence_ctc, ind2lab
-                )
+
+                phns_decode = sb.utils.data_utils.undo_padding(phns, phn_lens)
+                phns_decode = self.label_encoder.decode_ndim(phns_decode)
+                sequence_decode = self.label_encoder.decode_ndim(sequence_ctc)
+
                 per_stats_ctc = sb.utils.edit_distance.wer_details_for_batch(
-                    ids, phns_decode, sequence_ctc, compute_alignments=False
+                    batch.id,
+                    phns_decode,
+                    sequence_decode,
+                    compute_alignments=False,
                 )
 
                 wer_ctc_tea = []
@@ -99,11 +90,9 @@ class ASR(sb.Brain):
                 hyps = sb.decoders.seq2seq.batch_filter_seq2seq_output(
                     predictions, eos_id=self.hparams.eos_index
                 )
-                sequence_ce = sb.data_io.data_io.convert_index_to_lab(
-                    hyps, ind2lab
-                )
+                sequence_ce = self.label_encoder.decode_ndim(hyps)
                 per_stats_ce = sb.utils.edit_distance.wer_details_for_batch(
-                    ids, phns_decode, sequence_ce, compute_alignments=False
+                    batch.id, phns_decode, sequence_ce, compute_alignments=False
                 )
 
                 wer_tea = []
@@ -142,15 +131,13 @@ class ASR(sb.Brain):
             # create group for each set (train, valid, test).
             g_sets = f.create_group(stage[num])
 
-            data_sets[num] = data_sets[num].get_dataloader()
             with tqdm(data_sets[num], dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
                     # create group for each batch
                     g_batch = g_sets.create_group(str(i))
-                    inputs, targets = batch
 
                     # run inference to each teacher
-                    tea_dict_list = self.compute_forward_tea(inputs, targets)
+                    tea_dict_list = self.compute_forward_tea(batch)
 
                     for tea_num in range(self.hparams.num_tea):
                         # create group for each teacher
@@ -186,29 +173,151 @@ def exclude_wer(wer):
     return np.array(wer_list)
 
 
+def data_io_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+    data_folder = hparams["data_folder"]
+    # 1. Declarations:
+    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
+
+    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
+
+    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_annotation"],
+        replacements={"data_root": data_folder},
+    )
+    test_data = test_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, valid_data, test_data]
+    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = sb.data_io.data_io.read_audio(wav)
+        return sig
+
+    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+
+    # 3. Define text pipeline:
+    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.provides(
+        "phn_list",
+        "phn_encoded_list",
+        "phn_encoded",
+        "phn_encoded_eos",
+        "phn_encoded_bos",
+    )
+    def text_pipeline(phn):
+        phn_list = phn.strip().split()
+        yield phn_list
+        phn_encoded_list = label_encoder.encode_sequence(phn_list)
+        yield phn_encoded_list
+        phn_encoded = torch.LongTensor(phn_encoded_list)
+        yield phn_encoded
+        phn_encoded_eos = torch.LongTensor(
+            label_encoder.append_eos_index(phn_encoded_list)
+        )
+        yield phn_encoded_eos
+        phn_encoded_bos = torch.LongTensor(
+            label_encoder.prepend_bos_index(phn_encoded_list)
+        )
+        yield phn_encoded_bos
+
+    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    # 3. Fit encoder:
+    # NOTE: In this minimal example, also update from valid data
+
+    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    if (
+        hparams["blank_index"] != hparams["bos_index"]
+        or hparams["blank_index"] != hparams["eos_index"]
+    ):
+        label_encoder.insert_blank(index=hparams["blank_index"])
+
+    if hparams["bos_index"] == hparams["eos_index"]:
+        label_encoder.insert_bos_eos(
+            bos_label="<eos-bos>",
+            eos_label="<eos-bos>",
+            bos_index=hparams["bos_index"],
+        )
+    else:
+        label_encoder.insert_bos_eos(
+            bos_label="<bos>",
+            eos_label="<eos>",
+            bos_index=hparams["bos_index"],
+            eos_index=hparams["eos_index"],
+        )
+
+    # 4. Set output:
+    sb.data_io.dataset.set_output_keys(
+        datasets,
+        ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"],
+    )
+
+    return train_data, valid_data, test_data, label_encoder
+
+
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-    from timit_prepare import prepare_timit  # noqa E402
+    # CLI:
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides)
+
+    # Dataset prep (parsing TIMIT and annotation into csv files)
+    from timit_prepare import prepare_timit  # noqa
+
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_timit,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "splits": ["train", "dev", "test"],
+            "save_folder": hparams["data_folder"],
+        },
+    )
+
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
-    )
-
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
     )
 
     # initialise teacher model variables
@@ -232,19 +341,15 @@ if __name__ == "__main__":
             )
         )  # i denotes the index of teacher models
 
-        exec("tea{}_modules = tea{}_modules.to(hparams['device'])".format(i, i))
-
     tea_modules_list = []
     for i in range(hparams["num_tea"]):
         exec("tea_modules_list.append(tea{}_modules)".format(i))
 
-    # Collect index to label conversion dict for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    test_set = hparams["test_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
-    asr_brain = ASR(tea_modules_list=tea_modules_list, hparams=hparams)
+    # Trainer initialization
+    asr_brain = ASR(
+        tea_modules_list=tea_modules_list, hparams=hparams, run_opts=run_opts
+    )
+    asr_brain.label_encoder = label_encoder
 
     # load pre-trained weights of teacher models
     with open(hparams["tea_models_dir"], "r") as f:
@@ -255,6 +360,17 @@ if __name__ == "__main__":
                     i
                 )
             )
+
+    # make dataloaders
+    train_set = sb.data_io.dataloader.make_dataloader(
+        train_data, **hparams["train_dataloader_opts"]
+    )
+    valid_set = sb.data_io.dataloader.make_dataloader(
+        valid_data, **hparams["valid_dataloader_opts"]
+    )
+    test_set = sb.data_io.dataloader.make_dataloader(
+        test_data, **hparams["test_dataloader_opts"]
+    )
 
     # run inference and save results
     asr_brain.fit_save(train_set, valid_set, test_set)

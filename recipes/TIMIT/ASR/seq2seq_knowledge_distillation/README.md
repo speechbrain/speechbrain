@@ -13,32 +13,32 @@ three parts: teacher model training, inference running on teacher models, studen
 #### 1. Teacher model training
 Before doing distillation, we require finishing N teacher models training. Here, we propose to set N=10 as in the referenced paper.
 
-Models training can be done in parallel using `experiment_teacher.py`.
+Models training can be done in parallel using `train_teacher.py`.
 
 Example:
 ```
-python experiment_teacher.py hyperparams/teachers/tea0.yaml --data_folder /path-to/data_folder --seed 1234
+python train_teacher.py hparams/teachers/tea0.yaml --data_folder /path-to/data_folder
 ```
 
 #### 2. Run inference on all teacher models
-This part run inference on all teacher models and store them on disk using `experiment_save_teachers.py`. It is only required that you setup the `tea_models_dir` variable corresponding to the path to a txt file. The latter txt file needs to contain 
-a list of paths pointing to each teacher model.ckpt. We decided to work with a file so it can easily scale to hundreds of teachers. 
+This part run inference on all teacher models and store them on disk using `save_teachers.py`. It is only required that you setup the `tea_models_dir` variable corresponding to the path to a txt file. The latter txt file needs to contain
+a list of paths pointing to each teacher model.ckpt. We decided to work with a file so it can easily scale to hundreds of teachers.
 
 Example:
 ```
-python experiment_save_teachers.py hyperparams/augment_CRDNN_save_teachers.yaml --data_folder /path-to/data_folder --seed 1234
+python save_teachers.py hparams/save_teachers.yaml --data_folder /path-to/data_folder --tea_models_dir /path-to/tea_model_paths.txt
 ```
 
 #### 3. Student distillation
-This is the main part for distillation using `experiment_kd.py`. Here, the variable `pretrain` might be used to use a pre-trained teacher as the student. Note that if set to `True`, a path to the corresponding `model.ckpt` must be given in `pretrain_st_dir` 
+This is the main part for distillation using `train_kd.py`. Here, the variable `pretrain` might be used to use a pre-trained teacher as the student. Note that if set to `True`, a path to the corresponding `model.ckpt` must be given in `pretrain_st_dir`. Also, `tea_infer_dir` is required, linking to the directory of teacher model inference results.
 
 Example:
 ```
-python experiment_kd.py hyperparams/augment_CRDNN.yaml --data_folder /path-to/data_folder --seed 1234
+python train_kd.py hparams/train_kd.yaml --data_folder /path-to/data_folder --pretrain_st_dir /path-to/model_directory --tea_infer_dir /path-to/tea_infer_directory
 ```
 
 ### Distillation strategies
-There are three strategies in current version setting by the option `strategy` in `hyperparams/augment_CRDNN.yaml`.
+There are three strategies in current version setting by the option `strategy` in `hparams/train_kd.yaml`.
 
 - **average**: average losses of teachers when doing distillation.
 - **best**: choosing the best teacher based on WER.
