@@ -74,7 +74,7 @@ DGNode = collections.namedtuple("DGNode", ["key", "edges", "data"])
 
 class DependencyGraph:
     """
-    General purpose dependency graph.
+    General-purpose dependency graph.
 
     Essentially a directed acyclic graph.
     Usually used to find an evaluation order for e.g. variable substitution

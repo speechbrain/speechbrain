@@ -37,7 +37,7 @@ class TDNNBlock(nn.Module):
     kernel_size : int
         The kernel size of the TDNN blocks
     dialation : int
-        The dialation of the Res2Net block
+        The dilation of the Res2Net block
     activation : torch class
         A class for constructing the activation layers.
 
@@ -84,7 +84,7 @@ class Res2NetBlock(torch.nn.Module):
     scale : int
         The scale of the Res2Net block
     dialation : int
-        The dialation of the Res2Net block
+        The dilation of the Res2Net block
 
     Example
     -------
@@ -128,7 +128,7 @@ class Res2NetBlock(torch.nn.Module):
 
 
 class SEBlock(nn.Module):
-    """An implementation of sqeeuze-and-excitation block
+    """An implementation of squeeuze-and-excitation block
 
     Arguments
     ---------
@@ -178,8 +178,8 @@ class SEBlock(nn.Module):
 
 
 class AttentiveStatisticsPooling(nn.Module):
-    """This class implements a attentive statistic pooling layer for each channel.
-    It returns the concatenated mean and std of input tensor
+    """This class implements an attentive statistic pooling layer for each channel.
+    It returns the concatenated mean and std of the input tensor
 
     Arguments
     ---------
@@ -268,7 +268,7 @@ class SERes2NetBlock(nn.Module):
     """An implementation of building block in ECAPA-TDNN, i.e.
     TDNN-Res2Net-TDNN-SEBlock.
 
-    Arguements
+    Arguments
     ----------
     out_channels: int
         The number of output channels
@@ -277,7 +277,7 @@ class SERes2NetBlock(nn.Module):
     kernel_size: int
         The kernel size of the TDNN blocks
     dialation: int
-        The dialation of the Res2Net block
+        The dilation of the Res2Net block
     activation : torch class
         A class for constructing the activation layers.
 

@@ -23,7 +23,7 @@ class TransformerLM(TransformerInterface):
 
     The architecture is based on the paper "Attention Is All You Need": https://arxiv.org/pdf/1706.03762.pdf
 
-    Arguements
+    Arguments
     ----------
     d_model: int
         the number of expected features in the encoder/decoder inputs (default=512).

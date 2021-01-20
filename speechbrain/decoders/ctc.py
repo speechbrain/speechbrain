@@ -30,7 +30,7 @@ class CTCPrefixScorer:
     blank_index : int
         The index of the blank.
     eos_index : int
-        The index of end-of-sequence token.
+        The index of the end-of-sequence (eos) token.
     """
 
     def __init__(
@@ -78,7 +78,7 @@ class CTCPrefixScorer:
 
     def forward_step(self, g, state, candidates=None):
         """This method if one step of forwarding operation
-        for prefic ctc scorer.
+        for the prefix ctc scorer.
 
         Arguments
         ---------
@@ -234,6 +234,23 @@ class CTCPrefixScorer:
         return psi - psi_prev, (r, psi, scoring_table)
 
     def permute_mem(self, memory, index):
+        """
+        This method permutes the CTC model memory
+        to synchronize the memory index with the current output.
+
+        Arguments
+        ---------
+
+        memory : No limit
+            The memory variable to be permuted.
+        index : torch.Tensor
+            The index of the previous path.
+
+        Return
+        ------
+        The variable of the memory being permuted.
+
+        """
         r, psi, scoring_table = memory
         # The index of top-K vocab came from in (t-1) timesteps.
         best_index = (
@@ -321,11 +338,11 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     Parameters
     ----------
     probabilities : torch.tensor
-        Output probabilities (or log-probabilities) from network with shape
+        Output probabilities (or log-probabilities) from the network with shape
         [batch, probabilities, time]
     seq_lens : torch.tensor
         Relative true sequence lengths (to deal with padded inputs),
-        longest sequence has length 1.0, others a value betwee zero and one
+        the longest sequence has length 1.0, others a value between zero and one
         shape [batch, lengths]
     blank_id : int, string
         The blank symbol/index. Default: -1. If a negative number is given,
