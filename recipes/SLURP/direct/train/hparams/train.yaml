@@ -26,7 +26,7 @@ asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
