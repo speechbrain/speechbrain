@@ -35,6 +35,7 @@ sorting: random
 
 dataloader_opts:
     batch_size: !ref <batch_size>
+    shuffle: True
 
 # Model params
 emb_size: 128
