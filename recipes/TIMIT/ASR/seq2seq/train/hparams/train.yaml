@@ -39,7 +39,7 @@ emb_size: 128
 dec_neurons: 256
 
 # Outputs
-output_neurons: 42
+output_neurons: 41
 blank_index: 1
 bos_index: 0
 eos_index: 0

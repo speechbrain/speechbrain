@@ -57,7 +57,7 @@ bos_index: 0
 eos_index: 0
 
 # BPE
-tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
 
 
