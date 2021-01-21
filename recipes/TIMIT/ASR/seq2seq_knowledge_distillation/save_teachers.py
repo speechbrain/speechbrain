@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+
+"""Recipe for doing ASR with phoneme targets and joint seq2seq
+and CTC loss on the TIMIT dataset following a knowledge distillation scheme as
+reported in " Distilling Knowledge from Ensembles of Acoustic Models for Joint
+CTC-Attention End-to-End Speech Recognition", Yan Gao et al.
+
+To run this recipe, do the following:
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
+
+Authors
+ * Yan Gao 2021
+ * Titouan Parcollet 2021
+"""
+
 import sys
 import torch
 import speechbrain as sb
