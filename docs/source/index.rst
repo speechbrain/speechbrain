@@ -20,18 +20,21 @@ information necessary to develop their projects. For tutorials or information
 on how to contribute, please refer to the official `Github <https://github.com/speechbrain/speechbrain>`_
 or the official `Website <https://speechbrain.github.io>`_
 
-.. include:: modules.rst
+
+.. toctree::
+   :maxdepth: 4
+
+   speechbrain
 
 .. autosummary::
-  :toctree: modules
 
-  speechbrain
-  speechbrain.alignment
-  speechbrain.dataio
-  speechbrain.decoders
-  speechbrain.lm
-  speechbrain.lobes
-  speechbrain.nnet
-  speechbrain.processing
-  speechbrain.tokenizers
-  speechbrain.utils
+   speechbrain
+   speechbrain.alignment
+   speechbrain.dataio
+   speechbrain.decoders
+   speechbrain.lm
+   speechbrain.lobes
+   speechbrain.nnet
+   speechbrain.processing
+   speechbrain.tokenizers
+   speechbrain.utils

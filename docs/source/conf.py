@@ -62,7 +62,7 @@ intersphinx_mapping = {
 }
 
 # Autodoc mock extra dependencies:
-autodoc_mock_imports = ["numba"]
+autodoc_mock_imports = ["numba", "sklearn"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
