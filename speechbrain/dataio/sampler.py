@@ -19,12 +19,12 @@ class ReproducibleRandomSampler(RandomSampler):
     A modification of RandomSampler which always returns the same values.
 
     Also look at `torch.utils.data.RandomSampler`. This has mostly
-    the same behaviour and arguments, expect for adding 'seed' and 'epoch' and
+    the same behaviour and arguments, except for adding 'seed' and 'epoch' and
     not supporting 'generator'.
 
     Note
     ----
-    Call `set_epoch` before every epoch. Otherwise the sampler will produce the
+    Call `set_epoch` before every epoch. Otherwise, the sampler will produce the
     same sequence of indices every epoch.
 
     Arguments
@@ -39,7 +39,7 @@ class ReproducibleRandomSampler(RandomSampler):
     -------
     >>> import torch
     >>> from speechbrain.utils.checkpoints import Checkpointer
-    >>> from speechbrain.data_io.dataloader import SaveableDataLoader
+    >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> # An example "dataset"
     >>> dataset = torch.arange(10).unsqueeze(1)
     >>> # Create the random sampler:

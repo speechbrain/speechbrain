@@ -16,8 +16,8 @@ Authors
 import math
 import torch
 import torch.nn.functional as F
-from speechbrain.data_io.legacy import ExtendedCSVDataset
-from speechbrain.data_io.dataloader import make_dataloader
+from speechbrain.dataio.legacy import ExtendedCSVDataset
+from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
@@ -68,7 +68,7 @@ class AddNoise(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
@@ -288,7 +288,7 @@ class AddReverb(torch.nn.Module):
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
     rir_scale_factor: float
-        It compresses or dilates the given impuse response.
+        It compresses or dilates the given impulse response.
         If 0 < scale_factor < 1, the impulse response is compressed
         (less reverb), while if scale_factor > 1 it is dilated
         (more reverb).
@@ -300,7 +300,7 @@ class AddReverb(torch.nn.Module):
     Example
     -------
     >>> import pytest
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
@@ -416,7 +416,7 @@ class SpeedPerturb(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=16000, speeds=[90])
     >>> clean = signal.unsqueeze(0)
@@ -490,7 +490,7 @@ class Resample(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> signal = signal.unsqueeze(0) # [batch, time, channels]
     >>> resampler = Resample(orig_freq=16000, new_freq=8000)
@@ -890,7 +890,7 @@ class DropFreq(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> dropper = DropFreq()
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> dropped_signal = dropper(signal.unsqueeze(0))
@@ -1002,7 +1002,7 @@ class DropChunk(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> signal = signal.unsqueeze(0) # [batch, time, channels]
@@ -1143,7 +1143,7 @@ class DoClip(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> clipped_signal = clipper(signal.unsqueeze(0))

@@ -30,7 +30,7 @@ class QuaternionLSTM(torch.nn.Module):
     ---------
     hidden_size: int
         Number of output neurons (i.e, the dimensionality of the output).
-        Specified value is in term of quaternion-valued neurons. Thus, the output
+        Specified value is in terms of quaternion-valued neurons. Thus, the output
         is 4*hidden_size.
     num_layers: int, optional
         Default: 1
@@ -43,7 +43,7 @@ class QuaternionLSTM(torch.nn.Module):
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool, optional
         Default: False
-        If True, a bidirectioal model that scans the sequence both
+        If True, a bidirectinoal model that scans the sequence both
         right-to-left and left-to-right is used.
     init_criterion: str , optional
         Default: he.
@@ -207,7 +207,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool, optional
         Default: False
-        If True, a bidirectioal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     init_criterion: str , optional
         Default: he.
@@ -455,7 +455,7 @@ class QuaternionRNN(torch.nn.Module):
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool, optional
         Default: False
-        If True, a bidirectioal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     init_criterion: str , optional
         Default: he.
@@ -625,7 +625,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool, optional
         Default: False
-        If True, a bidirectioal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     init_criterion: str , optional
         Default: he.
@@ -859,7 +859,7 @@ class QuaternionLiGRU(torch.nn.Module):
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
+         if True, a bidirectional model that scans the sequence both
          right-to-left and left-to-right is used.
     init_criterion: str , optional
         Default: he.
@@ -1021,7 +1021,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
-        if True, a bidirectioal model that scans the sequence both
+        if True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     init_criterion: str , optional
         Default: he.

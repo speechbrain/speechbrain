@@ -5,7 +5,7 @@ Authors
  * Nauman Dawalatabad 2020
 
 Relevant Papers
- - This implementation of PLDA is based of following papers.
+ - This implementation of PLDA is based on the following papers.
 
  - PLDA model Training
     * Ye Jiang et. al, "PLDA Modeling in I-Vector and Supervector Space for Speaker Verification," in Interspeech, 2012.
@@ -32,7 +32,7 @@ STAT_TYPE = numpy.float64
 class StatObject_SB:
     """A utility class for PLDA class used for statistics calculations
     This is also used after Xvector extractor to pack xvectors and
-    meta information as decribed below.
+    meta-information as decribed below.
 
     Arguments
     ---------
@@ -594,9 +594,9 @@ def fa_model_loop(
     factor_analyser: instance of PLDA class
         PLDA class object
     stat0: tensor
-        matrix of zero order statistics
+        matrix of zero-order statistics
     stat1: tensor
-        matrix of first order statistics
+        matrix of first-order statistics
     e_h: tensor
         accumulator
     e_hh: tensor
@@ -770,7 +770,7 @@ class LDA:
     Arguments
     ---------
     reduced_dim: int
-        The dimesion of the output representation.
+        The dimension of the output representation.
     """
 
     def __init__(self,):
@@ -803,7 +803,7 @@ class LDA:
 class PLDA:
     """A class to train PLDA model from ivectors/xvector
     The input is in speechbrain.utils.StatObject_SB format.
-    Trains a simplified PLDA model no within class covariance matrix but full residual covariance matrix.
+    Trains a simplified PLDA model no within-class covariance matrix but full residual covariance matrix.
 
     Arguments
     ---------
@@ -896,11 +896,11 @@ class PLDA:
         stat_server: object of speechbrain.processing.PLDA_LDA.StatObject_SB
             contains vectors and meta-information to perform PLDA
         rank_f: int
-            rank of the between class covariance matrix
+            rank of the between-class covariance matrix
         nb_iter: int
             number of iterations to run
         scaling_factor: float
-            scaling factor to downscale statistics (value bewteen 0 and 1)
+            scaling factor to downscale statistics (value between 0 and 1)
         output_file_name:
             name of the output file where to store PLDA model
         """

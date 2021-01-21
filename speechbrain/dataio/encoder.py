@@ -191,7 +191,7 @@ class CategoricalEncoder:
         return index
 
     def ensure_label(self, label):
-        """Add label if it is not already present.
+        """Add a label if it is not already present.
 
         Arguments
         ---------
@@ -232,9 +232,9 @@ class CategoricalEncoder:
             self.enforce_label(label, index)
 
     def enforce_label(self, label, index):
-        """Make sure label is present and encoded to particular index.
+        """Make sure label is present and encoded to a particular index.
 
-        If the label is present, but encoded to some other index, it is
+        If the label is present but encoded to some other index, it is
         moved to the given index.
 
         If there is already another label at the
@@ -323,7 +323,7 @@ class CategoricalEncoder:
         label : hashable
             Label to encode, must exist in the mapping.
         allow_unk : bool
-            If given label is not in the label set
+            If given, that label is not in the label set
             AND unk_label has been added with add_unk(),
             allows encoding to unk_label's index.
 
@@ -443,7 +443,7 @@ class CategoricalEncoder:
         Returns
         -------
         list, Any
-            ndim list of original labels, or if input was signle element,
+            ndim list of original labels, or if input was single element,
             output will be, too.
         """
         # Recursively operates on the different dimensions.
@@ -495,7 +495,7 @@ class CategoricalEncoder:
         logger.debug(f"Loaded categorical encoding from {path}")
 
     def load_if_possible(self, path):
-        """Loads if possible, returns bool indicating if loaded or not.
+        """Loads if possible, returns a bool indicating if loaded or not.
 
         Arguments
         ---------

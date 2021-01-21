@@ -8,9 +8,9 @@ from hyperpyyaml import load_hyperpyyaml
 import h5py
 import numpy as np
 
-from speechbrain.data_io.data_io import prepend_bos_token
+from speechbrain.dataio.dataio import prepend_bos_token
 import speechbrain.utils.edit_distance as edit_distance
-from speechbrain.data_io.data_io import convert_index_to_lab
+from speechbrain.dataio.dataio import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.decoders.seq2seq import batch_filter_seq2seq_output

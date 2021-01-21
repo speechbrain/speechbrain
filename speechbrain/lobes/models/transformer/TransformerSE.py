@@ -15,7 +15,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
 class CNNTransformerSE(TransformerInterface):
     """This is an implementation of transformer model with CNN pre-encoder for SE
 
-    Arguements
+    Arguments
     ----------
     d_model : int
         the number of expected features in the encoder inputs.
@@ -24,7 +24,7 @@ class CNNTransformerSE(TransformerInterface):
     output_activation: torch class
         the activation function of the output layer, (default=ReLU).
     nhead: int
-        the number of heads in the multiheadattention models (default=8).
+        the number of heads in the multi-head attention models (default=8).
     num_layers: int
         the number of sub-layers in the transformer (default=8).
     d_ffn: int
@@ -36,7 +36,7 @@ class CNNTransformerSE(TransformerInterface):
     causal: bool
         True for causal setting, the model is forbidden to see future frames. (default=True)
     custom_emb_module: torch class
-        module that process the input features before the transformer model.
+        module that processes the input features before the transformer model.
 
     Example
     -------

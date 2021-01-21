@@ -3,14 +3,14 @@
 This script computes Word Error Rate and other related information.
 Just given a reference and a hypothesis, the script closely matches
 Kaldi's compute_wer binary.
-Additionally, the script can produce human readable edit distance
+Additionally, the script can produce human-readable edit distance
 alignments, and find the top WER utterances and speakers.
 
 Authors:
  * Aku Rouhe 2020
 """
 import speechbrain.utils.edit_distance as edit_distance
-import speechbrain.data_io.wer as wer_io
+import speechbrain.dataio.wer as wer_io
 
 
 # These internal utilities read Kaldi-style text/utt2spk files:

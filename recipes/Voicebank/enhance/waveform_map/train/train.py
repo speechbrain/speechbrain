@@ -107,24 +107,24 @@ class SEBrain(sb.Brain):
             )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     """Creates data processing pipeline"""
 
     # Define audio piplines
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_sig")
     def noisy_pipeline(noisy_wav):
-        return sb.data_io.data_io.read_audio(noisy_wav)
+        return sb.dataio.dataio.read_audio(noisy_wav)
 
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_sig")
     def clean_pipeline(clean_wav):
-        return sb.data_io.data_io.read_audio(clean_wav)
+        return sb.dataio.dataio.read_audio(clean_wav)
 
     # Define datasets
     datasets = {}
     for dataset in ["train", "valid", "test"]:
-        datasets[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects
-    datasets = data_io_prep(hparams)
+    datasets = dataio_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(

@@ -134,7 +134,7 @@ class Pooling2d(nn.Module):
     stride : int
         It is the stride size.
     padding : int
-        It is the numbe of padding elements to apply.
+        It is the number of padding elements to apply.
     dilation : int
         Controls the dilation factor of pooling.
     ceil_mode : int
