@@ -19,7 +19,7 @@ def pad_ends(
     """
     Pad sentence ends with start- and end-of-sentence tokens
 
-    In speech recognition it is important to predict the end of sentence
+    In speech recognition, it is important to predict the end of sentence
     and use the start of sentence to condition predictions. Typically this
     is done by adding special tokens (usually <s> and </s>) at the ends of
     each sentence. The <s> token should not be predicted, so some special
@@ -39,7 +39,7 @@ def pad_ends(
     Returns
     -------
     generator
-        A generator which yields the padded sequence.
+        A generator that yields the padded sequence.
 
     Example
     -------

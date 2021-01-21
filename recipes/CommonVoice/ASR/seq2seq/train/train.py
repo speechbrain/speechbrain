@@ -180,6 +180,8 @@ class ASR(sb.core.Brain):
 
 # Define custom data procedure
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     # 1. Define datasets
     data_folder = hparams["data_folder"]

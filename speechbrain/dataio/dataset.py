@@ -1,4 +1,4 @@
-"""Datasets load individual data points (examples)
+"""Dataset examples for loading individual data points
 
 Authors
   * Aku Rouhe 2020
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class DynamicItemDataset(Dataset):
-    """Dataset that reads, wrangles and produces dicts
+    """Dataset that reads, wranglesm, and produces dicts
 
-    Each data point dict provides some items (by key), for example a path to a
+    Each data point dict provides some items (by key), for example, a path to a
     wavefile with the key "wav_file". When a data point is fetched from this
     Dataset, more items are produced dynamically, based on pre-existing items
     and other dynamic created items. For example, a dynamic item could take the
-    wavfile path and load the audio from disk.
+    wavfile path and load the audio from the disk.
 
     The dynamic items can depend on other dynamic items: a suitable evaluation
     order is used automatically,  as long as there are no circular dependencies.
@@ -56,7 +56,7 @@ class DynamicItemDataset(Dataset):
 
     NOTE
     ----
-        The top level key, the data point id, is implicitly added as an item
+        The top-level key, the data point id, is implicitly added as an item
         in the data point, with the key "id"
 
     Each dynamic item is configured by three things: a key, a func, and a list
@@ -124,7 +124,7 @@ class DynamicItemDataset(Dataset):
     data : dict
         Dictionary containing single data points (e.g. utterances).
     dynamic_items : list, optional
-        Configuration for the dynamic items produced when fetchin an example.
+        Configuration for the dynamic items produced when fetching an example.
         List of DynamicItems or dicts with the format
             func: <callable> # To be called
             takes: <list> # key or list of keys of args this takes
@@ -197,7 +197,7 @@ class DynamicItemDataset(Dataset):
         Arguments
         ---------
         keys : dict, list
-            List of of keys (str) to produce in output.
+            List of keys (str) to produce in output.
 
             If a dict is given; it is used to map internal keys to output keys.
             From the output_keys dict key:value pairs the key appears outside,
@@ -264,7 +264,7 @@ class DynamicItemDataset(Dataset):
         select_n : None, int
             If not None, only keep (at most) the first n filtered data_points.
             The possible sorting is applied, but only on the first n data
-            points found. Meant for debuggging.
+            points found. Meant for debugging.
 
         Returns
         -------

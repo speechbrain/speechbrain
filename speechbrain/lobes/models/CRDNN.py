@@ -1,4 +1,4 @@
-"""A popular speech model.
+"""A combination of Convolutional, Recurrent, and Fully-connected networks.
 
 Authors
  * Mirco Ravanelli 2020
@@ -37,7 +37,7 @@ class CRDNN(sb.nnet.containers.Sequential):
     using_2d_pooling: bool
         Whether using a 2D or 1D pooling after each cnn block.
     inter_layer_pooling_size : list of ints
-        A list of the number of pooling for each cnn block.
+        A list of the pooling sizes for each cnn block.
     rnn_class : torch class
         The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
@@ -47,7 +47,7 @@ class CRDNN(sb.nnet.containers.Sequential):
     rnn_bidirectional : bool
         Whether this model will process just forward or both directions.
     rnn_re_init : bool,
-        If True, an orthogonal initialisation will be applied to the recurrent
+        If True, an orthogonal initialization will be applied to the recurrent
         weights.
     dnn_blocks : int
         The number of linear neural blocks to include.
@@ -55,7 +55,7 @@ class CRDNN(sb.nnet.containers.Sequential):
         The number of neurons in the linear layers.
     projection_dim : int
         The number of neurons in the projection layer.
-        This layer is used to reduce the size of the flatened
+        This layer is used to reduce the size of the flattened
         representation obtained after the CNN blocks.
 
     Example

@@ -25,7 +25,7 @@ OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 class SpecAugment(torch.nn.Module):
     """An implementation of SpecAugment algorithm
-    Referencce:
+    Reference:
         https://arxiv.org/abs/1904.08779
 
     Arguments
@@ -35,8 +35,8 @@ class SpecAugment(torch.nn.Module):
     time_warp_window : int
         time warp window
     time_warp_mode : str
-        interpolation mode for time warping (defualt "bicubic")
-    freq_mask : bool
+        interpolation mode for time warping (default "bicubic")
+    freq_mask : bool1
         wether applying freq mask
     freq_mask_width : int or tuple
         freq mask width range
@@ -200,7 +200,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
     Arguments
     ---------
     perturb_prob : float from 0 to 1
-        The probability that a batch will have speed peturbation applied.
+        The probability that a batch will have speed perturbation applied.
     drop_freq_prob : float from 0 to 1
         The probability that a batch will have frequencies dropped.
     drop_chunk_prob : float from 0 to 1
@@ -317,7 +317,7 @@ class EnvCorrupt(torch.nn.Module):
     noise_snr_high : int
         Highest generated SNR of babbled signal to noise.
     rir_scale_factor: float
-        It compresses or dilates the given impuse response.
+        It compresses or dilates the given impulse response.
         If ``0 < rir_scale_factor < 1``, the impulse response is compressed
         (less reverb), while if ``rir_scale_factor > 1`` it is dilated
         (more reverb).
