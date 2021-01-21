@@ -71,7 +71,7 @@ class GumbelSoftmax(torch.nn.Module):
     """Samples from the Gumbel-Softmax distribution and optionally discretizes.
     reference: https://arxiv.org/abs/1611.00712, https://arxiv.org/abs/1611.01144
 
-    Arguements
+    Arguments
     ----------
     tau: float
         non-negative scalar temperature

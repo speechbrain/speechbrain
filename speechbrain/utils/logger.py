@@ -70,7 +70,7 @@ def setup_logging(
     config_path : str
         the path to a logging config file
     default_level : int
-        the level to use if config file is not found
+        the level to use if the config file is not found
     overrides : dict
         a dictionary of the same structure as the config dict
         with any updated values that need to be applied
@@ -86,7 +86,7 @@ def setup_logging(
 
 def format_order_of_magnitude(number, abbreviate=True):
     """
-    Formats number to appropriate order of magnitude for printing
+    Formats number to the appropriate order of magnitude for printing
 
     Arguments
     ---------

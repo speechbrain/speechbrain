@@ -39,9 +39,9 @@ from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
-from speechbrain.data_io.batch import PaddedBatch
-from speechbrain.data_io.dataset import DynamicItemDataset
-from speechbrain.data_io.sampler import ReproducibleRandomSampler
+from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.dataio.sampler import ReproducibleRandomSampler
 from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
     mark_as_saver,

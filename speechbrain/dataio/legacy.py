@@ -1,5 +1,5 @@
 """SpeechBrain Extended CSV Compatibility"""
-from speechbrain.data_io.dataset import DynamicItemDataset
+from speechbrain.dataio.dataset import DynamicItemDataset
 import collections
 import csv
 import pickle
@@ -54,7 +54,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
     sorting : {"original", "ascending", "descending", "random"}
         Keep CSV order, or sort ascending or descending by duration,
         or shuffle. NOTE: shuffled order is not reproducible.
-        It is here for backwards compatibility.
+        It is here for backward compatibility.
     min_duration : float, int
         Minimum duration in seconds. Discards other entries.
     max_duration : float, int
@@ -67,7 +67,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
             provides: key # key or list of keys that this provides
         NOTE: A dynamic item is automatically added for each CSV data-triplet
     output_keys : list, None
-        The list of output keys to produce. You can refer to names of the
+        The list of output keys to produce. You can refer to the names of the
         CSV data-triplets. E.G. if the CSV has: wav,wav_format,wav_opts,
         then the Dataset has a dynamic item output available with key "wav"
         NOTE: If None, read all existing.

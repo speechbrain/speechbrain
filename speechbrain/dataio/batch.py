@@ -18,7 +18,7 @@ PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 
 
 class PaddedBatch:
-    """Collate_fn when examples are dicts and have variable length sequences.
+    """Collate_fn when examples are dicts and have variable-length sequences.
 
     Different elements in the examples get matched by key.
     All numpy tensors get converted to Torch (PyTorch default_convert)
@@ -61,7 +61,7 @@ class PaddedBatch:
     ['ex1', 'ex2']
     >>> # torch.Tensors get padded
     >>> type(batch.foo)
-    <class 'speechbrain.data_io.batch.PaddedData'>
+    <class 'speechbrain.dataio.batch.PaddedData'>
     >>> batch.foo.data
     tensor([[1., 0.],
             [2., 1.]])

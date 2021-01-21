@@ -135,13 +135,13 @@ class AlignBrain(sb.Brain):
             )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
 
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
@@ -167,27 +167,27 @@ def data_io_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data, test_data]
-    label_encoder = sb.data_io.encoder.TextEncoder()
+    label_encoder = sb.dataio.encoder.TextEncoder()
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("phn")
@@ -198,7 +198,7 @@ def data_io_prep(hparams):
         phn_encoded = label_encoder.encode_sequence_torch(phn_list)
         yield phn_encoded
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Define end sample pipeline
     # (end sample is used to retrieve the golden alignment )
@@ -211,13 +211,13 @@ def data_io_prep(hparams):
         phn_ends = torch.Tensor(phn_ends)
         return phn_ends
 
-    sb.data_io.dataset.add_dynamic_item(datasets, phn_ends_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, phn_ends_pipeline)
 
     # 5. Fit encoder:
     label_encoder.update_from_didataset(train_data, output_key="phn_list")
 
     # 6. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "phn_encoded", "phn_ends"]
     )
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
+    train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(

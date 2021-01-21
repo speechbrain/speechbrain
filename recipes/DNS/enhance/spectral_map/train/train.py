@@ -144,14 +144,14 @@ class SEBrain(sb.core.Brain):
             )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     """Creates data processing pipeline"""
 
     # Define audio piplines
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def train_pipeline(wav):
-        clean_sig = sb.data_io.data_io.read_audio(wav)
+        clean_sig = sb.dataio.dataio.read_audio(wav)
         noisy_sig = hparams["add_noise"](
             clean_sig.unsqueeze(0), torch.Tensor([1])
         )
@@ -160,26 +160,26 @@ def data_io_prep(hparams):
     @sb.utils.data_pipeline.takes("wav", "target")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def eval_pipeline(wav, target):
-        clean_sig = sb.data_io.data_io.read_audio(wav)
-        noisy_sig = sb.data_io.data_io.read_audio(target)
+        clean_sig = sb.dataio.dataio.read_audio(wav)
+        noisy_sig = sb.dataio.dataio.read_audio(target)
         return clean_sig, noisy_sig
 
     # Define datasets
-    train_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_set = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_csv"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[train_pipeline],
         output_keys=["id", "clean_sig", "noisy_sig"],
     )
 
-    valid_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_set = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[eval_pipeline],
         output_keys=["id", "clean_sig", "noisy_sig"],
     )
 
-    test_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_set = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_csv"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[eval_pipeline],
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         sb.utils.distributed.ddp_barrier()
 
     # Create dataset objects
-    train_set, valid_set, test_set = data_io_prep(hparams)
+    train_set, valid_set, test_set = dataio_prep(hparams)
 
     se_brain = SEBrain(
         modules=hparams["modules"],
