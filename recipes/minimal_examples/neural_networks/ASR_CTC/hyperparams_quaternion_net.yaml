@@ -24,20 +24,19 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 model: !new:speechbrain.nnet.containers.Sequential
     input_shape: [!ref <N_batch>, null, 660]  # input_size
-    conv1: !name:speechbrain.nnet.complex_networks.complex_CNN.ComplexConv1d
+    conv1: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d # yamllint disable-line rule:line-length
         out_channels: 16
         kernel_size: 3
-    nrm1: !name:speechbrain.nnet.complex_networks.complex_normalization.ComplexLayerNorm # yamllint disable-line rule:line-length
     act1: !ref <activation>
-    conv2: !name:speechbrain.nnet.complex_networks.complex_CNN.ComplexConv1d
+    conv2: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d # yamllint disable-line rule:line-length
         out_channels: 32
         kernel_size: 3
-    nrm2: !name:speechbrain.nnet.complex_networks.complex_normalization.ComplexLayerNorm # yamllint disable-line rule:line-length
+    nrm2: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d # yamllint disable-line rule:line-length
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
         pool_type: "avg"
         kernel_size: 3
-    RNN: !name:speechbrain.nnet.complex_networks.complex_RNN.ComplexLiGRU
+    RNN: !name:speechbrain.nnet.quaternion_networks.quaternion_RNN.QuaternionLiGRU
         hidden_size: 64
         bidirectional: True
     linear: !name:speechbrain.nnet.linear.Linear

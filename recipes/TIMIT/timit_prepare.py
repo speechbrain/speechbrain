@@ -13,7 +13,7 @@ import csv
 import logging
 from speechbrain.utils.data_utils import get_all_files
 
-from speechbrain.data_io.data_io import (
+from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     read_kaldi_lab,
@@ -119,14 +119,14 @@ def prepare_timit(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        print("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains TIMIT
     _check_timit_folders(uppercase, data_folder)
 
-    msg = "\tCreating csv file for the TIMIT Dataset.."
-    print(msg)
+    msg = "Creating csv file for the TIMIT Dataset.."
+    logger.info(msg)
 
     # Creating csv file for training data
     if "train" in splits:
@@ -504,8 +504,8 @@ def create_csv(
     """
 
     # Adding some Prints
-    msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    print(msg)
+    msg = "Creating csv lists in  %s..." % (csv_file)
+    logger.info(msg)
 
     # Reading kaldi labels if needed:
     snt_no_lab = 0
@@ -557,11 +557,11 @@ def create_csv(
             if snt_id not in lab.keys():
                 missing_lab = False
                 msg = (
-                    "\tThe sentence %s does not have a corresponding "
+                    "The sentence %s does not have a corresponding "
                     "kaldi label" % (snt_id)
                 )
 
-                print(msg)
+                logger.info(msg)
                 snt_no_lab = snt_no_lab + 1
             else:
                 snt_lab_path = os.path.join(kaldi_lab_dir, snt_id + ".pkl")
@@ -574,7 +574,7 @@ def create_csv(
                     "corresponding kaldi label. Please check data and "
                     "kaldi labels (check %s and %s)." % (data_folder, kaldi_lab)
                 )
-                print(err_msg, exc_info=True)
+                logger.debutg(err_msg)
 
         if missing_lab:
             continue
@@ -639,8 +639,8 @@ def create_csv(
 
     # Writing the csv lines
     _write_csv(csv_lines, csv_file)
-    msg = "\t%s sucessfully created!" % (csv_file)
-    print(msg)
+    msg = "%s sucessfully created!" % (csv_file)
+    logger.info(msg)
 
 
 def get_phoneme_lists(phn_file, phn_set):

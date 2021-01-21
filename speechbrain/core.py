@@ -24,15 +24,16 @@ from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.nn import DataParallel as DP
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.data_io.dataloader import SaveableDataLoader
-from speechbrain.data_io.sampler import DistributedSamplerWrapper
-from speechbrain.data_io.sampler import ReproducibleRandomSampler
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.dataio.sampler import DistributedSamplerWrapper
+from speechbrain.dataio.sampler import ReproducibleRandomSampler
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -79,7 +80,7 @@ def create_experiment_directory(
                     experiment_directory, "hyperparams.yaml"
                 )
                 with open(hyperparams_to_save) as f:
-                    resolved_yaml = sb.resolve_references(f, overrides)
+                    resolved_yaml = resolve_references(f, overrides)
                 with open(hyperparams_filename, "w") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
@@ -142,7 +143,7 @@ def parse_arguments(arg_list):
     run_opts : dict
         Run options, such as distributed, device, etc.
     overrides : dict
-        The overrides to pass to ``load_extended_yaml``.
+        The overrides to pass to ``load_hyperpyyaml``.
 
     Example
     -------
@@ -351,7 +352,7 @@ class Brain:
     Arguments
     ---------
     modules : dict of str:torch.nn.Module pairs
-        These modules are passed to the optimizier by default if they have
+        These modules are passed to the optimizer by default if they have
         trainable parameters, and will have train()/eval() called on them.
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
@@ -627,7 +628,7 @@ class Brain:
 
         The Stage.TRAIN DataLoader is handled specially. It has extra args for
         shuffle and drop_last. In DDP a DistributedSampler is created (unless
-        dataset is an IterableDataset).
+        the dataset is an IterableDataset).
 
         NOTE
         ----
@@ -661,7 +662,7 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
-        dataloader = sb.data_io.dataloader.make_dataloader(
+        dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
 
@@ -680,7 +681,7 @@ class Brain:
         # will also lead to more padding in batches if the order was otherwise
         # sorted by length.
         shuffle = loader_kwargs.get("shuffle", False)
-        if shuffle:
+        if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
                     "Cannot specify both shuffle=True "
@@ -706,6 +707,9 @@ class Brain:
                     drop_last=drop_last,
                     shuffle=shuffle,
                 )
+
+                # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+                loader_kwargs["shuffle"] = False
             elif loader_kwargs.get("batch_sampler") is None:
                 # Currently to get here, shuffle == False, so not passing it.
                 # Otherwise we'd have to handle deleting it (but it is already
@@ -716,6 +720,9 @@ class Brain:
                     shuffle=shuffle,
                     drop_last=drop_last,
                 )
+
+                # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+                loader_kwargs["shuffle"] = False
             else:  # batch_sampler was specified
                 # TODO: Could a DistributedSamplerWrapper actually work
                 # just fine for wrapping a BatchSampler, as well?
@@ -1013,7 +1020,7 @@ class Brain:
 
                     if (
                         self.checkpointer is not None
-                        and self.ckpt_interval_minutes is not None
+                        and self.ckpt_interval_minutes > 0
                         and time.time() - last_ckpt_time
                         >= self.ckpt_interval_minutes * 60.0
                     ):
@@ -1119,7 +1126,8 @@ class Brain:
         Arguments
         ---------
         test_set : Dataset, DataLoader
-            This list will be zipped before iterating.
+            If a DataLoader is given, it is iterated directly. Otherwise passed
+            to self.make_dataloader()
         max_key : str
             Key to use for finding best checkpoint, passed to on_evaluate_start
         min_key : str
@@ -1139,7 +1147,7 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        if isinstance(test_set, Dataset):
+        if not isinstance(test_set, DataLoader):
             test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
                 test_set, Stage.TEST, **test_loader_kwargs

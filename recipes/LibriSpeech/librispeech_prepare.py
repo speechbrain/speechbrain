@@ -15,7 +15,7 @@ from collections import Counter
 import logging
 import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
-from speechbrain.data_io.data_io import (
+from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     merge_csvs,
@@ -91,10 +91,10 @@ def prepare_librispeech(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        print("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
     else:
-        print("Data_preparation...")
+        logger.info("Data_preparation...")
 
     # Additional checks to make sure the data folder contains Librispeech
     check_librispeech_folders(data_folder, splits)
@@ -162,7 +162,9 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     lexicon_path = os.path.join(save_folder, "librispeech-lexicon.txt")
 
     if not os.path.isfile(lexicon_path):
-        print("Lexicon file not found. Downloading from %s." % lexicon_url)
+        logger.info(
+            "Lexicon file not found. Downloading from %s." % lexicon_url
+        )
         download_file(lexicon_url, lexicon_path)
 
     # Get list of all words in the transcripts
@@ -210,7 +212,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
                 + "\n"
             )
             f.write(line)
-    print("Lexicon written to %s." % lexicon_csv_path)
+    logger.info("Lexicon written to %s." % lexicon_csv_path)
 
     # Split lexicon.csv in train, validation, and test splits
     split_lexicon(save_folder, [98, 1, 1])
@@ -289,7 +291,7 @@ def create_csv(
 
     # Preliminary prints
     msg = "Creating csv lists in  %s..." % (csv_file)
-    print(msg)
+    logger.info(msg)
 
     csv_lines = [
         [
@@ -361,7 +363,7 @@ def create_csv(
 
     # Final print
     msg = "%s sucessfully created!" % (csv_file)
-    print(msg)
+    logger.info(msg)
 
 
 def skip(splits, save_folder, conf):

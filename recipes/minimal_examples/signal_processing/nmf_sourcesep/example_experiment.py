@@ -9,7 +9,8 @@ import torch
 import shutil
 import speechbrain as sb
 import speechbrain.processing.NMF as sb_nmf
-from speechbrain.data_io.data_io import write_audio
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.dataio.dataio import write_audio
 from speechbrain.processing.features import spectral_magnitude
 
 
@@ -98,7 +99,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/sourcesep_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+        hparams = load_hyperpyyaml(fin, {"data_folder": data_folder})
 
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -107,7 +108,7 @@ def main():
     torch.manual_seed(0)
 
     NMF1 = NMF_Brain(hparams=hparams)
-    train_loader = sb.data_io.dataloader.make_dataloader(
+    train_loader = sb.dataio.dataloader.make_dataloader(
         hparams["train_data"], **hparams["loader_kwargs"]
     )
 
@@ -123,7 +124,7 @@ def main():
     W1hat = NMF1.training_out[1]
 
     NMF2 = NMF_Brain(hparams=hparams)
-    train_loader = sb.data_io.dataloader.make_dataloader(
+    train_loader = sb.dataio.dataloader.make_dataloader(
         hparams["train_data"], **hparams["loader_kwargs"]
     )
     NMF2.init_matrices(train_loader)
@@ -138,7 +139,7 @@ def main():
     W2hat = NMF2.training_out[1]
 
     # separate
-    mixture_loader = sb.data_io.dataloader.make_dataloader(
+    mixture_loader = sb.dataio.dataloader.make_dataloader(
         hparams["test_data"], **hparams["loader_kwargs"]
     )
     mix_batch = next(iter(mixture_loader))

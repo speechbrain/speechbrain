@@ -394,7 +394,7 @@ class Checkpointer:
         Arguments
         ---------
         recoverables : mapping
-            Objects to to recover.
+            Objects to recover.
             They need a (unique) name: this is used to
             connect the parameters in a checkpoint to the correct
             recoverable. The name is also used in the filename of the

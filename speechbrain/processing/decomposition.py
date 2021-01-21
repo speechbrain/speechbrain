@@ -38,7 +38,7 @@ def gevd(a, b=None):
         equation in the description above. The tensor must have the
         following format: (*,2,C+P).
         This argument is optional and its default value is None. If
-        b == None, then b is remplaced by the identity matrix in the
+        b == None, then b is replaced by the identity matrix in the
         computations.
 
     Example
@@ -138,7 +138,7 @@ def svdl(a):
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.decomposition import svdl
-    >>> from speechbrain.data_io.data_io import read_audio_multichannel
+    >>> from speechbrain.dataio.dataio import read_audio_multichannel
 
     >>> xs_speech = read_audio_multichannel(
     ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
@@ -373,7 +373,7 @@ def inv(x):
     -------
     >>> import torch
     >>>
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.decomposition import inv

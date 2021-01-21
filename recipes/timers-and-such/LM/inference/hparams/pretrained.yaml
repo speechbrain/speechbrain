@@ -1,0 +1,32 @@
+# ############################################################################
+# Model: LM for Timers and Such
+# Tokens: Pre-trained LibriSpeech tokens
+# losses: NLL
+# Training: Timers and Such
+# Authors:  Loren Lugosch 2020
+# ############################################################################
+
+save_folder: model_checkpoints
+lm_ckpt_file:
+    https://www.dropbox.com/s/h2nigdmx55o9rjx/timers-and-such-lm.ckpt?dl=1
+tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+    tokenizer_file: !ref <tokenizer_file>
+
+device: 'cuda:0'
+
+# Model params
+emb_size: 128
+net_dim: 1024
+num_asr_tokens: 1000
+
+net: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <num_asr_tokens>
+    embedding_dim: !ref <emb_size>
+    activation: !name:torch.nn.LeakyReLU
+    dropout: 0.
+    rnn_layers: 2
+    rnn_neurons: !ref <net_dim>
+    dnn_blocks: 1
+    dnn_neurons: !ref <net_dim>
+    return_hidden: True  # For inference

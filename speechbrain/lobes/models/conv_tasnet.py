@@ -60,7 +60,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     """
     This class implements the decoder for the ConvTasnet.
-    The seperated source embeddings are fed to the decoder to reconstruct
+    The separated source embeddings are fed to the decoder to reconstruct
     the estimated sources in the time domain.
 
     Arguments
@@ -119,7 +119,7 @@ class Decoder(nn.Module):
 
 class TemporalBlocksSequential(sb.nnet.containers.Sequential):
     """
-    A wrapper for the temporalblock layer to replicate it
+    A wrapper for the temporal-block layer to replicate it
 
     Arguments
     ---------
@@ -587,7 +587,6 @@ class GlobalLayerNorm(nn.Module):
         Returns:
             gLN_y: [M, K. N]
         """
-        # TODO: in torch 1.0, torch.mean() support dim list
         mean = y.mean(dim=1, keepdim=True).mean(
             dim=2, keepdim=True
         )  # [M, 1, 1]
