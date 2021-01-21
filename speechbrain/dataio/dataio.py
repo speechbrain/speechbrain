@@ -716,6 +716,57 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
     return mask
 
 
+def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
+    """Read labels in kaldi format
+
+    Uses kaldi IO
+
+    Arguments
+    ---------
+    kaldi_ali : str
+        Path to directory where kaldi alignents are stored.
+    kaldi_lab_opts : str
+        A string that contains the options for reading the kaldi alignments.
+
+    Returns
+    -------
+    dict
+        A dictionary contaning the labels
+
+    Note
+    ----
+    This depends on kaldi-io-for-python. Install it separately.
+    See: https://github.com/vesis84/kaldi-io-for-python
+
+    Example
+    -------
+    This example requires kaldi files
+    ```
+    lab_folder = '/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali'
+    read_kaldi_lab(lab_folder, 'ali-to-pdf')
+    ```
+    """
+    # EXTRA TOOLS
+    try:
+        import kaldi_io
+    except ImportError:
+        raise ImportError("Could not import kaldi_io. Install it to use this.")
+    # Reading the Kaldi labels
+    lab = {
+        k: v
+        for k, v in kaldi_io.read_vec_int_ark(
+            "gunzip -c "
+            + kaldi_ali
+            + "/ali*.gz | "
+            + kaldi_lab_opts
+            + " "
+            + kaldi_ali
+            + "/final.mdl ark:- ark:-|",
+        )
+    }
+    return lab
+
+
 def get_md5(file):
     """
     Get the md5 checksum of an input file
