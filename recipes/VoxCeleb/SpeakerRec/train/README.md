@@ -6,14 +6,14 @@ Run the following command to train xvectors:
 
 `python train_speaker_embeddings.py hyperparams/train_x_vectors.yaml`
 
-You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponding number or speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
+You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponding number of speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
 For voxceleb1 + voxceleb2, see preparation instructions below).
 
 It is possible to train embeddings with more augmentation with the following command:
 
 `python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_big.yaml`
 
-It this case, we concatenate waveform dropout, speed change, reverberarion, noise, and noise+rev. The batch is 6 times larger that the original one. This normally leads to
+In this case, we concatenate waveform dropout, speed change, reverberation, noise, and noise+rev. The batch is 6 times larger than the original one. This normally leads to
 a performance improvement at the cost of longer training time.
 
 The system trains a TDNN for speaker embeddings coupled with a speaker-id classifier. The speaker-id accuracy should be around 97-98% for both voxceleb1 and voceleb2.
