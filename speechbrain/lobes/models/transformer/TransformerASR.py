@@ -27,7 +27,7 @@ class TransformerASR(TransformerInterface):
     The architecture is based on the paper "Attention Is All You Need":
     https://arxiv.org/pdf/1706.03762.pdf
 
-    Arguements
+    Arguments
     ----------
     d_model: int
         the number of expected features in the encoder/decoder inputs
@@ -157,7 +157,7 @@ class TransformerASR(TransformerInterface):
         return encoder_out, decoder_out
 
     def make_masks(self, src, tgt, wav_len=None, pad_idx=0):
-        """This method generate the masks for training the transformer model
+        """This method generates the masks for training the transformer model
 
         Arguements
         ----------

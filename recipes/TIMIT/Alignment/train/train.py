@@ -136,7 +136,8 @@ class AlignBrain(sb.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     data_folder = hparams["data_folder"]
 

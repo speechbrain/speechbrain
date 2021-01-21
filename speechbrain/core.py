@@ -352,7 +352,7 @@ class Brain:
     Arguments
     ---------
     modules : dict of str:torch.nn.Module pairs
-        These modules are passed to the optimizier by default if they have
+        These modules are passed to the optimizer by default if they have
         trainable parameters, and will have train()/eval() called on them.
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
@@ -628,7 +628,7 @@ class Brain:
 
         The Stage.TRAIN DataLoader is handled specially. It has extra args for
         shuffle and drop_last. In DDP a DistributedSampler is created (unless
-        dataset is an IterableDataset).
+        the dataset is an IterableDataset).
 
         NOTE
         ----

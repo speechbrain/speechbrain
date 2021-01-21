@@ -25,13 +25,13 @@ class Xvector(torch.nn.Module):
     activation : torch class
         A class for constructing the activation layers.
     tdnn_blocks : int
-        Number of time delay neural (TDNN) layers.
+        Number of time-delay neural (TDNN) layers.
     tdnn_channels : list of ints
         Output channels for TDNN layer.
     tdnn_kernel_sizes : list of ints
         List of kernel sizes for each TDNN layer.
     tdnn_dilations : list of ints
-        List of dialations for kernels in each TDNN layer.
+        List of dilations for kernels in each TDNN layer.
     lin_neurons : int
         Number of neurons in linear layers.
 
@@ -119,7 +119,7 @@ class Classifier(sb.nnet.containers.Sequential):
     lin_neurons : int
         Number of neurons in linear layers.
     out_neurons : int
-        Number of ouput neurons.
+        Number of output neurons.
 
     Example
     -------

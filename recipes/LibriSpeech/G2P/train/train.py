@@ -29,6 +29,7 @@ from speechbrain.utils.distributed import run_on_main
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
+        """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
         chars, char_lens = batch.grapheme_encoded
         phn_bos, phn_lens = batch.phn_encoded_bos
@@ -49,6 +50,7 @@ class ASR(sb.Brain):
         return p_seq, char_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss (CTC+NLL) given predictions and targets."""
         if stage == sb.Stage.TRAIN:
             p_seq, char_lens = predictions
         else:
@@ -75,6 +77,7 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
@@ -84,17 +87,20 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
         self.seq_metrics = self.hparams.seq_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -134,7 +140,8 @@ class ASR(sb.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(

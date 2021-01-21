@@ -47,7 +47,7 @@ class BackoffNgramLM:
         If log(P(fox|a quick red)) is not listed, we find
         log(backoff(a quick red)) = -23.4, which is accessed:
         `backoffs[3][('a', 'quick', 'red')]`
-        This dict needs to have entries for orders upto at least N-1 (even if
+        This dict needs to have entries for orders up to at least N-1 (even if
         they are empty). It may also have entries for order N, though those
         can never be accessed.
 

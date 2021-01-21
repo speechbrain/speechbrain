@@ -30,6 +30,7 @@ except ImportError:
 
 class SEBrain(sb.core.Brain):
     def compute_forward(self, batch, stage):
+        """Forward computations from the waveform batches to the enhanced output."""
         batch = batch.to(self.device)
         noisy_wavs, lens = batch.noisy_sig
 
@@ -50,6 +51,7 @@ class SEBrain(sb.core.Brain):
         return predict_spec, predict_wav
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss given the predicted and targeted outputs"""
         predict_spec, predict_wav = predictions
         ids = batch.id
         clean_wav, lens = batch.clean_sig
@@ -89,11 +91,13 @@ class SEBrain(sb.core.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of each epoch"""
         self.loss_metric = MetricStats(metric=self.hparams.compute_cost)
         self.stoi_metric = MetricStats(metric=stoi_loss)
 
         # Define function taking (prediction, target) for parallel eval
         def pesq_eval(pred_wav, target_wav):
+            """Computes the PESQ evaluation metric"""
             return pesq(
                 fs=16000,
                 ref=target_wav.cpu().numpy(),
@@ -105,7 +109,7 @@ class SEBrain(sb.core.Brain):
             self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-
+        """Gets called at the end of an epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {"loss": self.loss_metric.scores}
@@ -147,8 +151,8 @@ class SEBrain(sb.core.Brain):
 
 
 def dataio_prep(hparams):
-    """Creates data processing pipeline"""
-
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     # Define audio piplines
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")

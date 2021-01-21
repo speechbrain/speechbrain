@@ -19,7 +19,7 @@ import re
 
 def undo_padding(batch, lengths):
     """Produces Python lists given a batch of sentences with
-    their corresponding relative lenghts.
+    their corresponding relative lengths.
 
     Arguments
     ---------
@@ -264,7 +264,7 @@ def download_file(
      Arguments
     ---------
     source : path or url
-        Path of the source file. If source is an URL, it downloads it from
+        Path of the source file. If the source is an URL, it downloads it from
         the web.
     dest : path
         Destination path.
@@ -496,7 +496,7 @@ def mod_default_collate(batch):
     r"""Makes a tensor from list of batch values
 
     Note that this doesn't need to zip(*) values together
-    as PaddedBatch connects them alread (by key)
+    as PaddedBatch connects them already (by key)
 
     Here the idea is not to error out.
 
