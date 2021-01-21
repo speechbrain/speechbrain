@@ -22,7 +22,7 @@ train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/devel-type=direct.csv
 csv_test: !ref <data_folder>/test-type=direct.csv
-asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
+asr_hparam_file: hparams/pretrained_BPE1000.yaml
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
 # Training parameters

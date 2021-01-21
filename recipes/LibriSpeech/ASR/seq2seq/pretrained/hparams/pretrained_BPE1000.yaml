@@ -112,7 +112,6 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-    hparams_file: ../../../../LibriSpeech/LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
     overrides: {'device': !ref <device>}
 
 asr_model: !new:torch.nn.ModuleList

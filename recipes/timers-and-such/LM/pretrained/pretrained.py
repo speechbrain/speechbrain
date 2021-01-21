@@ -43,6 +43,9 @@ class LM(torch.nn.Module):
         super().__init__()
 
         # Loading modules defined in the yaml file
+        if not os.path.isabs(hparams_file):
+            dirname = os.path.dirname(__file__)
+            hparams_file = os.path.join(dirname, hparams_file)
         with open(hparams_file) as fin:
             self.hparams = load_hyperpyyaml(fin, overrides)
 
