@@ -27,6 +27,7 @@ import numpy as np
 import torchaudio
 import speechbrain as sb
 from tqdm.contrib import tqdm
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.PLDA_LDA import StatObject_SB
@@ -202,7 +203,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
         diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
         # Setup a dataloader for above one recording (above csv)
-        diary_set_loader = data_io_prep(params, new_csv_file)
+        diary_set_loader = dataio_prep(params, new_csv_file)
 
         # Putting modules on the device
         params["compute_features"].to(params["device"])
@@ -268,19 +269,8 @@ def dev_p_tuner(full_csv, split_type):
     """
 
     DER_list = []
-    prange = [
-        0.0025,
-        0.0050,
-        0.006,
-        0.007,
-        0.008,
-        0.009,
-        0.010,
-        0.025,
-        0.050,
-        0.075,
-        0.100,
-    ]
+    prange = np.arange(0.002, 0.015, 0.001)
+
     n_lambdas = None
     for p_v in prange:
         # Process whole dataset for value of p_v
@@ -371,12 +361,12 @@ def dev_tuner(full_csv, split_type):
     return tuned_n_lambdas
 
 
-def data_io_prep(hparams, csv_file):
+def dataio_prep(hparams, csv_file):
     "Creates the datasets and their data processing pipelines."
 
     # 1. Datasets
     data_folder = hparams["data_folder"]
-    dataset = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    dataset = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=csv_file, replacements={"data_root": data_folder},
     )
 
@@ -393,13 +383,13 @@ def data_io_prep(hparams, csv_file):
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item([dataset], audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
 
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys([dataset], ["id", "sig"])
+    sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
 
     # 4. create dataloader:
-    dataloader = sb.data_io.dataloader.make_dataloader(
+    dataloader = sb.dataio.dataloader.make_dataloader(
         dataset, **params["dataloader_opts"]
     )
 
@@ -413,7 +403,7 @@ if __name__ == "__main__":  # noqa: C901
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, overrides)
+        params = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing VoxCeleb and annotation into csv files)
     from ami_prepare import prepare_ami  # noqa

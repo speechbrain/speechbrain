@@ -8,6 +8,7 @@ training data  (with a validation performance that stays high).
 
 import pathlib
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 
 
 class AutoBrain(sb.Brain):
@@ -67,11 +68,11 @@ def data_prep(data_folder):
     "Creates the datasets and their data processing pipelines."
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "train.json",
         replacements={"data_root": data_folder},
     )
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_json(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "dev.json",
         replacements={"data_root": data_folder},
     )
@@ -81,13 +82,13 @@ def data_prep(data_folder):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys(datasets, ["id", "sig"])
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
     return train_data, valid_data
 
@@ -100,7 +101,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin)
+        hparams = load_hyperpyyaml(fin)
 
     # Dataset creation
     train_data, valid_data = data_prep(data_folder)

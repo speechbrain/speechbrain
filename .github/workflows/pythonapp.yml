@@ -5,7 +5,7 @@ name: SpeechBrain toolkit CI
 # Runs on pushes to master and all pull requests
 on:    # yamllint disable-line rule:truthy
     push:
-        branches: [master]
+        branches: [main, develop]
     pull_request:
 
 jobs:

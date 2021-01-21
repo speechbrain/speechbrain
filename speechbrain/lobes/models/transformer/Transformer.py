@@ -9,6 +9,9 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
+from .conformer import ConformerEncoder
+from speechbrain.nnet.activations import Swish
+
 
 class TransformerInterface(nn.Module):
     """This is an interface for transformer model.
@@ -19,7 +22,7 @@ class TransformerInterface(nn.Module):
     The architecture is based on the paper "Attention Is All You Need":
     https://arxiv.org/pdf/1706.03762.pdf
 
-    Arguements
+    Arguments
     ----------
     d_model : int
         the number of expected features in the encoder/decoder inputs (default=512).
@@ -37,9 +40,9 @@ class TransformerInterface(nn.Module):
         the activation function of encoder/decoder intermediate layer,
         e.g. relu or gelu (default=relu)
     custom_src_module : torch class
-        module that process the src features to expected feature dim
+        module that processes the src features to expected feature dim
     custom_tgt_module : torch class
-        module that process the src features to expected feature dim
+        module that processes the src features to expected feature dim
     """
 
     def __init__(
@@ -55,6 +58,10 @@ class TransformerInterface(nn.Module):
         custom_tgt_module=None,
         positional_encoding=True,
         normalize_before=False,
+        kernel_size: Optional[int] = 31,
+        bias: Optional[bool] = True,
+        encoder_module: Optional[str] = "transformer",
+        conformer_activation: Optional[nn.Module] = Swish,
     ):
         super().__init__()
 
@@ -69,16 +76,34 @@ class TransformerInterface(nn.Module):
         if num_encoder_layers > 0:
             if custom_src_module is not None:
                 self.custom_src_module = custom_src_module(d_model)
+            if encoder_module == "transformer":
+                self.encoder = TransformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                )
+            elif encoder_module == "conformer":
+                self.encoder = ConformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=conformer_activation,
+                    kernel_size=kernel_size,
+                    bias=bias,
+                )
+                assert (
+                    normalize_before
+                ), "normalize_before must be True for Conformer"
 
-            self.encoder = TransformerEncoder(
-                nhead=nhead,
-                num_layers=num_encoder_layers,
-                d_ffn=d_ffn,
-                d_model=d_model,
-                dropout=dropout,
-                activation=activation,
-                normalize_before=normalize_before,
-            )
+                assert (
+                    conformer_activation is not None
+                ), "conformer_activation must not be None"
 
         # initialize the decoder
         if num_decoder_layers > 0:
@@ -160,9 +185,9 @@ class TransformerEncoderLayer(nn.Module):
     reshape : bool
         Whether to automatically shape 4-d input to 3-d
     kdim : int
-        dimension for key (Optional)
+        dimension of the key (Optional)
     vdim : int
-        dimension for value (Optional)
+        dimension of the value (Optional)
     dropout : int
         dropout for the encoder (Optional)
 
@@ -257,7 +282,7 @@ class TransformerEncoderLayer(nn.Module):
 class TransformerEncoder(nn.Module):
     """This class implements the transformer encoder
 
-    Arguements
+    Arguments
     ----------
     num_layers : int
         Number of transformer layers to include
@@ -306,9 +331,12 @@ class TransformerEncoder(nn.Module):
 
         if input_shape is None and d_model is None:
             raise ValueError("Expected one of input_shape or d_model")
+
+        if input_shape is not None and d_model is None:
             if len(input_shape) == 3:
                 msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
                 raise ValueError(msg)
+            d_model = input_shape[-1]
 
         self.layers = torch.nn.ModuleList(
             [
@@ -360,7 +388,7 @@ class TransformerEncoder(nn.Module):
 class TransformerDecoderLayer(nn.Module):
     """This class implements the self-attention decoder layer
 
-    Arguements
+    Arguments
     ----------
     d_ffn : int
         Hidden size of self-attention Feed Forward layer
@@ -501,7 +529,7 @@ class TransformerDecoderLayer(nn.Module):
 class TransformerDecoder(nn.Module):
     """This class implements the Transformer decoder
 
-    Arguements
+    Arguments
     ----------
     d_ffn : int
         Hidden size of self-attention Feed Forward layer
@@ -566,7 +594,7 @@ class TransformerDecoder(nn.Module):
         memory_key_padding_mask=None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         tgt: tensor
             the sequence to the decoder layer (required).
@@ -600,7 +628,7 @@ class TransformerDecoder(nn.Module):
 
 
 class NormalizedEmbedding(nn.Module):
-    """This class implements the normalized embedding layer for transformer.
+    """This class implements the normalized embedding layer for the transformer.
     Since the dot product of the self-attention is always normalized by sqrt(d_model)
     and the final linear projection for prediction shares weight with the embedding layer,
     we multiply the output of the embedding by sqrt(d_model)
@@ -631,7 +659,7 @@ class NormalizedEmbedding(nn.Module):
 
 
 def get_key_padding_mask(padded_input, pad_idx):
-    """Create a binary mask to prevent attention to padded locations
+    """Creates a binary mask to prevent attention to padded locations
 
     Arguements
     ----------

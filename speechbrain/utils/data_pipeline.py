@@ -3,9 +3,7 @@ A pipeline for data transformations.
 
 Example
 -------
->>> #We expect this to be used via extended YAML,
->>> # for a dataset:
->>> from speechbrain.yaml import load_extended_yaml
+>>> from hyperpyyaml import load_hyperpyyaml
 >>> yamlstring = '''
 ... pipeline: !new:speechbrain.utils.data_pipeline.DataPipeline
 ...     static_data_keys: [a, b]
@@ -18,7 +16,7 @@ Example
 ...             provides: bar
 ...     output_keys: ["foo", "bar"]
 ... '''
->>> hparams = load_extended_yaml(yamlstring)
+>>> hparams = load_hyperpyyaml(yamlstring)
 >>> hparams["pipeline"]({"a":1, "b":2})
 {'foo': 3, 'bar': 1}
 
@@ -187,7 +185,7 @@ def provides(*output_keys):
 
     NOTE
     ----
-    The behaviour is slightly different for generators and regular functions, if
+    The behavior is slightly different for generators and regular functions, if
     many output keys are specified, e.g. @provides("signal", "mfcc"). Regular
     functions should return a tuple with len equal to len(output_keys), while
     generators should yield the items one by one.
@@ -366,7 +364,7 @@ class DataPipeline:
         Arguments
         ---------
         keys : dict, list, None
-            List of of keys (str) to produce in output.
+            List of keys (str) to produce in output.
 
             If a dict is given; it is used to map internal keys to output keys.
             From the output_keys dict key:value pairs the key appears outside,

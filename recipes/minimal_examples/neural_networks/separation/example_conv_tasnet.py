@@ -8,6 +8,7 @@ import torch
 import pathlib
 import speechbrain as sb
 import torch.nn.functional as F
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
@@ -90,11 +91,11 @@ def data_prep(data_folder, hparams):
     "Creates the datasets and their data processing pipelines."
 
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=data_folder / "minimal_example_convtasnet_tr.csv",
         replacements={"data_root": data_folder},
     )
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=data_folder / "minimal_example_convtasnet_cv.csv",
         replacements={"data_root": data_folder},
     )
@@ -104,17 +105,17 @@ def data_prep(data_folder, hparams):
     @sb.utils.data_pipeline.takes("mix_wav", "s1_wav", "s2_wav")
     @sb.utils.data_pipeline.provides("mix_sig", "source1", "source2")
     def audio_pipeline(mix_wav, s1_wav, s2_wav):
-        mix_sig = sb.data_io.data_io.read_audio(mix_wav)
+        mix_sig = sb.dataio.dataio.read_audio(mix_wav)
         yield mix_sig
-        source1 = sb.data_io.data_io.read_audio(s1_wav)
+        source1 = sb.dataio.dataio.read_audio(s1_wav)
         yield source1
-        source2 = sb.data_io.data_io.read_audio(s2_wav)
+        source2 = sb.dataio.dataio.read_audio(s2_wav)
         yield source2
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets, ["id", "mix_sig", "source1", "source2"]
     )
 
@@ -129,7 +130,7 @@ def main():
 
     # Load model hyper parameters:
     with open(hparams_file) as fin:
-        hparams = sb.load_extended_yaml(fin)
+        hparams = load_hyperpyyaml(fin)
 
     # Dataset creation
     train_data, valid_data = data_prep(data_folder, hparams)

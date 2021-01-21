@@ -6,6 +6,7 @@ Authors
 
 import torch  # noqa 42
 from torch import nn
+from typing import Optional
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
@@ -15,7 +16,9 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     NormalizedEmbedding,
 )
-from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.nnet.activations import Swish
+
+from speechbrain.dataio.dataio import length_to_mask
 
 
 class TransformerASR(TransformerInterface):
@@ -24,7 +27,7 @@ class TransformerASR(TransformerInterface):
     The architecture is based on the paper "Attention Is All You Need":
     https://arxiv.org/pdf/1706.03762.pdf
 
-    Arguements
+    Arguments
     ----------
     d_model: int
         the number of expected features in the encoder/decoder inputs
@@ -70,6 +73,10 @@ class TransformerASR(TransformerInterface):
         activation=nn.ReLU,
         positional_encoding=True,
         normalize_before=False,
+        kernel_size: Optional[int] = 31,
+        bias: Optional[bool] = True,
+        encoder_module: Optional[str] = "transformer",
+        conformer_activation: Optional[nn.Module] = Swish,
     ):
         super().__init__(
             d_model=d_model,
@@ -81,6 +88,10 @@ class TransformerASR(TransformerInterface):
             activation=activation,
             positional_encoding=positional_encoding,
             normalize_before=normalize_before,
+            kernel_size=kernel_size,
+            bias=bias,
+            encoder_module=encoder_module,
+            conformer_activation=conformer_activation,
         )
 
         self.custom_src_module = ModuleList(
@@ -146,7 +157,7 @@ class TransformerASR(TransformerInterface):
         return encoder_out, decoder_out
 
     def make_masks(self, src, tgt, wav_len=None, pad_idx=0):
-        """This method generate the masks for training the transformer model
+        """This method generates the masks for training the transformer model
 
         Arguements
         ----------
