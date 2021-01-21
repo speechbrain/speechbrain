@@ -190,7 +190,7 @@ def data_io_prepare(hparams):
 
     data_folder = hparams["data_folder"]
 
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
     )
 
@@ -215,18 +215,18 @@ def data_io_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_real_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_real_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_test_real"],
         replacements={"data_root": data_folder},
     )
     test_real_data = test_real_data.filtered_sorted(sort_key="duration")
 
-    test_synth_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_synth_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_test_synth"],
         replacements={"data_root": data_folder},
     )
@@ -240,10 +240,10 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("semantics")
@@ -261,10 +261,10 @@ def data_io_prepare(hparams):
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets,
         [
             "id",
