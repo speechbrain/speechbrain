@@ -13,7 +13,7 @@ output_folder: !ref results/RNNLM_1024/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
 
 # Data files
