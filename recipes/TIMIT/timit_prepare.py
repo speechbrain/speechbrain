@@ -38,7 +38,7 @@ def prepare_timit(
     kaldi_lab_opts=None,
     phn_set=39,
     uppercase=False,
-    skip_prep=False
+    skip_prep=False,
 ):
     """
     repares the csv files for the TIMIT dataset.
@@ -93,7 +93,7 @@ def prepare_timit(
         "save_folder": save_folder,
         "phn_set": phn_set,
         "uppercase": uppercase,
-        "skip_prep": skip_prep
+        "skip_prep": skip_prep,
     }
 
     # Skip if needed
