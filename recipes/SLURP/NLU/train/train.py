@@ -1,22 +1,10 @@
 #!/usr/bin/env/python3
 """
-
-Recipe for "multistage" (speech -> ASR -> text -> NLU -> semantics) SLU.
-
-We transcribe each minibatch using a model trained on LibriSpeech,
-then feed the transcriptions into a seq2seq model to map them to semantics.
-
-(The transcriptions could be done offline to make training faster;
-the benefit of doing it online is that we can use augmentation
-and sample many possible transcriptions.)
-
-(Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Pl$
-
-Run using:
-> python train.py hparams/train.yaml
+Text-only NLU recipe.
 
 Authors
  * Loren Lugosch, Mirco Ravanelli 2020
+
 """
 
 import sys
@@ -24,52 +12,25 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+import jsonlines
+import ast
+import pandas as pd
 
 
 # Define training procedure
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
-        tokens_bos, tokens_bos_lens = batch.tokens_bos
+        transcript_tokens, transcript_tokens_lens = batch.transcript_tokens
+        (
+            semantics_tokens_bos,
+            semantics_tokens_bos_lens,
+        ) = batch.semantics_tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-                tokens_bos_lens = torch.cat([tokens_bos_lens, tokens_bos_lens])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
-
-        # ASR forward pass
-        words, asr_tokens = self.modules.asr_model.transcribe(
-            wavs.detach(), wav_lens
-        )
-
-        # Pad examples to have same length.
-        asr_tokens_lens = torch.tensor([max(len(t), 1) for t in asr_tokens])
-        max_length = asr_tokens_lens.max().item()
-        for t in asr_tokens:
-            t += [0] * (max_length - len(t))
-        asr_tokens = torch.tensor([t for t in asr_tokens])
-
-        asr_tokens_lens = asr_tokens_lens.float()
-        asr_tokens_lens = asr_tokens_lens / asr_tokens_lens.max()
-
-        asr_tokens, asr_tokens_lens = (
-            asr_tokens.to(self.device),
-            asr_tokens_lens.to(self.device),
-        )
-        embedded_transcripts = self.hparams.input_emb(asr_tokens)
-
-        # SLU forward pass
+        embedded_transcripts = self.hparams.input_emb(transcript_tokens)
         encoder_out = self.hparams.slu_enc(embedded_transcripts)
-        e_in = self.hparams.output_emb(tokens_bos)
-        h, _ = self.hparams.dec(e_in, encoder_out, asr_tokens_lens)
+        e_in = self.hparams.output_emb(semantics_tokens_bos)
+        h, _ = self.hparams.dec(e_in, encoder_out, transcript_tokens_lens)
 
         # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
@@ -80,12 +41,12 @@ class SLU(sb.Brain):
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            return p_seq, asr_tokens_lens
+            return p_seq, transcript_tokens_lens
         else:
             p_tokens, scores = self.hparams.beam_searcher(
-                encoder_out, asr_tokens_lens
+                encoder_out, transcript_tokens_lens
             )
-            return p_seq, asr_tokens_lens, p_tokens
+            return p_seq, transcript_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
@@ -94,22 +55,19 @@ class SLU(sb.Brain):
             stage == sb.Stage.TRAIN
             and self.batch_count % show_results_every != 0
         ):
-            p_seq, asr_tokens_lens = predictions
+            p_seq, transcript_tokens_lens = predictions
         else:
-            p_seq, asr_tokens_lens, predicted_tokens = predictions
+            p_seq, transcript_tokens_lens, predicted_tokens = predictions
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
-
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
+        (
+            semantics_tokens_eos,
+            semantics_tokens_eos_lens,
+        ) = batch.semantics_tokens_eos
+        semantics_tokens, semantics_tokens_lens = batch.semantics_tokens
 
         loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
+            p_seq, semantics_tokens_eos, length=semantics_tokens_eos_lens
         )
 
         # (No ctc loss)
@@ -120,16 +78,13 @@ class SLU(sb.Brain):
         ):
             # Decode token terms to words
             predicted_semantics = [
-                tokenizer.decode_ids(utt_seq).split(" ")
+                slu_tokenizer.decode_ids(utt_seq).split(" ")
                 for utt_seq in predicted_tokens
             ]
 
             target_semantics = [wrd.split(" ") for wrd in batch.semantics]
 
-            for i in range(len(target_semantics)):
-                print(" ".join(predicted_semantics[i]).replace("|", ","))
-                print(" ".join(target_semantics[i]).replace("|", ","))
-                print("")
+            self.log_outputs(predicted_semantics, target_semantics)
 
             if stage != sb.Stage.TRAIN:
                 self.wer_metric.append(
@@ -139,7 +94,35 @@ class SLU(sb.Brain):
                     ids, predicted_semantics, target_semantics
                 )
 
+            if stage == sb.Stage.TEST:
+                # write to "predictions.jsonl"
+                with jsonlines.open(
+                    hparams["output_folder"] + "/predictions.jsonl", mode="a"
+                ) as writer:
+                    for i in range(len(predicted_semantics)):
+                        try:
+                            dict = ast.literal_eval(
+                                " ".join(predicted_semantics[i]).replace(
+                                    "|", ","
+                                )
+                            )
+                        except SyntaxError:  # need this if the output is not a valid dictionary
+                            dict = {
+                                "scenario": "none",
+                                "action": "none",
+                                "entities": [],
+                            }
+                        dict["file"] = id_to_file[ids[i]]
+                        writer.write(dict)
+
         return loss
+
+    def log_outputs(self, predicted_semantics, target_semantics):
+        """ TODO: log these to a file instead of stdout """
+        for i in range(len(target_semantics)):
+            print(" ".join(predicted_semantics[i]).replace("|", ","))
+            print(" ".join(target_semantics[i]).replace("|", ","))
+            print("")
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -232,55 +215,67 @@ def dataio_prepare(hparams):
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_real_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test_real"],
-        replacements={"data_root": data_folder},
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["csv_test"], replacements={"data_root": data_folder},
     )
-    test_real_data = test_real_data.filtered_sorted(sort_key="duration")
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
-    test_synth_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test_synth"],
-        replacements={"data_root": data_folder},
-    )
-    test_synth_data = test_synth_data.filtered_sorted(sort_key="duration")
+    datasets = [train_data, valid_data, test_data]
 
-    datasets = [train_data, valid_data, test_real_data, test_synth_data]
+    asr_tokenizer = hparams["asr_tokenizer"].spm
+    slu_tokenizer = hparams["slu_tokenizer"].spm
 
-    tokenizer = hparams["tokenizer"].spm
+    # 2. Define input pipeline:
+    @sb.utils.data_pipeline.takes("transcript")
+    @sb.utils.data_pipeline.provides("transcript", "transcript_tokens")
+    def transcript_pipeline(transcript):
+        yield transcript
+        transcript_tokens_list = asr_tokenizer.encode_as_ids(transcript)
+        transcript_tokens = torch.LongTensor(transcript_tokens_list)
+        yield transcript_tokens
 
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+    sb.dataio.dataset.add_dynamic_item(datasets, transcript_pipeline)
 
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-
-    # 3. Define text pipeline:
+    # 3. Define output pipeline:
     @sb.utils.data_pipeline.takes("semantics")
     @sb.utils.data_pipeline.provides(
-        "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
+        "semantics",
+        "semantics_token_list",
+        "semantics_tokens_bos",
+        "semantics_tokens_eos",
+        "semantics_tokens",
     )
-    def text_pipeline(semantics):
+    def semantics_pipeline(semantics):
         yield semantics
-        tokens_list = tokenizer.encode_as_ids(semantics)
-        yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
+        semantics_tokens_list = slu_tokenizer.encode_as_ids(semantics)
+        yield semantics_tokens_list
+        semantics_tokens_bos = torch.LongTensor(
+            [hparams["bos_index"]] + (semantics_tokens_list)
+        )
+        yield semantics_tokens_bos
+        semantics_tokens_eos = torch.LongTensor(
+            semantics_tokens_list + [hparams["eos_index"]]
+        )
+        yield semantics_tokens_eos
+        semantics_tokens = torch.LongTensor(semantics_tokens_list)
+        yield semantics_tokens
 
-    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, semantics_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "semantics", "tokens_bos", "tokens_eos", "tokens"],
+        [
+            "id",
+            "transcript",
+            "transcript_tokens",
+            "semantics",
+            "semantics_tokens_bos",
+            "semantics_tokens_eos",
+            "semantics_tokens",
+        ],
     )
-    return train_data, valid_data, test_real_data, test_synth_data, tokenizer
+    return train_data, valid_data, test_data, asr_tokenizer, slu_tokenizer
 
 
 if __name__ == "__main__":
@@ -297,15 +292,15 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # 1.  # Dataset prep (parsing Librispeech)
-    from prepare import prepare_TAS  # noqa
+    from prepare import prepare_SLURP  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_TAS,
+        prepare_SLURP,
         kwargs={
             "data_folder": hparams["data_folder"],
             "train_splits": hparams["train_splits"],
-            "type": "multistage",
+            "slu_type": "decoupled",
         },
     )
 
@@ -320,9 +315,9 @@ if __name__ == "__main__":
     (
         train_set,
         valid_set,
-        test_real_set,
-        test_synth_set,
-        tokenizer,
+        test_set,
+        asr_tokenizer,
+        slu_tokenizer,
     ) = dataio_prepare(hparams)
 
     # Brain class initialization
@@ -335,7 +330,7 @@ if __name__ == "__main__":
     )
 
     # adding objects to trainer:
-    slu_brain.tokenizer = tokenizer
+    # slu_brain.tokenizer = tokenizer
 
     # Training
     slu_brain.fit(
@@ -347,13 +342,11 @@ if __name__ == "__main__":
     )
 
     # Test
+    print("Creating id_to_file mapping...")
+    id_to_file = {}
+    df = pd.read_csv(hparams["csv_test"])
+    for i in range(len(df)):
+        id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
+
     slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
-    slu_brain.evaluate(
-        test_real_set, test_loader_kwargs=hparams["dataloader_opts"]
-    )
-    slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_synth.txt"
-    )
-    slu_brain.evaluate(
-        test_synth_set, test_loader_kwargs=hparams["dataloader_opts"]
-    )
+    slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])
