@@ -213,6 +213,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"]
         },
     )
 

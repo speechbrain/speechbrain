@@ -18,6 +18,7 @@ open_rir_folder: !ref <data_folder> # where to store noisy data for augment
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/dev.csv
 test_annotation: !ref <data_folder>/test.csv
+skip_prep: False # Skip data preparation 
 
 # Training parameters
 number_of_epochs: 50
