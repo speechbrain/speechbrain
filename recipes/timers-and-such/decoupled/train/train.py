@@ -1,16 +1,10 @@
 #!/usr/bin/env/python3
 """
 
-Recipe for "multistage" (speech -> ASR -> text -> NLU -> semantics) SLU.
+Recipe for "decoupled" (speech -> ASR -> text -> NLU -> semantics) SLU.
 
-We transcribe each minibatch using a model trained on LibriSpeech,
-then feed the transcriptions into a seq2seq model to map them to semantics.
-
-(The transcriptions could be done offline to make training faster;
-the benefit of doing it online is that we can use augmentation
-and sample many possible transcriptions.)
-
-(Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Pl$
+The NLU part is trained on the ground truth transcripts, and at test time
+we use the ASR to transcribe the audio and use that transcript as the input to the NLU.
 
 Run using:
 > python train.py hparams/train.yaml
@@ -31,24 +25,23 @@ class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
+        if stage == sb.Stage.TRAIN or stage == sb.Stage.VALID:
+            # true_transcripts, true_transcript_lens = batch.transcript
+            true_transcripts = batch.transcript
+        else:
+            wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-                tokens_bos_lens = torch.cat([tokens_bos_lens, tokens_bos_lens])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
-
-        # ASR forward pass
-        words, asr_tokens = self.modules.asr_model.transcribe(
-            wavs.detach(), wav_lens
-        )
+        # Forward pass
+        if stage == sb.Stage.TRAIN or stage == sb.Stage.VALID:
+            asr_tokens = [
+                self.modules.asr_model.tokenizer.encode_as_ids(t)
+                for t in true_transcripts
+            ]
+        else:
+            words, asr_tokens = self.modules.asr_model.transcribe(
+                wavs.detach(), wav_lens
+            )
 
         # Pad examples to have same length.
         asr_tokens_lens = torch.tensor([max(len(t), 1) for t in asr_tokens])
@@ -101,12 +94,6 @@ class SLU(sb.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
-
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
@@ -198,7 +185,8 @@ class SLU(sb.Brain):
                 self.wer_metric.write_stats(w)
 
 
-def dataio_prepare(hparams):
+def data_io_prepare(hparams):
+    print(hparams["tokenizer"].spm)
 
     data_folder = hparams["data_folder"]
 
@@ -278,7 +266,15 @@ def dataio_prepare(hparams):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "semantics", "tokens_bos", "tokens_eos", "tokens"],
+        [
+            "id",
+            "sig",
+            "transcript",
+            "semantics",
+            "tokens_bos",
+            "tokens_eos",
+            "tokens",
+        ],
     )
     return train_data, valid_data, test_real_data, test_synth_data, tokenizer
 
@@ -305,7 +301,7 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "train_splits": hparams["train_splits"],
-            "type": "multistage",
+            "type": "decoupled",
         },
     )
 
@@ -323,7 +319,7 @@ if __name__ == "__main__":
         test_real_set,
         test_synth_set,
         tokenizer,
-    ) = dataio_prepare(hparams)
+    ) = data_io_prepare(hparams)
 
     # Brain class initialization
     slu_brain = SLU(
