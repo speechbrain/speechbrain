@@ -39,6 +39,7 @@ def prepare_TAS(data_folder, type, train_splits):
                 'Error: the inflect module must be installed to run the "decoupled" SLU recipe.'
             )
             print("Install using `pip install inflect`.")
+            raise
 
     # If the data folders do not exist, we need to extract the data
     if not os.path.isdir(os.path.join(data_folder, "train-synth")):
