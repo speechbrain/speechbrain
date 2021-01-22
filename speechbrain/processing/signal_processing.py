@@ -187,7 +187,7 @@ def convolve1d(
         Passed to conv1d. Has no effect if `use_fft` is True.
     groups : int
         This option is passed to `conv1d` to split the input into groups for
-        convolution. Input channels should be divisible by number of groups.
+        convolution. Input channels should be divisible by the number of groups.
     use_fft : bool
         When `use_fft` is passed `True`, then compute the convolution in the
         spectral domain using complex multiply. This is more efficient on CPU
@@ -284,7 +284,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     General function to contaminate a given signal with reverberation given a
     Room Impulse Response (RIR).
     It performs convolution between RIR and signal, but without changing
-    original amplitude of the signal.
+    the original amplitude of the signal.
 
     Parameters
     ----------

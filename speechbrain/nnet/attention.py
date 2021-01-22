@@ -305,7 +305,7 @@ class MultiheadAttention(nn.Module):
     """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
     ref: https://pytorch.org/docs/stable/nn.html
 
-    Arguements
+    Arguments
     ----------
     num_heads : int
         parallel attention heads.
@@ -364,7 +364,7 @@ class MultiheadAttention(nn.Module):
         key_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         query: tensor
             (L, N, E) where L is the target sequence length,
@@ -426,7 +426,7 @@ class PositionalwiseFeedForward(nn.Module):
     """The class implements the positional-wise feed forward module in
     “Attention Is All You Need”
 
-    Arguements
+    Arguments
     ----------
     d_ffn: int
         dimention of representation space of this positional-wise feed
@@ -438,7 +438,7 @@ class PositionalwiseFeedForward(nn.Module):
     dropout: float
         Fraction of outputs to drop.
     activation: torch class
-        activation functions to be applied (Recommandation: ReLU, GELU)
+        activation functions to be applied (Recommendation: ReLU, GELU)
 
     Example
     -------

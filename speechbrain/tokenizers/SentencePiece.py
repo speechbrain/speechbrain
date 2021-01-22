@@ -31,13 +31,13 @@ class SentencePiece:
     model_dir: str
         The directory where the model is saved.
     vocab_size: int, None, optional
-        Vocab size for the choosen tokenizer type (BPE, Unigram).
+        Vocab size for the chosen tokenizer type (BPE, Unigram).
         The vocab_size is optional for char, and mandatory for BPE & unigram
         tokenization.
     csv_train: str
-        Path of the csv file which is used for learn of create the tokenizer.
+        Path of the csv file which is used to learn the tokenizer.
     csv_read: str
-        The data entry which contain the word sequence in the csv file.
+        The data entry which contains the word sequence in the csv file.
     model_type: str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
@@ -51,12 +51,12 @@ class SentencePiece:
         (ex. a p p l e _ i s _ g o o d)
     character_coverage: int
         Default: 1.0, Amount of characters covered by the model, good defaults
-        are: 0.9995 for languages with rich character set like Japanse or
+        are: 0.9995 for languages with a rich character set like Japanse or
         Chinese and 1.0 for other languages with small character set.
     user_defined_symbols: string
         Default: None,
-        String contained a list of symbols separated by comma.
-        User defined symbols are handled as one piece in any context.
+        String contained a list of symbols separated by a comma.
+        User-defined symbols are handled as one piece in any context.
     max_sentencepiece_length: int
         Deault: 10,
         Maximum number of characters for the tokens.

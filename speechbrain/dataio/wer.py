@@ -1,7 +1,7 @@
 """WER print functions
 
 The functions here are used to print the computed statistics
-with human readable formatting.
+with human-readable formatting.
 They have a file argument, but you can also just use
 contextlib.redirect_stdout, which may give a nicer syntax
 
@@ -13,7 +13,7 @@ from speechbrain.utils import edit_distance
 
 
 def print_wer_summary(wer_details, file=sys.stdout):
-    """Prints out WER summary details in human readable format.
+    """Prints out WER summary details in human-readable format.
 
     This function essentially mirrors the Kaldi compute-wer output format
 
