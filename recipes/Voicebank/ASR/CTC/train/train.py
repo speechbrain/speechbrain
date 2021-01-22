@@ -157,6 +157,13 @@ if __name__ == "__main__":
     # Prepare data on one process
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     run_on_main(
         prepare_voicebank,
         kwargs={
@@ -166,13 +173,6 @@ if __name__ == "__main__":
     )
 
     datasets, label_encoder = dataio_prep(hparams)
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
 
     # Load pretrained model
     if "pretrained" in hparams:

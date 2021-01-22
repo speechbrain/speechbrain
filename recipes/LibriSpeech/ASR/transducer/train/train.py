@@ -33,12 +33,15 @@ Authors
 import os
 import sys
 import torch
+import logging
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 import sentencepiece as spm
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
