@@ -33,12 +33,15 @@ Authors
 import os
 import sys
 import torch
+import logging
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 import sentencepiece as spm
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -280,7 +283,8 @@ class ASR(sb.Brain):
 
 
 def dataio_prepare(hparams):
-
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(

@@ -300,7 +300,7 @@ class FastTransformerBlock(nn.Module):
     nhead: int
         Number of attention heads.
     d_ffn: int
-        Dimensionality of positional feed forward.
+        Dimensionality of positional feed-forward.
     dropout: float
         Dropout drop rate.
     activation: str
@@ -600,11 +600,11 @@ class SBRNNBlock(nn.Module):
     input_size: int
         Dimensionality of the input features.
     hidden_channels: int
-        Dimensionality of latent layer of the rnn.
+        Dimensionality of the latent layer of the rnn.
     num_layers: int
-        Number of rnn layers.
+        Number of the rnn layers.
     rnn_type: str
-        Type of the rnn cell.
+        Type of the the rnn cell.
     dropout: float
         Dropout rate
     bidirectional: bool

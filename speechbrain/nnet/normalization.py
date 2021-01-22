@@ -17,7 +17,7 @@ class BatchNorm1d(nn.Module):
     input_size : int
         The expected size of the input. Alternatively, use ``input_shape``.
     eps : float
-        This value is added to std deviation estimationto improve the numerical
+        This value is added to std deviation estimation to improve the numerical
         stability.
     momentum : float
         It is a value used for the running_mean and running_var computation.
@@ -108,7 +108,7 @@ class BatchNorm2d(nn.Module):
     input_size : int
         The expected size of the input. Alternatively, use ``input_shape``.
     eps : float
-        This value is added to std deviation estimationto improve the numerical
+        This value is added to std deviation estimation to improve the numerical
         stability.
     momentum : float
         It is a value used for the running_mean and running_var computation.
@@ -175,7 +175,7 @@ class LayerNorm(nn.Module):
     input_shape : tuple
         The expected shape of the input.
     eps : float
-        This value is added to std deviation estimationto improve the numerical
+        This value is added to std deviation estimation to improve the numerical
         stability.
     elementwise_affine : bool
         If True, this module has learnable per-element affine parameters
@@ -231,7 +231,7 @@ class InstanceNorm1d(nn.Module):
     input_size : int
         The expected size of the input. Alternatively, use ``input_shape``.
     eps : float
-        This value is added to std deviation estimationto improve the numerical
+        This value is added to std deviation estimation to improve the numerical
         stability.
     momentum : float
         It is a value used for the running_mean and running_var computation.
@@ -302,7 +302,7 @@ class InstanceNorm2d(nn.Module):
     input_size : int
         The expected size of the input. Alternatively, use ``input_shape``.
     eps : float
-        This value is added to std deviation estimationto improve the numerical
+        This value is added to std deviation estimation to improve the numerical
         stability.
     momentum : float
         It is a value used for the running_mean and running_var computation.

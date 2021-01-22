@@ -1,6 +1,6 @@
 """
 The ``metric_stats`` module provides an abstract class for storing
-statistics produced over the course of an experiment, and summarizing them.
+statistics produced over the course of an experiment and summarizing them.
 
 Authors:
  * Peter Plantinga 2020
@@ -303,7 +303,7 @@ class BinaryMetricStats(MetricStats):
         self.labels.extend(labels.detach())
 
     def summarize(self, field=None, threshold=None, beta=1, eps=1e-8):
-        """Compute statistics using full set of scores.
+        """Compute statistics using a full set of scores.
 
         Full set of fields:
          - TP - True Positive

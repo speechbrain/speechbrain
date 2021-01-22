@@ -1,4 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/env/python3
+"""Recipe for training a speech enhancement system with the Voicebank dataset.
+
+To run this recipe, do the following:
+> python train.py hparams/{hyperparam_file}.yaml
+
+Authors
+ * Szu-Wei Fu 2020
+"""
 import os
 import sys
 import torch
@@ -15,6 +23,7 @@ from speechbrain.utils.distributed import run_on_main
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        """Forward computations from the waveform batches to the enhanced output."""
         batch = batch.to(self.device)
         noisy_wavs, lens = batch.noisy_sig
         noisy_feats = self.compute_feats(noisy_wavs)
@@ -32,12 +41,14 @@ class SEBrain(sb.Brain):
         return predict_spec, predict_wav
 
     def compute_feats(self, wavs):
+        """Feature computation pipeline"""
         feats = self.hparams.compute_STFT(wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
         return feats
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss given the predicted and targeted outputs"""
         predict_spec, predict_wav = predictions
         clean_wavs, lens = batch.clean_sig
 
@@ -80,11 +91,13 @@ class SEBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of each epoch"""
         self.loss_metric = MetricStats(metric=self.hparams.compute_cost)
         self.stoi_metric = MetricStats(metric=stoi_loss)
 
         # Define function taking (prediction, target) for parallel eval
         def pesq_eval(pred_wav, target_wav):
+            """Computes the PESQ evaluation metric"""
             return pesq(
                 fs=16000,
                 ref=target_wav.numpy(),
@@ -96,6 +109,7 @@ class SEBrain(sb.Brain):
             self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of an epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {"loss": self.loss_metric.scores}
@@ -131,7 +145,8 @@ class SEBrain(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """Creates data processing pipeline"""
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     # Define audio piplines
     @sb.utils.data_pipeline.takes("noisy_wav")
