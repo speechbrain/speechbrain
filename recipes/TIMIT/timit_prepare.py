@@ -38,6 +38,7 @@ def prepare_timit(
     kaldi_lab_opts=None,
     phn_set=39,
     uppercase=False,
+    skip_prep=False
 ):
     """
     repares the csv files for the TIMIT dataset.
@@ -71,6 +72,9 @@ def prepare_timit(
         Default: False
         This option must be True when the TIMIT dataset
         is in the upper-case version.
+    skip_prep: bool
+        Default: False
+        If True, the data preparation is skipped.
 
     Example
     -------
@@ -89,7 +93,12 @@ def prepare_timit(
         "save_folder": save_folder,
         "phn_set": phn_set,
         "uppercase": uppercase,
+        "skip_prep": skip_prep
     }
+
+    # Skip if needed
+    if skip_prep:
+        return
 
     # Getting speaker dictionary
     dev_spk, test_spk = _get_speaker()
