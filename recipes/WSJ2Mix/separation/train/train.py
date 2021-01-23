@@ -535,10 +535,15 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects
-    if hparams["dynamic_mixing"]:
+    if hparams["dynamic_mixing"] == "regular":
         from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
         train_data = dynamic_mix_data_prep(hparams)
+        _, valid_data, test_data = data_io_prep(hparams)
+    elif hparams["dynamic_mixing"] == "shuffleonly":
+        from dynamic_mixing import dynamic_mix_shuffleonly_data_prep  # noqa
+
+        train_data = dynamic_mix_shuffleonly_data_prep(hparams)
         _, valid_data, test_data = data_io_prep(hparams)
     else:
         train_data, valid_data, test_data = data_io_prep(hparams)
