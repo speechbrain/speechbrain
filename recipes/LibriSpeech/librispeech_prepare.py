@@ -36,6 +36,7 @@ def prepare_librispeech(
     merge_lst=[],
     merge_name=None,
     create_lexicon=False,
+    skip_prep=False,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -65,6 +66,8 @@ def prepare_librispeech(
     create_lexicon: bool
         If True, it outputs csv files contaning mapping between graphene
         to phonemes. Use it for training a G2P system.
+    skip_prep: bool
+        If True, data preparation is skipped.
 
 
     Example
@@ -74,6 +77,9 @@ def prepare_librispeech(
     >>> save_folder = 'librispeech_prepared'
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
+
+    if skip_prep:
+        return
     data_folder = data_folder
     splits = tr_splits + dev_splits + te_splits
     save_folder = save_folder

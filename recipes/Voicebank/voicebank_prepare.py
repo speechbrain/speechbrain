@@ -152,7 +152,9 @@ MISSING_LEXICON = {
 }
 
 
-def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
+def prepare_voicebank(
+    data_folder, save_folder, valid_speaker_count=2, skip_prep=False
+):
     """
     Prepares the csv files for the Voicebank dataset.
 
@@ -167,6 +169,8 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
         The directory where to store the csv files.
     valid_speaker_count : int
         The number of validation speakers to use (out of 28 in train set).
+    skip_prep: bool
+        If True, skip data preparation.
 
     Example
     -------
@@ -174,6 +178,9 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
     >>> save_folder = 'exp/Voicebank_exp'
     >>> prepare_voicebank(data_folder, save_folder)
     """
+
+    if skip_prep:
+        return
 
     # Setting ouput files
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
