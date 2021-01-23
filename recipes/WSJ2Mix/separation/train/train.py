@@ -437,7 +437,7 @@ class Separation(sb.Brain):
         )
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     """Creates data processing pipeline"""
 
     # 1. Define datasets
@@ -539,14 +539,16 @@ if __name__ == "__main__":
         from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
         train_data = dynamic_mix_data_prep(hparams)
-        _, valid_data, test_data = data_io_prep(hparams)
+        _, valid_data, test_data = dataio_prep(hparams)
     elif hparams["dynamic_mixing"] == "shuffleonly":
         from dynamic_mixing import dynamic_mix_shuffleonly_data_prep  # noqa
 
         train_data = dynamic_mix_shuffleonly_data_prep(hparams)
-        _, valid_data, test_data = data_io_prep(hparams)
+        _, valid_data, test_data = dataio_prep(hparams)
+    elif hparams["dynamic_mixing"] == "False":
+        train_data, valid_data, test_data = dataio_prep(hparams)
     else:
-        train_data, valid_data, test_data = data_io_prep(hparams)
+        raise ValueError("Unknown dynamic mixing type")
 
     # Brain class initialization
     separator = Separation(
