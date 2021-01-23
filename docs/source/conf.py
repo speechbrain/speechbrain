@@ -13,14 +13,15 @@
 import os
 import sys
 
+
 sys.path.insert(0, os.path.abspath("../../speechbrain"))
 
 
 # -- Project information -----------------------------------------------------
 
 project = "SpeechBrain"
-copyright = "2020, Mirco Ravanelli"
-author = "Mirco Ravanelli"
+copyright = "2021, Mirco Ravanelli & Titouan Parcollet"
+author = "Mirco Ravanelli & Titouan Parcollet"
 
 # The full version, including alpha/beta/rc tags
 release = "0.0.0"
@@ -38,6 +39,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
+    "recommonmark"
 ]
 
 
@@ -84,3 +86,9 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.txt': 'markdown',
+    '.md': 'markdown',
+}

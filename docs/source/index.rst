@@ -6,25 +6,54 @@
 SpeechBrain
 =======================================
 
-.. image:: ../images/logo_noname_rounded_big.png
+.. image:: ../images/logo_noname_big.png
   :width: 400
   :align: center
 
 SpeechBrain is an open-source and all-in-one speech toolkit relying on PyTorch.
-
-What will I find on this website?
---------
-
-This documentation is only intended to give SpeechBrain users all the API
-information necessary to develop their projects. For tutorials or information
-on how to contribute, please refer to the official `Github <https://github.com/speechbrain/speechbrain>`_
+This documentation is intended to give SpeechBrain users all the API
+information necessary to develop their projects. For detailed tutorials or information
+please refer to the official `Github <https://github.com/speechbrain/speechbrain>`_
 or the official `Website <https://speechbrain.github.io>`_
 
 
-.. toctree::
-   :maxdepth: 4
+Licence
+--------
 
-   speechbrain
+SpeechBrain is released under the Apache license, version 2.0. The Apache license is a popular BSD-like license.
+SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances you may have to distribute a license document).
+Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
+
+| From a legal and copyright point of view, SpeechBrain has been created and is driven by Dr. Ravanelli Mirco and Dr. Parcollet Titouan.
+It is a community project, which means that discussions are engaged community-wide while decisions are taken by Dr. Ravanelli and Dr. Parcollet with respect to the community views.
+There is no legal institution associated as an owner of SpeechBrain. Furthermore, and due to the Apache Licence, anyone that would disagree with the way the project is being run can fork it and start a new toolkit.
+
+Referencing SpeechBrain
+--------
+.. code-block:: txt
+
+  @inproceedings{ravanelli2019pytorch,
+  title={The pytorch-kaldi speech recognition toolkit},
+    author={Ravanelli, Mirco and Parcollet, Titouan and Bengio, Yoshua},
+    booktitle={ICASSP 2019-2019},
+    pages={6465--6469},
+    year={2019},
+    organization={IEEE}
+  }
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting started:
+
+   installation.md
+   experiment.md
+   multigpu.md
+   tutorials.md
+   contributing.md
+
+API Documentation
+--------
 
 .. autosummary::
 
