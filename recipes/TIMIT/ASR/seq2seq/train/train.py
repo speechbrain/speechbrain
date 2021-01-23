@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         phns_bos, _ = batch.phn_encoded_bos
@@ -62,6 +63,7 @@ class ASR(sb.Brain):
         return p_ctc, p_seq, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the NLL loss."
         if stage == sb.Stage.TRAIN:
             p_ctc, p_seq, wav_lens = predictions
         else:
@@ -91,6 +93,7 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
@@ -100,11 +103,13 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.ctc_metrics = self.hparams.ctc_stats()
         self.seq_metrics = self.hparams.seq_stats()
 
@@ -112,6 +117,7 @@ class ASR(sb.Brain):
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -153,11 +159,12 @@ class ASR(sb.Brain):
                 )
 
 
-def data_io_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+def dataio_prep(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
@@ -182,29 +189,29 @@ def data_io_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
-    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("phn")
@@ -231,7 +238,7 @@ def data_io_prep(hparams):
         )
         yield phn_encoded_bos
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
@@ -258,7 +265,7 @@ def data_io_prep(hparams):
         )
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets,
         ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"],
     )
@@ -298,7 +305,7 @@ if __name__ == "__main__":
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    train_data, valid_data, test_data, label_encoder = data_io_prep(hparams)
+    train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)
 
     # Trainer initialization
     asr_brain = ASR(

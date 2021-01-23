@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Dropout2d(nn.Module):
-    """This function implements droput 2d. It randomly put zeros on
+    """This function implements dropout 2d. It randomly put zeros on
     entire channels.
 
 

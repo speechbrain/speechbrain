@@ -4,7 +4,7 @@ csv_file: !ref <data_folder>/audio_samples/csv_example2.csv
 sample_rate: 16000
 batch_size: 1
 
-sample_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+sample_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
     csvpath: !ref <csv_file>
     sorting: descending
     output_keys: [id, wav]

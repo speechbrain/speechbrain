@@ -20,21 +20,21 @@ hop_length: 10  # hop length (in ms) for stft
 save_reconstructed: False   # saves the results
 copy_original_files: False    # copies the original files
 
-train_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+train_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
     csvpath: !ref <csv_train>
     output_keys: [wav]
     sorting: 'original'
     replacements:
         data_folder: !ref <data_folder>
 
-train_data2: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+train_data2: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
     csvpath: !ref <csv_train2>
     output_keys: [wav]
     sorting: 'original'
     replacements:
         data_folder: !ref <data_folder>
 
-test_data: !new:speechbrain.data_io.legacy.ExtendedCSVDataset
+test_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
     csvpath: !ref <csv_test>
     output_keys: [wav]
     sorting: 'original'
