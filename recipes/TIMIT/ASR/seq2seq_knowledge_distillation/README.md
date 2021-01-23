@@ -5,10 +5,12 @@ the error rate metric to the teacher selection rather than solely focusing on th
 This way, we directly distillate and optimize the student toward the relevant metric for speech recognition.
 For details please refer to: https://arxiv.org/abs/2005.09310
 
+### Extra-Dependencies
+Before running this recipe, make sure h5py is installed. Otherwise, run:
+pip install h5py
 
 ### Training steps
-To speed up student distillation from multiple teachers, we separate the whole procedure into
-three parts: teacher model training, inference running on teacher models, student distillation.
+To speed up student distillation from multiple teachers, we separate the whole procedure into three parts: teacher model training, inference running on teacher models, student distillation.
 
 #### 1. Teacher model training
 Before doing distillation, we require finishing N teacher models training. Here, we propose to set N=10 as in the referenced paper.
