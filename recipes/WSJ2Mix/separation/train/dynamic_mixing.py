@@ -5,65 +5,30 @@ import torchaudio
 import glob
 import os
 from pathlib import Path
-import json
+import random
+from speechbrain.processing.signal_processing import rescale
 
 
 def build_spk_hashtable(hparams):
 
-    utterances = glob.glob(os.path.join(hparams["wsj0_max_tr"], "s1", "*.wav"))
-
-    utterances = [Path(u).stem for u in utterances]
-
-    with open("/tmp/scalings.json", "r") as f:
-        scaling_coeffs = json.load(f)
+    wsj0_utterances = glob.glob(
+        os.path.join(hparams["wsj0_tr"], "**/*.wav"), recursive=True
+    )
 
     spk_hashtable = {}
+    for utt in wsj0_utterances:
 
-    for utt_id in utterances:
-
-        s1_utt = utt_id.split("_")[0]
-        s1_scaling = scaling_coeffs[utt_id][0]
-        s2_utt = utt_id.split("_")[0]
-        s2_scaling = scaling_coeffs[utt_id][1]
-
-        s1_id = s1_utt[:3]
+        spk_id = Path(utt).stem[:3]
+        assert torchaudio.info(utt).sample_rate == 8000
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
         # id of speaker 1 is 019 utterance id is o031a
         # id of speaker 2 is 01v utterance id is 01vo030q
 
-        # we put s1 into the hashtable together with its scaling
-        if s1_id not in spk_hashtable.keys():
-            spk_hashtable[s1_id] = [
-                (
-                    os.path.join(hparams["wsj0_max_tr"], "s1", utt_id + ".wav"),
-                    s1_scaling,
-                )
-            ]
+        if spk_id not in spk_hashtable.keys():
+            spk_hashtable[spk_id] = [utt]
         else:
-            spk_hashtable[s1_id].append(
-                (
-                    os.path.join(hparams["wsj0_max_tr"], "s1", utt_id + ".wav"),
-                    s1_scaling,
-                )
-            )
-
-        # same for s2
-        s2_id = s2_utt[:3]
-        if s2_id not in spk_hashtable.keys():
-            spk_hashtable[s2_id] = [
-                (
-                    os.path.join(hparams["wsj0_max_tr"], "s2", utt_id + ".wav"),
-                    s2_scaling,
-                )
-            ]
-        else:
-            spk_hashtable[s2_id].append(
-                (
-                    os.path.join(hparams["wsj0_max_tr"], "s2", utt_id + ".wav"),
-                    s2_scaling,
-                )
-            )
+            spk_hashtable[spk_id].append(utt)
 
     # calculate weights for each speaker ( len of list of utterances)
     spk_weights = [len(spk_hashtable[x]) for x in spk_hashtable.keys()]
@@ -99,20 +64,21 @@ def dynamic_mix_data_prep(hparams):
         # select two speakers randomly
         sources = []
         first_lvl = None
-        spk_files = []
-        for spk in speakers:
-            c_indx = np.random.randint(0, len(spk_hashtable[spk]))
-            spk_files.append(spk_hashtable[spk][c_indx])
+
+        spk_files = [
+            np.random.choice(spk_hashtable[spk], 1, False)[0]
+            for spk in speakers
+        ]
 
         minlen = min(
-            *[torchaudio.info(x[0]).num_frames for x in spk_files],
+            *[torchaudio.info(x).num_frames for x in spk_files],
             hparams["training_signal_len"],
         )
 
         for i, spk_file in enumerate(spk_files):
 
             # select random offset
-            length = torchaudio.info(spk_file[0]).num_frames
+            length = torchaudio.info(spk_file).num_frames
             start = 0
             stop = length
             if length > minlen:  # take a random window
@@ -120,17 +86,23 @@ def dynamic_mix_data_prep(hparams):
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file[0], frame_offset=start, num_frames=stop - start,
+                spk_file, frame_offset=start, num_frames=stop - start,
             )
 
-            tmp = tmp[0] / spk_file[1]
+            # peak = float(Path(spk_file).stem.split("_peak_")[-1])
+            tmp = tmp[0]  # * peak  # remove channel dim and normalize
 
             if i == 0:
-                lvl = 10 ** (np.random.uniform(-2.5, 0) / 20)
-                tmp = tmp * lvl
-                first_lvl = lvl
+                gain = np.clip(random.normalvariate(-27.43, 2.57), -45, 0)
+                tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
+                # assert not torch.all(torch.isnan(tmp))
+                first_lvl = gain
             else:
-                tmp = tmp * -first_lvl
+                gain = np.clip(
+                    first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
+                )
+                tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
+                # assert not torch.all(torch.isnan(tmp))
             sources.append(tmp)
 
         # we mix the sources together
