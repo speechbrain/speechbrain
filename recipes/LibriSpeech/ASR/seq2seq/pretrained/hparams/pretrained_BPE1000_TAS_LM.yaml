@@ -9,6 +9,9 @@
 # Pretrained models to download
 asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
+    tokenizer_file: !ref <tokenizer_file>
 save_folder: model_checkpoints
 
 # Device selection

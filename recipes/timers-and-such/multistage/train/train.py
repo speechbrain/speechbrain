@@ -51,17 +51,13 @@ class SLU(sb.Brain):
         )
 
         # Pad examples to have same length.
-        max_length = max([len(t) for t in asr_tokens])
-        if max_length == 0:
-            max_length = 1  # The ASR may output empty transcripts.
+        asr_tokens_lens = torch.tensor([max(len(t), 1) for t in asr_tokens])
+        max_length = asr_tokens_lens.max().item()
         for t in asr_tokens:
             t += [0] * (max_length - len(t))
         asr_tokens = torch.tensor([t for t in asr_tokens])
 
-        # Manage length of predicted tokens
-        asr_tokens_lens = torch.tensor(
-            [max(len(t), 1) for t in asr_tokens]
-        ).float()
+        asr_tokens_lens = asr_tokens_lens.float()
         asr_tokens_lens = asr_tokens_lens / asr_tokens_lens.max()
 
         asr_tokens, asr_tokens_lens = (
@@ -202,11 +198,11 @@ class SLU(sb.Brain):
                 self.wer_metric.write_stats(w)
 
 
-def data_io_prepare(hparams):
+def dataio_prepare(hparams):
 
     data_folder = hparams["data_folder"]
 
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
     )
 
@@ -231,18 +227,18 @@ def data_io_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_real_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_real_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_test_real"],
         replacements={"data_root": data_folder},
     )
     test_real_data = test_real_data.filtered_sorted(sort_key="duration")
 
-    test_synth_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_synth_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_test_synth"],
         replacements={"data_root": data_folder},
     )
@@ -256,10 +252,10 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("semantics")
@@ -277,10 +273,10 @@ def data_io_prepare(hparams):
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets,
         ["id", "sig", "semantics", "tokens_bos", "tokens_eos", "tokens"],
     )
@@ -327,7 +323,7 @@ if __name__ == "__main__":
         test_real_set,
         test_synth_set,
         tokenizer,
-    ) = data_io_prepare(hparams)
+    ) = dataio_prepare(hparams)
 
     # Brain class initialization
     slu_brain = SLU(
