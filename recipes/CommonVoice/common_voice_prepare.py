@@ -28,6 +28,7 @@ def prepare_common_voice(
     accented_letters=False,
     duration_threshold=10,
     language="en",
+    skip_prep=False,
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
@@ -55,6 +56,8 @@ def prepare_common_voice(
         noise due to open microphones.
     language: str
         Specify the language for text normalization.
+    skip_prep: bool
+        If True, skip data preparation.
 
     Example
     -------
@@ -77,6 +80,9 @@ def prepare_common_voice(
                  language="en" \
                  )
     """
+
+    if skip_prep:
+        return
 
     # If not specified point toward standard location w.r.t CommonVoice tree
     if train_tsv_file is None:

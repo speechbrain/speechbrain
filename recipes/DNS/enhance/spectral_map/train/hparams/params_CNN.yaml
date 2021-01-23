@@ -23,6 +23,7 @@ noise_csv: !ref <save_folder>/tr_noise.csv
 train_csv: !ref <save_folder>/tr_clean.csv
 valid_csv: !ref <save_folder>/valid.csv
 test_csv: !ref <save_folder>/test.csv
+skip_prep: False
 
 # Training Parameters
 N_epochs: 50

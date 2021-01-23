@@ -256,6 +256,7 @@ if __name__ == "__main__":
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
             "phn_set": hparams["phn_set"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

@@ -223,6 +223,7 @@ if __name__ == "__main__":
             "save_folder": hparams["save_folder"],
             "valid_folder": hparams["valid_folder"],
             "seg_size": 10.0,
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

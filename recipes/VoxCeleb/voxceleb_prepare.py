@@ -47,6 +47,7 @@ def prepare_voxceleb(
     source=None,
     split_speaker=False,
     random_segment=False,
+    skip_prep=False,
 ):
     """
     Prepares the csv files for the Voxceleb1 or Voxceleb2 datasets.
@@ -75,6 +76,8 @@ def prepare_voxceleb(
         Speaker-wise split
     random_segment : bool
         Train random segments
+    skip_prep: Bool
+        If True, skip preparation.
 
     Example
     -------
@@ -86,6 +89,8 @@ def prepare_voxceleb(
     >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio)
     """
 
+    if skip_prep:
+        return
     # Create configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,

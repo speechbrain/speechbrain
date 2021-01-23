@@ -286,6 +286,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "create_lexicon": True,
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
