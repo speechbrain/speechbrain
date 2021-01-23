@@ -96,7 +96,7 @@ class LM(sb.core.Brain):
             )
 
 
-def data_io_prepare(hparams):
+def dataio_prepare(hparams):
     """grap all the .txt files for transcripts"""
     logging.info("generating datasets...")
     data_folder = hparams["data_folder"]
@@ -128,13 +128,13 @@ def data_io_prepare(hparams):
     )
 
     """convert huggingface's dataset to DynamicItemDataset via a magical function"""
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
         train_data
     )
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
         valid_data
     )
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_arrow_dataset(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
         test_data
     )
 
@@ -154,10 +154,10 @@ def data_io_prepare(hparams):
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets, ["id", "text", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     )
 
     # here we create the dataloader objects as well as tokenization and encoding
-    train_data, valid_data, test_data = data_io_prepare(hparams)
+    train_data, valid_data, test_data = dataio_prepare(hparams)
 
     lm_brain = LM(
         modules=hparams["modules"],

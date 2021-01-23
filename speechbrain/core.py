@@ -31,9 +31,9 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.data_io.dataloader import SaveableDataLoader
-from speechbrain.data_io.sampler import DistributedSamplerWrapper
-from speechbrain.data_io.sampler import ReproducibleRandomSampler
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.dataio.sampler import DistributedSamplerWrapper
+from speechbrain.dataio.sampler import ReproducibleRandomSampler
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -352,7 +352,7 @@ class Brain:
     Arguments
     ---------
     modules : dict of str:torch.nn.Module pairs
-        These modules are passed to the optimizier by default if they have
+        These modules are passed to the optimizer by default if they have
         trainable parameters, and will have train()/eval() called on them.
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
@@ -628,7 +628,7 @@ class Brain:
 
         The Stage.TRAIN DataLoader is handled specially. It has extra args for
         shuffle and drop_last. In DDP a DistributedSampler is created (unless
-        dataset is an IterableDataset).
+        the dataset is an IterableDataset).
 
         NOTE
         ----
@@ -662,7 +662,7 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
-        dataloader = sb.data_io.dataloader.make_dataloader(
+        dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
 

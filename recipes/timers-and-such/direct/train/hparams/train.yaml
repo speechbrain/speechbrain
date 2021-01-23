@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/BPE51/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -23,7 +23,7 @@ csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/dev-real-type=direct.csv
 csv_test_real: !ref <data_folder>/test-real-type=direct.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
-asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
+asr_hparam_file: hparams/pretrained_BPE1000.yaml
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
 
 # Training parameters
@@ -52,6 +52,7 @@ temperature: 1.25
 
 dataloader_opts:
     batch_size: !ref <batch_size>
+    shuffle: True
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>

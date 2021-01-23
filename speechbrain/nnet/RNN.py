@@ -49,7 +49,7 @@ class RNN(torch.nn.Module):
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        If True, a bidirectioal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -149,7 +149,7 @@ class LSTM(torch.nn.Module):
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        if True, a bidirectioal model that scans the sequence both
+        if True, a bidirectinoal model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -224,7 +224,7 @@ class LSTM(torch.nn.Module):
 class GRU(torch.nn.Module):
     """ This function implements a basic GRU.
 
-    It accepts in input tensors formatted as (batch, time, fea).
+    It accepts input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
     flattened as (batch, time, fea*channel).
 
@@ -247,7 +247,7 @@ class GRU(torch.nn.Module):
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        if True, a bidirectioal model that scans the sequence both
+        if True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -322,7 +322,7 @@ class GRU(torch.nn.Module):
 class RNNCell(nn.Module):
     """ This class implements a basic RNN Cell for a timestep of input,
     while RNN() takes the whole sequence as input.
-    It is designed for autoregressive decoder (ex. attentional decoder),
+    It is designed for an autoregressive decoder (ex. attentional decoder),
     which takes one input at a time.
     Using torch.nn.RNNCell() instead of torch.nn.RNN() to reduce VRAM
     consumption.
@@ -428,7 +428,7 @@ class RNNCell(nn.Module):
 class GRUCell(nn.Module):
     """ This class implements a basic GRU Cell for a timestep of input,
     while GRU() takes the whole sequence as input.
-    It is designed for autoregressive decoder (ex. attentional decoder),
+    It is designed for an autoregressive decoder (ex. attentional decoder),
     which takes one input at a time.
     Using torch.nn.GRUCell() instead of torch.nn.GRU() to reduce VRAM
     consumption.
@@ -530,7 +530,7 @@ class GRUCell(nn.Module):
 class LSTMCell(nn.Module):
     """ This class implements a basic LSTM Cell for a timestep of input,
     while LSTM() takes the whole sequence as input.
-    It is designed for autoregressive decoder (ex. attentional decoder),
+    It is designed for an autoregressive decoder (ex. attentional decoder),
     which takes one input at a time.
     Using torch.nn.LSTMCell() instead of torch.nn.LSTM() to reduce VRAM
     consumption.
@@ -637,7 +637,7 @@ class LSTMCell(nn.Module):
 
 
 class AttentionalRNNDecoder(nn.Module):
-    """This funtion implements RNN decoder model with attention.
+    """This function implements RNN decoder model with attention.
 
     This function implements different RNN models. It accepts in enc_states
     tensors formatted as (batch, time, fea). In the case of 4d inputs
@@ -1065,7 +1065,7 @@ class LiGRU_Layer(torch.nn.Module):
     dropout : float
         It is the dropout factor (must be between 0 and 1).
     bidirectional : bool
-        if True, a bidirectioal model that scans the sequence both
+        if True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     """
 

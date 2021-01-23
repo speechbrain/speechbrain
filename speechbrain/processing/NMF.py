@@ -49,7 +49,7 @@ def NMF_separate_spectra(Whats, Xmix):
         Size = [BS x (nfft/2 +1) x T] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
     X2hat: Seperated Spectrum for source2
-        The size definitions are same as above.
+        The size definitions are the same as above.
 
     Example
     --------
@@ -113,7 +113,7 @@ def reconstruct_results(
 
     Xhat2 : torch.tensor
         The separated spectrum for source 2 of size [BS, nfft/2 + 1, T].
-        The size definitions are same as Xhat1.
+        The size definitions are the same as Xhat1.
 
     X_stft : torch.tensor
         This is the magnitude spectra for the mixtures.

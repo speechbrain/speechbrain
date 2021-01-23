@@ -22,7 +22,7 @@ class TransformerInterface(nn.Module):
     The architecture is based on the paper "Attention Is All You Need":
     https://arxiv.org/pdf/1706.03762.pdf
 
-    Arguements
+    Arguments
     ----------
     d_model : int
         the number of expected features in the encoder/decoder inputs (default=512).
@@ -40,9 +40,9 @@ class TransformerInterface(nn.Module):
         the activation function of encoder/decoder intermediate layer,
         e.g. relu or gelu (default=relu)
     custom_src_module : torch class
-        module that process the src features to expected feature dim
+        module that processes the src features to expected feature dim
     custom_tgt_module : torch class
-        module that process the src features to expected feature dim
+        module that processes the src features to expected feature dim
     """
 
     def __init__(
@@ -185,9 +185,9 @@ class TransformerEncoderLayer(nn.Module):
     reshape : bool
         Whether to automatically shape 4-d input to 3-d
     kdim : int
-        dimension for key (Optional)
+        dimension of the key (Optional)
     vdim : int
-        dimension for value (Optional)
+        dimension of the value (Optional)
     dropout : int
         dropout for the encoder (Optional)
 
@@ -282,7 +282,7 @@ class TransformerEncoderLayer(nn.Module):
 class TransformerEncoder(nn.Module):
     """This class implements the transformer encoder
 
-    Arguements
+    Arguments
     ----------
     num_layers : int
         Number of transformer layers to include
@@ -388,7 +388,7 @@ class TransformerEncoder(nn.Module):
 class TransformerDecoderLayer(nn.Module):
     """This class implements the self-attention decoder layer
 
-    Arguements
+    Arguments
     ----------
     d_ffn : int
         Hidden size of self-attention Feed Forward layer
@@ -529,7 +529,7 @@ class TransformerDecoderLayer(nn.Module):
 class TransformerDecoder(nn.Module):
     """This class implements the Transformer decoder
 
-    Arguements
+    Arguments
     ----------
     d_ffn : int
         Hidden size of self-attention Feed Forward layer
@@ -594,7 +594,7 @@ class TransformerDecoder(nn.Module):
         memory_key_padding_mask=None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         tgt: tensor
             the sequence to the decoder layer (required).
@@ -628,7 +628,7 @@ class TransformerDecoder(nn.Module):
 
 
 class NormalizedEmbedding(nn.Module):
-    """This class implements the normalized embedding layer for transformer.
+    """This class implements the normalized embedding layer for the transformer.
     Since the dot product of the self-attention is always normalized by sqrt(d_model)
     and the final linear projection for prediction shares weight with the embedding layer,
     we multiply the output of the embedding by sqrt(d_model)
@@ -659,7 +659,7 @@ class NormalizedEmbedding(nn.Module):
 
 
 def get_key_padding_mask(padded_input, pad_idx):
-    """Create a binary mask to prevent attention to padded locations
+    """Creates a binary mask to prevent attention to padded locations
 
     Arguements
     ----------

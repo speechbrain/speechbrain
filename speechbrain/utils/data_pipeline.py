@@ -185,7 +185,7 @@ def provides(*output_keys):
 
     NOTE
     ----
-    The behaviour is slightly different for generators and regular functions, if
+    The behavior is slightly different for generators and regular functions, if
     many output keys are specified, e.g. @provides("signal", "mfcc"). Regular
     functions should return a tuple with len equal to len(output_keys), while
     generators should yield the items one by one.
@@ -364,7 +364,7 @@ class DataPipeline:
         Arguments
         ---------
         keys : dict, list, None
-            List of of keys (str) to produce in output.
+            List of keys (str) to produce in output.
 
             If a dict is given; it is used to map internal keys to output keys.
             From the output_keys dict key:value pairs the key appears outside,

@@ -17,7 +17,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from itertools import permutations
-from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.decoders.ctc import filter_ctc_output
 
 
@@ -57,7 +57,7 @@ class PitWrapper(nn.Module):
     """
     Permutation Invariant Wrapper to allow Permutation Invariant Training
     (PIT) with existing losses.
-    Permutation invariance is calculated over sources/classes axis which is
+    Permutation invariance is calculated over the sources/classes axis which is
     assumed to be the rightmost dimension: predictions and targets tensors are
     assumed to have shape [batch, ..., channels, sources].
 
@@ -100,7 +100,7 @@ class PitWrapper(nn.Module):
         Returns
         -------
         loss: torch.Tensor
-            permutation invariant loss for current batch, tensor of shape [1]
+            permutation invariant loss for the current batch, tensor of shape [1]
 
         assigned_perm: tuple
             indexes for optimal permutation of the input over sources which
@@ -118,19 +118,18 @@ class PitWrapper(nn.Module):
 
     def _opt_perm_loss(self, pred, target):
         """
-
         Parameters
         ----------
         pred: torch.Tensor
-            network prediction for current example, tensor of
+            network prediction for the current example, tensor of
             shape [..., sources].
         target: torch.Tensor
-            target for current example, tensor of shape [..., sources].
+            target for the current example, tensor of shape [..., sources].
 
         Returns
         -------
         loss: torch.Tensor
-            permutation invariant loss for current example, tensor of shape [1]
+            permutation invariant loss forthe  current example, tensor of shape [1]
 
         assigned_perm: tuple
             indexes for optimal permutation of the input over sources which
@@ -272,7 +271,7 @@ def l1_loss(
     predictions : torch.Tensor
         Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
-        Target tensor, same size as predicted tensor.
+        Target tensor with the same size as predicted tensor.
     length : torch.Tensor
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
@@ -305,7 +304,7 @@ def mse_loss(
     predictions : torch.Tensor
         Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
-        Target tensor, same size as predicted tensor.
+        Target tensor with the same size as predicted tensor.
     length : torch.Tensor
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
@@ -491,8 +490,8 @@ def kldiv_loss(
     pad_idx=0,
     reduction="mean",
 ):
-    """Computes the KL-divergence error at batch level.
-    This loss applies label smoothing directly on the targets
+    """Computes the KL-divergence error at the batch level.
+    This loss applies label smoothing directly to the targets
 
     Arguments
     ---------
@@ -651,15 +650,18 @@ def get_si_snr_with_pitwrapper(source, estimate_source):
     """
     This function wraps si_snr calculation with the speechbrain pit-wrapper
 
-    Args:
+    Arguments:
+    ---------
         source: [B, T, C],
-            where B is batch size, T is the length of the sources, C is the number of sources
-            the ordering is made so that this loss is compatible with the class PitWrapper
+            where B is the batch size, T is the length of the sources, C is
+            the number of sources the ordering is made so that this loss is
+            compatible with the class PitWrapper
 
         estimate_source: [B, T, C]
             the estimated source
 
     Example:
+    ---------
     >>> x = torch.arange(600).reshape(3, 100, 2)
     >>> xhat = x[:, :, (1, 0)]
     >>> si_snr = -get_si_snr_with_pitwrapper(x, xhat)
@@ -675,7 +677,9 @@ def get_si_snr_with_pitwrapper(source, estimate_source):
 
 def cal_si_snr(source, estimate_source):
     """Calculate SI-SNR
+
     Arguments:
+    ---------
         source: [T, B, C],
             where B is batch size, T is the length of the sources, C is the number of sources
             the ordering is made so that this loss is compatible with the class PitWrapper
@@ -684,6 +688,7 @@ def cal_si_snr(source, estimate_source):
             the estimated source
 
     Example:
+    ---------
     >>> import numpy as np
     >>> x = torch.Tensor([[1, 0], [123, 45], [34, 5], [2312, 421]])
     >>> xhat = x[:, (1, 0)]
@@ -740,10 +745,12 @@ def cal_si_snr(source, estimate_source):
 
 def get_mask(source, source_lengths):
     """
-    Args:
+    Arguments:
+    ---------
         source: [T, B, C]
         source_lengths: [B]
     Returns:
+    ---------
         mask: [T, B, 1]
 
     Example:
@@ -1014,7 +1021,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
 
 
 def ce_kd(inp, target):
-    """Simple version of distillation fro cross entropy loss.
+    """Simple version of distillation fro cross-entropy loss.
 
     Arguments
     ---------
@@ -1029,7 +1036,7 @@ def ce_kd(inp, target):
 def nll_loss_kd(
     probabilities, targets, rel_lab_lengths,
 ):
-    """Knowledge distillation for negative log likelihood loss.
+    """Knowledge distillation for negative log-likelihood loss.
 
     Reference
     ---------
@@ -1039,13 +1046,13 @@ def nll_loss_kd(
     Arguments
     ---------
     probabilities : torch.Tensor
-        The predicted probabilities from student model.
+        The predicted probabilities from the student model.
         Format is [batch, frames, p]
     targets : torch.Tensor
-        The target probabilities from teacher model.
+        The target probabilities from the teacher model.
         Format is [batch, frames, p]
     rel_lab_lengths : torch.Tensor
-        Length of each utterance, if frame-level loss is desired.
+        Length of each utterance, if the frame-level loss is desired.
 
     Example
     -------

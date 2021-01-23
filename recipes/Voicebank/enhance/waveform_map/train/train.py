@@ -1,4 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/env/python3
+"""Recipe for training a speech enhancement system with the Voicebank dataset.
+
+To run this recipe, do the following:
+> python train.py hparams/{hyperparam_file}.yaml
+
+Authors
+ * Szu-Wei Fu 2020
+"""
 import os
 import sys
 import torch
@@ -14,6 +22,7 @@ from speechbrain.utils.distributed import run_on_main
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
     def compute_forward(self, batch, stage):
+        """Forward computations from the waveform batches to the enhanced output"""
         batch = batch.to(self.device)
         noisy_wavs, lens = batch.noisy_sig
         noisy_wavs = torch.unsqueeze(noisy_wavs, -1)
@@ -22,6 +31,7 @@ class SEBrain(sb.Brain):
         return predict_wavs
 
     def compute_objectives(self, predict_wavs, batch, stage):
+        """Computes the loss given the predicted and targeted outputs"""
         clean_wavs, lens = batch.clean_sig
 
         loss = self.hparams.compute_cost(predict_wavs, clean_wavs, lens)
@@ -57,11 +67,13 @@ class SEBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of each epoch"""
         self.loss_metric = MetricStats(metric=self.hparams.compute_cost)
         self.stoi_metric = MetricStats(metric=stoi_loss)
 
         # Define function taking (prediction, target) for parallel eval
         def pesq_eval(pred_wav, target_wav):
+            """Computes the PESQ evaluation metric"""
             return pesq(
                 fs=16000,
                 ref=target_wav.numpy(),
@@ -73,6 +85,7 @@ class SEBrain(sb.Brain):
             self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of an epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {"loss": self.loss_metric.scores}
@@ -107,24 +120,25 @@ class SEBrain(sb.Brain):
             )
 
 
-def data_io_prep(hparams):
-    """Creates data processing pipeline"""
+def dataio_prep(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     # Define audio piplines
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_sig")
     def noisy_pipeline(noisy_wav):
-        return sb.data_io.data_io.read_audio(noisy_wav)
+        return sb.dataio.dataio.read_audio(noisy_wav)
 
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_sig")
     def clean_pipeline(clean_wav):
-        return sb.data_io.data_io.read_audio(clean_wav)
+        return sb.dataio.dataio.read_audio(clean_wav)
 
     # Define datasets
     datasets = {}
     for dataset in ["train", "valid", "test"]:
-        datasets[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
@@ -173,7 +187,7 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects
-    datasets = data_io_prep(hparams)
+    datasets = dataio_prep(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(

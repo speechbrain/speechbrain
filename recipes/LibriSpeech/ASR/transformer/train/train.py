@@ -33,8 +33,8 @@ Authors
 import os
 import sys
 import torch
-from pathlib import Path
 import logging
+from pathlib import Path
 import sentencepiece as spm
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -236,15 +236,16 @@ class ASR(sb.core.Brain):
         logger.info("loaded LM from {}".format(save_model_path))
 
 
-def data_io_prepare(hparams):
-
+def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
 
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
@@ -253,7 +254,7 @@ def data_io_prepare(hparams):
     test_datasets = {}
     for csv_file in hparams["test_csv"]:
         name = Path(csv_file).stem
-        test_datasets[name] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
@@ -282,10 +283,10 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
@@ -303,10 +304,10 @@ def data_io_prepare(hparams):
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets, tokenizer
@@ -325,8 +326,14 @@ if __name__ == "__main__":
     # 1.  # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
 
-    # multi-gpu (ddp) save data preparation
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
 
+    # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_librispeech,
         kwargs={
@@ -340,15 +347,8 @@ if __name__ == "__main__":
         },
     )
 
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
-
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, tokenizer = data_io_prepare(hparams)
+    train_data, valid_data, test_datasets, tokenizer = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = ASR(

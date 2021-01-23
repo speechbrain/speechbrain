@@ -19,7 +19,7 @@ from speechbrain.nnet.activations import Swish
 class ConvolutionModule(nn.Module):
     """ This is an implementation of convolution module in Conformer
 
-    Arguements
+    Arguments
     ----------
     input_size : int
         The expected size of the input embedding
@@ -82,7 +82,7 @@ class ConvolutionModule(nn.Module):
 class ConformerEncoderLayer(nn.Module):
     """ This is an implementation of Conformer encoder layer
 
-    Arguements
+    Arguments
     ----------
     d_ffn : int
         Hidden size of self-attention Feed Forward layer
@@ -93,9 +93,9 @@ class ConformerEncoderLayer(nn.Module):
     reshape : bool
         Whether to automatically shape 4-d input to 3-d
     kdim : int
-        dimension for key (Optional)
+        dimension of the key (Optional)
     vdim : int
-        dimension for value (Optional)
+        dimension of the value (Optional)
     dropout : int
         dropout for the encoder (Optional)
     bias: bool
@@ -177,7 +177,7 @@ class ConformerEncoderLayer(nn.Module):
 class ConformerEncoder(nn.Module):
     """This class implements the Conformer encoder
 
-    Arguements
+    Arguments
     ----------
     num_layers : int
         Number of Conformer layers to include
