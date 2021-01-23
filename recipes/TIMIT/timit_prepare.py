@@ -13,7 +13,7 @@ import csv
 import logging
 from speechbrain.utils.data_utils import get_all_files
 
-from speechbrain.data_io.data_io import (
+from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     read_kaldi_lab,

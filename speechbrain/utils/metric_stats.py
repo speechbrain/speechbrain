@@ -1,6 +1,6 @@
 """
 The ``metric_stats`` module provides an abstract class for storing
-statistics produced over the course of an experiment, and summarizing them.
+statistics produced over the course of an experiment and summarizing them.
 
 Authors:
  * Peter Plantinga 2020
@@ -11,8 +11,8 @@ from joblib import Parallel, delayed
 from speechbrain.utils import edit_distance
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
-from speechbrain.data_io.data_io import merge_char, split_word
-from speechbrain.data_io.wer import print_wer_summary, print_alignments
+from speechbrain.dataio.dataio import merge_char, split_word
+from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
 def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=30):
@@ -303,7 +303,7 @@ class BinaryMetricStats(MetricStats):
         self.labels.extend(labels.detach())
 
     def summarize(self, field=None, threshold=None, beta=1, eps=1e-8):
-        """Compute statistics using full set of scores.
+        """Compute statistics using a full set of scores.
 
         Full set of fields:
          - TP - True Positive

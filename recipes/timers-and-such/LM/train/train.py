@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """
 
-Recipe for Timers and Such LM.
+Recipe for Timers and Such LM training.
 
 Run using:
 > python train.py hparams/train.yaml
@@ -10,86 +10,54 @@ Authors
  * Loren Lugosch 2020
 """
 
-import os
 import sys
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
 class LM(sb.Brain):
-    def compute_forward(self, x, stage):
-        ids, transcripts, transcript_lens = x
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        tokens_bos, tokens_bos_lens = batch.tokens_bos
+        tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         # Forward pass
-        # Tokenize transcript using ASR model's tokenizer
-        (tokens, tokens_lens,) = self.hparams.asr_model.mod.tokenizer(
-            transcripts, transcript_lens, hparams["ind2lab"], task="encode",
-        )
-        tokens, tokens_lens = (
-            tokens.to(self.device),
-            tokens_lens.to(self.device),
-        )
-        tokens_with_bos = sb.data_io.data_io.prepend_bos_token(
-            tokens, bos_index=self.hparams.asr_model.hparams["bos_index"]
-        )
-        logits = self.hparams.net(tokens_with_bos)
+        logits = self.hparams.net(tokens_bos)
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        return p_seq, tokens, tokens_lens
+        return p_seq, tokens_eos, tokens_eos_lens
 
-    def compute_objectives(self, predictions, stage):
+    def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL)."""
-        p_seq, tokens, tokens_lens = predictions
+        p_seq, tokens_eos, tokens_eos_lens = predictions
 
-        # Add char_lens by one for eos token
-        abs_length = torch.round(tokens_lens * tokens.shape[1])
-
-        # Append eos token at the end of the label sequences
-        target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
-            tokens,
-            length=abs_length,
-            eos_index=self.hparams.asr_model.hparams[
-                "eos_index"
-            ],  # self.hparams.eos_index
-        )
-
-        # Convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / target_tokens_with_eos.shape[1]
-        loss = self.hparams.seq_cost(
-            p_seq, target_tokens_with_eos, length=rel_length
-        )
-
+        loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
         return loss
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        (inputs,) = batch
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, sb.Stage.TRAIN)
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
         self.batch_count += 1
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
-        (inputs,) = batch
-        predictions = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(predictions, stage=stage)
+        predictions = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         self.batch_count = 0
-
-        if stage != sb.Stage.TRAIN:
-
-            self.cer_metric = self.hparams.cer_computer()
-            self.wer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -117,16 +85,104 @@ class LM(sb.Brain):
             )
 
 
+def dataio_prepare(hparams):
+
+    data_folder = hparams["data_folder"]
+
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+    )
+
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["dataloder_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
+
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
+    )
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
+
+    test_real_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["csv_test_real"],
+        replacements={"data_root": data_folder},
+    )
+    test_real_data = test_real_data.filtered_sorted(sort_key="duration")
+
+    test_synth_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["csv_test_synth"],
+        replacements={"data_root": data_folder},
+    )
+    test_synth_data = test_synth_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, valid_data, test_real_data, test_synth_data]
+
+    tokenizer = hparams["tokenizer"].spm
+
+    @sb.utils.data_pipeline.takes("transcript")
+    @sb.utils.data_pipeline.provides(
+        "transcript", "token_list", "tokens_bos", "tokens_eos", "tokens"
+    )
+    def text_pipeline(transcript):
+        yield transcript
+        tokens_list = tokenizer.encode_as_ids(transcript)
+        yield tokens_list
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        yield tokens_bos
+        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield tokens_eos
+        tokens = torch.LongTensor(tokens_list)
+        yield tokens
+
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
+
+    sb.dataio.dataset.set_output_keys(
+        datasets, ["id", "transcript", "tokens_bos", "tokens_eos", "tokens"],
+    )
+    return train_data, valid_data, test_real_data, test_synth_data, tokenizer
+
+
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
-    from prepare import prepare_TAS
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    show_results_every = 100  # plots results every N iterations
+
+    # If distributed_launch=True then
+    # create ddp_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
+
+    # 1.  # Dataset prep (parsing Librispeech)
+    from prepare import prepare_TAS  # noqa
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_TAS,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "train_splits": hparams["train_splits"],
+            "type": "decoupled",
+        },
+    )
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -135,33 +191,40 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_TAS(
-        data_folder=hparams["data_folder"],
-        type="decoupled",
-        train_splits=hparams["train_splits"],
-    )
-
-    # Load index2label dict for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    test_real_set = hparams["test_real_loader"]()
-    test_synth_set = hparams["test_synth_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["transcript"][
-        "index2lab"
-    ]  # ugh
+    # here we create the datasets objects as well as tokenization and encoding
+    (
+        train_set,
+        valid_set,
+        test_real_set,
+        test_synth_set,
+        tokenizer,
+    ) = dataio_prepare(hparams)
 
     # Brain class initialization
     lm_brain = LM(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
+    # adding objects to trainer:
+    lm_brain.tokenizer = tokenizer
+
     # Training
-    lm_brain.fit(lm_brain.hparams.epoch_counter, train_set, valid_set)
+    lm_brain.fit(
+        lm_brain.hparams.epoch_counter,
+        train_set,
+        valid_set,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Test
-    lm_brain.evaluate(test_real_set)
-    lm_brain.evaluate(test_synth_set)
+    lm_brain.evaluate(
+        test_real_set, test_loader_kwargs=hparams["dataloader_opts"]
+    )
+    lm_brain.evaluate(
+        test_synth_set, test_loader_kwargs=hparams["dataloader_opts"]
+    )

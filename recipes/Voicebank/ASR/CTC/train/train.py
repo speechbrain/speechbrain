@@ -22,6 +22,7 @@ from speechbrain.utils.distributed import run_on_main
 # Define training procedure
 class ASR_Brain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs = self.modules.augmentation(wavs, wav_lens)
@@ -34,6 +35,7 @@ class ASR_Brain(sb.Brain):
         return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
@@ -54,12 +56,14 @@ class ASR_Brain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.ctc_metrics = self.hparams.ctc_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -90,16 +94,16 @@ class ASR_Brain(sb.Brain):
                 print("CTC and PER stats written to ", self.hparams.per_file)
 
 
-def data_io_prep(hparams):
-    """Creates the datasets and their data processing pipelines"""
+def dataio_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
 
-    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 1. Define audio pipeline:
     @sb.utils.data_pipeline.takes(hparams["input_type"])
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     # 2. Define text pipeline:
@@ -114,7 +118,7 @@ def data_io_prep(hparams):
     # 3. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root", hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
@@ -153,6 +157,13 @@ if __name__ == "__main__":
     # Prepare data on one process
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     run_on_main(
         prepare_voicebank,
         kwargs={
@@ -161,14 +172,7 @@ if __name__ == "__main__":
         },
     )
 
-    datasets, label_encoder = data_io_prep(hparams)
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
+    datasets, label_encoder = dataio_prep(hparams)
 
     # Load pretrained model
     if "pretrained" in hparams:

@@ -38,10 +38,10 @@ class HMMAligner(torch.nn.Module):
         What kind of batch-level reduction to apply to the loss calculated
         in the forward method
     input_len_norm: bool
-        Whether to normalise the loss in the forward method by the length of
+        Whether to normalize the loss in the forward method by the length of
         the inputs.
     target_len_norm: bool
-        Whether to normalise the loss in the forward method by the length of
+        Whether to normalize the loss in the forward method by the length of
         the targets.
     lexicon_path: string
         The location of the lexicon.
@@ -139,7 +139,7 @@ class HMMAligner(torch.nn.Module):
     def _use_lexicon(self, words, interword_sils, sample_pron):
         """
         Do processing using the lexicon to return a sequence of the possible
-        phonemes, the transition/pi probabilities and the possible final states
+        phonemes, the transition/pi probabilities, and the possible final states
         Inputs correspond to a single utterance, not a whole batch
 
         Arguments
@@ -298,7 +298,7 @@ class HMMAligner(torch.nn.Module):
     ):
         """
         Do processing using the lexicon to return a sequence of the possible
-        phonemes, the transition/pi probabilities and the possible final
+        phonemes, the transition/pi probabilities, and the possible final
         states.
         Does processing on an utterance-by-utterance basis. Each utterance
         in the batch is processed by a helper method `_use_lexicon`.
@@ -456,7 +456,7 @@ class HMMAligner(torch.nn.Module):
     def _make_pi_prob(self, phn_lens_abs):
         """
         Creates tensor of initial (log) probabilities (known as 'pi').
-        Assigns all probability mass to first phoneme in the sequence.
+        Assigns all probability mass to the first phoneme in the sequence.
 
         Arguments
         ---------
@@ -548,7 +548,7 @@ class HMMAligner(torch.nn.Module):
     ):
         """
         Creates a 'useful' form of the posterior probabilities, rearranged
-        into order of phoneme appearance in phns.
+        into the order of phoneme appearance in phns.
 
         Arguments
         ---------
@@ -623,7 +623,7 @@ class HMMAligner(torch.nn.Module):
 
         emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
             A 'useful' form of the posterior probabilities, rearranged
-            into order of phoneme appearance in phns.
+            into the order of phoneme appearance in phns.
 
         lens_abs: torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
@@ -633,7 +633,7 @@ class HMMAligner(torch.nn.Module):
             The absolute length of each phoneme sequence in the batch.
 
         phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance.
+            The phonemes that are known/thought to be in each utterance.
 
         Returns
         -------
@@ -702,7 +702,7 @@ class HMMAligner(torch.nn.Module):
 
         emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
             A 'useful' form of the posterior probabilities, rearranged
-            into order of phoneme appearance in phns.
+            into the order of phoneme appearance in phns.
 
         lens_abs: torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
@@ -712,7 +712,7 @@ class HMMAligner(torch.nn.Module):
             The absolute length of each phoneme sequence in the batch.
 
         phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance.
+            The phonemes that are known/thought to be in each utterance.
 
         Returns
         -------
@@ -801,7 +801,7 @@ class HMMAligner(torch.nn.Module):
 
     def _loss_reduction(self, loss, input_lens, target_lens):
         """
-        Applies reduction to loss as specified during object initialisation.
+        Applies reduction to loss as specified during object initialization.
 
         Arguments
         ---------
@@ -849,7 +849,7 @@ class HMMAligner(torch.nn.Module):
         """
         Prepares relevant (log) probability tensors and does dynamic
         programming: either the forward or the Viterbi algorithm. Applies
-        reduction as specified during object initialisation.
+        reduction as specified during object initialization.
 
         Arguments
         ---------
@@ -1037,9 +1037,9 @@ class HMMAligner(torch.nn.Module):
         """
         Prepares flat start alignments (with zero padding) for every utterance
         in the batch.
-        Every phoneme will have equal duration, except for the final phoneme
+        Every phoneme will have an equal duration, except for the final phoneme
         potentially. E.g. if 104 frames and 10 phonemes, 9 phonemes will have
-        duration of 10 frames, and one phoneme will have duration of 14 frames.
+        duration of 10 frames, and one phoneme will have a duration of 14 frames.
 
         Arguments
         ---------
@@ -1093,7 +1093,7 @@ class HMMAligner(torch.nn.Module):
     def _get_viterbi_batch(self, ids, lens_abs):
         """
         Retrieves Viterbi alignments stored in `self.align_dict` and
-        creates batch of them, with zero padding.
+        creates a batch of them, with zero padding.
 
         Arguments
         ---------
@@ -1128,7 +1128,7 @@ class HMMAligner(torch.nn.Module):
         """
         Fetches previously recorded Viterbi alignments if they are available.
         If not, fetches flat start alignments.
-        Currently, assumes that if a Viterbi alignment is not availble for the
+        Currently, assumes that if a Viterbi alignment is not available for the
         first utterance in the batch, it will not be available for the rest of
         the utterances.
 
