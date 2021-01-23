@@ -22,7 +22,21 @@ python train_teacher.py hparams/teachers/tea0.yaml --data_folder /path-to/data_f
 
 #### 2. Run inference on all teacher models
 This part run inference on all teacher models and store them on disk using `save_teachers.py`. It is only required that you setup the `tea_models_dir` variable corresponding to the path to a txt file. The latter txt file needs to contain
-a list of paths pointing to each teacher model.ckpt. We decided to work with a file so it can easily scale to hundreds of teachers.
+a list of paths pointing to each teacher model.ckpt. We decided to work with a file so it can easily scale to hundreds of teachers. Hence, an example of this
+file is:
+
+```
+results/tea0/1234/save/CKPT+2021-01-21+14-50-32+00/model.ckpt
+results/tea1/1234/save/CKPT+2021-01-21+13-55-56+00/model.ckpt
+results/tea2/1234/save/CKPT+2021-01-21+14-25-21+00/model.ckpt
+results/tea3/1234/save/CKPT+2021-01-21+15-02-32+00/model.ckpt
+results/tea4/1234/save/CKPT+2021-01-21+15-47-09+00/model.ckpt
+results/tea5/1234/save/CKPT+2021-01-21+16-02-38+00/model.ckpt
+results/tea6/1234/save/CKPT+2021-01-21+16-05-33+00/model.ckpt
+results/tea7/1234/save/CKPT+2021-01-21+16-03-20+00/model.ckpt
+results/tea8/1234/save/CKPT+2021-01-21+16-25-17+00/model.ckpt
+results/tea9/1234/save/CKPT+2021-01-21+15-48-42+00/model.ckpt
+```
 
 Example:
 ```
