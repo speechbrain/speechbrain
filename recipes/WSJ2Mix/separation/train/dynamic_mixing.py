@@ -170,9 +170,6 @@ def dynamic_mix_shuffleonly_data_prep(hparams):
         csv_path=hparams["train_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
-    import pdb
-
-    pdb.set_trace()
 
     # we draw Nspk indices
     source_wavkeys = [
