@@ -170,6 +170,9 @@ def dynamic_mix_shuffleonly_data_prep(hparams):
         csv_path=hparams["train_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
+    import pdb
+
+    pdb.set_trace()
 
     # we draw Nspk indices
     source_wavkeys = [
@@ -185,7 +188,7 @@ def dynamic_mix_shuffleonly_data_prep(hparams):
         # find the indices of two items to mix
         inds = list(
             np.random.random_integers(
-                0, len(train_data), size=(hparams["num_spks"],)
+                0, len(train_data) - 1, size=(hparams["num_spks"],)
             )
         )
 
