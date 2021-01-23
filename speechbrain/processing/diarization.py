@@ -1,6 +1,6 @@
 """
 This script contains basic functions used for speaker diarization.
-This script has optional dependency on open source sklearn library.
+This script has an optional dependency on open source sklearn library.
 A few sklearn functions are modified in this script as per requirement.
 
 Reference
@@ -150,8 +150,8 @@ def is_overlapped(end1, start2):
 
     Returns
     -------
-    overlaped : bool
-        True of segments overlaped else False.
+    overlapped : bool
+        True of segments overlapped else False.
 
     Example
     -------
@@ -170,7 +170,7 @@ def is_overlapped(end1, start2):
 
 def merge_ssegs_same_speaker(lol):
     """
-    Merge adjacent sub-segs from a same speaker.
+    Merge adjacent sub-segs from the same speaker.
 
     Arguments
     ---------
@@ -180,7 +180,7 @@ def merge_ssegs_same_speaker(lol):
     Returns
     -------
     new_lol : list of list
-        new_lol contains adjacent segments merged from a same speaker ID.
+        new_lol contains adjacent segments merged from the same speaker ID.
 
     Example
     -------
@@ -426,7 +426,7 @@ def _set_diag(laplacian, value, norm_laplacian):
     -------
     laplacian : array or sparse matrix
         An array of matrix in a form that is well suited to fast eigenvalue
-        decomposition, depending on the band width of the matrix.
+        decomposition, depending on the bandwidth of the matrix.
     """
 
     n_nodes = laplacian.shape[0]
@@ -466,7 +466,7 @@ def _deterministic_vector_sign_flip(u):
 
     Returns
     -------
-    u_flipped : ndarray with same shape as u
+    u_flipped : ndarray with the same shape as u
         Array with the sign flipped vectors as its rows.
     """
 
@@ -505,7 +505,7 @@ def _check_random_state(seed):
 
 def get_oracle_num_spkrs(rec_id, spkr_info):
     """
-    Returns actual number of speakers in a recording from the groundtruth.
+    Returns actual number of speakers in a recording from the ground-truth.
     This can be used when the condition is oracle number of speakers.
 
     Arguments
@@ -789,7 +789,7 @@ class Spec_Clust_unorm:
 
     def do_spec_clust(self, X, k_oracle, p_val):
         """
-        Main function for spectral clustering.
+        Function for spectral clustering.
 
         Arguments
         ---------
@@ -891,22 +891,23 @@ class Spec_Clust_unorm:
     def get_spec_embs(self, L, k_oracle=4):
         """
         Returns spectral embeddings and estimates the number of speakers
-        using maximum eigen gap.
+        using maximum Eigen gap.
 
         Arguments
         ---------
         L : array (n_samples, n_samples)
             Laplacian matrix.
         k_oracle : int
-            Number of speakers when condition is oracle number of speakers, else None.
+            Number of speakers when the condition is oracle number of speakers,
+            else None.
 
         Returns
         -------
         emb : array (n_samples, n_components)
-            Spectral embedding for each sample with n eigen compoenents.
+            Spectral embedding for each sample with n Eigen components.
         num_of_spk : int
-            Estimated number of speakers. If condition is oracle number of
-            speakers then returns k_oracle.
+            Estimated number of speakers. If the condition is set to the oracle
+            number of speakers then returns k_oracle.
         """
 
         lambdas, eig_vecs = scipy.linalg.eigh(L)
@@ -940,7 +941,7 @@ class Spec_Clust_unorm:
         Arguments
         ---------
         emb : array (n_samples, n_components)
-            Spectral embedding for each sample with n eigen compoenents.
+            Spectral embedding for each sample with n Eigen components.
         k : int
             Number of clusters to kmeans.
 
@@ -953,7 +954,7 @@ class Spec_Clust_unorm:
 
     def getEigenGaps(self, eig_vals):
         """
-        Returns the difference (gaps) between the eigen values.
+        Returns the difference (gaps) between the Eigen values.
 
         Arguments
         ---------
@@ -963,7 +964,7 @@ class Spec_Clust_unorm:
         Returns
         -------
         eig_vals_gap_list : list
-            List of differences (gaps) between adjancent eigen values.
+            List of differences (gaps) between adjancent Eigen values.
         """
 
         eig_vals_gap_list = []

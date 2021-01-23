@@ -39,7 +39,7 @@ class SincConv(nn.Module):
         Dilation factor of the convolutional filters.
     padding: str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
@@ -311,7 +311,7 @@ class Conv1d(nn.Module):
         Dilation factor of the convolutional filters.
     padding: str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
@@ -649,9 +649,9 @@ class Conv2d(nn.Module):
 
 
 class DepthwiseSeparableConv1d(nn.Module):
-    """This class implements the depthwise seperable convolution
-    First, a channel wise convolution is applied to the input
-    Then, a point wise convolution to project the input to output
+    """This class implements the depthwise separable convolution
+    First, a channel-wise convolution is applied to the input
+    Then, a point-wise convolution to project the input to output
 
     Arguments
     ---------
@@ -668,7 +668,7 @@ class DepthwiseSeparableConv1d(nn.Module):
         Dilation factor of the convolutional filters.
     padding: str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
@@ -728,9 +728,9 @@ class DepthwiseSeparableConv1d(nn.Module):
 
 
 class DepthwiseSeparableConv2d(nn.Module):
-    """This class implements the depthwise seperable convolution
-    First, a channel wise convolution is applied to the input
-    Then, a point wise convolution to project the input to output
+    """This class implements the depthwise separable convolution
+    First, a channel-wise convolution is applied to the input
+    Then, a point-wise convolution to project the input to output
 
     Arguments
     ---------
@@ -745,7 +745,7 @@ class DepthwiseSeparableConv2d(nn.Module):
         Dilation factor of the convolutional filters.
     padding: str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation

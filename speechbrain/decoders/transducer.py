@@ -10,7 +10,7 @@ import torch
 
 class TransducerBeamSearcher(torch.nn.Module):
     """
-    This class implements the beam-search algorithm for transducer model.
+    This class implements the beam-search algorithm for the transducer model.
 
     Parameters
     ----------
@@ -26,7 +26,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     beam : int
         The width of beam. Greedy Search is used when beam = 1.
     nbest : int
-        Number of hypothesis to keep.
+        Number of hypotheses to keep.
     lm_module: torch.nn.ModuleList
         neural networks modules for LM.
     lm_weight: float
@@ -38,7 +38,8 @@ class TransducerBeamSearcher(torch.nn.Module):
         is likely to compete with hyps in B (beam_hyps), if not, end the while loop.
         Reference: https://arxiv.org/pdf/1911.01629.pdf
     expand_beam: float
-        The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
+        The threshold coefficient to limit the number of expanded hypotheses
+        that are added in A (process_hyp).
         Reference: https://arxiv.org/pdf/1911.01629.pdf
         Reference: https://github.com/kaldi-asr/kaldi/blob/master/src/decoder/simple-decoder.cc (See PruneToks)
 
@@ -141,7 +142,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     def transducer_greedy_decode(self, tn_output):
         """
         transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
-            1- for each time stemps in the Transcription Network (TN) output:
+            1- for each time step in the Transcription Network (TN) output:
                 -> Update the ith utterance only if
                     the previous target != the new one (we save the hiddens and the target)
                 -> otherwise:
@@ -228,7 +229,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         """
         transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
             1- for each utterance:
-                2- for each time stemps in the Transcription Network (TN) output:
+                2- for each time steps in the Transcription Network (TN) output:
                     -> Do forward on PN and Joint network
                     -> Select topK <= beam
                     -> Do a while loop extending the hyps until we reach blank
@@ -407,17 +408,17 @@ class TransducerBeamSearcher(torch.nn.Module):
         Arguments
         ---------
         inp_tokens : torch.Tensor
-            The input tensor of current timestep.
+            The input tensor of the current timestep.
         memory : No limit
-            The momory variables input for this timestep.
+            The memory variables input for this timestep.
             (ex. RNN hidden states).
 
         Return
         ------
         log_probs : torch.Tensor
-            Log-probilities of the current timestep output.
+            Log-probabilities of the current timestep output.
         hs : No limit
-            The memory variables generated in this timestep.
+            The memory variables are generated in this timestep.
             (ex. RNN hidden states).
         """
         with torch.no_grad():
@@ -435,10 +436,10 @@ class TransducerBeamSearcher(torch.nn.Module):
         selected_sentences : list
             list of updated sentences (indexes)
         output_PN: torch.tensor
-            output tensor from prediction netowrk (PN)
+            output tensor from prediction network (PN)
         hidden : torch.tensor
             Optional: None, hidden tensor to be used for
-            reccurent layers in the prediction network
+            recurrent layers in the prediction network
 
         Returns
         -------
@@ -509,7 +510,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             Outputs a logits tensor [B,U, hiddens]
         hidden: torch.tensor
             Hidden tensor to be used for the next step
-            by reccurent layers in prediction network
+            by recurrent layers in prediction network
 
         Author:
             Abdelwahab HEBA 2020

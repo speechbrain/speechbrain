@@ -2,7 +2,7 @@ import pytest
 
 
 def test_categorical_encoder():
-    from speechbrain.data_io.encoder import CategoricalEncoder
+    from speechbrain.dataio.encoder import CategoricalEncoder
 
     encoder = CategoricalEncoder()
     encoder.update_from_iterable("abcd")
@@ -71,7 +71,7 @@ def test_categorical_encoder():
 
 
 def test_categorical_encoder_saving(tmpdir):
-    from speechbrain.data_io.encoder import CategoricalEncoder
+    from speechbrain.dataio.encoder import CategoricalEncoder
 
     encoder = CategoricalEncoder(starting_index=3)
     encoding_file = tmpdir / "char_encoding.txt"
@@ -119,8 +119,8 @@ def test_categorical_encoder_saving(tmpdir):
 
 
 def test_categorical_encoder_from_dataset():
-    from speechbrain.data_io.encoder import CategoricalEncoder
-    from speechbrain.data_io.dataset import DynamicItemDataset
+    from speechbrain.dataio.encoder import CategoricalEncoder
+    from speechbrain.dataio.dataset import DynamicItemDataset
 
     encoder = CategoricalEncoder()
     data = {
@@ -145,7 +145,7 @@ def test_categorical_encoder_from_dataset():
 
 
 def test_text_encoder(tmpdir):
-    from speechbrain.data_io.encoder import TextEncoder
+    from speechbrain.dataio.encoder import TextEncoder
 
     encoder = TextEncoder()
     encoding_file = tmpdir / "text_encoding.txt"
@@ -176,7 +176,7 @@ def test_text_encoder(tmpdir):
 
 
 def test_ctc_encoder(tmpdir):
-    from speechbrain.data_io.encoder import CTCTextEncoder
+    from speechbrain.dataio.encoder import CTCTextEncoder
 
     encoder = CTCTextEncoder(bos_label="<s>", eos_label="</s>")
     encoder.add_blank(blank_label="_")

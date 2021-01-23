@@ -22,13 +22,13 @@ class S2SBaseSearcher(torch.nn.Module):
     Arguments
     ---------
     bos_index : int
-        The index of beginning-of-sequence token.
+        The index of the beginning-of-sequence (bos) token.
     eos_index : int
         The index of end-of-sequence token.
     min_decode_radio : float
-        The ratio of minimum decoding steps to length of encoder states.
+        The ratio of minimum decoding steps to the length of encoder states.
     max_decode_radio : float
-        The ratio of maximum decoding steps to length of encoder states.
+        The ratio of maximum decoding steps to the length of encoder states.
 
     Returns
     -------
@@ -66,14 +66,14 @@ class S2SBaseSearcher(torch.nn.Module):
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """This method should implement one step of
-        forwarding operation in autoregressive model.
+        forwarding operation in the autoregressive model.
 
         Arguments
         ---------
         inp_tokens : torch.Tensor
-            The input tensor of current timestep.
+            The input tensor of the current timestep.
         memory : No limit
-            The momory variables input for this timestep.
+            The memory variables input for this timestep.
             (ex. RNN hidden states).
         enc_states : torch.Tensor
             The encoder states to be attended.
@@ -83,9 +83,9 @@ class S2SBaseSearcher(torch.nn.Module):
         Return
         ------
         log_probs : torch.Tensor
-            Log-probilities of the current timestep output.
+            Log-probabilities of the current timestep output.
         memory : No limit
-            The momory variables generated in this timestep.
+            The memory variables generated in this timestep.
             (ex. RNN hidden states).
         attn : torch.Tensor
             The attention weight for doing penalty.
@@ -93,7 +93,7 @@ class S2SBaseSearcher(torch.nn.Module):
         raise NotImplementedError
 
     def reset_mem(self, batch_size, device):
-        """This method should implement the reseting of
+        """This method should implement the resetting of
         memory variables for the seq2seq model.
         Ex. Initializing zero vector as initial hidden states.
 
@@ -118,7 +118,7 @@ class S2SBaseSearcher(torch.nn.Module):
         Arguments
         ---------
         inp_tokens : torch.Tensor
-            The input tensor of current timestep.
+            The input tensor of the current timestep.
         memory : No limit
             The momory variables input for this timestep.
             (ex. RNN hidden states).
@@ -126,16 +126,16 @@ class S2SBaseSearcher(torch.nn.Module):
         Return
         ------
         log_probs : torch.Tensor
-            Log-probilities of the current timestep output.
+            Log-probabilities of the current timestep output.
         memory : No limit
-            The momory variables generated in this timestep.
+            The memory variables generated in this timestep.
             (ex. RNN hidden states).
         """
         raise NotImplementedError
 
     def reset_lm_mem(self, batch_size, device):
-        """This method should implement the reseting of
-        memory variables in language model.
+        """This method should implement the resetting of
+        memory variables in the language model.
         Ex. Initializing zero vector as initial hidden states.
 
         Arguments
@@ -258,7 +258,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
 
 class S2SBeamSearcher(S2SBaseSearcher):
     """
-    This class implements the beam-search algorithm for seq2seq model.
+    This class implements the beam-search algorithm for the seq2seq model.
     See also S2SBaseSearcher().
 
     Parameters
@@ -397,7 +397,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Parameters
         ----------
         hyps : List
-            This list contains batch_size number of list.
+            This list contains batch_size number.
             Each inside list contains a list stores all the hypothesis for this sentence.
         beam_size : int
             The number of beam_size.
@@ -428,7 +428,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Return
         ------
         cond : torch.BoolTensor
-            Each element represent whether the beam is within the max_shift range.
+            Each element represents whether the beam is within the max_shift range.
         attn_peak : torch.Tensor
             The peak of the attn tensor.
         """
@@ -482,7 +482,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_log_probs : torch.Tensor
             The tensor to store the alived_log_probs.
         hyps_and_scores : list
-            To store generated hypothesis and scores.
+            To store generated hypotheses and scores.
         scores : torch.Tensor
             The final scores of beam search.
         timesteps : float
@@ -514,12 +514,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def _get_top_score_prediction(self, hyps_and_scores, topk):
         """
-        This method sort the scores and return corresponding hypothesis and log probs.
+        This method sorts the scores and return corresponding hypothesis and log probs.
 
         Parameters
         ----------
         hyps_and_scores : list
-            To store generated hypothesis and scores.
+            To store generated hypotheses and scores.
         topk : int
             Number of hypothesis to return.
 
@@ -533,11 +533,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
             [h_0_0, h_0_1,h_1_0, h_1_1, h_2_0, h_2_1]
 
         top_scores : list
-            This list contains the final scores of hypothesis.
+            This list contains the final scores of hypotheses.
             The order is the same as predictions.
 
         top_log_probs : list
-            This list contains the log probabilities of each hypothesis.
+            This list contains the log probabilities of each hypotheses.
             The order is the same as predictions.
         """
         predictions, top_log_probs, top_scores = [], [], []
@@ -874,7 +874,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         A linear output layer
     temperature : float
         Temperature factor applied to softmax. It changes the probability
-        distribution, being more soft when T>1 and more sharp with T<1.
+        distribution, being softer when T>1 and sharper with T<1.
     **kwargs
         see S2SBeamSearcher, arguments are directly passed
     Example
@@ -979,7 +979,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         A language model
     temperature_lm : float
         Temperature factor applied to softmax. It changes the probability
-        distribution, being more soft when T>1 and more sharp with T<1.
+        distribution, being softer when T>1 and sharper with T<1.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     Example
@@ -1072,7 +1072,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         A language model
     temperature_lm : float
         Temperature factor applied to softmax. It changes the probability
-        distribution, being more soft when T>1 and more sharp with T<1.
+        distribution, being softer when T>1 and sharper with T<1.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     Example
@@ -1140,7 +1140,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
 
 def inflate_tensor(tensor, times, dim):
     """
-    This function inflate the tensor for times along dim.
+    This function inflates the tensor for times along dim.
 
     Parameters
     ----------
@@ -1179,7 +1179,7 @@ def mask_by_condition(tensor, cond, fill_value):
         The tensor to be masked.
     cond : torch.BoolTensor
         This tensor has to be the same size as tensor.
-        Each element represent whether to keep the value in tensor.
+        Each element represents whether to keep the value in tensor.
     fill_value : float
         The value to fill in the masked element.
 
@@ -1204,9 +1204,10 @@ def mask_by_condition(tensor, cond, fill_value):
 
 def _update_mem(inp_tokens, memory):
     """This function is for updating the memory for transformer searches.
-    it is called at each decode step. When being called, it appends the predicted token of the previous step to existing memory.
+    it is called at each decoding step. When being called, it appends the
+    predicted token of the previous step to existing memory.
 
-    Arguements:
+    Arguments:
     -----------
     inp_tokens: tensor
         predicted token of the previous decoding step

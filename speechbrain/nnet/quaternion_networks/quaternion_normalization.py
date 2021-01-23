@@ -16,7 +16,7 @@ class QuaternionBatchNorm(torch.nn.Module):
     Arguments
     ---------
     input_size : int
-        Expected size of the dimension to be normalised.
+        Expected size of the dimension to be normalized.
     dim: int, optional
         Default: -1
         It defines the axis that should be normalized. It usually correspond to

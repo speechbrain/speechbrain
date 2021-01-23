@@ -187,7 +187,7 @@ def convolve1d(
         Passed to conv1d. Has no effect if `use_fft` is True.
     groups : int
         This option is passed to `conv1d` to split the input into groups for
-        convolution. Input channels should be divisible by number of groups.
+        convolution. Input channels should be divisible by the number of groups.
     use_fft : bool
         When `use_fft` is passed `True`, then compute the convolution in the
         spectral domain using complex multiply. This is more efficient on CPU
@@ -205,7 +205,7 @@ def convolve1d(
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = torch.rand(1, 10, 1)
@@ -284,7 +284,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     General function to contaminate a given signal with reverberation given a
     Room Impulse Response (RIR).
     It performs convolution between RIR and signal, but without changing
-    original amplitude of the signal.
+    the original amplitude of the signal.
 
     Parameters
     ----------
@@ -390,7 +390,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> signal = read_audio('samples/audio_samples/example1.wav')
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)

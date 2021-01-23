@@ -175,7 +175,7 @@ class ASR(sb.Brain):
         self.hparams.lm_model.eval()
 
 
-def data_io_prep(hparams):
+def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
     # 1. define tokenizer and load it
@@ -224,7 +224,7 @@ def data_io_prep(hparams):
     @sb.utils.data_pipeline.takes(hparams["input_type"])
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     # 3. Define text pipeline:
@@ -242,7 +242,7 @@ def data_io_prep(hparams):
     # 4. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.data_io.dataset.DynamicItemDataset.from_csv(
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
             csv_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root", hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
@@ -278,6 +278,13 @@ if __name__ == "__main__":
     # Prepare data
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     run_on_main(
         prepare_voicebank,
         kwargs={
@@ -286,15 +293,8 @@ if __name__ == "__main__":
         },
     )
 
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
-
     # Create dataset objects and tokenizer
-    datasets, tokenizer = data_io_prep(hparams)
+    datasets, tokenizer = dataio_prep(hparams)
 
     # Load pretrained models if provided
     if "pretrain_checkpointer" in hparams:

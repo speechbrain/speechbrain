@@ -6,7 +6,7 @@ Example
 -------
 >>> import torch
 >>>
->>> from speechbrain.data_io.data_io import read_audio
+>>> from speechbrain.dataio.dataio import read_audio
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
 >>> from speechbrain.processing.multi_mic import GccPhat, SrpPhat, Music
@@ -87,12 +87,12 @@ class Covariance(torch.nn.Module):
     average : boolean
         Informs the module if it should return an average
         (computed on the time dimension) of the covariance
-        matrices. Default value is True.
+        matrices. The Default value is True.
 
     Example
     -------
     >>> import torch
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>>
@@ -200,7 +200,7 @@ class DelaySum(torch.nn.Module):
         -------
         >>> import torch
 
-        >>> from speechbrain.data_io.data_io import read_audio
+        >>> from speechbrain.dataio.dataio import read_audio
         >>> from speechbrain.processing.features import STFT, ISTFT
         >>> from speechbrain.processing.multi_mic import Covariance
         >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
@@ -346,7 +346,7 @@ class Mvdr(torch.nn.Module):
         -------
         >>> import torch
 
-        >>> from speechbrain.data_io.data_io import read_audio
+        >>> from speechbrain.dataio.dataio import read_audio
         >>> from speechbrain.processing.features import STFT, ISTFT
         >>> from speechbrain.processing.multi_mic import Covariance
         >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
@@ -522,7 +522,7 @@ class Gev(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> import torch
     >>>
     >>> from speechbrain.processing.features import STFT, ISTFT
@@ -660,14 +660,14 @@ class GccPhat(torch.nn.Module):
         search for delays between -n_fft/2 and n_fft/2 (full range).
 
     eps : float
-        A small value to avoid divisions by 0 with the phase transform. The
-        default value is 1e-20.
+        A small value to avoid divisions by 0 with the phase transformation.
+        The default value is 1e-20.
 
     Example
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT, ISTFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
@@ -698,7 +698,7 @@ class GccPhat(torch.nn.Module):
     def forward(self, XXs):
         """ Perform generalized cross-correlation with phase transform localization
         by using the utility function _gcc_phat and by extracting the delays (in samples)
-        before perfoming a quadratic interpolation to improve the accuracy.
+        before performing a quadratic interpolation to improve the accuracy.
         The result has the format: (batch, time_steps, n_mics + n_pairs).
 
         The order on the last dimension corresponds to the triu_indices for a
@@ -874,7 +874,7 @@ class SrpPhat(torch.nn.Module):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import SrpPhat
@@ -1068,7 +1068,7 @@ class Music(torch.nn.Module):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import SrpPhat
@@ -1166,7 +1166,7 @@ class Music(torch.nn.Module):
 
     @staticmethod
     def _music(XXs, As, doas, n_sig, eps=1e-20):
-        """ Perform multiple signal classfication to find the
+        """ Perform multiple signal classification to find the
         direction of arrival of the sound source. The result
         has the format: (batch, time_steps, 3)
 
@@ -1177,7 +1177,7 @@ class Music(torch.nn.Module):
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
         As : tensor
-            The steering vector that cover the all the potential directions
+            The steering vector that covers the all the potential directions
             of arrival. The tensor must have the format
             (n_doas, n_fft/2 + 1, 2, n_mics)
         doas : tensor
@@ -1263,7 +1263,7 @@ def doas2taus(doas, mics, fs, c=343.0):
     -------
     >>> import torch
 
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.multi_mic import sphere, doas2taus
 
     >>> xs = read_audio('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
@@ -1299,7 +1299,7 @@ def tdoas2taus(tdoas):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus
@@ -1347,7 +1347,7 @@ def steering(taus, n_fft):
     Example:
     --------f
     >>> import torch
-    >>> from speechbrain.data_io.data_io import read_audio
+    >>> from speechbrain.dataio.dataio import read_audio
     >>> from speechbrain.processing.features import STFT
     >>> from speechbrain.processing.multi_mic import Covariance
     >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus, steering

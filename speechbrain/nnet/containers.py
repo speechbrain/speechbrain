@@ -23,8 +23,8 @@ class Sequential(torch.nn.ModuleDict):
     ---------
     input_shape : iterable
         A list or tuple of ints or None, representing the expected shape of an
-        input tensor. None represents a variable length dimension. If no
-        ``input_shape`` is passed, no shape inferenced will be performed
+        input tensor. None represents a variable-length dimension. If no
+        ``input_shape`` is passed, no shape inference will be performed
     *layers, **named_layers
         The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
@@ -124,9 +124,10 @@ class Sequential(torch.nn.ModuleDict):
 
 
 class ModuleList(torch.nn.Module):
-    """This class implements a wraper to torch.nn.ModuleList with a forward() method to forward all the layers sequentially.
-
-    For some pretained model with the SpeechBrain older implementation of Sequential class, user can use this class to load those pretrained models
+    """This class implements a wrapper to torch.nn.ModuleList with a forward()
+    method to forward all the layers sequentially.
+    For some pretained model with the SpeechBrain older implementation of
+    Sequential class, user can use this class to load those pretrained models
 
     Arguments
     ---------
@@ -233,7 +234,7 @@ class ConnectBlocks(torch.nn.Module):
             the argument ``input_shape`` will be passed if the layer takes it.
         *args, **kwargs
             Passed unchanged to the layer **EXCEPT** the kwarg ``end_of_block``
-            which is used to indicate that the shorcut should be added in.
+            which is used to indicate that the shortcut should be added in.
         """
         if self.new_block:
             self.blocks.append(Sequential(input_shape=self.block_input_shape))

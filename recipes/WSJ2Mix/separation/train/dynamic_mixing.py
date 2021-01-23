@@ -39,7 +39,7 @@ def build_spk_hashtable(hparams):
 def dynamic_mix_data_prep(hparams):
 
     # 1. Define datasets
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
@@ -127,9 +127,89 @@ def dynamic_mix_data_prep(hparams):
         for i in range(hparams["num_spks"]):
             yield sources[i]
 
-    sb.data_io.dataset.add_dynamic_item([train_data], audio_pipeline)
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline)
+    sb.dataio.dataset.set_output_keys(
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
+
+    return train_data
+
+
+def dynamic_mix_shuffleonly_data_prep(hparams):
+
+    # 1. Define datasets
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    # we draw Nspk indices
+    source_wavkeys = [
+        "s" + str(i) + "_wav" for i in range(1, hparams["num_spks"] + 1)
+    ]
+
+    @sb.utils.data_pipeline.takes("s1_wav", "s2_wav")
+    @sb.utils.data_pipeline.provides("mix_sig", "s1_sig", "s2_sig")
+    def audio_pipeline(
+        s1_wav, s2_wav
+    ):  # this is dummy --> it means one epoch will be same as without dynamic mixing
+
+        # find the indices of two items to mix
+        inds = list(
+            np.random.random_integers(
+                0, len(train_data) - 1, size=(hparams["num_spks"],)
+            )
+        )
+
+        # get the lengths of these items
+        lengths = []
+        sourcefls = []
+        for i, (ind, wavkey) in enumerate(zip(inds, source_wavkeys)):
+            fl = train_data.data[str(ind)]
+            sourcefl = fl[wavkey]
+            sourcefls.append(sourcefl)
+            lengths.append(torchaudio.info(sourcefl).num_frames)
+        minlen = min(lengths)
+
+        sources = []
+        for i, (sourcefl, wavkey, length) in enumerate(
+            zip(sourcefls, source_wavkeys, lengths)
+        ):
+
+            start = 0
+            stop = length
+            if length > minlen:  # take a random window
+                start = np.random.randint(0, length - minlen)
+                stop = start + minlen
+
+            tmp, fs_read = torchaudio.load(
+                sourcefl,
+                frame_offset=start,
+                num_frames=stop - start,
+                # normalize=False,
+            )
+
+            tmp = tmp[0]  # remove channel dim
+            sources.append(tmp)
+
+        sources = torch.stack(sources)
+        mixture = torch.sum(sources, 0)
+        max_amp = max(
+            torch.abs(mixture).max().item(),
+            *[x.item() for x in torch.abs(sources).max(dim=-1)[0]],
+        )
+        mix_scaling = 1 / max_amp * 0.9
+        sources = sources * mix_scaling
+        mixture = mix_scaling * mixture
+
+        yield mixture
+        for i in range(hparams["num_spks"]):
+            yield sources[i]
+
+    sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline)
+    sb.dataio.dataset.set_output_keys(
+        [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
+    )
+    train_data[0]
 
     return train_data

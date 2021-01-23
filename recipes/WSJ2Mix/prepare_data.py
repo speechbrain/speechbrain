@@ -26,7 +26,7 @@ Author
 import os
 import numpy as np
 from tqdm import tqdm
-from speechbrain.data_io.data_io import read_audio, write_audio
+from speechbrain.dataio.dataio import read_audio, write_audio
 from speechbrain.utils.data_utils import download_file
 from scipy.io import wavfile
 from scipy import signal
@@ -512,3 +512,9 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
                 )
             else:
                 raise ValueError("Incorrect sampling frequency for saving")
+
+
+if __name__ == "__main__":
+    wsj0root = "/network/tmp1/subakany/wsj0-mix"
+    output_dir = "."
+    get_wsj_files(wsj0root, output_dir)
