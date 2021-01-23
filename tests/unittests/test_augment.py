@@ -1,6 +1,6 @@
 import os
 import torch
-from speechbrain.data_io.data_io import write_audio
+from speechbrain.dataio.dataio import write_audio
 
 
 def test_add_noise(tmpdir):

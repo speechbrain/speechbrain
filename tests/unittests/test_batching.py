@@ -3,7 +3,7 @@ import torch
 
 
 def test_paddedbatch():
-    from speechbrain.data_io.batch import PaddedBatch
+    from speechbrain.dataio.batch import PaddedBatch
 
     batch = PaddedBatch(
         [
@@ -31,7 +31,7 @@ def test_paddedbatch():
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA")
 def test_pin_memory():
-    from speechbrain.data_io.batch import PaddedBatch
+    from speechbrain.dataio.batch import PaddedBatch
 
     batch = PaddedBatch(
         [

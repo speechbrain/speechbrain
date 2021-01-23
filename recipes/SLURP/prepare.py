@@ -1,14 +1,17 @@
 import os
 import jsonlines
+from speechbrain.dataio.dataio import read_audio, merge_csvs
+from speechbrain.utils.data_utils import download_file
+import shutil
 
 try:
     import pandas as pd
-except ModuleNotFoundError:
-    print("Error: pandas must be installed to run this recipe.")
-    print("Install using `pip install pandas`.")
-from speechbrain.data_io.data_io import read_wav_soundfile, merge_csvs
-
-# from speechbrain.utils.data_utils import download_file
+except ImportError:
+    err_msg = (
+        "The optional dependency pandas must be installed to run this recipe.\n"
+    )
+    err_msg += "Install using `pip install pandas`.\n"
+    raise ImportError(err_msg)
 
 
 def prepare_SLURP(data_folder, slu_type, train_splits):
@@ -26,19 +29,29 @@ def prepare_SLURP(data_folder, slu_type, train_splits):
     train_splits : list of splits to be joined to form train .csv
     """
 
-    # If the data folders do not exist, we need to extract the data
-    # if not os.path.isdir(os.path.join(data_folder, "train-synth")):
-    # Check for zip file and download if it doesn't exist
-    #    zip_location = os.path.join(data_folder, "timers-and-such.zip")
-    #    if not os.path.exists(zip_location):
-    #        url = "https://zenodo.org/record/4110812/files/timers-and-such.zip?download=1"
-    #        download_file(url, zip_location, unpack=True)
-    #    else:
-    #        print("Extracting timers-and-such.zip...")
-    #        shutil.unpack_archive(zip_location, data_folder)
+    # If the data folders do not exist, we need to download/extract the data
+    if not os.path.isdir(os.path.join(data_folder, "slurp_synth")):
+        # Check for zip file and download if it doesn't exist
+        zip_location = os.path.join(data_folder, "slurp_synth.tar.gz")
+        if not os.path.exists(zip_location):
+            url = "https://zenodo.org/record/4274930/files/slurp_synth.tar.gz?download=1"
+            download_file(url, zip_location, unpack=True)
+        else:
+            print("Extracting slurp_synth...")
+            shutil.unpack_archive(zip_location, data_folder)
+
+    if not os.path.isdir(os.path.join(data_folder, "slurp_real")):
+        # Check for zip file and download if it doesn't exist
+        zip_location = os.path.join(data_folder, "slurp_real.tar.gz")
+        if not os.path.exists(zip_location):
+            url = "https://zenodo.org/record/4274930/files/slurp_real.tar.gz?download=1"
+            download_file(url, zip_location, unpack=True)
+        else:
+            print("Extracting slurp_real...")
+            shutil.unpack_archive(zip_location, data_folder)
 
     splits = [
-        "train",
+        "train_real",
         "train_synthetic",
         "devel",
         "test",
@@ -67,9 +80,20 @@ def prepare_SLURP(data_folder, slu_type, train_splits):
         transcript_format = []
         transcript_opts = []
 
-        with jsonlines.open(
-            os.path.join(data_folder, "dataset/slurp/" + split + ".jsonl")
-        ) as reader:
+        jsonl_path = os.path.join(data_folder, split + ".jsonl")
+        if not os.path.isfile(jsonl_path):
+            if split == "train_real":
+                url_split = "train"
+            else:
+                url_split = split
+            url = (
+                "https://github.com/pswietojanski/slurp/raw/master/dataset/slurp/"
+                + url_split
+                + ".jsonl"
+            )
+            download_file(url, jsonl_path, unpack=False)
+
+        with jsonlines.open(jsonl_path) as reader:
             for obj in reader:
                 scenario = obj["scenario"]
                 action = obj["action"]
@@ -93,13 +117,13 @@ def prepare_SLURP(data_folder, slu_type, train_splits):
                 for recording in obj["recordings"]:
                     IDs.append(id)
                     if "synthetic" in split:
-                        audio_folder = "scripts/audio/slurp_synth/"
+                        audio_folder = "slurp_synth/"
                     else:
-                        audio_folder = "scripts/audio/slurp_real/"
+                        audio_folder = "slurp_real/"
                     path = os.path.join(
                         data_folder, audio_folder, recording["file"]
                     )
-                    signal = read_wav_soundfile(path)
+                    signal = read_audio(path)
                     duration.append(signal.shape[0] / 16000)
 
                     wav.append(path)

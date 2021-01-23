@@ -10,6 +10,7 @@ Authors
 import os
 import sys
 import torch
+import logging
 import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -18,6 +19,7 @@ from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
 
+logger = logging.getLogger(__name__)
 torchaudio.set_audio_backend("sox_io")
 
 try:
@@ -28,6 +30,7 @@ except ImportError:
 
 class SEBrain(sb.core.Brain):
     def compute_forward(self, batch, stage):
+        """Forward computations from the waveform batches to the enhanced output."""
         batch = batch.to(self.device)
         noisy_wavs, lens = batch.noisy_sig
 
@@ -48,6 +51,7 @@ class SEBrain(sb.core.Brain):
         return predict_spec, predict_wav
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss given the predicted and targeted outputs"""
         predict_spec, predict_wav = predictions
         ids = batch.id
         clean_wav, lens = batch.clean_sig
@@ -87,11 +91,13 @@ class SEBrain(sb.core.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of each epoch"""
         self.loss_metric = MetricStats(metric=self.hparams.compute_cost)
         self.stoi_metric = MetricStats(metric=stoi_loss)
 
         # Define function taking (prediction, target) for parallel eval
         def pesq_eval(pred_wav, target_wav):
+            """Computes the PESQ evaluation metric"""
             return pesq(
                 fs=16000,
                 ref=target_wav.cpu().numpy(),
@@ -103,7 +109,7 @@ class SEBrain(sb.core.Brain):
             self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-
+        """Gets called at the end of an epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {"loss": self.loss_metric.scores}
@@ -144,14 +150,14 @@ class SEBrain(sb.core.Brain):
             )
 
 
-def data_io_prep(hparams):
-    """Creates data processing pipeline"""
-
+def dataio_prep(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     # Define audio piplines
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def train_pipeline(wav):
-        clean_sig = sb.data_io.data_io.read_audio(wav)
+        clean_sig = sb.dataio.dataio.read_audio(wav)
         noisy_sig = hparams["add_noise"](
             clean_sig.unsqueeze(0), torch.Tensor([1])
         )
@@ -160,26 +166,26 @@ def data_io_prep(hparams):
     @sb.utils.data_pipeline.takes("wav", "target")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def eval_pipeline(wav, target):
-        clean_sig = sb.data_io.data_io.read_audio(wav)
-        noisy_sig = sb.data_io.data_io.read_audio(target)
+        clean_sig = sb.dataio.dataio.read_audio(wav)
+        noisy_sig = sb.dataio.dataio.read_audio(target)
         return clean_sig, noisy_sig
 
     # Define datasets
-    train_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_set = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_csv"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[train_pipeline],
         output_keys=["id", "clean_sig", "noisy_sig"],
     )
 
-    valid_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_set = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[eval_pipeline],
         output_keys=["id", "clean_sig", "noisy_sig"],
     )
 
-    test_set = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_set = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_csv"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[eval_pipeline],
@@ -203,6 +209,13 @@ if __name__ == "__main__":
     # Data preparation
     from dns_prepare import prepare_dns  # noq
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     run_on_main(
         prepare_dns,
         kwargs={
@@ -211,13 +224,6 @@ if __name__ == "__main__":
             "valid_folder": hparams["valid_folder"],
             "seg_size": 10.0,
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     if hparams["use_tensorboard"]:
@@ -238,7 +244,7 @@ if __name__ == "__main__":
         sb.utils.distributed.ddp_barrier()
 
     # Create dataset objects
-    train_set, valid_set, test_set = data_io_prep(hparams)
+    train_set, valid_set, test_set = dataio_prep(hparams)
 
     se_brain = SEBrain(
         modules=hparams["modules"],

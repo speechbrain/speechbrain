@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 def torch_parameter_transfer(obj, path):
     """Non-strict Torch Module state_dict load
 
-    Loads a parameters from path to obj. If obj has layers for which
+    Loads a set of parameters from path to obj. If obj has layers for which
     parameters can't be found, only a warning is logged. Same thing
     if the path has parameters for layers which don't find a counterpart
     in obj.
