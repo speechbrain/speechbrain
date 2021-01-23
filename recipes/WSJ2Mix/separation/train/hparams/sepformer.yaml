@@ -40,7 +40,7 @@ limit_training_signal_len: False
 # the signal length of training sequences
 training_signal_len: 32000000
 # Set it to True to dynamically create mixture at training time
-dynamic_mixing: True # path to wsj0 train split, convert all data to 8kHz before
+dynamic_mixing: regular # path to wsj0 train split, convert all data to 8kHz before
 wsj0_tr: /media/sam/bx500/WSJ8K/wsj0_pre/si_tr_s/
 # Parameters for data augmentation
 use_wavedrop: False
