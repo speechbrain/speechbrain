@@ -191,7 +191,7 @@ def data_io_prep(hparams):
     "Creates the datasets and their data processing pipelines."
     data_folder = hparams["data_folder"]
     # 1. Declarations:
-    train_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
@@ -216,29 +216,29 @@ def data_io_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
-    label_encoder = sb.data_io.encoder.CTCTextEncoder()
+    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.data_io.data_io.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.data_io.dataset.add_dynamic_item(datasets, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("phn")
@@ -265,7 +265,7 @@ def data_io_prep(hparams):
         )
         yield phn_encoded_bos
 
-    sb.data_io.dataset.add_dynamic_item(datasets, text_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
     # NOTE: In this minimal example, also update from valid data
@@ -292,7 +292,7 @@ def data_io_prep(hparams):
         )
 
     # 4. Set output:
-    sb.data_io.dataset.set_output_keys(
+    sb.dataio.dataset.set_output_keys(
         datasets,
         ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"],
     )
@@ -376,13 +376,13 @@ if __name__ == "__main__":
             )
 
     # make dataloaders
-    train_set = sb.data_io.dataloader.make_dataloader(
+    train_set = sb.dataio.dataloader.make_dataloader(
         train_data, **hparams["train_dataloader_opts"]
     )
-    valid_set = sb.data_io.dataloader.make_dataloader(
+    valid_set = sb.dataio.dataloader.make_dataloader(
         valid_data, **hparams["valid_dataloader_opts"]
     )
-    test_set = sb.data_io.dataloader.make_dataloader(
+    test_set = sb.dataio.dataloader.make_dataloader(
         test_data, **hparams["test_dataloader_opts"]
     )
 
