@@ -1,9 +1,15 @@
 # SpeechBrain documentation
 
-Run
+Please install :
 
-    make html
+```
+pip install recommonmark
+```
 
+Then run:
+```
+make html
+```
 to build HTML documentation. Then open `build/html/index.html`
 
 ## Automatic API documentation from docstrings
