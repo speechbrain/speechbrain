@@ -25,6 +25,7 @@ csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
 asr_hparam_file: hparams/pretrained_BPE1000_TAS_LM.yaml
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 1

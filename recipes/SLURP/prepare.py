@@ -14,7 +14,7 @@ except ImportError:
     raise ImportError(err_msg)
 
 
-def prepare_SLURP(data_folder, slu_type, train_splits):
+def prepare_SLURP(data_folder, slu_type, train_splits, skip_prep=False):
     """
     This function prepares the SLURP dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
@@ -27,8 +27,10 @@ def prepare_SLURP(data_folder, slu_type, train_splits):
       "decoupled":{input=transcript, output=semantics} (using ground-truth transcripts)
 
     train_splits : list of splits to be joined to form train .csv
+    skip_prep: If True, data preprations is skipped.
     """
-
+    if skip_prep:
+        return
     # If the data folders do not exist, we need to download/extract the data
     if not os.path.isdir(os.path.join(data_folder, "slurp_synth")):
         # Check for zip file and download if it doesn't exist
