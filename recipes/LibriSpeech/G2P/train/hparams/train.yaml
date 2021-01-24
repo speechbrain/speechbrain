@@ -16,6 +16,7 @@ wer_file: !ref <save_folder>/wer.txt
 train_data: !ref <save_folder>/lexicon_tr.csv
 valid_data: !ref <save_folder>/lexicon_dev.csv
 test_data: !ref <save_folder>/lexicon_test.csv
+skip_prep: False
 sorting: random #ascending
 
 # Neural Parameters
@@ -24,6 +25,7 @@ batch_size: 1024
 lr: 0.002
 
 # Model parameters
+output_neurons: 41
 enc_dropout: 0.5
 enc_neurons: 512
 enc_num_layers: 4
@@ -50,7 +52,7 @@ enc: !new:speechbrain.nnet.RNN.LSTM
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
-    n_neurons: 41  # 39 phonemes + 1 eos
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
     bias: False
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
@@ -58,7 +60,7 @@ encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <embedding_dim>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 41  # 39 phonemes + 1 bos
+    num_embeddings: !ref <output_neurons>  # 39 phonemes + 1 bos
     embedding_dim: !ref <embedding_dim>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder

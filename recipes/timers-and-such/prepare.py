@@ -16,7 +16,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def prepare_TAS(data_folder, type, train_splits):
+def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
     """
     This function prepares the Timers and Such dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
@@ -31,7 +31,11 @@ def prepare_TAS(data_folder, type, train_splits):
       "decoupled":{input=transcript, output=semantics} (using ground-truth transcripts)
 
     train_splits : list of splits to be joined to form train .csv
+    skip_prep: If True, skip data preparation
+
     """
+    if skip_prep:
+        return
     if type == "decoupled":
         try:
             import inflect

@@ -186,6 +186,9 @@ class SLU(sb.Brain):
 
 
 def data_io_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
+
     print(hparams["tokenizer"].spm)
 
     data_folder = hparams["data_folder"]
@@ -302,6 +305,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "train_splits": hparams["train_splits"],
             "type": "decoupled",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
