@@ -20,6 +20,7 @@ import pandas as pd
 # Define training procedure
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
+        """Computations from input to semantic outputs"""
         batch = batch.to(self.device)
         transcript_tokens, transcript_tokens_lens = batch.transcript_tokens
         (
@@ -182,6 +183,8 @@ class SLU(sb.Brain):
 
 
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     data_folder = hparams["data_folder"]
 
@@ -301,6 +304,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "train_splits": hparams["train_splits"],
             "slu_type": "decoupled",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
