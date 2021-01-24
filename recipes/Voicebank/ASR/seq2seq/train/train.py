@@ -278,19 +278,19 @@ if __name__ == "__main__":
     # Prepare data
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     run_on_main(
         prepare_voicebank,
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["data_folder"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # Create dataset objects and tokenizer

@@ -200,7 +200,8 @@ class ASR(sb.Brain):
 
 
 def dataio_prepare(hparams):
-
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -326,6 +327,7 @@ if __name__ == "__main__":
             "save_folder": hparams["data_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": hparams["train_csv"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

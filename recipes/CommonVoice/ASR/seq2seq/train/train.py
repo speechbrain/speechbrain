@@ -180,6 +180,8 @@ class ASR(sb.core.Brain):
 
 # Define custom data procedure
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     # 1. Define datasets
     data_folder = hparams["data_folder"]
@@ -221,8 +223,9 @@ def dataio_prepare(hparams):
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
     )
+
     # We also sort the validation data so it is faster to validate
     test_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -307,6 +310,7 @@ if __name__ == "__main__":
             "test_tsv_file": hparams["test_tsv_file"],
             "accented_letters": hparams["accented_letters"],
             "language": hparams["language"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

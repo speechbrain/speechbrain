@@ -3,7 +3,7 @@
 This script computes Word Error Rate and other related information.
 Just given a reference and a hypothesis, the script closely matches
 Kaldi's compute_wer binary.
-Additionally, the script can produce human readable edit distance
+Additionally, the script can produce human-readable edit distance
 alignments, and find the top WER utterances and speakers.
 
 Authors:
