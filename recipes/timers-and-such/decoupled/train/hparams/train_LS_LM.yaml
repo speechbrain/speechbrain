@@ -25,6 +25,7 @@ csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 asr_hparam_file: hparams/pretrained_BPE1000.yaml
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 1

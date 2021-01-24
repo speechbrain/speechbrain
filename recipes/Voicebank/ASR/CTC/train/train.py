@@ -7,7 +7,7 @@ To run this recipe, do the following:
 Use your own hyperparameter file or the provided `hyperparams.yaml`
 
 To use noisy inputs, change `input_type` field from `clean_wav` to `noisy_wav`.
-To use pretrained model, enter path in `pretrained` field.
+To use pretrained model, enter the path in `pretrained` field.
 
 Authors
  * Peter Plantinga 2020
@@ -169,6 +169,7 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

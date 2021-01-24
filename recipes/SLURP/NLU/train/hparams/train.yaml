@@ -26,6 +26,7 @@ csv_test: !ref <data_folder>/test-type=decoupled.csv
 asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
 asr_tokenizer_file: ../../../../recipes/LibriSpeech/Tokenizer/pretrained/pretrained_tok/1000_unigram.model
 slu_tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 10

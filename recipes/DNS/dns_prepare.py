@@ -33,6 +33,7 @@ def prepare_dns(
     valid_ratio=0.002,
     valid_snr_low=0,
     valid_snr_high=40,
+    skip_prep=False,
 ):
     """
     Prepares the csv files for the DNS challenge dataset.
@@ -53,6 +54,8 @@ def prepare_dns(
         Lowest SNR to use when mixing the validation set.
     valid_snr_high : float
         Highest SNR to use when mixing the validiation set.
+    skip_prep: bool
+        If False, skip data preparation.
 
     Example
     -------
@@ -61,6 +64,8 @@ def prepare_dns(
     >>> save_folder = 'DNS_prepared'
     >>> prepare_dns(data_folder, save_folder)
     """
+    if skip_prep:
+        return
 
     if valid_ratio > 0 and valid_folder is None:
         raise ValueError("Must provide folder for storing validation data")
