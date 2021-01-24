@@ -96,6 +96,55 @@ class ReproducibleRandomSampler(RandomSampler):
 
 
 class ConcatDatasetBatchSampler(Sampler):
+    """
+    This sampler is built to work with a standard Pytorch ConcatDataset.
+    It is used to retrieve elements from the different concatenated datasets placing them in the same batch
+    with proportion specified by batch_sizes, e.g 8, 16 means each batch will
+    be of 24 elements with the first 8 belonging to the first dataset in ConcatDataset
+    object and the last 16 to the second.
+    More than two datasets are supported, in that case you need to provide 3 batch
+    sizes.
+
+    Note
+    ----
+    Batched are drawn from the datasets till the one with smallest length is exhausted.
+    Thus number of examples in your training epoch is dictated by the dataset
+    whose length is the smallest.
+
+
+    Arguments
+    ---------
+    samplers : int
+        The base seed to use for the random number generator. It is recommended
+        to use a value which has a good mix of 0 and 1 bits.
+    batch_sizes: list
+
+    epoch : int
+        The epoch to start at.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.dataio.sampler import ConcatDatasetBatchSampler, ReproducibleRandomSampler
+    >>> from speechbrain.dataio.sampler import ReproducibleRandomSampler
+    >>> from speechbrain.dataio.dataloader import SaveableDataLoader
+    >>> # example "datasets"
+    >>> dataset1 = torch.arange(0, 10).unsqueeze(1)
+    >>> dataset2 = torch.arange(20, 40).unsqueeze(1)
+    >>> tot_dataset = torch.utils.data.ConcatDataset([dataset1, dataset2])
+    >>> sampler1 = ReproducibleRandomSampler(dataset1)
+    >>> sampler2 = ReproducibleRandomSampler(dataset2)
+    >>> tot_sampler = ConcatDatasetBatchSampler([sampler1, sampler2], [2, 4])
+    >>> dataloader = SaveableDataLoader(tot_dataset, batch_sampler = tot_sampler,
+    ...     num_workers = 3)
+    >>> for data_point in dataloader:
+    ...      assert len(data_point) == 6
+    ...      for i in range(2):
+    ...         assert data_point[i] in [x for x in range(0, 10)]
+    ...      for i in range(2, 4):
+    ...         assert data_point[i] in [x for x in range(10, 40)]
+    """
+
     def __init__(self, samplers, batch_sizes: (tuple, list), epoch=0) -> None:
 
         if not isinstance(samplers, (list, tuple)):
