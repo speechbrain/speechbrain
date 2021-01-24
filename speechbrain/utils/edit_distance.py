@@ -233,7 +233,7 @@ def alignment(table):
         Schema: ``[(str <edit-op>, int-or-None <i>, int-or-None <j>),]``
         List of edit operations, and the corresponding indices to a and b.
         See the EDIT_SYMBOLS dict for the edit-ops.
-        i indexes a, j indexes b, and the indices can be None, which means
+        The i indexes a, j indexes b, and the indices can be None, which means
         aligning to nothing.
 
     Example
@@ -301,7 +301,7 @@ def count_ops(table):
         * "substitutions"
 
         NOTE: not all of the keys might appear explicitly in the output,
-        but for the missing keys collections.Counter will return 0
+        but for the missing keys collections. The counter will return 0
 
 
     Example
@@ -406,7 +406,7 @@ def wer_details_by_utterance(
         the hypothesis tokens for each utterance id as iterable
     compute_alignments : bool
         Whether alignments should also be saved.
-        This also saves the tokens themselves, as the they are probably
+        This also saves the tokens themselves, as they are probably
         required for printing the alignments.
     scoring_mode : {'strict', 'all', 'present'}
         How to deal with missing hypotheses (reference utterance id
@@ -580,7 +580,7 @@ def wer_summary(details_by_utterance):
 
 def wer_details_by_speaker(details_by_utterance, utt2spk):
     """
-    Compute word error rate and other salient info grouping by speakers
+    Compute word error rate and another salient info grouping by speakers
 
     Arguments
     ---------
@@ -608,7 +608,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
         * "num_erraneous_sents": int, number of utterance with at least
           one error, by this speaker
         * "num_absent_sents": int, number of utterances for which no
-          hypothesis was found, by this speaker
+          hypotheses was found, by this speaker
         * "num_ref_sents": int, number of utterances by this speaker
           in total
     """
@@ -717,7 +717,7 @@ def top_wer_utts(details_by_utterance, top_k=20):
 
 def top_wer_spks(details_by_speaker, top_k=10):
     """
-    Finds the K speakers with highest word error rates.
+    Finds the K speakers with the highest word error rates.
 
     Useful for diagnostic purposes.
 

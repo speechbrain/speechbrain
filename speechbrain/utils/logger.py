@@ -10,6 +10,7 @@ Author
 import sys
 import os
 import yaml
+import tqdm
 import logging
 import logging.config
 import math
@@ -60,6 +61,25 @@ ORDERS_WORDS = {
 }
 
 
+class TqdmCompatibleStreamHandler(logging.StreamHandler):
+    """TQDM compatible StreamHandler
+
+    Writes and prints should be passed through tqdm.tqdm.write
+    so that the tqdm progressbar doesn't get messed up.
+    """
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            stream = self.stream
+            tqdm.tqdm.write(msg, end=self.terminator, file=stream)
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:
+            self.handleError(record)
+
+
 def setup_logging(
     config_path="log-config.yaml", overrides={}, default_level=logging.INFO,
 ):
@@ -70,7 +90,7 @@ def setup_logging(
     config_path : str
         the path to a logging config file
     default_level : int
-        the level to use if config file is not found
+        the level to use if the config file is not found
     overrides : dict
         a dictionary of the same structure as the config dict
         with any updated values that need to be applied
@@ -86,7 +106,7 @@ def setup_logging(
 
 def format_order_of_magnitude(number, abbreviate=True):
     """
-    Formats number to appropriate order of magnitude for printing
+    Formats number to the appropriate order of magnitude for printing
 
     Arguments
     ---------

@@ -1,5 +1,6 @@
 import os
 import shutil
+import logging
 from speechbrain.dataio.dataio import read_audio, merge_csvs
 from speechbrain.utils.data_utils import download_file
 
@@ -12,8 +13,10 @@ except ImportError:
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
+logger = logging.getLogger(__name__)
 
-def prepare_TAS(data_folder, type, train_splits):
+
+def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
     """
     This function prepares the Timers and Such dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
@@ -28,17 +31,22 @@ def prepare_TAS(data_folder, type, train_splits):
       "decoupled":{input=transcript, output=semantics} (using ground-truth transcripts)
 
     train_splits : list of splits to be joined to form train .csv
+    skip_prep: If True, skip data preparation
+
     """
+    if skip_prep:
+        return
     if type == "decoupled":
         try:
             import inflect
 
             p = inflect.engine()
         except ModuleNotFoundError:
-            print(
+            logger.info(
                 'Error: the inflect module must be installed to run the "decoupled" SLU recipe.'
             )
-            print("Install using `pip install inflect`.")
+            logger.info("Install using `pip install inflect`.")
+            raise
 
     # If the data folders do not exist, we need to extract the data
     if not os.path.isdir(os.path.join(data_folder, "train-synth")):
@@ -48,7 +56,7 @@ def prepare_TAS(data_folder, type, train_splits):
             url = "https://zenodo.org/record/4110812/files/timers-and-such.zip?download=1"
             download_file(url, zip_location, unpack=True)
         else:
-            print("Extracting timers-and-such.zip...")
+            logger.info("Extracting timers-and-such.zip...")
             shutil.unpack_archive(zip_location, data_folder)
 
     splits = [
@@ -64,7 +72,7 @@ def prepare_TAS(data_folder, type, train_splits):
         new_filename = os.path.join(data_folder, split) + "-type=%s.csv" % type
         if os.path.exists(new_filename):
             continue
-        print("Preparing %s..." % new_filename)
+        logger.info("Preparing %s..." % new_filename)
 
         ID = []
         duration = []

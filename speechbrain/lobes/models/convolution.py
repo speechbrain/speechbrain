@@ -10,9 +10,10 @@ from speechbrain.nnet.normalization import BatchNorm2d
 
 
 class ConvolutionFrontEnd(Sequential):
-    """This is a module to ensemble a convolution (depthwise) encoder with or without residule connection
+    """This is a module to ensemble a convolution (depthwise) encoder with or
+    without residual connection
 
-     Arguements
+     Arguments
     ----------
     out_channels: int
         number of output channels of this model (default 640)
@@ -80,7 +81,7 @@ class ConvolutionFrontEnd(Sequential):
 class ConvBlock(torch.nn.Module):
     """An implementation of convolution block with 1d or 2d convolutions (depthwise)
 
-    Arguements
+    Arguments
     ----------
     out_channels: int
         number of output channels of this model (default 640)

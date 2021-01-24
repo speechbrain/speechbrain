@@ -358,7 +358,7 @@ class Filterbank(torch.nn.Module):
     Arguments
     ---------
      n_mels : float
-         Number of Mel fiters used to average the spectrogram.
+         Number of Mel filters used to average the spectrogram.
      log_mel : bool
          If True, it computes the log of the FBANKs.
      filter_shape : str
@@ -885,7 +885,7 @@ class ContextWindow(torch.nn.Module):
         self.first_call = True
 
     def forward(self, x):
-        """Returns the tensor with the sourrounding context.
+        """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
@@ -930,11 +930,6 @@ class ContextWindow(torch.nn.Module):
 @register_checkpoint_hooks
 class InputNormalization(torch.nn.Module):
     """Performs mean and variance normalization of the input tensor.
-        mean_norm=True,
-        std_norm=True,
-        norm_type="global",
-        avg_factor=None,
-        requires_grad=False,
 
     Arguments
     ---------
@@ -994,7 +989,7 @@ class InputNormalization(torch.nn.Module):
         self.update_until_epoch = update_until_epoch
 
     def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
-        """Returns the tensor with the sourrounding context.
+        """Returns the tensor with the surrounding context.
 
         Arguments
         ---------

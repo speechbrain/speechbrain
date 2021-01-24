@@ -19,12 +19,12 @@ class ReproducibleRandomSampler(RandomSampler):
     A modification of RandomSampler which always returns the same values.
 
     Also look at `torch.utils.data.RandomSampler`. This has mostly
-    the same behaviour and arguments, expect for adding 'seed' and 'epoch' and
+    the same behaviour and arguments, except for adding 'seed' and 'epoch' and
     not supporting 'generator'.
 
     Note
     ----
-    Call `set_epoch` before every epoch. Otherwise the sampler will produce the
+    Call `set_epoch` before every epoch. Otherwise, the sampler will produce the
     same sequence of indices every epoch.
 
     Arguments

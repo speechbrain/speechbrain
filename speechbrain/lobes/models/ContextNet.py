@@ -18,7 +18,7 @@ class ContextNet(Sequential):
     """This class implements the ContextNet
     https://arxiv.org/pdf/2005.03191.pdf
 
-    Arguements
+    Arguments
     ----------
     out_channels: int
         number of output channels of this model (default 640)
@@ -136,7 +136,7 @@ class ContextNet(Sequential):
 class SEmodule(torch.nn.Module):
     """ This class implements the Squeeze-and-excitation module
 
-    Arguements
+    Arguments
     ----------
     inner_dim: int
         inner dimension of bottle-neck network of the SE Module (default 12)
@@ -196,7 +196,7 @@ class SEmodule(torch.nn.Module):
 class ContextNetBlock(torch.nn.Module):
     """ This class implements a block in ContextNet
 
-    Arguements
+    Arguments
     ----------
     out_channels: int
         number of output channels of this model (default 640)

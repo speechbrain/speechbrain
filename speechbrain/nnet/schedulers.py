@@ -4,6 +4,7 @@ Schedulers for updating hyperparameters (such as learning rate).
 Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
+ * Loren Lugosch 2020
 """
 
 import math
@@ -54,7 +55,7 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
 class NewBobScheduler:
     """Scheduler with new-bob technique, used for LR annealing.
 
-    The learning rate is annealed based on the validation peformance.
+    The learning rate is annealed based on the validation performance.
     In particular: if (past_loss-current_loss)/past_loss< impr_threshold:
     lr=lr * annealing_factor
 
@@ -65,10 +66,10 @@ class NewBobScheduler:
     annealing_factor : float
         It is annealing factor used in new_bob strategy.
     improvement_threshold : float
-        It is improvement rate between losses used to perform learning
+        It is the improvement rate between losses used to perform learning
         annealing in new_bob strategy.
     patient : int
-        When the annealing condition is violeted patient times,
+        When the annealing condition is violated patient times,
         the learning rate is finally reduced.
 
     Example
@@ -107,9 +108,11 @@ class NewBobScheduler:
         old_value = new_value = self.hyperparam_value
         if len(self.metric_values) > 0:
             prev_metric = self.metric_values[-1]
-
             # Update value if improvement too small and patience is 0
-            improvement = (prev_metric - metric_value) / prev_metric
+            if prev_metric == 0:  # Prevent division by zero
+                improvement = 0
+            else:
+                improvement = (prev_metric - metric_value) / prev_metric
             if improvement < self.improvement_threshold:
                 if self.current_patient == 0:
                     new_value *= self.annealing_factor
@@ -248,14 +251,15 @@ class NoamScheduler:
     """The is an implementation of the transformer's learning rate scheduler with warmup.
     Reference: https://arxiv.org/abs/1706.03762
 
-    Note: this schdualer aneals lr at each update of the model's weight, and n_steps must be saved for restarting
+    Note: this scheduler anneals the lr at each update of the model's weight,
+    and n_steps must be saved for restarting.
 
     Arguments
     ---------
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm up steps
+        numer of warm-up steps
 
     Example
     -------
@@ -338,7 +342,8 @@ class CyclicCosineScheduler:
     """The is an implementation of the Cyclic-Cosine learning rate scheduler with warmup.
     Reference:  https://openreview.net/pdf?id=BJYwwY9ll
 
-    Note: this schdualer aneals lr at each update of the model's weight, and n_steps must be saved for restarting
+    Note: this scheduler anneals the lr at each update of the model's weight,
+    and n_steps must be saved for restarting.
 
     Arguments
     ---------
@@ -433,8 +438,12 @@ class CyclicCosineScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class ReduceLROnPlateau:
-    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase.
-    The difference from NewBobLRScheduler is that, this one keeps a memory of the last step where do not observe improvement, and compares against that particular loss value as opposed to the most recent loss.
+    """Learning rate scheduler which decreases the learning rate if the loss
+    function of interest gets stuck on a plateau, or starts to increase.
+    The difference from NewBobLRScheduler is that, this one keeps a memory of
+    the last step where do not observe improvement, and compares against that
+    particular loss value as opposed to the most recent loss.
+
     Arguments
     ---------
     lr_min: float
@@ -443,6 +452,7 @@ class ReduceLROnPlateau:
         Factor with which to reduce the learning rate
     patience: int
         How many epochs to wait before reducing the learning rate
+
     Example
     -------
     >>> from torch.optim import Adam
@@ -549,7 +559,7 @@ class CyclicLRScheduler:
     "exp_range":
         A cycle that scales initial amplitude by gamma**(cycle iterations) at each
         cycle iteration.
-    For more detail, please see paper.
+    For more detail, please see the reference paper.
     Arguments
     -------
         base_lr: initial learning rate which is the
@@ -559,9 +569,9 @@ class CyclicLRScheduler:
             The lr at any cycle is the sum of base_lr
             and some scaling of the amplitude; therefore
             max_lr may not actually be reached depending on
-            scaling function.
+            scalling function.
         step_size: number of training iterations per
-            half cycle. Authors suggest setting step_size
+            half cycle. The authors suggest setting step_size
             2-8 x training iterations in epoch.
         mode: one of {triangular, triangular2, exp_range}.
             Default 'triangular'.

@@ -52,9 +52,9 @@ def DER(
     ref_rttm : str
         The path of reference/groundtruth RTTM file.
     sys_rttm : str
-        The path of system generated RTTM file.
+        The path of the system generated RTTM file.
     individual_file : bool
-        If True, retuns scores for each file in order.
+        If True, returns scores for each file in order.
     collar : float
         Forgiveness collar.
     ignore_overlap : bool

@@ -8,9 +8,9 @@ from speechbrain.dataio.dataio import length_to_mask
 
 
 def Accuracy(log_probablities, targets, length=None):
-    """Calculate accuarcy for predicted log probabilities and targets in a batch
+    """Calculates the accuarcy for predicted log probabilities and targets in a batch
 
-    Arguements
+    Arguments
     ----------
     log_probablities: tensor
         predicted log probabilities (batch_size, time, feature)
@@ -47,7 +47,7 @@ def Accuracy(log_probablities, targets, length=None):
 
 
 class AccuracyStats:
-    """Module for calculate the overall one-step-forward prediction accuarcy
+    """Module for calculate the overall one-step-forward prediction accurAcy
 
     Example
     -------
@@ -64,9 +64,10 @@ class AccuracyStats:
         self.total = 0
 
     def append(self, log_probablities, targets, length=None):
-        """ this function is for update the stats according to the prediction and target in current batch
+        """ this function is for update the stats according to the prediction
+        and target in the current batch.
 
-        Arguements
+        Arguments
         ----------
         log_probablities: tensor
             predicted log probabilities (batch_size, time, feature)

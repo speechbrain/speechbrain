@@ -11,11 +11,12 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/dev.csv
 test_annotation: !ref <data_folder>/test.csv
+skip_prep: False # Skip data preparation
 
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
-lr: 0.001
+lr: 0.0003
 ctc_weight: 0.2
 sorting: ascending
 
@@ -39,10 +40,10 @@ emb_size: 128
 dec_neurons: 256
 
 # Outputs
-output_neurons: 41
-blank_index: 1
-bos_index: 0
-eos_index: 0
+output_neurons: 40
+blank_index: !ref <output_neurons> - 1
+bos_index: !ref <output_neurons> - 1
+eos_index: !ref <output_neurons> - 1
 
 # Decoding parameters
 min_decode_ratio: 0.0

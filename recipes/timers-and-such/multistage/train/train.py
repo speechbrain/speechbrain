@@ -51,17 +51,13 @@ class SLU(sb.Brain):
         )
 
         # Pad examples to have same length.
-        max_length = max([len(t) for t in asr_tokens])
-        if max_length == 0:
-            max_length = 1  # The ASR may output empty transcripts.
+        asr_tokens_lens = torch.tensor([max(len(t), 1) for t in asr_tokens])
+        max_length = asr_tokens_lens.max().item()
         for t in asr_tokens:
             t += [0] * (max_length - len(t))
         asr_tokens = torch.tensor([t for t in asr_tokens])
 
-        # Manage length of predicted tokens
-        asr_tokens_lens = torch.tensor(
-            [max(len(t), 1) for t in asr_tokens]
-        ).float()
+        asr_tokens_lens = asr_tokens_lens.float()
         asr_tokens_lens = asr_tokens_lens / asr_tokens_lens.max()
 
         asr_tokens, asr_tokens_lens = (
@@ -203,6 +199,8 @@ class SLU(sb.Brain):
 
 
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+        It also defines the data processing pipeline through user-defined functions."""
 
     data_folder = hparams["data_folder"]
 
@@ -310,6 +308,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "train_splits": hparams["train_splits"],
             "type": "multistage",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

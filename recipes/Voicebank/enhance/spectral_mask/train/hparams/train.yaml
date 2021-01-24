@@ -34,6 +34,7 @@ window_fn: !name:torch.hamming_window
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/valid.csv
 test_annotation: !ref <data_folder>/test.csv
+skip_prep: False
 
 # Training Parameters
 number_of_epochs: 50

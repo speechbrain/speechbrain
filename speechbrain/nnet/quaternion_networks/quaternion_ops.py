@@ -45,7 +45,7 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         i_weight: torch.Parameter
             First imaginary part of the quaternion weight matrix of this layer.
         j_weight: torch.Parameter
-            Second imaginarypart of the quaternion weight matrix of this layer.
+            Second imaginary part of the quaternion weight matrix of this layer.
         k_weight: torch.Parameter
             Third imaginary part of the quaternion weight matrix of this layer.
         bias: torch.Parameter
@@ -99,7 +99,7 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         i_weight: torch.Parameter
             First imaginary part of the quaternion weight matrix of this layer.
         j_weight: torch.Parameter
-            Second imaginarypart of the quaternion weight matrix of this layer.
+            Second imaginary part of the quaternion weight matrix of this layer.
         k_weight: torch.Parameter
             Third imaginary part of the quaternion weight matrix of this layer.
         bias: torch.Parameter
@@ -194,7 +194,7 @@ def quaternion_linear_op(input, r_weight, i_weight, j_weight, k_weight, bias):
     i_weight: torch.Parameter
         First imaginary part of the quaternion weight matrix of this layer.
     j_weight: torch.Parameter
-        Second imaginarypart of the quaternion weight matrix of this layer.
+        Second imaginary part of the quaternion weight matrix of this layer.
     k_weight: torch.Parameter
         Third imaginary part of the quaternion weight matrix of this layer.
     bias: torch.Parameter
@@ -238,7 +238,7 @@ def quaternion_linear_rotation_op(
     Applies a quaternion rotation transformation to the incoming data:
     The rotation W*x*W^t can be replaced by R*x following:
     https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
-    Works for unitary and non unitary weights (they will be normalised).
+    Works for unitary and non-unitary weights (they will be normalized).
     The initial size of the input must be a multiple of 4 with the real part
     equal to zero. Rotations only affect the vector part of a quaternion.
 
@@ -251,7 +251,7 @@ def quaternion_linear_rotation_op(
     i_weight: torch.Parameter
         First imaginary part of the quaternion weight matrix of this layer.
     j_weight: torch.Parameter
-        Second imaginarypart of the quaternion weight matrix of this layer.
+        Second imaginary part of the quaternion weight matrix of this layer.
     k_weight: torch.Parameter
         Third imaginary part of the quaternion weight matrix of this layer.
     bias: torch.Parameter
@@ -262,7 +262,7 @@ def quaternion_linear_rotation_op(
         the neural network instable with deep configurations. The scale
         parameters are learnable parameters that acts like gates by multiplying
         the output vector with a small trainable parameter.
-    zero_kernel: torch.Paramater
+    zero_kernel: torch.Parameter
         The zero kernel is simply a tensor of zeros with require grad = False.
         Its shape is equivalent to a quaternion component shape. In fact,
         it is only needed to make the dimensions match when using the rotation
@@ -381,7 +381,7 @@ def quaternion_conv_rotation_op(
     Applies a quaternion rotation transformation to the incoming data:
     The rotation W*x*W^t can be replaced by R*x following:
     https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
-    Works for unitary and non unitary weights (they will be normalised).
+    Works for unitary and non-unitary weights (they will be normalized).
     The initial size of the input must be a multiple of 4 with the real part
     equal to zero. Rotations only affect the vector part of a quaternion.
 
@@ -397,7 +397,7 @@ def quaternion_conv_rotation_op(
     i_weight: torch.Parameter
         First imaginary part of the quaternion weight matrix of this layer.
     j_weight: torch.Parameter
-        Second imaginarypart of the quaternion weight matrix of this layer.
+        Second imaginary part of the quaternion weight matrix of this layer.
     k_weight: torch.Parameter
         Third imaginary part of the quaternion weight matrix of this layer.
     bias: torch.Parameter
@@ -408,7 +408,7 @@ def quaternion_conv_rotation_op(
         the neural network instable with deep configurations. The scale
         parameters are learnable parameters that acts like gates by multiplying
         the output vector with a small trainable parameter.
-    zero_kernel: torch.Paramater
+    zero_kernel: torch.Parameter
         The zero kernel is simply a tensor of zeros with require grad = False.
         Its shape is equivalent to a quaternion component shape. In fact,
         it is only needed to make the dimensions match when using the rotation
@@ -546,7 +546,7 @@ def quaternion_conv_op(
     i_weight: torch.Parameter
         First imaginary part of the quaternion weight matrix of this layer.
     j_weight: torch.Parameter
-        Second imaginarypart of the quaternion weight matrix of this layer.
+        Second imaginary part of the quaternion weight matrix of this layer.
     k_weight: torch.Parameter
         Third imaginary part of the quaternion weight matrix of this layer.
     bias: torch.Parameter
@@ -604,7 +604,7 @@ def quaternion_conv_op(
 def quaternion_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
-    """Returns a matrix of quaternion numbers initialised with the method
+    """Returns a matrix of quaternion numbers initialized with the method
         described in "Quaternion Recurrent Neural Network " - Parcollt T.
 
     Arguments
