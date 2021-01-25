@@ -4,6 +4,8 @@ These determine the order of iteration through a dataset.
 
 Authors:
   * Aku Rouhe 2020
+  * Samuele Cornell 2020
+  * Ralf Leibold 2020
 """
 import torch
 import logging
@@ -376,11 +378,13 @@ class DynamicBatchSampler(Sampler):
 
         self._batches = []
         bucket_batches = [[] for i in self._bucket_lens]
+        bucket_stats = [0 for i in self._bucket_lens]
         for idx in sampler:
             item_len = self._ex_lengths[str(idx)]
             # assert item_len == len(self._dataset[idx]["sig"])
             bucket_id = np.searchsorted(self._bucket_boundaries, item_len)
             bucket_batches[bucket_id].append(idx)
+            bucket_stats[bucket_id] += 1
             if len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]:
                 self._batches.append(bucket_batches[bucket_id])
                 bucket_batches[bucket_id] = []
@@ -389,6 +393,17 @@ class DynamicBatchSampler(Sampler):
             for batch in bucket_batches:
                 if batch:
                     self._batches.append(batch)
+        logger.info(
+            "DynamicBatchSampler: Created {} batches, {} buckets used.".format(
+                len(self._batches), len(self._bucket_boundaries)
+            )
+        )
+        for i in range(len(self._bucket_lens)):
+            logger.info(
+                "DynamicBatchSampler: Bucket {} has {} examples.".format(
+                    i, bucket_stats[i]
+                )
+            )
 
     def __iter__(self):
         for batch in self._batches:
