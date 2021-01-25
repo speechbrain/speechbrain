@@ -10,6 +10,9 @@ import logging
 from operator import itemgetter
 from torch.utils.data import RandomSampler, DistributedSampler, Sampler
 import numpy as np
+import math
+from typing import List
+from speechbrain.dataio.dataset import DynamicItemDataset
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +218,194 @@ class ConcatDatasetBatchSampler(Sampler):
 
             min_len = min(c_len, min_len)
         return min_len
+
+
+class DynamicBatchSampler(Sampler):
+    """
+    This BatchSampler batches examples together by grouping them by their length.
+    Every example in the batch have approximatively the same length and
+    thus padding is minimized.
+    This enables faster training on datasets
+    where length of examples can vary significantly (e.g Librispeech).
+
+    Dynamic batching is performed by specifying a max_batch_length which is the
+    upper limit for the sum of the length of examples in a batch:
+    e.g. ex1 has length 4 ex2 length 5 if max_batch_length is set to 6
+    ex1 and ex2 will be placed, alone, in two distinct batches.
+    Examples length is obtained from DynamicItemDataset examples by specifying a
+    length_func. Default assumes a duration key in the annotation.
+
+    Examples are grouped together by defining a set of possible discrete intervals
+    (buckets) multiple of a min_bucket_length. A bucket_length_multiplier is used to
+    specify the number of possible buckets.
+    E.g. if max_batch_length = 32 and min_bucket_length = 10, bucket_length_multiplier = 2
+    there will be 3 buckets: [0, 10), [10, 20), [20, 40).
+    Decreasing min_bucket_length increases the number of buckets and thus the "tolerance"
+    for allowing examples of different length in the same batch.
+    If in fact min_bucket_length = 1, one will obtain 32 buckets and thus only
+    batches of elements with precisely the same length can be obtained.
+    Decreasing bucket_length_multiplier has also a similar effect:
+    e.g. if max_batch_length = 32 and min_bucket_length = 10, bucket_length_multiplier = 1.5
+    the number of buckets increases to 8. With right boundaries: [10 12 14 17 21 25 30 36].
+    Thus examples with length less than 10 are all grouped together but more buckets
+    are created for longer examples.
+
+    A common choice would be setting min_bucket_length to approximatively the length
+    of your shorter example in the dataset.
+
+    Both arguments thus allow for trading off training speed by having examples
+    of almost same length and training stochasticity.
+
+
+    Arguments
+    ---------
+    dataset : DynamicItemDataset
+        Speechbrain DynamicItemDataset object one wish to iterate on.
+
+    max_batch_length : int
+        Upper limit for the sum of the length of examples in a batch.
+        Should be chosen based on your GPU memory.
+
+    min_bucket_length : int
+        Minimum length of a bucket. Specifyes resolution of buckets and thus this sampler
+        stochasticity. A common choice is to set this to length of your
+        shortest example.
+    bucket_length_multiplier : float
+        Multiplier for bucket length, specifies number of buckets from min_bucket_length to
+        max_batch_length.
+    length_func : callable
+        Function used to get length of each example from annotation.
+        Can be anything e.g. lambda x: x["duration"]*16000 returns number of samples
+        if duration is in seconds and the file has 16kHz sampling freq.
+    shuffle : bool
+        Whether or not shuffle examples between each epoch.
+    bucket_boundaries : list
+        Overrides bucket_length_multiplier and min_bucket_length by specifying manually
+        the buckets right boundaries.
+    epoch : int
+        The epoch to start at.
+    drop_last : bool
+         If ``True``, the sampler will drop the last examples which
+         have not been grouped.
+    """
+
+    def __init__(
+        self,
+        dataset,
+        max_batch_length: int,  # max length in a batch
+        min_bucket_length: int,  #
+        bucket_length_multiplier: float = 1.1,
+        length_func=lambda x: x["duration"],
+        shuffle: bool = True,
+        bucket_boundaries: List[int] = [],
+        seed: int = 42,
+        epoch: int = 0,
+        drop_last: bool = False,
+    ):
+
+        if not isinstance(dataset, DynamicItemDataset):
+            raise NotImplementedError(
+                "dataset should be a Speechbrain DynamicItemDataset"
+            )
+
+        self._dataset = dataset
+
+        self._ex_lengths = {}
+        ex_ids = list(self._dataset.data.keys())
+        for indx in range(len(self._dataset.data.keys())):
+            self._ex_lengths[str(indx)] = length_func(
+                self._dataset.data[ex_ids[indx]]
+            )
+
+        self._bucket_boundaries = np.array(
+            self._get_data_boundaries(
+                max_batch_length=max_batch_length,
+                bucket_boundaries=bucket_boundaries,
+                min_bucket_length=min_bucket_length,
+                bucket_length_multiplier=bucket_length_multiplier,
+            )
+        )
+
+        self._max_batch_length = max_batch_length
+        self._shuffle = shuffle
+        self._seed = seed
+        self._drop_last = drop_last
+        # Calculate bucket lengths
+        self._bucket_lens = [
+            max(1, math.ceil(max_batch_length / self._bucket_boundaries[i]))
+            for i in range(len(self._bucket_boundaries))
+        ] + [1]
+        self._epoch = epoch
+        self._generate_batches()
+
+    def _get_data_boundaries(
+        self,
+        max_batch_length: int,
+        bucket_boundaries: List[int],
+        min_bucket_length: int,
+        bucket_length_multiplier: float,
+    ) -> List[int]:
+        if not bucket_boundaries:
+            if min_bucket_length <= 0:
+                raise ValueError(
+                    "min_bucket_length must be >0 if no bucket_boundaries set"
+                )
+            if bucket_length_multiplier < 1.0:
+                raise ValueError(
+                    "bucket_length_multiplier must be >1.0 if no bucket_boundaries set"
+                )
+            bucket_boundaries = {min_bucket_length}
+            bucket_boundary = float(min_bucket_length)
+            while True:
+                bucket_boundary *= bucket_length_multiplier
+                bucket_boundaries.add(bucket_boundary)
+                if bucket_boundary >= max_batch_length:
+                    break
+        return list(sorted(bucket_boundaries))
+
+    def _generate_batches(self):
+        logger.info("DynamicBatchSampler: Generating dynamic batches")
+
+        if self._shuffle:
+            # deterministically shuffle based on epoch and seed
+            g = torch.Generator()
+            g.manual_seed(self._seed + self._epoch)
+            sampler = torch.randperm(len(self._dataset), generator=g).tolist()  # type: ignore
+        else:
+            sampler = range(len(self._dataset))  # type: ignore
+
+        self._batches = []
+        bucket_batches = [[] for i in self._bucket_lens]
+        for idx in sampler:
+            item_len = self._ex_lengths[str(idx)]
+            # assert item_len == len(self._dataset[idx]["sig"])
+            bucket_id = np.searchsorted(self._bucket_boundaries, item_len)
+            bucket_batches[bucket_id].append(idx)
+            if len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]:
+                self._batches.append(bucket_batches[bucket_id])
+                bucket_batches[bucket_id] = []
+        # Dump remaining batches - we might even want to shuffle those
+        if not self._drop_last:
+            for batch in bucket_batches:
+                if batch:
+                    self._batches.append(batch)
+
+    def __iter__(self):
+        for batch in self._batches:
+            yield batch
+        if self._shuffle:  # re-generate batches only if shuffling
+            self._generate_batches()
+
+    def set_epoch(self, epoch):
+        """
+        You can also just access self.epoch, but we maintain this interface
+        to mirror torch.utils.data.distributed.DistributedSampler
+        """
+        self._epoch = epoch
+        self._generate_batches()
+
+    def __len__(self):
+        return len(self._batches)
 
 
 # Heavily inspired by Catalyst, which is under Apache 2.0 licence.
