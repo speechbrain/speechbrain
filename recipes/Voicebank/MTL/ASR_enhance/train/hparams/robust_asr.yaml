@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1365
+seed: 1415
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/robust_asr/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -24,7 +24,7 @@ valid_annotation: !ref <data_folder>/valid.csv
 test_annotation: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 40
+number_of_epochs: 30
 ctc_epochs: 0
 batch_size: 8
 lr: 0.0001
@@ -43,9 +43,10 @@ valid_loader_options:
 test_loader_options:
     batch_size: !ref <batch_size>
     shuffle: False
+epochs_before_lr_drop: 3
 
 # Loss weights
-enhance_type: masking  # null, mapping, masking, noisy, clean
+enhance_type: clean  # null, mapping, masking, noisy, clean
 enhance_weight: 0.0
 mimic_weight: 0.0
 ctc_weight: 1.0
@@ -54,14 +55,14 @@ seq_weight: 1.0
 seq_type: joint  # null, clean, joint
 alignment_weight: 0.0
 label_smoothing: 0.1
-mask_weight: 0.5
+mask_weight: 0.7
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
     enhance_model: enhance_model.ckpt
 
 frozen_models: [enhance_model, lm_model, src_embedding]
-unfreeze_epoch: 6
+unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
 unfrozen_models: [src_embedding]
 
 # Feature parameters
@@ -81,11 +82,11 @@ unk_index: 0
 # Decoding params
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 16
-eos_threshold: 1.5
+beam_size: 32
+eos_threshold: 10.0
 using_max_attn_shift: True
 max_attn_shift: 240
-lm_weight: 0.2
+lm_weight: 0.15
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -95,6 +96,7 @@ enhance_model: !include:models/enhance_model.yaml
 
 asr_model: !include:models/asr_model.yaml
     n_mels: !ref <n_mels>
+    dropout_rate: 0.1
     output_neurons: !ref <output_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -161,13 +163,14 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-opt_class: !name:torch.optim.Adam
+opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
+    weight_decay: 0.00005
 
 lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
     initial_value: !ref <lr>
-    decay_factor: 0.5
-    decay_drop: 5
+    decay_factor: 0.7
+    decay_drop: !ref <epochs_before_lr_drop>
 
 modules:
     enhance_model: !ref <enhance_model[enhance_model]>

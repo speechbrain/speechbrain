@@ -4,7 +4,12 @@
 To run this recipe, do the following:
 > python train.py hparams/{hyperparameter file} --data_folder /path/to/noisy-vctk
 
-Use your own hyperparameter file or the provided `hyperparams.yaml`
+There's three provided files for three stages of training:
+> python train.py hparams/pretrain_perceptual.yaml
+> python train.py hparams/enhance_mimic.yaml
+> python train.py hparams/robust_asr.yaml
+
+Use your own hyperparameter file or the provided files.
 The different losses can be turned on and off, and pre-trained models
 can be used for enhancement or ASR models.
 
@@ -521,8 +526,17 @@ if __name__ == "__main__":
     )
 
     # Evaluate best checkpoint, using lowest or highest value on validation
+    outdir = asr_brain.hparams.output_folder
+    asr_brain.hparams.stats_file = os.path.join(outdir, "valid_stats.txt")
     asr_brain.evaluate(
-        test_set=datasets["valid"],
+        datasets["valid"],
+        max_key=hparams["eval_max_key"],
+        min_key=hparams["eval_min_key"],
+        test_loader_kwargs=hparams["test_loader_options"],
+    )
+    asr_brain.hparams.stats_file = os.path.join(outdir, "test_stats.txt")
+    asr_brain.evaluate(
+        datasets["test"],
         max_key=hparams["eval_max_key"],
         min_key=hparams["eval_min_key"],
         test_loader_kwargs=hparams["test_loader_options"],
