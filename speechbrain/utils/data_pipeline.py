@@ -31,10 +31,39 @@ from speechbrain.utils.depgraph import DependencyGraph
 
 @dataclass
 class StaticItem:
+    """Data class that represents a static item
+
+    Static items are in-memory items so they don't need to be computed
+    dynamically.
+    """
+
     key: str
 
 
 class DynamicItem:
+    """Essentially represents a data transformation function
+
+    A DynamicItem takes some arguments and computes its value dynamically when
+    called. A straight-forward use-case is to load something from disk
+    dynamically; take the path and provide the loaded data.
+
+    Instances of this class are often created implicitly via the
+    @takes and @provides decorators or otherwise from specifying the taken and
+    provided arguments and the function.
+
+    A counterpart is the GeneratorDynamicItem, which should be used for
+    generator functions.
+
+    Arguments
+    ---------
+    takes : list
+        The keys of the items that this needs to compute its output.
+    func : callable
+        The function that is used to compute the output
+    provides : list
+        The keys that this provides
+    """
+
     def __init__(self, takes=[], func=None, provides=[]):
         self.takes = takes
         self.func = func
@@ -43,7 +72,7 @@ class DynamicItem:
     def __call__(self, *args):
         return self.func(*args)
 
-    # The next three methods are more about supporting GeneratorDynamicItems
+    # The next methods are more about supporting GeneratorDynamicItems
     def next_takes(self):
         """The next argkeys to provide to this, when called"""
         # Regular function DynamicItems always just need the same set of args
@@ -69,10 +98,25 @@ class DynamicItem:
 
 
 class GeneratorDynamicItem(DynamicItem):
-    """
+    """Essentially represents a multi-step data transformation
+
+    This is the generator function counterpart for DynamicItem (which should be
+    used for regular functions).
+
+    A GeneratorDynamicItem first takes some arguments and then uses those in
+    multiple steps to incrementally compute some values when called.
+
+    A typical use-case is a pipeline of transformations on data: e.g. taking in
+    text as a string, and first a tokenized version, and then on the second
+    call providing an integer-encoded version. This can be used even though the
+    integer-encoder needs to be trained on the first outputs.
+
+    The main benefit is to be able to define the pipeline in a clear function,
+    even if parts of the pipeline depend on others for their initialization.
+
     Example
     -------
-    >>> lab2ind = {"is": 1, "this": 2, "it": 3}
+    >>> lab2ind = {}
     >>> def text_pipeline(text):
     ...     text = text.lower().strip()
     ...     text = "".join(c for c in text if c.isalpha() or c == " ")
@@ -84,11 +128,13 @@ class GeneratorDynamicItem(DynamicItem):
     ...         func=text_pipeline,
     ...         takes=["text"],
     ...         provides=["words", "words_encoded"])
-    >>> item("These words can't be encoded, right?")
-    ['these', 'words', 'cant', 'be', 'encoded', 'right']
-    >>> item.reset()
-    >>> item("Is this it? - This is it.")
-    ['is', 'this', 'it', 'this', 'is', 'it']
+    >>> # First create the integer-encoding:
+    >>> ind = 1
+    >>> for token in item("Is this it? - This is it."):
+    ...     if token not in lab2ind:
+    ...         lab2ind[token] = ind
+    ...         ind += 1
+    >>> # Now the integers can be encoded!
     >>> item()
     [1, 2, 3, 2, 1, 3]
     """
@@ -129,7 +175,7 @@ class GeneratorDynamicItem(DynamicItem):
         in_order = []
         for keys in self.provides:
             # Support multiple yielded values like:
-            # @yields("wav_read", ["left_ch", "right_ch"])
+            # @provides("wav_read", ["left_ch", "right_ch"])
             if isinstance(keys, str):
                 in_order.append([keys])
             else:
@@ -156,6 +202,15 @@ def takes(*argkeys):
     dynamic item. The GeneratorDynamicItem class is meant for pipelines which
     take in an input and transform it in multiple ways, where the intermediate
     representations may be needed for e.g. fitting a BPE segmenter.
+
+    Example
+    -------
+    >>> @takes("text")
+    ... def tokenize(text):
+    ...     return text.strip().lower().split()
+    >>> tokenize.provides = ["tokenized"]
+    >>> tokenize('\tThis Example gets tokenized')
+    ['this', 'example', 'gets', 'tokenized']
     """
 
     def decorator(obj):
