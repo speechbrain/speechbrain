@@ -21,9 +21,15 @@ help:
 	sphinx-apidoc \
 		--templatedir source/_apidoc_templates \
 		--implicit-namespaces \
-		--module-first \
 		--separate \
 		--force \
 		--output ../docs/source/ \
 		../speechbrain
+	sphinx-apidoc \
+		--templatedir source/_apidoc_templates \
+		--implicit-namespaces \
+		--separate \
+		--force \
+		--output ../docs/source/ \
+		../tools
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

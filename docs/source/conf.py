@@ -39,7 +39,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
-    "recommonmark"
+    "recommonmark",
 ]
 
 
@@ -63,8 +63,20 @@ intersphinx_mapping = {
     "torch": ("https://pytorch.org/docs/master/", None),
 }
 
+# AUTODOC:
+
+autodoc_default_options = {}
+
 # Autodoc mock extra dependencies:
 autodoc_mock_imports = ["numba", "sklearn"]
+
+# Order of API items:
+autodoc_member_order = "bysource"
+autodoc_default_options = {"member-order": "bysource"}
+
+# Don't show inherited docstrings:
+autodoc_inherit_docstrings = False
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -74,13 +86,22 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
+# See https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
+# for rtd theme options
+html_theme_options = {
+    # Toc options
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "navigation_depth": 4,
+    "includehidden": True,
+}
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -88,7 +109,7 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.txt': 'markdown',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".txt": "markdown",
+    ".md": "markdown",
 }
