@@ -75,7 +75,7 @@ class ASR(sb.Brain):
         tea_name = self.def_tea_name()
         for tea_num in range(self.hparams.num_tea):
             for i in range(4):
-                item_tea = data_dict[str(self.step - 1)][tea_name[tea_num]][
+                item_tea = data_dict[str(self.step)][tea_name[tea_num]][
                     self.hparams.tea_keys[i]
                 ][()]
 
