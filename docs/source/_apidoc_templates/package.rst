@@ -35,6 +35,12 @@
 {% for item in subpackages %}
        {{ fullname }}.{{ item }}
        {%- endfor %}
+
+    .. autosummary::
+
+{% for item in subpackages %}
+       {{ fullname }}.{{ item }}
+{%- endfor %}
 {%- endif %}
 
 {% set all = get_members(in_list='__all__', include_imported=True) %}
