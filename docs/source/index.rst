@@ -62,7 +62,8 @@ API Documentation
    :maxdepth: 1
 
    Core library (speechbrain) <speechbrain>
-   Tools <tools>
+   HyperPyYAML (hyperpyyaml) <hyperpyyaml>
+   Tools (sbtools) <tools>
 
 .. autosummary::
 
