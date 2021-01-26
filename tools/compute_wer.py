@@ -7,29 +7,30 @@ Additionally, the script can produce human-readable edit distance
 alignments, and find the top WER utterances and speakers.
 
 Usage
-----
-usage: compute_wer.py [-h] [--mode {present,all,strict}] [--print-top-wer] [--print-alignments] [--align-separator ALIGN_SEPARATOR] [--align-empty ALIGN_EMPTY] [--utt2spk UTT2SPK] ref hyp
+-----
 
-Compute word error rate or a Levenshtein alignmentbetween a hypothesis and a reference.
+::
 
-positional arguments:
-  ref                   The ground truth to compare against. Text file with utterance-ID on the first column.
-  hyp                   The hypothesis, for which WER is computed. Text file with utterance-ID on the first column.
+    Compute word error rate or a Levenshtein alignmentbetween a hypothesis and a reference.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --mode {present,all,strict}
-                        How to treat missing hypotheses.
-                         'present': only score hypotheses that were found
-                         'all': treat missing hypotheses as empty
-                         'strict': raise KeyError if a hypothesis is missing
-  --print-top-wer       Print a list of utterances with the highest WER.
-  --print-alignments    Print alignments for between all refs and hyps.Also has details for individual hyps. Outputs a lot of text.
-  --align-separator ALIGN_SEPARATOR
-                        When printing alignments, separate tokens with this.Note the spaces in the default.
-  --align-empty ALIGN_EMPTY
-                        When printing alignments, empty spaces are filled with this.
-  --utt2spk UTT2SPK     Provide a mapping from utterance ids to speaker ids.If provided, print a list of speakers with highest WER.
+    positional arguments:
+      ref                   The ground truth to compare against. Text file with utterance-ID on the first column.
+      hyp                   The hypothesis, for which WER is computed. Text file with utterance-ID on the first column.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --mode {present,all,strict}
+                            How to treat missing hypotheses.
+                             'present': only score hypotheses that were found
+                             'all': treat missing hypotheses as empty
+                             'strict': raise KeyError if a hypothesis is missing
+      --print-top-wer       Print a list of utterances with the highest WER.
+      --print-alignments    Print alignments for between all refs and hyps.Also has details for individual hyps. Outputs a lot of text.
+      --align-separator ALIGN_SEPARATOR
+                            When printing alignments, separate tokens with this.Note the spaces in the default.
+      --align-empty ALIGN_EMPTY
+                            When printing alignments, empty spaces are filled with this.
+      --utt2spk UTT2SPK     Provide a mapping from utterance ids to speaker ids.If provided, print a list of speakers with highest WER.
 
 
 Authors:
