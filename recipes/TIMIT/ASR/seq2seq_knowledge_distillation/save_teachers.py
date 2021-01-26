@@ -145,10 +145,13 @@ class ASR(sb.Brain):
             # create group for each set (train, valid, test).
             g_sets = f.create_group(stage[num])
 
-            with tqdm(data_sets[num], dynamic_ncols=True) as t:
-                for i, batch in enumerate(t):
+            with tqdm(
+                data_sets[num], initial=self.step, dynamic_ncols=True,
+            ) as t:
+                for batch in t:
+                    self.step += 1
                     # create group for each batch
-                    g_batch = g_sets.create_group(str(i))
+                    g_batch = g_sets.create_group(str(self.step))
 
                     # run inference to each teacher
                     tea_dict_list = self.compute_forward_tea(batch)
@@ -171,6 +174,7 @@ class ASR(sb.Brain):
                         g_tea.create_dataset(
                             "wer_tea", data=tea_dict_list[tea_num]["wer_tea"][0]
                         )
+            self.step = 0
         f.close()
 
 
