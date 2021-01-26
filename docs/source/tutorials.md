@@ -11,3 +11,8 @@ a Google account just to test our toolkit. Hence, all the tutorials on the GitHu
 ```
 jupyter notebook tutorials/basics/{tutorial}.ipynb
 ```
+
+## Basic SpeechBrain Usage
+
+* [Brain class](https://colab.research.google.com/drive/1cYIsQiKlXTyfGR3j4gKs5Rq648JDaqaB)
+* [HyperPyYAML](https://colab.research.google.com/drive/10jZah2QHZ7xuajv9M1yIwRQdePxPV97U)
