@@ -59,11 +59,11 @@ API Documentation
    :caption: API Documentation:
    :includehidden:
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 2
 
    Core library (speechbrain) <speechbrain>
    HyperPyYAML (hyperpyyaml) <hyperpyyaml>
-   Tools (sbtools) <tools>
+   Runnable Tools (tools) <tools>
 
 .. autosummary::
 
