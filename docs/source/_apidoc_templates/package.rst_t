@@ -1,86 +1,60 @@
 {%- macro automodule(modname, options) -%}
-  .. automodule:: {{ modname }}
-  {%- for option in options %}
-     :{{ option }}:
-  {%- endfor %}
+.. automodule:: {{ modname }}
+{%- for option in options %}
+   :{{ option }}:
+{%- endfor %}
 {%- endmacro %}
 
 {%- macro toctree(docnames) -%}
-  .. toctree::
-     :maxdepth: {{ maxdepth }}
-  {% for docname in docnames %}
-     {{ docname }}
-  {%- endfor %}
+.. toctree::
+   :maxdepth: {{ maxdepth }}
+{% for docname in docnames %}
+   {{ docname }}
+{%- endfor %}
 {%- endmacro %}
 
 {%- macro autosummarytree(docnames) -%}
-  .. toctree::
-     :hidden:
-     :maxdepth: {{ maxdepth }}
-  {% for docname in docnames %}
-     {{ docname }}
-  {%- endfor %}
+.. toctree::
+   :hidden:
+   :maxdepth: {{ maxdepth }}
+{% for docname in docnames %}
+   {{ docname }}
+{%- endfor %}
 
-  .. autosummary::
+.. autosummary::
 
-  {% for docname in docnames %}
-     {{ docname }}
-  {%- endfor %}
+{% for docname in docnames %}
+   {{ docname }}
+{%- endfor %}
 {%- endmacro %}
 
-{# COMMENTED OUT ####
-{%- if is_namespace %}
-  {{- [pkgname | join(" ") | e | heading }}
-{% else %}
-  {{- [pkgname, "package"] | join(" ") | e | heading }}
-{% endif %}
-#### COMMENTED OUT #}
 {{ pkgname | e | heading }}
 
-
-
 {%- if modulefirst and not is_namespace %}
-  {{ automodule(pkgname, automodule_options) }}
+{{ automodule(pkgname, automodule_options) }}
 {% endif %}
 
 {%- if subpackages %}
-
-  {# COMMENTED OUT ####
-  Subpackages
-  -----------
-
-  {{ toctree(subpackages) }}
-  #### COMMENTED OUT #}
-
-  {{ autosummarytree(subpackages) }}
-
+{{ autosummarytree(subpackages) }}
 {% endif %}
 
 {%- if submodules %}
-  {# COMMENTED OUT ####
-  Submodules
-  ----------
-  #### COMMENTED OUT #}
 
-  {% if separatemodules %}
-    {# COMMENTED OUT ####
-    {{ toctree(submodules) }}
-    #### COMMENTED OUT #}
-    {{ autosummarytree(submodules) }}
-  {%- else %}
-    {%- for submodule in submodules %}
+{% if separatemodules %}
+{{ autosummarytree(submodules) }}
+{%- else %}
+{%- for submodule in submodules %}
 
-      {% if show_headings %}
-        {{- [submodule, "module"] | join(" ") | e | heading(2) }}
-      {% endif %}
-    {{ automodule(submodule, automodule_options) }}
-    {% endfor %}
-  {%- endif %}
+{% if show_headings %}
+{{- [submodule, "module"] | join(" ") | e | heading(2) }}
+{% endif %}
+{{ automodule(submodule, automodule_options) }}
+{% endfor %}
+{%- endif %}
 {% endif %}
 
 {%- if not modulefirst and not is_namespace %}
-  Module contents
-  ---------------
+{{ ["In ", pkgname, ".__init__"] | join("") | e | heading(2) }}
 
-  {{ automodule(pkgname, automodule_options) }}
+{{ automodule(pkgname, automodule_options) }}
 {% endif %}
