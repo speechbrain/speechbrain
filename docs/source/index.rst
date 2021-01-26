@@ -55,6 +55,15 @@ Referencing SpeechBrain
 API Documentation
 --------
 
+.. toctree::
+   :caption: API Documentation:
+   :includehidden:
+   :hidden:
+   :maxdepth: 1
+
+   Core library (speechbrain) <speechbrain>
+   Tools <tools>
+
 .. autosummary::
 
    speechbrain
