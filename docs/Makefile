@@ -27,28 +27,4 @@ clean:
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
-	sphinx-apidoc \
-		--no-toc \
-		--templatedir source/_apidoc_templates \
-		--implicit-namespaces \
-		--separate \
-		--force \
-		--output ../docs/source \
-		`pip show hyperpyyaml | grep "Location:" | cut -d" " -f2`/hyperpyyaml
-	sphinx-apidoc \
-		--no-toc \
-		--templatedir source/_apidoc_templates \
-		--implicit-namespaces \
-		--separate \
-		--force \
-		--output ../docs/source \
-		../speechbrain
-	sphinx-apidoc \
-		--no-toc \
-		--templatedir source/_apidoc_templates \
-		--implicit-namespaces \
-		--separate \
-		--force \
-		--output ../docs/source \
-		../tools
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
