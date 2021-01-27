@@ -73,7 +73,7 @@ class TDNNBlock(nn.Module):
 
 
 class Res2NetBlock(torch.nn.Module):
-    """An implementation of Res2NetBlock w/ dialation.
+    """An implementation of Res2NetBlock w/ dilation.
 
     Arguments
     ---------
