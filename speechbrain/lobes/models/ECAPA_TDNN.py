@@ -26,7 +26,7 @@ class BatchNorm1d(_BatchNorm1d):
 
 
 class TDNNBlock(nn.Module):
-    """An implementation of TDNN
+    """An implementation of TDNN.
 
     Arguements
     ----------
@@ -36,7 +36,7 @@ class TDNNBlock(nn.Module):
         The number of output channels
     kernel_size : int
         The kernel size of the TDNN blocks
-    dialation : int
+    dilation : int
         The dilation of the Res2Net block
     activation : torch class
         A class for constructing the activation layers.
@@ -73,7 +73,7 @@ class TDNNBlock(nn.Module):
 
 
 class Res2NetBlock(torch.nn.Module):
-    """An implementation of Res2NetBlock w/ dialation
+    """An implementation of Res2NetBlock w/ dialation.
 
     Arguments
     ---------
@@ -83,7 +83,7 @@ class Res2NetBlock(torch.nn.Module):
         The number of output channels
     scale : int
         The scale of the Res2Net block
-    dialation : int
+    dilation : int
         The dilation of the Res2Net block
 
     Example
@@ -128,7 +128,7 @@ class Res2NetBlock(torch.nn.Module):
 
 
 class SEBlock(nn.Module):
-    """An implementation of squeeuze-and-excitation block
+    """An implementation of squeeuze-and-excitation block.
 
     Arguments
     ---------
@@ -179,7 +179,7 @@ class SEBlock(nn.Module):
 
 class AttentiveStatisticsPooling(nn.Module):
     """This class implements an attentive statistic pooling layer for each channel.
-    It returns the concatenated mean and std of the input tensor
+    It returns the concatenated mean and std of the input tensor.
 
     Arguments
     ---------
@@ -265,7 +265,7 @@ class AttentiveStatisticsPooling(nn.Module):
 
 
 class SERes2NetBlock(nn.Module):
-    """An implementation of building block in ECAPA-TDNN, i.e.
+    """An implementation of building block in ECAPA-TDNN, i.e.,
     TDNN-Res2Net-TDNN-SEBlock.
 
     Arguments
@@ -276,7 +276,7 @@ class SERes2NetBlock(nn.Module):
         The scale of the Res2Net block
     kernel_size: int
         The kernel size of the TDNN blocks
-    dialation: int
+    dilation: int
         The dilation of the Res2Net block
     activation : torch class
         A class for constructing the activation layers.
@@ -343,14 +343,14 @@ class SERes2NetBlock(nn.Module):
 
 
 class ECAPA_TDNN(torch.nn.Module):
-    """An implementation of the speaker embedding model in a recent paper.
+    """An implementation of the speaker embedding model in a paper.
     "ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in
-    TDNN Based Speaker Verification" (https://arxiv.org/abs/2005.07143)
+    TDNN Based Speaker Verification" (https://arxiv.org/abs/2005.07143).
 
     Arguments
     ---------
     device : str
-        Device used e.g. "cpu" or "cuda"
+        Device used, e.g., "cpu" or "cuda"
     activation : torch class
         A class for constructing the activation layers.
     channels : list of ints
@@ -426,7 +426,7 @@ class ECAPA_TDNN(torch.nn.Module):
             activation,
         )
 
-        # Attantitve Statistical pooling
+        # Attentitve Statistical Pooling
         self.asp = AttentiveStatisticsPooling(
             channels[-1],
             attention_channels=attention_channels,
@@ -463,7 +463,7 @@ class ECAPA_TDNN(torch.nn.Module):
         x = torch.cat(xl[1:], dim=1)
         x = self.mfa(x)
 
-        # Attantitve Statistical pooling
+        # Attentive Statistical Pooling
         x = self.asp(x, lengths=lengths)
         x = self.asp_bn(x)
 
