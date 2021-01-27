@@ -11,30 +11,30 @@ from speechbrain.nnet.normalization import BatchNorm2d
 
 class ConvolutionFrontEnd(Sequential):
     """This is a module to ensemble a convolution (depthwise) encoder with or
-    without residual connection
+    without residual connection.
 
      Arguments
     ----------
     out_channels: int
-        number of output channels of this model (default 640)
+        Number of output channels of this model (default 640).
     out_channels: Optional(list[int])
-        number of output channels for each of block.
+        Number of output channels for each of block.
     kernel_size: int
-        kernel size of convolution layers (default 3)
+        Kernel size of convolution layers (default 3).
     strides: Optional(list[int])
-        striding factor for each block, this stride is applied at the last convolution layer at each block.
+        Striding factor for each block, this stride is applied at the last convolution layer at each block.
     num_blocks: int
-        number of block (default 21)
+        Number of block (default 21).
     num_per_layers: int
-        number of convolution layers for each block (default 5)
+        Number of convolution layers for each block (default 5).
     dropout: float
-        dropout (default 0.15)
+        Dropout (default 0.15).
     activation: torch class
-        activation function for each block (default Swish)
+        Activation function for each block (default Swish).
     norm: torch class
-        normalization to regularize the model (default BatchNorm1d)
+        Normalization to regularize the model (default BatchNorm1d).
     residuals: Optional(list[bool])
-        whether apply residual connection at each block (default None)
+        Whether apply residual connection at each block (default None).
 
     Example
     -------
@@ -79,24 +79,24 @@ class ConvolutionFrontEnd(Sequential):
 
 
 class ConvBlock(torch.nn.Module):
-    """An implementation of convolution block with 1d or 2d convolutions (depthwise)
+    """An implementation of convolution block with 1d or 2d convolutions (depthwise).
 
     Arguments
     ----------
-    out_channels: int
-        number of output channels of this model (default 640)
-    kernel_size: int
-        kernel size of convolution layers (default 3)
-    strides: int
-        striding factor for this block (default 1)
-    num_layers: int
-        number of depthwise convolution layers for this block
-    activation: torch class
-        activation function for this block
-    norm: torch class
-        normalization to regularize the model (default BatchNorm1d)
+    out_channels : int
+        Number of output channels of this model (default 640).
+    kernel_size : int
+        Kernel size of convolution layers (default 3).
+    strides : int
+        Striding factor for this block (default 1).
+    num_layers : int
+        Number of depthwise convolution layers for this block.
+    activation : torch class
+        Activation function for this block.
+    norm : torch class
+        Normalization to regularize the model (default BatchNorm1d).
     residuals: bool
-        whether apply residual connection at this block (default None)
+        Whether apply residual connection at this block (default None).
 
     Example
     -------
