@@ -21,33 +21,33 @@ class ContextNet(Sequential):
 
     Arguments
     ----------
-    out_channels: int
+    out_channels : int
         Number of output channels of this model (default 640).
-    conv_channels: Optional (list[int])
+    conv_channels : Optional (list[int])
         Number of output channels for each of the contextnet block. If not provided, it will be initialized as the defualt setting of above mentioned paper.
-    kernel_size: int
+    kernel_size : int
         Kernel size of convolution layers (default 3).
     strides: Optional (list[int])
         Striding factor for each context block. This stride is applied at the last convolution layer at each context block. If not provided, it will be initialize as the default setting of above paper.
-    num_blocks: int
+    num_blocks : int
         Number of context block (default 21).
-    num_layers: int
+    num_layers : int
         Number of depthwise convolution layers for each context block (default 5).
-    inner_dim: int
+    inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
-    alpha: float
+    alpha : float
         The factor to scale the output channel of the network (default 1).
-    beta: float
+    beta : float
         Beta to scale the Swish activation (default 1).
-    dropout: float
+    dropout : float
         Dropout (default 0.15).
-    activation: torch class
+    activation : torch class
         Activation function for each context block (default Swish).
-    se_activation: torch class
+    se_activation : torch class
         Activation function for SE Module (default torch.nn.Sigmoid).
-    norm: torch class
+    norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals: Optional (list[bool])
+    residuals : Optional (list[bool])
         Whether to apply residual connection at each context block (default None).
 
 
@@ -138,12 +138,12 @@ class SEmodule(torch.nn.Module):
     """This class implements the Squeeze-and-Excitation module.
 
     Arguments
-    ----------
-    inner_dim: int
+    ---------
+    inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
-    activation: torch class
+    activation : torch class
         Activation function for SE Module (default torch.nn.Sigmoid).
-    norm: torch class
+    norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
 
     Example
@@ -198,28 +198,28 @@ class ContextNetBlock(torch.nn.Module):
     """This class implements a block in ContextNet.
 
     Arguments
-    ----------
-    out_channels: int
+    ---------
+    out_channels : int
         Number of output channels of this model (default 640).
-    kernel_size: int
+    kernel_size : int
         Kernel size of convolution layers (default 3).
-    strides: int
+    strides : int
         Striding factor for this context block (default 1).
-    num_layers: int
+    num_layersi : int
         Number of depthwise convolution layers for this context block (default 5).
-    inner_dim: int
+    inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
-    beta: float
+    beta : float
         Beta to scale the Swish activation (default 1).
-    dropout: float
+    dropout : float
         Dropout (default 0.15).
-    activation: torch class
+    activation : torch class
         Activation function for this context block (default Swish).
-    se_activation: torch class
+    se_activation : torch class
         Activation function for SE Module (default torch.nn.Sigmoid).
-    norm: torch class
+    norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals: bool
+    residuals : bool
         Whether to apply residual connection at this context block (default None).
 
     Example
