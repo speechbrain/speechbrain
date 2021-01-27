@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class Sequential(torch.nn.ModuleDict):
     """A sequence of modules with potentially inferring shape on construction.
 
-    If layers are passed with names
+    If layers are passed with names, these can be referenced with dot notation.
 
     Arguments
     ---------
@@ -36,11 +36,14 @@ class Sequential(torch.nn.ModuleDict):
     -------
     >>> inputs = torch.rand(10, 40, 50)
     >>> model = Sequential(input_shape=inputs.shape)
-    >>> model.append(Linear, n_neurons=100)
-    >>> model.append(Linear, n_neurons=200)
+    >>> model.append(Linear, n_neurons=100, layer_name="layer1")
+    >>> model.append(Linear, n_neurons=200, layer_name="layer2")
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 40, 200])
+    >>> outputs = model.layer1(inputs)
+    >>> outputs.shape
+    torch.Size([10, 40, 100])
     """
 
     def __init__(self, *layers, input_shape=None, **named_layers):
@@ -104,12 +107,19 @@ class Sequential(torch.nn.ModuleDict):
         self.add_module(layer_name, layer)
 
     def get_output_shape(self):
+        """Returns expected shape of the output.
+
+        Computed by passing dummy input constructed with the
+        ``self.input_shape`` attribute.
+        """
         dummy_input = torch.zeros(self.input_shape)
         dummy_output = self(dummy_input)
         return dummy_output.shape
 
     def forward(self, x):
         """
+        Applies layers in sequence, passing only the first element of tuples.
+
         Arguments
         ---------
         x : tensor
@@ -154,11 +164,6 @@ class ModuleList(torch.nn.Module):
 
     def insert(self, index, module):
         self.layers.insert(module)
-
-
-def ignore_init(function):
-    """Wrapper function to ignore the init_params argument"""
-    return lambda x, y, init_params=False: function(x, y)
 
 
 class ConnectBlocks(torch.nn.Module):
