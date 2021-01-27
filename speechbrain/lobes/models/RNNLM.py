@@ -25,11 +25,11 @@ class RNNLM(nn.Module):
         Default : 128
         Size of embedding vectors.
     activation : torch class
-        A class used for constructing the activation layers. For dnn.
+        A class used for constructing the activation layers for DNN.
     dropout : float
-        Neuron dropout rate, applied to embedding, rnn, and dnn.
+        Neuron dropout rate applied to embedding, RNN, and DNN.
     rnn_class : torch class
-        The type of rnn to use in RNNLM network (LiGRU, LSTM, GRU, RNN)
+        The type of RNN to use in RNNLM network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
         The number of recurrent layers to include.
     rnn_neurons : int

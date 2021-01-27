@@ -8,7 +8,7 @@ import speechbrain as sb
 
 
 class VanillaNN(sb.nnet.containers.Sequential):
-    """ A simple vanilla Deep Neural Network.
+    """A simple vanilla Deep Neural Network.
 
     Arguments
     ---------
