@@ -31,13 +31,13 @@ class TDNNBlock(nn.Module):
     Arguements
     ----------
     in_channels : int
-        Number of input channels
+        Number of input channels.
     out_channels : int
-        The number of output channels
+        The number of output channels.
     kernel_size : int
-        The kernel size of the TDNN blocks
+        The kernel size of the TDNN blocks.
     dilation : int
-        The dilation of the Res2Net block
+        The dilation of the Res2Net block.
     activation : torch class
         A class for constructing the activation layers.
 
@@ -78,13 +78,13 @@ class Res2NetBlock(torch.nn.Module):
     Arguments
     ---------
     in_channels : int
-        The number of channels expected in the input
+        The number of channels expected in the input.
     out_channels : int
-        The number of output channels
+        The number of output channels.
     scale : int
-        The scale of the Res2Net block
+        The scale of the Res2Net block.
     dilation : int
-        The dilation of the Res2Net block
+        The dilation of the Res2Net block.
 
     Example
     -------
@@ -133,11 +133,11 @@ class SEBlock(nn.Module):
     Arguments
     ---------
     in_channels : int
-        The number of input channels
+        The number of input channels.
     se_channels : int
-        The number of output channels after squeeze
+        The number of output channels after squeeze.
     out_channels : int
-        The number of output channels
+        The number of output channels.
 
     Example
     -------
@@ -184,9 +184,9 @@ class AttentiveStatisticsPooling(nn.Module):
     Arguments
     ---------
     channels: int
-        The number of input channels
+        The number of input channels.
     attention_channels: int
-        The number of attention channels
+        The number of attention channels.
 
     Example
     -------
@@ -218,7 +218,7 @@ class AttentiveStatisticsPooling(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            of shape [N, C, L]
+            Tensor of shape [N, C, L].
         """
         L = x.shape[-1]
 
@@ -271,13 +271,13 @@ class SERes2NetBlock(nn.Module):
     Arguments
     ----------
     out_channels: int
-        The number of output channels
+        The number of output channels.
     res2net_scale: int
-        The scale of the Res2Net block
+        The scale of the Res2Net block.
     kernel_size: int
-        The kernel size of the TDNN blocks
+        The kernel size of the TDNN blocks.
     dilation: int
-        The dilation of the Res2Net block
+        The dilation of the Res2Net block.
     activation : torch class
         A class for constructing the activation layers.
 
@@ -350,7 +350,7 @@ class ECAPA_TDNN(torch.nn.Module):
     Arguments
     ---------
     device : str
-        Device used, e.g., "cpu" or "cuda"
+        Device used, e.g., "cpu" or "cuda".
     activation : torch class
         A class for constructing the activation layers.
     channels : list of ints
@@ -446,7 +446,8 @@ class ECAPA_TDNN(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : torch.Tensor
+            Tensor of shape (batch, time, channel).
         """
         # Minimize transpose for efficiency
         x = x.transpose(1, 2)
@@ -480,13 +481,13 @@ class Classifier(torch.nn.Module):
     Arguments
     ---------
     device : str
-        Device used e.g. "cpu" or "cuda"
+        Device used, e.g., "cpu" or "cuda".
     lin_blocks : int
         Number of linear layers.
     lin_neurons : int
         Number of neurons in linear layers.
     out_neurons : int
-        Number of classes
+        Number of classes.
 
     Example
     -------
@@ -533,6 +534,7 @@ class Classifier(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Torch tensor.
         """
         for layer in self.blocks:
             x = layer(x)
