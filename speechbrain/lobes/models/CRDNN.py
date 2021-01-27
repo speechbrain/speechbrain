@@ -19,13 +19,13 @@ class CRDNN(sb.nnet.containers.Sequential):
     input_shape : tuple
         The shape of an example expected input.
     activation : torch class
-        A class used for constructing the activation layers. For cnn and dnn.
+        A class used for constructing the activation layers for CNN and DNN.
     dropout : float
-        Neuron dropout rate, applied to cnn, rnn, and dnn.
+        Neuron dropout rate as applied to CNN, RNN, and DNN.
     cnn_blocks : int
         The number of convolutional neural blocks to include.
     cnn_channels : list of ints
-        A list of the number of output channels for each cnn block.
+        A list of the number of output channels for each CNN block.
     cnn_kernelsize : tuple of ints
         The size of the convolutional kernels.
     time_pooling : bool
@@ -35,17 +35,17 @@ class CRDNN(sb.nnet.containers.Sequential):
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
     using_2d_pooling: bool
-        Whether using a 2D or 1D pooling after each cnn block.
+        Whether using a 2D or 1D pooling after each CNN block.
     inter_layer_pooling_size : list of ints
-        A list of the pooling sizes for each cnn block.
+        A list of the pooling sizes for each CNN block.
     rnn_class : torch class
-        The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
+        The type of RNN to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
         The number of recurrent RNN layers to include.
     rnn_neurons : int
         Number of neurons in each layer of the RNN.
     rnn_bidirectional : bool
-        Whether this model will process just forward or both directions.
+        Whether this model will process just forward or in both directions.
     rnn_re_init : bool,
         If True, an orthogonal initialization will be applied to the recurrent
         weights.
@@ -120,8 +120,8 @@ class CRDNN(sb.nnet.containers.Sequential):
         # This projection helps reducing the number of parameters
         # when using large number of CNN filters.
         # Large numbers of CNN filters + large features
-        # often lead to very large flattened layers
-        # This layer projects it back to something reasonable
+        # often lead to very large flattened layers.
+        # This layer projects it back to something reasonable.
         if projection_dim != -1:
             self.append(sb.nnet.containers.Sequential, layer_name="projection")
             self.projection.append(
@@ -260,7 +260,7 @@ class CNN_Block(sb.nnet.containers.Sequential):
 
 
 class DNN_Block(sb.nnet.containers.Sequential):
-    """Block for linear layers
+    """Block for linear layers.
 
     Arguments
     ---------
