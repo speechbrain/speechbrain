@@ -229,61 +229,69 @@ class DynamicBatchSampler(Sampler):
     thus padding is minimized.
     This enables faster training on datasets
     where length of examples can vary significantly (e.g Librispeech).
+    Inspired by: https://www.tensorflow.org/api_docs/python/tf/data/experimental/bucket_by_sequence_length
 
     Dynamic batching is performed by specifying a max_batch_length which is the
     upper limit for the sum of the length of examples in a batch:
-    e.g. ex1 has length 4 ex2 length 5 if max_batch_length is set to 6
+    e.g. if ex1 has length 4, ex2 length 5 andn if max_batch_length is set to 6
     ex1 and ex2 will be placed, alone, in two distinct batches.
-    Examples length is obtained from DynamicItemDataset examples by specifying a
-    length_func. Default assumes a duration key in the annotation.
+
+    Length for each example can be obtained in two manners.
+    If the input dataset is a DynamicItemDataset it can be obtained by specifying a
+    length_func. Default assumes a "duration" entry is in the annotation.
+    Length for each example can also be passed to this class upon instantiation
+    by specifying a list containing the length for each example and passing it to
+    lengths_list.
 
     Examples are grouped together by defining a set of possible discrete intervals
-    (buckets) multiple of a min_bucket_length. A bucket_length_multiplier is used to
-    specify the number of possible buckets.
+    (buckets) multiple of a min_bucket_length.
+    A bucket_length_multiplier is used to specify the number of possible buckets.
     E.g. if max_batch_length = 32 and min_bucket_length = 10, bucket_length_multiplier = 2
     there will be 3 buckets: [0, 10), [10, 20), [20, 40).
     Decreasing min_bucket_length increases the number of buckets and thus the "tolerance"
     for allowing examples of different length in the same batch.
-    If in fact min_bucket_length = 1, one will obtain 32 buckets and thus only
-    batches of elements with precisely the same length can be obtained.
     Decreasing bucket_length_multiplier has also a similar effect:
     e.g. if max_batch_length = 32 and min_bucket_length = 10, bucket_length_multiplier = 1.5
     the number of buckets increases to 8. With right boundaries: [10 12 14 17 21 25 30 36].
     Thus examples with length less than 10 are all grouped together but more buckets
     are created for longer examples.
+    Note that the bucket boundary grows exponentially using the multiplier.
 
     A common choice would be setting min_bucket_length to approximatively the length
-    of your shorter example in the dataset.
+    of your shortest example in the dataset.
 
     Both arguments thus allow for trading off training speed by having examples
     of almost same length and training stochasticity.
 
-
     Arguments
     ---------
-    dataset : DynamicItemDataset
-        Speechbrain DynamicItemDataset object one wish to iterate on.
-
+    dataset : torch.data.utils.Dataset
+        Pytorch Dataset from which elements will be sampled.
     max_batch_length : int
         Upper limit for the sum of the length of examples in a batch.
         Should be chosen based on your GPU memory.
-
     min_bucket_length : int
-        Minimum length of a bucket. Specifyes resolution of buckets and thus this sampler
+        Minimum length of a bucket. Specifies resolution of buckets and thus this sampler
         stochasticity. A common choice is to set this to length of your
         shortest example.
     bucket_length_multiplier : float
         Multiplier for bucket length, specifies number of buckets from min_bucket_length to
         max_batch_length.
     length_func : callable
-        Function used to get length of each example from annotation.
-        Can be anything e.g. lambda x: x["duration"]*16000 returns number of samples
-        if duration is in seconds and the file has 16kHz sampling freq.
+        Function used to get length of each example from the dataset.
+        This argument can be used only when the dataset is a Speechbrain DynamicItemDataset object.
+        Can be anything: e.g. lambda x: x["duration"]*16000 returns number of samples
+        if duration key in the annotation is in seconds and the file has 16kHz sampling freq.
     shuffle : bool
         Whether or not shuffle examples between each epoch.
     bucket_boundaries : list
         Overrides bucket_length_multiplier and min_bucket_length by specifying manually
         the buckets right boundaries.
+    lengths_list: list
+        Overrides length_func by passing a list containing the length of each example
+        in the dataset. This argument must be set when the dataset is a plain
+        Pytorch Dataset object and not a DynamicItemDataset object as length_func
+        cannot be used on Pytorch Datasets.
     epoch : int
         The epoch to start at.
     drop_last : bool
@@ -294,30 +302,45 @@ class DynamicBatchSampler(Sampler):
     def __init__(
         self,
         dataset,
-        max_batch_length: int,  # max length in a batch
-        min_bucket_length: int,  #
+        max_batch_length: int,
+        min_bucket_length: int,
         bucket_length_multiplier: float = 1.1,
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
         bucket_boundaries: List[int] = [],
+        lengths_list: List[int] = None,
         seed: int = 42,
         epoch: int = 0,
         drop_last: bool = False,
     ):
-
-        if not isinstance(dataset, DynamicItemDataset):
-            raise NotImplementedError(
-                "dataset should be a Speechbrain DynamicItemDataset"
-            )
-
         self._dataset = dataset
-
         self._ex_lengths = {}
         ex_ids = list(self._dataset.data.keys())
-        for indx in range(len(self._dataset.data.keys())):
-            self._ex_lengths[str(indx)] = length_func(
-                self._dataset.data[ex_ids[indx]]
-            )
+
+        if lengths_list is not None:
+            # take length of examples from this argument and bypass length_key
+            for indx in range(len(lengths_list)):
+                self._ex_lengths[str(indx)] = lengths_list[indx]
+        else:
+            # use length func
+            if not isinstance(dataset, DynamicItemDataset):
+                raise NotImplementedError(
+                    "Dataset should be a Speechbrain DynamicItemDataset when using length function"
+                )
+            for indx in range(len(self._dataset)):
+                self._ex_lengths[str(indx)] = length_func(
+                    self._dataset.data[ex_ids[indx]]
+                )
+
+        if bucket_boundaries is not None:
+            if not all([x >= 1 for x in bucket_boundaries]):
+                raise ValueError(
+                    "All elements in bucket boundaries should be >= 1."
+                )
+            if not len(set(bucket_boundaries)) == len(bucket_boundaries):
+                raise ValueError(
+                    "Bucket_boundaries should not contain duplicates."
+                )
 
         self._bucket_boundaries = np.array(
             self._get_data_boundaries(
@@ -381,7 +404,6 @@ class DynamicBatchSampler(Sampler):
         bucket_stats = [0 for i in self._bucket_lens]
         for idx in sampler:
             item_len = self._ex_lengths[str(idx)]
-            # assert item_len == len(self._dataset[idx]["sig"])
             bucket_id = np.searchsorted(self._bucket_boundaries, item_len)
             bucket_batches[bucket_id].append(idx)
             bucket_stats[bucket_id] += 1
@@ -393,17 +415,18 @@ class DynamicBatchSampler(Sampler):
             for batch in bucket_batches:
                 if batch:
                     self._batches.append(batch)
-        logger.info(
-            "DynamicBatchSampler: Created {} batches, {} buckets used.".format(
-                len(self._batches), len(self._bucket_boundaries)
-            )
-        )
-        for i in range(len(self._bucket_lens)):
+        if self._epoch == 0:  # only log at first epoch
             logger.info(
-                "DynamicBatchSampler: Bucket {} has {} examples.".format(
-                    i, bucket_stats[i]
+                "DynamicBatchSampler: Created {} batches, {} buckets used.".format(
+                    len(self._batches), len(self._bucket_boundaries)
                 )
             )
+            for i in range(len(self._bucket_lens)):
+                logger.info(
+                    "DynamicBatchSampler: Bucket {} has {} examples.".format(
+                        i, bucket_stats[i]
+                    )
+                )
 
     def __iter__(self):
         for batch in self._batches:
