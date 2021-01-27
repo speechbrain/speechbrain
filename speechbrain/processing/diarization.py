@@ -12,7 +12,6 @@ Reference
   https://github.com/scikit-learn/scikit-learn/blob/0fb307bf3/sklearn/cluster/_spectral.py
 
 Authors
--------
  * Nauman Dawalatabad 2020
 """
 
@@ -356,7 +355,8 @@ def _graph_connected_component(graph, node_id):
 
     Returns
     -------
-    connected_components_matrix : array-like, shape: (n_samples,)
+    connected_components_matrix : array-like
+        shape - (n_samples,)
         An array of bool value indicating the indexes of the nodes belonging
         to the largest connected components of the given query node.
     """
@@ -548,7 +548,8 @@ def spectral_embedding_sb(
 
     Arguments
     ---------
-    adjacency : array-like or sparse graph, shape: (n_samples, n_samples)
+    adjacency : array-like or sparse graph
+        shape - (n_samples, n_samples)
         The adjacency matrix of the graph to embed.
     n_components : int
         The dimension of the projection subspace.

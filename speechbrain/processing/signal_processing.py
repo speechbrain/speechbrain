@@ -2,7 +2,6 @@
 Low level signal processing utilities
 
 Authors
--------
  * Peter Plantinga 2020
  * Francois Grondin 2020
  * William Aris 2020

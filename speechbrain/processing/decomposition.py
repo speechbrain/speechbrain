@@ -127,9 +127,9 @@ def svdl(a):
 
     Arguments:
     ----------
-        a : tensor
-            A complex input matrix to work with. The tensor must have
-            the following format: (*,2,C+P).
+    a : tensor
+        A complex input matrix to work with. The tensor must have
+        the following format: (*,2,C+P).
 
     Example:
     --------
@@ -365,9 +365,9 @@ def inv(x):
 
     Arguments
     ---------
-        x : tensor
-            An input matrix to work with. The tensor must have the
-            following format: (*, 2, C+P)
+    x : tensor
+        An input matrix to work with. The tensor must have the
+        following format: (*, 2, C+P)
 
     Example
     -------
