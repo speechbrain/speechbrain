@@ -22,8 +22,7 @@ class RNNLM(nn.Module):
         Number of entries in embedding table, also the number of neurons in
         output layer.
     embedding_dim : int
-        Default : 128
-        Size of embedding vectors.
+        Size of embedding vectors (default 128).
     activation : torch class
         A class used for constructing the activation layers for DNN.
     dropout : float
@@ -37,8 +36,7 @@ class RNNLM(nn.Module):
     rnn_re_init : bool
         Whether to initialize rnn with orthogonal initialization.
     rnn_return_hidden : bool
-        Default : True
-        Whether to return hidden states.
+        Whether to return hidden states (default True).
     dnn_blocks : int
         The number of linear neural blocks to include.
     dnn_neurons : int
