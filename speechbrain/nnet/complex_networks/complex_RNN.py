@@ -24,37 +24,30 @@ class ComplexLSTM(torch.nn.Module):
 
     Arguments
     ---------
-    hidden_size: int
+    hidden_size : int
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of complex-valued neurons. Thus, the output
         is 2*hidden_size.
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
     bias: bool, optional
-        Default: True
-        If True, the additive bias b is adopted.
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    return_hidden: bool, optional
-        Default: False
+        If True, the additive bias b is adopted (default True).
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    return_hidden : bool, optional
         It True, the function returns the last hidden layer.
-    bidirectional: bool, optional
-        Default: False
+    bidirectional : bool, optional
         If True, a bidirectioal model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
@@ -109,6 +102,7 @@ class ComplexLSTM(torch.nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
+
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
         for i in range(self.num_layers):
@@ -138,7 +132,9 @@ class ComplexLSTM(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         # Reshaping input tensors for 4d inputs
         if self.reshape:
             if x.ndim == 4:
@@ -157,6 +153,7 @@ class ComplexLSTM(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
         h = []
         if hx is not None:
@@ -187,37 +184,31 @@ class ComplexLSTM_Layer(torch.nn.Module):
 
     Arguments
     ---------
-    input_size: int
+    input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size: int
+    batch_size : int
         Batch size of the input tensors.
-    hidden_size: int
+    hidden_size : int
         Number of output values (in term of real values).
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    bidirectional : bool, optional
         If True, a bidirectioal model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str, optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
-
     """
 
     def __init__(
@@ -279,6 +270,7 @@ class ComplexLSTM_Layer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -311,6 +303,7 @@ class ComplexLSTM_Layer(torch.nn.Module):
         wx : torch.Tensor
             Linearly transformed input.
         """
+
         hiddens = []
 
         # Initialise the cell state
@@ -343,6 +336,7 @@ class ComplexLSTM_Layer(torch.nn.Module):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
+
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
         self.drop_mask_te = torch.tensor([1.0]).float()
 
@@ -356,6 +350,7 @@ class ComplexLSTM_Layer(torch.nn.Module):
     def _sample_drop_mask(self,):
         """Selects one of the pre-defined dropout masks
         """
+
         if self.training:
 
             # Sample new masks when needed
@@ -382,6 +377,7 @@ class ComplexLSTM_Layer(torch.nn.Module):
         the case of multi-gpu or when we have different batch sizes in train
         and test. We also update the h_int and drop masks.
         """
+
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
 
@@ -400,44 +396,35 @@ class ComplexRNN(torch.nn.Module):
 
     Arguments
     ---------
-    hidden_size: int
+    hidden_size : int
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of complex-valued neurons. Thus, the output
         is 2*hidden_size.
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    nonlinearity: str, optional
-        Default: tanh
-        Type of nonlinearity (tanh, relu).
-    bias: bool, optional
-        Default: True
-        If True, the additive bias b is adopted.
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    return_hidden: bool, optional
-        Default: False
-        It True, the function returns the last hidden layer.
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    nonlinearity : str, optional
+        Type of nonlinearity (tanh, relu) (default "tanh").
+    bias : bool, optional
+        If True, the additive bias b is adopted (default True).
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    return_hidden : bool, optional
+        It True, the function returns the last hidden layer (default False).
+    bidirectional : bool, optional
         If True, a bidirectioal model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
-
 
     Example
     -------
@@ -523,6 +510,7 @@ class ComplexRNN(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
+
         # Reshaping input tensors for 4d inputs
         if self.reshape:
             if x.ndim == 4:
@@ -542,6 +530,7 @@ class ComplexRNN(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
+
         h = []
         if hx is not None:
             if self.bidirectional:
@@ -571,36 +560,30 @@ class ComplexRNN_Layer(torch.nn.Module):
 
     Arguments
     ---------
-    input_size: int
+    input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size: int
+    batch_size : int
         Batch size of the input tensors.
-    hidden_size: int
+    hidden_size : int
         Number of output values (in term of real values).
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    nonlinearity: str, optional
-        Default: tanh
-        Type of nonlinearity (tanh, relu).
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    nonlinearity : str, optional
+        Type of nonlinearity (tanh, relu) (default "tanh").
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    bidirectional : bool, optional
         If True, a bidirectioal model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
@@ -671,7 +654,9 @@ class ComplexRNN_Layer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
@@ -703,6 +688,7 @@ class ComplexRNN_Layer(torch.nn.Module):
         wx : torch.Tensor
             Linearly transformed input.
         """
+
         hiddens = []
 
         # Sampling dropout mask
@@ -722,6 +708,7 @@ class ComplexRNN_Layer(torch.nn.Module):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
+
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
         self.drop_mask_te = torch.tensor([1.0]).float()
 
@@ -733,8 +720,9 @@ class ComplexRNN_Layer(torch.nn.Module):
         ).data
 
     def _sample_drop_mask(self,):
-        """Selects one of the pre-defined dropout masks
+        """Selects one of the pre-defined dropout masks.
         """
+
         if self.training:
 
             # Sample new masks when needed
@@ -761,6 +749,7 @@ class ComplexRNN_Layer(torch.nn.Module):
         the case of multi-gpu or when we have different batch sizes in train
         and test. We also update the h_int and drop masks.
         """
+
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
 
@@ -790,38 +779,36 @@ class ComplexLiGRU(torch.nn.Module):
 
     Arguments
     ---------
-    hidden_size: int
+    hidden_size : int
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of complex-valued neurons. Thus, the output
         is 2*hidden_size.
-    nonlinearity: str
+    nonlinearity : str
          Type of nonlinearity (tanh, relu).
-    normalization: str
+    normalization : str
          Type of normalization for the ligru model (batchnorm, layernorm).
          Every string different from batchnorm and layernorm will result
          in no normalization.
-    num_layers: int
+    num_layers : int
          Number of layers to employ in the RNN architecture.
-    bias: bool
+    bias : bool
         If True, the additive bias b is adopted.
-    dropout: float
+    dropout : float
         It is the dropout factor (must be between 0 and 1).
-    return_hidden: bool:
-        It True, the function returns the last hidden layer.
-    bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+    return_hidden : bool
+        If True, the function returns the last hidden layer.
+    bidirectional : bool
+        If True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
@@ -870,14 +857,14 @@ class ComplexLiGRU(torch.nn.Module):
         self.rnn = self._init_layers()
 
     def _init_layers(self):
-        """
-        Initializes the layers of the liGRU.
+        """Initializes the layers of the liGRU.
 
         Arguments
         ---------
         first_input : tensor
             A first input used for initializing the parameters.
         """
+
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
 
@@ -908,7 +895,9 @@ class ComplexLiGRU(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         # Reshaping input tensors for 4d inputs
         if self.reshape:
             if x.ndim == 4:
@@ -928,7 +917,9 @@ class ComplexLiGRU(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         h = []
         if hx is not None:
             if self.bidirectional:
@@ -958,36 +949,34 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
     Arguments
     ---------
-    input_size: int
+    input_size : int
         Feature dimensionality of the input tensors.
-    batch_size: int
+    batch_size : int
         Batch size of the input tensors.
-    hidden_size: int
+    hidden_size : int
         Number of output values.
-    num_layers: int
+    num_layers : int
         Number of layers to employ in the RNN architecture.
-    nonlinearity: str
+    nonlinearity : str
         Type of nonlinearity (tanh, relu).
-    normalization: str
+    normalization : str
         Type of normalization (batchnorm, layernorm).
         Every string different from batchnorm and layernorm will result
         in no normalization.
-    dropout: float
+    dropout : float
         It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool
-        if True, a bidirectioal model that scans the sequence both
+    bidirectional : bool
+        If True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
@@ -1079,7 +1068,9 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
@@ -1116,6 +1107,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         wx : torch.Tensor
             Linearly transformed input.
         """
+
         hiddens = []
 
         # Sampling dropout mask
@@ -1140,6 +1132,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
+
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
         self.drop_mask_te = torch.tensor([1.0]).float()
 
@@ -1151,7 +1144,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         ).data
 
     def _sample_drop_mask(self,):
-        """Selects one of the pre-defined dropout masks
+        """Selects one of the pre-defined dropout masks.
         """
         if self.training:
 
@@ -1179,6 +1172,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         the case of multi-gpu or when we have different batch sizes in train
         and test. We also update the h_int and drop masks.
         """
+
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
 

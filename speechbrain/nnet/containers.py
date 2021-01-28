@@ -24,7 +24,7 @@ class Sequential(torch.nn.ModuleDict):
     input_shape : iterable
         A list or tuple of ints or None, representing the expected shape of an
         input tensor. None represents a variable-length dimension. If no
-        ``input_shape`` is passed, no shape inference will be performed
+        ``input_shape`` is passed, no shape inference will be performed.
     *layers, **named_layers
         The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
@@ -117,8 +117,7 @@ class Sequential(torch.nn.ModuleDict):
         return dummy_output.shape
 
     def forward(self, x):
-        """
-        Applies layers in sequence, passing only the first element of tuples.
+        """Applies layers in sequence, passing only the first element of tuples.
 
         Arguments
         ---------
@@ -141,8 +140,8 @@ class ModuleList(torch.nn.Module):
 
     Arguments
     ---------
-    *layers: torch class
-        torch objects to be put in a ModuleList
+    *layers : torch class
+        Torch objects to be put in a ModuleList.
     """
 
     def __init__(self, *layers):
@@ -178,9 +177,9 @@ class ConnectBlocks(torch.nn.Module):
         The shape of the
     shortcut_type : str
         One of:
-        * "residual" - first block output passed to final output
-        * "dense" - input of each block is from all previous blocks
-        * "skip" - output of each block is passed to final output
+        * "residual" - first block output passed to final output,
+        * "dense" - input of each block is from all previous blocks,
+        * "skip" - output of each block is passed to final output.
     shortcut_projection : bool
         Only has an effect if `shortcut_type` is passed. Whether to add a
         linear projection layer to the shortcut connection before combining

@@ -17,12 +17,13 @@ class Embedding(nn.Module):
     Arguments
     ---------
     num_embeddings : int
-        size of the dictionary of embeddings.
+        Size of the dictionary of embeddings.
     embedding_dim : int
-        it is the dim of embedding (i.e, the dimensionality of the output).
-    consider_as_one_hot: bool - create non-trainable one-hot vector.
-    blank_id: int
-        if consider_as_one_hot == True: consider the embedding as one_hot
+        It is the dim of embedding (i.e, the dimensionality of the output).
+    consider_as_one_hot : bool
+        Create non-trainable one-hot vector.
+    blank_id : int
+        If consider_as_one_hot == True: consider the embedding as one_hot
         and use blank_index as zero one_hot vector.
 
     Example
@@ -106,8 +107,8 @@ class Embedding(nn.Module):
 
         Arguments
         ---------
-        x: torch.Tensor
-           input to embed.
+        x : torch.Tensor
+           Input to embed.
         """
         # pytorch embedding layer only accept long dtype
         return self.Embedding(x.long())

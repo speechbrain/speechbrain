@@ -17,27 +17,21 @@ class QuaternionBatchNorm(torch.nn.Module):
     ---------
     input_size : int
         Expected size of the dimension to be normalized.
-    dim: int, optional
-        Default: -1
+    dim : int, optional
         It defines the axis that should be normalized. It usually correspond to
-        the channel dimension.
-    gamma_init: float, optional
-        Default: 1.0
-        First value of gamma to be used (mean).
-    beta_param: bool, optional
-        Default: True
-        When set to True the beta parameter of the BN is applied.
-    momentum: float, optional
-        Default: 0.1
-        It defines the momentum as for the real-valued batch-normalization.
-    eps: float, optional
-        Default: 1e-4
-        Term used to stabilize operation.
-    track_running_stats: bool, optional
-        Default: True
+        the channel dimension (default -1).
+    gamma_init : float, optional
+        First value of gamma to be used (mean) (default 1.0).
+    beta_param : bool, optional
+        When set to True the beta parameter of the BN is applied (default True).
+    momentum : float, optional
+        It defines the momentum as for the real-valued batch-normalization (default 0.1).
+    eps : float, optional
+        Term used to stabilize operation (default 1e-4).
+    track_running_stats : bool, optional
         Equivalent to the real-valued batchnormalization parameter.
         When True, stats are tracked. When False, solely statistics computed
-        over the batch are used.
+        over the batch are used (default True).
 
 
     Example
@@ -95,7 +89,7 @@ class QuaternionBatchNorm(torch.nn.Module):
         Arguments
         ---------
         input : torch.Tensor (batch, time, [channels])
-            input to normalize. It can be 2d, 3d, 4d.
+            Input to normalize. It can be 2d, 3d, 4d.
         """
 
         exponential_average_factor = 0.0
