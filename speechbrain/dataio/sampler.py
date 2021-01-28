@@ -263,9 +263,28 @@ class DynamicBatchSampler(Sampler):
     Both arguments thus allow for trading off training speed by having examples
     of almost same length and training stochasticity.
 
+    Example
+    -------
+    >>> import torch
+    >>> import speechbrain as sb
+    >>> from speechbrain.dataio.sampler import DynamicBatchSampler
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> from speechbrain.dataio.dataloader import SaveableDataLoader
+    >>> from speechbrain.dataio.batch import PaddedBatch
+    >>> import numpy as np
+    >>> dataset = {"ex_{}".format(x) : {"wav" :torch.randn(np.random.randint(10, 100))} for x in range(20)}
+    >>> dataset = DynamicItemDataset(dataset)
+    >>> dataset.set_output_keys(["wav"])
+    >>> length_func = lambda x : len(x) # trivial in this example
+    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func)
+    >>> dataloader = SaveableDataLoader(dataset, batch_sampler=bsampler, collate_fn=PaddedBatch)
+    >>> for i, b in enumerate(dataloader):
+    >>>     data, length = b["wav"]
+    >>> assert data.shape[-1] == 76
+
     Arguments
     ---------
-    dataset : torch.data.utils.Dataset
+    dataset : torch.utils.data.Dataset
         Pytorch Dataset from which elements will be sampled.
     max_batch_length : int
         Upper limit for the sum of the length of examples in a batch.
