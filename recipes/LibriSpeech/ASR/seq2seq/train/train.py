@@ -40,6 +40,9 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
+from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.dataio.sampler import DynamicBatchSampler
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +222,7 @@ def dataio_prepare(hparams):
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloder_opts"]["shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -292,6 +295,23 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
+
+    if hparams["dynamic_batching"]:
+        train_data = SaveableDataLoader(
+            train_data,
+            batch_sampler=DynamicBatchSampler(
+                train_data,
+                hparams["dynamic_batch_sampler"]["max_batch_len"],
+                hparams["dynamic_batch_sampler"]["min_bucket_len"],
+                bucket_length_multiplier=hparams["dynamic_batch_sampler"][
+                    "multiplier"
+                ],
+                length_func=lambda x: x["duration"]
+                * (1 / hparams["dynamic_batch_sampler"]["feats_hop_size"]),
+                shuffle=hparams["dynamic_batch_sampler"]["shuffle"],
+            ),
+            collate_fn=PaddedBatch,
+        )
     return train_data, valid_data, test_datasets, tokenizer
 
 
