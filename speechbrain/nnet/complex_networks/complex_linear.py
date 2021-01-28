@@ -18,34 +18,32 @@ logger = logging.getLogger(__name__)
 
 
 class ComplexLinear(torch.nn.Module):
-    """ This function implements a fully connected complex-valued
-        linear layer: y = Wx + b. y, W, x and b are thus complex
-        numbers. A complex number is written as: r + xi. A tensor of
-        complex numbers x = [batch, 32] can be understood as
-        [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
-        dimension is cut in half (must be dividible by 2).
+    """This function implements a fully connected complex-valued
+       linear layer: y = Wx + b. y, W, x and b are thus complex
+       numbers. A complex number is written as: r + xi. A tensor of
+       complex numbers x = [batch, 32] can be understood as
+       [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
+       dimension is cut in half (must be dividible by 2).
 
     Arguments
     ---------
     n_neurons : int
-        it is the number of output neurons (i.e, the dimensionality of the
+        It is the number of output neurons (i.e, the dimensionality of the
         output). Please note that these are complex-valued neurons. If 256
         neurons are specified, the output dimension will be 512.
     input_shape : tuple
         Expected size of the input.
     bias : bool
         if True, the additive bias b is adopted.
-    init_criterion: str , optional
-        Default: he.
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights (default "glorot").
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default "complex"). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
@@ -114,7 +112,7 @@ class ComplexLinear(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            input to transform linearly.
+            Input to transform linearly.
         """
         wx = complex_linear_op(x, self.real_weight, self.imag_weight, self.b)
 
