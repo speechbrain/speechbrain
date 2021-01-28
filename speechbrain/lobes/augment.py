@@ -1,5 +1,4 @@
-"""
-An approximation of the SpecAugment algorithm, carried out in the time domain.
+"""An approximation of the SpecAugment algorithm, carried out in the time domain.
 
 Authors
  * Peter Plantinga 2020
@@ -24,32 +23,33 @@ OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
 class SpecAugment(torch.nn.Module):
-    """An implementation of SpecAugment algorithm
+    """An implementation of SpecAugment algorithm.
+
     Reference:
         https://arxiv.org/abs/1904.08779
 
     Arguments
     ---------
     time_warp : bool
-        wether applying time warping
+        Whether applying time warping.
     time_warp_window : int
-        time warp window
+        Time warp window.
     time_warp_mode : str
-        interpolation mode for time warping (default "bicubic")
+        Interpolation mode for time warping (default "bicubic").
     freq_mask : bool1
-        wether applying freq mask
+        Whether applying freq mask.
     freq_mask_width : int or tuple
-        freq mask width range
+        Freq mask width range.
     n_freq_mask : int
-        number of freq mask
+        Number of freq mask.
     time_mask : int
-        wether applying time mask
+        Whether applying time mask.
     time_mask_width : int or tuple
-        time mask width range
+        Time mask width range.
     n_time_mask : int
-        number of time mask
+        Number of time mask.
     replace_with_zero : bool
-        if True, replace masked value with 0, else replace masked value with mean of the input tensor
+        If True, replace masked value with 0, else replace masked value with mean of the input tensor.
 
     Example
     -------
@@ -143,14 +143,14 @@ class SpecAugment(torch.nn.Module):
         return x.view(*original_size)
 
     def mask_along_axis(self, x, dim):
-        """mask along time or frequenct axis
+        """Mask along time or frequency axis.
 
         Arguments
         ---------
         x : tensor
-            input tensor
+            Input tensor.
         dim : int
-            corresponding dimension to mask
+            Corresponding dimension to mask.
         """
         original_size = x.shape
         if x.shape == 4:
@@ -316,7 +316,7 @@ class EnvCorrupt(torch.nn.Module):
         Lowest generated SNR of babbled signal to noise.
     noise_snr_high : int
         Highest generated SNR of babbled signal to noise.
-    rir_scale_factor: float
+    rir_scale_factor : float
         It compresses or dilates the given impulse response.
         If ``0 < rir_scale_factor < 1``, the impulse response is compressed
         (less reverb), while if ``rir_scale_factor > 1`` it is dilated
@@ -394,7 +394,7 @@ class EnvCorrupt(torch.nn.Module):
         Arguments
         ---------
         waveforms : torch.Tensor
-            The waveforms to distort
+            The waveforms to distort.
         """
         # Augmentation
         if self.training:
