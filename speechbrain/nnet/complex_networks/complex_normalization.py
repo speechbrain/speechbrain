@@ -20,29 +20,23 @@ class ComplexBatchNorm(torch.nn.Module):
         Expected shape of the input.
     input_size : int
         Expected size of the input.
-    dim: int, optional
-        Default: -1
+    dim : int, optional
         It defines the axis that should be normalized. It usually correspond to
-        the channel dimension.
-    eps: float, optional
-        Default: 1e-4
-        Term used to stabilize operation.
-    momentum: float, optional
-        Default: 0.1
-        It defines the momentum as for the real-valued batch-normalization.
-    scale: bool, optional,
-        Default: True
+        the channel dimension (default -1).
+    eps : float, optional
+        Term used to stabilize operation (default 1e-4).
+    momentum : float, optional
+        It defines the momentum as for the real-valued batch-normalization (default 0.1).
+    scale : bool, optional,
         It defines if scaling should be used or not. It is
-        equivalent to the real-valued batchnormalization scaling.
-    center: bool, optional
-        Default: True
+        equivalent to the real-valued batchnormalization scaling (default True).
+    center : bool, optional
         It defines if centering should be used or not. It is
-        equivalent to the real-valued batchnormalization centering.
-    track_running_stats: bool, optional
-        Default: True
+        equivalent to the real-valued batchnormalization centering (default True).
+    track_running_stats : bool, optional
         Equivalent to the real-valued batchnormalization parameter.
         When True, stats are tracked. When False, solely statistics computed
-        over the batch are used.
+        over the batch are used (default True).
 
     Example
     -------
@@ -162,7 +156,7 @@ class ComplexBatchNorm(torch.nn.Module):
         Arguments
         ---------
         input : torch.Tensor (batch, time, [channels])
-            input to normalize. It can be 2d, 3d, 4d.
+            Input to normalize. It can be 2d, 3d, 4d.
         """
         exponential_average_factor = 0.0
 
@@ -300,6 +294,7 @@ class ComplexBatchNorm(torch.nn.Module):
         Function used to retrieve the real and imaginary component of a tensor
         according to the dimensions
         """
+
         if self.dim == 1 or ndim == 2:
             tensor_real = tensor[:, :input_dim]
             tensor_imag = tensor[:, input_dim:]
@@ -342,21 +337,17 @@ class ComplexLayerNorm(torch.nn.Module):
         Expected shape of the input.
     input_size : int
         Expected size of the input dimension.
-    dim: int, optional
-        Default: -1
+    dim : int, optional
         It defines the axis that should be normalized. It usually correspond to
-        the channel dimension.
-    eps: float, optional
-        Default: 1e-4
-        Term used to stabilize operation.
-    scale: bool, optional,
-        Default: True
+        the channel dimension (default -1).
+    eps : float, optional
+        Term used to stabilize operation (default 1e-4).
+    scale : bool, optional,
         It defines if scaling should be used or not. It is
-        equivalent to the real-valued batchnormalization scaling.
-    center: bool, optional
-        Default: True
+        equivalent to the real-valued batchnormalization scaling (default True).
+    center : bool, optional
         It defines if centering should be used or not. It is
-        equivalent to the real-valued batchnormalization centering.
+        equivalent to the real-valued batchnormalization centering (default True).
 
     Example
     -------
@@ -490,8 +481,7 @@ class ComplexLayerNorm(torch.nn.Module):
         )
 
     def _check_input(self, input_shape):
-        """
-        Checks the input and returns the number of complex values.
+        """Checks the input and returns the number of complex values.
         """
 
         if input_shape[self.dim] % 2 == 0:
@@ -518,50 +508,46 @@ def complex_norm(
     dim=-1,
 ):
 
-    """ This function is used to apply the complex normalization
-        as introduced by "Deep Complex Networks", Trabelsi C. et al.
+    """This function is used to apply the complex normalization
+    as introduced by "Deep Complex Networks", Trabelsi C. et al.
 
     Arguments
     ---------
-    input_centred: torch.Tensor
+    input_centred : torch.Tensor
         It is the tensor to be normalized. The features
         dimension is divided by 2 with the first half
         corresponding to the real-parts and the second half
         to the imaginary parts.
-    Vrr: torch.Tensor
+    Vrr : torch.Tensor
         It is a tensor that contains the covariance between real-parts.
-    Vii: torch.Tensor
+    Vii : torch.Tensor
         It is a tensor that contains the covariance between imaginary-parts.
-    Vri: torch.Tensor
+    Vri : torch.Tensor
         It is a tensor that contains the covariance between real-parts and
         imaginary-parts.
-    beta: torch.Tensor
+    beta : torch.Tensor
         It is a tensor corresponding to the beta parameter on the real-valued
         batch-normalization, but in the complex-valued space.
-    gamma_rr: torch.Tensor
+    gamma_rr : torch.Tensor
         It is a tensor that contains the gamma between real-parts.
-    gamma_ii: torch.Tensor
+    gamma_ii : torch.Tensor
         It is a tensor that contains the gamma between imaginary-parts.
-    gamma_ri: torch.Tensor
+    gamma_ri : torch.Tensor
         It is a tensor that contains the gamma between real-parts and
         imaginary-parts.
-    scale: bool, optional
-        Default: True
+    scale : bool, optional
         It defines if scaling should be used or not. It is
         equivalent to the real-valued batchnormalization
-        scaling.
-    center: bool, optional,
-        Default: True
+        scaling (default True).
+    center : bool, optional,
         It defines if centering should be used or not. It is
-        equivalent to the real-valued batchnormalization centering.
-    layernorm: bool, optional
-        Default: False
+        equivalent to the real-valued batchnormalization centering (default True).
+    layernorm : bool, optional
         It defines is complex_standardization is called from a layernorm or a
-        batchnorm layer.
-    dim: int, optional
-        Default: -1
+        batchnorm layer (default False).
+    dim : int, optional
         It defines the axis that should be considered as the complex-valued
-        axis (divided by 2 to get r and i).
+        axis (divided by 2 to get r and i) (default -1).
     """
 
     ndim = input_centred.dim()
@@ -640,29 +626,27 @@ def complex_norm(
 def complex_standardization(
     input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1
 ):
-    """ This function is used to standardize a centred tensor of
-                  complex numbers (mean of the set must be 0).
+    """This function is used to standardize a centred tensor of
+    complex numbers (mean of the set must be 0).
 
-    input_centred: torch.Tensor
+    input_centred : torch.Tensor
         It is the tensor to be normalized. The features
         dimension is divided by 2 with the first half
         corresponding to the real-parts and the second half
         to the imaginary parts.
-    Vrr: torch.Tensor
+    Vrr : torch.Tensor
         It is a tensor that contains the covariance between real-parts.
-    Vii: torch.Tensor
+    Vii : torch.Tensor
         It is a tensor that contains the covariance between imaginary-parts.
-    Vri: torch.Tensor
+    Vri : torch.Tensor
         It is a tensor that contains the covariance between real-parts and
         imaginary-parts.
-    layernorm: bool, optional
-        Default: False
+    layernorm : bool, optional
         It defines is complex_standardization is called from a layernorm or a
-        batchnorm layer.
-    dim: int, optional
-        Default: -1
+        batchnorm layer (default False).
+    dim : int, optional
         It defines the axis that should be considered as the complex-valued
-        axis (divided by 2 to get r and i).
+        axis (divided by 2 to get r and i) (default -1).
     """
     ndim = input_centred.dim()
     input_dim = input_centred.size(dim) // 2
