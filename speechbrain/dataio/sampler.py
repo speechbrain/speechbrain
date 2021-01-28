@@ -468,7 +468,14 @@ class DynamicBatchSampler(Sampler):
 # Heavily inspired by Catalyst, which is under Apache 2.0 licence.
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
-    """Allows using any sampler with Distributed Data Parallel"""
+    """This wrapper allows using any sampler with Distributed Data Parallel (DDP) correctly.
+        Passing blindly the sampler to each DDP process will cause to have access
+        within each process to all the data in the dataset instead of only a
+        subset of it which is unique to each process.
+        This wrapper prevents this and allows to use only a subset of the original
+        data for each process.
+        It is automatically applied to any sampler in the Brain class when DDP training is used.
+    """
 
     def __init__(self, sampler, *args, **kwargs):
         # DistributedSampler only calls len() on dataset
