@@ -19,28 +19,27 @@ class tokenizer:
     tokenizer_file : str
         Path where the tokenizer is stored. If it is an url, the
         tokenizer is downloaded.
-
-    Example
+    save_folder : str
+        Path where the tokenizer will be saved (default 'model_checkpoints')
+    Examples
     -------
     >>> from pretrained import tokenizer
     >>> token_file = 'pretrained_tok/1000_unigram.model'
-    >>> tokenizer = tokenizer(token_file)
+    >>> save_dir = 'model_checkpoints'
+    >>> tokenizer = tokenizer(token_file, save_dir)
     >>> text = "THE CAT IS ON THE TABLE"
     >>> print(tokenizer.spm.encode(text))
     >>> print(tokenizer.spm.encode(text, out_type='str'))
     """
 
-    def __init__(self, tokenizer_file):
+    def __init__(self, tokenizer_file, save_folder='model_checkpoints'):
         super().__init__()
 
-        if "http" in tokenizer_file:
-            temp_dir = tempfile.TemporaryDirectory()
-            save_file = os.path.join(temp_dir.name, "tok.model")
-            download_file(
-                source=tokenizer_file, dest=save_file, replace_existing=True,
-            )
-            tokenizer_file = save_file
+        save_file = os.path.join(save_folder, "tok.model")
+        download_file(
+            source=tokenizer_file, dest=save_file, replace_existing=False,
+        )
 
         # Defining tokenizer and loading it
         self.spm = spm.SentencePieceProcessor()
-        self.spm.load(tokenizer_file)
+        self.spm.load(save_file)
