@@ -23,8 +23,86 @@ DEFAULT_BLANK = "<blank>"
 class CategoricalEncoder:
     """
     Encode labels of a discrete set.
-
     Used for encoding e.g. speaker identities in speaker recognition.
+    Given a collection of hashables (e.g a strings) it encodes
+    every unique item to an integer value: ["spk0", "spk1"] --> [0, 1]
+    Internally the correspondence between each label to its index is handled by
+    two dictionaries: lab2ind and ind2lab.
+
+    The label integer encoding can be generated automatically from a SpeechBrain
+    DynamicItemDataset by specifying the desired entry (e.g. spkid) in the annotation
+    and calling update_from_didataset method:
+
+    >>> from speechbrain.dataio.encoder import CategoricalEncoder
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> dataset = {"ex_{}".format(x) : {"spkid" : "spk{}".format(x)} for x in range(20)}
+    >>> dataset = DynamicItemDataset(dataset)
+    >>> encoder = CategoricalEncoder()
+    >>> encoder.update_from_didataset(dataset, "spkid")
+    >>> assert len(encoder) == len(dataset) # different speaker for each utterance
+
+    However can also be updated from an iterable:
+    >>> from speechbrain.dataio.encoder import CategoricalEncoder
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> dataset = ["spk{}".format(x) for x in range(20)]
+    >>> encoder = CategoricalEncoder()
+    >>> encoder.update_from_iterable(dataset)
+    >>> assert len(encoder) == len(dataset)
+
+    Note: in both methods it can be specified it the single element in the iterable
+    or in the dataset should be treated as a sequence or not (default False).
+    If it is a sequence each element in the sequence will be encoded.
+
+    >>> from speechbrain.dataio.encoder import CategoricalEncoder
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> dataset = [[x+1, x+2] for x in range(20)]
+    >>> encoder = CategoricalEncoder()
+    >>> encoder.update_from_iterable(dataset, sequence_input=True)
+    >>> assert len(encoder) == 21 # there are only 21 unique elements 1-21
+
+    This class offers 4 different methods to explicitly add a label in the internal
+    dicts: add_label, ensure_label, insert_label, enforce_label.
+    add_label and insert_label will raise an error if it is already present in the
+    internal dicts. insert_label, enforce_label allow also to specify the integer value
+    to which the desired label is encoded.
+
+    Encoding can be performed using 4 different methods:
+    encode_label, encode_sequence, encode_label_torch and encode_sequence_torch.
+    encode_label operate on single labels and simply returns the corresponding
+    integer encoding:
+
+    >>> from speechbrain.dataio.encoder import CategoricalEncoder
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> dataset = ["spk{}".format(x) for x in range(20)]
+    >>> encoder.update_from_iterable(dataset)
+    >>>
+    22
+
+    encode_sequence on sequences of labels:
+    >>> encoder.encode_sequence(["spk1", "spk19"])
+    [22, 40]
+    encode_label_torch and encode_sequence_torch return torch tensors
+    >>> encoder.encode_sequence_torch(["spk1", "spk19"])
+    tensor([22, 40])
+
+
+    Decoding can be performed using decode_torch and decode_ndim methods.
+
+
+
+
+    In some applications, it can happen that during testing a label which has not
+    been encountered during training is encountered. To handle this out-of-vocabulary
+    problem add_unk can be used. Every out-of-vocab label is mapped to this special
+    <unk> label and its corresponding integer encoding.
+
+    >>> from speechbrain.dataio.encoder import CategoricalEncoder
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+
+
+    This class offers also methods to save and load the internal mappings between
+    labels and tokens using: save and load methods as well as load_or_create.
+
     """
 
     VALUE_SEPARATOR = " => "
@@ -367,7 +445,7 @@ class CategoricalEncoder:
             Corresponding encoded int value.
             Tensor shape [1]
         """
-        return torch.LongTensor(self.encode_label(label, allow_unk))
+        return torch.LongTensor([self.encode_label(label, allow_unk)])
 
     def encode_sequence(self, sequence, allow_unk=True):
         """Encode a sequence of labels to list
@@ -612,7 +690,9 @@ class CategoricalEncoder:
 
 
 class TextEncoder(CategoricalEncoder):
-    """For encoding text"""
+    """CategoricalEncoder subclass which offers specific methods for encoding text and handle
+    special tokens for training of sequence to sequence models.
+    """
 
     def handle_special_labels(self, special_labels):
         super().handle_special_labels(special_labels)
@@ -778,7 +858,8 @@ class TextEncoder(CategoricalEncoder):
 
 
 class CTCTextEncoder(TextEncoder):
-    """Handles CTC"""
+    """Subclass of TextEncoder which also provides methods to handle CTC blank token.
+    """
 
     def handle_special_labels(self, special_labels):
         super().handle_special_labels(special_labels)
