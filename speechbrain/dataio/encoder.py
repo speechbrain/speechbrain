@@ -85,20 +85,29 @@ class CategoricalEncoder:
     >>> encoder.encode_sequence_torch(["spk1", "spk19"])
     tensor([22, 40])
 
-
     Decoding can be performed using decode_torch and decode_ndim methods.
-
-
-
+    >>> encoded = encoder.encode_sequence_torch(["spk1", "spk19"])
+    >>> encoder.decode_torch(encoded)
+    ['spk1', 'spk19']
+    decode_ndim is used for multidimensional list or pytorch tensors
+    >>> encoded = encoded.unsqueeze(0).repeat(3, 1)
+    >>> encoder.decode_torch(encoded)
+    [['spk1', 'spk19'], ['spk1', 'spk19'], ['spk1', 'spk19']]
 
     In some applications, it can happen that during testing a label which has not
     been encountered during training is encountered. To handle this out-of-vocabulary
     problem add_unk can be used. Every out-of-vocab label is mapped to this special
     <unk> label and its corresponding integer encoding.
 
-    >>> from speechbrain.dataio.encoder import CategoricalEncoder
-    >>> from speechbrain.dataio.dataset import DynamicItemDataset
-
+    >>> import torch
+    >>> try:
+    >>>     encoder.encode_label("spk42")
+    >>> except KeyError:
+    >>>        print("spk42 is not in the encoder this raises an error!")
+    >>> encoder.add_unk()
+    >>> encoder.encode_label("spk42")
+    41
+    returns the <unk> encoding
 
     This class offers also methods to save and load the internal mappings between
     labels and tokens using: save and load methods as well as load_or_create.
