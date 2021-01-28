@@ -22,29 +22,29 @@ from speechbrain.dataio.dataio import length_to_mask
 
 
 class TransformerASR(TransformerInterface):
-    """This is an implementation of transformer model for ASR
+    """This is an implementation of transformer model for ASR.
 
     The architecture is based on the paper "Attention Is All You Need":
     https://arxiv.org/pdf/1706.03762.pdf
 
     Arguments
     ----------
-    d_model: int
-        the number of expected features in the encoder/decoder inputs
+    d_model : int
+        The number of expected features in the encoder/decoder inputs
         (default=512).
-    nhead: int
-        the number of heads in the multiheadattention models (default=8).
-    num_encoder_layers: int
-        the number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers: int
-        the number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn: int
-        the dimension of the feedforward network model (default=2048).
-    dropout: int
-        the dropout value (default=0.1).
-    activation: torch class
-        the activation function of encoder/decoder intermediate layer,
-        recommended: relu or gelu (default=relu)
+    nhead : int
+        The number of heads in the multi-head attention models (default=8).
+    num_encoder_layers : int
+        The number of sub-encoder-layers in the encoder (default=6).
+    num_decoder_layers : int
+        The number of sub-decoder-layers in the decoder (default=6).
+    dim_ffn : int
+        The dimension of the feedforward network model (default=2048).
+    dropout : int
+        The dropout value (default=0.1).
+    activation : torch class
+        The activation function of encoder/decoder intermediate layer.
+        Recommended: relu or gelu (default=relu).
 
     Example
     -------
@@ -114,14 +114,14 @@ class TransformerASR(TransformerInterface):
         self, src, tgt, wav_len=None, pad_idx=0,
     ):
         """
-        Arguements
+        Arguments
         ----------
-        src: tensor
-            the sequence to the encoder (required).
-        tgt: tensor
-            the sequence to the decoder (required).
-        pad_idx: int
-            the index for <pad> token (default=0).
+        src : tensor
+            The sequence to the encoder (required).
+        tgt : tensor
+            The sequence to the decoder (required).
+        pad_idx : int
+            The index for <pad> token (default=0).
         """
 
         # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
@@ -157,16 +157,16 @@ class TransformerASR(TransformerInterface):
         return encoder_out, decoder_out
 
     def make_masks(self, src, tgt, wav_len=None, pad_idx=0):
-        """This method generates the masks for training the transformer model
+        """This method generates the masks for training the transformer model.
 
-        Arguements
-        ----------
-        src: tensor
-            the sequence to the encoder (required).
-        tgt: tensor
-            the sequence to the decoder (required).
-        pad_idx: int
-            the index for <pad> token (default=0).
+        Arguments
+        ---------
+        src : tensor
+            The sequence to the encoder (required).
+        tgt : tensor
+            The sequence to the decoder (required).
+        pad_idx : int
+            The index for <pad> token (default=0).
         """
         src_key_padding_mask = None
         if wav_len is not None and self.training:
@@ -181,12 +181,12 @@ class TransformerASR(TransformerInterface):
     def decode(self, tgt, encoder_out):
         """This method implements a decoding step for the transformer model.
 
-        Arguements
-        ----------
-        tgt: tensor
-            the sequence to the decoder (required).
-        encoder_out: tensor
-            hidden output of the encoder (required).
+        Arguments
+        ---------
+        tgt : tensor
+            The sequence to the decoder (required).
+        encoder_out : tensor
+            Hidden output of the encoder (required).
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
