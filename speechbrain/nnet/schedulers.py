@@ -4,6 +4,7 @@ Schedulers for updating hyperparameters (such as learning rate).
 Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
+ * Loren Lugosch 2020
 """
 
 import math
@@ -107,9 +108,11 @@ class NewBobScheduler:
         old_value = new_value = self.hyperparam_value
         if len(self.metric_values) > 0:
             prev_metric = self.metric_values[-1]
-
             # Update value if improvement too small and patience is 0
-            improvement = (prev_metric - metric_value) / prev_metric
+            if prev_metric == 0:  # Prevent division by zero
+                improvement = 0
+            else:
+                improvement = (prev_metric - metric_value) / prev_metric
             if improvement < self.improvement_threshold:
                 if self.current_patient == 0:
                     new_value *= self.annealing_factor

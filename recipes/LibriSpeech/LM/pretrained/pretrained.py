@@ -34,6 +34,7 @@ Authors
 
 import os
 import torch
+import tempfile
 from speechbrain.utils.data_utils import download_file
 from hyperpyyaml import load_hyperpyyaml
 
@@ -41,12 +42,20 @@ from hyperpyyaml import load_hyperpyyaml
 class LM(torch.nn.Module):
     def __init__(
         self,
-        hparams_file="hparams/pretrained_RNNLM_BPE1000.yaml",
+        hparams_file="https://www.dropbox.com/s/t0mwhkg7plt87ms/pretrained_RNNLM_BPE1000.yaml?dl=1",
         overrides={},
         freeze_params=True,
     ):
         """Downloads the pretrained modules specified in the yaml"""
         super().__init__()
+
+        # Download yaml file from the web
+        if "http" in hparams_file:
+            tmp_file = os.path.join(
+                tempfile.TemporaryDirectory().name, "LM.yaml"
+            )
+            download_file(hparams_file, tmp_file)
+            hparams_file = tmp_file
 
         # Loading modules defined in the yaml file
         with open(hparams_file) as fin:

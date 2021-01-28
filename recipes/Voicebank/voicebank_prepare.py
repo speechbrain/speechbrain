@@ -152,7 +152,9 @@ MISSING_LEXICON = {
 }
 
 
-def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
+def prepare_voicebank(
+    data_folder, save_folder, valid_speaker_count=2, skip_prep=False
+):
     """
     Prepares the csv files for the Voicebank dataset.
 
@@ -167,6 +169,8 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
         The directory where to store the csv files.
     valid_speaker_count : int
         The number of validation speakers to use (out of 28 in train set).
+    skip_prep: bool
+        If True, skip data preparation.
 
     Example
     -------
@@ -175,6 +179,9 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
     >>> prepare_voicebank(data_folder, save_folder)
     """
 
+    if skip_prep:
+        return
+
     # Setting ouput files
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
     save_csv_test = os.path.join(save_folder, TEST_CSV)
@@ -182,7 +189,7 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_csv_train, save_csv_test, save_csv_valid):
-        print("Preparation completed in previous run, skipping.")
+        logger.info("Preparation completed in previous run, skipping.")
         return
 
     train_clean_folder = os.path.join(
@@ -212,7 +219,7 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
 
     logger.debug("Creating lexicon...")
     lexicon = create_lexicon(os.path.join(data_folder, "lexicon.txt"))
-    print("Creating csv files for noisy VoiceBank...")
+    logger.info("Creating csv files for noisy VoiceBank...")
 
     logger.debug("Collecting files...")
     extension = [".wav"]
@@ -345,7 +352,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
         for line in csv_lines:
             csv_writer.writerow(line)
 
-    print(f"{csv_file} successfully created!")
+    logger.info(f"{csv_file} successfully created!")
 
 
 def check_voicebank_folders(*folders):
@@ -396,15 +403,15 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
         filename = os.path.join(tmp_dir, url.split("/")[-1])
         zip_files.append(filename)
         if not os.path.isfile(filename):
-            print("Downloading " + url)
+            logger.info("Downloading " + url)
             with urllib.request.urlopen(url) as response:
                 with open(filename, "wb") as tmp_file:
-                    print("... to " + tmp_file.name)
+                    logger.info("... to " + tmp_file.name)
                     shutil.copyfileobj(response, tmp_file)
 
     # Unzip
     for zip_file in zip_files:
-        print("Unzipping " + zip_file)
+        logger.info("Unzipping " + zip_file)
         shutil.unpack_archive(zip_file, tmp_dir, "zip")
         os.remove(zip_file)
 
@@ -423,7 +430,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
     downsampler = Resample(orig_freq=48000, new_freq=16000)
 
     for directory in dirs:
-        print("Resampling " + directory)
+        logger.info("Resampling " + directory)
         dirname = os.path.join(tmp_dir, directory)
 
         # Make directory to store downsampled files
@@ -450,7 +457,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
         # Remove old directory
         os.rmdir(dirname)
 
-    print("Zipping " + final_dir)
+    logger.info("Zipping " + final_dir)
     final_zip = shutil.make_archive(
         base_name=final_dir,
         format="zip",
@@ -458,5 +465,5 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
         base_dir=os.path.basename(final_dir),
     )
 
-    print(f"Moving {final_zip} to {destination}")
+    logger.info(f"Moving {final_zip} to {destination}")
     shutil.move(final_zip, os.path.join(destination, dataset_name + ".zip"))

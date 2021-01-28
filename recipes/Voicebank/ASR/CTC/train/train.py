@@ -7,7 +7,7 @@ To run this recipe, do the following:
 Use your own hyperparameter file or the provided `hyperparams.yaml`
 
 To use noisy inputs, change `input_type` field from `clean_wav` to `noisy_wav`.
-To use pretrained model, enter path in `pretrained` field.
+To use pretrained model, enter the path in `pretrained` field.
 
 Authors
  * Peter Plantinga 2020
@@ -22,6 +22,7 @@ from speechbrain.utils.distributed import run_on_main
 # Define training procedure
 class ASR_Brain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs = self.modules.augmentation(wavs, wav_lens)
@@ -34,6 +35,7 @@ class ASR_Brain(sb.Brain):
         return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
@@ -54,12 +56,14 @@ class ASR_Brain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.ctc_metrics = self.hparams.ctc_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -91,7 +95,7 @@ class ASR_Brain(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """Creates the datasets and their data processing pipelines"""
+    "Creates the datasets and their data processing pipelines."
 
     label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
@@ -153,22 +157,23 @@ if __name__ == "__main__":
     # Prepare data on one process
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
-    run_on_main(
-        prepare_voicebank,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_folder"],
-        },
-    )
-
-    datasets, label_encoder = dataio_prep(hparams)
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    run_on_main(
+        prepare_voicebank,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
+
+    datasets, label_encoder = dataio_prep(hparams)
 
     # Load pretrained model
     if "pretrained" in hparams:
