@@ -28,43 +28,36 @@ class QuaternionLSTM(torch.nn.Module):
 
     Arguments
     ---------
-    hidden_size: int
+    hidden_size : int
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in terms of quaternion-valued neurons. Thus, the output
         is 4*hidden_size.
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    bias: bool, optional
-        Default: True
-        If True, the additive bias b is adopted.
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    bias : bool, optional
+        If True, the additive bias b is adopted (default True).
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    bidirectional : bool, optional
         If True, a bidirectinoal model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
-    weight_init: str, optional
-        Default: quaternion.
+        the quaternion-valued weights (default "glorot").
+    weight_init : str, optional
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate random quaternion
         weights following the init_criterion and the quaternion polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Quaternion Recurrent Neural Networks",
         Parcollet T. et al.
-    autograd: bool, optional
-        Default: True.
+    autograd : bool, optional
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
+        memory consumption. It is also 2x slower (default True).
 
 
     Example
@@ -109,8 +102,7 @@ class QuaternionLSTM(torch.nn.Module):
         self.rnn = self._init_layers()
 
     def _init_layers(self,):
-        """
-        Initializes the layers of the quaternionLSTM.
+        """Initializes the layers of the quaternionLSTM.
 
         Arguments
         ---------
@@ -147,7 +139,9 @@ class QuaternionLSTM(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         # Reshaping input tensors for 4d inputs
         if self.reshape:
             if x.ndim == 4:
@@ -163,7 +157,9 @@ class QuaternionLSTM(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         h = []
         if hx is not None:
             if self.bidirectional:
@@ -193,42 +189,36 @@ class QuaternionLSTM_Layer(torch.nn.Module):
 
     Arguments
     ---------
-    input_size: int
+    input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size: int
+    batch_size : int
         Batch size of the input tensors.
-    hidden_size: int
+    hidden_size : int
         Number of output values (in term of real values).
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
-    weight_init: str, optional
-        Default: quaternion.
+        the quaternion-valued weights (default "glorot").
+    weight_init : str, optional
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate random quaternion
         weights following the init_criterion and the quaternion polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Quaternion Recurrent Neural Networks",
         Parcollet T. et al.
-    autograd: bool, optional
-        Default: True.
+    autograd : bool, optional
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
+        memory consumption. It is also 2x slower (default True).
     """
 
     def __init__(
@@ -294,6 +284,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -326,6 +317,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         wx : torch.Tensor
             Linearly transformed input.
         """
+
         hiddens = []
 
         # Initialise the cell state
@@ -387,7 +379,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         ).data
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks
+        """Selects one of the pre-defined dropout masks.
         """
         if self.training:
 
@@ -417,6 +409,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         the case of multi-gpu or when we have different batch sizes in train
         and test. We also update the h_int and drop masks.
         """
+
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
 
@@ -437,46 +430,38 @@ class QuaternionRNN(torch.nn.Module):
 
     Arguments
     ---------
-    hidden_size: int
+    hidden_size : int
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of quaternion-valued neurons. Thus, the output
         is 4*hidden_size.
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    nonlinearity: str, optional
-        Default: tanh
-        Type of nonlinearity (tanh, relu).
-    bias: bool, optional
-        Default: True
-        If True, the additive bias b is adopted.
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    nonlinearity : str, optional
+        Type of nonlinearity (tanh, relu) (default "tanh").
+    bias : bool, optional
+        If True, the additive bias b is adopted (default True).
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
-    weight_init: str, optional
-        Default: quaternion.
+        the quaternion-valued weights (default "glorot").
+    weight_init : str, optional
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate random quaternion
         weights following the init_criterion and the quaternion polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Quaternion Recurrent Neural Networks",
         Parcollet T. et al.
-    autograd: bool, optional
-        Default: True.
+    autograd : bool, optional
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
+        memory consumption. It is also 2x slower (default True).
 
 
     Example
@@ -531,6 +516,7 @@ class QuaternionRNN(torch.nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
+
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
         for i in range(self.num_layers):
@@ -604,49 +590,42 @@ class QuaternionRNN(torch.nn.Module):
 
 
 class QuaternionRNN_Layer(torch.nn.Module):
-    """ This function implements quaternion-valued recurrent layer.
+    """This function implements quaternion-valued recurrent layer.
 
     Arguments
     ---------
-    input_size: int
+    input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size: int
+    batch_size : int
         Batch size of the input tensors.
-    hidden_size: int
+    hidden_size : int
         Number of output values (in term of real values).
-    num_layers: int, optional
-        Default: 1
-        Number of layers to employ in the RNN architecture.
-    nonlinearity: str, optional
-        Default: tanh
-        Type of nonlinearity (tanh, relu).
-    dropout: float, optional
-        Default: 0.0
-        It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool, optional
-        Default: False
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
+    nonlinearity : str, optional
+        Type of nonlinearity (tanh, relu) (default "tanh").
+    dropout : float, optional
+        It is the dropout factor (must be between 0 and 1) (default 0.0).
+    bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
-        right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+        right-to-left and left-to-right is used (default False).
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
-    weight_init: str, optional
-        Default: quaternion.
+        the quaternion-valued weights (default "glorot").
+    weight_init : str, optional
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate random quaternion
         weights following the init_criterion and the quaternion polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Quaternion Recurrent Neural Networks",
         Parcollet T. et al.
-    autograd: bool, optional
-        Default: True.
+    autograd : bool, optional
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
+        memory consumption. It is also 2x slower (default True).
     """
 
     def __init__(
@@ -770,6 +749,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
+
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
         self.drop_mask_te = torch.tensor([1.0]).float()
 
@@ -781,8 +761,9 @@ class QuaternionRNN_Layer(torch.nn.Module):
         ).data
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks
+        """Selects one of the pre-defined dropout masks.
         """
+
         if self.training:
 
             # Sample new masks when needed
@@ -811,6 +792,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         the case of multi-gpu or when we have different batch sizes in train
         and test. We also update the h_int and drop masks.
         """
+
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
 
@@ -842,44 +824,41 @@ class QuaternionLiGRU(torch.nn.Module):
 
     Arguments
     ---------
-    hidden_size: int
+    hidden_size : int
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of quaternion-valued neurons. Thus, the output
         is 2*hidden_size.
-    nonlinearity: str
-         Type of nonlinearity (tanh, relu).
-    normalization: str
-         Type of normalization for the ligru model (batchnorm, layernorm).
-         Every string different from batchnorm and layernorm will result
-         in no normalization.
-    num_layers: int
-         Number of layers to employ in the RNN architecture.
-    bias: bool
+    nonlinearity : str
+        Type of nonlinearity (tanh, relu).
+    normalization : str
+        Type of normalization for the ligru model (batchnorm, layernorm).
+        Every string different from batchnorm and layernorm will result
+        in no normalization.
+    num_layers : int
+        Number of layers to employ in the RNN architecture.
+    bias : bool
         If True, the additive bias b is adopted.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
-    bidirectional: bool
-         if True, a bidirectional model that scans the sequence both
-         right-to-left and left-to-right is used.
-    init_criterion: str , optional
-        Default: he.
+    bidirectional : bool
+        If True, a bidirectional model that scans the sequence both
+        right-to-left and left-to-right is used.
+    init_criterion : str, optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
-    weight_init: str, optional
-        Default: quaternion.
+        the quaternion-valued weights (default "glorot").
+    weight_init : str, optional
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate random quaternion-valued
         weights following the init_criterion and the quaternion polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Deep quaternion Networks", Trabelsi C. et al.
-    autograd: bool, optional
-        Default: True.
+    autograd : bool, optional
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
+        memory consumption. It is also 2x slower (default True).
 
     Example
     -------
@@ -978,6 +957,7 @@ class QuaternionLiGRU(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
         h = []
         if hx is not None:
@@ -1021,27 +1001,24 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
-        if True, a bidirectional model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     init_criterion: str , optional
-        Default: he.
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
+        the quaternion-valued weights (default "glorot").
     weight_init: str, optional
-        Default: quaternion.
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate random quaternion
         weights following the init_criterion and the quaternion polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Deep quaternion Networks", Trabelsi C. et al.
     autograd: bool, optional
-        Default: True.
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
-        memory consumption. It is also 2x slower.
+        memory consumption. It is also 2x slower (default True).
     """
 
     def __init__(
@@ -1130,7 +1107,9 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
+
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
@@ -1167,6 +1146,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         wx : torch.Tensor
             Linearly transformed input.
         """
+
         hiddens = []
 
         # Sampling dropout mask
@@ -1191,6 +1171,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
+
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
         self.drop_mask_te = torch.tensor([1.0]).float()
 
@@ -1205,6 +1186,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
     def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks
         """
+
         if self.training:
 
             # Sample new masks when needed
@@ -1234,6 +1216,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         the case of multi-gpu or when we have different batch sizes in train
         and test. We also update the h_int and drop masks.
         """
+
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
 
