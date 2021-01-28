@@ -1,4 +1,4 @@
-"""CNN Transformer model for SE in the SpeechBrain style
+"""CNN Transformer model for SE in the SpeechBrain style.
 
 Authors
 * Chien-Feng Liao 2020
