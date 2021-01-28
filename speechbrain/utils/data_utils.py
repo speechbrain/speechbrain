@@ -302,7 +302,7 @@ def download_file(
                         source, filename=dest, reporthook=t.update_to
                     )
             else:
-                print("Destination path is not empty. Skipping download")
+                print(f"{dest} exists. Skipping download")
 
             # Unpack if necessary
             if unpack:
