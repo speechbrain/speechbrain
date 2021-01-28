@@ -23,48 +23,40 @@ class ComplexConv1d(torch.nn.Module):
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         Number of output channels. Please note
         that these are complex-valued neurons. If 256
         channels are specified, the output dimension
         will be 512.
-    kernel_size: int
+    kernel_size : int
         Kernel size of the convolutional filters.
-    stride: int, optional
-        Default: 1.
-        Stride factor of the convolutional filters.
-    dilation: int, optional
-        Default: 1.
-        Dilation factor of the convolutional filters.
-    padding: str, optional
-        Default: same.
+    stride : int, optional
+        Stride factor of the convolutional filters (default 1).
+    dilation : int, optional
+        Dilation factor of the convolutional filters (default 1).
+    padding : str, optional
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
-        "causal" results in causal (dilated) convolutions.
-    padding_mode: str, optional
-        Default: reflect.
+        "causal" results in causal (dilated) convolutions. (default "same")
+    padding_mode : str, optional
         This flag specifies the type of padding. See torch.nn documentation
-        for more information.
-    groups: int, optional
-        Default: 1
+        for more information (default "reflect").
+    groups : int, optional
         This option specifies the convolutional groups. See torch.nn
-        documentation for more information.
-    bias: bool, optional
-        Default: True.
-        If True, the additive bias b is adopted.
-    init_criterion: str , optional
-        Default: he.
+        documentation for more information (default 1).
+    bias : bool, optional
+        If True, the additive bias b is adopted (default True).
+    init_criterion : str, optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the complex-valued weights.
-    weight_init: str, optional
-        Default: complex.
+        the complex-valued weights. (default "glorot")
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
         complex-valued weights. "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle. (default "complex")
         More details in: "Deep Complex Networks", Trabelsi C. et al.
 
     Example
@@ -138,8 +130,9 @@ class ComplexConv1d(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
-            input to convolve. 3d or 4d tensors are expected.
+        x : torch.Tensor
+            (batch, time, channel).
+            Input to convolve. 3d or 4d tensors are expected.
 
         """
         # (batch, channel, time)
@@ -183,9 +176,13 @@ class ComplexConv1d(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         kernel_size : int
+            Kernel size.
         dilation : int
-        stride: int
+            Dilation.
+        stride : int
+            Stride.
         """
 
         # Detecting input shape
@@ -200,8 +197,7 @@ class ComplexConv1d(torch.nn.Module):
         return x
 
     def _check_input(self, input_shape):
-        """
-        Checks the input and returns the number of input channels.
+        """Checks the input and returns the number of input channels.
         """
 
         if len(input_shape) == 3:
@@ -233,6 +229,7 @@ class ComplexConv1d(torch.nn.Module):
     def _get_kernel_and_weight_shape(self):
         """ Returns the kernel size and weight shape for convolutional layers.
         """
+
         ks = self.kernel_size
         w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
         return ks, w_shape
@@ -243,46 +240,38 @@ class ComplexConv2d(nn.Module):
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         Number of output channels. Please note
         that these are complex-valued neurons. If 256
         channels are specified, the output dimension
         will be 512.
-    kernel_size: int
+    kernel_size : int
         Kernel size of the convolutional filters.
-    stride: int, optional
-        Default: 1.
-        Stride factor of the convolutional filters.
-    dilation: int, optional
-        Default: 1.
-        Dilation factor of the convolutional filters.
-    padding: str, optional
-        Default: same.
+    stride : int, optional
+        Stride factor of the convolutional filters (default 1).
+    dilation : int, optional
+        Dilation factor of the convolutional filters (default 1).
+    padding : str, optional
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
-        "causal" results in causal (dilated) convolutions.
-    padding_mode: str, optional
-        Default: reflect.
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information.
-    groups: int, optional
-        Default: 1
-        This option specifies the convolutional groups. See torch.nn
+        "causal" results in causal (dilated) convolutions. (default "same")
+    padding_mode : str, optional
+        This flag specifies the type of padding (default "reflect").
+        See torch.nn documentation for more information.
+    groups : int, optional
+        This option specifies the convolutional groups (default 1). See torch.nn
         documentation for more information.
     bias: bool, optional
-        Default: True.
-        If True, the additive bias b is adopted.
+        If True, the additive bias b is adopted (default True).
     init_criterion: str , optional
-        Default: he.
         (glorot, he).
-        This parameter controls the initialization criterion of the weights.
+        This parameter controls the initialization criterion of the weights (default "glorot").
         It is combined with weights_init to build the initialization method of
         the complex-valued weights.
     weight_init: str, optional
-        Default: complex.
         (complex, unitary).
         This parameter defines the initialization procedure of the
-        complex-valued weights. "complex" will generate random complex-valued
+        complex-valued weights (default complex). "complex" will generate random complex-valued
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
@@ -368,10 +357,11 @@ class ComplexConv2d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, feature, channels)
-            input to convolve. 3d or 4d tensors are expected.
-
+        x : torch.Tensor
+            (batch, time, feature, channels).
+            Input to convolve. 3d or 4d tensors are expected.
         """
+
         if init_params:
             self.init_params(x)
 
@@ -414,6 +404,7 @@ class ComplexConv2d(nn.Module):
     def _get_kernel_and_weight_shape(self):
         """ Returns the kernel size and weight shape for convolutional layers.
         """
+
         ks = (self.kernel_size[0], self.kernel_size[1])
         w_shape = (self.out_channels, self.in_channels) + (*ks,)
         return ks, w_shape
@@ -425,9 +416,13 @@ class ComplexConv2d(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         kernel_size : int
+            Kernel size.
         dilation : int
+            Dilation.
         stride: int
+            Stride.
         """
         # Detecting input shape
         L_in = x.shape[-1]
@@ -448,8 +443,7 @@ class ComplexConv2d(nn.Module):
         return x
 
     def _check_input(self, input_shape):
-        """
-        Checks the input and returns the number of input channels.
+        """Checks the input and returns the number of input channels.
         """
         if len(input_shape) == 3:
             self.unsqueeze = True
