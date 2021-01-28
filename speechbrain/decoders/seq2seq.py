@@ -32,10 +32,10 @@ class S2SBaseSearcher(torch.nn.Module):
 
     Returns
     -------
-    predictions:
+    predictions
         Outputs as Python list of lists, with "ragged" dimensions; padding
         has been removed.
-    scores:
+    scores
         The sum of log probabilities (and possibly
         additional heuristic scores) for each prediction.
 
@@ -864,8 +864,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
     See also S2SBaseSearcher(), S2SBeamSearcher().
-    Parameters
-    ----------
+
+    Arguments
+    ---------
     embedding : torch.nn.Module
         An embedding layer
     decoder : torch.nn.Module
@@ -877,6 +878,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         distribution, being softer when T>1 and sharper with T<1.
     **kwargs
         see S2SBeamSearcher, arguments are directly passed
+
     Example
     -------
     >>> emb = torch.nn.Embedding(5, 3)
@@ -967,8 +969,9 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
     This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
     See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
-    Parameters
-    ----------
+
+    Arguments
+    ---------
     embedding : torch.nn.Module
         An embedding layer
     decoder : torch.nn.Module
@@ -982,6 +985,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         distribution, being softer when T>1 and sharper with T<1.
     **kwargs
         Arguments to pass to S2SBeamSearcher
+
     Example
     -------
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
@@ -1060,8 +1064,9 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
     This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
     See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
-    Parameters
-    ----------
+
+    Arguments
+    ---------
     embedding : torch.nn.Module
         An embedding layer
     decoder : torch.nn.Module
@@ -1075,6 +1080,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         distribution, being softer when T>1 and sharper with T<1.
     **kwargs
         Arguments to pass to S2SBeamSearcher
+
     Example
     -------
     >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
@@ -1142,8 +1148,8 @@ def inflate_tensor(tensor, times, dim):
     """
     This function inflates the tensor for times along dim.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     tensor : torch.Tensor
         The tensor to be inflated.
     times : int
@@ -1173,8 +1179,8 @@ def mask_by_condition(tensor, cond, fill_value):
     """
     This function will mask some element in the tensor with fill_value, if condition=False.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     tensor : torch.Tensor
         The tensor to be masked.
     cond : torch.BoolTensor
@@ -1283,8 +1289,8 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
     """Calling batch_size times of filter_seq2seq_output.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     prediction : list of torch.Tensor
         a list containing the output ints predicted by the seq2seq system.
     eos_id : int, string
@@ -1297,10 +1303,10 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
 
     Example
     -------
-        >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
-        >>> predictions = batch_filter_seq2seq_output(predictions, eos_id=4)
-        >>> predictions
-        [[1, 2, 3], [2, 3]]
+    >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
+    >>> predictions = batch_filter_seq2seq_output(predictions, eos_id=4)
+    >>> predictions
+    [[1, 2, 3], [2, 3]]
     """
     outputs = []
     for p in prediction:
@@ -1312,8 +1318,8 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
 def filter_seq2seq_output(string_pred, eos_id=-1):
     """Filter the output until the first eos occurs (exclusive).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     string_pred : list
         a list containing the output strings/ints predicted by the seq2seq system.
     eos_id : int, string
@@ -1326,10 +1332,10 @@ def filter_seq2seq_output(string_pred, eos_id=-1):
 
     Example
     -------
-        >>> string_pred = ['a','b','c','d','eos','e']
-        >>> string_out = filter_seq2seq_output(string_pred, eos_id='eos')
-        >>> string_out
-        ['a', 'b', 'c', 'd']
+    >>> string_pred = ['a','b','c','d','eos','e']
+    >>> string_out = filter_seq2seq_output(string_pred, eos_id='eos')
+    >>> string_out
+    ['a', 'b', 'c', 'd']
     """
     if isinstance(string_pred, list):
         try:

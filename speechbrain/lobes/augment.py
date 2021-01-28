@@ -1,4 +1,9 @@
-"""An approximation of the SpecAugment algorithm, carried out in the time domain.
+"""
+Combinations of processing algorithms to implement common augmentations.
+
+Examples:
+ * SpecAugment
+ * Environmental corruption (noise, reverberation)
 
 Authors
  * Peter Plantinga 2020
@@ -197,6 +202,13 @@ class SpecAugment(torch.nn.Module):
 class TimeDomainSpecAugment(torch.nn.Module):
     """A time-domain approximation of the SpecAugment algorithm.
 
+    This augmentation module implements three augmentations in
+    the time-domain.
+
+     1. Drop chunks of the audio (zero amplitude or white noise)
+     2. Drop frequency bands (with band-drop filters)
+     3. Speed peturbation (via resampling to slightly different rate)
+
     Arguments
     ---------
     perturb_prob : float from 0 to 1
@@ -207,7 +219,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
         The probability that a batch will have chunks dropped.
     speeds : list of ints
         A set of different speeds to use to perturb each batch.
-        See `speechbrain.processing.speech_augmentation.SpeedPerturb`
+        See ``speechbrain.processing.speech_augmentation.SpeedPerturb``
     sample_rate : int
         Sampling rate of the input waveforms.
     drop_freq_count_low : int
@@ -222,6 +234,9 @@ class TimeDomainSpecAugment(torch.nn.Module):
         Lowest length of chunks that could be dropped.
     drop_chunk_length_high : int
         Highest length of chunks that could be dropped.
+    drop_chunk_noise_factor : float
+        The noise factor used to scale the white noise inserted, relative to
+        the average amplitude of the utterance. Default 0 (no noise inserted).
 
     Example
     -------
@@ -245,6 +260,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
         drop_chunk_count_high=5,
         drop_chunk_length_low=1000,
         drop_chunk_length_high=2000,
+        drop_chunk_noise_factor=0,
     ):
         super().__init__()
         self.speed_perturb = SpeedPerturb(
@@ -261,6 +277,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
             drop_count_high=drop_chunk_count_high,
             drop_length_low=drop_chunk_length_low,
             drop_length_high=drop_chunk_length_high,
+            noise_factor=drop_chunk_noise_factor,
         )
 
     def forward(self, waveforms, lengths):
