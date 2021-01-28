@@ -261,14 +261,14 @@ class ComplexConv2d(nn.Module):
     groups : int, optional
         This option specifies the convolutional groups (default 1). See torch.nn
         documentation for more information.
-    bias: bool, optional
+    bias : bool, optional
         If True, the additive bias b is adopted (default True).
-    init_criterion: str , optional
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights (default "glorot").
         It is combined with weights_init to build the initialization method of
         the complex-valued weights.
-    weight_init: str, optional
+    weight_init : str, optional
         (complex, unitary).
         This parameter defines the initialization procedure of the
         complex-valued weights (default complex). "complex" will generate random complex-valued
