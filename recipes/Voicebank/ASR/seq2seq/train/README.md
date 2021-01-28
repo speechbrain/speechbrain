@@ -1,5 +1,5 @@
 # VoiceBank ASR with a seq2seq model
-This folder contains the scripts to train a RNN speech recognizer based on CTC+ATT 
+This folder contains the scripts to train a RNN speech recognizer based on CTC+ATT
 using Voicebank.
 !!Add downloading instructions!!
 
@@ -9,10 +9,9 @@ python train.py train/train.yaml
 # Results
 
 | Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
+|:-------------:|:---------------------------:| -----:| -----:| --------:|
 | 20-05-22 | train.yaml | -.-- | Not Available | 1xV100 32GB |
 
 
 # Training Time
 About N for each epoch with a TESLA V100.
-
