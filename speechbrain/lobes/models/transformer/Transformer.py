@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain sytle
+"""Transformer implementaion in the SpeechBrain sytle.
 
 Authors
 * Jianyuan Zhong 2020
