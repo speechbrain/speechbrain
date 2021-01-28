@@ -1,6 +1,6 @@
 # VoiceBank ASR with a seq2seq model
-This folder contains the scripts to train a RNN speech recognizer based on CTC+ATT
-using Voicebank.
+
+This folder contains the scripts to train a RNN speech recognizer based on CTC+ATT using Voicebank.
 !!Add downloading instructions!!
 
 # How to run

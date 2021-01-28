@@ -36,6 +36,7 @@ def prepare_librispeech(
     merge_lst=[],
     merge_name=None,
     create_lexicon=False,
+    skip_prep=False,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -65,6 +66,8 @@ def prepare_librispeech(
     create_lexicon: bool
         If True, it outputs csv files contaning mapping between graphene
         to phonemes. Use it for training a G2P system.
+    skip_prep: bool
+        If True, data preparation is skipped.
 
 
     Example
@@ -74,6 +77,9 @@ def prepare_librispeech(
     >>> save_folder = 'librispeech_prepared'
     >>> prepare_librispeech(data_folder, splits, save_folder)
     """
+
+    if skip_prep:
+        return
     data_folder = data_folder
     splits = tr_splits + dev_splits + te_splits
     save_folder = save_folder
@@ -184,7 +190,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
             lexicon_pronunciations.append(pronunciation)
 
     # Create lexicon.csv
-    header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
+    header = "ID,duration,char,char_format, char_opts,phn,phn_format,phn_opts\n"
     lexicon_csv_path = os.path.join(save_folder, "lexicon.csv")
     with open(lexicon_csv_path, "w") as f:
         f.write(header)
@@ -246,7 +252,7 @@ def split_lexicon(data_folder, split_ratio):
     random.shuffle(lexicon_lines)
 
     # Selecting lines
-    header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
+    header = "ID,duration,char,char_format,char_opts,phn,phn_format,phn_opts\n"
 
     tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
     train_lines = [header] + lexicon_lines[0:tr_snts]

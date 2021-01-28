@@ -1074,6 +1074,7 @@ class Brain:
             num_to_keep=1,
             ckpt_predicate=lambda c: INTRA_EPOCH_CKPT_FLAG in c.meta,
             meta={INTRA_EPOCH_CKPT_FLAG: True},
+            verbosity=logging.DEBUG,
         )
 
     def _compile_jit(self):

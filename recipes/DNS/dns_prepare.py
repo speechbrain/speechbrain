@@ -33,6 +33,7 @@ def prepare_dns(
     valid_ratio=0.002,
     valid_snr_low=0,
     valid_snr_high=40,
+    skip_prep=False,
 ):
     """
     Prepares the csv files for the DNS challenge dataset.
@@ -53,6 +54,8 @@ def prepare_dns(
         Lowest SNR to use when mixing the validation set.
     valid_snr_high : float
         Highest SNR to use when mixing the validiation set.
+    skip_prep: bool
+        If False, skip data preparation.
 
     Example
     -------
@@ -61,6 +64,8 @@ def prepare_dns(
     >>> save_folder = 'DNS_prepared'
     >>> prepare_dns(data_folder, save_folder)
     """
+    if skip_prep:
+        return
 
     if valid_ratio > 0 and valid_folder is None:
         raise ValueError("Must provide folder for storing validation data")
@@ -82,10 +87,10 @@ def prepare_dns(
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder):
-        print("Preparation completed in previous run.")
+        logger.info("Preparation completed in previous run.")
         return
 
-    print("Creating csv files for the DNS Dataset...")
+    logger.info("Creating csv files for the DNS Dataset...")
 
     # Setting ouput files
     save_csv_noise = os.path.join(save_folder, NOISE_CSV)
@@ -201,7 +206,7 @@ def create_csv(
     if noise_csv and has_target:
         raise ValueError("Expected only one of `noise_csv` and `has_target`")
 
-    print("Creating csv list: %s" % csv_file)
+    logger.info("Creating csv list: %s" % csv_file)
 
     csv_lines = [["ID", "duration", "wav", "wav_format", "wav_opts"]]
     if noise_csv or has_target:
@@ -275,7 +280,7 @@ def create_csv(
 
     # Writing the csv lines
     _write_csv(csv_lines, csv_file)
-    print("%s successfully created!" % csv_file)
+    logger.info("%s successfully created!" % csv_file)
 
 
 def _write_csv(csv_lines, csv_file):

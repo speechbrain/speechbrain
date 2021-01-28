@@ -17,7 +17,7 @@ save_folder: !ref <output_folder>/save
 train_data: !ref <save_folder>/wsj_tr.csv
 valid_data: !ref <save_folder>/wsj_cv.csv
 test_data: !ref <save_folder>/wsj_tt.csv
-
+skip_prep: False
 
 # Experiment params
 auto_mix_prec: False
@@ -38,9 +38,10 @@ limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
 training_signal_len: 32000
-
+threshold_byloss: False
 
 # Augment parameters
+dynamic_mixing: False
 use_wavedrop: False
 use_speedperturb: True
 use_rand_shift: False
