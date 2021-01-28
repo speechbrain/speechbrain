@@ -36,7 +36,6 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
@@ -246,16 +245,6 @@ def dataio_prepare(hparams):
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
-
-    """Load the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tokenizer.model")
-
-    if "tokenizer_file" in hparams:
-        download_file(
-            source=hparams["tokenizer_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
 
     # Defining tokenizer and loading it
     # To avoid mismatch, we have to use the same tokenizer used for LM training

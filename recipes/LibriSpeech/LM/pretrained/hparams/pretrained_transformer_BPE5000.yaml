@@ -29,3 +29,4 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
 
 tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
+    save_folder: !ref <save_folder>
