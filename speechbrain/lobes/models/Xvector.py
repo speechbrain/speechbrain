@@ -90,7 +90,7 @@ class Xvector(torch.nn.Module):
         )
 
     def forward(self, x, lens=None):
-        """Returns the x vectors.
+        """Returns the x-vectors.
 
         Arguments
         ---------
