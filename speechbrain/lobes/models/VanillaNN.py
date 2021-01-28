@@ -1,4 +1,4 @@
-"""Vanilla Neural Network for simple tests
+"""Vanilla Neural Network for simple tests.
 
 Authors
 * Elena Rastorgueva 2020

@@ -1,4 +1,4 @@
-"""Library to support dual-path speech separation
+"""Library to support dual-path speech separation.
 
 Authors
  * Cem Subakan 2020
