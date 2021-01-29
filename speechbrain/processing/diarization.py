@@ -105,7 +105,7 @@ def write_ders_file(ref_rttm, DER, out_der_file):
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
-    """Prepares csv for a given recording ID
+    """Prepares csv for a given recording ID.
 
     Arguments
     ---------
@@ -134,7 +134,7 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
 
 
 def is_overlapped(end1, start2):
-    """Returns True if segments are overlapping
+    """Returns True if segments are overlapping.
 
     Arguments
     ---------
