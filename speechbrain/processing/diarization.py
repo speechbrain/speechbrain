@@ -617,8 +617,7 @@ def spectral_embedding_sb(
 def spectral_clustering_sb(
     affinity, n_clusters=8, n_components=None, random_state=None, n_init=10,
 ):
-    """
-    Performs spectral clustering.
+    """Performs spectral clustering.
 
     Arguments
     ---------
