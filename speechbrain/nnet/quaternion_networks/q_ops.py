@@ -1,11 +1,11 @@
 """This library implements different operations needed by quaternion-
- valued architectures.
-  This work is inspired by:
-  "Quaternion neural networks" - Parcollet T.
-  "Quaternion recurrent neural networks" - Parcollet T. et al.
-  "Quaternion convolutional neural networks for end-to-end automatic speech
-  recognition" - Parcollet T. et al.
-  "Deep quaternion networks" - Gaudet Chase J. et al.
+valued architectures.
+This work is inspired by:
+"Quaternion neural networks" - Parcollet T.
+"Quaternion recurrent neural networks" - Parcollet T. et al.
+"Quaternion convolutional neural networks for end-to-end automatic speech
+recognition" - Parcollet T. et al.
+"Deep quaternion networks" - Gaudet Chase J. et al.
 
 Authors
  * Titouan Parcollet 2020
@@ -605,7 +605,7 @@ def quaternion_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
     """Returns a matrix of quaternion numbers initialized with the method
-        described in "Quaternion Recurrent Neural Network " - Parcollt T.
+    described in "Quaternion Recurrent Neural Network " - Parcollt T.
 
     Arguments
     ---------
