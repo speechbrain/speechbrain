@@ -8,7 +8,7 @@ import torch
 from torch.nn import Parameter
 
 
-class QuaternionBatchNorm(torch.nn.Module):
+class QBatchNorm(torch.nn.Module):
     """This class implements the simplest form of a quaternion batchnorm as
     described in : "Quaternion Convolutional Neural Network for
     Color Image Classification and Forensics", Qilin Y. et al.
@@ -37,7 +37,7 @@ class QuaternionBatchNorm(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40])
-    >>> QBN = QuaternionBatchNorm(input_size=40)
+    >>> QBN = QBatchNorm(input_size=40)
     >>> out_tensor = QBN(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 40])
@@ -54,7 +54,7 @@ class QuaternionBatchNorm(torch.nn.Module):
         eps=1e-4,
         track_running_stats=True,
     ):
-        super(QuaternionBatchNorm, self).__init__()
+        super(QBatchNorm, self).__init__()
 
         self.num_features = input_size // 4
         self.gamma_init = gamma_init

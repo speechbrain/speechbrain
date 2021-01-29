@@ -6,19 +6,15 @@ Authors
 
 import torch
 import logging
-from speechbrain.nnet.quaternion_networks.quaternion_linear import (
-    QuaternionLinear,
-)
-from speechbrain.nnet.quaternion_networks.quaternion_normalization import (
-    QuaternionBatchNorm,
-)
+from speechbrain.nnet.quaternion_networks.q_linear import QLinear
+from speechbrain.nnet.quaternion_networks.q_normalization import QBatchNorm
 from torch import Tensor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-class QuaternionLSTM(torch.nn.Module):
+class QLSTM(torch.nn.Module):
     """ This function implements a quaternion-valued LSTM as first introduced
     in : "Quaternion Recurrent Neural Networks", Parcollet T. et al.
 
@@ -63,7 +59,7 @@ class QuaternionLSTM(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 40])
-    >>> rnn = QuaternionLSTM(hidden_size=16, input_shape=inp_tensor.shape)
+    >>> rnn = QLSTM(hidden_size=16, input_shape=inp_tensor.shape)
     >>> out_tensor = rnn(inp_tensor)
     >>>
     torch.Size([10, 16, 64])
@@ -112,7 +108,7 @@ class QuaternionLSTM(torch.nn.Module):
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
         for i in range(self.num_layers):
-            rnn_lay = QuaternionLSTM_Layer(
+            rnn_lay = QLSTM_Layer(
                 current_dim,
                 self.hidden_size,
                 self.num_layers,
@@ -184,7 +180,7 @@ class QuaternionLSTM(torch.nn.Module):
         return x, h
 
 
-class QuaternionLSTM_Layer(torch.nn.Module):
+class QLSTM_Layer(torch.nn.Module):
     """ This function implements quaternion-valued LSTM layer.
 
     Arguments
@@ -234,7 +230,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         autograd="true",
     ):
 
-        super(QuaternionLSTM_Layer, self).__init__()
+        super(QLSTM_Layer, self).__init__()
 
         self.hidden_size = int(hidden_size) // 4  # Express in term of quat
         self.input_size = int(input_size)
@@ -245,7 +241,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
         self.weight_init = weight_init
         self.autograd = autograd
 
-        self.w = QuaternionLinear(
+        self.w = QLinear(
             input_shape=self.input_size,
             n_neurons=self.hidden_size * 4,  # Forget, Input, Output, Cell
             bias=True,
@@ -254,7 +250,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
             autograd=self.autograd,
         )
 
-        self.u = QuaternionLinear(
+        self.u = QLinear(
             input_shape=self.hidden_size * 4,  # The input size is in real
             n_neurons=self.hidden_size * 4,
             bias=True,
@@ -421,7 +417,7 @@ class QuaternionLSTM_Layer(torch.nn.Module):
                 ).data
 
 
-class QuaternionRNN(torch.nn.Module):
+class QRNN(torch.nn.Module):
     """ This function implements a vanilla quaternion-valued RNN.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
@@ -467,7 +463,7 @@ class QuaternionRNN(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 40])
-    >>> rnn = QuaternionRNN(hidden_size=16, input_shape=inp_tensor.shape)
+    >>> rnn = QRNN(hidden_size=16, input_shape=inp_tensor.shape)
     >>> out_tensor = rnn(inp_tensor)
     >>>
     torch.Size([10, 16, 64])
@@ -520,7 +516,7 @@ class QuaternionRNN(torch.nn.Module):
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
         for i in range(self.num_layers):
-            rnn_lay = QuaternionRNN_Layer(
+            rnn_lay = QRNN_Layer(
                 current_dim,
                 self.hidden_size,
                 self.num_layers,
@@ -589,7 +585,7 @@ class QuaternionRNN(torch.nn.Module):
         return x, h
 
 
-class QuaternionRNN_Layer(torch.nn.Module):
+class QRNN_Layer(torch.nn.Module):
     """This function implements quaternion-valued recurrent layer.
 
     Arguments
@@ -642,7 +638,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         autograd="true",
     ):
 
-        super(QuaternionRNN_Layer, self).__init__()
+        super(QRNN_Layer, self).__init__()
 
         self.hidden_size = int(hidden_size) // 4  # Express in term of quat
         self.input_size = int(input_size)
@@ -653,7 +649,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
         self.weight_init = weight_init
         self.autograd = autograd
 
-        self.w = QuaternionLinear(
+        self.w = QLinear(
             input_shape=self.input_size,
             n_neurons=self.hidden_size,
             bias=True,
@@ -662,7 +658,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
             autograd=self.autograd,
         )
 
-        self.u = QuaternionLinear(
+        self.u = QLinear(
             input_shape=self.hidden_size * 4,  # The input size is in real
             n_neurons=self.hidden_size,
             bias=True,
@@ -804,7 +800,7 @@ class QuaternionRNN_Layer(torch.nn.Module):
                 ).data
 
 
-class QuaternionLiGRU(torch.nn.Module):
+class QLiGRU(torch.nn.Module):
     """ This function implements a quaternion-valued Light GRU (liGRU).
 
     Ligru is single-gate GRU model based on batch-norm + relu
@@ -863,7 +859,7 @@ class QuaternionLiGRU(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 40])
-    >>> rnn = QuaternionLiGRU(input_shape=inp_tensor.shape, hidden_size=16)
+    >>> rnn = QLiGRU(input_shape=inp_tensor.shape, hidden_size=16)
     >>> out_tensor = rnn(inp_tensor)
     >>>
     torch.Size([4, 10, 5])
@@ -914,7 +910,7 @@ class QuaternionLiGRU(torch.nn.Module):
         current_dim = self.fea_dim
 
         for i in range(self.num_layers):
-            rnn_lay = QuaternionLiGRU_Layer(
+            rnn_lay = QLiGRU_Layer(
                 current_dim,
                 self.hidden_size,
                 self.num_layers,
@@ -982,7 +978,7 @@ class QuaternionLiGRU(torch.nn.Module):
         return x, h
 
 
-class QuaternionLiGRU_Layer(torch.nn.Module):
+class QLiGRU_Layer(torch.nn.Module):
     """ This function implements quaternion-valued Light-Gated Recurrent Units
         (ligru) layer.
 
@@ -1036,7 +1032,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         autograd=True,
     ):
 
-        super(QuaternionLiGRU_Layer, self).__init__()
+        super(QLiGRU_Layer, self).__init__()
         self.hidden_size = int(hidden_size) // 4
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -1048,7 +1044,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         self.nonlinearity = nonlinearity
         self.autograd = autograd
 
-        self.w = QuaternionLinear(
+        self.w = QLinear(
             input_shape=self.input_size,
             n_neurons=self.hidden_size * 2,
             bias=False,
@@ -1057,7 +1053,7 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
             autograd=self.autograd,
         )
 
-        self.u = QuaternionLinear(
+        self.u = QLinear(
             input_shape=self.hidden_size * 4,  # The input size is in real
             n_neurons=self.hidden_size * 2,
             bias=False,
@@ -1073,12 +1069,12 @@ class QuaternionLiGRU_Layer(torch.nn.Module):
         self.normalize = False
 
         if self.normalization == "batchnorm":
-            self.norm = QuaternionBatchNorm(input_size=hidden_size * 2, dim=-1)
+            self.norm = QBatchNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = True
         else:
             # Normalization is disabled here. self.norm is only  formally
             # initialized to avoid jit issues.
-            self.norm = QuaternionBatchNorm(input_size=hidden_size * 2, dim=-1)
+            self.norm = QBatchNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = False
 
         # Initial state
