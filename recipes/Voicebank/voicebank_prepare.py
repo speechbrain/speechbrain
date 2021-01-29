@@ -11,7 +11,7 @@ Authors:
 """
 
 import os
-import csv
+import json
 import string
 import urllib
 import shutil
@@ -24,9 +24,9 @@ from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
-TRAIN_CSV = "train.csv"
-TEST_CSV = "test.csv"
-VALID_CSV = "valid.csv"
+TRAIN_JSON = "train.json"
+TEST_JSON = "test.json"
+VALID_JSON = "valid.json"
 SAMPLERATE = 16000
 TRAIN_SPEAKERS = [
     "p226",
@@ -156,7 +156,7 @@ def prepare_voicebank(
     data_folder, save_folder, valid_speaker_count=2, skip_prep=False
 ):
     """
-    Prepares the csv files for the Voicebank dataset.
+    Prepares the json files for the Voicebank dataset.
 
     Expects the data folder to be the same format as the output of
     ``download_vctk()`` below.
@@ -166,7 +166,7 @@ def prepare_voicebank(
     data_folder : str
         Path to the folder where the original Voicebank dataset is stored.
     save_folder : str
-        The directory where to store the csv files.
+        The directory where to store the json files.
     valid_speaker_count : int
         The number of validation speakers to use (out of 28 in train set).
     skip_prep: bool
@@ -183,12 +183,12 @@ def prepare_voicebank(
         return
 
     # Setting ouput files
-    save_csv_train = os.path.join(save_folder, TRAIN_CSV)
-    save_csv_test = os.path.join(save_folder, TEST_CSV)
-    save_csv_valid = os.path.join(save_folder, VALID_CSV)
+    save_json_train = os.path.join(save_folder, TRAIN_JSON)
+    save_json_valid = os.path.join(save_folder, VALID_JSON)
+    save_json_test = os.path.join(save_folder, TEST_JSON)
 
     # Check if this phase is already done (if so, skip it)
-    if skip(save_csv_train, save_csv_test, save_csv_valid):
+    if skip(save_json_train, save_json_test, save_json_valid):
         logger.info("Preparation completed in previous run, skipping.")
         return
 
@@ -219,7 +219,7 @@ def prepare_voicebank(
 
     logger.debug("Creating lexicon...")
     lexicon = create_lexicon(os.path.join(data_folder, "lexicon.txt"))
-    logger.info("Creating csv files for noisy VoiceBank...")
+    logger.info("Creating json files for noisy VoiceBank...")
 
     logger.debug("Collecting files...")
     extension = [".wav"]
@@ -232,15 +232,15 @@ def prepare_voicebank(
     )
     wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
 
-    logger.debug("Creating csv files for noisy VoiceBank...")
-    create_csv(
-        wav_lst_train, save_csv_train, train_clean_folder, train_txts, lexicon
+    logger.debug("Creating json files for noisy VoiceBank...")
+    create_json(
+        wav_lst_train, save_json_train, train_clean_folder, train_txts, lexicon
     )
-    create_csv(
-        wav_lst_valid, save_csv_valid, train_clean_folder, train_txts, lexicon
+    create_json(
+        wav_lst_valid, save_json_valid, train_clean_folder, train_txts, lexicon
     )
-    create_csv(
-        wav_lst_test, save_csv_test, test_clean_folder, test_txts, lexicon
+    create_json(
+        wav_lst_test, save_json_test, test_clean_folder, test_txts, lexicon
     )
 
 
@@ -278,76 +278,88 @@ def create_lexicon(lexicon_save_filepath):
     if not os.path.isfile(lexicon_save_filepath):
         download_file(LEXICON_URL, lexicon_save_filepath)
 
+    # Iterate lexicon file and add the first pronunciation in the file for
+    # each word to our lexicon dictionary
     lexicon = MISSING_LEXICON
+    delayed_words = {}
     for line in open(lexicon_save_filepath):
         line = line.split()
         phns = " ".join(p.strip("012") for p in line[1:])
-        lexicon[remove_punctuation(line[0])] = phns
+
+        # Don't add words with punctuation until we can be sure they won't
+        # overwrite words without punctuation.
+        clean_word = remove_punctuation(line[0])
+        if clean_word != line[0] and clean_word not in delayed_words:
+            delayed_words[clean_word] = phns
+        elif clean_word == line[0] and clean_word not in lexicon:
+            lexicon[clean_word] = phns
+
+    # Add words with punctuation if they won't overwrite non-puncutated words
+    for word, phns in delayed_words.items():
+        if word not in lexicon:
+            lexicon[word] = phns
 
     return lexicon
 
 
-def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
+def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
     """
-    Creates the csv file given a list of wav files.
+    Creates the json file given a list of wav files.
 
     Arguments
     ---------
     wav_lst : list
         The list of wav files.
-    csv_file : str
-        The path of the output csv file
+    json_file : str
+        The path of the output json file
     clean_folder : str
         The location of parallel clean samples.
     txt_folder : str
         The location of the transcript files.
     """
-    logger.debug(f"Creating csv lists in {csv_file}")
-
-    csv_lines = [["ID", "duration"]]
-    csv_lines[0].extend(["noisy_wav", "noisy_wav_format", "noisy_wav_opts"])
-    csv_lines[0].extend(["clean_wav", "clean_wav_format", "clean_wav_opts"])
-    csv_lines[0].extend(["wrd", "wrd_format", "wrd_opts"])
-    csv_lines[0].extend(["phn", "phn_format", "phn_opts"])
+    logger.debug(f"Creating json lists in {json_file}")
 
     # Processing all the wav files in the list
+    json_dict = {}
     for wav_file in wav_lst:  # ex:p203_122.wav
 
         # Example wav_file: p232_001.wav
-        snt_id = os.path.basename(wav_file).replace(".wav", "")
-        clean_wav = os.path.join(clean_folder, snt_id + ".wav")
+        noisy_path, filename = os.path.split(wav_file)
+        _, noisy_dir = os.path.split(noisy_path)
+        _, clean_dir = os.path.split(clean_folder)
+        noisy_rel_path = os.path.join("{data_root}", noisy_dir, filename)
+        clean_rel_path = os.path.join("{data_root}", clean_dir, filename)
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
         # Read text
-        snt_id = os.path.basename(wav_file).replace(".wav", "")
+        snt_id = filename.replace(".wav", "")
         with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
-            words = f.read()
-        words = remove_punctuation(words).strip().upper()
-        phones = " ".join([lexicon[word] for word in words.split()])
+            word_string = f.read()
+        word_string = remove_punctuation(word_string).strip().upper()
+        phones = [
+            phn for word in word_string.split() for phn in lexicon[word].split()
+        ]
 
-        # Composition of the csv_line
-        csv_line = [snt_id, str(duration)]
-        csv_line.extend([wav_file, "wav", ""])
-        csv_line.extend([clean_wav, "wav", ""])
-        csv_line.extend([words, "string", ""])
-        csv_line.extend([phones, "string", ""])
+        # Remove duplicate phones
+        phones = [i for i, j in zip(phones, phones[1:] + [None]) if i != j]
+        phone_string = " ".join(phones)
 
-        # Adding this line to the csv_lines list
-        csv_lines.append(csv_line)
+        json_dict[snt_id] = {
+            "noisy_wav": noisy_rel_path,
+            "clean_wav": clean_rel_path,
+            "length": duration,
+            "words": word_string,
+            "phones": phone_string,
+        }
 
-    # Writing the csv lines
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
+    # Writing the json lines
+    with open(json_file, mode="w") as json_f:
+        json.dump(json_dict, json_f, indent=2)
 
-        for line in csv_lines:
-            csv_writer.writerow(line)
-
-    logger.info(f"{csv_file} successfully created!")
+    logger.info(f"{json_file} successfully created!")
 
 
 def check_voicebank_folders(*folders):
