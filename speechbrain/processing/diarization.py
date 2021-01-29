@@ -49,16 +49,15 @@ except ImportError:
 
 
 def read_rttm(rttm_file_path):
-    """
-    Reads and returns RTTM in list format.
+    """Reads and returns RTTM in list format.
 
     Arguments
     ---------
     rttm_file_path : str
         Path to the RTTM file to be read.
 
-    Return
-    ------
+    Returns
+    -------
     rttm : list
         List containing rows of RTTM file.
     """
@@ -72,8 +71,7 @@ def read_rttm(rttm_file_path):
 
 
 def write_ders_file(ref_rttm, DER, out_der_file):
-    """
-    Write the final DERs for individual recording.
+    """Write the final DERs for individual recording.
 
     Arguments
     ---------
@@ -107,8 +105,7 @@ def write_ders_file(ref_rttm, DER, out_der_file):
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
-    """
-    Prepares csv for a given recording ID
+    """Prepares csv for a given recording ID.
 
     Arguments
     ---------
@@ -137,8 +134,7 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
 
 
 def is_overlapped(end1, start2):
-    """
-    Returns True if segments are overlapping
+    """Returns True if segments are overlapping.
 
     Arguments
     ---------
@@ -168,8 +164,7 @@ def is_overlapped(end1, start2):
 
 
 def merge_ssegs_same_speaker(lol):
-    """
-    Merge adjacent sub-segs from the same speaker.
+    """Merge adjacent sub-segs from the same speaker.
 
     Arguments
     ---------
@@ -222,19 +217,18 @@ def merge_ssegs_same_speaker(lol):
 
 
 def distribute_overlap(lol):
-    """
-    Distributes the overlapped speech equally among the adjacent segments
+    """Distributes the overlapped speech equally among the adjacent segments
     with different speakers.
 
     Arguments
     ---------
     lol : list of list
-        lol has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
+        It has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
 
     Returns
     -------
     new_lol : list of list
-        new_lol contains the overlapped part equally divided among the adjacent
+        It contains the overlapped part equally divided among the adjacent
         segments with different speaker IDs.
 
     Example
@@ -256,14 +250,14 @@ def distribute_overlap(lol):
 
     for i in range(1, len(lol)):
         next_sseg = lol[i]
-        # No need to check if they are different speakers
-        # Because if segments are overlapped then they always have different speakers
+        # No need to check if they are different speakers.
+        # Because if segments are overlapped then they always have different speakers.
         # This is because similar speaker's adjacent sub-segments are already merged by "merge_ssegs_same_speaker()"
 
         if is_overlapped(sseg[2], next_sseg[1]):
 
-            # Get overlap duration
-            # Now this overlap will be divided equally between adjacent segments
+            # Get overlap duration.
+            # Now this overlap will be divided equally between adjacent segments.
             overlap = sseg[2] - next_sseg[1]
 
             # Update end time of old seg
@@ -302,15 +296,14 @@ def distribute_overlap(lol):
 
 
 def write_rttm(segs_list, out_rttm_file):
-    """
-    Writes the segment list in RTTM format (Standard NIST format).
+    """Writes the segment list in RTTM format (A standard NIST format).
 
     Arguments
     ---------
     segs_list : list of list
         Each list contains [rec_id, sseg_start, sseg_end, spkr_id].
     out_rttm_file : str
-        Path of the output RTTM file
+        Path of the output RTTM file.
     """
 
     rttm = []
@@ -341,8 +334,7 @@ def write_rttm(segs_list, out_rttm_file):
 
 
 def _graph_connected_component(graph, node_id):
-    """
-    Find the largest graph connected components that contains one
+    """Find the largest graph connected components that contains one
     given node.
 
     Arguments
@@ -356,7 +348,7 @@ def _graph_connected_component(graph, node_id):
     Returns
     -------
     connected_components_matrix : array-like
-        shape - (n_samples,)
+        shape - (n_samples,).
         An array of bool value indicating the indexes of the nodes belonging
         to the largest connected components of the given query node.
     """
@@ -385,8 +377,7 @@ def _graph_connected_component(graph, node_id):
 
 
 def _graph_is_connected(graph):
-    """
-    Return whether the graph is connected (True) or Not (False)
+    """Return whether the graph is connected (True) or Not (False)
 
     Arguments
     ---------
@@ -396,7 +387,7 @@ def _graph_is_connected(graph):
     Returns
     -------
     is_connected : bool
-        True means the graph is fully connected and False means not
+        True means the graph is fully connected and False means not.
     """
 
     if sparse.isspmatrix(graph):
@@ -416,11 +407,11 @@ def _set_diag(laplacian, value, norm_laplacian):
     Arguments
     ---------
     laplacian : array or sparse matrix
-        The graph laplacian
+        The graph laplacian.
     value : float
-        The value of the diagonal
+        The value of the diagonal.
     norm_laplacian : bool
-        Whether the value of the diagonal should be changed or not
+        Whether the value of the diagonal should be changed or not.
 
     Returns
     -------
@@ -454,8 +445,7 @@ def _set_diag(laplacian, value, norm_laplacian):
 
 
 def _deterministic_vector_sign_flip(u):
-    """
-    Modify the sign of vectors for reproducibility. Flips the sign of
+    """Modify the sign of vectors for reproducibility. Flips the sign of
     elements of all the vectors (rows of u) such that the absolute
     maximum element of each vector is positive.
 
@@ -466,8 +456,8 @@ def _deterministic_vector_sign_flip(u):
 
     Returns
     -------
-    u_flipped : ndarray with the same shape as u
-        Array with the sign flipped vectors as its rows.
+    u_flipped : ndarray
+        Array with the sign flipped vectors as its rows. The same shape as `u`.
     """
 
     max_abs_rows = np.argmax(np.abs(u), axis=1)
@@ -477,8 +467,7 @@ def _deterministic_vector_sign_flip(u):
 
 
 def _check_random_state(seed):
-    """
-    Turn seed into a np.random.RandomState instance.
+    """Turn seed into a np.random.RandomState instance.
 
     Arguments
     ---------
@@ -513,7 +502,7 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     rec_id : str
         Recording ID for which the number of speakers have to be obtained.
     spkr_info : list
-        Header of the RTTM file. Starting with `SPKR-INFO`
+        Header of the RTTM file. Starting with `SPKR-INFO`.
 
     Example
     -------
@@ -543,8 +532,7 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 def spectral_embedding_sb(
     adjacency, n_components=8, norm_laplacian=True, drop_first=True,
 ):
-    """
-    Returns spectral embeddings.
+    """Returns spectral embeddings.
 
     Arguments
     ---------
@@ -561,7 +549,7 @@ def spectral_embedding_sb(
     Returns
     -------
     embedding : array
-        Spectral embeddings for each sample
+        Spectral embeddings for each sample.
 
     Example
     -------
@@ -629,8 +617,7 @@ def spectral_embedding_sb(
 def spectral_clustering_sb(
     affinity, n_clusters=8, n_components=None, random_state=None, n_init=10,
 ):
-    """
-    Performs spectral clustering.
+    """Performs spectral clustering.
 
     Arguments
     ---------
@@ -648,7 +635,7 @@ def spectral_clustering_sb(
     Returns
     -------
     labels : array
-        Cluster label for each sample
+        Cluster label for each sample.
 
     Example
     -------
@@ -690,7 +677,7 @@ class Spec_Cluster(SpectralClustering):
         Arguments
         ---------
         X : array (n_samples, n_features)
-            Embeddings to be clustered
+            Embeddings to be clustered.
         n_neighbors : int
             Number of neighbors in estimating affinity matrix.
 
@@ -784,22 +771,22 @@ class Spec_Clust_unorm:
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
-        """Init"""
+
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
 
     def do_spec_clust(self, X, k_oracle, p_val):
-        """
-        Function for spectral clustering.
+        """Function for spectral clustering.
 
         Arguments
         ---------
-        X : array (n_samples, n_features)
+        X : array
+            (n_samples, n_features).
             Embeddings extracted from the model.
         k_oracle : int
-            Number of speakers (when oracle number of speakers)
+            Number of speakers (when oracle number of speakers).
         p_val : float
-            p percent value to prune the affinity matrix
+            p percent value to prune the affinity matrix.
         """
 
         # Similarity matrix computation
@@ -821,17 +808,18 @@ class Spec_Clust_unorm:
         self.cluster_embs(emb, num_of_spk)
 
     def get_sim_mat(self, X):
-        """
-        Returns the similarity matrix based on cosine similarities.
+        """Returns the similarity matrix based on cosine similarities.
 
         Arguments
         ---------
-        X : array (n_samples, n_features)
+        X : array
+            (n_samples, n_features).
             Embeddings extracted from the model.
 
         Returns
         -------
-        M : array (n_samples, n_samples)
+        M : array
+            (n_samples, n_samples).
             Similarity matrix with cosine similarities between each pair of embedding.
         """
 
@@ -840,19 +828,20 @@ class Spec_Clust_unorm:
         return M
 
     def p_pruning(self, A, pval):
-        """
-        Refine the affinity matrix by zeroing less similar values.
+        """Refine the affinity matrix by zeroing less similar values.
 
         Arguments
         ---------
-        A : array (n_samples, n_samples)
+        A : array
+            (n_samples, n_samples).
             Affinity matrix.
         pval : float
             p-value to be retained in each row of the affinity matrix.
 
         Returns
         -------
-        A : array (n_samples, n_samples)
+        A : array
+            (n_samples, n_samples).
             Prunned affinity matrix based on p_val.
         """
 
@@ -869,17 +858,18 @@ class Spec_Clust_unorm:
         return A
 
     def get_laplacian(self, M):
-        """
-        Returns the un-normalized laplacian for the given affinity matrix.
+        """Returns the un-normalized laplacian for the given affinity matrix.
 
         Arguments
         ---------
-        M : array (n_samples, n_samples)
+        M : array
+            (n_samples, n_samples)
             Affinity matrix.
 
         Returns
-        ------
-        L : array (n_samples, n_samples)
+        -------
+        L : array
+            (n_samples, n_samples)
             Laplacian matrix.
         """
 
@@ -890,8 +880,7 @@ class Spec_Clust_unorm:
         return L
 
     def get_spec_embs(self, L, k_oracle=4):
-        """
-        Returns spectral embeddings and estimates the number of speakers
+        """Returns spectral embeddings and estimates the number of speakers
         using maximum Eigen gap.
 
         Arguments
@@ -936,8 +925,7 @@ class Spec_Clust_unorm:
         return emb, num_of_spk
 
     def cluster_embs(self, emb, k):
-        """
-        Clusters the embeddings using kmeans.
+        """Clusters the embeddings using kmeans.
 
         Arguments
         ---------
@@ -954,8 +942,7 @@ class Spec_Clust_unorm:
         _, self.labels_, _ = k_means(emb, k)
 
     def getEigenGaps(self, eig_vals):
-        """
-        Returns the difference (gaps) between the Eigen values.
+        """Returns the difference (gaps) between the Eigen values.
 
         Arguments
         ---------
@@ -990,17 +977,17 @@ def do_spec_clustering(
     Arguments
     ---------
     diary_obj : StatObject_SB type
-        Contains embeddings in diary_obj.stat1 and segment IDs in diary_obj.segset
+        Contains embeddings in diary_obj.stat1 and segment IDs in diary_obj.segset.
     out_rttm_file : str
         Path of the output RTTM file.
     rec_id : str
         Recording ID for the recording under processing.
     k : int
-        Number of speaker (None, if it has to be estimated)
+        Number of speaker (None, if it has to be estimated).
     pval : float
-        pval for prunning affinity matrix
+        `pval` for prunning affinity matrix.
     affinity_type : str
-        Type of similarity to be used to get affinity matrix (cos or nn)
+        Type of similarity to be used to get affinity matrix (cos or nn).
     """
 
     if affinity_type == "cos":
