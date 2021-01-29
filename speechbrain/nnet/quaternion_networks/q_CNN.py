@@ -9,7 +9,7 @@ import torch.nn as nn
 import logging
 import torch.nn.functional as F
 from speechbrain.nnet.CNN import get_padding_elem
-from speechbrain.nnet.quaternion_networks.quaternion_ops import (
+from speechbrain.nnet.quaternion_networks.q_ops import (
     unitary_init,
     quaternion_init,
     affect_conv_init,
@@ -21,7 +21,7 @@ from typing import Tuple
 logger = logging.getLogger(__name__)
 
 
-class QuaternionConv1d(torch.nn.Module):
+class QConv1d(torch.nn.Module):
     """This function implements quaternion-valued 1d convolution.
 
     Arguments
@@ -85,7 +85,7 @@ class QuaternionConv1d(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 40])
-    >>> cnn_1d = QuaternionConv1d(
+    >>> cnn_1d = QConv1d(
     ...     input_shape=inp_tensor.shape, out_channels=12, kernel_size=3
     ... )
     >>> out_tensor = cnn_1d(inp_tensor)
@@ -305,7 +305,7 @@ class QuaternionConv1d(torch.nn.Module):
         return in_channels
 
 
-class QuaternionConv2d(torch.nn.Module):
+class QConv2d(torch.nn.Module):
     """This function implements quaternion-valued 1d convolution.
 
     Arguments
@@ -367,7 +367,7 @@ class QuaternionConv2d(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 4, 16, 40])
-    >>> cnn_1d = QuaternionConv2d(
+    >>> cnn_1d = QConv2d(
     ...     input_shape=inp_tensor.shape, out_channels=12, kernel_size=3
     ... )
     >>> out_tensor = cnn_1d(inp_tensor)

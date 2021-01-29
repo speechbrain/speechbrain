@@ -6,7 +6,7 @@ Authors
 
 import torch
 import logging
-from speechbrain.nnet.quaternion_networks.quaternion_ops import (
+from speechbrain.nnet.quaternion_networks.q_ops import (
     affect_init,
     unitary_init,
     quaternion_init,
@@ -19,7 +19,7 @@ from speechbrain.nnet.quaternion_networks.quaternion_ops import (
 logger = logging.getLogger(__name__)
 
 
-class QuaternionLinear(torch.nn.Module):
+class QLinear(torch.nn.Module):
     """This function implements a fully connected quaternion-valued
        linear layer: y = Wx + b. y, W, x and b are thus quaternion
        numbers. A quaternion number is written as: r + xi + yj + zk.
@@ -75,7 +75,7 @@ class QuaternionLinear(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.rand(10, 50, 40)
-    >>> lin = QuaternionLinear(n_neurons=100, input_shape=inputs.shape)
+    >>> lin = QLinear(n_neurons=100, input_shape=inputs.shape)
     >>> output = lin(inputs)
     >>> output.shape
     torch.Size([10, 50, 400])
