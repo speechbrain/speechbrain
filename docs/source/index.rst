@@ -57,12 +57,10 @@ API Documentation
 
 .. toctree::
    :caption: API Documentation:
-   :includehidden:
    :hidden:
-   :maxdepth: 2
+   :maxdepth: 3
 
    Core library (speechbrain) <speechbrain>
-   HyperPyYAML (hyperpyyaml) <hyperpyyaml>
    Runnable Tools (tools) <tools>
 
 .. autosummary::
