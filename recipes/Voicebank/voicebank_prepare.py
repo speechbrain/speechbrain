@@ -309,7 +309,6 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
     csv_lines[0].extend(["clean_wav", "clean_wav_format", "clean_wav_opts"])
     csv_lines[0].extend(["wrd", "wrd_format", "wrd_opts"])
     csv_lines[0].extend(["phn", "phn_format", "phn_opts"])
-    csv_lines[0].extend(["biphn", "biphn_format", "biphn_opts"])
 
     # Processing all the wav files in the list
     for wav_file in wav_lst:  # ex:p203_122.wav
@@ -329,16 +328,12 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
         words = remove_punctuation(words).strip().upper()
         phones = " ".join([lexicon[word] for word in words.split()])
 
-        biphones = zip(["<B>"] + phones.split(), phones.split() + ["<E>"])
-        biphones = [phn1 + phn2 for phn1, phn2 in biphones]
-
         # Composition of the csv_line
         csv_line = [snt_id, str(duration)]
         csv_line.extend([wav_file, "wav", ""])
         csv_line.extend([clean_wav, "wav", ""])
         csv_line.extend([words, "string", ""])
         csv_line.extend([phones, "string", ""])
-        csv_line.extend([biphones, "string", ""])
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)
