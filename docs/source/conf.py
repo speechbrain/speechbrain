@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.abspath("../../speechbrain"))
 # -- Project information -----------------------------------------------------
 
 project = "SpeechBrain"
-copyright = "2021, Mirco Ravanelli & Titouan Parcollet"
-author = "Mirco Ravanelli & Titouan Parcollet"
+copyright = "2021, SpeechBrain"
+author = "SpeechBrain"
 
 # The full version, including alpha/beta/rc tags
 release = "0.0.0"
