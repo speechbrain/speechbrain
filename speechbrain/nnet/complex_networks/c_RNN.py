@@ -944,8 +944,8 @@ class CLiGRU(torch.nn.Module):
 
 
 class CLiGRU_Layer(torch.nn.Module):
-    """ This function implements complex-valued Light-Gated Recurrent Units
-        (ligru) layer.
+    """
+    This function implements complex-valued Light-Gated Recurrent Unit layer.
 
     Arguments
     ---------
