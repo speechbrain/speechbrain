@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 class CLinear(torch.nn.Module):
     """This function implements a fully connected complex-valued
-       linear layer: y = Wx + b. y, W, x and b are thus complex
-       numbers. A complex number is written as: r + xi. A tensor of
-       complex numbers x = [batch, 32] can be understood as
-       [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
-       dimension is cut in half (must be dividible by 2).
+    linear layer: y = Wx + b. y, W, x and b are thus complex
+    numbers. A complex number is written as: r + xi. A tensor of
+    complex numbers x = [batch, 32] can be understood as
+    [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
+    dimension is cut in half (must be dividible by 2).
 
     Arguments
     ---------

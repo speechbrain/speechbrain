@@ -11,8 +11,8 @@ from speechbrain.nnet.complex_networks.c_ops import multi_mean
 
 
 class CBatchNorm(torch.nn.Module):
-    """ This class is implements the complex-valued batch-normalization
-        as introduced by "Deep Complex Networks", Trabelsi C. et al.
+    """This class is implements the complex-valued batch-normalization
+    as introduced by "Deep Complex Networks", Trabelsi C. et al.
 
     Arguments
     ---------
@@ -329,7 +329,7 @@ class CBatchNorm(torch.nn.Module):
 
 
 class CLayerNorm(torch.nn.Module):
-    """ This class is used to instanciate the complex
+    """This class is used to instanciate the complex
     layer-normalization as introduced by "Deep Complex Networks",
     Trabelsi C. et al.
 
@@ -631,6 +631,8 @@ def c_standardization(input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1):
     """This function is used to standardize a centred tensor of
     complex numbers (mean of the set must be 0).
 
+    Arguments
+    ---------
     input_centred : torch.Tensor
         It is the tensor to be normalized. The features
         dimension is divided by 2 with the first half
