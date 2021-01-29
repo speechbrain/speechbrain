@@ -980,7 +980,7 @@ class QLiGRU(torch.nn.Module):
 
 class QLiGRU_Layer(torch.nn.Module):
     """ This function implements quaternion-valued Light-Gated Recurrent Units
-        (ligru) layer.
+    (ligru) layer.
 
     Arguments
     ---------

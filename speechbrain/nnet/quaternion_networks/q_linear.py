@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 
 class QLinear(torch.nn.Module):
     """This function implements a fully connected quaternion-valued
-       linear layer: y = Wx + b. y, W, x and b are thus quaternion
-       numbers. A quaternion number is written as: r + xi + yj + zk.
-       A tensor of quaternion numbers x = [batch, 32] can be understood as
-       [batch, 0:7] = R, [batch, 8:15] = Xi, [batch, 16:23] = Yi, and
-       [batch, 24:31] = Xi. Thus the features dimension is cut in four
-       (must be dividible by 4).
+    linear layer: y = Wx + b. y, W, x and b are thus quaternion
+    numbers. A quaternion number is written as: r + xi + yj + zk.
+    A tensor of quaternion numbers x = [batch, 32] can be understood as
+    [batch, 0:7] = R, [batch, 8:15] = Xi, [batch, 16:23] = Yi, and
+    [batch, 24:31] = Xi. Thus the features dimension is cut in four
+    (must be dividible by 4).
 
     Arguments
     ---------
