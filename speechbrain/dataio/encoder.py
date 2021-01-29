@@ -920,6 +920,29 @@ class TextEncoder(CategoricalEncoder):
 
 class CTCTextEncoder(TextEncoder):
     """Subclass of TextEncoder which also provides methods to handle CTC blank token.
+
+    add_blank and insert_blank can be used to add <blank> special token to the encoder
+    state.
+
+    >>> from speechbrain.dataio.encoder import CTCTextEncoder
+    >>> chars = ["a", "b", "c", "d"]
+    >>> encoder = CTCTextEncoder()
+    >>> encoder.update_from_iterable(chars)
+    >>> encoder.add_blank()
+    >>> encoder.encode_sequence(chars)
+    [0, 1, 2, 3]
+    >>> encoder.get_blank_index()
+    4
+    >>> encoder.decode_ndim([0, 1, 2, 3, 4])
+    ['a', 'b', 'c', 'd', '<blank>']
+
+    collapse_labels and collapse_indices_ndim can be used to apply CTC collapsing
+    rules:
+    >>> encoder.collapse_labels(["a", "a", "b", "c", "d"])
+    ['a', 'b', 'c', 'd']
+    >>> encoder.collapse_indices_ndim([4, 4, 0, 1, 2, 3, 4, 4]) # 4 is <blank>
+    [0, 1, 2, 3]
+
     """
 
     def handle_special_labels(self, special_labels):
