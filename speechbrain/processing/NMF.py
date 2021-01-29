@@ -1,7 +1,7 @@
 """Non-negative matrix factorization
 
 Authors
-* Cem Subakan
+ * Cem Subakan
 """
 import torch
 from speechbrain.processing.features import spectral_magnitude

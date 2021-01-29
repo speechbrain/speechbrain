@@ -6,9 +6,8 @@ complex Hermitian matrices and find their eigenvectors and
 eigenvalues.
 
 Authors
--------
-William Aris 2020
-Francois Grondin 2020
+ * William Aris 2020
+ * Francois Grondin 2020
 """
 
 import torch
