@@ -24,10 +24,10 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
     lengths : tensor
         The lengths of the waveforms excluding the padding.
         Shape should be a single dimension, `[batch]`.
-    amp_type: str
+    amp_type : str
         Whether to compute "avg" average or "peak" amplitude.
         Choose between ["avg", "peak"].
-    scale: str
+    scale : str
         Whether to compute amplitude in "dB" or "linear" scale.
         Choose between ["linear", "dB"].
 
@@ -67,18 +67,17 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
 
 
 def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
-    """
-    This function normalizes a signal to unitary average or peak amplitude.
+    """This function normalizes a signal to unitary average or peak amplitude.
 
-    Parameters
-    ----------
-    waveforms: tensor
+    Arguments
+    ---------
+    waveforms : tensor
         The waveforms to normalize.
         Shape should be `[batch, time]` or `[batch, time, channels]`.
-    lengths: tensor
+    lengths : tensor
         The lengths of the waveforms excluding the padding.
         Shape should be a single dimension, `[batch]`.
-    amp_type: str
+    amp_type : str
         Whether one wants to normalize with respect to "avg" or "peak"
         amplitude. Choose between ["avg", "peak"]. Note: for "avg" clipping
         is not prevented and can occur.
@@ -87,7 +86,7 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
 
     Returns
     -------
-    waveforms: tensor
+    waveforms : tensor
         Normalized level waveform.
     """
 
@@ -105,29 +104,28 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
 
 
 def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
-    """
-    This functions performs signal rescaling to a target level.
+    """This functions performs signal rescaling to a target level.
 
-    Parameters
-    ----------
-    waveforms: tensor
+    Arguments
+    ---------
+    waveforms : tensor
         The waveforms to normalize.
         Shape should be `[batch, time]` or `[batch, time, channels]`.
-    lengths: tensor
+    lengths : tensor
         The lengths of the waveforms excluding the padding.
         Shape should be a single dimension, `[batch]`.
-    target_lvl: float
+    target_lvl : float
         Target lvl in dB or linear scale.
-    amp_type: str
+    amp_type : str
         Whether one wants to rescale with respect to "avg" or "peak" amplitude.
         Choose between ["avg", "peak"].
-    scale:
+    scale : str
         whether target_lvl belongs to linear or dB scale.
         Choose between ["linear", "dB"].
 
     Returns
     -------
-    waveforms: tensor
+    waveforms : tensor
         Rescaled waveforms.
     """
 
@@ -172,7 +170,7 @@ def convolve1d(
     waveform : tensor
         The tensor to perform operations on.
     kernel : tensor
-        The filter to apply during convolution
+        The filter to apply during convolution.
     padding : int or tuple
         The padding (pad_left, pad_right) to apply.
         If an integer is passed instead, this is passed
@@ -285,14 +283,14 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     It performs convolution between RIR and signal, but without changing
     the original amplitude of the signal.
 
-    Parameters
-    ----------
-    waveforms: tensor
+    Arguments
+    ---------
+    waveforms : tensor
         The waveforms to normalize.
         Shape should be `[batch, time]` or `[batch, time, channels]`.
-    rir_waveform: tensor
+    rir_waveform : tensor
         RIR tensor, shape should be [time, channels].
-    rescale_amp: str
+    rescale_amp : str
         Whether reverberated signal is rescaled (None) and with respect either
         to original signal "peak" amplitude or "avg" average amplitude.
         Choose between [None, "avg", "peak"].
@@ -303,6 +301,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         Reverberated signal.
 
     """
+
     orig_shape = waveforms.shape
 
     if len(waveforms.shape) > 3 or len(rir_waveform.shape) > 3:
@@ -429,8 +428,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
 
 def overlap_and_add(signal, frame_step):
-    """
-    Taken from https://github.com/kaituoxu/Conv-TasNet/blob/master/src/utils.py
+    """Taken from https://github.com/kaituoxu/Conv-TasNet/blob/master/src/utils.py
 
     Reconstructs a signal from a framed representation.
     Adds potentially overlapping frames of a signal with shape
@@ -445,8 +443,8 @@ def overlap_and_add(signal, frame_step):
         output_size = (frames - 1) * frame_step + frame_length
     Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
 
-    example:
-    --------
+    Example
+    -------
     >>> signal = torch.randn(5, 20)
     >>> overlapped = overlap_and_add(signal, 20)
     >>> overlapped.shape
@@ -492,7 +490,7 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
     noisy_inputs : torch.Tensor
         The noisy waveforms before any processing, to extract phase.
     lengths : torch.Tensor
-        The length of each waveform for normalization
+        The length of each waveform for normalization.
     stft : torch.nn.Module
         Module for computing the STFT for extracting phase.
     istft : torch.nn.Module
@@ -501,7 +499,7 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
     Returns
     -------
     enhanced_wav : torch.Tensor
-        The resynthesized waveforms of the enhanced magnitudes with noisy phase
+        The resynthesized waveforms of the enhanced magnitudes with noisy phase.
     """
 
     # Extract noisy phase from inputs

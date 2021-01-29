@@ -116,6 +116,7 @@ class AddNoise(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
+
         # Copy clean waveform to initialize noisy waveform
         noisy_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
@@ -226,6 +227,7 @@ class AddNoise(torch.nn.Module):
 
     def _load_noise_batch_of_size(self, batch_size):
         """Concatenate noise batches, then chop to correct size"""
+
         noise_batch, noise_lens = self._load_noise_batch()
 
         # Expand
@@ -264,6 +266,7 @@ class AddNoise(torch.nn.Module):
 
     def _load_noise_batch(self):
         """Load a batch of noises, restarting iteration if necessary."""
+
         try:
             # Don't necessarily know the key
             noises, lens = next(self.noise_data).at_position(0)
@@ -346,6 +349,7 @@ class AddReverb(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
+
         # Don't add reverb (return early) 1-`reverb_prob` portion of the time
         if torch.rand(1) > self.reverb_prob:
             return waveforms.clone()
@@ -397,7 +401,7 @@ class AddReverb(torch.nn.Module):
 
 
 class SpeedPerturb(torch.nn.Module):
-    """Slightly speed up or slow down an audio signal
+    """Slightly speed up or slow down an audio signal.
 
     Resample the audio signal at a rate that is similar to the original rate,
     to achieve a slightly slower or slightly faster signal. This technique is
@@ -460,6 +464,7 @@ class SpeedPerturb(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
+
         # Don't perturb (return early) 1-`perturb_prob` portion of the batches
         if torch.rand(1) > self.perturb_prob:
             return waveform.clone()
@@ -515,10 +520,11 @@ class Resample(torch.nn.Module):
         assert self.new_freq % self.conv_transpose_stride == 0
 
     def _compute_strides(self):
-        """Compute the phases in polyphase filter
+        """Compute the phases in polyphase filter.
 
         (almost directly from torchaudio.compliance.kaldi)
         """
+
         # Compute new unit based on ratio of in/out frequencies
         base_freq = math.gcd(self.orig_freq, self.new_freq)
         input_samples_in_unit = self.orig_freq // base_freq
@@ -530,8 +536,8 @@ class Resample(torch.nn.Module):
 
     def forward(self, waveforms):
         """
-        Parameters
-        ----------
+        Arguments
+        ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
@@ -541,6 +547,7 @@ class Resample(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
+
         if not hasattr(self, "first_indices"):
             self._indices_and_weights(waveforms)
 
@@ -587,11 +594,11 @@ class Resample(torch.nn.Module):
         Arguments
         ---------
         waveforms : tensor
-            the batch of audio signals to resample
+            The batch of audio signals to resample.
 
         Returns
         -------
-        The waveforms at the new frequency
+        The waveforms at the new frequency.
         """
 
         # Compute output size and initialize
@@ -676,6 +683,7 @@ class Resample(torch.nn.Module):
         -------
         Number of samples in the output waveform.
         """
+
         # For exact computation, we measure time in "ticks" of 1.0 / tick_freq,
         # where tick_freq is the least common multiple of samp_in and
         # samp_out.
@@ -723,6 +731,7 @@ class Resample(torch.nn.Module):
         - the place where each filter should start being applied
         - the filters to be applied to the signal for resampling
         """
+
         # Lowpass filter frequency depends on smaller of two frequencies
         min_freq = min(self.orig_freq, self.new_freq)
         lowpass_cutoff = 0.99 * 0.5 * min_freq
@@ -822,14 +831,15 @@ class AddBabble(torch.nn.Module):
         ---------
         waveforms : tensor
             A batch of audio signals to process, with shape `[batch, time]` or
-            `[batch, time, channels]`
+            `[batch, time, channels]`.
         lengths : tensor
-            The length of each audio in the batch, with shape `[batch]`
+            The length of each audio in the batch, with shape `[batch]`.
 
         Returns
         -------
         Tensor with processed waveforms.
         """
+
         babbled_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
         batch_size = len(waveforms)
@@ -922,8 +932,9 @@ class DropFreq(torch.nn.Module):
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
+
         # Don't drop (return early) 1-`drop_prob` portion of the batches
         dropped_waveform = waveforms.clone()
         if torch.rand(1) > self.drop_prob:
@@ -1062,6 +1073,7 @@ class DropChunk(torch.nn.Module):
         Tensor of shape `[batch, time]` or
             `[batch, time, channels]`
         """
+
         # Reading input list
         lengths = (lengths * waveforms.size(1)).long()
         batch_size = waveforms.size(0)
@@ -1170,6 +1182,7 @@ class DoClip(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
+
         # Don't clip (return early) 1-`clip_prob` portion of the batches
         if torch.rand(1) > self.clip_prob:
             return waveforms.clone()
