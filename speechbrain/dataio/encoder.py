@@ -701,6 +701,58 @@ class CategoricalEncoder:
 class TextEncoder(CategoricalEncoder):
     """CategoricalEncoder subclass which offers specific methods for encoding text and handle
     special tokens for training of sequence to sequence models.
+    In detail, aside special <unk> token already present in CategoricalEncoder
+    for handling out-of-vocab tokens here special methods to handle
+    <bos> beginning of sequence and <eos> tokens are defined.
+
+    Note: update_from_iterable and update_from_didataset here have as default
+    sequence_input=True because it is assumed that this encoder is used on
+    iterables of strings: e.g.
+
+    >>> from speechbrain.dataio.encoder import TextEncoder
+    >>> dataset = [["encode", "this", "textencoder"], ["foo", "bar"]]
+    >>> encoder = TextEncoder()
+    >>> encoder.update_from_iterable(dataset)
+    >>> encoder.encode_label("this")
+    1
+    >>> encoder.add_unk()
+    >>> encoder.encode_sequence(["this", "out-of-vocab"])
+    [1, 5]
+
+    Two methods can be used to add <bos> and <eos> to the internal dicts:
+    insert_bos_eos, add_bos_eos.
+
+    >>> encoder.add_bos_eos()
+    >>> encoder.lab2ind[encoder.eos_label]
+    add_bos_eos adds the special tokens at the end of the dict indexes
+    >>> encoder = TextEncoder()
+    >>> encoder.update_from_iterable(dataset)
+    >>> encoder.insert_bos_eos(bos_index=0, eos_index=1)
+    >>> encoder.lab2ind[encoder.eos_label]
+    insert_bos_eos allows to specify whose index will correspond to each of them.
+    Note that you can also specify the same integer encoding for both.
+
+    Four methods can be used to prepend <bos> and append <eos>.
+    prepend_bos_label and append_eos_label add respectively the <bos> and <eos>
+    string tokens to the input sequence
+
+    >>> words = ["foo", "bar"]
+    >>> encoder.prepend_bos_label(words)
+    ['<bos>', 'foo', 'bar']
+    >>> encoder.append_eos_label(words)
+    ['foo', 'bar', '<eos>']
+
+    prepend_bos_index and append_eos_index add respectively the <bos> and <eos>
+    indexes to the input encoded sequence
+
+    >>> words = ["foo", "bar"]
+    >>> encoded = encoder.encode_sequence(words)
+    [3, 4]
+    >>> encoder.prepend_bos_index(encoded)
+    [0, 3, 4]
+    >>> encoder.append_eos_index(encoded)
+    [3, 4, 1]
+
     """
 
     def handle_special_labels(self, special_labels):
