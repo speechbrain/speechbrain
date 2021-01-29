@@ -1,4 +1,4 @@
-"""A popular speech model.
+"""Implentation of a Recurrent Language Model.
 
 Authors
  * Mirco Ravanelli 2020
