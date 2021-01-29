@@ -1,2 +1,2 @@
-"""Split transcripts into separate tokens
+""" Package defining the SentencePiece tokenizer
 """
