@@ -1,5 +1,5 @@
 """
-Generalized Eigenvalue Decomposition
+Generalized Eigenvalue Decomposition.
 
 This library contains different methods to adjust the format of
 complex Hermitian matrices and find their eigenvectors and
@@ -15,7 +15,7 @@ import torch
 
 
 def gevd(a, b=None):
-    """ This method computes the eigenvectors and the eigenvalues
+    """This method computes the eigenvectors and the eigenvalues
     of complex Hermitian matrices. The method finds a solution to
     the problem AV = BVD where V are the eigenvectors and D are
     the eigenvalues.
@@ -116,7 +116,7 @@ def gevd(a, b=None):
 
 
 def svdl(a):
-    """ Singular Value Decomposition (Left Singular Vectors)
+    """ Singular Value Decomposition (Left Singular Vectors).
 
     This function finds the eigenvalues and eigenvectors of the
     input multiplied by its transpose (a x a.T).
@@ -181,7 +181,7 @@ def svdl(a):
 
 
 def f(ws):
-    """ Transform 1
+    """Transform 1.
 
     This method takes a complex Hermitian matrix represented by its
     upper triangular part and converts it to a block matrix
@@ -253,7 +253,7 @@ def finv(wsh):
 
 
 def g(ws):
-    """ Transform 2
+    """Transform 2.
 
     This method takes a full complex matrix and converts it to a block
     matrix. The result will have the following format:
@@ -285,7 +285,7 @@ def g(ws):
 
 
 def ginv(wsh):
-    """ Inverse transform 2
+    """Inverse transform 2.
 
     This method takes a complex Hermitian matrix represented by a block
     matrix and converts it to a full complex complex matrix. The
@@ -314,7 +314,7 @@ def ginv(wsh):
 
 
 def pos_def(ws, alpha=0.001, eps=1e-20):
-    """ Diagonal modification
+    """Diagonal modification.
 
     This method takes a complex Hermitian matrix represented by its upper
     triangular part and adds the value of its trace multiplied by alpha
@@ -357,7 +357,7 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
 
 
 def inv(x):
-    """ Inverse Hermitian Matrix
+    """Inverse Hermitian Matrix.
 
     This method finds the inverse of a complex Hermitian matrix
     represented by its upper triangular part. The result will have
