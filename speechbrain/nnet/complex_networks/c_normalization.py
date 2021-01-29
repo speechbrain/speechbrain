@@ -627,9 +627,7 @@ def c_norm(
             return input_centred
 
 
-def c_standardization(
-    input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1
-):
+def c_standardization(input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1):
     """This function is used to standardize a centred tensor of
     complex numbers (mean of the set must be 0).
 
