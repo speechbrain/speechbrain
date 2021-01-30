@@ -6,6 +6,8 @@
 # Authors:  Loren Lugosch 2020
 # ############################################################################
 
+# WORK IN PROGRESS. DO NOT USE THIS PRETRAINED MODEL UNTIL WE TRAINED
+# THE LM WITH TRANSDUCERS
 save_folder: pretrained_models
 lm_ckpt_file: https://www.dropbox.com/s/x5czm16p66c1i2g/lm_model.ckpt?dl=1 # update
 tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 #update
