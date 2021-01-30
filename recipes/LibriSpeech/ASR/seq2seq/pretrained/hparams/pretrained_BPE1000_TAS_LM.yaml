@@ -9,7 +9,7 @@
 # Pretrained models to download
 asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
 normalize_file: https://www.dropbox.com/s/ib20ub7liaqcirw/normalizer.ckpt?dl=1
-lm_file: add_url
+lm_file: https://www.dropbox.com/s/3nrfndfsxvodyl2/pretrained_TAS_LM.yaml?dl=1
 save_folder: model_checkpoints
 
 # Device selection
