@@ -22,6 +22,17 @@ different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, train-clean 100 rather than the full one), and many
 other possible variations.
 
+This recipe assumes that the tokenizer and the LM are already trained.
+To avoid token mismatches, the tokenizer used for the acoustic model is
+the same use for the LM.  The recipe downloads the pre-trained tokenizer
+and LM.
+
+If you would like to train a full system from scratch do the following:
+1- Train a tokenizer (see ../../Tokenizer)
+2- Train a language model (see ../../LM)
+3- Train the acoustic model (with this code).
+
+
 
 Authors
  * Ju-Chieh Chou 2020

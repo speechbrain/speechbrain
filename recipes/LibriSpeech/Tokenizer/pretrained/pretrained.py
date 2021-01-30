@@ -6,7 +6,6 @@ Authors
  * Abdel Heba 2020
 """
 import os
-import tempfile
 from speechbrain.utils.data_utils import download_file
 import sentencepiece as spm
 
@@ -21,7 +20,8 @@ class tokenizer:
         tokenizer is downloaded.
     save_folder : str
         Path where the tokenizer will be saved (default 'model_checkpoints')
-    Examples
+
+    Example
     -------
     >>> from pretrained import tokenizer
     >>> token_file = 'pretrained_tok/1000_unigram.model'
@@ -32,7 +32,7 @@ class tokenizer:
     >>> print(tokenizer.spm.encode(text, out_type='str'))
     """
 
-    def __init__(self, tokenizer_file, save_folder='model_checkpoints'):
+    def __init__(self, tokenizer_file, save_folder="model_checkpoints"):
         super().__init__()
 
         save_file = os.path.join(save_folder, "tok.model")
