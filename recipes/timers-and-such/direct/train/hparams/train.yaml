@@ -115,7 +115,7 @@ model: !new:torch.nn.ModuleList
 
 tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
-    save_folder: !ref <save_folder>
+    save_folder: !ref <save_folder>/TAS_tokenizer
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
