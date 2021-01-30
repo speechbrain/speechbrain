@@ -23,9 +23,8 @@ train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <data_folder>/train-type=decoupled.csv
 csv_valid: !ref <data_folder>/devel-type=decoupled.csv
 csv_test: !ref <data_folder>/test-type=decoupled.csv
-asr_hparam_file: ../../../../recipes/LibriSpeech/ASR/seq2seq/pretrained/hparams/pretrained_BPE1000.yaml
-asr_tokenizer_file: ../../../../recipes/LibriSpeech/Tokenizer/pretrained/pretrained_tok/1000_unigram.model
-slu_tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+asr_tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+slu_tokenizer_file: https://www.dropbox.com/s/w72vtnf273yjwu4/SLURP_51_unigram.model?dl=1
 skip_prep: False
 
 # Training parameters
@@ -107,9 +106,11 @@ model: !new:torch.nn.ModuleList
 
 asr_tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <asr_tokenizer_file>
+    save_folder: !ref <save_folder>/asr_tokenizer
 
 slu_tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <slu_tokenizer_file>
+    save_folder: !ref <save_folder>/slu_tokenizer
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
