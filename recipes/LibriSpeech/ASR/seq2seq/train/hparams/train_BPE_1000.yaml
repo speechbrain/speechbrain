@@ -43,6 +43,14 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+dynamic_batching: False
+
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 4000 # in terms of frames
+   min_bucket_len: 200
+   multiplier: 1.1
+   shuffle: False
 
 # Feature parameters
 sample_rate: 16000

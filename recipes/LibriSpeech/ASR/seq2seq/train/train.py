@@ -292,6 +292,24 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
+
+    if hparams["dynamic_batching"]:
+        train_data = SaveableDataLoader(
+            train_data,
+            batch_sampler=DynamicBatchSampler(
+                train_data,
+                hparams["dynamic_batch_sampler"]["max_batch_len"],
+                hparams["dynamic_batch_sampler"]["min_bucket_len"],
+                bucket_length_multiplier=hparams["dynamic_batch_sampler"][
+                    "multiplier"
+                ],
+                length_func=lambda x: x["duration"]
+                * (1 / hparams["dynamic_batch_sampler"]["feats_hop_size"]),
+                shuffle=hparams["dynamic_batch_sampler"]["shuffle"],
+            ),
+            collate_fn=PaddedBatch,
+        )
+
     return train_data, valid_data, test_datasets, tokenizer
 
 
