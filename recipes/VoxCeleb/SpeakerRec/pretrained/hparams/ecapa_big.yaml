@@ -33,5 +33,5 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     lin_neurons: 192
 
 mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-   norm_type: global
-   std_norm: False
+    norm_type: global
+    std_norm: False

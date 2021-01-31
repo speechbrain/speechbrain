@@ -51,17 +51,18 @@ class Verification(torch.nn.Module):
     freeze_params : bool
         If true, the parameters are frozen.
     norm_emb: bool
-	If True, the embeddings are normalized.
+        If True, the embeddings are normalized.
     save_folder : str
         Path where the lm (yaml + model) will be saved (default 'asr_model')
     """
+
     def __init__(
         self,
         hparams_file="https://www.dropbox.com/s/ct72as3hapy8kb5/ecapa_big.yaml?dl=1",
         overrides={},
         freeze_params=True,
         norm_emb=True,
-        save_folder='emb_model'
+        save_folder="emb_model",
     ):
         """Downloads the pretrained modules specified in the yaml"""
         super().__init__()
@@ -90,7 +91,9 @@ class Verification(torch.nn.Module):
         # putting modules on the right device
         self.embedding_model = self.hparams["embedding_model"].to(self.device)
         self.mean_var_norm = self.hparams["mean_var_norm"].to(self.device)
-        self.mean_var_norm_emb = self.hparams["mean_var_norm_emb"].to(self.device)
+        self.mean_var_norm_emb = self.hparams["mean_var_norm_emb"].to(
+            self.device
+        )
         self.similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
         # Load pretrained modules
@@ -121,7 +124,8 @@ class Verification(torch.nn.Module):
         embeddings = self.embedding_model(feats, wav_lens)
         if self.norm_emb:
             embeddings = self.hparams["mean_var_norm_emb"](
-                embeddings, torch.ones(embeddings.shape[0], device=self.device))
+                embeddings, torch.ones(embeddings.shape[0], device=self.device)
+            )
         return embeddings.squeeze(1)
 
     def verify(self, wavs1, wav1_lens, wavs2, wav2_lens, threshold):
@@ -156,14 +160,16 @@ class Verification(torch.nn.Module):
         """Loads the models specified in the yaml file"""
         # Embedding Model
         save_model_path = os.path.join(
-            self.hparams["save_folder"], "embedding_model.ckpt")
+            self.hparams["save_folder"], "embedding_model.ckpt"
+        )
         download_file(self.hparams["embedding_model_file"], save_model_path)
         state_dict = torch.load(save_model_path, map_location=self.device)
         self.embedding_model.load_state_dict(state_dict, strict=True)
-        
+
         # Normalization
         if self.norm_emb:
             save_model_path = os.path.join(
-                self.hparams["save_folder"], "mean_var_norm_emb.ckpt")
+                self.hparams["save_folder"], "mean_var_norm_emb.ckpt"
+            )
             download_file(self.hparams["embedding_norm_file"], save_model_path)
             self.mean_var_norm_emb._load(save_model_path, 0, self.device)
