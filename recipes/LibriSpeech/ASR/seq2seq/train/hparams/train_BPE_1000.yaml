@@ -45,7 +45,7 @@ ctc_weight: 0.5
 sorting: ascending
 
 # Dynamic batching
-dynamic_batching: False
+dynamic_batching: True
 
 dynamic_batch_sampler:
    feats_hop_size: 0.01
