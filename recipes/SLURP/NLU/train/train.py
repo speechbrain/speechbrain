@@ -203,7 +203,7 @@ def dataio_prepare(hparams):
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloder_opts"]["shuffle"] = False
+        hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -294,7 +294,14 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing Librispeech)
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    # Dataset prep (parsing SLURP)
     from prepare import prepare_SLURP  # noqa
 
     # multi-gpu (ddp) save data preparation
@@ -306,13 +313,6 @@ if __name__ == "__main__":
             "slu_type": "decoupled",
             "skip_prep": hparams["skip_prep"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # here we create the datasets objects as well as tokenization and encoding
