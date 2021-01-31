@@ -22,6 +22,17 @@ different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, train-clean 100 rather than the full one), and many
 other possible variations.
 
+This recipe assumes that the tokenizer and the LM are already trained.
+To avoid token mismatches, the tokenizer used for the acoustic model is
+the same use for the LM.  The recipe downloads the pre-trained tokenizer
+and LM.
+
+If you would like to train a full system from scratch do the following:
+1- Train a tokenizer (see ../../Tokenizer)
+2- Train a language model (see ../../LM)
+3- Train the acoustic model (with this code).
+
+
 
 Authors
  * Ju-Chieh Chou 2020
@@ -36,13 +47,9 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from speechbrain.dataio.batch import PaddedBatch
-from speechbrain.dataio.dataloader import SaveableDataLoader
-from speechbrain.dataio.sampler import DynamicBatchSampler
 
 logger = logging.getLogger(__name__)
 
@@ -250,16 +257,6 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
-    """Load the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tokenizer.model")
-
-    if "tokenizer_file" in hparams:
-        download_file(
-            source=hparams["tokenizer_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
-
     # Defining tokenizer and loading it
     # To avoid mismatch, we have to use the same tokenizer used for LM training
     tokenizer = hparams["lm_model"].tokenizer
@@ -295,23 +292,6 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
-
-    if hparams["dynamic_batching"]:
-        train_data = SaveableDataLoader(
-            train_data,
-            batch_sampler=DynamicBatchSampler(
-                train_data,
-                hparams["dynamic_batch_sampler"]["max_batch_len"],
-                hparams["dynamic_batch_sampler"]["min_bucket_len"],
-                bucket_length_multiplier=hparams["dynamic_batch_sampler"][
-                    "multiplier"
-                ],
-                length_func=lambda x: x["duration"]
-                * (1 / hparams["dynamic_batch_sampler"]["feats_hop_size"]),
-                shuffle=hparams["dynamic_batch_sampler"]["shuffle"],
-            ),
-            collate_fn=PaddedBatch,
-        )
     return train_data, valid_data, test_datasets, tokenizer
 
 
