@@ -9,6 +9,7 @@
 #          Sung-Lin Yeh 2020
 # ############################################################################
 
+# WORK-IN-PROGRES DO NOT USE UNTIL THE TRANSFORMER LM IS READY
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 16
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
