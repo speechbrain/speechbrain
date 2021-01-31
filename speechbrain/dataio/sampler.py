@@ -272,15 +272,16 @@ class DynamicBatchSampler(Sampler):
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> import numpy as np
-    >>> dataset = {"ex_{}".format(x) : {"wav" :torch.randn(np.random.randint(10, 100))} for x in range(20)}
+    >>> item_lengths = sorted([np.random.randint(10, 100) for x in range(20)])
+    >>> dataset = {"ex_{}".format(x) : {"wav" :torch.randn(x)} for x in item_lengths}
     >>> dataset = DynamicItemDataset(dataset)
     >>> dataset.set_output_keys(["wav"])
     >>> length_func = lambda x : len(x) # trivial in this example
-    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func)
+    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func, shuffle=False)
     >>> dataloader = SaveableDataLoader(dataset, batch_sampler=bsampler, collate_fn=PaddedBatch)
     >>> for i, b in enumerate(dataloader):
-    >>>     data, length = b["wav"]
-    >>> assert data.shape[-1] == 76
+    ...     data, length = b["wav"]
+    >>> assert data.shape[-1] == max(item_lengths)
 
     Arguments
     ---------
