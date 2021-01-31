@@ -293,6 +293,7 @@ def dataio_prepare(hparams):
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
 
+    # Dynamic batching
     if hparams["dynamic_batching"]:
         train_data = SaveableDataLoader(
             train_data,
