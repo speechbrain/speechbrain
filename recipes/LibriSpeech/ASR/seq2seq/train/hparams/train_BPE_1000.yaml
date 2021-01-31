@@ -43,6 +43,8 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+
+# Dynamic batching
 dynamic_batching: False
 
 dynamic_batch_sampler:
