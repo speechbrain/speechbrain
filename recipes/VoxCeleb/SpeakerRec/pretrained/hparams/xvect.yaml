@@ -1,0 +1,38 @@
+# ############################################################################
+# Model: xvector for Speaker verification
+# ############################################################################
+
+save_folder: model_xvector
+embedding_model_file: https://www.dropbox.com/s/uq6vxk3e9zosvwd/xvector_model.ckpt?dl=1
+embedding_norm_file: https://www.dropbox.com/s/7wqw9il86wvf4qu/mean_var_norm_emb.pkl?dl=1
+device: 'cuda:0'
+
+# Feature parameters
+n_mels: 24
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Model params
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: 512
+
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
+   norm_type: global
+   std_norm: False
