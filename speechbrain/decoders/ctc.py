@@ -28,7 +28,7 @@ class CTCPrefixScorer:
     beam_size : int
         The width of beam.
     blank_index : int
-        The index of the blank.
+        The index of the blank token.
     eos_index : int
         The index of the end-of-sequence (eos) token.
     """
