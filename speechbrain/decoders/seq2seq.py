@@ -306,6 +306,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Default : 0.0
         The weight of CTC probabilities when performing beam search (λ).
         (1-λ) log P(y|x) + λ log P_CTC(y|x)
+    blank_index : int
+        The index of the blank token.
+    ctc_score_mode: str
+        Default: "full"
+        CTC prefix scoring on "partial" token or "full: token.
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
@@ -313,8 +318,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         than max_attn_shift.
         Reference: https://arxiv.org/abs/1904.02619
     minus_inf : float
+        DefaultL -1e20
         The value of minus infinity to block some path
-        of the search (default : -1e20).
+        of the search.
     """
 
     def __init__(
