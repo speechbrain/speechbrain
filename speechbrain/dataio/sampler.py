@@ -244,24 +244,23 @@ class DynamicBatchSampler(Sampler):
     lengths_list.
 
     Examples are grouped together by defining a set of possible discrete intervals
-    (buckets) multiple of a min_bucket_length.
+    (buckets) multiple of a left_bucket_length.
     A bucket_length_multiplier is used to specify the number of possible buckets.
-    E.g. if max_batch_length = 32 and min_bucket_length = 10, bucket_length_multiplier = 2
+    E.g. if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
     there will be 3 buckets: [0, 10), [10, 20), [20, 40).
-    Decreasing min_bucket_length increases the number of buckets and thus the "tolerance"
-    for allowing examples of different length in the same batch.
-    Decreasing bucket_length_multiplier has also a similar effect:
-    e.g. if max_batch_length = 32 and min_bucket_length = 10, bucket_length_multiplier = 1.5
-    the number of buckets increases to 8. With right boundaries: [10 12 14 17 21 25 30 36].
+    A common choice would be setting left_bucket_length to approximatively the length
+    of your shortest example in the dataset.
+    Decreasing bucket_length_multiplier creates more buckets in the whole interval
+    of [left_bucket_length, max_batch_size]: e.g. if max_batch_length = 32 and left_bucket_length = 10,
+    bucket_length_multiplier = 1.5 the number of buckets increases to 8.
+    With right boundaries: [10 12 14 17 21 25 30 36].
     Thus examples with length less than 10 are all grouped together but more buckets
     are created for longer examples.
     Note that the bucket boundary grows exponentially using the multiplier.
 
-    A common choice would be setting min_bucket_length to approximatively the length
-    of your shortest example in the dataset.
+    The buckets can also be specified by passing a list to the bucket_boundaries
+    argument instead of specifying a left_bucket_length and a bucket_length_multiplier.
 
-    Both arguments thus allow for trading off training speed by having examples
-    of almost same length and training stochasticity.
 
     Example
     -------
@@ -272,15 +271,16 @@ class DynamicBatchSampler(Sampler):
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> import numpy as np
-    >>> dataset = {"ex_{}".format(x) : {"wav" :torch.randn(np.random.randint(10, 100))} for x in range(20)}
+    >>> item_lengths = sorted([np.random.randint(10, 100) for x in range(20)])
+    >>> dataset = {"ex_{}".format(x) : {"wav" :torch.randn(x)} for x in item_lengths}
     >>> dataset = DynamicItemDataset(dataset)
     >>> dataset.set_output_keys(["wav"])
     >>> length_func = lambda x : len(x) # trivial in this example
-    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func)
+    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func, shuffle=False)
     >>> dataloader = SaveableDataLoader(dataset, batch_sampler=bsampler, collate_fn=PaddedBatch)
     >>> for i, b in enumerate(dataloader):
-    >>>     data, length = b["wav"]
-    >>> assert data.shape[-1] == 76
+    ...     data, length = b["wav"]
+    >>> assert data.shape[-1] == max(item_lengths)
 
     Arguments
     ---------
@@ -289,12 +289,12 @@ class DynamicBatchSampler(Sampler):
     max_batch_length : int
         Upper limit for the sum of the length of examples in a batch.
         Should be chosen based on your GPU memory.
-    min_bucket_length : int
+    left_bucket_length : int
         Minimum length of a bucket. Specifies resolution of buckets and thus this sampler
         stochasticity. A common choice is to set this to length of your
         shortest example.
     bucket_length_multiplier : float
-        Multiplier for bucket length, specifies number of buckets from min_bucket_length to
+        Multiplier for bucket length, specifies number of buckets from left_bucket_length to
         max_batch_length.
     length_func : callable
         Function used to get length of each example from the dataset.
@@ -304,7 +304,7 @@ class DynamicBatchSampler(Sampler):
     shuffle : bool
         Whether or not shuffle examples between each epoch.
     bucket_boundaries : list
-        Overrides bucket_length_multiplier and min_bucket_length by specifying manually
+        Overrides bucket_length_multiplier and left_bucket_length by specifying manually
         the buckets right boundaries.
     lengths_list: list
         Overrides length_func by passing a list containing the length of each example
@@ -322,7 +322,7 @@ class DynamicBatchSampler(Sampler):
         self,
         dataset,
         max_batch_length: int,
-        min_bucket_length: int,
+        left_bucket_length: int,
         bucket_length_multiplier: float = 1.1,
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
@@ -365,7 +365,7 @@ class DynamicBatchSampler(Sampler):
             self._get_data_boundaries(
                 max_batch_length=max_batch_length,
                 bucket_boundaries=bucket_boundaries,
-                min_bucket_length=min_bucket_length,
+                left_bucket_length=left_bucket_length,
                 bucket_length_multiplier=bucket_length_multiplier,
             )
         )
@@ -386,20 +386,20 @@ class DynamicBatchSampler(Sampler):
         self,
         max_batch_length: int,
         bucket_boundaries: List[int],
-        min_bucket_length: int,
+        left_bucket_length: int,
         bucket_length_multiplier: float,
     ) -> List[int]:
         if not bucket_boundaries:
-            if min_bucket_length <= 0:
+            if left_bucket_length <= 0:
                 raise ValueError(
-                    "min_bucket_length must be >0 if no bucket_boundaries set"
+                    "left_bucket_length must be >0 if no bucket_boundaries set"
                 )
             if bucket_length_multiplier < 1.0:
                 raise ValueError(
                     "bucket_length_multiplier must be >1.0 if no bucket_boundaries set"
                 )
-            bucket_boundaries = {min_bucket_length}
-            bucket_boundary = float(min_bucket_length)
+            bucket_boundaries = {left_bucket_length}
+            bucket_boundary = float(left_bucket_length)
             while True:
                 bucket_boundary *= bucket_length_multiplier
                 bucket_boundaries.add(bucket_boundary)
