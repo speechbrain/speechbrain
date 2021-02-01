@@ -408,7 +408,9 @@ class Checkpointer:
                     got {rec} instead."
             raise AttributeError(MSG)
 
-    def save_checkpoint(self, meta={}, end_of_epoch=True, name=None):
+    def save_checkpoint(
+        self, meta={}, end_of_epoch=True, name=None, verbosity=logging.INFO
+    ):
         """Saves a checkpoint.
 
         The whole checkpoint becomes a directory.
@@ -433,6 +435,8 @@ class Checkpointer:
             Specify a custom name for your checkpoint.
             The name will still have a prefix added. If no name is given,
             a name is created from a timestamp and a random unique id.
+        verbosity : logging level
+            Set logging level this save.
 
         Returns
         -------
@@ -465,7 +469,8 @@ class Checkpointer:
             MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
-        logger.info(f"Saved a checkpoint in {ckpt_dir}")
+        ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
+        logger.log(verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}")
         return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
     def save_and_keep_only(
@@ -479,6 +484,7 @@ class Checkpointer:
         max_keys=[],
         min_keys=[],
         ckpt_predicate=None,
+        verbosity=logging.INFO,
     ):
         """Saves a checkpoint, then deletes the least important checkpoints
 
@@ -525,7 +531,9 @@ class Checkpointer:
             we cannot guarantee that the saved checkpoint actually survives
             deletion.
         """
-        self.save_checkpoint(meta=meta, end_of_epoch=end_of_epoch, name=name)
+        self.save_checkpoint(
+            meta=meta, end_of_epoch=end_of_epoch, name=name, verbosity=verbosity
+        )
 
         if keep_recent:
             importance_keys.append(ckpt_recency)
@@ -535,6 +543,7 @@ class Checkpointer:
             min_keys=min_keys,
             importance_keys=importance_keys,
             ckpt_predicate=ckpt_predicate,
+            verbosity=verbosity,
         )
 
     def find_checkpoint(
@@ -766,6 +775,7 @@ class Checkpointer:
         max_keys=None,
         importance_keys=[ckpt_recency],
         ckpt_predicate=None,
+        verbosity=logging.INFO,
     ):
         """Deletes least important checkpoints.
 
@@ -806,6 +816,8 @@ class Checkpointer:
             Only the checkpoints for which ckpt_predicate is True can be
             deleted. The function is called with Checkpoint namedtuples
             (see above).
+        verbosity : logging level
+            Set logging level for this deletion.
 
         Note
         ----
@@ -835,14 +847,14 @@ class Checkpointer:
         # Delete unprotected checkpoints
         for ckpt in potential_deletions:
             if ckpt not in protected_checkpoints:
-                Checkpointer._delete_checkpoint(ckpt)
+                Checkpointer._delete_checkpoint(ckpt, verbosity=verbosity)
 
     @staticmethod
-    def _delete_checkpoint(checkpoint):
+    def _delete_checkpoint(checkpoint, verbosity=logging.INFO):
         if not Checkpointer._is_checkpoint_dir(checkpoint.path):
             raise RuntimeError("Checkpoint does not appear valid for deletion.")
         shutil.rmtree(checkpoint.path)
-        logger.info(f"Deleted checkpoint in {checkpoint.path}")
+        logger.log(verbosity, f"Deleted checkpoint in {checkpoint.path}")
 
     def _call_load_hooks(self, checkpoint, device=None):
         # This internal function finds the correct hook to call for every

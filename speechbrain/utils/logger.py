@@ -10,6 +10,7 @@ Author
 import sys
 import os
 import yaml
+import tqdm
 import logging
 import logging.config
 import math
@@ -58,6 +59,25 @@ ORDERS_WORDS = {
     21: "Sextillion",
     24: "Septillion",
 }
+
+
+class TqdmCompatibleStreamHandler(logging.StreamHandler):
+    """TQDM compatible StreamHandler
+
+    Writes and prints should be passed through tqdm.tqdm.write
+    so that the tqdm progressbar doesn't get messed up.
+    """
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            stream = self.stream
+            tqdm.tqdm.write(msg, end=self.terminator, file=stream)
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:
+            self.handleError(record)
 
 
 def setup_logging(

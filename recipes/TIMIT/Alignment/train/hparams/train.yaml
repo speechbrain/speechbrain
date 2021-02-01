@@ -19,6 +19,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 train_annotation: !ref <data_folder>/train.csv
 valid_annotation: !ref <data_folder>/dev.csv
 test_annotation: !ref <data_folder>/test.csv
+skip_prep: False # Skip data prep
 
 # Training parameters
 number_of_epochs: 10

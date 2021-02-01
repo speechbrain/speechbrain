@@ -8,21 +8,22 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1992
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNNLM_1024/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
+    tokenizer_file: !ref <tokenizer_file>
 
 # Data files
 data_folder: /localscratch/timers-and-such
 train_splits: ["train-synth", "train-real"]
-dev_split: dev-real
 csv_train: !ref <data_folder>/train-type=decoupled.csv
-csv_valid: !ref <data_folder>/<dev_split>-type=decoupled.csv
+csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
-asr_hparam_file:
-    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained.yaml
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 10
@@ -31,14 +32,16 @@ lr: 0.0003
 device: 'cuda:0'
 ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
+sorting: random
 
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
 
 # Model params
-sample_rate: 16000
 emb_size: 128
 net_dim: 1024
 num_asr_tokens: 1000
-#output_neurons: 51 # index(eos/bos) = 0
 
 # Decoding parameters
 bos_index: 0
@@ -47,39 +50,7 @@ eos_index: 0
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# Dataloaders
-train_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: random
-    output_folder: !ref <output_folder>
-    csv_read: [transcript]
-
-valid_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [transcript]
-
-test_real_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
-    csv_file: !ref <csv_test_real>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [transcript]
-
-test_synth_loader: !new:speechbrain.dataio.dataio.DataLoaderFactory
-    csv_file: !ref <csv_test_synth>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [transcript]
-
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.ASR
-    hparams_file: !ref <asr_hparam_file>
-
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
@@ -120,8 +91,3 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-
-error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-
-cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-    split_tokens: True

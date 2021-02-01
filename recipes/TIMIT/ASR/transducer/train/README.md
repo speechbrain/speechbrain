@@ -1,5 +1,5 @@
 # TIMIT ASR with Transducer models.
-This folder contains the scripts to train a RNNT system using TIMIT.
+This folder contains the scripts to train an RNNT system using TIMIT.
 TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
 
