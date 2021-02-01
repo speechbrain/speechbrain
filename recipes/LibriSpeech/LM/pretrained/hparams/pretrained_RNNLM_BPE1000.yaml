@@ -28,3 +28,4 @@ model: !new:speechbrain.lobes.models.RNNLM.RNNLM
 
 tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
+    save_folder: !ref <save_folder>

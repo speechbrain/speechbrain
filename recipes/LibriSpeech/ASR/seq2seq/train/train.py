@@ -22,6 +22,17 @@ different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, train-clean 100 rather than the full one), and many
 other possible variations.
 
+This recipe assumes that the tokenizer and the LM are already trained.
+To avoid token mismatches, the tokenizer used for the acoustic model is
+the same use for the LM.  The recipe downloads the pre-trained tokenizer
+and LM.
+
+If you would like to train a full system from scratch do the following:
+1- Train a tokenizer (see ../../Tokenizer)
+2- Train a language model (see ../../LM)
+3- Train the acoustic model (with this code).
+
+
 
 Authors
  * Ju-Chieh Chou 2020
@@ -36,7 +47,6 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
@@ -200,7 +210,8 @@ class ASR(sb.Brain):
 
 
 def dataio_prepare(hparams):
-
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -218,7 +229,7 @@ def dataio_prepare(hparams):
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloder_opts"]["shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -245,16 +256,6 @@ def dataio_prepare(hparams):
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
-
-    """Load the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tokenizer.model")
-
-    if "tokenizer_file" in hparams:
-        download_file(
-            source=hparams["tokenizer_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
 
     # Defining tokenizer and loading it
     # To avoid mismatch, we have to use the same tokenizer used for LM training
@@ -326,6 +327,7 @@ if __name__ == "__main__":
             "save_folder": hparams["data_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": hparams["train_csv"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

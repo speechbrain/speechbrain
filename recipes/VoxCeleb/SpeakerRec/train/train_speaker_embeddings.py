@@ -195,6 +195,7 @@ if __name__ == "__main__":
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
             "seg_dur": int(hparams["sentence_len"]) * 100,
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

@@ -14,5 +14,4 @@ python train.py train/train.yaml
 
 
 # Training Time
-About N for each epoch with a  TESLA V100.
-~                                         
+About N for each epoch with a  TESLA V100.                                        

@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
+output_folder: !ref results/CRDNN_BPE_1000/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -20,7 +20,7 @@ train_log: !ref <output_folder>/train_log.txt
 # NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
 # for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
 # # object. In this case, it is based on 1000 tokens.
-lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
+lm_hparam_file: https://www.dropbox.com/s/j51op5l7i356s3v/pretrained_RNNLM_BPE1000.yaml?dl=1
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -29,6 +29,7 @@ data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
+skip_prep: False
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
@@ -190,6 +191,7 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 # Models
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
    hparams_file: !ref <lm_hparam_file>
+   save_folder: !ref <save_folder>
 
 modules:
    enc: !ref <enc>
