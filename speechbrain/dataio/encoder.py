@@ -77,23 +77,25 @@ class CategoricalEncoder:
     >>> encoder.update_from_iterable(dataset)
     >>>
     22
-
+    >>>
     encode_sequence on sequences of labels:
     >>> encoder.encode_sequence(["spk1", "spk19"])
     [22, 40]
+    >>>
     encode_label_torch and encode_sequence_torch return torch tensors
     >>> encoder.encode_sequence_torch(["spk1", "spk19"])
     tensor([22, 40])
-
+    >>>
     Decoding can be performed using decode_torch and decode_ndim methods.
     >>> encoded = encoder.encode_sequence_torch(["spk1", "spk19"])
     >>> encoder.decode_torch(encoded)
     ['spk1', 'spk19']
+    >>>
     decode_ndim is used for multidimensional list or pytorch tensors
     >>> encoded = encoded.unsqueeze(0).repeat(3, 1)
     >>> encoder.decode_torch(encoded)
     [['spk1', 'spk19'], ['spk1', 'spk19'], ['spk1', 'spk19']]
-
+    >>>
     In some applications, it can happen that during testing a label which has not
     been encountered during training is encountered. To handle this out-of-vocabulary
     problem add_unk can be used. Every out-of-vocab label is mapped to this special
@@ -101,12 +103,15 @@ class CategoricalEncoder:
 
     >>> import torch
     >>> try:
-    >>>     encoder.encode_label("spk42")
-    >>> except KeyError:
-    >>>        print("spk42 is not in the encoder this raises an error!")
+    ...     encoder.encode_label("spk42")
+    ... except KeyError:
+    ...        print("spk42 is not in the encoder this raises an error!")
+    spk42 is not in the encoder this raises an error!
     >>> encoder.add_unk()
+    41
     >>> encoder.encode_label("spk42")
     41
+    >>>
     returns the <unk> encoding
 
     This class offers also methods to save and load the internal mappings between
@@ -716,19 +721,24 @@ class TextEncoder(CategoricalEncoder):
     >>> encoder.encode_label("this")
     1
     >>> encoder.add_unk()
+    5
     >>> encoder.encode_sequence(["this", "out-of-vocab"])
     [1, 5]
-
+    >>>
     Two methods can be used to add <bos> and <eos> to the internal dicts:
     insert_bos_eos, add_bos_eos.
 
     >>> encoder.add_bos_eos()
     >>> encoder.lab2ind[encoder.eos_label]
+    7
+    >>>
     add_bos_eos adds the special tokens at the end of the dict indexes
     >>> encoder = TextEncoder()
     >>> encoder.update_from_iterable(dataset)
     >>> encoder.insert_bos_eos(bos_index=0, eos_index=1)
     >>> encoder.lab2ind[encoder.eos_label]
+    1
+    >>>
     insert_bos_eos allows to specify whose index will correspond to each of them.
     Note that you can also specify the same integer encoding for both.
 
@@ -747,7 +757,6 @@ class TextEncoder(CategoricalEncoder):
 
     >>> words = ["foo", "bar"]
     >>> encoded = encoder.encode_sequence(words)
-    [3, 4]
     >>> encoder.prepend_bos_index(encoded)
     [0, 3, 4]
     >>> encoder.append_eos_index(encoded)
@@ -942,7 +951,6 @@ class CTCTextEncoder(TextEncoder):
     ['a', 'b', 'c', 'd']
     >>> encoder.collapse_indices_ndim([4, 4, 0, 1, 2, 3, 4, 4]) # 4 is <blank>
     [0, 1, 2, 3]
-
     """
 
     def handle_special_labels(self, special_labels):
