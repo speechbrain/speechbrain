@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_1000/<seed>
+output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -20,7 +20,7 @@ train_log: !ref <output_folder>/train_log.txt
 # NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
 # for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
 # # object. In this case, it is based on 1000 tokens.
-lm_hparam_file: https://www.dropbox.com/s/j51op5l7i356s3v/pretrained_RNNLM_BPE1000.yaml?dl=1
+lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -43,6 +43,14 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+dynamic_batching: True
+
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 4000 # in terms of frames
+   left_bucket_len: 200
+   multiplier: 1.1
+   shuffle: False # if true re-creates batches at each epoch shuffling examples.
 
 # Feature parameters
 sample_rate: 16000
@@ -191,7 +199,6 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 # Models
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
    hparams_file: !ref <lm_hparam_file>
-   save_folder: !ref <save_folder>
 
 modules:
    enc: !ref <enc>
