@@ -83,7 +83,45 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ["_apidoc_templates"]
+
+# -- Better apidoc -----------------------------------------------------------
+
+
+def run_apidoc(app):
+    """Generage API documentation"""
+    import better_apidoc
+
+    better_apidoc.APP = app
+    import hyperpyyaml
+
+    better_apidoc.main(
+        [
+            "better-apidoc",
+            "-t",
+            os.path.join("source", "_apidoc_templates"),
+            "--force",
+            "--no-toc",
+            "--separate",
+            "-o",
+            "source",
+            os.path.dirname(hyperpyyaml.__file__),
+        ]
+    )
+    better_apidoc.main(
+        [
+            "better-apidoc",
+            "-t",
+            os.path.join("source", "_apidoc_templates"),
+            "--force",
+            "--no-toc",
+            "--separate",
+            "-o",
+            "source",
+            os.path.join("..", "speechbrain"),
+        ]
+    )
+
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -112,3 +150,7 @@ source_suffix = {
     ".txt": "markdown",
     ".md": "markdown",
 }
+
+
+def setup(app):
+    app.connect("builder-inited", run_apidoc)
