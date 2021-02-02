@@ -303,7 +303,7 @@ def dataio_prepare(hparams):
             batch_sampler=DynamicBatchSampler(
                 train_data,
                 hparams["dynamic_batch_sampler"]["max_batch_len"],
-                hparams["dynamic_batch_sampler"]["min_bucket_len"],
+                hparams["dynamic_batch_sampler"]["left_bucket_len"],
                 bucket_length_multiplier=hparams["dynamic_batch_sampler"][
                     "multiplier"
                 ],
