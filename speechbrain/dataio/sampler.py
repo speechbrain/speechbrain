@@ -12,7 +12,6 @@ import logging
 from operator import itemgetter
 from torch.utils.data import RandomSampler, DistributedSampler, Sampler
 import numpy as np
-import math
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
 
@@ -334,7 +333,7 @@ class DynamicBatchSampler(Sampler):
     ):
         self._dataset = dataset
         self._ex_lengths = {}
-        ex_ids = list(self._dataset.data.keys())
+        ex_ids = self._dataset.data_ids
 
         if lengths_list is not None:
             # take length of examples from this argument and bypass length_key
@@ -376,7 +375,7 @@ class DynamicBatchSampler(Sampler):
         self._drop_last = drop_last
         # Calculate bucket lengths
         self._bucket_lens = [
-            max(1, math.ceil(max_batch_length / self._bucket_boundaries[i]))
+            max(1, int(max_batch_length / self._bucket_boundaries[i]))
             for i in range(len(self._bucket_boundaries))
         ] + [1]
         self._epoch = epoch
@@ -402,9 +401,10 @@ class DynamicBatchSampler(Sampler):
             bucket_boundary = float(left_bucket_length)
             while True:
                 bucket_boundary *= bucket_length_multiplier
-                bucket_boundaries.add(bucket_boundary)
                 if bucket_boundary >= max_batch_length:
                     break
+                bucket_boundaries.add(bucket_boundary)
+
         return list(sorted(bucket_boundaries))
 
     def _generate_batches(self):
@@ -440,10 +440,15 @@ class DynamicBatchSampler(Sampler):
                     len(self._batches), len(self._bucket_boundaries)
                 )
             )
-            for i in range(len(self._bucket_lens)):
+            boundaries = [0] + self._bucket_boundaries.tolist()
+            for i in range(len(self._bucket_boundaries)):
                 logger.info(
-                    "DynamicBatchSampler: Bucket {} has {} examples.".format(
-                        i, bucket_stats[i]
+                    "DynamicBatchSampler: Bucket {} with boundary {}-{} and batch_size {} has {} examples.".format(
+                        i,
+                        np.around(boundaries[i], 2),
+                        np.around(boundaries[i + 1], 2),
+                        self._bucket_lens[i],
+                        bucket_stats[i],
                     )
                 )
 
