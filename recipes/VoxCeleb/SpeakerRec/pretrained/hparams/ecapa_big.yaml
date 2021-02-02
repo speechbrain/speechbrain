@@ -1,0 +1,37 @@
+# ############################################################################
+# Model: ECAPA big for Speaker verification
+# ############################################################################
+
+save_folder: model_ecapa_big
+embedding_model_file: https://www.dropbox.com/s/n5l4llap8b9ipty/embedding_model.ckpt?dl=1
+embedding_norm_file: https://www.dropbox.com/s/kmdgvatwe324rfe/mean_var_norm_emb.pkl?dl=1
+device: 'cuda:0'
+
+# Feature parameters
+n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Model params
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <n_mels>
+    channels: [1024, 1024, 1024, 1024, 3072]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    attention_channels: 128
+    lin_neurons: 192
+
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: False

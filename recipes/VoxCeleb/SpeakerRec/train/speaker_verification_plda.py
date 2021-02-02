@@ -22,7 +22,6 @@ import pickle
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import EER, minDCF
-from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
@@ -31,13 +30,7 @@ from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 def compute_embeddings(wavs, lens):
     """Definition of the steps for embedding computation from the waveforms"""
     with torch.no_grad():
-        wavs = wavs.to(params["device"])
-        feats = params["compute_features"](wavs)
-        feats = params["mean_var_norm"](feats, lens)
-        emb = params["embedding_model"](feats, lens=lens)
-        emb = params["mean_var_norm_emb"](
-            emb, torch.ones(emb.shape[0], device=params["device"])
-        )
+        emb = params["embedding_model"].compute_embeddings(wavs, lens)
     return emb
 
 
@@ -129,15 +122,6 @@ def verification_performance(scores_plda):
         torch.tensor(positive_scores), torch.tensor(negative_scores)
     )
     return eer, min_dcf
-
-
-def download_and_pretrain():
-    """Downaloads the pre-trained encoder and loads it"""
-    save_model_path = params["output_folder"] + "/save/emb.ckpt"
-    download_file(params["embedding_file"], save_model_path)
-    params["embedding_model"].load_state_dict(
-        torch.load(save_model_path), strict=True
-    )
 
 
 # Function to get mod and seg
@@ -252,20 +236,6 @@ if __name__ == "__main__":
         params["save_folder"], "VoxCeleb1_train_embeddings_stat_obj.pkl"
     )
 
-    # Download models from the web if needed
-    if "https://" in params["embedding_file"]:
-        download_and_pretrain()
-    else:
-        params["embedding_model"].load_state_dict(
-            torch.load(params["embedding_file"]), strict=True
-        )
-
-    # Put modules on the specified device
-    params["compute_features"].to(params["device"])
-    params["mean_var_norm"].to(params["device"])
-    params["embedding_model"].to(params["device"])
-    params["mean_var_norm_emb"].to(params["device"])
-
     # Switch encoder to eval modality
     params["embedding_model"].eval()
 
@@ -371,5 +341,5 @@ if __name__ == "__main__":
 
     # Final EER computation
     eer, min_dcf = verification_performance(scores_plda)
-    logger.info("EER=%f", eer)
-    logger.info("min_dcf=%f", min_dcf)
+    logger.info("EER(%%)=%f", eer * 100)
+    logger.info("min_dcf=%f", min_dcf * 100)
