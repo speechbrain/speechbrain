@@ -19,11 +19,15 @@ Authors
 import sys
 import torch
 import speechbrain as sb
+import logging
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
+logger = logging.getLogger(__name__)
 
 # Define training procedure
+
+
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -199,7 +203,7 @@ def dataio_prepare(hparams):
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloder_opts"]["shuffle"] = False
+        hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -278,7 +282,14 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing Librispeech)
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    # Dataset prep (parsing TAS)
     from prepare import prepare_TAS  # noqa
 
     # multi-gpu (ddp) save data preparation
@@ -290,13 +301,6 @@ if __name__ == "__main__":
             "type": "direct",
             "skip_prep": hparams["skip_prep"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # here we create the datasets objects as well as tokenization and encoding

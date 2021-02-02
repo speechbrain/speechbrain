@@ -11,12 +11,9 @@ import speechbrain.processing
 import speechbrain.tokenizers
 import speechbrain.utils  # noqa
 
-from speechbrain.utils.Accuracy import AccuracyStats
-
 __all__ = [
     "Stage",
     "Brain",
     "create_experiment_directory",
     "parse_arguments",
-    "AccuracyStats",
 ]
