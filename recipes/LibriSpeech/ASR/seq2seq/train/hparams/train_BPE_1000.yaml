@@ -52,15 +52,6 @@ dynamic_batch_sampler:
    multiplier: 1.1
    shuffle: False # if true re-creates batches at each epoch shuffling examples.
 
-# Dynamic batching
-dynamic_batching: True
-
-dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 4000 # in terms of frames
-   min_bucket_len: 200
-   multiplier: 1.1
-   shuffle: False
 
 # Feature parameters
 sample_rate: 16000
