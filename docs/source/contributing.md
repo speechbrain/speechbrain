@@ -2,6 +2,19 @@
 
 The goal is to write a set of libraries that process audio and speech in several different ways. Hence, it is crucial to build a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
 
+## Zen of Speechbrain
+SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
+
+- **Simple:**  the code must be easy to understand even by students or by users that are not professional programmers or speech researchers. Try to design your code such that it can be easily read. Given alternatives with the same level of performance, code the simplest one. (the most explicit and straightforward manner is preferred)
+
+- **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test codestyle with `flake8`
+
+- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible.
+
+- **Modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
+
+- **Well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
+
 ## How to get your code in SpeechBrain
 
 Practically, development goes as follows:
@@ -163,18 +176,3 @@ Fourthly, use the tools that GitHub has: comment on specific code lines, suggest
 Fifthly, though code review is a place for professional constructive criticism,
 a nice strategy to show (and validate) that you understand what the PR is really
 doing, is to provide some affirmative comments on its strengths.
-
-## Zen of Speechbrain
-SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
-
-- **Simple:**  the code must be easy to understand even by students or by users that are not professional programmers or speech researchers. Try to design your code such that it can be easily read. Given alternatives with the same level of performance, code the simplest one. (the most explicit and straightforward manner is preferred)
-
-- **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test codestyle with `flake8`
-
-- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible.
-
-- **Modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
-
-- **Well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
-This aspect will be better described in the following sub-section.
-
