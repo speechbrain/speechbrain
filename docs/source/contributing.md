@@ -14,37 +14,37 @@ SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commerc
 - **Modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
 
 - **Well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
-This aspect will be better described in the following sub-section.
 
-## GitHub
+## How to get your code in SpeechBrain
 
-Our development strategy is as follows:
+Practically, development goes as follows:
 
-1. Clone the main speechbrain repository (no fork needed). SSH example:
-    `git clone git@github.com:speechbrain/speechbrain`
-2. Create a branch for specific feature you are developing.
+0. We use git and GitHub.
+1. Fork the speechbrain repository (https://github.com/speechbrain/speechbrain)
+on GitHub under your own account.
+    (This creates a copy of SpeechBrain under your account, and GitHub
+    knows where it came from, and we typically call this "upstream".)
+2. Clone your own speechbrain repository.
+    `git clone https://github.com/<your-account>/speechbrain`
+    (This downloads the git repository to your machine, git knows where
+    it came from, and calls it "origin".)
+3. Create a branch for specific feature you are developing.
     `git checkout -b your-branch-name`
-3. Make + commit changes. Do not commit to `master`.
-4. Push branch to github.
-    `git push --set-upstream origin your-branch-name`
-5. Navigate to github, and create a pull request from your branch to master.
-6. A reviewer will be assigned to your PR to (hopefully quickly) review.
-7. When reviewer is satisfied that the code improves repository quality, they can merge.
-8. Reviewer should delete the source branch in the origin. You can do this in your
-local copy too, after first making sure master is up-to-date (so git doesn't complain
-that your branch changes aren't in master):
-    `git checkout master`
-    `git pull`
-    `git branch -d your-branch-name`
+4. Make + commit changes.
+    `git add files-you-changed ...`
+    `git commit -m "Short message about what you did"`
+5. Push branch to your GitHub repository.
+    `git push origin your-branch-name`
+6. Navigate to GitHub, and create a pull request from your branch to the upstream
+repository speechbrain/speechbrain, to the "develop" branch.
+7. The Pull Request (PR) appears on the upstream repository. Discuss your contribution
+there. If you push more changes to your branch on GitHub (on your repository), they are
+added to the PR.
+8. When reviewer is satisfied that the code improves repository quality, they can merge.
 
 Note that CI tests will be run when you create a PR. If you want to be sure that your
-code will not fail these tests, we have set up pre-commit hooks that you can install:
-
-```
-> pip install pre-commit
-> pre-commit install
-> pre-commit install --hook-type pre-push --config .pre-push-config.yaml
-```
+code will not fail these tests, we have set up pre-commit hooks that you can install.
+See the section on pre-commit.
 
 These will automatically check the code when you commit and when you push.
 
