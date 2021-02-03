@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1415
+seed: 1427
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/robust_asr/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -46,7 +46,7 @@ test_loader_options:
 epochs_before_lr_drop: 3
 
 # Loss weights
-enhance_type: clean  # null, mapping, masking, noisy, clean
+enhance_type: masking  # null, mapping, masking, noisy, clean
 enhance_weight: 0.0
 mimic_weight: 0.0
 ctc_weight: 1.0

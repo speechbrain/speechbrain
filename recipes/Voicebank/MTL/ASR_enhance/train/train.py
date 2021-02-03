@@ -438,7 +438,6 @@ def dataio_prep(hparams):
 
     # 5. Load or update tokenizer
     if hparams["target_type"] == "words":
-
         tokenizer.sp.load(save_model_path)
 
         if (tokenizer.sp.eos_id() + 1) == (
