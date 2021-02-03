@@ -19,17 +19,17 @@ tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
 data_folder_rirs: !ref <data_folder>
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/valid.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 0
 ctc_epochs: 0
 batch_size: 8
 lr: 0.0001
 token_type: unigram
-target_type: wrd
+target_type: words
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
 character_coverage: 1.0
@@ -213,10 +213,10 @@ mimic_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.mse_loss
         reduction: batch
 estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:experiment.estoi_eval
+    metric: !name:train.estoi_eval
     n_jobs: 30
 pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:experiment.pesq_eval
+    metric: !name:train.pesq_eval
     n_jobs: 30
 err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 

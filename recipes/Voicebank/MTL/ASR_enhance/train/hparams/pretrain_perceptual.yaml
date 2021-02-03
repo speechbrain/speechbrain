@@ -30,10 +30,10 @@ eval_max_key: null
 train_loader_options:
     batch_size: !ref <batch_size>
 valid_loader_options:
-    batch_size: 30
+    batch_size: !ref <batch_size>
     shuffle: False
 test_loader_options:
-    batch_size: 30
+    batch_size: !ref <batch_size>
     shuffle: False
 
 # Loss weights
