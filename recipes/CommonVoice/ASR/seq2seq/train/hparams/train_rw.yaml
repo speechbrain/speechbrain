@@ -27,7 +27,7 @@ test_csv: !ref <save_folder>/test.csv
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
-avoid_if_longer_than: 10.0
+avoid_if_longer_than: 8.0
 
 # Training parameters
 number_of_epochs: 25
