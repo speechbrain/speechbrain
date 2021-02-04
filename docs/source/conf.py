@@ -12,6 +12,7 @@
 #
 import os
 import sys
+import hyperpyyaml
 
 
 sys.path.insert(0, os.path.abspath("../../speechbrain"))
@@ -93,7 +94,6 @@ def run_apidoc(app):
     import better_apidoc
 
     better_apidoc.APP = app
-    import hyperpyyaml
 
     better_apidoc.main(
         [
