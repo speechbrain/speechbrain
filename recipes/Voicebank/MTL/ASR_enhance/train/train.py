@@ -464,8 +464,42 @@ def dataio_prep(hparams):
     return data, tokenizer
 
 
+def download_pretrained():
+    # Set up directories
+    ppath = "pretrain"
+    mpath = os.path.join("hparams", "models")
+    if not os.path.isdir(ppath):
+        os.mkdir(ppath)
+    if not os.path.isdir(mpath):
+        os.mkdir(mpath)
+
+    # Download enhancement model
+    prefix = "https://www.dropbox.com/s/"
+    enh_model_url = prefix + "o7hdph54kv1julo/enhance_model.ckpt?dl=1"
+    enh_yaml_url = prefix + "jgkw8byufw5zmco/enhance_model.yaml?dl=1"
+    download_file(enh_model_url, os.path.join(ppath, "enhance_model.ckpt"))
+    download_file(enh_yaml_url, os.path.join(mpath, "enhance_model.yaml"))
+
+    # Download perceptual model
+    perc_model_url = prefix + "2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1"
+    perc_yaml_url = prefix + "e439h7oix9m7imn/perceptual_model.yaml?dl=1"
+    download_file(perc_model_url, os.path.join(ppath, "src_embedding.ckpt"))
+    download_file(perc_yaml_url, os.path.join(mpath, "perceptual_model.yaml"))
+
+    # Download asr model
+    asr_model_url = prefix + "bb209th9vcs555j/model.ckpt?dl=1"
+    normalize_url = prefix + "ib20ub7liaqcirw/normalizer.ckpt?dl=1"
+    asr_yaml_url = prefix + "wbu3i82urhxe3in/asr_model.yaml?dl=1"
+    download_file(asr_model_url, os.path.join(ppath, "model.ckpt"))
+    download_file(normalize_url, os.path.join(ppath, "normalizer.ckpt"))
+    download_file(asr_yaml_url, os.path.join(mpath, "asr_model.yaml"))
+
+
 # Begin Recipe!
 if __name__ == "__main__":
+
+    # Download yaml model defns/models to include in yaml
+    download_pretrained()
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
