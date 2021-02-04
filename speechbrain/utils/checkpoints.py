@@ -595,10 +595,10 @@ class Checkpointer:
             ckpt_predicate=ckpt_predicate,
             max_num_checkpoints=None,
         )
-        if ckpts_found is None:
-            return None
-        else:
+        if ckpts_found:
             return ckpts_found[0]
+        else:
+            return None
 
     def find_checkpoints(
         self,
