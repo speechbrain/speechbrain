@@ -640,8 +640,6 @@ class Checkpointer:
         -------
         list
             List containing at most the max specified number of Checkpoints
-        None
-            if no Checkpoints exist/remain after filtering
 
         """
         if importance_key is None and min_key is None and max_key is None:
@@ -691,7 +689,7 @@ class Checkpointer:
             else:  # No max number -> return all ckpts, but just sorted
                 return ranked_ckpts
         else:
-            return None  # Be explicit :)
+            return []  # Be explicit :)
 
     def recover_if_possible(
         self,
