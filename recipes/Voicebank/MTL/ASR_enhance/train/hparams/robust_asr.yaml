@@ -14,7 +14,6 @@ train_log: !ref <output_folder>/train_log.txt
 
 lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
@@ -24,7 +23,7 @@ valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
 
 # Training parameters
-number_of_epochs: 0
+number_of_epochs: 30
 ctc_epochs: 0
 batch_size: 8
 lr: 0.0001
