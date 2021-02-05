@@ -20,6 +20,7 @@ import os
 import sys
 import torch
 import torchaudio
+import urllib.parse
 import speechbrain as sb
 from pesq import pesq
 from pystoi import stoi
@@ -359,20 +360,42 @@ class ASR_Brain(sb.Brain):
         state_dict = torch.load(save_model_path)
         self.hparams.modules["lm_model"].load_state_dict(state_dict)
 
+    def load_pretrained(self):
+        """Loads the specified pretrained files"""
+
+        for model_name, model_path in self.hparams.pretrained_path.items():
+
+            # Try parsing model_path as a url first.
+            try:
+                print("trying to download " + model_path)
+                save_dir = os.path.join(self.hparams.output_folder, "save")
+                model_path = download_to_dir(model_path, save_dir)
+
+            # If it fails, assume its a valid filepath already
+            except ValueError:
+                pass
+
+            if model_name == "normalizer":
+                self.hparams.normalizer._load(
+                    model_path, end_of_epoch=False, device=self.device
+                )
+            elif model_name == "asr_model":
+                state_dict = torch.load(model_path)
+                self.hparams.model.load_state_dict(state_dict, strict=True)
+            else:
+                state_dict = torch.load(model_path)
+                self.modules[model_name].load_state_dict(state_dict)
+
 
 def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
     # 1. define tokenizer
     if hparams["target_type"] == "words":
-        save_model_path = os.path.join(
-            hparams["save_folder"], "1000_unigram.model"
+        save_model_path = download_to_dir(
+            hparams["tok_mdl_file"], hparams["save_folder"]
         )
-        download_file(
-            source=hparams["tok_mdl_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
+        download_to_dir(hparams["tok_voc_file"], hparams["save_folder"])
         tokenizer = SentencePiece(
             model_dir=hparams["save_folder"],
             vocab_size=hparams["output_neurons"],
@@ -464,42 +487,16 @@ def dataio_prep(hparams):
     return data, tokenizer
 
 
-def download_pretrained():
-    # Set up directories
-    ppath = "pretrain"
-    mpath = os.path.join("hparams", "models")
-    if not os.path.isdir(ppath):
-        os.mkdir(ppath)
-    if not os.path.isdir(mpath):
-        os.mkdir(mpath)
-
-    # Download enhancement model
-    prefix = "https://www.dropbox.com/s/"
-    enh_model_url = prefix + "o7hdph54kv1julo/enhance_model.ckpt?dl=1"
-    enh_yaml_url = prefix + "jgkw8byufw5zmco/enhance_model.yaml?dl=1"
-    download_file(enh_model_url, os.path.join(ppath, "enhance_model.ckpt"))
-    download_file(enh_yaml_url, os.path.join(mpath, "enhance_model.yaml"))
-
-    # Download perceptual model
-    perc_model_url = prefix + "2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1"
-    perc_yaml_url = prefix + "e439h7oix9m7imn/perceptual_model.yaml?dl=1"
-    download_file(perc_model_url, os.path.join(ppath, "src_embedding.ckpt"))
-    download_file(perc_yaml_url, os.path.join(mpath, "perceptual_model.yaml"))
-
-    # Download asr model
-    asr_model_url = prefix + "bb209th9vcs555j/model.ckpt?dl=1"
-    normalize_url = prefix + "ib20ub7liaqcirw/normalizer.ckpt?dl=1"
-    asr_yaml_url = prefix + "wbu3i82urhxe3in/asr_model.yaml?dl=1"
-    download_file(asr_model_url, os.path.join(ppath, "model.ckpt"))
-    download_file(normalize_url, os.path.join(ppath, "normalizer.ckpt"))
-    download_file(asr_yaml_url, os.path.join(mpath, "asr_model.yaml"))
+def download_to_dir(url, directory):
+    """Parse filename from url and download to directory."""
+    os.makedirs(directory, exist_ok=True)
+    filename = os.path.basename(urllib.parse.urlparse(url).path)
+    download_file(url, os.path.join(directory, filename))
+    return os.path.join(directory, filename)
 
 
 # Begin Recipe!
 if __name__ == "__main__":
-
-    # Download yaml model defns/models to include in yaml
-    download_pretrained()
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -526,14 +523,6 @@ if __name__ == "__main__":
 
     datasets, tokenizer = dataio_prep(hparams)
 
-    # Load pretrained models
-    if "pretrained_path" in hparams:
-        for model_name, path in hparams["pretrained_path"].items():
-            hparams["modules"][model_name].load_state_dict(torch.load(path))
-
-    if "pretrain_checkpointer" in hparams:
-        hparams["pretrain_checkpointer"].recover_if_possible()
-
     # Initialize trainer
     asr_brain = ASR_Brain(
         modules=hparams["modules"],
@@ -543,6 +532,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     asr_brain.tokenizer = tokenizer
+    asr_brain.load_pretrained()
     if hasattr(asr_brain.hparams, "lm_ckpt_file"):
         asr_brain.load_lm()
 

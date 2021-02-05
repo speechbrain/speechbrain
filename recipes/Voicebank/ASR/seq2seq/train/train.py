@@ -33,7 +33,7 @@ Authors
 import os
 import sys
 import torch
-import urllib
+import urllib.parse
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file, undo_padding
@@ -259,6 +259,7 @@ def dataio_prep(hparams):
 
 
 def download_to_dir(url, directory):
+    """Parse filename from url and download to directory."""
     os.makedirs(directory, exist_ok=True)
     filename = os.path.basename(urllib.parse.urlparse(url).path)
     download_file(url, os.path.join(directory, filename))
