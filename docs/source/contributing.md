@@ -1,19 +1,19 @@
 # Contributing
 
-The goal is to write a set of libraries that process audio and speech in several different ways. Hence, it is crucial to build a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
+The goal is to write a set of libraries that process audio and speech in several ways. It is crucial to write a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
 
 ## Zen of Speechbrain
 SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
 
 - **Simple:**  the code must be easy to understand even by students or by users that are not professional programmers or speech researchers. Try to design your code such that it can be easily read. Given alternatives with the same level of performance, code the simplest one. (the most explicit and straightforward manner is preferred)
 
-- **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test codestyle with `flake8`
+- **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test code style with `flake8`
 
-- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible.
+- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks in your code.  Since we are not working in *c++* directly, the speed can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible.
 
-- **Modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
+- **Modular:** Write your code such that it is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other.
 
-- **Well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
+- **Well documented:**  Given the goals of SpeechBrain, writing rich and good documentation is a crucial step. 
 
 ## How to get your code in SpeechBrain
 
@@ -28,19 +28,19 @@ on GitHub under your own account.
     `git clone https://github.com/<your-account>/speechbrain`
     (This downloads the git repository to your machine, git knows where
     it came from, and calls it "origin".)
-3. Create a branch for specific feature you are developing.
+3. Create a branch for each specific feature you are developing.
     `git checkout -b your-branch-name`
 4. Make + commit changes.
     `git add files-you-changed ...`
     `git commit -m "Short message about what you did"`
-5. Push branch to your GitHub repository.
+5. Push the branch to your GitHub repository.
     `git push origin your-branch-name`
 6. Navigate to GitHub, and create a pull request from your branch to the upstream
 repository speechbrain/speechbrain, to the "develop" branch.
 7. The Pull Request (PR) appears on the upstream repository. Discuss your contribution
 there. If you push more changes to your branch on GitHub (on your repository), they are
 added to the PR.
-8. When reviewer is satisfied that the code improves repository quality, they can merge.
+8. When the reviewer is satisfied that the code improves repository quality, they can merge.
 
 Note that CI tests will be run when you create a PR. If you want to be sure that your
 code will not fail these tests, we have set up pre-commit hooks that you can install.
@@ -50,10 +50,10 @@ These will automatically check the code when you commit and when you push.
 
 ## Python
 ### Version
-SpeechBrain targets Python >= 3.7.
+SpeechBrain targets Python >= 3.8.
 
 ### Formatting
-To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting pull requests, please run the black formatter on your code.
+To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting  pull requests, please run the black formatter on your code.
 
 In addition, we use [flake8](https://flake8.pycqa.org/en/latest/) to test code
 style. Black as a tool does not enforce everything that flake8 tests.
@@ -68,40 +68,35 @@ pip.
 
 In case the dependency is only needed for a specific recipe or specific niche
 module, we suggest the extra tools pattern: don't add the dependency to general
-requirements, but check for installation and instruct to if the dependant code is run.
+requirements, but add it in the extra-requirement.txt file of the specific recipe.
 
 ### Testing
 We are adopting unit tests using
 [pytest](https://docs.pytest.org/en/latest/contents.html).
 Run unit tests with `pytest tests`
 
-Additionally we have runnable doctests, though primarily these serve as
+Additionally, we have runnable doctests, though primarily these serve as
 examples of the documented code. Run doctests with
 `pytest --doctest-modules <file-or-directory>`
 
 ## Documentation
 In SpeechBrain, we plan to provide documentation at different levels:
 
--  **Docstrings**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function. We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings. Consistent docstring style enables automatic API documentation. Also note the automatic doctests (see [here](#testing).
+-  **Docstrings**: For each class/function in the repository, there should be a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function. We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings. Consistent docstring style enables automatic API documentation. Also note the automatic doctests (see [here](#testing).
 
 -  **Comments**: We encourage developers to write self-documenting code, and use
-comments only where the implementation is surprising (to a Python-literate audience)
+proper comments where the implementation is surprising (to a Python-literate audience)
 and where the implemented algorithm needs clarification.
 
-In addition we have plans for:
+-  **Website documentation**.  On the SpeechBrain website, you can find detailed documentation for each of the functionalities currently implemented in the toolkit.
 
--  **Website documentation**. In the SpeechBrain website, we will put detailed documentation where we put both the written tutorials and descriptions of all the functionalities of the toolkit.
-
-
--  **Tutorials**: If you contribute with an important feature or pipeline, we
-might ask you to create a proper Google Colab / Jupyter Notebook tutorial to
-illustrate your work.
+-  **Tutorials**:  Tutorials are a good way to familiarize yourself with SpeechBrain with interactive codes and explanations. 
 
 ## Development tools
 
 ### flake8
 - A bit like pycodestyle: make sure the codestyle is according to guidelines.
-- Compatible with black, in fact current flake8 config directly taken from black
+- Compatible with black, in fact, current flake8 config directly taken from black
 - Code compliance can be tested simply with: `flake8 <file-or-directory>`
 - You can bypass flake8 for a line with `# noqa: <QA-CODE> E.G. # noqa: E731 to allow lambda assignment`
 
@@ -115,7 +110,7 @@ illustrate your work.
 - Automatically fix trailing whitespace, end of file, sort requirements.txt
 - Check that no large (>512kb) files are added by accident
 - Automatically run flake8
-- NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again, and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
+- NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
 - NOTE2: The hooks are only run on the files you git added to the commit. This is in contrast to the CI pipeline, which always tests everything.
 
 ### the git pre-push hooks
@@ -129,12 +124,12 @@ illustrate your work.
 
 ## Continuous integration
 
-### What is CI
+### What is CI?
 - loose term for a tight merge schedule
 - typically assisted by automated testing and code review tools + practices
 
 ### CI / CD Pipelines
-- GitHub Actions (and also available as third-party solution) feature, which automatically runs basically anything in reaction to git events.
+- GitHub Actions (and also available as a third-party solution) feature, which automatically runs basically anything in reaction to git events.
 - The CI pipeline is triggered by pull requests.
 - Runs in a Ubuntu environment provided by GitHub
 - GitHub offers a limited amount of CI pipeline minutes for free.
@@ -157,22 +152,23 @@ illustrate your work.
 This is not a comprehensive code review guide, but some rough guidelines to unify the general review practices across this project.
 
 Firstly, let the review take some time. Try to read every line that was added,
-if possible. Read the surrounding context of the code if needed to understand
+if possible. Try also to run some tests. Read the surrounding context of the code if needed to understand
 the changes introduced. Possibly ask for clarifications if you don't understand.
-If the pull request changes are hard to understand, maybe that that's a sign that
+If the pull request changes are hard to understand, maybe that's a sign that
 the code is not clear enough yet. However, don't nitpick every detail.
 
 Secondly, focus on the major things first, and only then move on to smaller,
 things. Level of importance:
-- Immediate deal breakers (code does wrong thing, or feature shouldn't be added etc.)
+- Immediate deal breakers (code does the wrong thing, or feature shouldn't be added etc.)
 - Things to fix before merging (Add more documentation, reduce complexity, etc.)
-- More subjective things which could be changed if the author also agrees with you.
+- More subjective things could be changed if the author also agrees with you.
 
 Thirdly, approve the pull request only once you believe the changes "improve overall code health" as attested to [here](https://google.github.io/eng-practices/review/reviewer/standard.html).
 However, this also means the pull request does not have to be perfect. Some features are best implemented incrementally over many pull requests, and you should be more concerned with making sure that the changes introduced lend themselves to painless further improvements.
 
 Fourthly, use the tools that GitHub has: comment on specific code lines, suggest edits, and once everyone involved has agreed that the PR is ready to merge, merge the request and delete the feature branch.
 
-Fifthly, though code review is a place for professional constructive criticism,
+Fifthly, the code review is a place for professional constructive criticism,
 a nice strategy to show (and validate) that you understand what the PR is really
-doing, is to provide some affirmative comments on its strengths.
+doing is to provide some affirmative comments on its strengths.
+
