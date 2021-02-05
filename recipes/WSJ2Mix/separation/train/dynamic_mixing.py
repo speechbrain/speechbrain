@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import random
 from speechbrain.processing.signal_processing import rescale
+from speechbrain.dataio.batch import PaddedBatch
 
 
 def build_spk_hashtable(hparams):
@@ -132,6 +133,15 @@ def dynamic_mix_data_prep(hparams):
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
 
+    train_data = torch.utils.data.DataLoader(
+        train_data,
+        batch_size=hparams["dataloader_opts"]["batch_size"],
+        num_workers=hparams["dataloader_opts"]["num_workers"],
+        collate_fn=PaddedBatch,
+        worker_init_fn=lambda x: np.random.seed(
+            int.from_bytes(os.urandom(4), "little") + x
+        ),
+    )
     return train_data
 
 
@@ -210,6 +220,5 @@ def dynamic_mix_shuffleonly_data_prep(hparams):
     sb.dataio.dataset.set_output_keys(
         [train_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
-    train_data[0]
 
     return train_data
