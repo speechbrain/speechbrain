@@ -52,7 +52,7 @@ label_smoothing: 0.1
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
-    src_embedding: src_embedding.ckpt
+    src_embedding: http://www.dropbox.com/s/2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1
 
 frozen_models: [src_embedding]
 
@@ -71,6 +71,9 @@ eos_index: !ref <output_neurons> - 1
 enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
 
+__download: !apply:train.download_to_dir
+    url: https://www.dropbox.com/s/e439h7oix9m7imn/perceptual_model.yaml?dl=1
+    directory: hparams/models
 perceptual_model: !include:models/perceptual_model.yaml
     n_fft: !ref <n_fft>
     output_neurons: !ref <output_neurons>

@@ -14,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
@@ -58,7 +59,9 @@ mask_weight: 0.7
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
-    enhance_model: enhance_model.ckpt
+    enhance_model: https://www.dropbox.com/s/o7hdph54kv1julo/enhance_model.ckpt?dl=1
+    asr_model: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
+    normalizer: https://www.dropbox.com/s/ib20ub7liaqcirw/normalizer.ckpt?dl=1
 
 frozen_models: [enhance_model, lm_model, src_embedding]
 unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
@@ -90,9 +93,15 @@ coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
 
+__download_enh: !apply:train.download_to_dir
+    url: https://www.dropbox.com/s/jgkw8byufw5zmco/enhance_model.yaml?dl=1
+    directory: hparams/models
 enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
 
+__download_asr: !apply:train.download_to_dir
+    url: https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1
+    directory: hparams/models
 asr_model: !include:models/asr_model.yaml
     n_mels: !ref <n_mels>
     dropout_rate: 0.1
