@@ -8,6 +8,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
 import logging
@@ -174,8 +175,18 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    # Load or compute the label encoder
+    label_encoder_file = os.path.join(
+        hparams["save_folder"], "label_encoder.txt"
+    )
+    if os.path.exists(label_encoder_file):
+        label_encoder.load(label_encoder_file)
+    else:
+        label_encoder.insert_blank(index=hparams["blank_index"])
+        label_encoder.update_from_didataset(train_data, output_key="phn_list")
+        label_encoder.save(
+            os.path.join(hparams["save_folder"], "label_encoder.txt")
+        )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])

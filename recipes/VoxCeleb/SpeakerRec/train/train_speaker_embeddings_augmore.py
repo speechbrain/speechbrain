@@ -14,6 +14,7 @@ Author
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
+import os
 import sys
 import random
 import torch
@@ -178,9 +179,18 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, label_pipeline)
 
     # 3. Fit encoder:
-    # NOTE: In this minimal example, also update from valid data
-    label_encoder.update_from_didataset(train_data, output_key="spk_id")
-    label_encoder.update_from_didataset(valid_data, output_key="spk_id")
+    # Load or compute the label encoder
+    label_encoder_file = os.path.join(
+        hparams["save_folder"], "label_encoder.txt"
+    )
+    if os.path.exists(label_encoder_file):
+        label_encoder.load(label_encoder_file)
+    else:
+        label_encoder.update_from_didataset(train_data, output_key="spk_id")
+        label_encoder.update_from_didataset(valid_data, output_key="spk_id")
+        label_encoder.save(
+            os.path.join(hparams["save_folder"], "label_encoder.txt")
+        )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "spk_id_encoded"])
@@ -210,7 +220,7 @@ if __name__ == "__main__":
         prepare_voxceleb,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
             "seg_dur": int(hparams["sentence_len"]) * 100,
