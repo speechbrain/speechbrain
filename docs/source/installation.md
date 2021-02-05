@@ -1,9 +1,13 @@
 
 # Quick installation
 
-SpeechBrain is constantly evolving. Hence, new features, tutorials and documentation will appear through time. SpeechBrain allows users to install
-either via PyPI to rapidly use the standard library and a local install to
-further expand the features of the toolkit. **Please note that CUDA must be properly installed to use GPUs.**
+SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time. 
+SpeechBrain can be installed via PyPI to rapidly use the standard library.
+Moreover,  a local installation can be used by those users that what to run experiments and modify/customize the toolkit.
+
+SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. 
+Please note that CUDA must be properly installed to use GPUs.
+
 
 ## Install via PyPI
 

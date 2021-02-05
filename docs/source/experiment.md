@@ -1,23 +1,23 @@
 # Running an experiment
-
-In SpeechBrain experiments can be run from anywhere, but the experimental `results/` directory will be created relative to the directory you are in. The most common pattern for running experiments is as follows:
+In SpeechBrain, you can run experiments in this way:
 
 ```
 > cd recipes/<dataset>/<task>/
 > python experiment.py params.yaml
 ```
 
-At the top of the `experiment.py` file, the function
-`sb.core.create_experiment_directory()` is called to create an output directory
-(by default: `<cwd>/results/`). Both detailed logs and experiment outputs are saved there. Furthermore, less detailed logs are output to stdout. The experiment script and configuration (including possible command-line overrides) are also copied to the output directory.
+The results will be saved in the `output_folder` specified in the yaml file.
+The folder is created by calling `sb.core.create_experiment_directory()` in `experiment.py`.
+Both detailed logs and experiment outputs are saved there. Furthermore, less verbose logs are output to stdout.
 
 ## YAML basics
 
-Also have a look at the YAML files in recipe directories. The YAML files
-specify the hyperparameters of the recipes. The syntax is explained in
-`speechbrain.utils.data_utils` in the docstring of `load_extended_yaml`.
+The YAML syntax offers an elegant way to specify the hyperparameters of a recipe. 
+In SpeechBrain, the YAML file is not a plain list of parameters, but for each parameter, we specify the function (or class) that is using it. 
+This not only makes the specification of the parameters more transparent but a.so allows us to properly initialize all the entries by simply calling the load_extended_yaml (in speechbrain.utils.data_utils). 
 
-A quick look at the extended YAML features, using an example:
+Let's now take a quick look at the extended YAML features, using an example:
+
 ```
 seed: !PLACEHOLDER
 output_dir: !ref results/vgg_blstm/<seed>
@@ -42,7 +42,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 For more details on YAML and our extensions, please see our dedicated tutorial: [amazing YAML tutorial](#)
 
 ## Running arguments
-We define a set of running arguments in SpeechBrain, these arguments can be set from the command line args or an hparams file.
+SpeechBrain defines a set of running arguments that can be set from the command line args (or within the YAML file).
 - `device`: set the device to be used for computation.
 - `data_parallel_backend`: default False, if True, use `data_parallel` for multigpu training on a single machine.
 - `data_parallel_count`: default "-1" (use all gpus), if > 0, use a subset of gpus available [0, 1, ..., data_parallel_count].
@@ -53,7 +53,7 @@ We define a set of running arguments in SpeechBrain, these arguments can be set 
 Please note that we provide a dedicated tutorial to document the different
 multi-gpu training strategies: [amazing multi-gpu tutorial](#)
 
-You can also override parameters in YAML by passing the name of the parameter as an argument on the command line. For example:
+You can also override parameters in YAML in this way:
 
 ```
 > python experiment.py params.yaml --seed 1234 --data_folder /path/to/folder --num_layers 5
@@ -61,7 +61,7 @@ You can also override parameters in YAML by passing the name of the parameter as
 
 This call would override hyperparameters `seed` and `data_folder` and `num_layers`.
 
-Important:
+*Important*:
 - The command line args will always override the hparams file args.
 
 ## Tensor format
@@ -69,14 +69,13 @@ All the tensors within SpeechBrain are formatted using the following convention:
 ```
 tensor=(batch, time_steps, channels[optional])
 ```
-**The batch is always the first element, and time_steps is always the second one.
-The rest of the dimensions are as many channels as you need**.
+**The batch is always the first element, and time_steps is always the second one. The remaining optional dimensions are channels. (there might be as many channels as you need)**.
 
 *Why do we need all tensors to have the same format?*
-It is crucial to have a shared format for all the classes that process data and all the processing functions must be designed considering it. In SpeechBrain we might have pipelines of modules and if each module was based on different tensor formats, exchanging data between processing units would have been painful. Many formats are possible. For SpeechBrain we selected this one because
-it is commonly used with recurrent layers, which are common in speech applications.
+Why do we need all tensors to have the same format? It is crucial to have a shared format for all the classes and functions. This makes model combination easier.
+Many formats are possible. For SpeechBrain we selected this one because it is commonly used in recurrent neural networks.
 
-The format is very **flexible** and allows users to read different types of data. As we have seen, for **single-channel** raw waveform signals, the tensor will be ```tensor=(batch, time_steps)```, while for **multi-channel** raw waveform it will be ```tensor=(batch, time_steps, n_channel)```. Beyond waveforms, this format is used for any tensor in the computation pipeline. For instance,  fbank features that are formatted in this way:
+The adopted format is very flexible and allows users to read different types of data. For instance, with single-channel raw waveform signals, the tensor will be tensor=(batch, time_steps), while for multi-channel raw waveform it will be tensor=(batch, time_steps, n_channel). Beyond waveforms, this format is used for any tensor in the computation pipeline. For instance, fbank features that are formatted in this way:
 ```
 (batch, time_step, n_filters)
 ```
@@ -84,7 +83,7 @@ The Short-Time Fourier Transform (STFT) tensor, instead, will be:
 ```
 (batch, time_step, n_fft, 2)
 ```
-where the "2" is because STFT is based on complex numbers with a real and imaginary part.
+where the “2” corresponds to the real and imaginary parts of the STFT.
 We can also read multi-channel SFT data, that will be formatted in this way:
 ```
 (batch, time_step, n_fft, 2, n_audio_channels)
