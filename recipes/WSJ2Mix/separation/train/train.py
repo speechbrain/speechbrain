@@ -536,9 +536,19 @@ if __name__ == "__main__":
 
     # Create dataset objects
     if hparams["dynamic_mixing"] == "regular":
-        from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
-        train_data = dynamic_mix_data_prep(hparams)
+        if hparams["num_spks"] == 2:
+            from dynamic_mixing import dynamic_mix_data_prep  # noqa
+
+            train_data = dynamic_mix_data_prep(hparams)
+        elif hparams["num_spks"] == 3:
+            from dynamic_mixing import dynamic_mix_data_prep_3mix  # noqa
+
+            train_data = dynamic_mix_data_prep_3mix(hparams)
+        else:
+            raise ValueError(
+                "The specified number of speakers is not supported."
+            )
         _, valid_data, test_data = dataio_prep(hparams)
     elif hparams["dynamic_mixing"] == "shuffleonly":
         from dynamic_mixing import dynamic_mix_shuffleonly_data_prep  # noqa
