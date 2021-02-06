@@ -107,10 +107,10 @@ def dataio_prep(hparams):
         return sig
 
     # 2. Define text pipeline:
-    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.takes("phones")
     @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
-    def text_pipeline(phn):
-        phn_list = phn.strip().split()
+    def text_pipeline(phones):
+        phn_list = phones.strip().split()
         yield phn_list
         phn_encoded = label_encoder.encode_sequence_torch(phn_list)
         yield phn_encoded
@@ -118,9 +118,9 @@ def dataio_prep(hparams):
     # 3. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root", hparams["data_folder"]},
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
             output_keys=["id", "sig", "phn_encoded"],
         )
@@ -128,7 +128,7 @@ def dataio_prep(hparams):
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending",
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
