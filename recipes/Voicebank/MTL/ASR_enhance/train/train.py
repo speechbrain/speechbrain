@@ -498,6 +498,14 @@ def download_to_dir(url, directory):
 # Begin Recipe!
 if __name__ == "__main__":
 
+    # Download model yaml files so we can "!include" them
+    for url in [
+        "https://www.dropbox.com/s/e439h7oix9m7imn/perceptual_model.yaml?dl=1",
+        "https://www.dropbox.com/s/jgkw8byufw5zmco/enhance_model.yaml?dl=1",
+        "https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1",
+    ]:
+        download_to_dir(url, os.path.join("hparams", "models"))
+
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
