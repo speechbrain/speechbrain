@@ -161,17 +161,10 @@ def dataio_prep(hparams):
 
     # 3. Fit encoder:
     # Load or compute the label encoder
-    label_encoder_file = os.path.join(
-        hparams["save_folder"], "label_encoder.txt"
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        lab_enc_file, from_didatasets=[train_data], output_key="spk_id"
     )
-    if os.path.exists(label_encoder_file):
-        label_encoder.load(label_encoder_file)
-    else:
-        label_encoder.update_from_didataset(train_data, output_key="spk_id")
-        label_encoder.update_from_didataset(valid_data, output_key="spk_id")
-        label_encoder.save(
-            os.path.join(hparams["save_folder"], "label_encoder.txt")
-        )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "spk_id_encoded"])
