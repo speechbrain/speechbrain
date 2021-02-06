@@ -221,10 +221,10 @@ def dataio_prep(hparams):
         return sig
 
     # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.takes("words")
     @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "tokens")
-    def text_pipeline(wrd):
-        tokens_list = tokenizer.sp.encode_as_ids(wrd)
+    def text_pipeline(words):
+        tokens_list = tokenizer.sp.encode_as_ids(words)
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
@@ -235,19 +235,19 @@ def dataio_prep(hparams):
     # 4. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root", hparams["data_folder"]},
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
             output_keys=["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
         )
         if dataset != "train":
-            data[dataset] = data[dataset].filtered_sorted(sort_key="duration")
+            data[dataset] = data[dataset].filtered_sorted(sort_key="length")
 
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending",
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
