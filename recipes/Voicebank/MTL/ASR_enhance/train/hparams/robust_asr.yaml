@@ -93,15 +93,9 @@ coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
 
-__download_enh: !apply:train.download_to_dir
-    url: https://www.dropbox.com/s/jgkw8byufw5zmco/enhance_model.yaml?dl=1
-    directory: hparams/models
 enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
 
-__download_asr: !apply:train.download_to_dir
-    url: https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1
-    directory: hparams/models
 asr_model: !include:models/asr_model.yaml
     n_mels: !ref <n_mels>
     dropout_rate: 0.1

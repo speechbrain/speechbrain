@@ -260,6 +260,7 @@ def dataio_prep(hparams):
 
 def download_to_dir(url, directory):
     """Parse filename from url and download to directory."""
+    print("called download_to_dir")
     os.makedirs(directory, exist_ok=True)
     filename = os.path.basename(urllib.parse.urlparse(url).path)
     download_file(url, os.path.join(directory, filename))
@@ -267,6 +268,12 @@ def download_to_dir(url, directory):
 
 
 if __name__ == "__main__":
+
+    # Download the asr model yaml file so we can "!include" it
+    download_to_dir(
+        url="https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1",
+        directory=os.path.join("hparams", "models"),
+    )
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])

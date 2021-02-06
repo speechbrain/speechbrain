@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 19
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 input_type: noisy_wav
 output_folder: !ref results/<input_type>/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -65,11 +65,6 @@ lm_weight: 0.50
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
-
-# Download the asr model yaml file so we can "!include" it
-__download: !apply:train.download_to_dir
-    url: https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1
-    directory: hparams/models
 
 asr_model: !include:models/asr_model.yaml
     n_mels: !ref <n_mels>
