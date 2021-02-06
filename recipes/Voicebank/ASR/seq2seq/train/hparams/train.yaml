@@ -120,7 +120,7 @@ model: !new:torch.nn.ModuleList
       - !ref <asr_model[seq_output]>
 
 beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
-    embedding: !ref <asr_model[src_embedding]>
+    embedding: !ref <asr_model[tgt_embedding]>
     decoder: !ref <asr_model[recognizer]>
     linear: !ref <asr_model[seq_output]>
     language_model: !ref <asr_model[lm_model]>
