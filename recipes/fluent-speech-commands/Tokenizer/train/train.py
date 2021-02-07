@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a BPE tokenizer with timers-and-such.
+"""Recipe for training a BPE tokenizer for Fluent Speech Commands.
 The tokenizer coverts semantics into sub-word units that can
 be used to train a language (LM) or an acoustic model (AM).
 
@@ -29,17 +29,12 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing timers-and-such)
-    from prepare import prepare_TAS  # noqa
+    # 1.  # Dataset prep
+    from prepare import prepare_FSC  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_TAS,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "train_splits": hparams["train_splits"],
-            "type": "direct",
-        },
+        prepare_FSC, kwargs={"data_folder": hparams["data_folder"]},
     )
 
     # Create experiment directory
