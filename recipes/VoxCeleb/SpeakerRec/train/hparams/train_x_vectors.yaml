@@ -15,6 +15,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/VoxCeleb
 train_annotation: !ref <save_folder>/train.csv
 valid_annotation: !ref <save_folder>/dev.csv
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 100

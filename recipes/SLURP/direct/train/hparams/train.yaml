@@ -33,6 +33,7 @@ batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Model parameters
 sample_rate: 16000
