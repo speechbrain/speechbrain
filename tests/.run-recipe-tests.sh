@@ -24,7 +24,19 @@ python recipes/CommonVoice/ASR/seq2seq/train/train.py recipes/CommonVoice/ASR/se
 
 
 # VoiceBank
-python recipes/Voicebank/ASR/CTC/train/train.py recipes/Voicebank/ASR/CTC/train/hparams/train.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_ASR --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --test_annotation=samples/audio_samples/nn_training_samples/debug.csv --skip_prep=True --debug
+python recipes/Voicebank/ASR/CTC/train/train.py recipes/Voicebank/ASR/CTC/train/hparams/train.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_ASR --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --batch_size=1 --output_neurons=17 --debug
+
+python recipes/Voicebank/ASR/seq2seq/train/train.py recipes/Voicebank/ASR/seq2seq/train/hparams/train.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_ASR --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --batch_size=1 --debu
+
+python recipes/Voicebank/enhance/waveform_map/train/train.py recipes/Voicebank/enhance/waveform_map/train/hparams/train.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_enh --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --debug
+
+python recipes/Voicebank/enhance/spectral_mask/train/train.py recipes/Voicebank/enhance/spectral_mask/train/hparams/train.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_enh --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --debug
+
+python recipes/Voicebank/MTL/ASR_enhance/train/train.py recipes/Voicebank/MTL/ASR_enhance/train/hparams/pretrain_perceptual.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_enh --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --output_neurons=17 --debug
+
+python recipes/Voicebank/MTL/ASR_enhance/train/train.py recipes/Voicebank/MTL/ASR_enhance/train/hparams/enhance_mimic.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_enh --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --output_neurons=17 --debug
+
+python recipes/Voicebank/MTL/ASR_enhance/train/train.py recipes/Voicebank/MTL/ASR_enhance/train/hparams/robust_asr.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/VoiceBank_enh --train_annotation=samples/audio_samples/nn_training_samples/debug.json --valid_annotation=samples/audio_samples/nn_training_samples/debug.json --test_annotation=samples/audio_samples/nn_training_samples/debug.json --skip_prep=True --debug
 
 # VoxCeleb
 python recipes/VoxCeleb/SpeakerRec/train/train_speaker_embeddings.py recipes/VoxCeleb/SpeakerRec/train/hparams/train_ecapa_tdnn.yaml --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/Voxceleb_ecapa --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --sentence_len=1.0 --skip_prep=True --debug
@@ -56,6 +68,8 @@ python recipes/WSJ2Mix/separation/train/train.py recipes/WSJ2Mix/separation/trai
 
 python recipes/WSJ2Mix/separation/train/train.py recipes/WSJ2Mix/separation/train/hparams/dprnn.yaml --output_folder=test_results/WSJ_dprnn --data_folder=samples/audio_samples/nn_training_samples  --train_data=samples/audio_samples/nn_training_samples/debug.csv --valid_data=samples/audio_samples/nn_training_samples/debug.csv --test_data=samples/audio_samples/nn_training_samples/debug.csv --skip_prep=True --debug
 
+# Fluent Speech Command
+python recipes/fluent-speech-commands/direct/train.py recipes/fluent-speech-commands/direct/hparams/train.yaml --output_folder=test_results/fluent_direct --data_folder=samples/audio_samples/nn_training_samples  --csv_train=samples/audio_samples/nn_training_samples/debug.csv --csv_valid=samples/audio_samples/nn_training_samples/debug.csv --csv_test=samples/audio_samples/nn_training_samples/debug.csv --skip_prep=True --debug
 
 
 

@@ -12,8 +12,8 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/VoxCeleb
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/dev.csv
+train_annotation: !ref <save_folder>/train.csv
+valid_annotation: !ref <save_folder>/dev.csv
 skip_prep: False
 
 # Training parameters
