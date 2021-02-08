@@ -23,6 +23,7 @@ csv_train: !ref <data_folder>/train-type=decoupled.csv
 csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 10

@@ -531,6 +531,7 @@ if __name__ == "__main__":
             "datapath": hparams["data_folder"],
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

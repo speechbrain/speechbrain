@@ -1,4 +1,4 @@
-"""CNN Transformer model for SE in the SpeechBrain style
+"""CNN Transformer model for SE in the SpeechBrain style.
 
 Authors
 * Chien-Feng Liao 2020
@@ -13,30 +13,30 @@ from speechbrain.lobes.models.transformer.Transformer import (
 
 
 class CNNTransformerSE(TransformerInterface):
-    """This is an implementation of transformer model with CNN pre-encoder for SE
+    """This is an implementation of transformer model with CNN pre-encoder for SE.
 
     Arguments
-    ----------
+    ---------
     d_model : int
-        the number of expected features in the encoder inputs.
+        The number of expected features in the encoder inputs.
     output_size : int
-        the number of neurons in the output layer.
-    output_activation: torch class
-        the activation function of the output layer, (default=ReLU).
-    nhead: int
-        the number of heads in the multi-head attention models (default=8).
-    num_layers: int
-        the number of sub-layers in the transformer (default=8).
-    d_ffn: int
-        the number of expected features in the encoder layers (default=512).
-    dropout: int
-        the dropout value (default=0.1).
-    activation: torch class
-        the activation function of intermediate layers (default=LeakyReLU).
-    causal: bool
-        True for causal setting, the model is forbidden to see future frames. (default=True)
-    custom_emb_module: torch class
-        module that processes the input features before the transformer model.
+        The number of neurons in the output layer.
+    output_activation : torch class
+        The activation function of the output layer (default=ReLU).
+    nhead : int
+        The number of heads in the multi-head attention models (default=8).
+    num_layers : int
+        The number of sub-layers in the transformer (default=8).
+    d_ffn : int
+        The number of expected features in the encoder layers (default=512).
+    dropout : int
+        The dropout value (default=0.1).
+    activation : torch class
+        The activation function of intermediate layers (default=LeakyReLU).
+    causal : bool
+        True for causal setting, the model is forbidden to see future frames (default=True).
+    custom_emb_module : torch class
+        Module that processes the input features before the transformer model.
 
     Example
     -------

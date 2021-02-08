@@ -9,20 +9,21 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 7
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_RNNT_LM_100H/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch
-# The tokenizer is trained with LibriSpeech/Tokenizer/hyperparams/1K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
-tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+# Language model (LM) parameter file
+# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
+# for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
+# # object. In this case, it is based on 1000 tokens.
+lm_hparam_file: https://www.dropbox.com/s/j51op5l7i356s3v/pretrained_RNNLM_BPE1000.yaml?dl=1
 
 # Data files
-data_folder: !PLACEHOLDER
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
@@ -35,6 +36,8 @@ valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
    - !ref <data_folder>/test-clean.csv
    - !ref <data_folder>/test-other.csv
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 30
@@ -97,14 +100,6 @@ state_beam: 2.3
 expand_beam: 2.3
 lm_weight: 0.50
 
-# LM Model parameters
-lm_emb_size: 128
-lm_activation: !name:torch.nn.LeakyReLU
-lm_dropout: 0.0
-lm_rnn_layers: 2
-lm_rnn_neurons: 2048
-lm_dnn_blocks: 1
-lm_dnn_neurons: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -191,16 +186,9 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
    blank_index: !ref <blank_index>
 
-lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-   output_neurons: !ref <output_neurons>
-   embedding_dim: !ref <lm_emb_size>
-   activation: !ref <lm_activation>
-   dropout: !ref <lm_dropout>
-   rnn_layers: !ref <lm_rnn_layers>
-   rnn_neurons: !ref <lm_rnn_neurons>
-   dnn_blocks: !ref <lm_dnn_blocks>
-   dnn_neurons: !ref <lm_dnn_neurons>
-   return_hidden: True  # For inference
+lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
+   hparams_file: !ref <lm_hparam_file>
+   save_folder: !ref <save_folder>
 
 # for MTL
 # update model if any HEAD module is added

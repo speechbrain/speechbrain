@@ -207,6 +207,8 @@ class SLU(sb.Brain):
 
 
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     data_folder = hparams["data_folder"]
 
@@ -225,7 +227,7 @@ def dataio_prepare(hparams):
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloder_opts"]["shuffle"] = False
+        hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -297,7 +299,14 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing Librispeech)
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    # Dataset prep (parsing SLURP)
     from prepare import prepare_SLURP  # noqa
 
     # multi-gpu (ddp) save data preparation
@@ -307,14 +316,8 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "train_splits": hparams["train_splits"],
             "slu_type": "direct",
+            "skip_prep": hparams["skip_prep"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # here we create the datasets objects as well as tokenization and encoding

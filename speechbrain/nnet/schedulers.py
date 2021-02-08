@@ -4,6 +4,7 @@ Schedulers for updating hyperparameters (such as learning rate).
 Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
+ * Loren Lugosch 2020
 """
 
 import math
@@ -20,7 +21,7 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
     Arguments
     ---------
     optimizer : torch.optim object
-        Updates the learning rate for this optimizer
+        Updates the learning rate for this optimizer.
     new_lr : float
         The new value to use for the learning rate.
     param_group : list of int
@@ -56,7 +57,7 @@ class NewBobScheduler:
 
     The learning rate is annealed based on the validation performance.
     In particular: if (past_loss-current_loss)/past_loss< impr_threshold:
-    lr=lr * annealing_factor
+    lr=lr * annealing_factor.
 
     Arguments
     ---------
@@ -107,9 +108,11 @@ class NewBobScheduler:
         old_value = new_value = self.hyperparam_value
         if len(self.metric_values) > 0:
             prev_metric = self.metric_values[-1]
-
             # Update value if improvement too small and patience is 0
-            improvement = (prev_metric - metric_value) / prev_metric
+            if prev_metric == 0:  # Prevent division by zero
+                improvement = 0
+            else:
+                improvement = (prev_metric - metric_value) / prev_metric
             if improvement < self.improvement_threshold:
                 if self.current_patient == 0:
                     new_value *= self.annealing_factor
@@ -191,7 +194,7 @@ class StepScheduler:
     """Learning rate scheduler with step annealing technique.
 
     The hyperparameter's value decays over the epochs with the
-    selected ``epoch_decay`` factor
+    selected ``epoch_decay`` factor.
 
     ``value = init_value * decay_factor ^ floor((1 + epoch) / decay_drop)``
 
@@ -294,11 +297,12 @@ class NoamScheduler:
         ---------
         opt : optimizer
             The optimizer to update using this scheduler.
+
         Returns
         -------
-        float
+        current_lr : float
             The learning rate before the update.
-        float
+        lr : float
             The learning rate after the update.
         """
         self.n_steps += 1
@@ -337,6 +341,7 @@ class NoamScheduler:
 @checkpoints.register_checkpoint_hooks
 class CyclicCosineScheduler:
     """The is an implementation of the Cyclic-Cosine learning rate scheduler with warmup.
+
     Reference:  https://openreview.net/pdf?id=BJYwwY9ll
 
     Note: this scheduler anneals the lr at each update of the model's weight,
@@ -347,9 +352,9 @@ class CyclicCosineScheduler:
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm up steps
-    total_steps: int
-        total number of updating steps
+        Number of warm up steps.
+    total_steps : int
+        Total number of updating steps.
 
     Example
     -------
@@ -390,11 +395,12 @@ class CyclicCosineScheduler:
             Number of times the dataset has been iterated.
         current_loss : int
             A number for determining whether to change the learning rate.
+
         Returns
         -------
-        float
+        current_lr : float
             The learning rate before the update.
-        float
+        lr : float
             The learning rate after the update.
         """
         self.n_steps += 1
@@ -443,12 +449,12 @@ class ReduceLROnPlateau:
 
     Arguments
     ---------
-    lr_min: float
-        The minimum allowable learning rate
-    factor: float
-        Factor with which to reduce the learning rate
-    patience: int
-        How many epochs to wait before reducing the learning rate
+    lr_min : float
+        The minimum allowable learning rate.
+    factor : float
+        Factor with which to reduce the learning rate.
+    patience : int
+        How many epochs to wait before reducing the learning rate.
 
     Example
     -------
@@ -488,11 +494,12 @@ class ReduceLROnPlateau:
             Number of times the dataset has been iterated.
         current_loss : int
             A number for determining whether to change the learning rate.
+
         Returns
         -------
-        float
+        current_lr : float
             The learning rate before the update.
-        float
+        next_lr : float
             The learning rate after the update.
         """
         for opt in optim_list:
@@ -548,6 +555,7 @@ class CyclicLRScheduler:
     some constant frequency, as detailed in this paper (https://arxiv.org/abs/1506.01186).
     The amplitude of the cycle can be scaled on a per-iteration or
     per-cycle basis.
+
     This class has three built-in policies, as put forth in the paper.
     "triangular":
         A basic triangular cycle w/ no amplitude scaling.
@@ -557,33 +565,42 @@ class CyclicLRScheduler:
         A cycle that scales initial amplitude by gamma**(cycle iterations) at each
         cycle iteration.
     For more detail, please see the reference paper.
+
     Arguments
-    -------
-        base_lr: initial learning rate which is the
-            lower boundary in the cycle.
-        max_lr: upper boundary in the cycle. Functionally,
-            it defines the cycle amplitude (max_lr - base_lr).
-            The lr at any cycle is the sum of base_lr
-            and some scaling of the amplitude; therefore
-            max_lr may not actually be reached depending on
-            scalling function.
-        step_size: number of training iterations per
-            half cycle. The authors suggest setting step_size
-            2-8 x training iterations in epoch.
-        mode: one of {triangular, triangular2, exp_range}.
-            Default 'triangular'.
-            Values correspond to policies detailed above.
-            If scale_fn is not None, this argument is ignored.
-        gamma: constant in 'exp_range' scaling function:
-            gamma**(cycle iterations)
-        scale_fn: Custom scaling policy defined by a single
-            argument lambda function, where
-            0 <= scale_fn(x) <= 1 for all x >= 0.
-            mode paramater is ignored
-        scale_mode: {'cycle', 'iterations'}.
-            Defines whether scale_fn is evaluated on
-            cycle number or cycle iterations (training
-            iterations since start of cycle). Default is 'cycle'.
+    ---------
+    base_lr : float
+        initial learning rate which is the
+        lower boundary in the cycle.
+    max_lr : float
+        upper boundary in the cycle. Functionally,
+        it defines the cycle amplitude (max_lr - base_lr).
+        The lr at any cycle is the sum of base_lr
+        and some scaling of the amplitude; therefore
+        max_lr may not actually be reached depending on
+        scalling function.
+    step_size : int
+        number of training iterations per
+        half cycle. The authors suggest setting step_size
+        2-8 x training iterations in epoch.
+    mode : str
+        one of {triangular, triangular2, exp_range}.
+        Default 'triangular'.
+        Values correspond to policies detailed above.
+        If scale_fn is not None, this argument is ignored.
+    gamma : float
+        constant in 'exp_range' scaling function:
+        gamma**(cycle iterations)
+    scale_fn : lambda function
+        Custom scaling policy defined by a single
+        argument lambda function, where
+        0 <= scale_fn(x) <= 1 for all x >= 0.
+        mode paramater is ignored
+    scale_mode : str
+        {'cycle', 'iterations'}.
+        Defines whether scale_fn is evaluated on
+        cycle number or cycle iterations (training
+        iterations since start of cycle). Default is 'cycle'.
+
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear

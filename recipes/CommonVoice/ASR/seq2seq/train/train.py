@@ -222,7 +222,7 @@ def dataio_prepare(hparams):
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_data = sb.data_io.dataset.DynamicItemDataset.from_csv(
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
     )
 
@@ -310,6 +310,7 @@ if __name__ == "__main__":
             "test_tsv_file": hparams["test_tsv_file"],
             "accented_letters": hparams["accented_letters"],
             "language": hparams["language"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
