@@ -8,7 +8,7 @@ output_folder: !ref results/tokenizer_bpe51/
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/fluent_speech_commands_dataset
+data_folder: !PLACEHOLDER # e,g. /localscratch/fluent_speech_commands_dataset
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/valid.csv
 

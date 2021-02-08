@@ -24,7 +24,7 @@ class tokenizer:
     Example
     -------
     >>> from pretrained import tokenizer
-    >>> token_file = 'pretrained_tok/51_unigram.model'
+    >>> token_file = 'https://www.dropbox.com/s/hvf2huofnq0sjbn/51_unigram.model?dl=1'
     >>> tokenizer = tokenizer(token_file)
     >>> text = "{'intent': 'SetAlarm'| 'slots': {'am_or_pm': 'AM'}"
     >>> print(tokenizer.spm.encode(text))
