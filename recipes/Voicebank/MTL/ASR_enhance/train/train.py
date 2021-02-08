@@ -2,9 +2,14 @@
 """Recipe for multi-task learning, using seq2seq and enhancement objectives.
 
 To run this recipe, do the following:
-> python train.py hparams/{hyperparameter file} --data_folder /path/to/noisy-vctk
+> python train.py hparams/{config file} --data_folder /path/to/noisy-vctk
 
-Use your own hyperparameter file or the provided `hyperparams.yaml`
+There's three provided files for three stages of training:
+> python train.py hparams/pretrain_perceptual.yaml
+> python train.py hparams/enhance_mimic.yaml
+> python train.py hparams/robust_asr.yaml
+
+Use your own hyperparameter file or the provided files.
 The different losses can be turned on and off, and pre-trained models
 can be used for enhancement or ASR models.
 
@@ -14,6 +19,8 @@ Authors
 import os
 import sys
 import torch
+import torchaudio
+import urllib.parse
 import speechbrain as sb
 from pesq import pesq
 from pystoi import stoi
@@ -162,6 +169,14 @@ class ASR_Brain(sb.Brain):
                     lengths=lens,
                 )
 
+                if hasattr(self.hparams, "enh_dir"):
+                    abs_lens = lens * predictions["wavs"].size(1)
+                    for i, uid in enumerate(batch.id):
+                        length = int(abs_lens[i])
+                        wav = predictions["wavs"][i, :length].unsqueeze(0)
+                        path = os.path.join(self.hparams.enh_dir, uid + ".wav")
+                        torchaudio.save(path, wav.cpu(), sample_rate=16000)
+
         # Compute mimic loss
         if self.hparams.mimic_weight > 0:
             clean_embed = self.modules.src_embedding.CNN(clean_feats)
@@ -206,7 +221,7 @@ class ASR_Brain(sb.Brain):
             )
             loss += self.hparams.seq_weight * seq_loss
 
-            if stage != sb.Stage.TRAIN and self.hparams.target_type == "wrd":
+            if stage != sb.Stage.TRAIN and self.hparams.target_type == "words":
                 pred_words = self.tokenizer(
                     predictions["hyps"], task="decode_from_list"
                 )
@@ -303,7 +318,6 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            self.checkpointer.save_checkpoint(meta=stage_stats, name="avg")
             with open(self.hparams.stats_file, "w") as w:
                 if self.hparams.enhance_weight > 0:
                     w.write("\nstoi stats:\n")
@@ -346,17 +360,45 @@ class ASR_Brain(sb.Brain):
         state_dict = torch.load(save_model_path)
         self.hparams.modules["lm_model"].load_state_dict(state_dict)
 
+    def load_pretrained(self):
+        """Loads the specified pretrained files"""
+
+        for model_name, model_path in self.hparams.pretrained_path.items():
+
+            # Try parsing model_path as a url first.
+            try:
+                print("trying to download " + model_path)
+                save_dir = os.path.join(self.hparams.output_folder, "save")
+                model_path = download_to_dir(model_path, save_dir)
+
+            # If it fails, assume its a valid filepath already
+            except ValueError:
+                pass
+
+            if model_name == "normalizer":
+                self.hparams.normalizer._load(
+                    model_path, end_of_epoch=False, device=self.device
+                )
+            elif model_name == "asr_model":
+                state_dict = torch.load(model_path)
+                self.hparams.model.load_state_dict(state_dict, strict=True)
+            else:
+                state_dict = torch.load(model_path)
+                self.modules[model_name].load_state_dict(state_dict)
+
 
 def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
     # 1. define tokenizer
-    if hparams["target_type"] == "wrd":
+    if hparams["target_type"] == "words":
+        save_model_path = download_to_dir(
+            hparams["tok_mdl_file"], hparams["save_folder"]
+        )
+        download_to_dir(hparams["tok_voc_file"], hparams["save_folder"])
         tokenizer = SentencePiece(
             model_dir=hparams["save_folder"],
             vocab_size=hparams["output_neurons"],
-            csv_train=hparams["train_annotation"],
-            csv_read="wrd",
             model_type=hparams["token_type"],
             character_coverage=hparams["character_coverage"],
         )
@@ -380,7 +422,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes(hparams["target_type"])
     @sb.utils.data_pipeline.provides("tokens_list", *[t for t in token_keys])
     def target_pipeline(target):
-        if hparams["target_type"] == "wrd":
+        if hparams["target_type"] == "words":
             tokens_list = tokenizer.sp.encode_as_ids(target)
             yield tokens_list
         else:
@@ -397,19 +439,19 @@ def dataio_prep(hparams):
     # 4. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root", hparams["data_folder"]},
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline, target_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"] + token_keys,
         )
         if dataset != "train":
-            data[dataset] = data[dataset].filtered_sorted(sort_key="duration")
+            data[dataset] = data[dataset].filtered_sorted(sort_key="length")
 
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending",
         )
         hparams["train_loader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -418,25 +460,8 @@ def dataio_prep(hparams):
         )
 
     # 5. Load or update tokenizer
-    if hparams["target_type"] == "wrd":
-        save_model_path = os.path.join(hparams["save_folder"], "tok_uni.model")
-        save_vocab_path = os.path.join(hparams["save_folder"], "tok_uni.vocab")
-
-        if "tok_mdl_file" in hparams:
-            download_file(
-                source=hparams["tok_mdl_file"],
-                dest=save_model_path,
-                replace_existing=True,
-            )
-            tokenizer.sp.load(save_model_path)
-
-        if "tok_voc_file" in hparams:
-            download_file(
-                source=hparams["tok_voc_file"],
-                dest=save_vocab_path,
-                replace_existing=True,
-            )
-            tokenizer.sp.load(save_model_path)
+    if hparams["target_type"] == "words":
+        tokenizer.sp.load(save_model_path)
 
         if (tokenizer.sp.eos_id() + 1) == (
             tokenizer.sp.bos_id() + 1
@@ -451,7 +476,6 @@ def dataio_prep(hparams):
                 "Desired indexes for special tokens do not agree "
                 "with loaded tokenizer special tokens !"
             )
-
     else:
         tokenizer.update_from_didataset(data["train"], output_key="tokens_list")
         tokenizer.insert_bos_eos(
@@ -463,8 +487,24 @@ def dataio_prep(hparams):
     return data, tokenizer
 
 
+def download_to_dir(url, directory):
+    """Parse filename from url and download to directory."""
+    os.makedirs(directory, exist_ok=True)
+    filename = os.path.basename(urllib.parse.urlparse(url).path)
+    download_file(url, os.path.join(directory, filename))
+    return os.path.join(directory, filename)
+
+
 # Begin Recipe!
 if __name__ == "__main__":
+
+    # Download model yaml files so we can "!include" them
+    for url in [
+        "https://www.dropbox.com/s/e439h7oix9m7imn/perceptual_model.yaml?dl=1",
+        "https://www.dropbox.com/s/jgkw8byufw5zmco/enhance_model.yaml?dl=1",
+        "https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1",
+    ]:
+        download_to_dir(url, os.path.join("hparams", "models"))
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -486,18 +526,11 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
     datasets, tokenizer = dataio_prep(hparams)
-
-    # Load pretrained models
-    if "pretrained_path" in hparams:
-        for model_name, path in hparams["pretrained_path"].items():
-            hparams["modules"][model_name].load_state_dict(torch.load(path))
-
-    if "pretrain_checkpointer" in hparams:
-        hparams["pretrain_checkpointer"].recover_if_possible()
 
     # Initialize trainer
     asr_brain = ASR_Brain(
@@ -508,6 +541,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     asr_brain.tokenizer = tokenizer
+    asr_brain.load_pretrained()
     if hasattr(asr_brain.hparams, "lm_ckpt_file"):
         asr_brain.load_lm()
 
@@ -521,8 +555,17 @@ if __name__ == "__main__":
     )
 
     # Evaluate best checkpoint, using lowest or highest value on validation
+    outdir = asr_brain.hparams.output_folder
+    asr_brain.hparams.stats_file = os.path.join(outdir, "valid_stats.txt")
     asr_brain.evaluate(
-        test_set=datasets["valid"],
+        datasets["valid"],
+        max_key=hparams["eval_max_key"],
+        min_key=hparams["eval_min_key"],
+        test_loader_kwargs=hparams["test_loader_options"],
+    )
+    asr_brain.hparams.stats_file = os.path.join(outdir, "test_stats.txt")
+    asr_brain.evaluate(
+        datasets["test"],
         max_key=hparams["eval_max_key"],
         min_key=hparams["eval_min_key"],
         test_loader_kwargs=hparams["test_loader_options"],
