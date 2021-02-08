@@ -1,4 +1,4 @@
-"""Library to support dual-path speech separation
+"""Library to support dual-path speech separation.
 
 Authors
  * Cem Subakan 2020
@@ -23,15 +23,15 @@ EPS = 1e-8
 
 
 class GlobalLayerNorm(nn.Module):
-    """ Calculate Global Layer Normalization
+    """Calculate Global Layer Normalization.
 
     Arguments
     ---------
-       dim: (int or list or torch.Size)
+       dim : (int or list or torch.Size)
            Input shape from an expected input of size.
-       eps: float
+       eps : float
            A value added to the denominator for numerical stability.
-       elementwise_affine: bool
+       elementwise_affine : bool
           A boolean value that when set to True,
           this module has learnable per-element affine parameters
           initialized to ones (for weights) and zeros (for biases).
@@ -66,7 +66,7 @@ class GlobalLayerNorm(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            of size [N, C, K, S] or [N, C, L]
+            Tensor of size [N, C, K, S] or [N, C, L].
         """
         # x = N x C x K x S or N x C x L
         # N x 1 x 1
@@ -97,14 +97,14 @@ class GlobalLayerNorm(nn.Module):
 
 
 class CumulativeLayerNorm(nn.LayerNorm):
-    """Calculate Cumulative Layer Normalization
+    """Calculate Cumulative Layer Normalization.
 
        Arguments
        ---------
-       dim: int
+       dim : int
         Dimension that you want to normalize.
-       elementwise_affine: True
-        Learnable per-element affine parameters
+       elementwise_affine : True
+        Learnable per-element affine parameters.
 
     Example
     -------
@@ -124,7 +124,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
         Arguments
         ---------
         x : torch.Tensor
-            size [N, C, K, S] or [N, C, L]
+            Tensor size [N, C, K, S] or [N, C, L]
         """
         # x: N x C x K x S or N x C x L
         # N x K x S x C
@@ -144,9 +144,9 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape):
+    """Just a wrapper to select the normalization type.
     """
-        Just a wrapper to select the normalization type
-    """
+
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True)
     if norm == "cln":
@@ -158,15 +158,15 @@ def select_norm(norm, dim, shape):
 
 
 class Encoder(nn.Module):
-    """Convolutional Encoder Layer
+    """Convolutional Encoder Layer.
 
     Arguments
     ---------
-    kernel_size: int
+    kernel_size : int
         Length of filters.
-    in_channels: int
+    in_channels : int
         Number of  input channels.
-    out_channels: int
+    out_channels : int
         Number of output channels.
 
     Example
@@ -195,12 +195,12 @@ class Encoder(nn.Module):
 
         Arguments
         ---------
-        x: torch.Tensor
-                Input tensor with dimensionality [B, L],
+        x : torch.Tensor
+            Input tensor with dimensionality [B, L].
         Return
-        --------
-        x: torch.Tensor
-              Encoded tensor with dimensionality [B, N, T_out],
+        ------
+        x : torch.Tensor
+            Encoded tensor with dimensionality [B, N, T_out].
 
         where B = Batchsize
               L = Number of timepoints
@@ -222,11 +222,11 @@ class Decoder(nn.ConvTranspose1d):
 
     Arguments
     ---------
-    kernel_size: int
+    kernel_size : int
         Length of filters.
-    in_channels: int
+    in_channels : int
         Number of  input channels.
-    out_channels: int
+    out_channels : int
         Number of output channels.
 
 
@@ -247,8 +247,8 @@ class Decoder(nn.ConvTranspose1d):
 
         Arguments
         ---------
-        x: torch.Tensor
-                Input tensor with dimensionality [B, N, L],
+        x : torch.Tensor
+            Input tensor with dimensionality [B, N, L].
                 where, B = Batchsize,
                        N = number of filters
                        L = time points
@@ -286,26 +286,27 @@ class IdentityBlock:
 
 class FastTransformerBlock(nn.Module):
     """This block is used to implement fast transformer models with efficient attention.
+
     The implementations are taken from https://fast-transformers.github.io/
 
     Arguments
-    --------
-    attention_type: str
-        specifies the type of attention.
+    ---------
+    attention_type : str
+        Specifies the type of attention.
         Check https://fast-transformers.github.io/  for details.
-    out_channels: int
+    out_channels : int
         Dimensionality of the representation.
-    num_layers: int
+    num_layers : int
         Number of layers.
-    nhead: int
+    nhead : int
         Number of attention heads.
-    d_ffn: int
+    d_ffn : int
         Dimensionality of positional feed-forward.
-    dropout: float
+    dropout : float
         Dropout drop rate.
-    activation: str
-        Activation function
-    reformer_bucket_size: int
+    activation : str
+        Activation function.
+    reformer_bucket_size : int
         bucket size for reformer.
 
     Example
@@ -353,7 +354,7 @@ class FastTransformerBlock(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            [B, L, N]
+            Tensor shaper [B, L, N].
             where, B = Batchsize,
                    N = number of filters
                    L = time points
@@ -380,16 +381,16 @@ class FastTransformerBlock(nn.Module):
 
 
 class PyTorchPositionalEncoding(nn.Module):
-    """positional encoder for the pytorch transformer
+    """Positional encoder for the pytorch transformer.
 
     Arguments
     ---------
-    d_model: int
+    d_model : int
         Representation dimensionality.
-    dropout: float
-        dropout drop prob.
-    max_len: int
-        max sequence length.
+    dropout : float
+        Dropout drop prob.
+    max_len : int
+        Max sequence length.
 
     Example
     -------
@@ -418,7 +419,7 @@ class PyTorchPositionalEncoding(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            [B, L, N]
+            Tensor shape [B, L, N],
             where, B = Batchsize,
                    N = number of filters
                    L = time points
@@ -432,18 +433,19 @@ class PytorchTransformerBlock(nn.Module):
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         Dimensionality of the representation.
-    num_layers: int
+    num_layers : int
         Number of layers.
-    nhead: int
+    nhead : int
         Number of attention heads.
-    d_ffn: int
+    d_ffn : int
         Dimensionality of positional feed forward.
-    Dropout: dropout drop rate.
-    activation: str
+    Dropout : float
+        Dropout drop rate.
+    activation : str
         Activation function.
-    use_positional_encoding: bool
+    use_positional_encoding : bool
         If true we use a positional encoding.
 
     Example
@@ -488,7 +490,7 @@ class PytorchTransformerBlock(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            [B, L, N]
+            Tensor shape [B, L, N]
             where, B = Batchsize,
                    N = number of filters
                    L = time points
@@ -500,25 +502,25 @@ class PytorchTransformerBlock(nn.Module):
 
 
 class SBTransformerBlock(nn.Module):
-    """ SpeechBrain implementation of the transformer.
+    """SpeechBrain implementation of the transformer.
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         Dimensionality of the representation.
-    num_layers: int
+    num_layers : int
         Number of layers.
-    nhead: int
+    nhead : int
         Number of attention heads.
-    d_ffn: int
+    d_ffn : int
         Dimensionality of positional feed forward.
-    input_shape: Torch.shape
-        shape of input.
-    dropout: float
-        Dropout drop rate.
-    activation: str
-        activation function.
-    use_positional_encoding: bool
+    input_shape : Torch.shape
+        Shape of input.
+    dropout : float
+        Dropout rate.
+    activation : str
+        Activation function.
+    use_positional_encoding : bool
         If true we use a positional encoding.
 
     Example
@@ -579,7 +581,7 @@ class SBTransformerBlock(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            [B, L, N]
+            Tensor shape [B, L, N],
             where, B = Batchsize,
                    N = number of filters
                    L = time points
@@ -593,21 +595,21 @@ class SBTransformerBlock(nn.Module):
 
 
 class SBRNNBlock(nn.Module):
-    """RNNBlock for the dual path pipeline
+    """RNNBlock for the dual path pipeline.
 
     Arguments
     ---------
-    input_size: int
+    input_size : int
         Dimensionality of the input features.
-    hidden_channels: int
+    hidden_channels : int
         Dimensionality of the latent layer of the rnn.
-    num_layers: int
+    num_layers : int
         Number of the rnn layers.
-    rnn_type: str
+    rnn_type : str
         Type of the the rnn cell.
-    dropout: float
+    dropout : float
         Dropout rate
-    bidirectional: bool
+    bidirectional : bool
         If True, bidirectional.
 
     Example
@@ -658,15 +660,15 @@ class DPTNetBlock(nn.Module):
 
     Arguments
     ---------
-    d_model: int
+    d_model : int
         Number of expected features in the input (required).
-    nhead: int
+    nhead : int
         Number of heads in the multiheadattention models (required).
-    dim_feedforward: int
+    dim_feedforward : int
         Dimension of the feedforward network model (default=2048).
-    dropout: float
+    dropout : float
         Dropout value (default=0.1).
-    activation: str
+    activation : str
         Activation function of intermediate layer, relu or gelu (default=relu).
 
     Examples
@@ -715,7 +717,7 @@ class DPTNetBlock(nn.Module):
         Arguments
         ---------
         src : torch.Tensor
-            [B, L, N]
+            Tensor shape [B, L, N]
             where, B = Batchsize,
                    N = number of filters
                    L = time points
@@ -737,9 +739,9 @@ class DPTNetBlock(nn.Module):
 
 
 def _get_activation_fn(activation):
+    """Just a wrapper to get the activation functions.
     """
-        Just a wrapper to get the activation functions
-    """
+
     if activation == "relu":
         return F.relu
     elif activation == "gelu":
@@ -747,7 +749,7 @@ def _get_activation_fn(activation):
 
 
 class Dual_Computation_Block(nn.Module):
-    """ Computation block for dual-path processing.
+    """Computation block for dual-path processing.
 
     Arguments
     ---------
@@ -757,12 +759,12 @@ class Dual_Computation_Block(nn.Module):
         Model to process across the chunks.
      out_channels : int
         Dimensionality of inter/intra model.
-     norm: str
+     norm : str
         Normalization type.
-     skip_around_intra: bool
-        Skip connection around the intra layer
-     linear_layer_after_inter_intra: bool
-        Linear layer or not after inter or intra
+     skip_around_intra : bool
+        Skip connection around the intra layer.
+     linear_layer_after_inter_intra : bool
+        Linear layer or not after inter or intra.
 
     Example
     ---------
@@ -823,15 +825,14 @@ class Dual_Computation_Block(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor of dimension [B, N, K, S]
+            Input tensor of dimension [B, N, K, S].
 
 
         Return
         ---------
         out: torch.Tensor
-            Output tensor of dimension [B, N, K, S]
-
-        where, B = Batchsize,
+            Output tensor of dimension [B, N, K, S].
+            where, B = Batchsize,
                N = number of filters
                K = time points in each chunk
                S = the number of chunks
@@ -892,30 +893,30 @@ class Dual_Path_Model(nn.Module):
 
     Arguments
     ---------
-    in_channels: int
+    in_channels : int
         Number of channels at the output of the encoder.
-    out_channels: int
+    out_channels : int
         Number of channels that would be inputted to the intra and inter blocks.
     intra_model : torch.nn.module
         Model to process within the chunks.
     inter_model : torch.nn.module
         model to process across the chunks,
-    num_layers: int
+    num_layers : int
         Number of layers of Dual Computation Block.
-    norm: str
-        normalization type.
-    K: int
-        chunk length.
-    num_spks: int
-        number of sources (speakers).
-    skip_around_intra: bool
+    norm : str
+        Normalization type.
+    K : int
+        Chunk length.
+    num_spks : int
+        Number of sources (speakers).
+    skip_around_intra : bool
         Skip connection around intra.
-    linear_layer_after_inter_intra: bool
+    linear_layer_after_inter_intra : bool
         Linear layer after inter and intra.
-    use_global_pos_enc: bool
-        global positional encodings.
-    max_length: int
-        maximum sequence length.
+    use_global_pos_enc : bool
+        Global positional encodings.
+    max_length : int
+        Maximum sequence length.
 
     Example
     ---------
@@ -989,16 +990,13 @@ class Dual_Path_Model(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            input tensor of dimension [B, N, L].
+            Input tensor of dimension [B, N, L].
 
-            [B, L, N]
-
-        Return
-        ------
-        out: torch.Tensor
+        Returns
+        -------
+        out : torch.Tensor
             Output tensor of dimension [spks, B, N, L]
-
-        where, spks = Number of speakers
+            where, spks = Number of speakers
                B = Batchsize,
                N = number of filters
                L = the number of time points
@@ -1041,17 +1039,16 @@ class Dual_Path_Model(nn.Module):
         return x
 
     def _padding(self, input, K):
-        """padding the audio times
+        """Padding the audio times.
 
         Arguments
         ---------
-        K: int
+        K : int
             Chunks of length.
-        P: int
+        P : int
             Hop size.
-        input: torch.Tensor
+        input : torch.Tensor
             Tensor of size [B, N, L].
-
             where, B = Batchsize,
                    N = number of filters
                    L = time points
@@ -1073,17 +1070,16 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-           K: int
-               Length of the chunks.
-           input: torch.Tensor
-                Tensor with dim [B, N, L].
+        K : int
+            Length of the chunks.
+        input : torch.Tensor
+            Tensor with dim [B, N, L].
 
         Return
         -------
-           output: torch.tensor
-                Tensor with dim [B, N, K, S].
-
-        where, B = Batchsize,
+        output : torch.tensor
+            Tensor with dim [B, N, K, S].
+            where, B = Batchsize,
                N = number of filters
                K = time points in each chunk
                S = the number of chunks
@@ -1102,21 +1098,20 @@ class Dual_Path_Model(nn.Module):
         return input.contiguous(), gap
 
     def _over_add(self, input, gap):
-        """Merge the sequence with the overlap-and-add method
+        """Merge the sequence with the overlap-and-add method.
 
         Arguments
         ---------
-           input: torch.tensor
-                Tensor with dim [B, N, K, S].
-           gap: int
-                Padding length.
+        input : torch.tensor
+            Tensor with dim [B, N, K, S].
+        gap : int
+            Padding length.
 
         Return
         -------
-           output: torch.tensor
-                Tensor with dim [B, N, L].
-
-        where, B = Batchsize,
+        output : torch.tensor
+            Tensor with dim [B, N, L].
+            where, B = Batchsize,
                N = number of filters
                K = time points in each chunk
                S = the number of chunks

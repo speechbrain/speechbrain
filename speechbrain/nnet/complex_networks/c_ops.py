@@ -40,12 +40,12 @@ def get_real(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input: torch.Tensor
-    input_type: str,
-        Default: linear.
-        (convolution, linear)
+    input : torch.Tensor
+        Input tensor.
+    input_type : str,
+        (convolution, linear) (default "linear")
     channels_axis : int.
-        Default: 1.
+        Default 1.
     """
 
     if input_type == "linear":
@@ -68,12 +68,12 @@ def get_imag(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input: torch.Tensor
-    input_type: str,
-        Default: linear.
-        (convolution, linear)
+    input : torch.Tensor
+        Input tensor.
+    input_type : str,
+        (convolution, linear) (default "linear")
     channels_axis : int.
-        Default: 1.
+        Default 1.
     """
 
     if input_type == "linear":
@@ -96,12 +96,12 @@ def get_conjugate(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input: torch.Tensor
-    input_type: str,
-        Default: linear.
-        (convolution, linear)
+    input : torch.Tensor
+        Input tensor
+    input_type : str,
+        (convolution, linear) (default "linear")
     channels_axis : int.
-        Default: 1.
+        Default 1.
     """
     input_imag = get_imag(input, input_type, channels_axis)
     input_real = get_real(input, input_type, channels_axis)
@@ -117,13 +117,13 @@ def complex_linear_op(input, real_weight, imag_weight, bias):
 
     Arguments
     ---------
-    input: torch.Tensor
+    input : torch.Tensor
         Complex input tensor to be transformed.
-    real_weight: torch.Parameter
+    real_weight : torch.Parameter
         Real part of the quaternion weight matrix of this layer.
-    imag_weight: torch.Parameter
+    imag_weight : torch.Parameter
         First imaginary part of the quaternion weight matrix of this layer.
-    bias: torch.Parameter
+    bias : torch.Parameter
     """
 
     cat_real = torch.cat([real_weight, -imag_weight], dim=0)
@@ -151,21 +151,21 @@ def complex_conv_op(
 
     Arguments
     ---------
-    input: torch.Tensor
+    input : torch.Tensor
         Complex input tensor to be transformed.
-    conv1d: bool
+    conv1d : bool
         If true, a 1D convolution operation will be applied. Otherwise, a 2D
         convolution is called.
-    real_weight: torch.Parameter
+    real_weight : torch.Parameter
         Real part of the quaternion weight matrix of this layer.
-    imag_weight: torch.Parameter
+    imag_weight : torch.Parameter
         First imaginary part of the quaternion weight matrix of this layer.
-    bias: torch.Parameter
-    stride: int
+    bias : torch.Parameter
+    stride : int
         Stride factor of the convolutional filters.
-    padding: int
+    padding : int
         Amount of padding. See torch.nn documentation for more information.
-    dilation: int
+    dilation : int
         Dilation factor of the convolutional filters.
     """
     cat_real = torch.cat([real_weight, -imag_weight], dim=1)
@@ -188,14 +188,13 @@ def unitary_init(
     Arguments
     ---------
     in_features : int
-        Number of real values of the input layer (quaternion // 4)
+        Number of real values of the input layer (quaternion // 4).
     out_features : int
-        Number of real values of the output layer (quaternion // 4)
+        Number of real values of the output layer (quaternion // 4).
     kernel_size : int
-        Kernel_size for convolutional layers (ex: (3,3))
-    criterion: str
-        Default: glorot
-        (glorot, he)
+        Kernel_size for convolutional layers (ex: (3,3)).
+    criterion : str
+        (glorot, he) (default "glorot").
     """
 
     if kernel_size is None:
@@ -231,14 +230,13 @@ def complex_init(
     Arguments
     ---------
     in_features : int
-        Number of real values of the input layer (quaternion // 4)
+        Number of real values of the input layer (quaternion // 4).
     out_features : int
-        Number of real values of the output layer (quaternion // 4)
+        Number of real values of the output layer (quaternion // 4).
     kernel_size : int
-        Kernel_size for convolutional layers (ex: (3,3))
+        Kernel_size for convolutional layers (ex: (3,3)).
     criterion: str
-        Default: glorot
-        (glorot, he)
+        (glorot, he) (default "glorot")
     """
 
     if kernel_size is not None:
