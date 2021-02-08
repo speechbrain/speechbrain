@@ -309,7 +309,10 @@ def dataio_prepare(hparams):
                 ],
                 length_func=lambda x: x["duration"]
                 * (1 / hparams["dynamic_batch_sampler"]["feats_hop_size"]),
-                shuffle=hparams["dynamic_batch_sampler"]["shuffle"],
+                shuffle_examples=hparams["dynamic_batch_sampler"]["shuffle_ex"],
+                batch_ordering=hparams["dynamic_batch_sampler"][
+                    "batch_ordering"
+                ],
             ),
             collate_fn=PaddedBatch,
         )

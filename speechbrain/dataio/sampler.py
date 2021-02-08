@@ -324,7 +324,8 @@ class DynamicBatchSampler(Sampler):
         left_bucket_length: int,
         bucket_length_multiplier: float = 1.1,
         length_func=lambda x: x["duration"],
-        shuffle: bool = True,
+        shuffle_examples: bool = True,
+        batch_ordering: str = "random",
         bucket_boundaries: List[int] = [],
         lengths_list: List[int] = None,
         seed: int = 42,
@@ -370,7 +371,8 @@ class DynamicBatchSampler(Sampler):
         )
 
         self._max_batch_length = max_batch_length
-        self._shuffle = shuffle
+        self._shuffle_ex = shuffle_examples
+        self._batch_ordering = batch_ordering
         self._seed = seed
         self._drop_last = drop_last
         # Calculate bucket lengths
@@ -407,15 +409,44 @@ class DynamicBatchSampler(Sampler):
 
         return list(sorted(bucket_boundaries))
 
+    def _permute_batches(self):
+
+        if self._batch_ordering == "random":
+            # deterministically shuffle based on epoch and seed
+            g = torch.Generator()
+            g.manual_seed(self._seed + self._epoch)
+            sampler = torch.randperm(
+                len(self._batches), generator=g
+            ).tolist()  # type: ignore
+            tmp = []
+            for idx in sampler:
+                tmp.append(self._batches[idx])
+            self._batches = tmp
+
+        elif self._batch_ordering == "ascending":
+            self._batches = sorted(
+                self._batches,
+                key=lambda x: sum([self._ex_lengths[str(idx)] for idx in x]),
+            )
+        elif self._batch_ordering == "descending":
+            self._batches = sorted(
+                self._batches,
+                key=lambda x: sum([self._ex_lengths[str(idx)] for idx in x]),
+                reverse=True,
+            )
+        else:
+            raise NotImplementedError
+
     def _generate_batches(self):
         logger.info("DynamicBatchSampler: Generating dynamic batches")
 
-        if self._shuffle:
+        if self._shuffle_ex:
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
             g.manual_seed(self._seed + self._epoch)
             sampler = torch.randperm(len(self._dataset), generator=g).tolist()  # type: ignore
         else:
+            # take examples as they are: e.g. they have been sorted
             sampler = range(len(self._dataset))  # type: ignore
 
         self._batches = []
@@ -434,6 +465,10 @@ class DynamicBatchSampler(Sampler):
             for batch in bucket_batches:
                 if batch:
                     self._batches.append(batch)
+
+        if not self._shuffle_ex:
+            self._permute_batches()  # reorder batches
+
         if self._epoch == 0:  # only log at first epoch
             logger.info(
                 "DynamicBatchSampler: Created {} batches, {} buckets used.".format(
@@ -455,8 +490,13 @@ class DynamicBatchSampler(Sampler):
     def __iter__(self):
         for batch in self._batches:
             yield batch
-        if self._shuffle:  # re-generate batches only if shuffling
+        if self._shuffle_ex:  # re-generate examples if ex_ordering == "random"
             self._generate_batches()
+        elif self._shuffle_ex is False and self._batch_ordering == "random":
+            # we randomly permute the batches only --> faster
+            self._permute_batches()
+        else:
+            pass
 
     def set_epoch(self, epoch):
         """
