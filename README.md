@@ -12,28 +12,26 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 # Key features
 
-## Speech Recognition
-SpeechBrain supports state-of-the-art methods for end-to-end speech recognition, including models based on CTC, CTC+Attention, transducers, Transformers, and neural language models relying on recurrent neural networks and transformers.
+### Feature extraction and augmentation
+SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction, normalisation that can be used on-the-fly during your experiment.
 
-## Speaker Recognition
+### Speech recognition
+SpeechBrain supports state-of-the-art methods for end-to-end speech recognition, including models based on CTC, CTC+attention, transducers, transformers, and neural language models relying on recurrent neural networks and transformers.
+
+### Speaker recognition
 Speaker recognition is already deployed in a wide variety of realistic applications. SpeechBrain provides different models for speaker recognition, including X-vector, ECAPA-TDNN, PLDA, contrastive learning.
 
-## Speech Enhancement
-Spectral masking, spectral mapping, and time-domain enhancement are different methods already available within SpeechBrain. Separation methods such as ConvTasnet, DualPath RNN, and SepFormer are implemented as well.
+### Speech enhancement
+Spectral masking, spectral mapping, and time-domain enhancement are different methods already available within SpeechBrain. Separation methods such as Conv-TasNet, DualPath RNN, and SepFormer are implemented as well.
 
-## Speech Processing
-Speechbrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic features extraction, normalisation that can be used on-the-fly during your experiment.
-
-## Multi Microphone Processing
+### Multi-microphone processing
 Combining multiple microphones is a powerful approach to achieve robustness in adverse acoustic environments. SpeechBrain provides various techniques for beamforming (e.g, delay-and-sum, MVDR, and GeV) and speaker localization.
 
-## Research & Development
-
+### Research & development
 SpeechBrain is designed to speed-up research and development of speech technologies. It is modular, flexible, easy-to-customize, and contains several recipes for popular datasets. Documentation and tutorials are here to help newcomers using SpeechBrain.
 
-## Under development
-
-We currently are working towards integrating DNN-HMM for speech recognition, end-to-end spoken language understanding, speech translation and machine translation.
+### Under development
+We currently are working towards integrating DNN-HMM for speech recognition, speech translation, and machine translation.
 
 # Quick installation
 
@@ -92,7 +90,7 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 
 # Learning SpeechBrain
 
-Instead of a long and boring ReadMe, we prefer to provide you with different resources that can be used to learn how to customise SpeechBrain to adapt it to your needs:
+Instead of a long and boring README, we prefer to provide you with different resources that can be used to learn how to customise SpeechBrain to adapt it to your needs:
 
 - General information and Google Colab tutorials can be found on the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
 - Many [tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) about the basics of SpeechBrain.
