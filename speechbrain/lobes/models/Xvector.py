@@ -16,12 +16,12 @@ from speechbrain.nnet.normalization import BatchNorm1d
 
 
 class Xvector(torch.nn.Module):
-    """This model extracts XVectors for speaker recognition and diarization.
+    """This model extracts X-vectors for speaker recognition and diarization.
 
     Arguments
     ---------
     device : str
-        Device used e.g. "cpu" or "cuda"
+        Device used e.g. "cpu" or "cuda".
     activation : torch class
         A class for constructing the activation layers.
     tdnn_blocks : int
@@ -90,7 +90,7 @@ class Xvector(torch.nn.Module):
         )
 
     def forward(self, x, lens=None):
-        """Returns the x vectors.
+        """Returns the x-vectors.
 
         Arguments
         ---------

@@ -357,40 +357,40 @@ class Filterbank(torch.nn.Module):
 
     Arguments
     ---------
-     n_mels : float
-         Number of Mel filters used to average the spectrogram.
-     log_mel : bool
-         If True, it computes the log of the FBANKs.
-     filter_shape : str
-         Shape of the filters ('triangular', 'rectangular', 'gaussian').
-     f_min : int
-         Lowest frequency for the Mel filters.
-     f_max : int
-         Highest frequency for the Mel filters.
-     n_fft : int
-         Number of fft points of the STFT. It defines the frequency resolution
-         (n_fft should be<= than win_len).
-     sample_rate : int
-         Sample rate of the input audio signal (e.g, 16000)
-     power_spectrogram : float
-         Exponent used for spectrogram computation.
-     amin : float
-         Minimum amplitude (used for numerical stability).
-     ref_value : float
-         Reference value used for the dB scale.
-     top_db : float
-         Top dB valu used for log-mels.
-     freeze : bool
-         If False, it the central frequency and the band of each filter are
-         added into nn.parameters. If True, the standard frozen features
-         are computed.
-     param_change_factor: bool
+    n_mels : float
+        Number of Mel filters used to average the spectrogram.
+    log_mel : bool
+        If True, it computes the log of the FBANKs.
+    filter_shape : str
+        Shape of the filters ('triangular', 'rectangular', 'gaussian').
+    f_min : int
+        Lowest frequency for the Mel filters.
+    f_max : int
+        Highest frequency for the Mel filters.
+    n_fft : int
+        Number of fft points of the STFT. It defines the frequency resolution
+        (n_fft should be<= than win_len).
+    sample_rate : int
+        Sample rate of the input audio signal (e.g, 16000)
+    power_spectrogram : float
+        Exponent used for spectrogram computation.
+    amin : float
+        Minimum amplitude (used for numerical stability).
+    ref_value : float
+        Reference value used for the dB scale.
+    top_db : float
+        Top dB valu used for log-mels.
+    freeze : bool
+        If False, it the central frequency and the band of each filter are
+        added into nn.parameters. If True, the standard frozen features
+        are computed.
+    param_change_factor: bool
         If freeze=False, this parameter affects the speed at which the filter
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
         When low (e.g. param_change_factor=0.1) the filter parameters are more
         stable during training
-     param_rand_factor: float
+    param_rand_factor: float
         This parameter can be used to randomly change the filter parameters
         (i.e, central frequencies and bands) during training.  It is thus a
         sort of regularization. param_rand_factor=0 does not affect, while
