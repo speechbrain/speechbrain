@@ -15,19 +15,19 @@ logger = logging.getLogger(__name__)
 
 
 class Pooling1d(nn.Module):
-    """This function implements 1d pooling of the input tensor
+    """This function implements 1d pooling of the input tensor.
 
     Arguments
     ---------
     pool_type : str
-        It is the type of pooling function to use ('avg','max')
+        It is the type of pooling function to use ('avg','max').
     kernel_size : int
         It is the kernel size that defines the pooling dimension.
         For instance, kernel size=3 applies a 1D Pooling with a size=3.
     input_dims : int
-        The count of dimensions expected in the input
+        The count of dimensions expected in the input.
     pool_axis : int
-        Axis where pooling is applied
+        The axis where the pooling is applied.
     stride : int
         It is the stride size.
     padding : int
@@ -119,12 +119,12 @@ class Pooling1d(nn.Module):
 
 
 class Pooling2d(nn.Module):
-    """This function implements 2d pooling of the input tensor
+    """This function implements 2d pooling of the input tensor.
 
     Arguments
     ---------
     pool_type : str
-        It is the type of pooling function to use ('avg','max')
+        It is the type of pooling function to use ('avg','max').
     pool_axis : tuple
         It is a list containing the axis that will be considered
         during pooling.
@@ -229,8 +229,7 @@ class Pooling2d(nn.Module):
 class StatisticsPooling(nn.Module):
     """This class implements a statistic pooling layer.
 
-    This class implements Statistics Pooling layer:
-    It returns the concatenated mean and std of input tensor
+    It returns the concatenated mean and std of input tensor.
 
     Example
     -------
@@ -253,7 +252,7 @@ class StatisticsPooling(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            It represents a tensor for a mini-batch
+            It represents a tensor for a mini-batch.
         """
         if lengths is None:
             mean = x.mean(dim=1)
@@ -288,12 +287,12 @@ class StatisticsPooling(nn.Module):
         return pooled_stats
 
     def _get_gauss_noise(self, shape_of_tensor, device="cpu"):
-        """Returns a tensor of epsilon Gaussian noise
+        """Returns a tensor of epsilon Gaussian noise.
 
         Arguments
         ---------
         shape_of_tensor : tensor
-            It represents the size of tensor for making Gaussian noise.
+            It represents the size of tensor for generating Gaussian noise.
         """
         gnoise = torch.randn(shape_of_tensor, device=device)
         gnoise -= torch.min(gnoise)
@@ -304,12 +303,12 @@ class StatisticsPooling(nn.Module):
 
 
 class AdaptivePool(nn.Module):
-    """This class implements the adaptive average pooling
+    """This class implements the adaptive average pooling.
 
     Arguments
     ---------
     delations : output_size
-        the size of the output
+        The size of the output.
 
     Example
     -------

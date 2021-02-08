@@ -8,9 +8,8 @@ Authors:
 """
 import torch
 from joblib import Parallel, delayed
-from speechbrain.utils import edit_distance
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.edit_distance import wer_summary
+from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
 from speechbrain.dataio.dataio import merge_char, split_word
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
@@ -241,7 +240,7 @@ class ErrorRateStats(MetricStats):
             predict = split_word(predict)
             target = split_word(target)
 
-        scores = edit_distance.wer_details_for_batch(ids, target, predict, True)
+        scores = wer_details_for_batch(ids, target, predict, True)
 
         self.scores.extend(scores)
 

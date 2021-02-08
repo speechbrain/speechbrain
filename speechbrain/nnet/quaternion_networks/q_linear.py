@@ -6,7 +6,7 @@ Authors
 
 import torch
 import logging
-from speechbrain.nnet.quaternion_networks.quaternion_ops import (
+from speechbrain.nnet.quaternion_networks.q_ops import (
     affect_init,
     unitary_init,
     quaternion_init,
@@ -19,68 +19,63 @@ from speechbrain.nnet.quaternion_networks.quaternion_ops import (
 logger = logging.getLogger(__name__)
 
 
-class QuaternionLinear(torch.nn.Module):
-    """ This function implements a fully connected quaternion-valued
-        linear layer: y = Wx + b. y, W, x and b are thus quaternion
-        numbers. A quaternion number is written as: r + xi + yj + zk.
-        A tensor of quaternion numbers x = [batch, 32] can be understood as
-        [batch, 0:7] = R, [batch, 8:15] = Xi, [batch, 16:23] = Yi, and
-        [batch, 24:31] = Xi. Thus the features dimension is cut in four
-        (must be dividible by 4).
+class QLinear(torch.nn.Module):
+    """This function implements a fully connected quaternion-valued
+    linear layer: y = Wx + b. y, W, x and b are thus quaternion
+    numbers. A quaternion number is written as: r + xi + yj + zk.
+    A tensor of quaternion numbers x = [batch, 32] can be understood as
+    [batch, 0:7] = R, [batch, 8:15] = Xi, [batch, 16:23] = Yi, and
+    [batch, 24:31] = Xi. Thus the features dimension is cut in four
+    (must be dividible by 4).
 
     Arguments
     ---------
     n_neurons : int
-        it is the number of output neurons (i.e, the dimensionality of the
+        It is the number of output neurons (i.e, the dimensionality of the
         output). Please note that these are quaternion-valued neurons. If 256
         neurons are specified, the output dimension will be 1024.
     input_shape : tuple
         Expected size of the input.
     bias : bool
-        if True, the additive bias b is adopted.
-    init_criterion: str , optional
-        Default: he.
+        If True, the additive bias b is adopted.
+    init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
         It is combined with weights_init to build the initialization method of
-        the quaternion-valued weights.
-    weight_init: str, optional
-        Default: quaternion.
+        the quaternion-valued weights (default "glorot").
+    weight_init : str, optional
         (quaternion, unitary).
         This parameter defines the initialization procedure of the
         quaternion-valued weights. "quaternion" will generate quaternion-valued
         weights following the init_criterion and the quaternion  polar form.
-        "unitary" will normalize the weights to lie on the unit circle.
+        "unitary" will normalize the weights to lie on the unit circle (default "quaternion").
         More details in: "Quaternion recurrent neural networks", Parcollet T.
-    autograd: bool, optional
-        Default: True.
+    autograd : bool, optional
         When True, the default PyTorch autograd will be used. When False, a
         custom backpropagation will be used, reducing by a factor 3 to 4 the
         memory consumption. It is also 2x slower. This only works with
-        spinor = False.
-    spinor: bool, optional
-        Default: False.
+        spinor = False (default True).
+    spinor : bool, optional
         When True, the layer will be turned into a spinor layer. More precisely
         W*x will be turned into W*x*W-1. The input x will be rotated by W such
         as in a spinor neural network. However, x MUST be a quaternion with
         the real part equal to zero. (0 + xi + yj + zk). Indeed, the rotation
         operation only acts on the vector part. Note that W will always be
-        normalized before the rotation to ensure the quaternion algebra.
+        normalized before the rotation to ensure the quaternion algebra (default False).
         More details in: "Quaternion neural networks", Parcollet T.
-    vector_scale: bool, optional
-        Default: False.
+    vector_scale : bool, optional
         The vector_scale is only used when spinor = True. In the context of a
         spinor neural network, multiple rotations of the input vector x are
         performed and summed. Hence, the norm of the output vector always
         increases with the number of layers, making the neural network instable
         with deep configurations. The vector_scale parameters are learnable
         parameters that acts like gates by multiplying the output vector with
-        a small trainable parameter.
+        a small trainable parameter (default False).
 
     Example
     -------
     >>> inputs = torch.rand(10, 50, 40)
-    >>> lin = QuaternionLinear(n_neurons=100, input_shape=inputs.shape)
+    >>> lin = QLinear(n_neurons=100, input_shape=inputs.shape)
     >>> output = lin(inputs)
     >>> output.shape
     torch.Size([10, 50, 400])
@@ -180,7 +175,7 @@ class QuaternionLinear(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            input to transform linearly.
+            Input to transform linearly.
         """
 
         if self.autograd:
