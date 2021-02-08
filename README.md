@@ -1,7 +1,7 @@
 # The SpeechBrain Toolkit
 
 <p align="center">
-  <img src="https://speechbrain.github.io/assets/logo_noname_rounded_small.png" alt="drawing" width="200"/>
+  <img src="http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/img/logo_noname_rounded_big.png" alt="drawing" width="250"/>
 </p>
 
 SpeechBrain is an **open-source** and **all-in-one** speech toolkit based on PyTorch.
