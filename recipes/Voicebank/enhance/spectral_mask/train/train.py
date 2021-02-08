@@ -162,8 +162,8 @@ def dataio_prep(hparams):
     # Define datasets
     datasets = {}
     for dataset in ["train", "valid", "test"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
@@ -172,7 +172,7 @@ def dataio_prep(hparams):
     # Sort train dataset
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         datasets["train"] = datasets["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending"
+            sort_key="length", reverse=hparams["sorting"] == "descending"
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
