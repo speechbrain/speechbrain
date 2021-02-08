@@ -434,7 +434,7 @@ class Brain:
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "progressbar": True,
-            "ckpt_interval_minutes": 15.0,
+            "ckpt_interval_minutes": 0,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
