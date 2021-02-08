@@ -183,12 +183,12 @@ def dataio_prep(hparams):
     grapheme_encoder = sb.dataio.encoder.TextEncoder()
 
     # 2. Define graphene pipeline:
-    @sb.utils.data_pipeline.takes("graphemes")
+    @sb.utils.data_pipeline.takes("char")
     @sb.utils.data_pipeline.provides(
         "grapheme_list", "grapheme_encoded_list", "grapheme_encoded"
     )
-    def grapheme_pipeline(graphemes):
-        grapheme_list = graphemes.strip().split(" ")
+    def grapheme_pipeline(char):
+        grapheme_list = char.strip().split(" ")
         yield grapheme_list
         grapheme_encoded_list = grapheme_encoder.encode_sequence(grapheme_list)
         yield grapheme_encoded_list
@@ -198,7 +198,7 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, grapheme_pipeline)
 
     # 3. Define phoneme pipeline:
-    @sb.utils.data_pipeline.takes("phonemes")
+    @sb.utils.data_pipeline.takes("phn")
     @sb.utils.data_pipeline.provides(
         "phn_list",
         "phn_encoded_list",
@@ -206,8 +206,8 @@ def dataio_prep(hparams):
         "phn_encoded_eos",
         "phn_encoded_bos",
     )
-    def phoneme_pipeline(phonemes):
-        phn_list = phonemes.strip().split(" ")
+    def phoneme_pipeline(phn):
+        phn_list = phn.strip().split(" ")
         yield phn_list
         phn_encoded_list = phoneme_encoder.encode_sequence(phn_list)
         yield phn_encoded_list
@@ -286,6 +286,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "create_lexicon": True,
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

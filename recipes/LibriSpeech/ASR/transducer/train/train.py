@@ -35,16 +35,15 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
-import sentencepiece as spm
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
 # Define training procedure
+
+
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -268,19 +267,6 @@ class ASR(sb.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams.output_folder, "save", "lm_model.ckpt"
-        )
-        if not os.path.isfile(save_model_path):
-            download_file(self.hparams.language_model_file, save_model_path)
-
-        # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path, map_location=self.device)
-        self.hparams.lm_model.load_state_dict(state_dict, strict=True)
-        self.hparams.lm_model.eval()
-
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
@@ -302,7 +288,7 @@ def dataio_prepare(hparams):
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloder_opts"]["shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -330,19 +316,9 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
-    """Load the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tokenizer.model")
-
-    if "tokenizer_file" in hparams:
-        download_file(
-            source=hparams["tokenizer_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
-
     # Defining tokenizer and loading it
-    tokenizer = spm.SentencePieceProcessor()
-    tokenizer.load(save_model_path)
+    # To avoid mismatch, we have to use the same tokenizer used for LM training
+    tokenizer = hparams["lm_model"].tokenizer
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -389,11 +365,17 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # 1.  # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
 
     # multi-gpu (ddp) save data preparation
-
     run_on_main(
         prepare_librispeech,
         kwargs={
@@ -404,14 +386,8 @@ if __name__ == "__main__":
             "save_folder": hparams["data_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": hparams["train_csv"],
+            "skip_prep": hparams["skip_prep"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # here we create the datasets objects as well as tokenization and encoding

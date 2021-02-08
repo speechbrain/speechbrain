@@ -10,6 +10,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
 """
+import os
 import sys
 import torch
 import logging
@@ -241,28 +242,39 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    # NOTE: In this minimal example, also update from valid data
-
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
-    if (
-        hparams["blank_index"] != hparams["bos_index"]
-        or hparams["blank_index"] != hparams["eos_index"]
-    ):
-        label_encoder.insert_blank(index=hparams["blank_index"])
-
-    if hparams["bos_index"] == hparams["eos_index"]:
-        label_encoder.insert_bos_eos(
-            bos_label="<eos-bos>",
-            eos_label="<eos-bos>",
-            bos_index=hparams["bos_index"],
-        )
+    # Load or compute the label encoder
+    label_encoder_file = os.path.join(
+        hparams["save_folder"], "label_encoder.txt"
+    )
+    if os.path.exists(label_encoder_file):
+        label_encoder.load(label_encoder_file)
     else:
-        label_encoder.insert_bos_eos(
-            bos_label="<bos>",
-            eos_label="<eos>",
-            bos_index=hparams["bos_index"],
-            eos_index=hparams["eos_index"],
+        label_encoder.update_from_didataset(train_data, output_key="phn_list")
+        if (
+            hparams["blank_index"] != hparams["bos_index"]
+            or hparams["blank_index"] != hparams["eos_index"]
+        ):
+            label_encoder.insert_blank(index=hparams["blank_index"])
+
+        if hparams["bos_index"] == hparams["eos_index"]:
+            label_encoder.insert_bos_eos(
+                bos_label="<eos-bos>",
+                eos_label="<eos-bos>",
+                bos_index=hparams["bos_index"],
+            )
+        else:
+            label_encoder.insert_bos_eos(
+                bos_label="<bos>",
+                eos_label="<eos>",
+                bos_index=hparams["bos_index"],
+                eos_index=hparams["eos_index"],
+            )
+
+        # Save label encoder
+        label_enc_file = os.path.join(
+            hparams["save_folder"], "label_encoder.txt"
         )
+        run_on_main(label_encoder.save, kwargs={"path": label_enc_file})
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
@@ -301,6 +313,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

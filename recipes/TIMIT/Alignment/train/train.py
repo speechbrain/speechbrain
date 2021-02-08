@@ -9,6 +9,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
 import speechbrain as sb
@@ -214,8 +215,18 @@ def dataio_prep(hparams):
 
     sb.dataio.dataset.add_dynamic_item(datasets, phn_ends_pipeline)
 
-    # 5. Fit encoder:
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    # 3. Fit encoder:
+    # Load or compute the label encoder
+    label_encoder_file = os.path.join(
+        hparams["save_folder"], "label_encoder.txt"
+    )
+    if os.path.exists(label_encoder_file):
+        label_encoder.load(label_encoder_file)
+    else:
+        label_encoder.update_from_didataset(train_data, output_key="phn_list")
+        label_encoder.save(
+            os.path.join(hparams["save_folder"], "label_encoder.txt")
+        )
 
     # 6. Set output:
     sb.dataio.dataset.set_output_keys(
@@ -256,6 +267,7 @@ if __name__ == "__main__":
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
             "phn_set": hparams["phn_set"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

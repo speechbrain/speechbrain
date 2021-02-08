@@ -8,6 +8,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
 import logging
@@ -174,8 +175,18 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    # Load or compute the label encoder
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    run_on_main(
+        label_encoder.load_or_create,
+        kwargs={
+            "path": lab_enc_file,
+            "from_didatasets": [train_data],
+            "output_key": "phn_list",
+            "special_labels": {"blank_label": hparams["blank_index"]},
+            "sequence_input": True,
+        },
+    )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
@@ -213,6 +224,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
