@@ -1,8 +1,9 @@
 emb_size: 128
+dropout_rate: !PLACEHOLDER
 
 # Src embedding parameters
 src_activation:
-src_dropout: 0.2
+src_dropout: !ref <dropout_rate>
 cnn_blocks: 2
 cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
@@ -20,7 +21,7 @@ dec_attn_dim: 1024
 dec_channels: 10
 dec_kernel: 100
 dec_layers: 1
-dec_dropout: 0.2
+dec_dropout: !ref <dropout_rate>
 
 # Language model params
 lm_emb_size: 128
