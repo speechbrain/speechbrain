@@ -12,6 +12,7 @@ To use pretrained model, enter the path in `pretrained` field.
 Authors
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
 import speechbrain as sb
@@ -136,9 +137,21 @@ def dataio_prep(hparams):
             "Sorting must be random, ascending, or descending"
         )
 
-    # 4. Fit encoder to train data
-    label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.update_from_didataset(data["train"], output_key="phn_list")
+    # 4. Fit encoder:
+    # Load or compute the label encoder
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+
+    run_on_main(
+        label_encoder.load_or_create,
+        kwargs={
+            "path": lab_enc_file,
+            "from_didatasets": [data["train"]],
+            "output_key": "phn_list",
+            "special_labels": {"blank_label": hparams["blank_index"]},
+            "sequence_input": True,
+        },
+    )
+
     return data, label_encoder
 
 

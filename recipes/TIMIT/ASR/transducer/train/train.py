@@ -215,12 +215,15 @@ def dataio_prep(hparams):
     # 3. Fit encoder:
     # Load or compute the label encoder
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    label_encoder.load_or_create(
-        lab_enc_file,
-        from_didatasets=[train_data],
-        output_key="phn_list",
-        special_labels={"blank_label": hparams["blank_index"]},
-        sequence_input=True,
+    run_on_main(
+        label_encoder.load_or_create,
+        kwargs={
+            "path": lab_enc_file,
+            "from_didatasets": [train_data],
+            "output_key": "phn_list",
+            "special_labels": {"blank_label": hparams["blank_index"]},
+            "sequence_input": True,
+        },
     )
 
     # 4. Set output:
