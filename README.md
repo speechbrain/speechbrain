@@ -31,7 +31,7 @@ Combining multiple microphones is a powerful approach to achieve robustness in a
 SpeechBrain is designed to speed-up research and development of speech technologies. It is modular, flexible, easy-to-customize, and contains several recipes for popular datasets. Documentation and tutorials are here to help newcomers using SpeechBrain.
 
 ### Under development
-We currently are working towards integrating DNN-HMM for speech recognition, speech translation, and machine translation.
+We currently are working towards integrating DNN-HMM for speech recognition, speech translation, end-to-end spoken language understanding and machine translation.
 
 # Quick installation
 
