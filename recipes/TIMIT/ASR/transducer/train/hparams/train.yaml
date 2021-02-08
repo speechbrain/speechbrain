@@ -52,7 +52,7 @@ dec_neurons: 128
 # Outputs
 output_neurons: 40
 joint_dim: 128
-blank_index: !ref <output_neurons> - 1
+blank_index: 0
 
 # Decoding parameters
 beam_size: 4
