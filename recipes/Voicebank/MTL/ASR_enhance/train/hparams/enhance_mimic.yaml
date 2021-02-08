@@ -14,29 +14,31 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/valid.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 50
 batch_size: 8
 lr: 0.0001
 device: 'cuda:0'
-target_type: phn
+target_type: phones
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
 checkpoint_avg: 1
 sorting: ascending
 train_loader_options:
     batch_size: !ref <batch_size>
 valid_loader_options:
-    batch_size: 30
+    batch_size: !ref <batch_size>
     shuffle: False
 test_loader_options:
-    batch_size: 30
+    batch_size: !ref <batch_size>
     shuffle: False
 eval_max_key: pesq
 eval_min_key: null
+mask_weight: 1.0
 
 # Loss weights
 enhance_type: masking  # null, mapping, masking
@@ -51,7 +53,7 @@ label_smoothing: 0.1
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path:
-    src_embedding: src_embedding.ckpt
+    src_embedding: http://www.dropbox.com/s/2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1
 
 frozen_models: [src_embedding]
 
@@ -101,12 +103,6 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
-
 modules:
     enhance_model: !ref <enhance_model[enhance_model]>
     src_embedding: !ref <perceptual_model[src_embedding]>
@@ -118,7 +114,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         enhance_model: !ref <enhance_model[enhance_model]>
         counter: !ref <epoch_counter>
-        lr_annealing: !ref <lr_annealing>
 
 enhance_loss: !name:speechbrain.nnet.losses.mse_loss
 mimic_loss: !name:speechbrain.nnet.losses.mse_loss
@@ -130,10 +125,10 @@ mimic_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.mse_loss
         reduction: batch
 estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:experiment.estoi_eval
+    metric: !name:train.estoi_eval
     n_jobs: 30
 pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:experiment.pesq_eval
+    metric: !name:train.pesq_eval
     n_jobs: 30
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

@@ -15,33 +15,34 @@ TORCHAUDIO_FORMATS = ["wav", "flac", "aac", "ogg", "flac", "mp3"]
 ITEM_POSTFIX = "_data"
 
 CSVItem = collections.namedtuple("CSVItem", ["data", "format", "opts"])
-# The Legacy Extended CSV Data item triplet
+CSVItem.__doc__ = """The Legacy Extended CSV Data item triplet"""
 
 
 class ExtendedCSVDataset(DynamicItemDataset):
     """Extended CSV compatibility for DynamicItemDataset
 
-    Uses the SpeechBrain Extended CSV data format, where the
-    CSV must have an 'ID' and 'duration' fields.
+    Uses the SpeechBrain Extended CSV data format, where the CSV must have an
+    'ID' and 'duration' fields.
 
     The rest of the fields come in triplets:
-    a <name>, <name>_format, <name>_opts
+    ``<name>, <name>_format, <name>_opts``
 
-    These add a <name>_sb_data item in the dict. Additionally, a
-    basic DynamicItem (see DynamicItemDataset) is created, which
-    loads the _sb_data item.
+    These add a <name>_sb_data item in the dict. Additionally, a basic
+    DynamicItem (see DynamicItemDataset) is created, which loads the _sb_data
+    item.
 
     Bash-like string replacements with $to_replace are supported.
 
     NOTE
     ----
     Mapping from legacy interface:
-        csv_file -> csvpath
-        sentence_sorting -> sorting, and "random" is not supported,
-            use e.g. make_dataloader(..., shuffle = (sorting=="random"))
-        avoid_if_shorter_than -> min_duration
-        avoid_if_longer_than -> max_duration
-        csv_read -> output_keys, and if you want IDs add "id" as key
+
+    - csv_file -> csvpath
+    - sentence_sorting -> sorting, and "random" is not supported, use e.g.
+      ``make_dataloader(..., shuffle = (sorting=="random"))``
+    - avoid_if_shorter_than -> min_duration
+    - avoid_if_longer_than -> max_duration
+    - csv_read -> output_keys, and if you want IDs add "id" as key
 
     Arguments
     ---------
@@ -49,19 +50,17 @@ class ExtendedCSVDataset(DynamicItemDataset):
         Path to extended CSV.
     replacements : dict
         Used for Bash-like $-prefixed substitution,
-        e.g. {"data_folder": "/home/speechbrain/data"}
-        $data_folder/utt1.wav -> /home/speechbain/data/utt1.wav
-    sorting : {"original", "ascending", "descending", "random"}
-        Keep CSV order, or sort ascending or descending by duration,
-        or shuffle. NOTE: shuffled order is not reproducible.
-        It is here for backward compatibility.
+        e.g. ``{"data_folder": "/home/speechbrain/data"}``, which would
+        transform `$data_folder/utt1.wav` into `/home/speechbain/data/utt1.wav`
+    sorting : {"original", "ascending", "descending"}
+        Keep CSV order, or sort ascending or descending by duration.
     min_duration : float, int
         Minimum duration in seconds. Discards other entries.
     max_duration : float, int
         Maximum duration in seconds. Discards other entries.
     dynamic_items : list
         Configuration for extra dynamic items produced when fetching an
-        example. List of DynamicItems or dicts with keys:
+        example. List of DynamicItems or dicts with keys::
             func: <callable> # To be called
             takes: <list> # key or list of keys of args this takes
             provides: key # key or list of keys that this provides
@@ -69,7 +68,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
     output_keys : list, None
         The list of output keys to produce. You can refer to the names of the
         CSV data-triplets. E.G. if the CSV has: wav,wav_format,wav_opts,
-        then the Dataset has a dynamic item output available with key "wav"
+        then the Dataset has a dynamic item output available with key ``"wav"``
         NOTE: If None, read all existing.
     """
 
@@ -118,7 +117,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
     CSV must have an 'ID' and 'duration' fields.
 
     The rest of the fields come in triplets:
-    a <name>, <name>_format, <name>_opts
+    ``<name>, <name>_format, <name>_opts``
 
     These add a <name>_sb_data item in the dict. Additionally, a
     basic DynamicItem (see DynamicItemDataset) is created, which
@@ -135,7 +134,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
         Path to CSV file
     replacements : dict
         Optional dict:
-        e.g. {"data_folder": "/home/speechbrain/data"}
+        e.g. ``{"data_folder": "/home/speechbrain/data"}``
         This is used to recursively format all string values in the data
 
     Returns

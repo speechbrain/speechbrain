@@ -1,4 +1,4 @@
-"""Neural network layers
+""" Package containing the different neural networks layers
 """
 import os
 
