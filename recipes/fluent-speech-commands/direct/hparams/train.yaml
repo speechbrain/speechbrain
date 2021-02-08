@@ -22,7 +22,7 @@ csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 asr_hparam_file: https://www.dropbox.com/s/54vmm04g3gezwz3/pretrained_ASR_BPE1000.yaml?dl=1
-tokenizer_file: ../Tokenizer/train/results/tokenizer_bpe51/51_unigram.model
+tokenizer_file: https://www.dropbox.com/s/hvf2huofnq0sjbn/51_unigram.model?dl=1
 skip_prep: False
 
 # Training parameters

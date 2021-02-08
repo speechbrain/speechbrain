@@ -68,6 +68,8 @@ python recipes/WSJ2Mix/separation/train/train.py recipes/WSJ2Mix/separation/trai
 
 python recipes/WSJ2Mix/separation/train/train.py recipes/WSJ2Mix/separation/train/hparams/dprnn.yaml --output_folder=test_results/WSJ_dprnn --data_folder=samples/audio_samples/nn_training_samples  --train_data=samples/audio_samples/nn_training_samples/debug.csv --valid_data=samples/audio_samples/nn_training_samples/debug.csv --test_data=samples/audio_samples/nn_training_samples/debug.csv --skip_prep=True --debug
 
+# Fluent Speech Command
+python recipes/fluent-speech-commands/direct/train.py recipes/fluent-speech-commands/direct/hparams/train.yaml --output_folder=test_results/fluent_direct --data_folder=samples/audio_samples/nn_training_samples  --csv_train=samples/audio_samples/nn_training_samples/debug.csv --csv_valid=samples/audio_samples/nn_training_samples/debug.csv --csv_test=samples/audio_samples/nn_training_samples/debug.csv --skip_prep=True --debug
 
 
 
