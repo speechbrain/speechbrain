@@ -21,11 +21,13 @@ lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
+
+# Model for clean pre-training
 model_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
 norm_ckpt_file: https://www.dropbox.com/s/ib20ub7liaqcirw/normalizer.ckpt?dl=1
 
 # Data files
-data_folder: !PLACEHOLDER
+data_folder: !PLACEHOLDER # e.g., /localscratch/noisy-vctk-16k
 data_folder_rirs: !ref <data_folder>
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
