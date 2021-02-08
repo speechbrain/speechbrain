@@ -43,7 +43,7 @@ class ASR_Brain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             sequence = sb.decoders.ctc_greedy_decode(
-                pout, pout_lens, blank_id=-1
+                pout, pout_lens, blank_id=self.hparams.blank_index
             )
             self.per_metrics.append(
                 ids=batch.id,
@@ -139,7 +139,6 @@ def dataio_prep(hparams):
     # 4. Fit encoder to train data
     label_encoder.insert_blank(index=hparams["blank_index"])
     label_encoder.update_from_didataset(data["train"], output_key="phn_list")
-
     return data, label_encoder
 
 
