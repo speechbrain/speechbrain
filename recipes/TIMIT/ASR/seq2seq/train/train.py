@@ -269,9 +269,12 @@ def dataio_prep(hparams):
                 bos_index=hparams["bos_index"],
                 eos_index=hparams["eos_index"],
             )
-        label_encoder.save(
-            os.path.join(hparams["save_folder"], "label_encoder.txt")
+
+        # Save label encoder
+        label_enc_file = os.path.join(
+            hparams["save_folder"], "label_encoder.txt"
         )
+        run_on_main(label_encoder.save, kwargs={"path": label_enc_file})
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
