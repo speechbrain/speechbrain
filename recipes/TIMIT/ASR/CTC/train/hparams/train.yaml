@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 42
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -45,7 +45,7 @@ dnn_neurons: 512
 
 # Outputs
 output_neurons: 40
-blank_index: !ref <output_neurons> - 1
+blank_index: 0
 
 # Dataloader options
 train_dataloader_opts:

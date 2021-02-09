@@ -13,15 +13,25 @@ smallVal = np.finfo("float").eps  # To avoid divide by zero
 
 
 def thirdoct(fs, nfft, num_bands, min_freq):
-    """ Returns the 1/3 octave band matrix
-    # Arguments :
-        fs : sampling rate
-        nfft : FFT size
-        num_bands : number of 1/3 octave bands
-        min_freq : center frequency of the lowest 1/3 octave band
-    # Returns :
-        obm : Octave Band Matrix
+    """Returns the 1/3 octave band matrix.
+
+    Arguments
+    ---------
+    fs : int
+        Sampling rate.
+    nfft : int
+        FFT size.
+    num_bands : int
+        Number of 1/3 octave bands.
+    min_freq : int
+        Center frequency of the lowest 1/3 octave band.
+
+    Returns
+    -------
+    obm : tensor
+        Octave Band Matrix.
     """
+
     f = torch.linspace(0, fs, nfft + 1)
     f = f[: int(nfft / 2) + 1]
     k = torch.from_numpy(np.array(range(num_bands)).astype(float))
@@ -97,7 +107,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
 
 
 def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
-    """Compute the STOI score and return -1 * that score
+    """Compute the STOI score and return -1 * that score.
 
     This function can be used as a loss function for training
     with SGD-based updates.
@@ -105,9 +115,9 @@ def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
     Arguments
     ---------
     y_pred_batch : torch.Tensor
-        The degraded (enhanced) waveforms
+        The degraded (enhanced) waveforms.
     y_true_batch : torch.Tensor
-        The clean (reference) waveforms
+        The clean (reference) waveforms.
     lens : torch.Tensor
         The relative lengths of the waveforms within the batch.
     reduction : str
