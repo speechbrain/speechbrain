@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 19
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-input_type: noisy_wav
+input_type: clean_wav
 output_folder: !ref results/<input_type>/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -35,10 +35,10 @@ test_annotation: !ref <data_folder>/test.json
 skip_prep: False
 
 # Training parameters
-number_of_epochs: 15
+number_of_epochs: 30
 number_of_ctc_epochs: 0
 batch_size: 8
-lr: 1.0
+lr: 0.0001
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
 sorting: ascending
@@ -60,10 +60,10 @@ eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 80
-eos_threshold: 1.5
+eos_threshold: 10
 using_max_attn_shift: True
 max_attn_shift: 240
-lm_weight: 0.50
+lm_weight: 0.15
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -139,15 +139,14 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
-opt_class: !name:torch.optim.Adadelta
+opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
+    weight_decay: 0.00005
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
-    annealing_factor: 0.5
+    annealing_factor: 0.7
     patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
