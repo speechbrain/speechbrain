@@ -536,7 +536,7 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects
-    if hparams["dynamic_mixing"] == "regular":
+    if hparams["dynamic_mixing"]:
 
         if hparams["num_spks"] == 2:
             from dynamic_mixing import dynamic_mix_data_prep  # noqa
@@ -551,15 +551,8 @@ if __name__ == "__main__":
                 "The specified number of speakers is not supported."
             )
         _, valid_data, test_data = dataio_prep(hparams)
-    elif hparams["dynamic_mixing"] == "shuffleonly":
-        from dynamic_mixing import dynamic_mix_shuffleonly_data_prep  # noqa
-
-        train_data = dynamic_mix_shuffleonly_data_prep(hparams)
-        _, valid_data, test_data = dataio_prep(hparams)
-    elif hparams["dynamic_mixing"] == "False":
-        train_data, valid_data, test_data = dataio_prep(hparams)
     else:
-        raise ValueError("Unknown dynamic mixing type")
+        train_data, valid_data, test_data = dataio_prep(hparams)
 
     # Brain class initialization
     separator = Separation(
