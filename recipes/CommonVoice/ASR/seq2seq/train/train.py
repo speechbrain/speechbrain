@@ -227,7 +227,7 @@ def dataio_prepare(hparams):
     )
 
     # We also sort the validation data so it is faster to validate
-    test_data = valid_data.filtered_sorted(sort_key="duration")
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
 
@@ -315,7 +315,7 @@ if __name__ == "__main__":
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
-    train_data, valid_data, test_set, tokenizer = dataio_prepare(hparams)
+    train_data, valid_data, test_data, tokenizer = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -341,7 +341,7 @@ if __name__ == "__main__":
     # Test
     asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
     asr_brain.evaluate(
-        test_set,
+        test_data,
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_options"],
     )
