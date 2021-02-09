@@ -13,6 +13,10 @@ The common pattern for using multi-GPU training over a single machine with Data 
 Important: the batch size for each GPU process will be: `batch_size / data_parallel_count`. So you should consider changing the batch_size value according to you need.
 
 ## Multi-GPU training using Distributed Data Parallel (DDP)
+
+*We would like to advise our users that despite being more efficient, DDP is also
+more prone to exhibit unexpected bugs. Indeed, DDP is quite server dependent and some setups might generate errors with the PyTorch implementation of DDP. If you encounter an issue, please report it on our github with as much information as possible. Indeed, DDP bugs are very challenging to replicate ...*
+
 The common pattern for using multi-GPU training with DDP (on a single machine with 4 GPUs):
 ```
 cd recipes/<dataset>/<task>/
