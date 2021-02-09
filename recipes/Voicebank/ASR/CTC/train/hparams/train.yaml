@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1236
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-input_type: noisy_wav
+input_type: clean_wav
 output_folder: !ref results/<input_type>/phn/<seed>
 per_file: !ref <output_folder>/per.txt
 save_folder: !ref <output_folder>/save
