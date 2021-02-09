@@ -24,6 +24,7 @@ language: en # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
+skip_prep: False # Skip data preparation
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
@@ -40,7 +41,7 @@ sorting: ascending
 # With DDP batch_size is multiplied by N jobs
 # Must be 6 per GPU to fit 16GB of VRAM
 batch_size: 12
-test_batch_size: 8
+test_batch_size: 6
 
 dataloader_options:
     batch_size: !ref <batch_size>
