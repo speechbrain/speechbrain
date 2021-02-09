@@ -9,8 +9,8 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml |  --.- | --.- | Not Available | 1xV100 32GB |
+| 20-05-22 | train.yaml |  12.50 | 14.07 | Not Available | 1xV100 16GB |
 
 # Training Time
-About 2 min and 50 sec for each epoch with a  TESLA V100.
+About 2 min and 00 sec for each epoch with a TESLA V100.
 

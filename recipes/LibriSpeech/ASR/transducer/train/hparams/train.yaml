@@ -37,6 +37,7 @@ test_csv:
    - !ref <data_folder>/test-clean.csv
    - !ref <data_folder>/test-other.csv
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 30

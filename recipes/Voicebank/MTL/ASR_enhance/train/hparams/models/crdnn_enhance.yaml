@@ -1,0 +1,8 @@
+n_fft: 512
+
+enhance_model: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <n_fft> // 2 + 1]
+    model: !name:speechbrain.lobes.models.CRDNN.CRDNN
+    output: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <n_fft> // 2 + 1
+    act: !new:torch.nn.ReLU
