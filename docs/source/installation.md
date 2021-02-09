@@ -1,11 +1,11 @@
 
 # Quick installation
 
-SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time. 
+SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.
 SpeechBrain can be installed via PyPI to rapidly use the standard library.
 Moreover,  a local installation can be used by those users that what to run experiments and modify/customize the toolkit.
 
-SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. 
+SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training.
 Please note that CUDA must be properly installed to use GPUs.
 
 
@@ -29,6 +29,7 @@ Once you have created your python environment (Python 3.8+) you can simply type:
 
 ```
 git clone https://github.com/speechbrain/speechbrain.git
+cd speechbrain
 pip install -r requirements.txt
 pip install --editable .
 ```

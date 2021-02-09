@@ -7,14 +7,13 @@ In SpeechBrain, you can run experiments in this way:
 ```
 
 The results will be saved in the `output_folder` specified in the yaml file.
-The folder is created by calling `sb.core.create_experiment_directory()` in `experiment.py`.
-Both detailed logs and experiment outputs are saved there. Furthermore, less verbose logs are output to stdout.
+The folder is created by calling `sb.core.create_experiment_directory()` in `experiment.py`. Both detailed logs and experiment outputs are saved there. Furthermore, less verbose logs are output to stdout.
 
 ## YAML basics
 
-The YAML syntax offers an elegant way to specify the hyperparameters of a recipe. 
-In SpeechBrain, the YAML file is not a plain list of parameters, but for each parameter, we specify the function (or class) that is using it. 
-This not only makes the specification of the parameters more transparent but a.so allows us to properly initialize all the entries by simply calling the load_extended_yaml (in speechbrain.utils.data_utils). 
+The YAML syntax offers an elegant way to specify the hyperparameters of a recipe.
+In SpeechBrain, the YAML file is not a plain list of parameters, but for each parameter, we specify the function (or class) that is using it.
+This not only makes the specification of the parameters more transparent but a.so allows us to properly initialize all the entries by simply calling the load_extended_yaml (in speechbrain.utils.data_utils).
 
 Let's now take a quick look at the extended YAML features, using an example:
 
@@ -39,7 +38,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
   every user either by editing the yaml, or with an override (passed to
   `load_extended_yaml`).
 
-For more details on YAML and our extensions, please see our dedicated tutorial: [amazing YAML tutorial](#)
+For more details on YAML and our extensions, please see our dedicated [tutorial](https://colab.research.google.com/drive/1Pg9by4b6-8QD2iC0U7Ic3Vxq4GEwEdDz?usp=sharing):
 
 ## Running arguments
 SpeechBrain defines a set of running arguments that can be set from the command line args (or within the YAML file).
@@ -50,8 +49,7 @@ SpeechBrain defines a set of running arguments that can be set from the command 
 - `distributed_backend`: default "nccl", options: ["nccl", "gloo", "mpi"], this backend will be used as a DDP communication protocol. See Pytorch Doc for more details.
 - Additional runtime arguments are documented in the Brain class.
 
-Please note that we provide a dedicated tutorial to document the different
-multi-gpu training strategies: [amazing multi-gpu tutorial](#)
+Please note that we provide a dedicated [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing) to document the different multi-gpu training strategies:
 
 You can also override parameters in YAML in this way:
 
