@@ -27,7 +27,9 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("--input_folder", type=str, required=True)
 parser.add_argument("--output_folder", type=str, required=True)
-parser.add_argument("--fs", type=str, default=16000)
+parser.add_argument(
+    "--fs", type=str, default=8000, help="this is the target sampling frequency"
+)
 parser.add_argument("--regex", type=str, default="**/*.wav")
 
 
