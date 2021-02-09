@@ -61,6 +61,7 @@ Once you have created your python environment (Python 3.8+) you can simply type:
 
 ```
 git clone https://github.com/speechbrain/speechbrain.git
+cd speechbrain
 pip install -r requirements.txt
 pip install --editable .
 ```
