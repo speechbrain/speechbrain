@@ -4,6 +4,7 @@ Transducer loss implementation (depends on numba)
 Authors
  * Abdelwahab Heba 2020
 """
+
 import torch
 from torch.autograd import Function
 from torch.nn import Module
@@ -12,7 +13,7 @@ try:
     from numba import cuda
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
-    err_msg += "cannot import numba. To use Transducer loss\n"
+    err_msg += "Cannot import numba. To use Transducer loss\n"
     err_msg += "Please follow the instructions below\n"
     err_msg += "=============================\n"
     err_msg += "If you use your localhost:\n"
@@ -37,15 +38,24 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : 4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network
-    labels : 2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding
-    alpha : 3D Tensor of (batch x TimeLength x LabelLength) for forward computation
-    log_p : 1D Tensor of (batch) for forward cost computation
-    T: 1D Tensor of (batch) containing TimeLength of each target
-    U: 1D Tensor of (batch) containing LabelLength of each target
-    blank: blank indice
-    lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
+    log_probs : tensor
+        4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
+    labels : tensor
+        2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
+    alpha : tensor
+        3D Tensor of (batch x TimeLength x LabelLength) for forward computation.
+    log_p : tensor
+        1D Tensor of (batch) for forward cost computation.
+    T : tensor
+        1D Tensor of (batch) containing TimeLength of each target.
+    U : tensor
+        1D Tensor of (batch) containing LabelLength of each target.
+    blank : int
+        Blank indice.
+    lock : tensor
+        2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
+
     # paralalize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
@@ -106,14 +116,22 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : 4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network
-    labels : 2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding
-    beta : 3D Tensor of (batch x TimeLength x LabelLength) for backward computation
-    log_p : 1D Tensor of (batch) for backward cost computation
-    T: 1D Tensor of (batch) containing TimeLength of each target
-    U: 1D Tensor of (batch) containing LabelLength of each target
-    blank: blank indice
-    lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
+    log_probs : tensor
+        4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
+    labels : tensor
+        2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
+    beta : tensor
+        3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
+    log_p : tensor
+        1D Tensor of (batch) for backward cost computation.
+    T : tensor
+        1D Tensor of (batch) containing TimeLength of each target.
+    U : tensor
+        1D Tensor of (batch) containing LabelLength of each target.
+    blank : int
+        Blank indice.
+    lock : tensor
+        2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
     # paralalize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
@@ -172,14 +190,22 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
 
     Arguments
     ---------
-    log_probs : 4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network
-    labels : 2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding
-    beta : 3D Tensor of (batch x TimeLength x LabelLength) for backward computation
-    log_p : 1D Tensor of (batch) for backward cost computation
-    T: 1D Tensor of (batch) containing TimeLength of each target
-    U: 1D Tensor of (batch) containing LabelLength of each target
-    blank: blank indice
-    lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
+    log_probs : tensor
+        4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
+    labels : tensor
+        2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
+    beta : tensor
+        3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
+    log_p : tensor
+        1D Tensor of (batch) for backward cost computation.
+    T : tensor
+        1D Tensor of (batch) containing TimeLength of each target.
+    U : tensor
+        1D Tensor of (batch) containing LabelLength of each target.
+    blank : int
+        Blank indice.
+    lock : int
+        2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
     # paralalize the gradient computation over batch and timeseq length dim
     t = cuda.blockIdx.x
