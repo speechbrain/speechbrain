@@ -70,7 +70,7 @@ tensor=(batch, time_steps, channels[optional])
 **The batch is always the first element, and time_steps is always the second one. The remaining optional dimensions are channels. (there might be as many channels as you need)**.
 
 *Why do we need all tensors to have the same format?*
-Why do we need all tensors to have the same format? It is crucial to have a shared format for all the classes and functions. This makes model combination easier.
+It is crucial to have a shared format for all the classes and functions. This makes model combination easier.
 Many formats are possible. For SpeechBrain we selected this one because it is commonly used in recurrent neural networks.
 
 The adopted format is very flexible and allows users to read different types of data. For instance, with single-channel raw waveform signals, the tensor will be tensor=(batch, time_steps), while for multi-channel raw waveform it will be tensor=(batch, time_steps, n_channel). Beyond waveforms, this format is used for any tensor in the computation pipeline. For instance, fbank features that are formatted in this way:
