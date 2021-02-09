@@ -24,20 +24,20 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 model: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, 660]  # input_size
-    conv1: !name:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
+    conv1: !name:speechbrain.nnet.complex_networks.c_CNN.CConv1d
         out_channels: 16
         kernel_size: 3
-    nrm1: !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+    nrm1: !name:speechbrain.nnet.complex_networks.c_normalization.CLayerNorm
     act1: !ref <activation>
-    conv2: !name:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
+    conv2: !name:speechbrain.nnet.complex_networks.c_CNN.CConv1d
         out_channels: 32
         kernel_size: 3
-    nrm2: !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+    nrm2: !name:speechbrain.nnet.complex_networks.c_normalization.CLayerNorm
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
         pool_type: "avg"
         kernel_size: 3
-    RNN: !name:speechbrain.nnet.complex_networks.RNN.ComplexLiGRU
+    RNN: !name:speechbrain.nnet.complex_networks.c_RNN.CLiGRU
         hidden_size: 64
         bidirectional: True
 

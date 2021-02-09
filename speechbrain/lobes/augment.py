@@ -1,5 +1,9 @@
 """
-An approximation of the SpecAugment algorithm, carried out in the time domain.
+Combinations of processing algorithms to implement common augmentations.
+
+Examples:
+ * SpecAugment
+ * Environmental corruption (noise, reverberation)
 
 Authors
  * Peter Plantinga 2020
@@ -24,32 +28,33 @@ OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
 class SpecAugment(torch.nn.Module):
-    """An implementation of SpecAugment algorithm
+    """An implementation of SpecAugment algorithm.
+
     Reference:
         https://arxiv.org/abs/1904.08779
 
     Arguments
     ---------
     time_warp : bool
-        wether applying time warping
+        Whether applying time warping.
     time_warp_window : int
-        time warp window
+        Time warp window.
     time_warp_mode : str
-        interpolation mode for time warping (default "bicubic")
+        Interpolation mode for time warping (default "bicubic").
     freq_mask : bool1
-        wether applying freq mask
+        Whether applying freq mask.
     freq_mask_width : int or tuple
-        freq mask width range
+        Freq mask width range.
     n_freq_mask : int
-        number of freq mask
+        Number of freq mask.
     time_mask : int
-        wether applying time mask
+        Whether applying time mask.
     time_mask_width : int or tuple
-        time mask width range
+        Time mask width range.
     n_time_mask : int
-        number of time mask
+        Number of time mask.
     replace_with_zero : bool
-        if True, replace masked value with 0, else replace masked value with mean of the input tensor
+        If True, replace masked value with 0, else replace masked value with mean of the input tensor.
 
     Example
     -------
@@ -143,14 +148,14 @@ class SpecAugment(torch.nn.Module):
         return x.view(*original_size)
 
     def mask_along_axis(self, x, dim):
-        """mask along time or frequenct axis
+        """Mask along time or frequency axis.
 
         Arguments
         ---------
         x : tensor
-            input tensor
+            Input tensor.
         dim : int
-            corresponding dimension to mask
+            Corresponding dimension to mask.
         """
         original_size = x.shape
         if x.shape == 4:
@@ -197,6 +202,13 @@ class SpecAugment(torch.nn.Module):
 class TimeDomainSpecAugment(torch.nn.Module):
     """A time-domain approximation of the SpecAugment algorithm.
 
+    This augmentation module implements three augmentations in
+    the time-domain.
+
+     1. Drop chunks of the audio (zero amplitude or white noise)
+     2. Drop frequency bands (with band-drop filters)
+     3. Speed peturbation (via resampling to slightly different rate)
+
     Arguments
     ---------
     perturb_prob : float from 0 to 1
@@ -207,7 +219,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
         The probability that a batch will have chunks dropped.
     speeds : list of ints
         A set of different speeds to use to perturb each batch.
-        See `speechbrain.processing.speech_augmentation.SpeedPerturb`
+        See ``speechbrain.processing.speech_augmentation.SpeedPerturb``
     sample_rate : int
         Sampling rate of the input waveforms.
     drop_freq_count_low : int
@@ -222,6 +234,9 @@ class TimeDomainSpecAugment(torch.nn.Module):
         Lowest length of chunks that could be dropped.
     drop_chunk_length_high : int
         Highest length of chunks that could be dropped.
+    drop_chunk_noise_factor : float
+        The noise factor used to scale the white noise inserted, relative to
+        the average amplitude of the utterance. Default 0 (no noise inserted).
 
     Example
     -------
@@ -245,6 +260,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
         drop_chunk_count_high=5,
         drop_chunk_length_low=1000,
         drop_chunk_length_high=2000,
+        drop_chunk_noise_factor=0,
     ):
         super().__init__()
         self.speed_perturb = SpeedPerturb(
@@ -261,6 +277,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
             drop_count_high=drop_chunk_count_high,
             drop_length_low=drop_chunk_length_low,
             drop_length_high=drop_chunk_length_high,
+            noise_factor=drop_chunk_noise_factor,
         )
 
     def forward(self, waveforms, lengths):
@@ -316,7 +333,7 @@ class EnvCorrupt(torch.nn.Module):
         Lowest generated SNR of babbled signal to noise.
     noise_snr_high : int
         Highest generated SNR of babbled signal to noise.
-    rir_scale_factor: float
+    rir_scale_factor : float
         It compresses or dilates the given impulse response.
         If ``0 < rir_scale_factor < 1``, the impulse response is compressed
         (less reverb), while if ``rir_scale_factor > 1`` it is dilated
@@ -394,7 +411,7 @@ class EnvCorrupt(torch.nn.Module):
         Arguments
         ---------
         waveforms : torch.Tensor
-            The waveforms to distort
+            The waveforms to distort.
         """
         # Augmentation
         if self.training:

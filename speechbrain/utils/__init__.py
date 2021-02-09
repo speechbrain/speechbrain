@@ -1,4 +1,4 @@
-"""This package contains support functions.
+""" Package containing various tools (accuracy, checkpoints ...)
 """
 import os
 

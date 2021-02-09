@@ -25,8 +25,8 @@ csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
 asr_hparam_file: https://www.dropbox.com/s/54vmm04g3gezwz3/pretrained_ASR_BPE1000.yaml?dl=1
 tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
-
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 1
