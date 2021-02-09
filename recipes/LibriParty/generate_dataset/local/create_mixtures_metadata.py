@@ -13,17 +13,17 @@ from pathlib import Path
 import json
 import os
 from tqdm import tqdm
-import soundfile as sf
+import torchaudio
 
 
 def _read_metadata(file_path, configs):
-    meta = sf.SoundFile(file_path)
+    meta = torchaudio.info(file_path)
     if meta.channels > 1:
         channel = np.random.randint(0, meta.channels - 1)
     else:
         channel = 0
     assert (
-        meta.samplerate == configs.samplerate
+        meta.sample_rate == configs.samplerate
     ), "file samplerate is different from the one specified"
 
     return meta, channel
@@ -45,7 +45,7 @@ def create_metadata(
 
         # we sample randomly n_speakers ids
         c_speakers = np.random.choice(
-            list(utterances_dict.keys()), configs.n_speakers
+            list(utterances_dict.keys()), configs.n_speakers, replace=False
         )
         # we select all utterances from selected speakers
         c_utts = [utterances_dict[spk_id] for spk_id in c_speakers]
@@ -70,7 +70,7 @@ def create_metadata(
                 c_rir = np.random.choice(rir_list, 1)[0]
                 # check if the rir is monaural
                 meta_rir, rir_channel = _read_metadata(c_rir, configs)
-                length = len(meta) / meta.samplerate
+                length = meta.num_frames / meta.sample_rate
                 id_utt = Path(spk_utts[j]).stem
                 cursor += wait
                 if cursor + length > configs.max_length:
@@ -122,7 +122,7 @@ def create_metadata(
                 c_rir = np.random.choice(rir_list, 1)[0]
                 # we reverberate it.
                 meta_rir, rir_channel = _read_metadata(c_rir, configs)
-                length = len(meta) / meta.samplerate
+                length = meta.num_frames / meta.sample_rate
                 cursor += wait
                 if cursor + length > configs.max_length:
                     break
@@ -160,12 +160,14 @@ def create_metadata(
             background = np.random.choice(background_noises_list, 1)[0]
             meta, channel = _read_metadata(background, configs)
             assert (
-                len(meta) >= configs.max_length * configs.samplerate
+                meta.num_frames >= configs.max_length * configs.samplerate
             ), "background noise files should be >= max_length in duration"
             offset = 0
-            if len(meta) > configs.max_length * configs.samplerate:
+            if meta.num_frames > configs.max_length * configs.samplerate:
                 offset = np.random.randint(
-                    0, len(meta) - int(configs.max_length * configs.samplerate),
+                    0,
+                    meta.num_frames
+                    - int(configs.max_length * configs.samplerate),
                 )
 
             activity["background"] = {
