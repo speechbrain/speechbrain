@@ -1,26 +1,3 @@
-# Speech separation with WSJMIX
-This folder contains some popular recipes for the WSJMIX task (2/3 sources).
-
-# SepFormer recipe
-
-# DualPath RNN recipe
-
-# ConvTasnet Recipe
-
-* This recipe is able to train several different source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
-
-Additional dependency:
-```
-pip install mir_eval
-```
-
-To run it:
-
-```
-python train.py hyperparams/convtasnet.yaml
-```
-Make sure you modified the paths inside the parameter file before running the recipe.
-
 
 # WSJ0-2mix dataset creation
 * The best way to create this dataset is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
@@ -38,12 +15,6 @@ graphics_toolkit: = toolkit is not available
 ```
 This is in essence a warning and does not affect the results of this script.
 
-# Results
-
-Here are the SI - SNRi results on the test set of WSJ0 - 2Mix dataset with SepFormer:
-
-| | SepFormer |
-|--- | --- |
-|NoAugment | 20.4 |
-|SpeedPerturb | 21.8 |
-|DynamicMixing + SpeedPerturb | 22.3 |
+To run the script, you need to specify:
+* `--input_folder`: This should point to the original WSJ0 with .wav files.
+* `--output_folder`: This will be the output of the script. You need specify the path of this folder with the variable `wsj0_tr` variable in your .yaml file if you want to use dynamic mixing during training.
