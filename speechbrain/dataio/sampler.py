@@ -426,12 +426,12 @@ class DynamicBatchSampler(Sampler):
         elif self._batch_ordering == "ascending":
             self._batches = sorted(
                 self._batches,
-                key=lambda x: sum([self._ex_lengths[str(idx)] for idx in x]),
+                key=lambda x: max([self._ex_lengths[str(idx)] for idx in x]),
             )
         elif self._batch_ordering == "descending":
             self._batches = sorted(
                 self._batches,
-                key=lambda x: sum([self._ex_lengths[str(idx)] for idx in x]),
+                key=lambda x: max([self._ex_lengths[str(idx)] for idx in x]),
                 reverse=True,
             )
         else:
