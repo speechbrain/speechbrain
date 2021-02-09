@@ -8,7 +8,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_it/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -20,26 +20,27 @@ train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: True
-language: tt # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+language: it # use 'fr' for French, 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
+skip_prep: False # Skip data preparation
 
-# We remove utterance slonger than 10s in the train/dev/test sets as
+# We remove utterance slonger than 8s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
-avoid_if_longer_than: 10.0
+avoid_if_longer_than: 8.0
 
 # Training parameters
 number_of_epochs: 50
-number_of_ctc_epochs: 25
+number_of_ctc_epochs: 40
 lr: 1.0
-ctc_weight: 0.5
-sorting: random
+ctc_weight: 0.3
+sorting: ascending
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 6 per GPU to fit 16GB of VRAM
-batch_size: 8
+batch_size: 12
 test_batch_size: 8
 
 dataloader_options:
@@ -60,14 +61,14 @@ n_mels: 80
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.1
-cnn_blocks: 2
-cnn_channels: (128, 256)
-inter_layer_pooling_size: (2, 2)
+dropout: 0.15
+cnn_blocks: 3
+cnn_channels: (128, 200, 256)
+inter_layer_pooling_size: (2, 2, 2)
 cnn_kernelsize: (3, 3)
 time_pooling_size: 4
 rnn_class: !name:speechbrain.nnet.RNN.LSTM
-rnn_layers: 4
+rnn_layers: 5
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
