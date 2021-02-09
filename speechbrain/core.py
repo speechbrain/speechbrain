@@ -18,6 +18,7 @@ import pathlib
 import argparse
 import tempfile
 import subprocess
+import random
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -917,6 +918,7 @@ class Brain:
         self,
         epoch_counter,
         train_set,
+        training_parameters,
         valid_set=None,
         progressbar=None,
         train_loader_kwargs={},
@@ -963,10 +965,6 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
-        if not isinstance(train_set, DataLoader):
-            train_set = self.make_dataloader(
-                train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
-            )
         if valid_set is not None and not isinstance(valid_set, DataLoader):
             valid_set = self.make_dataloader(
                 valid_set,
@@ -980,6 +978,8 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
+        Replay_buffer = []
+        batch_size = train_loader_kwargs["batch_size"]
         # Iterate epochs
         for epoch in epoch_counter:
 
@@ -1000,15 +1000,64 @@ class Brain:
 
             # Only show progressbar if requested and main_process
             enable = progressbar and sb.utils.distributed.if_main_process()
-            with tqdm(
+
+            sampler = ReproducibleRandomSampler(
                 train_set,
+                epoch=epoch,
+                replacement=True,
+                num_samples=training_parameters["number_of_samples"],
+            )
+            if not isinstance(train_set, DataLoader):
+                train_set_subset = self.make_dataloader(
+                    train_set,
+                    sampler=sampler,
+                    stage=sb.Stage.TRAIN,
+                    **train_loader_kwargs,
+                )
+
+            if epoch >= 2:
+                with tqdm(
+                    train_set_subset,
+                    initial=self.step,
+                    dynamic_ncols=True,
+                    disable=not enable,
+                ) as t:
+                    print("Generator training...")
+                    for batch in t:
+                        self.step += 1
+                        loss = self.fit_G_batch(batch)
+                        self.avg_train_loss = self.update_average(
+                            loss, self.avg_train_loss
+                        )
+                        t.set_postfix(train_loss=self.avg_train_loss)
+
+                        # Debug mode only runs a few batches
+                        if self.debug and self.step == self.debug_batches:
+                            break
+
+                        if (
+                            self.checkpointer is not None
+                            and self.ckpt_interval_minutes > 0
+                            and time.time() - last_ckpt_time
+                            >= self.ckpt_interval_minutes * 60.0
+                        ):
+                            run_on_main(self._save_intra_epoch_ckpt)
+                            last_ckpt_time = time.time()
+
+            self.step = 0
+            current_list = []
+            with tqdm(
+                train_set_subset,
                 initial=self.step,
                 dynamic_ncols=True,
                 disable=not enable,
             ) as t:
+                print("Discriminator training by current data...")
                 for batch in t:
                     self.step += 1
-                    loss = self.fit_batch(batch)
+                    loss = self.fit_D_batch(
+                        batch, epoch, Replay_buffer, current_list
+                    )
                     self.avg_train_loss = self.update_average(
                         loss, self.avg_train_loss
                     )
@@ -1018,14 +1067,64 @@ class Brain:
                     if self.debug and self.step == self.debug_batches:
                         break
 
-                    if (
-                        self.checkpointer is not None
-                        and self.ckpt_interval_minutes > 0
-                        and time.time() - last_ckpt_time
-                        >= self.ckpt_interval_minutes * 60.0
-                    ):
-                        run_on_main(self._save_intra_epoch_ckpt)
-                        last_ckpt_time = time.time()
+            random.shuffle(Replay_buffer)
+            sampled_list = Replay_buffer[
+                0 : int(
+                    len(Replay_buffer) * training_parameters["history_portion"]
+                )
+            ]
+
+            batched_history_list = []
+            for i in range(int(len(sampled_list) / batch_size)):
+                batched_history_list.append(
+                    sampled_list[i * batch_size : i * batch_size + batch_size]
+                )
+
+            self.step = 0
+            with tqdm(
+                batched_history_list,
+                initial=self.step,
+                dynamic_ncols=True,
+                disable=not enable,
+            ) as t:
+                print("Discriminator training by historical data...")
+                for batch in t:
+                    self.step += 1
+                    loss = self.fit_D_list_batch(batch, epoch)
+                    self.avg_train_loss = self.update_average(
+                        loss, self.avg_train_loss
+                    )
+                    t.set_postfix(train_loss=self.avg_train_loss)
+
+                    # Debug mode only runs a few batches
+                    if self.debug and self.step == self.debug_batches:
+                        break
+
+            random.shuffle(current_list)
+            batched_current_list = []
+            for i in range(int(len(current_list) / batch_size)):
+                batched_current_list.append(
+                    current_list[i * batch_size : i * batch_size + batch_size]
+                )
+            self.step = 0
+            with tqdm(
+                batched_current_list,
+                initial=self.step,
+                dynamic_ncols=True,
+                disable=not enable,
+            ) as t:
+                print("Discriminator training by current data again...")
+                for batch in t:
+                    self.step += 1
+                    loss = self.fit_D_list_batch(batch, epoch)
+                    self.avg_train_loss = self.update_average(
+                        loss, self.avg_train_loss
+                    )
+                    t.set_postfix(train_loss=self.avg_train_loss)
+
+                    # Debug mode only runs a few batches
+                    if self.debug and self.step == self.debug_batches:
+                        break
 
             # Run train "on_stage_end" on all processes
             self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)

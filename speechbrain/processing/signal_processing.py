@@ -523,6 +523,6 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
     pred_wavs = istft(complex_predictions, sig_length=noisy_inputs.shape[1])
 
     # Normalize. Since we're using peak amplitudes, ignore lengths
-    pred_wavs = normalize(pred_wavs, amp_type="peak")
+    # pred_wavs = normalize(pred_wavs, amp_type="peak")
 
     return pred_wavs
