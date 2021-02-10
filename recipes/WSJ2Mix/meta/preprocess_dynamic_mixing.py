@@ -34,6 +34,19 @@ parser.add_argument("--regex", type=str, default="**/*.wav")
 
 
 def resample_folder(input_folder, output_folder, fs, regex):
+    """Resamples the wav files within an input folder.
+
+    Arguments
+    ---------
+    input_folder : path
+        Path of the folder to resample.
+    output_folder : path
+        Path of the output folder with the resampled data.
+    fs : int
+        Target sampling frequency.
+    reg_exp: str
+        Regular expression for search.
+    """
     filedir = os.path.dirname(os.path.realpath(__file__))
     octave.addpath(filedir)
     # add the matlab functions to octave dir here
