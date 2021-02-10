@@ -522,6 +522,13 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Check if wsj0_tr is set with dynamic mixing
+    if hparams["dynamic_mixing"] and not os.path.exists(hparams["wsj0_tr"]):
+        print(
+            "Please, specify a valid wsj0_tr folder when using dynamic mixing"
+        )
+        sys.exit(1)
+
     # Data preparation
     from recipes.WSJ2Mix.prepare_data import prepare_wsjmix  # noqa
 

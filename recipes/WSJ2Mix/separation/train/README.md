@@ -7,7 +7,7 @@ This folder contains some popular recipes for the WSJMIX task (2/3 sources).
 
 # ConvTasnet Recipe
 
-* This recipe is able to train several different source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
+* This recipe supports train with several source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
 
 Additional dependency:
 ```
@@ -17,7 +17,7 @@ pip install mir_eval
 To run it:
 
 ```
-python train.py hyperparams/convtasnet.yaml
+python train.py hyperparams/sepformer.yaml
 ```
 Make sure you modified the paths inside the parameter file before running the recipe.
 
