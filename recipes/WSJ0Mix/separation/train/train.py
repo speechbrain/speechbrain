@@ -522,8 +522,15 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Check if wsj0_tr is set with dynamic mixing
+    if hparams["dynamic_mixing"] and not os.path.exists(hparams["wsj0_tr"]):
+        print(
+            "Please, specify a valid wsj0_tr folder when using dynamic mixing"
+        )
+        sys.exit(1)
+
     # Data preparation
-    from prepare_data import prepare_wsjmix  # noqa
+    from recipes.WSJ0Mix.prepare_data import prepare_wsjmix  # noqa
 
     run_on_main(
         prepare_wsjmix,
@@ -537,9 +544,19 @@ if __name__ == "__main__":
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-        from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
-        train_data = dynamic_mix_data_prep(hparams)
+        if hparams["num_spks"] == 2:
+            from dynamic_mixing import dynamic_mix_data_prep  # noqa
+
+            train_data = dynamic_mix_data_prep(hparams)
+        elif hparams["num_spks"] == 3:
+            from dynamic_mixing import dynamic_mix_data_prep_3mix  # noqa
+
+            train_data = dynamic_mix_data_prep_3mix(hparams)
+        else:
+            raise ValueError(
+                "The specified number of speakers is not supported."
+            )
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)

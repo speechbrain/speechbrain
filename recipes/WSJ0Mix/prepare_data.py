@@ -515,3 +515,9 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
                 )
             else:
                 raise ValueError("Incorrect sampling frequency for saving")
+
+
+if __name__ == "__main__":
+    wsj0root = "/network/tmp1/subakany/wsj0-mix"
+    output_dir = "."
+    get_wsj_files(wsj0root, output_dir)
