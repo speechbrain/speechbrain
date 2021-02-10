@@ -346,10 +346,6 @@ if __name__ == "__main__":
     # adding objects to trainer:
     asr_brain.tokenizer = tokenizer
 
-    # if a language model is specified it is loaded
-    if hasattr(asr_brain.hparams, "language_model_file"):
-        asr_brain.load_lm()
-
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
