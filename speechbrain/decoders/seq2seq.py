@@ -379,17 +379,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ), "ctc_weight should not > 1.0 and < 0.0"
 
         if self.ctc_weight > 0.0:
-            if self.bos_index == self.eos_index:
+            if len({self.bos_index, self.eos_index, self.blank_index}) < 3:
                 raise ValueError(
-                    "To perform joint ATT/CTC decoding, set bos, eos to different indexes."
-                )
-            if self.blank_index == self.bos_index:
-                raise ValueError(
-                    "To perform joint ATT/CTC decoding, set blank, bos to different indexes."
-                )
-            if self.blank_index == self.eos_index:
-                raise ValueError(
-                    "To perform joint ATT/CTC decoding, set blank, eos to different indexes."
+                    "To perform joint ATT/CTC decoding, set blank, eos and bos to different indexes."
                 )
 
         # ctc already initalized
