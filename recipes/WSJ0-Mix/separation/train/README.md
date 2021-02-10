@@ -22,8 +22,8 @@ python train.py hyperparams/sepformer.yaml
 Make sure you modified the paths inside the parameter file before running the recipe.
 
 
-# WSJ0-2mix dataset creation
-* The best way to create this dataset is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
+# WSJ0-2mix and WSJ0-3mix dataset creation
+* The best way to create the datasets is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
 * The dataset creation script assumes that the original WSJ0 files in the sphere format are already converted to .wav .
 
 
@@ -40,7 +40,7 @@ This is in essence a warning and does not affect the results of this script.
 
 # Results
 
-Here are the SI - SNRi results on the test set of WSJ0 - 2Mix dataset with SepFormer:
+Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2Mix dataset with SepFormer:
 
 | | SepFormer |
 |--- | --- |
