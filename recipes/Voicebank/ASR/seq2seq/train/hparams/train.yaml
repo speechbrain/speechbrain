@@ -10,8 +10,8 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 19
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-input_type: noisy_wav
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+input_type: clean_wav
 output_folder: !ref results/<input_type>/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -22,19 +22,23 @@ lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
+# Model for clean pre-training
+model_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
+norm_ckpt_file: https://www.dropbox.com/s/ib20ub7liaqcirw/normalizer.ckpt?dl=1
+
 # Data files
-data_folder: !PLACEHOLDER
+data_folder: !PLACEHOLDER # e.g., /localscratch/noisy-vctk-16k
 data_folder_rirs: !ref <data_folder>
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/valid.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
 skip_prep: False
 
 # Training parameters
-number_of_epochs: 15
+number_of_epochs: 30
 number_of_ctc_epochs: 0
 batch_size: 8
-lr: 1.0
+lr: 0.0001
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
 sorting: ascending
@@ -46,23 +50,6 @@ dataloader_options:
 sample_rate: 16000
 n_fft: 400
 n_mels: 40
-
-# Model parameters
-activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
-cnn_blocks: 2
-cnn_channels: (128, 256)
-inter_layer_pooling_size: (2, 2)
-cnn_kernelsize: (3, 3)
-time_pooling_size: 4
-rnn_class: !name:speechbrain.nnet.RNN.LSTM
-rnn_layers: 4
-rnn_neurons: 1024
-rnn_bidirectional: True
-dnn_blocks: 2
-dnn_neurons: 512
-emb_size: 128
-dec_neurons: 1024
 output_neurons: 1000  # index(blank/eos/bos) = 0
 blank_index: 0
 unk_index: 0
@@ -73,27 +60,23 @@ eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 80
-eos_threshold: 1.5
+eos_threshold: 10
 using_max_attn_shift: True
 max_attn_shift: 240
-lm_weight: 0.50
+lm_weight: 0.15
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
 
-# LM Model parameters
-lm_emb_size: 128
-lm_activation: !name:torch.nn.LeakyReLU
-lm_dropout: 0.0
-lm_rnn_layers: 2
-lm_rnn_neurons: 2048
-lm_dnn_blocks: 1
-lm_dnn_neurons: 512
+asr_model: !include:models/asr_model.yaml
+    n_mels: !ref <n_mels>
+    dropout_rate: 0.15
+    output_neurons: !ref <output_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-normalize: !new:speechbrain.processing.features.InputNormalization
+normalizer: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 compute_features: !new:speechbrain.lobes.features.Fbank
@@ -113,51 +96,6 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    input_shape: [null, null, !ref <n_mels>]
-    activation: !ref <activation>
-    dropout: !ref <dropout>
-    cnn_blocks: !ref <cnn_blocks>
-    cnn_channels: !ref <cnn_channels>
-    cnn_kernelsize: !ref <cnn_kernelsize>
-    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
-    time_pooling: True
-    using_2d_pooling: False
-    time_pooling_size: !ref <time_pooling_size>
-    rnn_class: !ref <rnn_class>
-    rnn_layers: !ref <rnn_layers>
-    rnn_neurons: !ref <rnn_neurons>
-    rnn_bidirectional: !ref <rnn_bidirectional>
-    rnn_re_init: True
-    dnn_blocks: !ref <dnn_blocks>
-    dnn_neurons: !ref <dnn_neurons>
-
-emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-
-dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dnn_neurons>
-    input_size: !ref <emb_size>
-    rnn_type: gru
-    attn_type: location
-    hidden_size: !ref <dec_neurons>
-    attn_dim: 1024
-    num_layers: 1
-    scaling: 1.0
-    channels: 10
-    kernel_size: 100
-    re_init: True
-    dropout: !ref <dropout>
-
-ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <dnn_neurons>
-    n_neurons: !ref <output_neurons>
-
-seq_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <dec_neurons>
-    n_neurons: !ref <output_neurons>
-
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
@@ -167,34 +105,27 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
 
-lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    activation: !ref <lm_activation>
-    dropout: !ref <lm_dropout>
-    rnn_layers: !ref <lm_rnn_layers>
-    rnn_neurons: !ref <lm_rnn_neurons>
-    dnn_blocks: !ref <lm_dnn_blocks>
-    dnn_neurons: !ref <lm_dnn_neurons>
-    return_hidden: True  # For inference
-
 modules:
-    enc: !ref <enc>
-    emb: !ref <emb>
-    dec: !ref <dec>
-    ctc_lin: !ref <ctc_lin>
-    seq_lin: !ref <seq_lin>
-    normalize: !ref <normalize>
-    lm_model: !ref <lm_model>
+    enc: !ref <asr_model[src_embedding]>
+    emb: !ref <asr_model[tgt_embedding]>
+    dec: !ref <asr_model[recognizer]>
+    ctc_lin: !ref <asr_model[ctc_output]>
+    seq_lin: !ref <asr_model[seq_output]>
+    lm_model: !ref <asr_model[lm_model]>
+    normalizer: !ref <normalizer>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+    - - !ref <asr_model[src_embedding]>
+      - !ref <asr_model[tgt_embedding]>
+      - !ref <asr_model[recognizer]>
+      - !ref <asr_model[ctc_output]>
+      - !ref <asr_model[seq_output]>
 
 beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
-    embedding: !ref <emb>
-    decoder: !ref <dec>
-    linear: !ref <seq_lin>
-    language_model: !ref <lm_model>
+    embedding: !ref <asr_model[tgt_embedding]>
+    decoder: !ref <asr_model[recognizer]>
+    linear: !ref <asr_model[seq_output]>
+    language_model: !ref <asr_model[lm_model]>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
@@ -208,15 +139,14 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
-opt_class: !name:torch.optim.Adadelta
+opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
+    weight_decay: 0.00005
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
-    annealing_factor: 0.5
+    annealing_factor: 0.7
     patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
@@ -224,14 +154,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
+        normalizer: !ref <normalizer>
         counter: !ref <epoch_counter>
-
-pretrain_checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: pretrain
-    recoverables:
-        model: !ref <model>
-        normalizer: !ref <normalize>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

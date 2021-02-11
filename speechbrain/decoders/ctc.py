@@ -17,8 +17,8 @@ class CTCPrefixScorer:
     reference: https://www.merl.com/publications/docs/TR2017-190.pdf.
     Official implementation: https://github.com/espnet/espnet/blob/master/espnet/nets/ctc_prefix_score.py
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     x : torch.Tensor
         The encoder states.
     enc_lens : torch.Tensor
@@ -28,7 +28,7 @@ class CTCPrefixScorer:
     beam_size : int
         The width of beam.
     blank_index : int
-        The index of the blank.
+        The index of the blank token.
     eos_index : int
         The index of the end-of-sequence (eos) token.
     """
@@ -300,17 +300,17 @@ def filter_ctc_output(string_pred, blank_id=-1):
         the id of the blank
 
     Returns
-    ------
+    -------
     list
         The output predicted by CTC without the blank symbol and
         the repetitions
 
     Example
     -------
-        >>> string_pred = ['a','a','blank','b','b','blank','c']
-        >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
-        >>> print(string_out)
-        ['a', 'b', 'c']
+    >>> string_pred = ['a','a','blank','b','b','blank','c']
+    >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
+    >>> print(string_out)
+    ['a', 'b', 'c']
     """
 
     if isinstance(string_pred, list):
@@ -357,13 +357,13 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 
     Example
     -------
-        >>> import torch
-        >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
-        ...                       [[0.2, 0.8], [0.9, 0.1]]])
-        >>> lens = torch.tensor([0.51, 1.0])
-        >>> blank_id = 0
-        >>> ctc_greedy_decode(probs, lens, blank_id)
-        [[1], [1]]
+    >>> import torch
+    >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
+    ...                       [[0.2, 0.8], [0.9, 0.1]]])
+    >>> lens = torch.tensor([0.51, 1.0])
+    >>> blank_id = 0
+    >>> ctc_greedy_decode(probs, lens, blank_id)
+    [[1], [1]]
     """
     if isinstance(blank_id, int) and blank_id < 0:
         blank_id = probabilities.shape[-1] + blank_id

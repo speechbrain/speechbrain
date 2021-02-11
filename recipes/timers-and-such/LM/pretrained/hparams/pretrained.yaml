@@ -12,6 +12,7 @@ lm_ckpt_file:
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
+    save_folder: !ref <save_folder>
 
 device: 'cuda:0'
 

@@ -30,6 +30,7 @@ train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
@@ -43,6 +44,14 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+dynamic_batching: True
+
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 4000 # in terms of frames
+   left_bucket_len: 200
+   multiplier: 1.1
+   shuffle: False # if true re-creates batches at each epoch shuffling examples.
 
 # Feature parameters
 sample_rate: 16000

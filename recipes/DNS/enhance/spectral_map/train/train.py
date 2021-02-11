@@ -166,8 +166,8 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("wav", "target")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def eval_pipeline(wav, target):
-        clean_sig = sb.dataio.dataio.read_audio(wav)
-        noisy_sig = sb.dataio.dataio.read_audio(target)
+        noisy_sig = sb.dataio.dataio.read_audio(wav)
+        clean_sig = sb.dataio.dataio.read_audio(target)
         return clean_sig, noisy_sig
 
     # Define datasets

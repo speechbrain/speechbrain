@@ -29,6 +29,7 @@ number_of_epochs: 20
 batch_size: 80
 lr: 0.001
 accu_steps: 1 # Gradient accumulation to simulate large batch training
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
 train_dataloader_opts:

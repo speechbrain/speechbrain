@@ -1,17 +1,22 @@
 # VoiceBank ASR with CTC models
-This folder contains the scripts to train a CTC speech recognizer using Voicebank.
 
-!!Add downloading instructions!! 
+This folder contains the scripts to train a CTC acoustic model using Voicebank.
 
-# How to run
-python train.py train/train.yaml
+Use the `download_vctk()` function in the `voicebank_prepare.py` file to
+download and resample the dataset.
 
-# Results
+## How to run
 
-| Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml | -.-- | Not Available | 1xV100 32GB |
+```bash
+python train.py hparams/train.yaml
+```
 
+## Results
 
-# Training Time
-About N for each epoch with a  TESLA V100.                                        
+| Release  | hyperparams file | input type  | Test PER | Model link    | GPUs        |
+|:--------:|:----------------:|:-----------:|:--------:|:-------------:|:-----------:|
+| 21-02-09 | train.yaml       | `clean_wav` | 10.12    | Not Available | 1xV100 32GB |
+
+## Training Time
+
+About 4 mins for each epoch with a TESLA V100.

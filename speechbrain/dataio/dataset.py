@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class DynamicItemDataset(Dataset):
-    """Dataset that reads, wranglesm, and produces dicts
+    """Dataset that reads, wrangles, and produces dicts
 
     Each data point dict provides some items (by key), for example, a path to a
     wavefile with the key "wav_file". When a data point is fetched from this
@@ -41,6 +41,7 @@ class DynamicItemDataset(Dataset):
     different items in that data point.
 
     Altogether the data collection could look like this:
+
     >>> data = {
     ...  "spk1utt1": {
     ...      "wav_file": "/path/to/spk1utt1.wav",
@@ -67,6 +68,7 @@ class DynamicItemDataset(Dataset):
     argkeys).
 
     The dynamic_items configuration could look like this:
+
     >>> import torch
     >>> dynamic_items = [
     ...     {"func": lambda l: torch.Tensor(l),
@@ -80,6 +82,7 @@ class DynamicItemDataset(Dataset):
     ...     "provides": "words"}]
 
     With these, different views of the data can be loaded:
+
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
@@ -111,7 +114,9 @@ class DynamicItemDataset(Dataset):
     >>> batch.words_encoded
     PaddedData(data=tensor([[1, 2, 0, 0],
             [3, 4, 5, 2]]), lengths=tensor([0.5000, 1.0000]))
-    >>> # Output keys can also be a map:
+
+    Output keys can also be a map:
+
     >>> dataset.set_output_keys({"id":"id", "signal": "wav", "words": "words_encoded"})
     >>> batch = next(iter(dataloader))
     >>> batch.words
@@ -125,7 +130,7 @@ class DynamicItemDataset(Dataset):
         Dictionary containing single data points (e.g. utterances).
     dynamic_items : list, optional
         Configuration for the dynamic items produced when fetching an example.
-        List of DynamicItems or dicts with the format
+        List of DynamicItems or dicts with the format::
             func: <callable> # To be called
             takes: <list> # key or list of keys of args this takes
             provides: key # key or list of keys that this provides

@@ -23,9 +23,10 @@ csv_train: !ref <data_folder>/train-type=multistage.csv
 csv_valid: !ref <data_folder>/dev-real-type=multistage.csv
 csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
-asr_hparam_file: hparams/pretrained_BPE1000.yaml
-tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+asr_hparam_file: https://www.dropbox.com/s/54vmm04g3gezwz3/pretrained_ASR_BPE1000.yaml?dl=1
+tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 1
@@ -63,6 +64,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
     overrides: {'beam_size': !ref <asr_beam_size>}
+    save_folder: !ref <save_folder>
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <emb_size>]

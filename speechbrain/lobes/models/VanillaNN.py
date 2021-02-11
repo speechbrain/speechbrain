@@ -1,4 +1,4 @@
-"""Vanilla Neural Network for simple tests
+"""Vanilla Neural Network for simple tests.
 
 Authors
 * Elena Rastorgueva 2020
@@ -8,7 +8,7 @@ import speechbrain as sb
 
 
 class VanillaNN(sb.nnet.containers.Sequential):
-    """ A simple vanilla Deep Neural Network.
+    """A simple vanilla Deep Neural Network.
 
     Arguments
     ---------

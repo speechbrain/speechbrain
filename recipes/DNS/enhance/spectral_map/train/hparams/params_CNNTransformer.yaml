@@ -24,6 +24,7 @@ train_csv: !ref <save_folder>/tr_clean.csv
 valid_csv: !ref <save_folder>/valid.csv
 test_csv: !ref <save_folder>/test.csv
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training Parameters
 N_epochs: 50
