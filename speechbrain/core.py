@@ -17,8 +17,6 @@ import inspect
 import pathlib
 import argparse
 import tempfile
-import subprocess
-import random
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -105,12 +103,6 @@ def create_experiment_directory(
             # Log beginning of experiment!
             logger.info("Beginning experiment!")
             logger.info(f"Experiment folder: {experiment_directory}")
-            commit_hash = subprocess.check_output(
-                ["git", "describe", "--always"]
-            )
-            logger.debug(
-                "Commit hash: '%s'" % commit_hash.decode("utf-8").strip()
-            )
 
             # Save system description:
             if save_env_desc:
@@ -354,7 +346,7 @@ class Brain:
     ---------
     modules : dict of str:torch.nn.Module pairs
         These modules are passed to the optimizer by default if they have
-        trainable parameters, and will have train()/eval() called on them.
+        trainable parameters, and will have ``train()``/``eval()`` called on them.
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
@@ -368,36 +360,37 @@ class Brain:
         e.g. self.hparams.model(x)
     run_opts : dict
         A set of options to change the runtime environment, including
-            debug : bool
-                If true, this will only iterate a few batches for all
-                datasets, to ensure code runs without crashing.
-            debug_batches : int
-                Number of batches to run in debug mode, Default 2.
-            debug_epochs : int
-                Number of epochs to run in debug mode, Default 2.
-                If a non-positive number is passed, all epochs are run.
-            jit_module_keys : list of str
-                List of keys in modules that should be jit compiled.
-            distributed_count : int
-                Number of devices to run on.
-            distributed_backend : str
-                One of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
-            device : str
-                The location for performing computations.
-            auto_mix_prec : bool
-                If True, automatic mixed-precision is used.
-                Activate it only with cuda.
-            max_grad_norm : float
-                Default implementation of ``fit_batch()`` uses
-                ``clip_grad_norm_`` with this value. Default: 5.
-            nonfinite_patience : int
-                Number of times to ignore non-finite losses before stopping.
-                Default: 3.
-            progressbar : bool
-                Whether to display a progressbar when training. Default: True.
-            ckpt_interval_minutes : float
-                Amount of time between saving intra-epoch checkpoints,
-                in minutes, default: 15.0. If non-positive, these are not saved.
+
+        debug (bool)
+            If ``True``, this will only iterate a few batches for all
+            datasets, to ensure code runs without crashing.
+        debug_batches (int)
+            Number of batches to run in debug mode, Default ``2``.
+        debug_epochs (int)
+            Number of epochs to run in debug mode, Default ``2``.
+            If a non-positive number is passed, all epochs are run.
+        jit_module_keys (list of str)
+            List of keys in ``modules`` that should be jit compiled.
+        distributed_count (int)
+            Number of devices to run on.
+        distributed_backend (str)
+            One of ``ddp_nccl``, ``ddp_gloo``, ``ddp_mpi``, ``data_parallel``
+        device (str)
+            The location for performing computations.
+        auto_mix_prec (bool)
+            If ``True``, automatic mixed-precision is used.
+            Activate it only with cuda.
+        max_grad_norm (float)
+            Default implementation of ``fit_batch()`` uses
+            ``clip_grad_norm_`` with this value. Default: ``5``.
+        nonfinite_patience (int)
+            Number of times to ignore non-finite losses before stopping.
+            Default: ``3``.
+        progressbar (bool)
+            Whether to display a progressbar when training. Default: ``True``.
+        ckpt_interval_minutes (float)
+            Amount of time between saving intra-epoch checkpoints,
+            in minutes, default: ``15.0``. If non-positive, these are not saved.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -441,7 +434,7 @@ class Brain:
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "progressbar": True,
-            "ckpt_interval_minutes": 15.0,
+            "ckpt_interval_minutes": 0,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -551,39 +544,41 @@ class Brain:
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
 
-    def compute_forward(self, x, stage):
+    def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
-        x : torch.Tensor or list of tensors
-            The input tensor or tensors for processing.
+        batch : torch.Tensor or tensors
+            An element from the dataloader, including inputs for processing.
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
         Returns
         -------
-        torch.Tensor
-            A tensor representing the outputs after all processing is complete.
+        torch.Tensor or Tensors
+            The outputs after all processing is complete.
+            Directly passed to ``compute_objectives()``.
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        predictions : torch.Tensor or list of tensors
+        predictions : torch.Tensor or Tensors
             The output tensor or tensors to evaluate.
-        targets : torch.Tensor or list of tensors
-            The gold standard to use for evaluation.
+            Comes directly from ``compute_forward()``.
+        batch : torch.Tensor or tensors
+            An element from the dataloader, including targets for comparison.
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
         Returns
         -------
         loss : torch.Tensor
-            A tensor with the computed loss
+            A tensor with the computed loss.
         """
         raise NotImplementedError
 
@@ -603,6 +598,8 @@ class Brain:
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of a stage.
+
+        Useful for computing stage statistics, saving checkpoints, etc.
 
         Arguments
         ---------
@@ -642,7 +639,7 @@ class Brain:
         DataLoader being added to the checkpointer. If you need to add a
         recoverable after saving checkpoints (e.g. at test time, after
         checkpointing the training), and still be able to recover reasonably,
-        you should probably specify allow_partial_load=True.
+        you should probably specify ``allow_partial_load=True``.
 
         Arguments
         ---------
@@ -741,7 +738,7 @@ class Brain:
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if distributed_count is more than 0 and backend is ddp.
+        if ``distributed_count > 0`` and backend is ddp.
 
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
@@ -918,7 +915,6 @@ class Brain:
         self,
         epoch_counter,
         train_set,
-        training_parameters,
         valid_set=None,
         progressbar=None,
         train_loader_kwargs={},
@@ -965,6 +961,10 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
+        if not isinstance(train_set, DataLoader):
+            train_set = self.make_dataloader(
+                train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
+            )
         if valid_set is not None and not isinstance(valid_set, DataLoader):
             valid_set = self.make_dataloader(
                 valid_set,
@@ -978,8 +978,6 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        Replay_buffer = []
-        batch_size = train_loader_kwargs["batch_size"]
         # Iterate epochs
         for epoch in epoch_counter:
 
@@ -1000,64 +998,15 @@ class Brain:
 
             # Only show progressbar if requested and main_process
             enable = progressbar and sb.utils.distributed.if_main_process()
-
-            sampler = ReproducibleRandomSampler(
+            with tqdm(
                 train_set,
-                epoch=epoch,
-                replacement=True,
-                num_samples=training_parameters["number_of_samples"],
-            )
-            if not isinstance(train_set, DataLoader):
-                train_set_subset = self.make_dataloader(
-                    train_set,
-                    sampler=sampler,
-                    stage=sb.Stage.TRAIN,
-                    **train_loader_kwargs,
-                )
-
-            if epoch >= 2:
-                with tqdm(
-                    train_set_subset,
-                    initial=self.step,
-                    dynamic_ncols=True,
-                    disable=not enable,
-                ) as t:
-                    print("Generator training...")
-                    for batch in t:
-                        self.step += 1
-                        loss = self.fit_G_batch(batch)
-                        self.avg_train_loss = self.update_average(
-                            loss, self.avg_train_loss
-                        )
-                        t.set_postfix(train_loss=self.avg_train_loss)
-
-                        # Debug mode only runs a few batches
-                        if self.debug and self.step == self.debug_batches:
-                            break
-
-                        if (
-                            self.checkpointer is not None
-                            and self.ckpt_interval_minutes > 0
-                            and time.time() - last_ckpt_time
-                            >= self.ckpt_interval_minutes * 60.0
-                        ):
-                            run_on_main(self._save_intra_epoch_ckpt)
-                            last_ckpt_time = time.time()
-
-            self.step = 0
-            current_list = []
-            with tqdm(
-                train_set_subset,
                 initial=self.step,
                 dynamic_ncols=True,
                 disable=not enable,
             ) as t:
-                print("Discriminator training by current data...")
                 for batch in t:
                     self.step += 1
-                    loss = self.fit_D_batch(
-                        batch, epoch, Replay_buffer, current_list
-                    )
+                    loss = self.fit_batch(batch)
                     self.avg_train_loss = self.update_average(
                         loss, self.avg_train_loss
                     )
@@ -1067,64 +1016,14 @@ class Brain:
                     if self.debug and self.step == self.debug_batches:
                         break
 
-            random.shuffle(Replay_buffer)
-            sampled_list = Replay_buffer[
-                0 : int(
-                    len(Replay_buffer) * training_parameters["history_portion"]
-                )
-            ]
-
-            batched_history_list = []
-            for i in range(int(len(sampled_list) / batch_size)):
-                batched_history_list.append(
-                    sampled_list[i * batch_size : i * batch_size + batch_size]
-                )
-
-            self.step = 0
-            with tqdm(
-                batched_history_list,
-                initial=self.step,
-                dynamic_ncols=True,
-                disable=not enable,
-            ) as t:
-                print("Discriminator training by historical data...")
-                for batch in t:
-                    self.step += 1
-                    loss = self.fit_D_list_batch(batch, epoch)
-                    self.avg_train_loss = self.update_average(
-                        loss, self.avg_train_loss
-                    )
-                    t.set_postfix(train_loss=self.avg_train_loss)
-
-                    # Debug mode only runs a few batches
-                    if self.debug and self.step == self.debug_batches:
-                        break
-
-            random.shuffle(current_list)
-            batched_current_list = []
-            for i in range(int(len(current_list) / batch_size)):
-                batched_current_list.append(
-                    current_list[i * batch_size : i * batch_size + batch_size]
-                )
-            self.step = 0
-            with tqdm(
-                batched_current_list,
-                initial=self.step,
-                dynamic_ncols=True,
-                disable=not enable,
-            ) as t:
-                print("Discriminator training by current data again...")
-                for batch in t:
-                    self.step += 1
-                    loss = self.fit_D_list_batch(batch, epoch)
-                    self.avg_train_loss = self.update_average(
-                        loss, self.avg_train_loss
-                    )
-                    t.set_postfix(train_loss=self.avg_train_loss)
-
-                    # Debug mode only runs a few batches
-                    if self.debug and self.step == self.debug_batches:
-                        break
+                    if (
+                        self.checkpointer is not None
+                        and self.ckpt_interval_minutes > 0
+                        and time.time() - last_ckpt_time
+                        >= self.ckpt_interval_minutes * 60.0
+                    ):
+                        run_on_main(self._save_intra_epoch_ckpt)
+                        last_ckpt_time = time.time()
 
             # Run train "on_stage_end" on all processes
             self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
@@ -1172,8 +1071,7 @@ class Brain:
         )
 
     def _compile_jit(self):
-        """This should be run *after* mp.spawn, since jit modules
-        cannot be pickled.
+        """Compile requested modules with ``torch.jit.script``
         """
         if self.jit_module_keys is None:
             return
@@ -1227,18 +1125,20 @@ class Brain:
         ---------
         test_set : Dataset, DataLoader
             If a DataLoader is given, it is iterated directly. Otherwise passed
-            to self.make_dataloader()
+            to ``self.make_dataloader()``
         max_key : str
-            Key to use for finding best checkpoint, passed to on_evaluate_start
+            Key to use for finding best checkpoint, passed to
+            ``on_evaluate_start()``
         min_key : str
-            Key to use for finding best checkpoint, passed to on_evaluate_start
+            Key to use for finding best checkpoint, passed to
+            ``on_evaluate_start()``
         progressbar : bool
             Whether to display the progress in a progressbar.
         test_loader_kwargs : dict
-            Kwargs passed to `make_dataloader()` if test_set is a Dataset, not
-            DataLoader. NOTE: loader_kwargs["ckpt_prefix"] gets automatically
-            overwritten to None (so that the test DataLoader is not added to
-            the checkpointer).
+            Kwargs passed to ``make_dataloader()`` if ``test_set`` is not a
+            DataLoader. NOTE: ``loader_kwargs["ckpt_prefix"]`` gets
+            automatically overwritten to ``None`` (so that the test DataLoader
+            is not added to the checkpointer).
 
         Returns
         -------

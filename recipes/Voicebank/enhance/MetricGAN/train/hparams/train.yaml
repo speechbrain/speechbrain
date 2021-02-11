@@ -17,14 +17,14 @@ train_noisy_folder: !ref <data_folder>/noisy_trainset_28spk_wav_16k/
 valid_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-MetricGAN_folder: !ref /data/member1/user_jasonfu/MetricGAN4/For_D_training
+MetricGAN_folder: !ref <output_folder>/enhanced_wavs
 output_folder: !ref ./results/MetricGAN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced_wavs
 
 # Basic parameters
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
 # FFT paremeters
@@ -35,30 +35,26 @@ N_fft: 512
 window_fn: !name:torch.hamming_window
 
 # Data files
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/valid.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
 skip_prep: True
 
 
 # The target metrics that you want to optimize.
 # Right now we only support 'pesq' and 'stoi'.
 # (Of course, it can be any arbitary metric.)
-TargetMetric: stoi
+target_metric: stoi
 # Training Parameters
 number_of_epochs: 600
 number_of_samples: 100
 min_mask: 0
 train_N_batch: 1
-valid_N_batch: 1
+valid_N_batch: 20
 history_portion: 0.2
 G_lr: 0.001
 D_lr: 0.001
-sorting: random
-
-MetricGAN_additional_parameters:
-    history_portion: !ref <history_portion>
-    number_of_samples: !ref <number_of_samples>
+mse_weight: 0
 
 dataloader_options:
     batch_size: !ref <train_N_batch>
