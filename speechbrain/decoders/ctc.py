@@ -34,7 +34,14 @@ class CTCPrefixScorer:
     """
 
     def __init__(
-        self, x, enc_lens, batch_size, beam_size, blank_index, eos_index
+        self,
+        x,
+        enc_lens,
+        batch_size,
+        beam_size,
+        blank_index,
+        eos_index,
+        ctc_window_size=0,
     ):
         self.blank_index = blank_index
         self.eos_index = eos_index
@@ -45,10 +52,7 @@ class CTCPrefixScorer:
         self.device = x.device
         self.minus_inf = -1e20
         self.last_frame_index = enc_lens - 1
-
-        assert (
-            self.eos_index != self.blank_index
-        ), "Please set these two tokens to different indexes"
+        self.ctc_window_size = ctc_window_size
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
@@ -96,7 +100,6 @@ class CTCPrefixScorer:
         self.num_candidates = (
             self.vocab_size if candidates is None else candidates.size(-1)
         )
-
         if state is None:
             # r_prev: (L, 2, batch_size * beam_size)
             r_prev = torch.full(
@@ -166,15 +169,12 @@ class CTCPrefixScorer:
             device=self.device,
         )
         r.fill_(self.minus_inf)
-
         # (Alg.2-6):
         if prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
-
         # (Alg.2-10): phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g)
         r_sum = torch.logsumexp(r_prev, 1)
         phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
-
         # (Alg.2-10): if last token of prefix g in candidates, phi = prev_b + 0
         if candidates is not None:
             for i in range(self.batch_size * self.beam_size):
@@ -188,7 +188,6 @@ class CTCPrefixScorer:
         # Define start, end, |g| < |h| for ctc decoding.
         start = max(1, prefix_length)
         end = self.max_enc_len
-
         # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h)):
         for t in range(start, end):
             # (Alg.2-11): dim=0, p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
