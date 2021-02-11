@@ -124,7 +124,7 @@ class MetricGanBrain(sb.Brain):
                 if self.hparams.TargetMetric == "pesq":
                     self.target_metric.append(
                         batch.id,
-                        predict=noisy_wavs,
+                        predict=predict_wav.detach(),
                         target=clean_wavs,
                         lengths=lens,
                     )
@@ -196,7 +196,7 @@ class MetricGanBrain(sb.Brain):
                 elif self.hparams.TargetMetric == "stoi":
                     self.target_metric.append(
                         batch.id,
-                        predict_wav,
+                        noisy_wavs,
                         clean_wavs,
                         lens,
                         reduction="batch",
