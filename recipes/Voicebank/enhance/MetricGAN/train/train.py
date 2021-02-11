@@ -419,6 +419,10 @@ class MetricGanBrain(sb.Brain):
             self.modules.discriminator.parameters()
         )
 
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable("g_opt", self.g_optimizer)
+            self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
+
 
 # Define audio piplines
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
