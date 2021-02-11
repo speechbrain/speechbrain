@@ -31,6 +31,8 @@ class CTCPrefixScorer:
         The index of the blank token.
     eos_index : int
         The index of the end-of-sequence (eos) token.
+    ctc_window_size: int
+        The window size for scoring. If 0, no windowing applied.
     """
 
     def __init__(
@@ -80,7 +82,7 @@ class CTCPrefixScorer:
             torch.arange(batch_size, device=self.device) * self.vocab_size
         )
 
-    def forward_step(self, g, state, candidates=None):
+    def forward_step(self, g, state, candidates=None, attn_peak=None):
         """This method if one step of forwarding operation
         for the prefix ctc scorer.
 
@@ -125,16 +127,14 @@ class CTCPrefixScorer:
                 dtype=torch.long,
                 device=self.device,
             )
-
-            # assign indices of candidates to their positions in the table
+            # Assign indices of candidates to their positions in the table
             col_index = torch.arange(
                 self.batch_size * self.beam_size, device=self.device
             ).unsqueeze(1)
             scoring_table[col_index, candidates] = torch.arange(
                 self.num_candidates, device=self.device
             )
-
-            # select candidates indices for scoring
+            # Select candidates indices for scoring
             scoring_index = (
                 candidates
                 + self.cand_offset.unsqueeze(1)
@@ -169,12 +169,14 @@ class CTCPrefixScorer:
             device=self.device,
         )
         r.fill_(self.minus_inf)
-        # (Alg.2-6):
+
+        # (Alg.2-6)
         if prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
         # (Alg.2-10): phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g)
         r_sum = torch.logsumexp(r_prev, 1)
         phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
+
         # (Alg.2-10): if last token of prefix g in candidates, phi = prev_b + 0
         if candidates is not None:
             for i in range(self.batch_size * self.beam_size):
@@ -185,14 +187,22 @@ class CTCPrefixScorer:
             for i in range(self.batch_size * self.beam_size):
                 phi[:, i, last_char[i]] = r_prev[:, 1, i]
 
-        # Define start, end, |g| < |h| for ctc decoding.
-        start = max(1, prefix_length)
-        end = self.max_enc_len
+        # Start, end frames for scoring (|g| < |h|).
+        # Scoring based on attn peak if ctc_window_size > 0
+        if self.ctc_window_size == 0 or torch.sum(attn_peak) == 0:
+            start = max(1, prefix_length)
+            end = self.max_enc_len
+        else:
+            max_frame = torch.max(attn_peak).item() + self.ctc_window_size
+            min_frame = torch.min(attn_peak).item() - self.ctc_window_size
+            start = max(max(1, prefix_length), int(min_frame))
+            end = min(self.max_enc_len, int(max_frame))
+
         # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h)):
         for t in range(start, end):
             # (Alg.2-11): dim=0, p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
             rnb_prev = r[t - 1, 0]
-            # (Alg.2-12): dim=1: p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
+            # (Alg.2-12): dim=1, p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
             rb_prev = r[t - 1, 1]
             r_ = torch.stack([rnb_prev, phi[t - 1], rnb_prev, rb_prev]).view(
                 2, 2, self.batch_size * self.beam_size, self.num_candidates
@@ -227,7 +237,7 @@ class CTCPrefixScorer:
                 self.last_frame_index[i // self.beam_size], i
             ]
 
-        # exclude blank probs for joint scoring
+        # Exclude blank probs for joint scoring
         psi[:, self.blank_index] = self.minus_inf
 
         return psi - psi_prev, (r, psi, scoring_table)

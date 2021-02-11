@@ -669,6 +669,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     )
                 else:
                     ctc_candidates = None
+
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
                     g, ctc_memory, ctc_candidates
                 )
