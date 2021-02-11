@@ -9,6 +9,7 @@
 #          Sung-Lin Yeh 2020
 # ############################################################################
 
+# WORK-IN-PROGRES DO NOT USE UNTIL THE TRANSFORMER LM IS READY
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 16
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
@@ -32,6 +33,7 @@ train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:

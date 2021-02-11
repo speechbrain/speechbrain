@@ -23,9 +23,10 @@ csv_train: !ref <data_folder>/train-type=decoupled.csv
 csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
 csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
-asr_hparam_file: hparams/pretrained_BPE1000_TAS_LM.yaml
-tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+asr_hparam_file: https://www.dropbox.com/s/lemq9rg0p2nde9t/pretrained_ASR_BPE1000_TAS_LM.yaml?dl=1
+tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
 skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 1
@@ -33,6 +34,7 @@ batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
+
 
 # Model params
 sample_rate: 16000

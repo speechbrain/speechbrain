@@ -23,8 +23,8 @@ train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/devel-type=direct.csv
 csv_test: !ref <data_folder>/test-type=direct.csv
-asr_hparam_file: hparams/pretrained_BPE1000.yaml
-tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/51_unigram.model
+asr_hparam_file: https://www.dropbox.com/s/54vmm04g3gezwz3/pretrained_ASR_BPE1000.yaml?dl=1
+tokenizer_file: https://www.dropbox.com/s/w72vtnf273yjwu4/SLURP_51_unigram.model?dl=1
 skip_prep: False
 
 # Training parameters
@@ -33,6 +33,7 @@ batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Model parameters
 sample_rate: 16000
@@ -61,6 +62,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # Models
 asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
+    save_folder: !ref <save_folder>
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]
@@ -114,6 +116,7 @@ model: !new:torch.nn.ModuleList
 
 tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
+    save_folder: !ref <save_folder>/SLURP_tokenizer
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
