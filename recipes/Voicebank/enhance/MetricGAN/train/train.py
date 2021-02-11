@@ -7,6 +7,7 @@ To run this recipe, do the following:
 
 Authors
  * Szu-Wei Fu 2020
+ * Peter Plantinga 2021
 """
 
 import os
@@ -16,11 +17,29 @@ import torch
 import torchaudio
 import speechbrain as sb
 from pesq import pesq
+from enum import Enum, auto
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.sampler import ReproducibleRandomSampler
+
+
+def pesq_eval(pred_wav, target_wav):
+    """Normalized PESQ (to 0-1)"""
+    return (
+        pesq(fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb")
+        + 0.5
+    ) / 5
+
+
+class SubStage(Enum):
+    """For keeping track of training stage progress"""
+
+    GENERATOR = auto()
+    CURRENT = auto()
+    HISTORICAL = auto()
 
 
 class MetricGanBrain(sb.Brain):
@@ -34,217 +53,91 @@ class MetricGanBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch computes the enhanced signal"
         batch = batch.to(self.device)
-        noisy_wavs, lens = batch.noisy_sig
-        noisy_spec = self.compute_feats(noisy_wavs)
 
-        # mask with "signal approximation (SA)"
-        mask = self.modules.generator(noisy_spec)
-        mask = torch.maximum(
-            mask,
-            self.hparams.min_mask * torch.ones(mask.shape, device=self.device),
-        )
-        mask = torch.squeeze(mask, 2)
-        predict_spec = torch.mul(mask, noisy_spec)
+        if self.sub_stage == SubStage.HISTORICAL:
+            predict_wav, lens = batch.enh_sig
+        else:
+            noisy_wav, lens = batch.noisy_sig
+            noisy_spec = self.compute_feats(noisy_wav)
 
-        # Also return predicted wav
-        predict_wav = self.hparams.resynth(
-            torch.expm1(predict_spec), noisy_wavs
-        )
+            # mask with "signal approximation (SA)"
+            mask = self.modules.generator(noisy_spec)
+            mask = mask.clamp(min=self.hparams.min_mask).squeeze(2)
+            predict_spec = torch.mul(mask, noisy_spec)
 
-        return predict_wav, noisy_spec, noisy_wavs
+            # Also return predicted wav
+            predict_wav = self.hparams.resynth(
+                torch.expm1(predict_spec), noisy_wav
+            )
 
-    def compute_objectives(
-        self,
-        predictions,
-        batch,
-        stage,
-        optim_name="",
-        epoch=0,
-        Replay_buffer=[],
-        current_list=[],
-        mode="clean",
-    ):
-        "Given the network predictions and targets computed the total loss"
-        predict_wav, noisy_spec, noisy_wavs = predictions
+        return predict_wav
+
+    def compute_objectives(self, predictions, batch, stage, optim_name=""):
+        "Given the network predictions and targets compute the total loss"
+        predict_wav = predictions
         predict_spec = self.compute_feats(predict_wav)
 
-        clean_wavs, lens = batch.clean_sig
-        clean_spec = self.compute_feats(clean_wavs)
-        batch_size = clean_wavs.size(0)
-
+        clean_wav, lens = batch.clean_sig
+        clean_spec = self.compute_feats(clean_wav)
         mse_cost = self.hparams.compute_cost(predict_spec, clean_spec, lens)
-        mse_weight = 0
-        adv_cost = 0
-        # One is real, zero is fake
-        if optim_name == "generator":
-            target_score = torch.ones(batch_size, 1, device=self.device)
-            estimated_enhanced_score = self.modules.discriminator(
-                torch.cat(
-                    [
-                        torch.unsqueeze(predict_spec, 1),
-                        torch.unsqueeze(clean_spec, 1),
-                    ],
-                    1,
-                )
-            )
 
-            adv_cost = self.hparams.compute_cost(
-                estimated_enhanced_score, target_score
-            )
-            self.metrics["G"].append(adv_cost.detach())
+        # One is real, zero is fake
+        if optim_name == "generator" or optim_name == "":
+            target_score = torch.ones(self.batch_size, 1, device=self.device)
+            est_score = self.est_score(predict_spec, clean_spec)
             self.mse_metric.append(
                 batch.id, predict_spec, clean_spec, lens, reduction="batch"
             )
-        elif optim_name == "discriminator":
-            if (
-                mode == "clean"
-            ):  # D Learns to estimate the scores of clean speech
-                estimated_clean_score = self.modules.discriminator(
-                    torch.cat(
-                        [
-                            torch.unsqueeze(clean_spec, 1),
-                            torch.unsqueeze(clean_spec, 1),
-                        ],
-                        1,
-                    )
-                )
-                true_score = torch.ones(batch_size, 1, device=self.device)
 
-                adv_cost = self.hparams.compute_cost(
-                    estimated_clean_score, true_score
-                )
+        # D Learns to estimate the scores of clean speech
+        elif optim_name == "D_clean":
+            target_score = torch.ones(self.batch_size, 1, device=self.device)
+            est_score = self.est_score(clean_spec, clean_spec)
 
-                for name in batch.id:
-                    current_list.append(
-                        "1," + self.hparams.train_clean_folder + name + ".wav"
-                    )
-            elif (
-                mode == "enhanced"
-            ):  # D Learns to estimate the scores of enhanced speech
-                if self.hparams.TargetMetric == "pesq":
-                    self.target_metric.append(
-                        batch.id,
-                        predict=predict_wav.detach(),
-                        target=clean_wavs,
-                        lengths=lens,
-                    )
-                    true_score = torch.tensor(
-                        [[s] for s in self.target_metric.scores],
-                        device=self.device,
-                    )
-                elif self.hparams.TargetMetric == "stoi":
-                    self.target_metric.append(
-                        batch.id,
-                        predict_wav,
-                        clean_wavs,
-                        lens,
-                        reduction="batch",
-                    )
-                    true_score = torch.tensor(
-                        [[-s] for s in self.target_metric.scores],
-                        device=self.device,
-                    )
-                estimated_enhanced_score = self.modules.discriminator(
-                    torch.cat(
-                        [
-                            torch.unsqueeze(predict_spec, 1),
-                            torch.unsqueeze(clean_spec, 1),
-                        ],
-                        1,
-                    )
-                )
+        # D Learns to estimate the scores of enhanced speech
+        elif optim_name == "D_enh" and self.sub_stage == SubStage.CURRENT:
+            target_score = self.score(batch.id, predict_wav, clean_wav, lens)
+            est_score = self.est_score(predict_spec, clean_spec)
 
-                adv_cost = self.hparams.compute_cost(
-                    estimated_enhanced_score, true_score
-                )
+            # Write enhanced wavs during discriminator training, because we
+            # compute the actual score here and we can save it
+            self.write_wavs(batch.id, predict_wav, target_score, lens)
 
-                # Write wavs to files, for historical discriminator training
-                lens = lens * clean_wavs.shape[1]
-                i = 0
-                for name, pred_wav, length in zip(batch.id, predict_wav, lens):
-                    name += "@" + str(epoch) + ".wav"
-                    enhance_path = os.path.join(
-                        self.hparams.MetricGAN_folder, name
-                    )
-                    Replay_buffer.append(
-                        str(true_score[i][0].cpu().numpy()) + "," + enhance_path
-                    )
-                    current_list.append(
-                        str(true_score[i][0].cpu().numpy()) + "," + enhance_path
-                    )
-                    i += 1
-                    torchaudio.save(
-                        enhance_path,
-                        torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
-                        16000,
-                    )
-                self.target_metric.clear()
-            elif (
-                mode == "noisy"
-            ):  # D Learns to estimate the scores of noisy speech
-                if self.hparams.TargetMetric == "pesq":
-                    self.target_metric.append(
-                        batch.id,
-                        predict=noisy_wavs,
-                        target=clean_wavs,
-                        lengths=lens,
-                    )
-                    true_score = torch.tensor(
-                        [[s] for s in self.target_metric.scores],
-                        device=self.device,
-                    )
-                elif self.hparams.TargetMetric == "stoi":
-                    self.target_metric.append(
-                        batch.id,
-                        noisy_wavs,
-                        clean_wavs,
-                        lens,
-                        reduction="batch",
-                    )
-                    true_score = torch.tensor(
-                        [[-s] for s in self.target_metric.scores],
-                        device=self.device,
-                    )
-                estimated_noisy_score = self.modules.discriminator(
-                    torch.cat(
-                        [
-                            torch.unsqueeze(noisy_spec, 1),
-                            torch.unsqueeze(clean_spec, 1),
-                        ],
-                        1,
-                    )
-                )
+        # D Relearns to estimate the scores of previous epochs
+        elif optim_name == "D_enh" and self.sub_stage == SubStage.HISTORICAL:
+            target_score = batch.score.unsqueeze(1).float()
+            est_score = self.est_score(predict_spec, clean_spec)
 
-                adv_cost = self.hparams.compute_cost(
-                    estimated_noisy_score, true_score
-                )
+        # D Learns to estimate the scores of noisy speech
+        elif optim_name == "D_noisy":
+            noisy_wav, _ = batch.noisy_sig
+            noisy_spec = self.compute_feats(noisy_wav)
+            target_score = self.score(batch.id, noisy_wav, clean_wav, lens)
+            est_score = self.est_score(noisy_spec, clean_spec)
 
-                i = 0
-                for name in batch.id:
-                    current_list.append(
-                        str(true_score[i][0].cpu().numpy())
-                        + ","
-                        + self.hparams.train_noisy_folder
-                        + name
-                        + ".wav"
-                    )
-                    i += 1
+        else:
+            raise ValueError(f"{optim_name} is not a valid 'optim_name'")
 
-                self.target_metric.clear()
+        # Compute the cost
+        adv_cost = self.hparams.compute_cost(est_score, target_score)
+        if optim_name == "generator":
+            adv_cost += self.hparams.mse_weight * mse_cost
+            self.metrics["G"].append(adv_cost.detach())
+        else:
             self.metrics["D"].append(adv_cost.detach())
 
+        # On validation data compute scores
         if stage != sb.Stage.TRAIN:
-            mse_weight = 1
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
-                batch.id, predict_wav, clean_wavs, lens, reduction="batch"
+                batch.id, predict_wav, clean_wav, lens, reduction="batch"
             )
             self.pesq_metric.append(
-                batch.id, predict=predict_wav, target=clean_wavs, lengths=lens
+                batch.id, predict=predict_wav, target=clean_wav, lengths=lens
             )
 
             # Write wavs to file, for evaluation
-            lens = lens * clean_wavs.shape[1]
+            lens = lens * clean_wav.shape[1]
             for name, pred_wav, length in zip(batch.id, predict_wav, lens):
                 name += ".wav"
                 enhance_path = os.path.join(self.hparams.enhanced_folder, name)
@@ -254,168 +147,205 @@ class MetricGanBrain(sb.Brain):
                     16000,
                 )
 
-        return (
-            adv_cost + mse_weight * mse_cost.detach()
-        )  # we do not use mse_cost to update model
-
-    def compute_D_list_objectives(self, batch, stage):
-        batch_size = len(batch)
-        true_score = torch.ones(batch_size, 1, device=self.device)
-        estimated_enhanced_score = torch.ones(batch_size, 1, device=self.device)
-        i = 0
-        for b in batch:
-            score_filepath = b.split(",")
-            wave_name = b.split("/")[-1].split("@")[0]
-            if ".wav" not in wave_name:
-                wave_name += ".wav"
-
-            clean_wav, _ = torchaudio.load(
-                self.hparams.train_clean_folder + wave_name
-            )
-            clean_spec = self.compute_feats(clean_wav.to(self.device))
-
-            enhance_wav, _ = torchaudio.load(score_filepath[1])
-            if enhance_wav.shape != clean_wav.shape:
-                enhance_wav = torch.cat(
-                    (
-                        enhance_wav,
-                        torch.zeros(
-                            1, clean_wav.shape[1] - enhance_wav.shape[1]
-                        ),
-                    ),
-                    1,
-                )
-            enhance_spec = self.compute_feats(enhance_wav.to(self.device))
-
-            estimated_enhanced_score[i] = self.modules.discriminator(
-                torch.cat(
-                    [
-                        torch.unsqueeze(enhance_spec, 1),
-                        torch.unsqueeze(clean_spec, 1),
-                    ],
-                    1,
-                )
-            )
-            true_score[i] = torch.tensor(
-                [[float(score_filepath[0])]], device=self.device
-            )
-            i += 1
-        adv_cost = self.hparams.compute_cost(
-            estimated_enhanced_score, true_score
-        )
+        # we do not use mse_cost to update model
         return adv_cost
 
-    def fit_D_batch(self, batch, epoch, Replay_buffer, current_list):
+    def score(self, batch_id, deg_wav, ref_wav, lens):
+        """Returns actual metric score, either pesq or stoi
+
+        Arguments
+        ---------
+        batch_id : list of str
+            A list of the utterance ids for the batch
+        deg_wav : torch.Tensor
+            The degraded waveform to score
+        ref_wav : torch.Tensor
+            The reference waveform to use for scoring
+        length : torch.Tensor
+            The relative lengths of the utterances
+        """
+        if self.hparams.target_metric == "pesq":
+            self.target_metric.append(
+                ids=batch_id,
+                predict=deg_wav.detach(),
+                target=ref_wav.detach(),
+                lengths=lens,
+            )
+            score = torch.tensor(
+                [[s] for s in self.target_metric.scores], device=self.device,
+            )
+        elif self.hparams.target_metric == "stoi":
+            self.target_metric.append(
+                batch_id, deg_wav, ref_wav, lens, reduction="batch",
+            )
+            score = torch.tensor(
+                [[-s] for s in self.target_metric.scores], device=self.device,
+            )
+        else:
+            raise ValueError("Expected 'pesq' or 'stoi' for target_metric")
+
+        # Clear metric scores to prepare for next batch
+        self.target_metric.clear()
+
+        return score
+
+    def est_score(self, deg_spec, ref_spec):
+        """Returns score as estimated by discriminator
+
+        Arguments
+        ---------
+        deg_spec : torch.Tensor
+            The spectral features of the degraded utterance
+        ref_spec : torch.Tensor
+            The spectral features of the reference utterance
+        """
+        combined_spec = torch.cat(
+            [deg_spec.unsqueeze(1), ref_spec.unsqueeze(1)], 1
+        )
+        return self.modules.discriminator(combined_spec)
+
+    def write_wavs(self, batch_id, wavs, score, lens):
+        """Write wavs to files, for historical discriminator training
+
+        Arguments
+        ---------
+        batch_id : list of str
+            A list of the utterance ids for the batch
+        wavs : torch.Tensor
+            The wavs to write to files
+        score : torch.Tensor
+            The actual scores for the corresponding utterances
+        lens : torch.Tensor
+            The relative lengths of each utterance
+        """
+        lens = lens * wavs.shape[1]
+        record = {}
+        for i, (name, pred_wav, length) in enumerate(zip(batch_id, wavs, lens)):
+            uttid = name + f"@{self.epoch}"
+            path = os.path.join(self.hparams.MetricGAN_folder, uttid + ".wav")
+            data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
+            torchaudio.save(path, data, self.hparams.Sample_rate)
+
+            # Make record of path and score for historical training
+            score = float(score[i][0])
+            clean_path = os.path.join(
+                self.hparams.train_clean_folder, name + ".wav"
+            )
+            record[uttid] = {
+                "enh_wav": path,
+                "score": score,
+                "clean_wav": clean_path,
+            }
+
+        # Update records for historical training
+        self.historical_set.update(record)
+
+    def fit_batch(self, batch):
+        "Compute gradients and update either D or G based on sub-stage."
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-
-        d_loss0 = self.compute_objectives(
-            predictions,
-            batch,
-            sb.Stage.TRAIN,
-            "discriminator",
-            epoch,
-            Replay_buffer,
-            current_list,
-            "clean",
-        )
-        self.d_optimizer.zero_grad()
-        d_loss0.backward()
-        self.d_optimizer.step()
-
-        d_loss1 = self.compute_objectives(
-            predictions,
-            batch,
-            sb.Stage.TRAIN,
-            "discriminator",
-            epoch,
-            Replay_buffer,
-            current_list,
-            "enhanced",
-        )
-        self.d_optimizer.zero_grad()
-        d_loss1.backward()
-        self.d_optimizer.step()
-
-        d_loss2 = self.compute_objectives(
-            predictions,
-            batch,
-            sb.Stage.TRAIN,
-            "discriminator",
-            epoch,
-            Replay_buffer,
-            current_list,
-            "noisy",
-        )
-        self.d_optimizer.zero_grad()
-        d_loss2.backward()
-        self.d_optimizer.step()
-
-        return (d_loss0 + d_loss1 + d_loss2).detach() / 3
-
-    def fit_D_list_batch(self, batch, epoch):
-        d_loss = self.compute_D_list_objectives(batch, sb.Stage.TRAIN)
-        self.d_optimizer.zero_grad()
-        d_loss.backward()
-        self.d_optimizer.step()
-
-        return d_loss.detach()
-
-    def fit_G_batch(self, batch):
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        g_loss = self.compute_objectives(
-            predictions, batch, sb.Stage.TRAIN, "generator"
-        )
-        self.g_optimizer.zero_grad()
-        g_loss.backward()
-        self.g_optimizer.step()
-
-        return g_loss.detach()
+        loss_tracker = 0
+        if self.sub_stage == SubStage.CURRENT:
+            for mode in ["clean", "enh", "noisy"]:
+                loss = self.compute_objectives(
+                    predictions, batch, sb.Stage.TRAIN, f"D_{mode}"
+                )
+                self.d_optimizer.zero_grad()
+                loss.backward()
+                self.d_optimizer.step()
+                loss_tracker += loss.detach() / 3
+        elif self.sub_stage == SubStage.HISTORICAL:
+            loss = self.compute_objectives(
+                predictions, batch, sb.Stage.TRAIN, "D_enh"
+            )
+            self.d_optimizer.zero_grad()
+            loss.backward()
+            self.d_optimizer.step()
+            loss_tracker += loss.detach()
+        elif self.sub_stage == SubStage.GENERATOR:
+            loss = self.compute_objectives(
+                predictions, batch, sb.Stage.TRAIN, "generator"
+            )
+            self.g_optimizer.zero_grad()
+            loss.backward()
+            self.g_optimizer.step()
+            loss_tracker += loss.detach()
+        return loss_tracker
 
     def on_stage_start(self, stage, epoch=None):
-        """Gets called at the beginning of each epoch"""
+        """Gets called at the beginning of each epoch
 
-        def pesq_eval(pred_wav, target_wav):
-            return (
-                pesq(
-                    fs=16000,
-                    ref=target_wav.numpy(),
-                    deg=pred_wav.numpy(),
-                    mode="wb",
-                )
-                + 0.5
-            ) / 5
+        This method calls ``fit()`` again to train the discriminator
+        before proceeding with generator training.
+        """
 
         self.mse_metric = MetricStats(metric=self.hparams.compute_cost)
+        self.epoch = epoch
 
         if stage == sb.Stage.TRAIN:
             self.metrics = {"G": [], "D": []}
 
-            if self.hparams.TargetMetric == "pesq":
+            if self.hparams.target_metric == "pesq":
                 self.target_metric = MetricStats(metric=pesq_eval, n_jobs=30)
-            elif self.hparams.TargetMetric == "stoi":
+            elif self.hparams.target_metric == "stoi":
                 self.target_metric = MetricStats(metric=stoi_loss)
             else:
                 raise NotImplementedError(
                     "Right now we only support 'pesq' and 'stoi'"
                 )
 
+            # Train discriminator before we start generator training
+            if self.sub_stage == SubStage.GENERATOR:
+                self.train_discriminator()
+                self.sub_stage = SubStage.GENERATOR
+                print("Generator training by current data...")
+
         if stage != sb.Stage.TRAIN:
             self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
             self.stoi_metric = MetricStats(metric=stoi_loss)
 
+    def train_discriminator(self):
+        """A total of 3 data passes to update discriminator."""
+        # First, iterate train subset w/ updates for clean, enh, noisy
+        print("Discriminator training by current data...")
+        self.sub_stage = SubStage.CURRENT
+        self.fit(
+            range(1),
+            self.train_set,
+            train_loader_kwargs=self.hparams.dataloader_options,
+        )
+
+        # Next, iterate historical subset w/ updates for enh
+        if self.historical_set:
+            print("Discriminator training by historical data...")
+            self.sub_stage = SubStage.HISTORICAL
+            self.fit(
+                range(1),
+                self.historical_set,
+                train_loader_kwargs=self.hparams.dataloader_options,
+            )
+
+        # Finally, iterate train set again. Should iterate same
+        # samples as before, due to ReproducibleRandomSampler
+        print("Discriminator training by current data again...")
+        self.sub_stage = SubStage.CURRENT
+        self.fit(
+            range(1),
+            self.train_set,
+            train_loader_kwargs=self.hparams.dataloader_options,
+        )
+
     def on_stage_end(self, stage, stage_loss, epoch=None):
+        "Called at the end of each stage to summarize progress"
+        if self.sub_stage != SubStage.GENERATOR:
+            return
+
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-            # self.train_stats = {"mse": self.mse_metric.scores} # for tensorboard
-
             g_loss = torch.tensor(self.metrics["G"])  # batch_size
             d_loss = torch.tensor(self.metrics["D"])  # batch_size
             print("Avg G loss: %.3f" % torch.mean(g_loss))
             print("Avg D loss: %.3f" % torch.mean(d_loss))
-            if epoch >= 2:
-                print(
-                    "MSE distance: %.3f" % self.mse_metric.summarize("average")
-                )
+            print("MSE distance: %.3f" % self.mse_metric.summarize("average"))
         else:
             stats = {
                 "MSE distance": stage_loss,
@@ -437,7 +367,7 @@ class MetricGanBrain(sb.Brain):
                 valid_stats=stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta=stats, max_keys=[self.hparams.TargetMetric]
+                meta=stats, max_keys=[self.hparams.target_metric]
             )
 
         if stage == sb.Stage.TEST:
@@ -446,8 +376,42 @@ class MetricGanBrain(sb.Brain):
                 test_stats=stats,
             )
 
+    def make_dataloader(
+        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs
+    ):
+        "Override dataloader to insert custom sampler/dataset"
+        if stage == sb.Stage.TRAIN:
+
+            # Create a new dataset each time, this set grows
+            if self.sub_stage == SubStage.HISTORICAL:
+                dataset = sb.dataio.dataset.DynamicItemDataset(
+                    data=dataset,
+                    dynamic_items=[enh_pipeline],
+                    output_keys=["id", "enh_sig", "clean_sig", "score"],
+                )
+                samples = round(len(dataset) * self.hparams.history_portion)
+            else:
+                samples = self.hparams.number_of_samples
+
+            # This sampler should give the same samples for D and G
+            epoch = self.hparams.epoch_counter.current
+            sampler = ReproducibleRandomSampler(
+                dataset, epoch=epoch, replacement=True, num_samples=samples
+            )
+            loader_kwargs["sampler"] = sampler
+
+        # Make the dataloader as normal
+        return super().make_dataloader(
+            dataset, stage, ckpt_prefix, **loader_kwargs
+        )
+
+    def on_fit_start(self):
+        "Override to prevent this from running for D training"
+        if self.sub_stage == SubStage.GENERATOR:
+            super().on_fit_start()
+
     def init_optimizers(self):
-        """Initializes the generator and discriminator optimizers"""
+        "Initializes the generator and discriminator optimizers"
         self.g_optimizer = self.hparams.g_opt_class(
             self.modules.generator.parameters()
         )
@@ -456,40 +420,33 @@ class MetricGanBrain(sb.Brain):
         )
 
 
+# Define audio piplines
+@sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
+@sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
+def audio_pipeline(noisy_wav, clean_wav):
+    yield sb.dataio.dataio.read_audio(noisy_wav)
+    yield sb.dataio.dataio.read_audio(clean_wav)
+
+
+# For historical data
+@sb.utils.data_pipeline.takes("enh_wav", "clean_wav")
+@sb.utils.data_pipeline.provides("enh_sig", "clean_sig")
+def enh_pipeline(enh_wav, clean_wav):
+    yield sb.dataio.dataio.read_audio(enh_wav)
+    yield sb.dataio.dataio.read_audio(clean_wav)
+
+
 def dataio_prep(hparams):
-    """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
-
-    # Define audio piplines
-    @sb.utils.data_pipeline.takes("noisy_wav")
-    @sb.utils.data_pipeline.provides("noisy_sig")
-    def noisy_pipeline(noisy_wav):
-        return sb.dataio.dataio.read_audio(noisy_wav)
-
-    @sb.utils.data_pipeline.takes("clean_wav")
-    @sb.utils.data_pipeline.provides("clean_sig")
-    def clean_pipeline(clean_wav):
-        return sb.dataio.dataio.read_audio(clean_wav)
+    """This function prepares the datasets to be used in the brain class."""
 
     # Define datasets
     datasets = {}
     for dataset in ["train", "valid", "test"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[noisy_pipeline, clean_pipeline],
+            dynamic_items=[audio_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
-        )
-
-    # Sort train dataset
-    if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
-        datasets["train"] = datasets["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending"
-        )
-        hparams["dataloader_options"]["shuffle"] = False
-    elif hparams["sorting"] != "random":
-        raise NotImplementedError(
-            "Sorting must be random, ascending, or descending"
         )
 
     return datasets
@@ -549,6 +506,10 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+    se_brain.train_set = datasets["train"]
+    se_brain.historical_set = {}
+    se_brain.batch_size = hparams["dataloader_options"]["batch_size"]
+    se_brain.sub_stage = SubStage.GENERATOR
 
     shutil.rmtree(hparams["MetricGAN_folder"])
     run_on_main(create_folder, kwargs={"folder": hparams["MetricGAN_folder"]})
@@ -557,8 +518,7 @@ if __name__ == "__main__":
     se_brain.fit(
         epoch_counter=se_brain.hparams.epoch_counter,
         train_set=datasets["train"],
-        training_parameters=hparams["MetricGAN_additional_parameters"],
-        valid_set=datasets["test"],
+        valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["valid_dataloader_options"],
     )
@@ -566,6 +526,6 @@ if __name__ == "__main__":
     # Load best checkpoint for evaluation
     test_stats = se_brain.evaluate(
         test_set=datasets["test"],
-        max_key=hparams["TargetMetric"],
+        max_key=hparams["target_metric"],
         test_loader_kwargs=hparams["dataloader_options"],
     )
