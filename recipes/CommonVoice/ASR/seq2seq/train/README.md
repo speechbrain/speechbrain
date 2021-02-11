@@ -5,30 +5,14 @@ This folder contains scripts necessary to run an ASR experiment with the CommonV
 python train.py hparams/{hparam_file}.py
 
 # Data preparation
-Fortunately, SpeechBrain provides a script that automatically generates the training, validation and testing files. However, it is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Therefore the `commonvoice_prepare.py` script converts these files to .wav and 16KHz.
+It is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Hence, audio files are downsampled on the fly within the dataio function of the training script.
 
 # Languages
 Here is a list of the different languages that we tested within the CommonVoice dataset:
 - French
 - Kinyarwanda
 - Italian
-
-# Results
-
-# CommonVoice ASR with CTC + Attention based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
-
-# How to run
-python train.py hparams/{hparam_file}.py
-
-# Data preparation
-Fortunately, SpeechBrain provides a script that automatically generates the training, validation and testing files. However, it is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Therefore the `commonvoice_prepare.py` script converts these files to .wav and 16KHz.
-
-# Languages
-Here is a list of the different languages that we tested within the CommonVoice dataset:
-- French
-- Kinyarwanda
-- Italian
+- English
 
 # Results
 
