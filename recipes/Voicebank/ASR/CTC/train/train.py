@@ -16,8 +16,8 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
 
 
 # Define training procedure
@@ -138,18 +138,14 @@ def dataio_prep(hparams):
         )
 
     # 4. Fit encoder:
-    # Load or compute the label encoder
+    # Load or compute the label encoder (with multi-gpu dpp support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-
-    run_on_main(
-        label_encoder.load_or_create,
-        kwargs={
-            "path": lab_enc_file,
-            "from_didatasets": [data["train"]],
-            "output_key": "phn_list",
-            "special_labels": {"blank_label": hparams["blank_index"]},
-            "sequence_input": True,
-        },
+    label_encoder.load_or_create(
+        path=lab_enc_file,
+        from_didatasets=[data["train"]],
+        output_key="phn_list",
+        special_labels={"blank_label": hparams["blank_index"]},
+        sequence_input=True,
     )
 
     return data, label_encoder
