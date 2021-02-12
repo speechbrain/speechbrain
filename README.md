@@ -32,7 +32,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 - Transducer end-to-end ASR with a custom Numba loss to accelerate the training. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Scheme to simply use a trained ASR model to transcribe an audio file.
 
-### Speaker recognition
+### Speaker recognition, identification and diarization
 SpeechBrain provides different models for speaker recognition, identification and diarization on different datasets:
 - State-of-the-art performance on speaker recognition and diarization based on ECAPA-TDNN models.
 - Original Xvectors implementation (inspired by Kaldi) with PLDA.
