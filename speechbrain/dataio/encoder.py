@@ -9,6 +9,7 @@ import torch
 import collections
 import itertools
 import logging
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -243,21 +244,28 @@ class CategoricalEncoder:
         """Convenient syntax for creating the encoder conditionally
 
         This pattern would be repeated in so many experiments that
-        we decided to add a convenient shortcut for it here.
+        we decided to add a convenient shortcut for it here. The
+        current version is multi-gpu (DDP) safe.
         """
-        if not self.load_if_possible(path):
-            for iterable in from_iterables:
-                self.update_from_iterable(iterable, sequence_input)
-            for didataset in from_didatasets:
-                if output_key is None:
-                    raise ValueError(
-                        "Provide an output_key for " "DynamicItemDataset"
-                    )
-                self.update_from_didataset(
-                    didataset, output_key, sequence_input
-                )
-            self.handle_special_labels(special_labels)
-            self.save(path)
+        try:
+            if sb.utils.distributed.if_main_process():
+                if not self.load_if_possible(path):
+                    for iterable in from_iterables:
+                        self.update_from_iterable(iterable, sequence_input)
+                    for didataset in from_didatasets:
+                        if output_key is None:
+                            raise ValueError(
+                                "Provide an output_key for "
+                                "DynamicItemDataset"
+                            )
+                        self.update_from_didataset(
+                            didataset, output_key, sequence_input
+                        )
+                    self.handle_special_labels(special_labels)
+                    self.save(path)
+        finally:
+            sb.utils.distributed.ddp_barrier()
+            self.load(path)
 
     def add_label(self, label):
         """Add new label to the encoder, at the next free position.

@@ -179,15 +179,10 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, label_pipeline)
 
     # 3. Fit encoder:
-    # Load or compute the label encoder
+    # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    run_on_main(
-        label_encoder.load_or_create,
-        kwargs={
-            "path": lab_enc_file,
-            "from_didatasets": [train_data],
-            "output_key": "spk_id",
-        },
+    label_encoder.load_or_create(
+        path=lab_enc_file, from_didatasets=[train_data], output_key="spk_id",
     )
 
     # 4. Set output:
