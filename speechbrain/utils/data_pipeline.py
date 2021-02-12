@@ -465,9 +465,9 @@ class DataPipeline:
 
     def _compute(self, data, order, output_mapping):
         if self.unaccounted_keys:
-            raise RuntimeError(
-                "Some keys are still unaccounted for! Cannot " "compute output."
-            )
+            MSG = "These are still unaccounted for in the data pipeline: "
+            MSG += ", ".join(self.unaccounted_keys)
+            raise RuntimeError(MSG)
         intermediate = {}
         for node_id, edges, item in order:
             if isinstance(item, StaticItem):
