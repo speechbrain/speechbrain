@@ -465,7 +465,7 @@ class DataPipeline:
 
     def _compute(self, data, order, output_mapping):
         if self.unaccounted_keys:
-            MSG = "These are still unaccounted for in the data pipeline: "
+            MSG = "These keys are still unaccounted for in the data pipeline: "
             MSG += ", ".join(self.unaccounted_keys)
             raise RuntimeError(MSG)
         intermediate = {}
