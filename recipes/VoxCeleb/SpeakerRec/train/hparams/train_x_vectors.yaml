@@ -39,7 +39,7 @@ out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: !ref <shuffle>
-    num_workers: 2
+    num_workers: 0
 
 # Data augmentation
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
