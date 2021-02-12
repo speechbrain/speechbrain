@@ -18,7 +18,16 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction, normalisation that can be used on-the-fly during your experiment.
 
 ### Speech recognition
-SpeechBrain supports state-of-the-art methods for end-to-end speech recognition, including models based on CTC, CTC+attention, transducers, transformers, and neural language models relying on recurrent neural networks and transformers. 
+
+SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
+- State-of-the-art performance or at least comparable with other existing toolkits in several ASR benchmarks.
+- Easily customisable neural language models including RNNLM and TransformerLM. We also propose few pretrained models to save you computations (more to come!). We compose with hugging face `dataset` to facilitate the training over large text dataset.
+- Hybrid CTC/Attention end-to-end ASR:
+    - Many available encoders: CRDNN (VGG + {LSTM,GRU,LiGRU} + DNN), ResNet, SincNet, vanilla transformers, contextnet-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customised mono or multi-encoder could be connected to the CTC/attention decoder and trained in few hours of work. Note that the decoder is also fully customisable: LSTM, GRU, LiGRU, transformer or your handcrafted neural network!
+    - Optimised beam search and greedy decoding significantly faster than existing toolkit at decoding time. Our decoding can be performed both with CPU or GPU.
+- Transducer end-to-end ASR with a custom Numba loss to accelerate the training. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
+- Scheme to simply use a trained ASR model to transcribe an audio file.
+- On-the-fly and fully-differentiable acoustic features extraction: filter banks can be learnt. This also simplify the training pipeline as speech augmentation can be performed on-the-fly. This facilitate the integration of fully end-to-end encoders directly dealing with the raw waveform.
 
 ### Speaker recognition
 Speaker recognition is already deployed in a wide variety of realistic applications. SpeechBrain provides different models for speaker recognition, including X-vector, ECAPA-TDNN, PLDA, contrastive learning.
