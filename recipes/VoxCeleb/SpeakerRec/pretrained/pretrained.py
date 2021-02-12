@@ -31,6 +31,7 @@ Example
 
 Authors
  * Mirco Ravanelli 2020
+ * Titouan Parcollet 2021
 """
 
 import os
@@ -77,7 +78,15 @@ class Verification(torch.nn.Module):
             overrides["save_folder"] = save_folder
             self.hparams = load_hyperpyyaml(fin, overrides)
 
-        self.device = self.hparams["device"]
+        # putting modules on the right device
+        # We need to check if DDP has been initialised
+        # in order to give the right device
+        if torch.distributed.is_initialized():
+            self.device = ":".join(
+                [self.hparams["device"].split(":")[0], os.environ["LOCAL_RANK"]]
+            )
+        else:
+            self.device = self.hparams["device"]
 
         # Creating directory where pre-trained models are stored
         if not os.path.isabs(self.hparams["save_folder"]):
