@@ -15,7 +15,11 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 # Key features
 
 ### Feature extraction and augmentation
-SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction, normalisation that can be used on-the-fly during your experiment.
+SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
+- On-the-fly and fully-differentiable acoustic features extraction: filter banks can be learnt. This also simplify the training pipeline as speech augmentation can be performed on-the-fly. This facilitate the integration of fully end-to-end encoders directly dealing with the raw waveform.
+- On-the-fly features normalisation (global, sentence, bath or speaker level).
+- On-the-fly environmental corruptions based on noise, reverberation and babble for robust model training.
+- On-the-fly frequency domain and time domain SpecAugment.
 
 ### Speech recognition
 
@@ -27,10 +31,14 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
     - Optimised beam search and greedy decoding significantly faster than existing toolkit at decoding time. Our decoding can be performed both with CPU or GPU.
 - Transducer end-to-end ASR with a custom Numba loss to accelerate the training. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Scheme to simply use a trained ASR model to transcribe an audio file.
-- On-the-fly and fully-differentiable acoustic features extraction: filter banks can be learnt. This also simplify the training pipeline as speech augmentation can be performed on-the-fly. This facilitate the integration of fully end-to-end encoders directly dealing with the raw waveform.
 
 ### Speaker recognition
-Speaker recognition is already deployed in a wide variety of realistic applications. SpeechBrain provides different models for speaker recognition, including X-vector, ECAPA-TDNN, PLDA, contrastive learning.
+SpeechBrain provides different models for speaker recognition, identification and diarization on different datasets:
+- State-of-the-art performance on speaker recognition and diarization based on ECAPA-TDNN models.
+- Original Xvectors implementation (inspired by Kaldi) with PLDA.
+- Contrastive learning based training for speaker recognition.
+- Spectral clustering for speaker diarization (combined with speakers embeddings).
+- Scheme to simply use a trained speaker embeddings extractor to obtain embeddings from audio files.
 
 ### Speech enhancement
 Spectral masking, spectral mapping, and time-domain enhancement are different methods already available within SpeechBrain. Separation methods such as Conv-TasNet, DualPath RNN, and SepFormer are implemented as well.
