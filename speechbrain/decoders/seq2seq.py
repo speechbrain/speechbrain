@@ -311,6 +311,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
     ctc_score_mode: str
         Default: "full"
         CTC prefix scoring on "partial" token or "full: token.
+    ctc_window_size: int
+        Default: 0
+        Compute the ctc scores over the time frames using windowing based on attention peaks.
+        If 0, no windowing applied.
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
@@ -342,6 +346,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ctc_weight=0.0,
         blank_index=0,
         ctc_score_mode="full",
+        ctc_window_size=0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -387,6 +392,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # ctc already initalized
         self.minus_inf = minus_inf
         self.ctc_score_mode = ctc_score_mode
+        self.ctc_window_size = ctc_window_size
 
     def _check_full_beams(self, hyps, beam_size):
         """
@@ -529,11 +535,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             h_i_j, i is utterance id, and j is hypothesis id.
             When topk=2, and 3 sentences:
             [h_0_0, h_0_1,h_1_0, h_1_1, h_2_0, h_2_1]
-
         top_scores : list
             This list contains the final scores of hypotheses.
             The order is the same as predictions.
-
         top_log_probs : list
             This list contains the log probabilities of each hypotheses.
             The order is the same as predictions.
@@ -569,6 +573,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 self.beam_size,
                 self.blank_index,
                 self.eos_index,
+                self.ctc_window_size,
             )
             ctc_memory = None
 
@@ -671,7 +676,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     ctc_candidates = None
 
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
-                    g, ctc_memory, ctc_candidates
+                    g, ctc_memory, ctc_candidates, attn
                 )
                 log_probs = log_probs + self.ctc_weight * ctc_log_probs
 

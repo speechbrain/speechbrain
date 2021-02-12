@@ -32,7 +32,8 @@ class CTCPrefixScorer:
     eos_index : int
         The index of the end-of-sequence (eos) token.
     ctc_window_size: int
-        The window size for scoring. If 0, no windowing applied.
+        Compute the ctc scores over the time frames using windowing based on attention peaks.
+        If 0, no windowing applied.
     """
 
     def __init__(
@@ -82,7 +83,7 @@ class CTCPrefixScorer:
             torch.arange(batch_size, device=self.device) * self.vocab_size
         )
 
-    def forward_step(self, g, state, candidates=None, attn_peak=None):
+    def forward_step(self, g, state, candidates=None, attn=None):
         """This method if one step of forwarding operation
         for the prefix ctc scorer.
 
@@ -189,10 +190,11 @@ class CTCPrefixScorer:
 
         # Start, end frames for scoring (|g| < |h|).
         # Scoring based on attn peak if ctc_window_size > 0
-        if self.ctc_window_size == 0 or torch.sum(attn_peak) == 0:
+        if self.ctc_window_size == 0 or attn is None:
             start = max(1, prefix_length)
             end = self.max_enc_len
         else:
+            _, attn_peak = torch.max(attn, dim=1)
             max_frame = torch.max(attn_peak).item() + self.ctc_window_size
             min_frame = torch.min(attn_peak).item() - self.ctc_window_size
             start = max(max(1, prefix_length), int(min_frame))
