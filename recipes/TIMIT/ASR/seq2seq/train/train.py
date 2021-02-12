@@ -75,6 +75,8 @@ class ASR(sb.Brain):
         phns, phn_lens = batch.phn_encoded
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
             phns_eos = torch.cat([phns_eos, phns_eos], dim=0)
             phn_lens_eos = torch.cat([phn_lens_eos, phn_lens_eos], dim=0)
 
