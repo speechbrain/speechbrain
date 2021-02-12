@@ -116,20 +116,37 @@ class Sequential(torch.nn.ModuleDict):
         dummy_output = self(dummy_input)
         return dummy_output.shape
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Applies layers in sequence, passing only the first element of tuples.
 
         Arguments
         ---------
         x : tensor
             the input tensor to run through the network.
+        lengths : tensor
+            The lengths of the input samples, for handling padding.
         """
         for layer in self.values():
-            x = layer(x)
+            if lengths is not None and lengths_arg_exists(layer):
+                x = layer(x, lengths=lengths)
+            else:
+                x = layer(x)
             if isinstance(x, tuple):
                 x = x[0]
 
         return x
+
+
+def lengths_arg_exists(module):
+    """Returns True if module takes ``lengths`` keyword argument.
+
+    Arguments
+    ---------
+    module : torch.nn.Module
+        Torch module to use for determination.
+    """
+    spec = inspect.getfullargspec(module.forward)
+    return "lengths" in spec.args + spec.kwonlyargs
 
 
 class ModuleList(torch.nn.Module):
