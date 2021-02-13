@@ -51,10 +51,15 @@ SpeechBrain provides different models for speaker recognition, identification an
 Spectral masking, spectral mapping, and time-domain enhancement are different methods already available within SpeechBrain. Separation methods such as Conv-TasNet, DualPath RNN, and SepFormer are implemented as well.
 
 ### Multi-microphone processing
-Combining multiple microphones is a powerful approach to achieve robustness in adverse acoustic environments. SpeechBrain provides various techniques for beamforming (e.g, delay-and-sum, MVDR, and GeV) and speaker localization.
+Combining multiple microphones is a powerful approach to achieve robustness in adverse acoustic environments:
+- Delay-and-sum, MVDR and GeV beamforming.
+- Speaker localization.
 
-### Research & development
-SpeechBrain is designed to speed-up research and development of speech technologies. It is modular, flexible, easy-to-customize, and contains several recipes for popular datasets. Documentation and tutorials are here to help newcomers using SpeechBrain.
+### Documentation & Tutorials
+SpeechBrain is designed to speed-up research and development of speech technologies. Hence, our code is backed-up with three different level of documentation:
+- **Low-level:** during the review process of the different pull requests, we are focusing on the level of comments that are given. Hence, any complex functionality or long pipeline is supported with helpful comments enabling users to handily customise the code.
+- **Functional-level:** all classes in SpeechBrain contains a detailed doctstring that details the input and output formats, the different arguments, the usage of the function, the potential associated bibliography and a function example that is used for test integration during pull requests. Such examples can also be used to manipulate a class or a function in order to properly understand what is exactly happening.
+- **Educational-level:** we provide various Google Colab (i.e. interactive) tutorials describing all the building-blocks of SpeechBrain ranging from the core of the toolkit to a specific model designed for a particular task. The number of available tutorial is expected to increase through time.
 
 ### Under development
 We currently are working towards integrating DNN-HMM for speech recognition and machine translation.
