@@ -14,10 +14,11 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 # Key features
 
-Appart from the task-related features, SpeechBrain provides various useful tools to speedup and facilitate research on speech technologies:
-- A completely transparent and customisable trainer ...
+SpeechBrain provides various useful tools to speedup and facilitate research on speech technologies:
+- Trainer ...
 - Multigpu training and inference with PyTorch Data Parallel or Distributed Data Parallel.
 - Mixed-precision for faster training.
+- A transparent and entirely customisable data input and output pipeline. SpeechBrain follows the PyTorch dataloader and dataset style to enable users to precisely define their i/o pipelines by applying different transforms (e.g on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
 
 
 ### Speech recognition
