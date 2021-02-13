@@ -120,7 +120,7 @@ class ASR(sb.Brain):
         else:
             loss = loss_seq
 
-        if stage != sb.Stage.TRAIN or self.batch_idx % 100 == 0:
+        if stage != sb.Stage.TRAIN:
             # Decode token terms to words
             predicted_words = [
                 tokenizer.decode_ids(utt_seq).split(" ")
