@@ -49,6 +49,9 @@ class Sequential(torch.nn.ModuleDict):
     def __init__(self, *layers, input_shape=None, **named_layers):
         super().__init__()
 
+        # Keep track of what layers need "lengths" passed
+        self.length_layers = []
+
         # Replace None dimensions with arbitrary value
         self.input_shape = input_shape
         if input_shape and None in input_shape:
@@ -121,8 +124,8 @@ class Sequential(torch.nn.ModuleDict):
 
         Arguments
         ---------
-        x : tensor
-            the input tensor to run through the network.
+        x : torch.Tensor
+            The input tensor to run through the network.
         """
         for layer in self.values():
             x = layer(x)
@@ -130,6 +133,53 @@ class Sequential(torch.nn.ModuleDict):
                 x = x[0]
 
         return x
+
+
+class LengthCapableSequential(Sequential):
+    """Sequential model that can take ``lengths`` in the forward method.
+
+    This is useful for Sequential models that include RNNs where it is
+    important to avoid padding, or for some feature normalization layers.
+
+    Unfortunately, this module is not jit-able because the compiler doesn't
+    know ahead of time if the length will be passed, and some layers don't
+    accept the length parameter.
+    """
+
+    def forward(self, x, lengths=None):
+        """Applies layers in sequence, passing only the first element of tuples.
+
+        In addition, forward the ``lengths`` argument to all layers that accept
+        a ``lengths`` argument in their ``forward()`` method (e.g. RNNs).
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input tensor to run through the network.
+        lengths : torch.Tensor
+            The relative lengths of each signal in the tensor.
+        """
+        for layer in self.values():
+            if lengths_arg_exists(layer):
+                x = layer(x, lengths=lengths)
+            else:
+                x = layer(x)
+            if isinstance(x, tuple):
+                x = x[0]
+
+        return x
+
+
+def lengths_arg_exists(module):
+    """Returns True if module takes ``lengths`` keyword argument.
+
+    Arguments
+    ---------
+    module : torch.nn.Module
+        Torch module to use for determination.
+    """
+    spec = inspect.getfullargspec(module.forward)
+    return "lengths" in spec.args + spec.kwonlyargs
 
 
 class ModuleList(torch.nn.Module):
