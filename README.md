@@ -14,12 +14,11 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 # Key features
 
-### Feature extraction and augmentation
-SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic features extraction: filter banks can be learnt. This also simplify the training pipeline as speech augmentation can be performed on-the-fly. This facilitate the integration of fully end-to-end encoders directly dealing with the raw waveform.
-- On-the-fly features normalisation (global, sentence, bath or speaker level).
-- On-the-fly environmental corruptions based on noise, reverberation and babble for robust model training.
-- On-the-fly frequency domain and time domain SpecAugment.
+Appart from the task-related features, SpeechBrain provides various useful tools to speedup and facilitate research on speech technologies:
+- A completely transparent and customisable trainer ...
+- Multigpu training and inference with PyTorch Data Parallel or Distributed Data Parallel.
+- Mixed-precision for faster training.
+
 
 ### Speech recognition
 
@@ -31,6 +30,14 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
     - Optimised beam search and greedy decoding significantly faster than existing toolkit at decoding time. Our decoding can be performed both with CPU or GPU.
 - Transducer end-to-end ASR with a custom Numba loss to accelerate the training. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Scheme to simply use a trained ASR model to transcribe an audio file.
+
+### Feature extraction and augmentation
+
+SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
+- On-the-fly and fully-differentiable acoustic features extraction: filter banks can be learnt. This also simplify the training pipeline as speech augmentation can be performed on-the-fly. This facilitate the integration of fully end-to-end encoders directly dealing with the raw waveform.
+- On-the-fly features normalisation (global, sentence, bath or speaker level).
+- On-the-fly environmental corruptions based on noise, reverberation and babble for robust model training.
+- On-the-fly frequency domain and time domain SpecAugment.
 
 ### Speaker recognition, identification and diarization
 SpeechBrain provides different models for speaker recognition, identification and diarization on different datasets:
@@ -50,7 +57,7 @@ Combining multiple microphones is a powerful approach to achieve robustness in a
 SpeechBrain is designed to speed-up research and development of speech technologies. It is modular, flexible, easy-to-customize, and contains several recipes for popular datasets. Documentation and tutorials are here to help newcomers using SpeechBrain.
 
 ### Under development
-We currently are working towards integrating DNN-HMM for speech recognition, speech translation, and machine translation.
+We currently are working towards integrating DNN-HMM for speech recognition and machine translation.
 
 # Quick installation
 
