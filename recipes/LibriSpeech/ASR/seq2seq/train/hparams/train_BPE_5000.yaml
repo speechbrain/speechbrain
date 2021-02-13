@@ -5,7 +5,7 @@
 # Tokens: BPE with unigram
 # losses: CTC+ NLL
 # Training: Librispeech 960h
-# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 
+# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell
 #           Sung-Lin Yeh 2020
 # ############################################################################
 
@@ -58,8 +58,8 @@ valid_dataloader_opts:
    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: 1 
- 
+   batch_size: 1
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
@@ -91,8 +91,9 @@ test_beam_size: 40
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
-lm_weight: 0.60
+lm_weight: 0.70
 ctc_weight_decode: 0.30
+ctc_window_size: 100
 coverage_penalty: 1.5
 temperature: 1.0
 temperature_lm: 1.0
@@ -209,7 +210,7 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    coverage_penalty: !ref <coverage_penalty>
    temperature: !ref <temperature>
 
-test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
+test_search: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
    embedding: !ref <emb>
    decoder: !ref <dec>
    linear: !ref <seq_lin>
@@ -227,6 +228,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
    coverage_penalty: !ref <coverage_penalty>
    lm_weight: !ref <lm_weight>
    ctc_weight: !ref <ctc_weight_decode>
+   ctc_window_size: !ref <ctc_window_size>
    temperature: !ref <temperature>
    temperature_lm: !ref <temperature_lm>
 
