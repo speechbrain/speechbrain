@@ -1,4 +1,4 @@
-"""PyTorch compatible samplers
+"""PyTorch compatible samplers.
 
 These determine the order of iteration through a dataset.
 
@@ -19,8 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class ReproducibleRandomSampler(RandomSampler):
-    """
-    A modification of RandomSampler which always returns the same values.
+    """A modification of RandomSampler which always returns the same values.
 
     Also look at `torch.utils.data.RandomSampler`. This has mostly
     the same behaviour and arguments, except for adding 'seed' and 'epoch' and
@@ -100,8 +99,8 @@ class ReproducibleRandomSampler(RandomSampler):
 
 
 class ConcatDatasetBatchSampler(Sampler):
-    """
-    This sampler is built to work with a standard Pytorch ConcatDataset.
+    """This sampler is built to work with a standard Pytorch ConcatDataset.
+
     It is used to retrieve elements from the different concatenated datasets placing them in the same batch
     with proportion specified by batch_sizes, e.g 8, 16 means each batch will
     be of 24 elements with the first 8 belonging to the first dataset in ConcatDataset
@@ -122,7 +121,7 @@ class ConcatDatasetBatchSampler(Sampler):
         The base seed to use for the random number generator. It is recommended
         to use a value which has a good mix of 0 and 1 bits.
     batch_sizes: list
-
+        Batch sizes.
     epoch : int
         The epoch to start at.
 
@@ -185,9 +184,8 @@ class ConcatDatasetBatchSampler(Sampler):
                 yield batch
 
     def set_epoch(self, epoch):
-        """
-        You can also just access self.epoch, but we maintain this interface
-        to mirror torch.utils.data.distributed.DistributedSampler
+        """You can also just access self.epoch, but we maintain this interface
+        to mirror ``torch.utils.data.distributed.DistributedSampler``.
         """
         if hasattr(self.samplers[0], "epoch"):
             for s in self.samplers:
@@ -222,8 +220,8 @@ class ConcatDatasetBatchSampler(Sampler):
 
 
 class DynamicBatchSampler(Sampler):
-    """
-    This BatchSampler batches examples together by grouping them by their length.
+    """This BatchSampler batches examples together by grouping them by their length.
+
     Every example in the batch have approximatively the same length and
     thus padding is minimized.
     This enables faster training on datasets
@@ -232,7 +230,7 @@ class DynamicBatchSampler(Sampler):
 
     Dynamic batching is performed by specifying a max_batch_length which is the
     upper limit for the sum of the length of examples in a batch:
-    e.g. if ex1 has length 4, ex2 length 5 andn if max_batch_length is set to 6
+    e.g., if ex1 has length 4, ex2 length 5 andn if max_batch_length is set to 6
     ex1 and ex2 will be placed, alone, in two distinct batches.
 
     Length for each example can be obtained in two manners.
@@ -245,7 +243,7 @@ class DynamicBatchSampler(Sampler):
     Examples are grouped together by defining a set of possible discrete intervals
     (buckets) multiple of a left_bucket_length.
     A bucket_length_multiplier is used to specify the number of possible buckets.
-    E.g. if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
+    E.g., if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
     there will be 3 buckets: [0, 10), [10, 20), [20, 40).
     A common choice would be setting left_bucket_length to approximatively the length
     of your shortest example in the dataset.
@@ -259,7 +257,6 @@ class DynamicBatchSampler(Sampler):
 
     The buckets can also be specified by passing a list to the bucket_boundaries
     argument instead of specifying a left_bucket_length and a bucket_length_multiplier.
-
 
     Example
     -------
@@ -474,6 +471,7 @@ class DynamicBatchSampler(Sampler):
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
     """This wrapper allows using any sampler with Distributed Data Parallel (DDP) correctly.
+
         Passing blindly the sampler to each DDP process will cause to have access
         within each process to all the data in the dataset instead of only a
         subset of it which is unique to each process.
