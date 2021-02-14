@@ -104,10 +104,7 @@ class LM(torch.nn.Module):
 
     def forward(self, x, hx=None):
         """Compute the LM probabilities given and encoded input."""
-        try:
-            pout = self.model.forward(x, hx)
-        except Exception:
-            pout = self.model.forward(x)
+        pout = self.model.forward(x, hx)
         return pout
 
     def load_lm(self):
