@@ -54,22 +54,7 @@ class ASR(sb.Brain):
                 # Output layer for ctc log-probabilities
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
-
-                ###########
-                if self.batch_idx % 100 == 0:
-                    argmax = logits[0].detach().max(dim=1)[1]
-                    collapsed = [c for c in argmax.tolist() if c != 0]
-                    ctc_decoded = "".join(
-                        tokenizer.decode_ids(collapsed).split(" ")
-                    )
-                    print("CTC output: " + ctc_decoded)
-
-                    p_tokens, scores = self.hparams.beam_search(x, wav_lens)
-                    return p_ctc, p_seq, wav_lens, p_tokens
-                ###########
-
-                else:
-                    return p_ctc, p_seq, wav_lens
+                return p_ctc, p_seq, wav_lens
             else:
                 return p_seq, wav_lens
         else:
@@ -82,10 +67,7 @@ class ASR(sb.Brain):
         current_epoch = self.hparams.epoch_counter.current
         if stage == sb.Stage.TRAIN:
             if current_epoch <= self.hparams.number_of_ctc_epochs:
-                if self.batch_idx % 100 == 0:
-                    p_ctc, p_seq, wav_lens, predicted_tokens = predictions
-                else:
-                    p_ctc, p_seq, wav_lens = predictions
+                p_ctc, p_seq, wav_lens = predictions
             else:
                 p_seq, wav_lens = predictions
         else:
@@ -127,12 +109,11 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
-            print("seq2seq output: " + "".join(predicted_words[0]))
-            print("true output: " + "".join(target_words[0]))
-            print("")
+            if self.hparams.remove_spaces:
+                predicted_words = ["".join(p) for p in predicted_words]
+                target_words = ["".join(t) for t in target_words]
 
         if stage != sb.Stage.TRAIN:
-            self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
@@ -160,7 +141,6 @@ class ASR(sb.Brain):
         self.batch_idx = 0
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
-            self.wer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -170,11 +150,10 @@ class ASR(sb.Brain):
             self.train_stats = stage_stats
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
-            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
+            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["CER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
@@ -182,15 +161,15 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"CER": stage_stats["CER"]}, min_keys=["CER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            with open(self.hparams.cer_file, "w") as w:
+                self.cer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):
@@ -323,8 +302,8 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.hparams.wer_file = os.path.join(
-        hparams["output_folder"], "wer_test.txt"
+    asr_brain.hparams.cer_file = os.path.join(
+        hparams["output_folder"], "cer_test.txt"
     )
     asr_brain.evaluate(
         test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
