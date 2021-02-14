@@ -374,7 +374,7 @@ class Brain:
         distributed_count (int)
             Number of devices to run on.
         distributed_backend (str)
-            One of ``ddp_nccl``, ``ddp_gloo``, ``ddp_mpi``, ``data_parallel``
+            One of ``ddp_nccl``, ``ddp_gloo``, ``ddp_mpi``, ``data_parallel``.
         device (str)
             The location for performing computations.
         auto_mix_prec (bool)
@@ -631,7 +631,7 @@ class Brain:
         NOTE
         ----
         Some important DataLoader arguments are passed via **loader_kwargs,
-        e.g., batch_size, num_workers, pin_memory
+        e.g., batch_size, num_workers, pin_memory.
 
         NOTE
         ----
@@ -655,7 +655,7 @@ class Brain:
             save the DataLoader.
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
-            E.g., batch_size, num_workers, pin_memory
+            E.g., batch_size, num_workers, pin_memory.
         """
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
