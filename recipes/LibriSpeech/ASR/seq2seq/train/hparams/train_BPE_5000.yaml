@@ -32,7 +32,7 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-train_csv: !ref <data_folder>/test-clean.csv  #train.csv
+train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
    - !ref <data_folder>/test-clean.csv
