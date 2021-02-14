@@ -11,8 +11,8 @@
 
 seed: 1
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/bigger_batch_more_epochs/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_folder: !ref results/base/<seed>
+cer_file: !ref <output_folder>/cer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -20,9 +20,6 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: /localscratch/aishell # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-#train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-#dev_splits: ["dev-clean"]
-#test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <data_folder>/train.csv
@@ -30,7 +27,7 @@ valid_csv: !ref <data_folder>/dev.csv
 test_csv: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 40
 number_of_ctc_epochs: 10
 batch_size: 16
 lr: 0.0003
@@ -96,6 +93,17 @@ max_attn_shift: 240
 ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
+
+# AISHELL-1 has spaces between words in the transcripts,
+# which Chinese writing normally does not do.
+# If remove_spaces, spaces are removed
+# from the transcript before computing CER.
+# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
+remove_spaces: True
+split_tokens: False
+# split_tokens must be the inverse of remove_spaces.
+# TODO: do "not !ref <remove_spaces>" instead of hardcoding
+# (doesn't work in HyperPyYAML at the moment)
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -227,7 +235,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <train_log>
 
-error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-   split_tokens: True
+   split_tokens: !ref <split_tokens>
