@@ -15,6 +15,7 @@ import tqdm
 import pathlib
 import speechbrain as sb
 import re
+import huggingface_hub
 
 
 def undo_padding(batch, lengths):
@@ -310,6 +311,42 @@ def download_file(
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
                 shutil.unpack_archive(dest, dest_unpack)
+    finally:
+        sb.utils.distributed.ddp_barrier()
+
+def download_from_huggingface(
+    model_name, source, dest, save_filename
+):
+    """ Downloads a model from HuggingFace and saves it in a specific directory.
+
+     Arguments
+    ---------
+    model_name : str
+        HuggingFace model name (to be found on the SpeechBrain HuggingFace
+        organization).
+    source : str
+        Path of the checkpoint file within the HuggingFace model directory.
+    dest : str
+        Destination path.
+    save_filename : str
+        Downloaded file new name.
+    """
+    try:
+        if sb.utils.distributed.if_main_process():
+
+            # Create the destination directory if it doesn't exist
+            dest_dir = pathlib.Path(dest).resolve().parent
+            dest_dir.mkdir(parents=True, exist_ok=True)
+
+            url = huggingface_hub.hf_hub_url(model_name, source)
+            pretrained_model = huggingface_hub.cached_download(
+                url,
+                cache_dir=dest
+            )
+
+            # TO FIX: rename because HuggingFace only provides cache names ..
+            os.rename(pretrained_model, os.path.join(dest,save_filename))
+
     finally:
         sb.utils.distributed.ddp_barrier()
 
