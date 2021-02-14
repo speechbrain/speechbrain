@@ -21,7 +21,7 @@ train_log: !ref <output_folder>/train_log.txt
 # NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
 # for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
 # # object. In this case, it is based on 1000 tokens.
-lm_hparam_file: ../../LM/pretrained/hparams/pretrained_transformer_BPE5000.yaml
+lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_transformer_BPE5000.yaml
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -32,7 +32,7 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-train_csv: !ref <data_folder>/train.csv
+train_csv: !ref <data_folder>/test-clean.csv  #train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
    - !ref <data_folder>/test-clean.csv
@@ -185,6 +185,7 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 # Models
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
    hparams_file: !ref <lm_hparam_file>
+   save_folder: !ref <save_folder>
 
 modules:
    enc: !ref <enc>
