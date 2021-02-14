@@ -1,5 +1,4 @@
-"""
-Decoders and output normalization for CTC
+"""Decoders and output normalization for CTC.
 
 Authors
  * Mirco Ravanelli 2020
@@ -12,8 +11,7 @@ from speechbrain.dataio.dataio import length_to_mask
 
 
 class CTCPrefixScorer:
-    """
-    This class implements the CTC prefix scorer of Algorithm 2 in
+    """This class implements the CTC prefix scorer of Algorithm 2 in
     reference: https://www.merl.com/publications/docs/TR2017-190.pdf.
     Official implementation: https://github.com/espnet/espnet/blob/master/espnet/nets/ctc_prefix_score.py
 
@@ -234,13 +232,11 @@ class CTCPrefixScorer:
         return psi - psi_prev, (r, psi, scoring_table)
 
     def permute_mem(self, memory, index):
-        """
-        This method permutes the CTC model memory
+        """This method permutes the CTC model memory
         to synchronize the memory index with the current output.
 
         Arguments
         ---------
-
         memory : No limit
             The memory variable to be permuted.
         index : torch.Tensor
@@ -292,18 +288,18 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
     Removes the blank symbol and output repetitions.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     string_pred : list
-        a list containing the output strings/ints predicted by the CTC system
+        A list containing the output strings/ints predicted by the CTC system.
     blank_id : int, string
-        the id of the blank
+        The id of the blank.
 
     Returns
     -------
     list
         The output predicted by CTC without the blank symbol and
-        the repetitions
+        the repetitions.
 
     Example
     -------
@@ -332,18 +328,17 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
 
 def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
-    """
-    Greedy decode a batch of probabilities and apply CTC rules
+    """Greedy decode a batch of probabilities and apply CTC rules.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     probabilities : torch.tensor
         Output probabilities (or log-probabilities) from the network with shape
         [batch, probabilities, time]
     seq_lens : torch.tensor
         Relative true sequence lengths (to deal with padded inputs),
         the longest sequence has length 1.0, others a value between zero and one
-        shape [batch, lengths]
+        shape [batch, lengths].
     blank_id : int, string
         The blank symbol/index. Default: -1. If a negative number is given,
         it is assumed to mean counting down from the maximum possible index,
