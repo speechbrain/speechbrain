@@ -15,26 +15,26 @@ logger = logging.getLogger(__name__)
 
 
 def run_shell(cmd):
-    r"""This function can be used to run a command in the bash shell
+    r"""This function can be used to run a command in the bash shell.
 
     Arguments
     ---------
     cmd : str
-        shell command to run
+        Shell command to run.
 
     Returns
     -------
     bytes
-        the captured standard output
+        The captured standard output.
     bytes
-        the captured standard error
+        The captured standard error.
     int
-        the returncode
+        The returncode.
 
     Raises
     ------
     OSError
-        If returncode is not 0, i.e. command failed
+        If returncode is not 0, i.e., command failed.
 
     Example
     -------
