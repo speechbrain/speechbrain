@@ -125,12 +125,12 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
    label_smoothing: 0.1
 
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-    overrides: {'device': !ref <device>}
-    hparams_file: !ref <lm_hparam_file>
-    save_folder: !ref <save_folder>
+   overrides: {'device': !ref <device>}
+   hparams_file: !ref <lm_hparam_file>
+   save_folder: !ref <save_folder>
 
 asr_model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+   - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
    embedding: !ref <emb>
@@ -156,10 +156,10 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
 
 
 modules:
-    compute_features: !ref <compute_features>
-    normalize: !ref <normalize>
-    asr_model: !ref <asr_model>
-    asr_encoder: !ref <enc>
-    asr_decoder: !ref <dec>
-    lm_model: !ref <lm_model>
-    beam_searcher: !ref <beam_searcher>
+   compute_features: !ref <compute_features>
+   normalize: !ref <normalize>
+   asr_model: !ref <asr_model>
+   asr_encoder: !ref <enc>
+   asr_decoder: !ref <dec>
+   lm_model: !ref <lm_model>
+   beam_searcher: !ref <beam_searcher>
