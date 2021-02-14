@@ -6,8 +6,8 @@
 # ############################################################################
 
 save_folder: pretrained_models
-lm_ckpt_file: /miniscratch/ravanelm/brian_model/results/LSTMP_BPE_5000_ENV/16/save/lm_model.ckpt #https://www.dropbox.com/s/x5czm16p66c1i2g/lm_model.ckpt?dl=1 # update
-tokenizer_file: /miniscratch/ravanelm/brian_model/results/LSTMP_BPE_5000_ENV/16/save/tok_unigram.model #https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 #update
+lm_ckpt_file: https://www.dropbox.com/s/yqsod62r16lo5lu/lm_model.ckpt?dl=1
+tokenizer_file: https://www.dropbox.com/s/j5u6e62tc9tl78a/tok_unigram.model?dl=1
 device: 'cuda:0'
 
 # Model params
