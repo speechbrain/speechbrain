@@ -1,9 +1,9 @@
-"""WER print functions
+"""WER print functions.
 
 The functions here are used to print the computed statistics
 with human-readable formatting.
 They have a file argument, but you can also just use
-contextlib.redirect_stdout, which may give a nicer syntax
+contextlib.redirect_stdout, which may give a nicer syntax.
 
 Authors
  * Aku Rouhe 2020
@@ -15,7 +15,7 @@ from speechbrain.utils import edit_distance
 def print_wer_summary(wer_details, file=sys.stdout):
     """Prints out WER summary details in human-readable format.
 
-    This function essentially mirrors the Kaldi compute-wer output format
+    This function essentially mirrors the Kaldi compute-wer output format.
 
     Arguments
     ---------
@@ -24,7 +24,7 @@ def print_wer_summary(wer_details, file=sys.stdout):
         see ``speechbrain.utils.edit_distance.wer_summary``
         for format.
     file : stream
-        Where to write. By default: sys.stdout
+        Where to write. (default: sys.stdout)
     """
     print(
         "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
@@ -56,7 +56,7 @@ def print_wer_summary(wer_details, file=sys.stdout):
 def print_alignments(
     details_by_utterance, file=sys.stdout, empty_symbol="<eps>", separator=" ; "
 ):
-    """Print WER summary and alignments
+    """Print WER summary and alignments.
 
     Arguments
     ---------
@@ -65,9 +65,9 @@ def print_alignments(
         see ``speechbrain.utils.edit_distance.wer_details_by_utterance``
         for format. Has to have alignments included.
     file : stream
-        Where to write. By default: sys.stdout
+        Where to write. (default: sys.stdout)
     empty_symbol : str
-        Symbol to use when aligning to nothing
+        Symbol to use when aligning to nothing.
     separator : str
         String that separates each token in the output. Note the spaces in the
         default.
@@ -90,8 +90,6 @@ def print_alignments(
 
 # The following internal functions are used to
 # print out more specific things
-
-
 def _print_top_wer_utts(top_non_empty, top_empty, file=sys.stdout):
     print("=" * 80, file=file)
     print("UTTERANCES WITH HIGHEST WER", file=file)
