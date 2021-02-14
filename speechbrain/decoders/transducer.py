@@ -43,7 +43,7 @@ class TransducerBeamSearcher(torch.nn.Module):
 
     Example
     -------
-    >>> searcher = TransducerBeamSearcher(
+    searcher = TransducerBeamSearcher(
         decode_network_lst=[hparams["emb"], hparams["dec"]],
         tjoint=hparams["Tjoint"],
         classifier_network=[hparams["transducer_lin"]],
@@ -54,7 +54,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         lm_weight=hparams["lm_weight"],
         state_beam=2.3,
         expand_beam=2.3,
-        )
+    )
     >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
     >>> import speechbrain as sb
     >>> emb = sb.nnet.embedding.Embedding(
