@@ -5,7 +5,7 @@ things: the model parameters, optimizer parameters, what epoch is this, etc.
 The save format for a checkpoint is a directory, where each of these separate
 saveable things gets its own file. Additionally, a special file holds meta
 information about the checkpoint (by default just time of creation, but you
-can specify anything else you may wish, e.g. validation loss)
+can specify anything else you may wish, e.g. validation loss).
 
 The interface for the checkpoint system requires you to specify what things to
 save. This approach is flexible and agnostic of how your experiment is actually
@@ -75,9 +75,9 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
     Arguments
     ---------
     obj : torch.nn.Module
-        Instance for which to load the parameters
+        Instance for which to load the parameters.
     path : str, pathlib.Path
-        Path where to load from
+        Path where to load from.
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
     device : str
@@ -86,7 +86,7 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
     Returns
     -------
     None
-        Given object is modified in place
+        Given object is modified in place.
     """
     del end_of_epoch  # Unused
     try:
@@ -104,9 +104,9 @@ def torch_save(obj, path):
     Arguments
     ---------
     obj : torch.nn.Module
-        Instance to save
+        Instance to save.
     path : str, pathlib.Path
-        Path where to save to
+        Path where to save to.
 
     Returns
     -------
@@ -133,7 +133,7 @@ DEFAULT_SAVE_HOOKS = {
 def mark_as_saver(method):
     """Method decorator which marks given method as the checkpoint saving hook.
 
-    See register_checkpoint_hooks for example
+    See register_checkpoint_hooks for example.
 
     Arguments
     ---------
@@ -186,7 +186,7 @@ def mark_as_loader(method):
 
 
 def register_checkpoint_hooks(cls):
-    """Class decorator which registers the recover load and save hooks
+    """Class decorator which registers the recover load and save hooks.
 
     The hooks must have been marked with mark_as_loader and mark_as_saver.
 
@@ -228,16 +228,16 @@ def register_checkpoint_hooks(cls):
 def get_default_hook(obj, default_hooks):
     """Finds the default save/load hook to use with the given object.
 
-    Follows the Method Resolution Order, i.e. if no hook is registered for
+    Follows the Method Resolution Order, i.e., if no hook is registered for
     the class of the object itself, also searches classes which the object
     inherits from.
 
     Arguments
     ---------
     obj : instance
-        Instance of a class
+        Instance of a class.
     default_hooks : dict
-        Mapping from classes to (checkpointing hook) functions
+        Mapping from classes to (checkpointing hook) functions.
 
     Returns
     -------
@@ -274,7 +274,7 @@ Checkpoint.__hash__ = lambda self: hash(self.path)
 
 
 def ckpt_recency(ckpt):
-    """Recency as Checkpoint importance metric
+    """Recency as Checkpoint importance metric.
 
     This function can also act as an example of how to make checkpoint
     importance keyfuncs. This is a named function, but as you can see
@@ -302,7 +302,7 @@ class Checkpointer:
         Sets a custom loading hook for a particular object. The
         function/method must be callable with signature (instance, path)
         using positional arguments. This is satisfied by for example:
-        `def loader(self, path)`
+        `def loader(self, path)`.
     custom_save_hooks : mapping, optional
         Mapping from name [same as in recoverables] to function or method.
         Sets a custom saving hook for a particular object. The
@@ -310,11 +310,10 @@ class Checkpointer:
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
     allow_partial_load : bool, optional
-        default: False
         If True, allows loading a checkpoint where a savefile is not found
         for every registered recoverable. In that case, only the found
         savefiles are loaded. When False, loading such a save will raise
-        RuntimeError.
+        RuntimeError. (default: False)
 
     Example
     -------
@@ -372,7 +371,7 @@ class Checkpointer:
         name : str
             Unique name for recoverable. Used to map savefiles to objects.
         obj : instance
-            The object to recover
+            The object to recover.
         custom_load_hook : callable
             Called to load the object's savefile. The function/method must be
             callable with signature (instance, path) using positional
@@ -441,7 +440,7 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            namedtuple [see above], the saved checkpoint
+            namedtuple [see above], the saved checkpoint.
         """
         if name is None:
             ckpt_dir = self._new_checkpoint_dirpath()
@@ -486,7 +485,7 @@ class Checkpointer:
         ckpt_predicate=None,
         verbosity=logging.INFO,
     ):
-        """Saves a checkpoint, then deletes the least important checkpoints
+        """Saves a checkpoint, then deletes the least important checkpoints.
 
         Essentially this combines ``save_checkpoint()`` and
         ``delete_checkpoints()`` in one call, providing short syntax.
@@ -505,7 +504,7 @@ class Checkpointer:
             a name is created from a timestamp and a random unique id.
         num_to_keep : int, optional
             Number of checkpoints to keep. Defaults to 1. This deletes all
-            checkpoints remaining after filtering. Must be >=0
+            checkpoints remaining after filtering. Must be >=0.
         keep_recent : bool, optional
             Whether to keep the most recent ``num_to_keep`` checkpoints.
         importance_keys : list, optional
@@ -584,9 +583,9 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            if found
+            If found.
         None
-            if no Checkpoints exist/remain after filtering
+            If no Checkpoints exist/remain after filtering.
         """
         ckpts_found = self.find_checkpoints(
             importance_key=importance_key,
@@ -639,7 +638,7 @@ class Checkpointer:
         Returns
         -------
         list
-            List containing at most the max specified number of Checkpoints
+            List containing at most the max specified number of Checkpoints.
 
         """
         if importance_key is None and min_key is None and max_key is None:
@@ -731,9 +730,9 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            if found
+            If found.
         None
-            if no Checkpoints exist/remain after filtering
+            If no Checkpoints exist/remain after filtering.
         """
         chosen_ckpt = self.find_checkpoint(
             importance_key, max_key, min_key, ckpt_predicate,
@@ -750,7 +749,7 @@ class Checkpointer:
         Arguments
         ---------
         checkpoint : Checkpoint
-            Checkpoint to load
+            Checkpoint to load.
         """
         self._call_load_hooks(checkpoint, device)
 
@@ -760,7 +759,7 @@ class Checkpointer:
         Returns
         -------
         list
-            list of Checkpoint namedtuple (see above)
+            List of Checkpoint namedtuple (see above).
         """
         return self._construct_checkpoint_objects(self._list_checkpoint_dirs())
 
@@ -960,8 +959,7 @@ class Checkpointer:
 
 
 def average_state_dicts(state_dicts):
-    """
-    Produces an average state_dict from an iterator over state_dicts.
+    """Produces an average state_dict from an iterator over state_dicts.
 
     Note that at one time, this keeps two of the state_dicts in memory, which
     is the minimum memory requirement.
@@ -974,7 +972,7 @@ def average_state_dicts(state_dicts):
     Returns
     -------
     state_dict
-        The averaged state_dict
+        The averaged state_dict.
     """
     iterator = iter(state_dicts)
     try:
@@ -1000,8 +998,7 @@ def average_checkpoints(
     parameter_loader=torch.load,
     averager=average_state_dicts,
 ):
-    """
-    Average parameters from multiple checkpoints.
+    """Average parameters from multiple checkpoints.
 
     Use Checkpointer.find_checkpoints() to get the list of checkpoints to
     average over.
