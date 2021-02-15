@@ -142,11 +142,14 @@ def test_MIMO_pipeline():
     )
     assert result["double_concat"] == "abcdefabcdef"
     assert "concat" not in result
+
+    # Add messenger but not provider, so "hello-world" is unaccounted for:
     pipeline.add_dynamic_item(messenger)
     with pytest.raises(RuntimeError):
         pipeline.compute_specific(
             ["message"], {"text": "abc", "other-text": "def"}
         )
+    # Now add provider, so that the unaccounted for hello-world key gets accounted for.
     pipeline.add_dynamic_item(provider)
     result = pipeline.compute_specific(
         ["message"], {"text": "abc", "other-text": "def"}

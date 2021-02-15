@@ -9,6 +9,7 @@ import torch
 import collections
 import itertools
 import logging
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,16 @@ DEFAULT_BLANK = "<blank>"
 
 
 class CategoricalEncoder:
-    """
-    Encode labels of a discrete set.
-    Used for encoding e.g. speaker identities in speaker recognition.
+    """Encode labels of a discrete set.
+
+    Used for encoding, e.g., speaker identities in speaker recognition.
     Given a collection of hashables (e.g a strings) it encodes
     every unique item to an integer value: ["spk0", "spk1"] --> [0, 1]
     Internally the correspondence between each label to its index is handled by
     two dictionaries: lab2ind and ind2lab.
 
     The label integer encoding can be generated automatically from a SpeechBrain
-    DynamicItemDataset by specifying the desired entry (e.g. spkid) in the annotation
+    DynamicItemDataset by specifying the desired entry (e.g., spkid) in the annotation
     and calling update_from_didataset method:
 
     >>> from speechbrain.dataio.encoder import CategoricalEncoder
@@ -42,6 +43,7 @@ class CategoricalEncoder:
     >>> assert len(encoder) == len(dataset) # different speaker for each utterance
 
     However can also be updated from an iterable:
+
     >>> from speechbrain.dataio.encoder import CategoricalEncoder
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
     >>> dataset = ["spk{}".format(x) for x in range(20)]
@@ -49,9 +51,12 @@ class CategoricalEncoder:
     >>> encoder.update_from_iterable(dataset)
     >>> assert len(encoder) == len(dataset)
 
-    Note: in both methods it can be specified it the single element in the iterable
+    Note
+    ----
+    In both methods it can be specified it the single element in the iterable
     or in the dataset should be treated as a sequence or not (default False).
     If it is a sequence each element in the sequence will be encoded.
+
 
     >>> from speechbrain.dataio.encoder import CategoricalEncoder
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
@@ -96,6 +101,7 @@ class CategoricalEncoder:
     >>> encoder.decode_torch(encoded)
     [['spk1', 'spk19'], ['spk1', 'spk19'], ['spk1', 'spk19']]
     >>>
+
     In some applications, it can happen that during testing a label which has not
     been encountered during training is encountered. To handle this out-of-vocabulary
     problem add_unk can be used. Every out-of-vocab label is mapped to this special
@@ -116,7 +122,6 @@ class CategoricalEncoder:
 
     This class offers also methods to save and load the internal mappings between
     labels and tokens using: save and load methods as well as load_or_create.
-
     """
 
     VALUE_SEPARATOR = " => "
@@ -155,7 +160,7 @@ class CategoricalEncoder:
             Input sequence on which to operate.
         sequence_input : bool
             Whether iterable yields sequences of labels or individual labels
-            directly. False by default.
+            directly. (default False)
         """
         if sequence_input:
             label_iterator = itertools.chain.from_iterable(iterable)
@@ -167,7 +172,7 @@ class CategoricalEncoder:
     def update_from_didataset(
         self, didataset, output_key, sequence_input=False
     ):
-        """Update from DynamicItemDataset
+        """Update from DynamicItemDataset.
 
         Arguments
         ---------
@@ -243,21 +248,28 @@ class CategoricalEncoder:
         """Convenient syntax for creating the encoder conditionally
 
         This pattern would be repeated in so many experiments that
-        we decided to add a convenient shortcut for it here.
+        we decided to add a convenient shortcut for it here. The
+        current version is multi-gpu (DDP) safe.
         """
-        if not self.load_if_possible(path):
-            for iterable in from_iterables:
-                self.update_from_iterable(iterable, sequence_input)
-            for didataset in from_didatasets:
-                if output_key is None:
-                    raise ValueError(
-                        "Provide an output_key for " "DynamicItemDataset"
-                    )
-                self.update_from_didataset(
-                    didataset, output_key, sequence_input
-                )
-            self.handle_special_labels(special_labels)
-            self.save(path)
+        try:
+            if sb.utils.distributed.if_main_process():
+                if not self.load_if_possible(path):
+                    for iterable in from_iterables:
+                        self.update_from_iterable(iterable, sequence_input)
+                    for didataset in from_didatasets:
+                        if output_key is None:
+                            raise ValueError(
+                                "Provide an output_key for "
+                                "DynamicItemDataset"
+                            )
+                        self.update_from_didataset(
+                            didataset, output_key, sequence_input
+                        )
+                    self.handle_special_labels(special_labels)
+                    self.save(path)
+        finally:
+            sb.utils.distributed.ddp_barrier()
+            self.load(path)
 
     def add_label(self, label):
         """Add new label to the encoder, at the next free position.
@@ -359,7 +371,7 @@ class CategoricalEncoder:
             self.ind2lab[new_index] = saved_label
 
     def add_unk(self, unk_label=DEFAULT_UNK):
-        """Add label for unknown tokens (out-of-vocab)
+        """Add label for unknown tokens (out-of-vocab).
 
         When asked to encode unknown labels, they can be mapped to this.
 
@@ -446,7 +458,7 @@ class CategoricalEncoder:
                 )
 
     def encode_label_torch(self, label, allow_unk=True):
-        """Encode label to torch.LongTensor
+        """Encode label to torch.LongTensor.
 
         Arguments
         ---------
@@ -457,7 +469,7 @@ class CategoricalEncoder:
         -------
         torch.LongTensor
             Corresponding encoded int value.
-            Tensor shape [1]
+            Tensor shape [1].
         """
         return torch.LongTensor([self.encode_label(label, allow_unk)])
 
@@ -472,7 +484,7 @@ class CategoricalEncoder:
         Returns
         -------
         list
-            Corresponding integer labels
+            Corresponding integer labels.
         """
         return [self.encode_label(label, allow_unk) for label in sequence]
 
@@ -487,8 +499,8 @@ class CategoricalEncoder:
         Returns
         -------
         torch.LongTensor
-            Corresponding integer labels
-            Tensor shape [len(sequence)]
+            Corresponding integer labels.
+            Tensor shape [len(sequence)].
         """
         return torch.LongTensor(
             [self.encode_label(label, allow_unk) for label in sequence]
@@ -562,7 +574,7 @@ class CategoricalEncoder:
         self._save_literal(path, self.lab2ind, extras)
 
     def load(self, path):
-        """Loads from the given path
+        """Loads from the given path.
 
         CategoricalEncoder uses a Python literal format, which supports things
         like tuple labels, but is considered safe to load (unlike e.g. pickle).
@@ -725,6 +737,7 @@ class TextEncoder(CategoricalEncoder):
     >>> encoder.encode_sequence(["this", "out-of-vocab"])
     [1, 5]
     >>>
+
     Two methods can be used to add <bos> and <eos> to the internal dicts:
     insert_bos_eos, add_bos_eos.
 
@@ -753,7 +766,7 @@ class TextEncoder(CategoricalEncoder):
     ['foo', 'bar', '<eos>']
 
     prepend_bos_index and append_eos_index add respectively the <bos> and <eos>
-    indexes to the input encoded sequence
+    indexes to the input encoded sequence.
 
     >>> words = ["foo", "bar"]
     >>> encoded = encoder.encode_sequence(words)
@@ -779,11 +792,11 @@ class TextEncoder(CategoricalEncoder):
             raise TypeError("Only BOS or EOS specified. Need both for init.")
 
     def update_from_iterable(self, iterable, sequence_input=True):
-        """Change default for sequence_input to True"""
+        """Change default for sequence_input to True."""
         return super().update_from_iterable(iterable, sequence_input)
 
     def update_from_didataset(self, didataset, output_key, sequence_input=True):
-        """Change default for sequence_input to True"""
+        """Change default for sequence_input to True."""
         return super().update_from_didataset(
             didataset, output_key, sequence_input
         )
@@ -791,7 +804,7 @@ class TextEncoder(CategoricalEncoder):
     def limited_labelset_from_iterable(
         self, iterable, sequence_input=True, n_most_common=None, min_count=1
     ):
-        """Change default for sequence_input to True"""
+        """Change default for sequence_input to True."""
         return super().limited_labelset_from_iterable(
             iterable, sequence_input=True, n_most_common=None, min_count=1
         )
@@ -799,7 +812,7 @@ class TextEncoder(CategoricalEncoder):
     def add_bos_eos(
         self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS,
     ):
-        """Add sentence boundary markers in the label set
+        """Add sentence boundary markers in the label set.
 
         If the beginning-of-sentence and end-of-sentence markers
         are the same, will just use one sentence-boundary label.
@@ -810,7 +823,7 @@ class TextEncoder(CategoricalEncoder):
         Arguments
         ---------
         bos_label : hashable
-            Beginning-of-sentence label, any label
+            Beginning-of-sentence label, any label.
         eos_label : hashable
             End-of-sentence label, any label. If set to the same label as
             bos_label, will just use one sentence-boundary label.
@@ -896,7 +909,7 @@ class TextEncoder(CategoricalEncoder):
         return [self.lab2ind[self.bos_label]] + list(x)
 
     def append_eos_label(self, x):
-        """Returns a list version of x, with EOS appended"""
+        """Returns a list version of x, with EOS appended."""
         if not hasattr(self, "eos_label"):
             raise KeyError("EOS label has not been added to label set!")
         return list(x) + [self.eos_label]
@@ -964,23 +977,23 @@ class CTCTextEncoder(TextEncoder):
             self.insert_blank(special_labels["blank_label"])
 
     def add_blank(self, blank_label=DEFAULT_BLANK):
-        """Add blank symbol to labelset"""
+        """Add blank symbol to labelset."""
         self.add_label(blank_label)
         self.blank_label = blank_label
 
     def insert_blank(self, blank_label=DEFAULT_BLANK, index=0):
-        """Insert blank symbol at a given labelset"""
+        """Insert blank symbol at a given labelset."""
         self.insert_label(blank_label, index)
         self.blank_label = blank_label
 
     def get_blank_index(self):
-        """Returns the index to which blank encodes"""
+        """Returns the index to which blank encodes."""
         if not hasattr(self, "blank_label"):
             raise RuntimeError("Blank label is not set!")
         return self.encode_label(self.blank_label)
 
     def collapse_labels(self, x, merge_repeats=True):
-        """Applies the CTC collapsing rules on one label sequence
+        """Applies the CTC collapsing rules on one label sequence.
 
         Arguments
         ---------
@@ -1010,7 +1023,7 @@ class CTCTextEncoder(TextEncoder):
             return [label for label in x if label != self.blank_label]
 
     def collapse_indices_ndim(self, x, merge_repeats=True):
-        """Applies the CTC collapsing rules on arbitrarily label sequence
+        """Applies the CTC collapsing rules on arbitrarily label sequence.
 
         Arguments
         ---------
