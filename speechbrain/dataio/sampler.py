@@ -10,7 +10,12 @@ Authors:
 import torch
 import logging
 from operator import itemgetter
-from torch.utils.data import RandomSampler, DistributedSampler, Sampler
+from torch.utils.data import (
+    RandomSampler,
+    WeightedRandomSampler,
+    DistributedSampler,
+    Sampler,
+)
 import numpy as np
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
@@ -32,6 +37,8 @@ class ReproducibleRandomSampler(RandomSampler):
 
     Arguments
     ---------
+    data_source : Dataset
+        The data source to sample indices for.
     seed : int
         The base seed to use for the random number generator. It is recommended
         to use a value which has a good mix of 0 and 1 bits.
@@ -82,6 +89,82 @@ class ReproducibleRandomSampler(RandomSampler):
             )
             raise ValueError(MSG)
         super().__init__(data_source, **kwargs)
+        self.seed = int(seed)
+        self.epoch = epoch
+        self.generator = torch.Generator()
+
+    def set_epoch(self, epoch):
+        """
+        You can also just access self.epoch, but we maintain this interface
+        to mirror torch.utils.data.distributed.DistributedSampler
+        """
+        self.epoch = epoch
+
+    def __iter__(self):
+        self.generator.manual_seed(self.seed + self.epoch)
+        return super().__iter__()
+
+
+class ReproducibleWeightedRandomSampler(WeightedRandomSampler):
+    """A reproducible modification of WeightedRandomSampler.
+
+    Also look at `torch.utils.data.WeightedRandomSampler`. This has the
+    the same behaviour and arguments, except for adding 'seed' and 'epoch' and
+    not supporting 'generator'.
+
+    Note
+    ----
+    Call `set_epoch` before every epoch. Otherwise, the sampler will produce the
+    same sequence of indices every epoch.
+
+    Arguments
+    ---------
+    weights : sequence of float
+        Weights for each index. Doesn't need to sum to one.
+    num_samples : int
+        Number of samples to draw
+    replacement : bool
+        To draw with replacement or not (within an epoch of num_samples).
+    seed : int
+        The base seed to use for the random number generator. It is recommended
+        to use a value which has a good mix of 0 and 1 bits.
+    epoch : int
+        The epoch to start at.
+
+    Example
+    -------
+    >>> a = ReproducibleWeightedRandomSampler([0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True)
+    >>> b = ReproducibleWeightedRandomSampler([0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True)
+    >>> list(a)
+    [3, 1, 4, 4, 4]
+    >>> list(b)
+    [3, 1, 4, 4, 4]
+    >>> a.set_epoch(1)
+    >>> list(a)
+    [4, 5, 4, 4, 3]
+    >>> b.set_epoch(1)
+    >>> list(b)
+    [4, 5, 4, 4, 3]
+
+
+    """
+
+    def __init__(
+        self,
+        weights,
+        num_samples,
+        replacement,
+        seed=129491412,
+        epoch=0,
+        **kwargs,
+    ):
+        if "generator" in kwargs:
+            MSG = (
+                "Cannot give a separate generator when using "
+                + "ReproducibleRandomSampler"
+            )
+            raise ValueError(MSG)
+        super().__init__(weights, num_samples, replacement, **kwargs)
         self.seed = int(seed)
         self.epoch = epoch
         self.generator = torch.Generator()
@@ -472,12 +555,15 @@ class DynamicBatchSampler(Sampler):
 class DistributedSamplerWrapper(DistributedSampler):
     """This wrapper allows using any sampler with Distributed Data Parallel (DDP) correctly.
 
-        Passing blindly the sampler to each DDP process will cause to have access
-        within each process to all the data in the dataset instead of only a
-        subset of it which is unique to each process.
-        This wrapper prevents this and allows to use only a subset of the original
-        data for each process.
-        It is automatically applied to any sampler in the Brain class when DDP training is used.
+    Passing blindly the sampler to each DDP process will cause to have access
+    within each process to all the data in the dataset instead of only a subset
+    of it which is unique to each process.  This wrapper prevents this and
+    allows to use only a subset of the original data for each process.
+
+    NOTE
+    ----
+    This is is automatically applied to any sampler in the Brain class when DDP
+    training is used.
     """
 
     def __init__(self, sampler, *args, **kwargs):
