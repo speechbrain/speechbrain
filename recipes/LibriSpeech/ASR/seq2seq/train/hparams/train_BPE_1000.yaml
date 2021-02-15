@@ -21,6 +21,7 @@ train_log: !ref <output_folder>/train_log.txt
 # tokenizer used for LM training. By default, we download the LM and tokenizer
 # from the SpeechBrain HuggingFace repository. If you have a custom LM, simply
 # set huggingface to False and provide the correct hparam path.
+
 huggingface: True
 huggingface_model: 'sb/asr-crdnn-librispeech'
 lm_hparam_file: 'lm/RNNLM_BPE1000.yaml'
@@ -201,7 +202,7 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
    label_smoothing: 0.1
 
 # Models
-lm_model: !new:speechbrain.lobes.pretrained.librispeech.asr.lm.pretrained.LM
+lm_model: !new:speechbrain.lobes.pretrained.librispeech.asr-crdnn-ctc-att-rnnlm.lm.LM
    save_folder: !ref <save_folder>
    hparams_file: !ref <lm_hparam_file>
    huggingface_model: !ref <huggingface_model>
