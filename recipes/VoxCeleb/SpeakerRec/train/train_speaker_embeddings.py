@@ -20,6 +20,7 @@ import random
 import torch
 import torchaudio
 import speechbrain as sb
+from speechbrain.utils.data_utils import download_file
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
@@ -37,15 +38,32 @@ class SpeakerBrain(sb.core.Brain):
         wavs, lens = batch.sig
 
         if stage == sb.Stage.TRAIN:
-            # Addding noise and reverberation
-            wavs_aug = self.modules.env_corrupt(wavs, lens)
 
-            # Adding time-domain augmentation
-            wavs_aug = self.modules.augmentation(wavs_aug, lens)
+            # Applying the augmentation pipeline
+            wavs_aug_tot = []
+            wavs_aug_tot.append(wavs)
+            for count, augment in enumerate(self.hparams.augment_pipeline):
 
-            # Concatenate noisy and clean batches
-            wavs = torch.cat([wavs, wavs_aug], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
+                # Apply augment
+                wavs_aug = augment(wavs, lens)
+
+                # Managing speed change
+                if wavs_aug.shape[1] > wavs.shape[1]:
+                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
+                else:
+                    zero_sig = torch.zeros_like(wavs)
+                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
+                    wavs_aug = zero_sig
+
+                if self.hparams.concat_augment:
+                    wavs_aug_tot.append(wavs_aug)
+                else:
+                    wavs = wavs_aug
+                    wavs_aug_tot[0] = wavs
+
+            wavs = torch.cat(wavs_aug_tot, dim=0)
+            self.n_augment = int(wavs.shape[0] / self.hparams.batch_size)
+            lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -66,7 +84,7 @@ class SpeakerBrain(sb.core.Brain):
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
-            spkid = torch.cat([spkid, spkid], dim=0)
+            spkid = torch.cat([spkid] * self.n_augment, dim=0)
 
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
@@ -187,6 +205,12 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    # Download verification list (to exlude verification sentences from train)
+    veri_file_path = os.path.join(
+        hparams["save_folder"], os.path.basename(hparams["verification_file"])
+    )
+    download_file(hparams["verification_file"], veri_file_path)
+
     # Dataset prep (parsing VoxCeleb and annotation into csv files)
     from voxceleb_prepare import prepare_voxceleb  # noqa
 
@@ -195,10 +219,10 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
+            "verification_pairs_file": veri_file_path,
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
             "seg_dur": int(hparams["sentence_len"]) * 100,
-            "skip_prep": hparams["skip_prep"],
         },
     )
 
