@@ -1,4 +1,4 @@
-"""SpeechBrain Extended CSV Compatibility"""
+"""SpeechBrain Extended CSV Compatibility."""
 from speechbrain.dataio.dataset import DynamicItemDataset
 import collections
 import csv
@@ -19,7 +19,7 @@ CSVItem.__doc__ = """The Legacy Extended CSV Data item triplet"""
 
 
 class ExtendedCSVDataset(DynamicItemDataset):
-    """Extended CSV compatibility for DynamicItemDataset
+    """Extended CSV compatibility for DynamicItemDataset.
 
     Uses the SpeechBrain Extended CSV data format, where the CSV must have an
     'ID' and 'duration' fields.
@@ -111,13 +111,13 @@ class ExtendedCSVDataset(DynamicItemDataset):
 
 
 def load_sb_extended_csv(csv_path, replacements={}):
-    """Loads SB Extended CSV and formats string values
+    """Loads SB Extended CSV and formats string values.
 
     Uses the SpeechBrain Extended CSV data format, where the
     CSV must have an 'ID' and 'duration' fields.
 
     The rest of the fields come in triplets:
-    ``<name>, <name>_format, <name>_opts``
+    ``<name>, <name>_format, <name>_opts``.
 
     These add a <name>_sb_data item in the dict. Additionally, a
     basic DynamicItem (see DynamicItemDataset) is created, which
@@ -131,18 +131,18 @@ def load_sb_extended_csv(csv_path, replacements={}):
     Arguments
     ----------
     csv_path : str
-        Path to CSV file
+        Path to the CSV file.
     replacements : dict
         Optional dict:
         e.g. ``{"data_folder": "/home/speechbrain/data"}``
-        This is used to recursively format all string values in the data
+        This is used to recursively format all string values in the data.
 
     Returns
     -------
     dict
-        CSV data with replacements applied
+        CSV data with replacements applied.
     list
-        List of DynamicItems to add in DynamicItemDataset
+        List of DynamicItems to add in DynamicItemDataset.
 
     """
     with open(csv_path, newline="") as csvfile:
@@ -207,7 +207,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
 
 
 def _read_csv_item(item):
-    """Reads the different formats supported in SB Extended CSV
+    """Reads the different formats supported in SB Extended CSV.
 
     Delegates to the relevant functions.
     """
@@ -235,7 +235,7 @@ def _read_csv_item(item):
 
 
 def _parse_csv_item_opts(entry):
-    """Parse the _opts field in a SB Extended CSV item"""
+    """Parse the _opts field in a SB Extended CSV item."""
     # Accepting even slightly weirdly formatted entries:
     entry = entry.strip()
     if len(entry) == 0:
@@ -248,8 +248,7 @@ def _parse_csv_item_opts(entry):
 
 
 def read_pkl(file, data_options={}, lab2ind=None):
-    """
-    This function reads tensors store in pkl format.
+    """This function reads tensors store in pkl format.
 
     Arguments
     ---------
@@ -263,7 +262,7 @@ def read_pkl(file, data_options={}, lab2ind=None):
     Returns
     -------
     numpy.array
-        The array containing the read signal
+        The array containing the read signal.
     """
 
     # Trying to read data
