@@ -314,9 +314,8 @@ def download_file(
     finally:
         sb.utils.distributed.ddp_barrier()
 
-def download_from_huggingface(
-    model_name, source, dest, save_filename
-):
+
+def download_from_huggingface(model_name, source, dest, save_filename):
     """ Downloads a model from HuggingFace and saves it in a specific directory.
 
      Arguments
@@ -335,17 +334,29 @@ def download_from_huggingface(
         if sb.utils.distributed.if_main_process():
 
             # Create the destination directory if it doesn't exist
-            dest_dir = pathlib.Path(dest).resolve().parent
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            hugging_dest = os.path.join(dest, "huggingface_cached_models")
+            dest_dir = pathlib.Path(hugging_dest).resolve().parent
+            dest_file_name = os.path.join(dest_dir, save_filename)
 
-            url = huggingface_hub.hf_hub_url(model_name, source)
-            pretrained_model = huggingface_hub.cached_download(
-                url,
-                cache_dir=dest
-            )
+            if not os.path.exists(dest_file_name):
+                print(
+                    "Downloading from HuggingFace: " + model_name + "/" + source
+                )
+                dest_dir.mkdir(parents=True, exist_ok=True)
 
-            # TO FIX: rename because HuggingFace only provides cache names ..
-            os.rename(pretrained_model, os.path.join(dest,save_filename))
+                url = huggingface_hub.hf_hub_url(model_name, source)
+                pretrained_model = huggingface_hub.cached_download(
+                    url, cache_dir=hugging_dest
+                )
+
+                # We do a symlink to the cached file
+                os.symlink(
+                    pathlib.Path(pretrained_model).resolve(), dest_file_name
+                )
+
+            else:
+                msg = dest_file_name + " already exists. Skipping download."
+                print(msg)
 
     finally:
         sb.utils.distributed.ddp_barrier()

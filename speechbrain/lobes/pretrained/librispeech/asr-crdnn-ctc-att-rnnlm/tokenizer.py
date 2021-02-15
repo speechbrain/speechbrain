@@ -59,12 +59,10 @@ class tokenizer:
         save_file = os.path.join(save_folder, save_filename)
 
         if model_name is not None:
-            print("Downloading the tokenizer from HuggingFace ...")
             download_from_huggingface(
                 model_name, tokenizer_file, save_folder, save_filename
             )
         else:
-            print("Downloading the tokenizer from a custom ...")
             download_file(
                 source=tokenizer_file, dest=save_file, replace_existing=False,
             )

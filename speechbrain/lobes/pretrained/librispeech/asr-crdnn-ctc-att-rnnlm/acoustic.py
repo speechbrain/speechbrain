@@ -71,7 +71,6 @@ class ASR(torch.nn.Module):
         # Download yaml file from huggingface or elsewhere
         save_file = os.path.join(save_folder, self.save_yaml_filename)
         if huggingface_model is not None:
-            print("Downloading ASR YAML file from HuggingFace ...")
             download_from_huggingface(
                 huggingface_model,
                 hparams_file,
@@ -79,7 +78,6 @@ class ASR(torch.nn.Module):
                 self.save_yaml_filename,
             )
         else:
-            print("Downloading ASR YAML file from a custom path ...")
             download_file(hparams_file, save_file)
 
         hparams_file = save_file
@@ -154,7 +152,6 @@ class ASR(torch.nn.Module):
         save_model_path = os.path.join(self.save_folder, save_filename)
 
         if self.hparams["huggingface"]:
-            print("Downloading acoustic model from HuggingFace ...")
             download_from_huggingface(
                 self.hparams["huggingface_model"],
                 self.hparams["asr_ckpt_file"],
@@ -162,7 +159,6 @@ class ASR(torch.nn.Module):
                 save_filename,
             )
         else:
-            print("Downloading acoustic model from a custom path ...")
             download_file(self.hparams["asr_ckpt_file"], save_model_path)
 
         self.mod.asr_model.load_state_dict(
@@ -174,7 +170,6 @@ class ASR(torch.nn.Module):
         save_model_path = os.path.join(self.save_folder, save_filename)
 
         if self.hparams["huggingface"]:
-            print("Downloading normalization statistics from HuggingFace ...")
             download_from_huggingface(
                 self.hparams["huggingface_model"],
                 self.hparams["normalize_ckpt_file"],
@@ -182,7 +177,6 @@ class ASR(torch.nn.Module):
                 save_filename,
             )
         else:
-            print("Downloading normalization statistics from a custom path ...")
             download_file(self.hparams["normalize_ckpt_file"], save_model_path)
 
         self.hparams["normalize"]._load(save_model_path, 0, self.device)

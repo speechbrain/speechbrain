@@ -5,7 +5,8 @@
 # Tokens: BPE with unigram
 # losses: CTC+ NLL
 # Training: Librispeech 960h
-# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 2020
+# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga,
+# Samuele Cornell, Titouan Parcollet
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
@@ -19,10 +20,8 @@ train_log: !ref <output_folder>/train_log.txt
 # Language model (LM) parameter file
 # NB: To avoid mismatch, the speech recognizer must be trained with the same
 # tokenizer used for LM training. By default, we download the LM and tokenizer
-# from the SpeechBrain HuggingFace repository. If you have a custom LM, simply
-# set huggingface to False and provide the correct hparam path.
-
-huggingface: True
+# from the SpeechBrain HuggingFace repository. If you wish to not use the LM
+# at decoding time, simply switch the test_
 huggingface_model: 'sb/asr-crdnn-librispeech'
 lm_hparam_file: 'lm/RNNLM_BPE1000.yaml'
 
