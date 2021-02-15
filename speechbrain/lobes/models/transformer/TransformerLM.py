@@ -99,7 +99,7 @@ class TransformerLM(TransformerInterface):
         # reset the params of the transformer model
         self._reset_params()
 
-    def forward(self, src):
+    def forward(self, src, hx=None):
         """
         Arguments
         ---------

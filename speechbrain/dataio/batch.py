@@ -30,17 +30,17 @@ class PaddedBatch:
     ---------
     examples : list
         List of example dicts, as produced by Dataloader.
-    padded_keys : list, None, optional
-        List of keys to pad on. If None, pad all torch.Tensors
-    device_prep_keys : list, None, optional
-        Only these keys participate in collective memory pinning and moving with
-        to()
+    padded_keys : list, None
+        (Optional) List of keys to pad on. If None, pad all torch.Tensors
+    device_prep_keys : list, None
+        (Optional) Only these keys participate in collective memory pinning and moving with
+        to().
         If None, defaults to all items with torch.Tensor values.
     padding_func : callable, optional
         Called with a list of tensors to be padded together. Needs to return
         two tensors: the padded data, and another tensor for the data lengths.
-    padding_kwargs : dict, optional
-        Extra kwargs to pass to padding_func. E.G. mode, value
+    padding_kwargs : dict
+        (Optional) Extra kwargs to pass to padding_func. E.G. mode, value
     apply_default_convert : bool
         Whether to apply PyTorch default_convert (numpy to torch recursively,
         etc.) on all data. Default:True, usually does the right thing.
@@ -141,7 +141,7 @@ class PaddedBatch:
             raise KeyError(f"Batch doesn't have key: {key}")
 
     def __iter__(self):
-        """Iterates over the different elements of the batch
+        """Iterates over the different elements of the batch.
 
         Example
         -------
@@ -174,6 +174,6 @@ class PaddedBatch:
         return self
 
     def at_position(self, pos):
-        """Fetch an item by its position in the batch"""
+        """Fetch an item by its position in the batch."""
         key = self.__keys[pos]
         return getattr(self, key)
