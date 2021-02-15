@@ -17,16 +17,19 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Language model (LM) parameter file
-# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
-# for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
-# # object. In this case, it is based on 1000 tokens.
-lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. By default, we download the LM and tokenizer
+# from the SpeechBrain HuggingFace repository. If you have a custom LM, simply
+# set huggingface to False and provide the correct hparam path.
+huggingface: True
+huggingface_model: 'sb/asr-crdnn-librispeech'
+lm_hparam_file: 'lm/RNNLM_BPE1000.yaml'
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
@@ -198,8 +201,10 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
    label_smoothing: 0.1
 
 # Models
-lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
+lm_model: !new:speechbrain.lobes.pretrained.librispeech.asr.lm.pretrained.LM
+   save_folder: !ref <save_folder>
    hparams_file: !ref <lm_hparam_file>
+   huggingface_model: !ref <huggingface_model>
 
 modules:
    enc: !ref <enc>
