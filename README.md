@@ -16,6 +16,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 SpeechBrain provides various useful tools to speedup and facilitate research on speech technologies:
 - The `Brain` class, a fully-customizable tool for managing the training and evaluation loops over data. The annoying details of training loops are handled for you, while retaining complete flexibility to override any part of the process when the need arises.
+- A hyperparameter specification language that describes all scales of hyperparameter, from individual numbers (e.g. learning rate) to complete objects (e.g. custom models). This dramatically simplifies recipe code by distilling to basic algorithmic components.
 - Multigpu training and inference with PyTorch Data Parallel or Distributed Data Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customisable data input and output pipeline. SpeechBrain follows the PyTorch dataloader and dataset style to enable users to precisely define their i/o pipelines by applying different transforms (e.g on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
