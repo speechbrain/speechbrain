@@ -100,10 +100,7 @@ temperature: 1.25
 # from the transcript before computing CER.
 # (e.g., 祝 可爱 的 你 —> 祝可爱的你)
 remove_spaces: True
-split_tokens: False
-# split_tokens must be the inverse of remove_spaces.
-# TODO: do "not !ref <remove_spaces>" instead of hardcoding
-# (doesn't work in HyperPyYAML at the moment)
+split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
