@@ -87,7 +87,9 @@ def get_verification_scores(veri_test):
             score_e_c = similarity(enrol_rep, train_cohort)
 
             if "cohort_size" in params:
-                score_e_c = torch.topk(score_e_c, k=params["cohort_size"], dim=0)[0]
+                score_e_c = torch.topk(
+                    score_e_c, k=params["cohort_size"], dim=0
+                )[0]
 
             mean_e_c = torch.mean(score_e_c, dim=0)
             std_e_c = torch.std(score_e_c, dim=0)
@@ -97,7 +99,9 @@ def get_verification_scores(veri_test):
             score_t_c = similarity(test_rep, train_cohort)
 
             if "cohort_size" in params:
-                score_t_c = torch.topk(score_t_c, k=params["cohort_size"], dim=0)[0]
+                score_t_c = torch.topk(
+                    score_t_c, k=params["cohort_size"], dim=0
+                )[0]
 
             mean_t_c = torch.mean(score_t_c, dim=0)
             std_t_c = torch.std(score_t_c, dim=0)
