@@ -80,7 +80,6 @@ class LM(torch.nn.Module):
         # Download yaml file from huggingface or elsewhere
         save_file = os.path.join(save_folder, self.save_yaml_filename)
         if huggingface_model is not None:
-            print("Downloading LM YAML file from HuggingFace ...")
             download_from_huggingface(
                 huggingface_model,
                 hparams_file,
@@ -88,7 +87,6 @@ class LM(torch.nn.Module):
                 self.save_yaml_filename,
             )
         else:
-            print("Downloading LM YAML file from a custom path ...")
             download_file(hparams_file, save_file)
 
         hparams_file = save_file
@@ -136,7 +134,6 @@ class LM(torch.nn.Module):
         save_model_path = os.path.join(self.save_folder, save_filename)
 
         if self.hparams["huggingface"]:
-            print("Downloading language model from HuggingFace ...")
             download_from_huggingface(
                 self.hparams["huggingface_model"],
                 self.hparams["lm_ckpt_file"],
@@ -144,7 +141,6 @@ class LM(torch.nn.Module):
                 save_filename,
             )
         else:
-            print("Downloading language model from a custom path ...")
             download_file(self.hparams["lm_ckpt_file"], save_model_path)
 
         # Load downloaded model, removing prefix
