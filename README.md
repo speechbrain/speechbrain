@@ -15,7 +15,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 # Key features
 
 SpeechBrain provides various useful tools to speedup and facilitate research on speech technologies:
-- Trainer ...
+- The `Brain` class, a fully-customizable tool for managing the training and evaluation loops over data. The annoying details of training loops are handled for you, while retaining complete flexibility to override any part of the process when the need arises.
 - Multigpu training and inference with PyTorch Data Parallel or Distributed Data Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customisable data input and output pipeline. SpeechBrain follows the PyTorch dataloader and dataset style to enable users to precisely define their i/o pipelines by applying different transforms (e.g on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
@@ -50,6 +50,7 @@ SpeechBrain provides different models for speaker recognition, identification an
 
 ### Speech enhancement
 - Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
+- Sophisticated loss functions for enhancement and robust ASR training, including MetricGAN and mimic loss.
 - State-of-the-art performance on speech separation with Conv-TasNet, DualPath RNN, and SepFormer.
 
 ### Multi-microphone processing
