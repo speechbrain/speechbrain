@@ -23,7 +23,7 @@ from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.dataio.sampler import ReproducibleRandomSampler
+from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 
 
 def pesq_eval(pred_wav, target_wav):
@@ -279,11 +279,9 @@ class MetricGanBrain(sb.Brain):
         """
 
         self.mse_metric = MetricStats(metric=self.hparams.compute_cost)
-        self.epoch = epoch
+        self.metrics = {"G": [], "D": []}
 
         if stage == sb.Stage.TRAIN:
-            self.metrics = {"G": [], "D": []}
-
             if self.hparams.target_metric == "pesq":
                 self.target_metric = MetricStats(metric=pesq_eval, n_jobs=30)
             elif self.hparams.target_metric == "stoi":
@@ -295,6 +293,7 @@ class MetricGanBrain(sb.Brain):
 
             # Train discriminator before we start generator training
             if self.sub_stage == SubStage.GENERATOR:
+                self.epoch = epoch
                 self.train_discriminator()
                 self.sub_stage = SubStage.GENERATOR
                 print("Generator training by current data...")
@@ -395,8 +394,12 @@ class MetricGanBrain(sb.Brain):
 
             # This sampler should give the same samples for D and G
             epoch = self.hparams.epoch_counter.current
-            sampler = ReproducibleRandomSampler(
-                dataset, epoch=epoch, replacement=True, num_samples=samples
+
+            # Equal weights for all samples, we use "Weighted" so we can do
+            # both "replacement=False" and a set number of samples, reproducibly
+            weights = torch.ones(len(dataset))
+            sampler = ReproducibleWeightedRandomSampler(
+                weights, epoch=epoch, replacement=False, num_samples=samples
             )
             loader_kwargs["sampler"] = sampler
 

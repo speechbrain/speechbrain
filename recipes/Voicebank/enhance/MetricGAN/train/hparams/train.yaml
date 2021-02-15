@@ -40,7 +40,6 @@ valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
 skip_prep: True
 
-
 # The target metrics that you want to optimize.
 # Right now we only support 'pesq' and 'stoi'.
 # (Of course, it can be any arbitary metric.)
@@ -50,7 +49,7 @@ number_of_epochs: 600
 number_of_samples: 100
 min_mask: 0
 train_N_batch: 1
-valid_N_batch: 20
+valid_N_batch: 1
 history_portion: 0.2
 G_lr: 0.001
 D_lr: 0.001
@@ -60,7 +59,6 @@ dataloader_options:
     batch_size: !ref <train_N_batch>
 valid_dataloader_options:
     batch_size: !ref <valid_N_batch>
-waveform_target: False  # Switch to TRUE to
 
 # Change this import to use a different model
 models: !include:../models/MetricGAN.yaml
