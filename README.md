@@ -10,7 +10,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
-| **[Discourse]**(https://speechbrain.discourse.group) | **[Tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html)** | **[Website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/)** | **[Documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html)** | **[Contributing](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/contributing.html)** |
+| **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html)** | **[Website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/)** | **[Documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html)** | **[Contributing](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/contributing.html)** |
 
 # Key features
 
