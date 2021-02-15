@@ -303,7 +303,7 @@ if __name__ == "__main__":
 
     # Testing
     asr_brain.hparams.cer_file = os.path.join(
-        hparams["output_folder"], "cer_test.txt"
+        hparams["output_folder"], hparams["cer_file"]
     )
     asr_brain.evaluate(
         test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
