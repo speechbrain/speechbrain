@@ -1,5 +1,4 @@
-"""
-Implements a checkpointable epoch counter (loop)
+"""Implements a checkpointable epoch counter (loop).
 
 Authors
  * Aku Rouhe 2020
@@ -32,7 +31,6 @@ class EpochCounter:
     >>> for epoch in epoch_counter:
     ...     # Run training...
     ...     ckpt = recoverer.save_checkpoint()
-
     """
 
     def __init__(self, limit):

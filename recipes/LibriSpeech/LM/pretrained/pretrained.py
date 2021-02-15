@@ -4,6 +4,7 @@ Pre-trained LM on LibriSpeech for inference.
 Authors
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
+ * Titouan Parcollet 2021
 """
 
 import os
@@ -78,7 +79,15 @@ class LM(torch.nn.Module):
             os.makedirs(self.hparams["save_folder"])
 
         # putting modules on the right device
-        self.device = self.hparams["device"]
+        # We need to check if DDP has been initialised
+        # in order to give the right device
+        if torch.distributed.is_initialized():
+            self.device = ":".join(
+                [self.hparams["device"].split(":")[0], os.environ["LOCAL_RANK"]]
+            )
+        else:
+            self.device = self.hparams["device"]
+
         self.model = self.hparams["model"].to(self.device)
 
         # Load pretrained modules
@@ -95,7 +104,8 @@ class LM(torch.nn.Module):
 
     def forward(self, x, hx=None):
         """Compute the LM probabilities given and encoded input."""
-        return self.model.forward(x, hx)
+        pout = self.model.forward(x, hx)
+        return pout
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""

@@ -299,12 +299,13 @@ if __name__ == "__main__":
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
+
+    with open(hparams_file) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -345,10 +346,6 @@ if __name__ == "__main__":
 
     # adding objects to trainer:
     asr_brain.tokenizer = tokenizer
-
-    # if a language model is specified it is loaded
-    if hasattr(asr_brain.hparams, "language_model_file"):
-        asr_brain.load_lm()
 
     # Training
     asr_brain.fit(

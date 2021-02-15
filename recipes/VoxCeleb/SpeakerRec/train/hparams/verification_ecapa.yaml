@@ -23,7 +23,8 @@ enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
 
 batch_size: 32
-score_norm: 't-norm' # z-norm t-norm s-norm none
+score_norm: 's-norm' # z-norm t-norm s-norm none
+cohort_size: 20000 # amount of imposter utterances in normalization cohort
 n_train_snts: 300000 # used for normalization stats
 
 # Feature parameters

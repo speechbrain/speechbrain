@@ -75,7 +75,15 @@ class LM(torch.nn.Module):
             os.makedirs(self.hparams["save_folder"])
 
         # putting modules on the right device
-        self.device = self.hparams["device"]
+        # We need to check if DDP has been initialised
+        # in order to give the right device
+        if torch.distributed.is_initialized():
+            self.device = ":".join(
+                [self.hparams["device"].split(":")[0], os.environ["LOCAL_RANK"]]
+            )
+        else:
+            self.device = self.hparams["device"]
+
         self.net = self.hparams["net"].to(self.device)
 
         # Load pretrained modules
