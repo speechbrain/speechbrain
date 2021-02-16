@@ -1,5 +1,4 @@
-"""
-Decoding methods for seq2seq autoregressive model.
+"""Decoding methods for seq2seq autoregressive model.
 
 Authors
  * Ju-Chieh Chou 2020
@@ -15,8 +14,7 @@ from speechbrain.decoders.ctc import CTCPrefixScorer
 
 
 class S2SBaseSearcher(torch.nn.Module):
-    """
-    S2SBaseSearcher class to be inherited by other
+    """S2SBaseSearcher class to be inherited by other
     decoding approches for seq2seq model.
 
     Arguments
@@ -60,7 +58,6 @@ class S2SBaseSearcher(torch.nn.Module):
             (ex. the encoded speech representation to be attended).
         wav_len : torch.Tensor
             The speechbrain-style relative length.
-
         """
         raise NotImplementedError
 
@@ -80,8 +77,8 @@ class S2SBaseSearcher(torch.nn.Module):
         enc_lens : torch.Tensor
             The actual length of each enc_states sequence.
 
-        Return
-        ------
+        Returns
+        -------
         log_probs : torch.Tensor
             Log-probabilities of the current timestep output.
         memory : No limit
@@ -95,7 +92,7 @@ class S2SBaseSearcher(torch.nn.Module):
     def reset_mem(self, batch_size, device):
         """This method should implement the resetting of
         memory variables for the seq2seq model.
-        Ex. Initializing zero vector as initial hidden states.
+        E.g., initializing zero vector as initial hidden states.
 
         Arguments
         ---------
@@ -121,7 +118,7 @@ class S2SBaseSearcher(torch.nn.Module):
             The input tensor of the current timestep.
         memory : No limit
             The momory variables input for this timestep.
-            (ex. RNN hidden states).
+            (e.g., RNN hidden states).
 
         Return
         ------
@@ -129,14 +126,14 @@ class S2SBaseSearcher(torch.nn.Module):
             Log-probabilities of the current timestep output.
         memory : No limit
             The memory variables generated in this timestep.
-            (ex. RNN hidden states).
+            (e.g., RNN hidden states).
         """
         raise NotImplementedError
 
     def reset_lm_mem(self, batch_size, device):
         """This method should implement the resetting of
         memory variables in the language model.
-        Ex. Initializing zero vector as initial hidden states.
+        E.g., initializing zero vector as initial hidden states.
 
         Arguments
         ---------
@@ -154,8 +151,7 @@ class S2SBaseSearcher(torch.nn.Module):
 
 
 class S2SGreedySearcher(S2SBaseSearcher):
-    """
-    This class implements the general forward-pass of
+    """This class implements the general forward-pass of
     greedy decoding approach. See also S2SBaseSearcher().
     """
 
@@ -200,11 +196,11 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     Arguments
     ---------
     embedding : torch.nn.Module
-        An embedding layer
+        An embedding layer.
     decoder : torch.nn.Module
-        Attentional RNN decoder
+        Attentional RNN decoder.
     linear : torch.nn.Module
-        A linear output layer
+        A linear output layer.
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
 
@@ -237,8 +233,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
-        """
-        When doing greedy search, keep hidden state (hs) adn context vector (c)
+        """When doing greedy search, keep hidden state (hs) adn context vector (c)
         as memory.
         """
         hs = None
@@ -257,12 +252,11 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
 
 
 class S2SBeamSearcher(S2SBaseSearcher):
-    """
-    This class implements the beam-search algorithm for the seq2seq model.
+    """This class implements the beam-search algorithm for the seq2seq model.
     See also S2SBaseSearcher().
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     bos_index : int
         The index of beginning-of-sequence token.
     eos_index : int
@@ -274,45 +268,40 @@ class S2SBeamSearcher(S2SBaseSearcher):
     beam_size : int
         The width of beam.
     topk : int
-        Default : 1
-        The number of hypothesis to return.
+        The number of hypothesis to return. (default: 1)
     return_log_probs : bool
-        Default : False
-        Whether to return log-probabilities.
+        Whether to return log-probabilities. (default: False)
     using_eos_threshold : bool
-        Default : True
-        Whether to use eos threshold.
+        Whether to use eos threshold. (default: true)
     eos_threshold : float
-        Default : 1.5
-        The threshold coefficient for eos token. See 3.1.2 in
+        The threshold coefficient for eos token (default: 1.5). See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
     length_normlization : bool
-        Default : True
-        Whether to divide the scores by the length.
+        Whether to divide the scores by the length. (default: True)
     length_rewarding : float
-        Default : 0.0
         The coefficient of length rewarding (γ).
-        log P(y|x) + λ log P_LM(y) + γ*len(y)
+        log P(y|x) + λ log P_LM(y) + γ*len(y). (default: 0.0)
     coverage_penalty: float
-        Default: 0.0
         The coefficient of coverage penalty (η).
-        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y)
+        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y). (default: 0.0)
         Reference: https://arxiv.org/pdf/1612.02695.pdf, https://arxiv.org/pdf/1808.10792.pdf
     lm_weight : float
-        Default : 0.0
         The weight of LM when performing beam search (λ).
-        log P(y|x) + λ log P_LM(y)
+        log P(y|x) + λ log P_LM(y). (default: 0.0)
     ctc_weight : float
-        Default : 0.0
         The weight of CTC probabilities when performing beam search (λ).
-        (1-λ) log P(y|x) + λ log P_CTC(y|x)
+        (1-λ) log P(y|x) + λ log P_CTC(y|x). (default: 0.0)
     blank_index : int
         The index of the blank token.
     ctc_score_mode: str
         Default: "full"
         CTC prefix scoring on "partial" token or "full: token.
+    ctc_window_size: int
+        Default: 0
+        Compute the ctc scores over the time frames using windowing based on attention peaks.
+        If 0, no windowing applied.
     using_max_attn_shift: bool
-        Whether using the max_attn_shift constaint. Default: False
+        Whether using the max_attn_shift constaint. (default: False)
     max_attn_shift: int
         Beam search will block the beams that attention shift more
         than max_attn_shift.
@@ -342,6 +331,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ctc_weight=0.0,
         blank_index=0,
         ctc_score_mode="full",
+        ctc_window_size=0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -379,37 +369,29 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ), "ctc_weight should not > 1.0 and < 0.0"
 
         if self.ctc_weight > 0.0:
-            if self.bos_index == self.eos_index:
+            if len({self.bos_index, self.eos_index, self.blank_index}) < 3:
                 raise ValueError(
-                    "To perform joint ATT/CTC decoding, set bos, eos to different indexes."
-                )
-            if self.blank_index == self.bos_index:
-                raise ValueError(
-                    "To perform joint ATT/CTC decoding, set blank, bos to different indexes."
-                )
-            if self.blank_index == self.eos_index:
-                raise ValueError(
-                    "To perform joint ATT/CTC decoding, set blank, eos to different indexes."
+                    "To perform joint ATT/CTC decoding, set blank, eos and bos to different indexes."
                 )
 
         # ctc already initalized
         self.minus_inf = minus_inf
         self.ctc_score_mode = ctc_score_mode
+        self.ctc_window_size = ctc_window_size
 
     def _check_full_beams(self, hyps, beam_size):
-        """
-        This method checks whether hyps has been full.
+        """This method checks whether hyps has been full.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         hyps : List
             This list contains batch_size number.
             Each inside list contains a list stores all the hypothesis for this sentence.
         beam_size : int
             The number of beam_size.
 
-        Return
-        ------
+        Returns
+        -------
         bool
             Whether the hyps has been full.
         """
@@ -421,18 +403,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
             return False
 
     def _check_attn_shift(self, attn, prev_attn_peak):
-        """
-        This method checks whether attention shift is more than attn_shift.
+        """This method checks whether attention shift is more than attn_shift.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         attn : torch.Tensor
             The attention to be checked.
         prev_attn_peak : torch.Tensor
             The previous attention peak place.
 
-        Return
-        ------
+        Returns
+        -------
         cond : torch.BoolTensor
             Each element represents whether the beam is within the max_shift range.
         attn_peak : torch.Tensor
@@ -452,8 +433,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         This method checks whether eos log-probabilities exceed threshold.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         log_probs : torch.Tensor
             The log-probabilities.
 
@@ -476,11 +457,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         scores,
         timesteps,
     ):
-        """
-        This method will update hyps and scores if inp_tokens are eos.
+        """This method will update hyps and scores if inp_tokens are eos.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         inp_tokens : torch.Tensor
             The current output.
         alived_seq : torch.Tensor
@@ -494,8 +474,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         timesteps : float
             The current timesteps. This is for length rewarding.
 
-        Return
-        ------
+        Returns
+        -------
         is_eos : torch.BoolTensor
             Each element represents whether the token is eos.
         """
@@ -519,29 +499,26 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return is_eos
 
     def _get_top_score_prediction(self, hyps_and_scores, topk):
-        """
-        This method sorts the scores and return corresponding hypothesis and log probs.
+        """This method sorts the scores and return corresponding hypothesis and log probs.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         hyps_and_scores : list
             To store generated hypotheses and scores.
         topk : int
             Number of hypothesis to return.
 
-        Return
-        ------
+        Returns
+        -------
         predictions : list
             This list contains the predicted hypothesis.
             The order will be the following:
             h_i_j, i is utterance id, and j is hypothesis id.
             When topk=2, and 3 sentences:
-            [h_0_0, h_0_1,h_1_0, h_1_1, h_2_0, h_2_1]
-
+            [h_0_0, h_0_1,h_1_0, h_1_1, h_2_0, h_2_1].
         top_scores : list
             This list contains the final scores of hypotheses.
             The order is the same as predictions.
-
         top_log_probs : list
             This list contains the log probabilities of each hypotheses.
             The order is the same as predictions.
@@ -577,6 +554,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 self.beam_size,
                 self.blank_index,
                 self.eos_index,
+                self.ctc_window_size,
             )
             ctc_memory = None
 
@@ -677,8 +655,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     )
                 else:
                     ctc_candidates = None
+
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
-                    g, ctc_memory, ctc_candidates
+                    g, ctc_memory, ctc_candidates, attn
                 )
                 log_probs = log_probs + self.ctc_weight * ctc_log_probs
 
@@ -825,13 +804,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return log_probs
 
     def permute_mem(self, memory, index):
-        """
-        This method permutes the seq2seq model memory
+        """This method permutes the seq2seq model memory
         to synchronize the memory index with the current output.
 
         Arguments
         ---------
-
         memory : No limit
             The memory variable to be permuted.
         index : torch.Tensor
@@ -845,22 +822,19 @@ class S2SBeamSearcher(S2SBaseSearcher):
         raise NotImplementedError
 
     def permute_lm_mem(self, memory, index):
-        """
-        This method permutes the language model memory
+        """This method permutes the language model memory
         to synchronize the memory index with the current output.
 
         Arguments
         ---------
-
         memory : No limit
             The memory variable to be permuted.
         index : torch.Tensor
             The index of the previous path.
 
-        Return
-        ------
+        Returns
+        -------
         The variable of the memory being permuted.
-
         """
         raise NotImplementedError
 
@@ -874,16 +848,16 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     Arguments
     ---------
     embedding : torch.nn.Module
-        An embedding layer
+        An embedding layer.
     decoder : torch.nn.Module
-        Attentional RNN decoder
+        Attentional RNN decoder.
     linear : torch.nn.Module
-        A linear output layer
+        A linear output layer.
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1.
     **kwargs
-        see S2SBeamSearcher, arguments are directly passed
+        see S2SBeamSearcher, arguments are directly passed.
 
     Example
     -------
@@ -971,26 +945,25 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
 
 
 class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
-    """
-    This class implements the beam search decoding
+    """This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
     See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
 
     Arguments
     ---------
     embedding : torch.nn.Module
-        An embedding layer
+        An embedding layer.
     decoder : torch.nn.Module
-        Attentional RNN decoder
+        Attentional RNN decoder.
     linear : torch.nn.Module
-        A linear output layer
+        A linear output layer.
     language_model : torch.nn.Module
-        A language model
+        A language model.
     temperature_lm : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1.
     **kwargs
-        Arguments to pass to S2SBeamSearcher
+        Arguments to pass to S2SBeamSearcher.
 
     Example
     -------
@@ -1066,26 +1039,25 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
 
 
 class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
-    """
-    This class implements the beam search decoding
+    """This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
     See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
 
     Arguments
     ---------
     embedding : torch.nn.Module
-        An embedding layer
+        An embedding layer.
     decoder : torch.nn.Module
-        Attentional RNN decoder
+        Attentional RNN decoder.
     linear : torch.nn.Module
-        A linear output layer
+        A linear output layer.
     language_model : torch.nn.Module
-        A language model
+        A language model.
     temperature_lm : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1.
     **kwargs
-        Arguments to pass to S2SBeamSearcher
+        Arguments to pass to S2SBeamSearcher.
 
     Example
     -------
@@ -1151,8 +1123,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
 
 
 def inflate_tensor(tensor, times, dim):
-    """
-    This function inflates the tensor for times along dim.
+    """This function inflates the tensor for times along dim.
 
     Arguments
     ---------
@@ -1182,8 +1153,7 @@ def inflate_tensor(tensor, times, dim):
 
 
 def mask_by_condition(tensor, cond, fill_value):
-    """
-    This function will mask some element in the tensor with fill_value, if condition=False.
+    """This function will mask some element in the tensor with fill_value, if condition=False.
 
     Arguments
     ---------
@@ -1221,10 +1191,10 @@ def _update_mem(inp_tokens, memory):
 
     Arguments:
     -----------
-    inp_tokens: tensor
-        predicted token of the previous decoding step
-    memory: tensor
-        Contains all the predicted tokens
+    inp_tokens : tensor
+        Predicted token of the previous decoding step.
+    memory : tensor
+        Contains all the predicted tokens.
     """
     if memory is None:
         return inp_tokens.unsqueeze(1)
@@ -1239,9 +1209,9 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     Arguments
     ---------
     model : torch.nn.Module
-        The model to use for decoding
+        The model to use for decoding.
     linear : torch.nn.Module
-        A linear output layer
+        A linear output layer.
     **kwargs
         Arguments to pass to S2SBeamSearcher
 
@@ -1298,9 +1268,9 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
     Arguments
     ---------
     prediction : list of torch.Tensor
-        a list containing the output ints predicted by the seq2seq system.
+        A list containing the output ints predicted by the seq2seq system.
     eos_id : int, string
-        the id of the eos.
+        The id of the eos.
 
     Returns
     ------
@@ -1327,9 +1297,9 @@ def filter_seq2seq_output(string_pred, eos_id=-1):
     Arguments
     ---------
     string_pred : list
-        a list containing the output strings/ints predicted by the seq2seq system.
+        A list containing the output strings/ints predicted by the seq2seq system.
     eos_id : int, string
-        the id of the eos.
+        The id of the eos.
 
     Returns
     ------

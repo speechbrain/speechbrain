@@ -1,5 +1,4 @@
-"""
-Decoders and output normalization for CTC
+"""Decoders and output normalization for CTC.
 
 Authors
  * Mirco Ravanelli 2020
@@ -12,8 +11,7 @@ from speechbrain.dataio.dataio import length_to_mask
 
 
 class CTCPrefixScorer:
-    """
-    This class implements the CTC prefix scorer of Algorithm 2 in
+    """This class implements the CTC prefix scorer of Algorithm 2 in
     reference: https://www.merl.com/publications/docs/TR2017-190.pdf.
     Official implementation: https://github.com/espnet/espnet/blob/master/espnet/nets/ctc_prefix_score.py
 
@@ -31,10 +29,20 @@ class CTCPrefixScorer:
         The index of the blank token.
     eos_index : int
         The index of the end-of-sequence (eos) token.
+    ctc_window_size: int
+        Compute the ctc scores over the time frames using windowing based on attention peaks.
+        If 0, no windowing applied.
     """
 
     def __init__(
-        self, x, enc_lens, batch_size, beam_size, blank_index, eos_index
+        self,
+        x,
+        enc_lens,
+        batch_size,
+        beam_size,
+        blank_index,
+        eos_index,
+        ctc_window_size=0,
     ):
         self.blank_index = blank_index
         self.eos_index = eos_index
@@ -45,10 +53,7 @@ class CTCPrefixScorer:
         self.device = x.device
         self.minus_inf = -1e20
         self.last_frame_index = enc_lens - 1
-
-        assert (
-            self.eos_index != self.blank_index
-        ), "Please set these two tokens to different indexes"
+        self.ctc_window_size = ctc_window_size
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
@@ -76,7 +81,7 @@ class CTCPrefixScorer:
             torch.arange(batch_size, device=self.device) * self.vocab_size
         )
 
-    def forward_step(self, g, state, candidates=None):
+    def forward_step(self, g, state, candidates=None, attn=None):
         """This method if one step of forwarding operation
         for the prefix ctc scorer.
 
@@ -96,7 +101,6 @@ class CTCPrefixScorer:
         self.num_candidates = (
             self.vocab_size if candidates is None else candidates.size(-1)
         )
-
         if state is None:
             # r_prev: (L, 2, batch_size * beam_size)
             r_prev = torch.full(
@@ -122,16 +126,14 @@ class CTCPrefixScorer:
                 dtype=torch.long,
                 device=self.device,
             )
-
-            # assign indices of candidates to their positions in the table
+            # Assign indices of candidates to their positions in the table
             col_index = torch.arange(
                 self.batch_size * self.beam_size, device=self.device
             ).unsqueeze(1)
             scoring_table[col_index, candidates] = torch.arange(
                 self.num_candidates, device=self.device
             )
-
-            # select candidates indices for scoring
+            # Select candidates indices for scoring
             scoring_index = (
                 candidates
                 + self.cand_offset.unsqueeze(1)
@@ -167,10 +169,9 @@ class CTCPrefixScorer:
         )
         r.fill_(self.minus_inf)
 
-        # (Alg.2-6):
+        # (Alg.2-6)
         if prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
-
         # (Alg.2-10): phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g)
         r_sum = torch.logsumexp(r_prev, 1)
         phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
@@ -185,15 +186,23 @@ class CTCPrefixScorer:
             for i in range(self.batch_size * self.beam_size):
                 phi[:, i, last_char[i]] = r_prev[:, 1, i]
 
-        # Define start, end, |g| < |h| for ctc decoding.
-        start = max(1, prefix_length)
-        end = self.max_enc_len
+        # Start, end frames for scoring (|g| < |h|).
+        # Scoring based on attn peak if ctc_window_size > 0
+        if self.ctc_window_size == 0 or attn is None:
+            start = max(1, prefix_length)
+            end = self.max_enc_len
+        else:
+            _, attn_peak = torch.max(attn, dim=1)
+            max_frame = torch.max(attn_peak).item() + self.ctc_window_size
+            min_frame = torch.min(attn_peak).item() - self.ctc_window_size
+            start = max(max(1, prefix_length), int(min_frame))
+            end = min(self.max_enc_len, int(max_frame))
 
         # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h)):
         for t in range(start, end):
             # (Alg.2-11): dim=0, p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
             rnb_prev = r[t - 1, 0]
-            # (Alg.2-12): dim=1: p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
+            # (Alg.2-12): dim=1, p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
             rb_prev = r[t - 1, 1]
             r_ = torch.stack([rnb_prev, phi[t - 1], rnb_prev, rb_prev]).view(
                 2, 2, self.batch_size * self.beam_size, self.num_candidates
@@ -228,19 +237,17 @@ class CTCPrefixScorer:
                 self.last_frame_index[i // self.beam_size], i
             ]
 
-        # exclude blank probs for joint scoring
+        # Exclude blank probs for joint scoring
         psi[:, self.blank_index] = self.minus_inf
 
         return psi - psi_prev, (r, psi, scoring_table)
 
     def permute_mem(self, memory, index):
-        """
-        This method permutes the CTC model memory
+        """This method permutes the CTC model memory
         to synchronize the memory index with the current output.
 
         Arguments
         ---------
-
         memory : No limit
             The memory variable to be permuted.
         index : torch.Tensor
@@ -292,18 +299,18 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
     Removes the blank symbol and output repetitions.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     string_pred : list
-        a list containing the output strings/ints predicted by the CTC system
+        A list containing the output strings/ints predicted by the CTC system.
     blank_id : int, string
-        the id of the blank
+        The id of the blank.
 
     Returns
     -------
     list
         The output predicted by CTC without the blank symbol and
-        the repetitions
+        the repetitions.
 
     Example
     -------
@@ -332,18 +339,17 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
 
 def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
-    """
-    Greedy decode a batch of probabilities and apply CTC rules
+    """Greedy decode a batch of probabilities and apply CTC rules.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     probabilities : torch.tensor
         Output probabilities (or log-probabilities) from the network with shape
         [batch, probabilities, time]
     seq_lens : torch.tensor
         Relative true sequence lengths (to deal with padded inputs),
         the longest sequence has length 1.0, others a value between zero and one
-        shape [batch, lengths]
+        shape [batch, lengths].
     blank_id : int, string
         The blank symbol/index. Default: -1. If a negative number is given,
         it is assumed to mean counting down from the maximum possible index,
