@@ -9,7 +9,8 @@
 # Samuele Cornell, Titouan Parcollet
 # ############################################################################
 
-# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+# Seed needs to be set at top of yaml, before objects with parameters are
+# instantiated
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
@@ -29,7 +30,7 @@ lm_hparam_file: 'lm/RNNLM_BPE1000.yaml'
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
