@@ -87,6 +87,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
 
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    rnn_class: !name:speechbrain.nnet.RNN.LSTM
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -177,7 +178,7 @@ modules:
     normalize: !ref <normalize>
     #env_corrupt: !ref <env_corrupt>
 
-jit_module_keys: [enc]
+    #jit_module_keys: [enc]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

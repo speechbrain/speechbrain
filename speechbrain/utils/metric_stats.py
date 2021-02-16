@@ -1,5 +1,4 @@
-"""
-The ``metric_stats`` module provides an abstract class for storing
+"""The ``metric_stats`` module provides an abstract class for storing
 statistics produced over the course of an experiment and summarizing them.
 
 Authors:
@@ -81,7 +80,7 @@ class MetricStats:
         ids : list
             List of ids corresponding to utterances.
         *args, **kwargs
-            Arguments to pass to the metric function
+            Arguments to pass to the metric function.
         """
         self.ids.extend(ids)
 
@@ -154,12 +153,12 @@ class MetricStats:
 
 
 class ErrorRateStats(MetricStats):
-    """A class for tracking error rates (e.g. WER, PER).
+    """A class for tracking error rates (e.g., WER, PER).
 
     Arguments
     ---------
     merge_tokens : bool
-        Whether to merge the successive tokens (used for e.g.
+        Whether to merge the successive tokens (used for e.g.,
         creating words out of character tokens).
 
     Example
@@ -260,7 +259,7 @@ class ErrorRateStats(MetricStats):
             return self.summary
 
     def write_stats(self, filestream):
-        """Write all relevant info (e.g. error rate alignments) to file.
+        """Write all relevant info (e.g., error rate alignments) to file.
         * See MetricStats.write_stats()
         """
         if not self.summary:
@@ -272,7 +271,6 @@ class ErrorRateStats(MetricStats):
 
 class BinaryMetricStats(MetricStats):
     """Tracks binary metrics, such as precision, recall, F1, EER, etc.
-
     """
 
     def __init__(self, positive_label=1):
@@ -289,7 +287,7 @@ class BinaryMetricStats(MetricStats):
         """Appends scores and labels to internal lists.
 
         Does not compute metrics until time of summary, since
-        automatic thresholds (e.g. EER) need full set of scores.
+        automatic thresholds (e.g., EER) need full set of scores.
 
         Arguments
         ---------
@@ -375,7 +373,7 @@ class BinaryMetricStats(MetricStats):
 
 
 def EER(positive_scores, negative_scores):
-    """Computes the EER (and its threshold)
+    """Computes the EER (and its threshold).
 
     Arguments
     ---------
@@ -446,12 +444,12 @@ def minDCF(
         The scores from entries of the same class.
     negative_scores : torch.tensor
         The scores from entries of different classes.
-    c_miss: float
+    c_miss : float
          Cost assigned to a missing error (default 1.0).
-    c_fa: float
+    c_fa : float
         Cost assigned to a false alarm (default 1.0).
     p_target: float
-        Prior probability of having a target (defaul 0.01).
+        Prior probability of having a target (default 0.01).
 
 
     Example
