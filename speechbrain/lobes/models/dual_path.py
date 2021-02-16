@@ -1260,6 +1260,18 @@ class SepformerWrapper(nn.Module):
         )
         self.num_spks = masknet_numspks
 
+        # reinitialize the parameters
+        for module in [self.encoder, self.masknet, self.decoder]:
+            self.reset_layer_recursively(module)
+
+    def reset_layer_recursively(self, layer):
+        """Reinitializes the parameters of the network"""
+        if hasattr(layer, "reset_parameters"):
+            layer.reset_parameters()
+        for child_layer in layer.modules():
+            if layer != child_layer:
+                self.reset_layer_recursively(child_layer)
+
     def forward(self, mix):
 
         mix_w = self.encoder(mix)
