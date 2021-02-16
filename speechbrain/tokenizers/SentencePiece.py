@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class SentencePiece:
-    """
-    BPE class call the SentencePiece unsupervised text tokenizer from Google.
-    Ref: https://github.com/google/sentencepiece
+    """BPE class call the SentencePiece unsupervised text tokenizer from Google.
+
+    Reference: https://github.com/google/sentencepiece
 
     SetencePiece lib is an unsupervised text tokenizer and detokenizer.
     It implements subword units like Byte-pair-encoding (BPE),
@@ -28,17 +28,17 @@ class SentencePiece:
 
     Arguments
     ---------
-    model_dir: str
+    model_dir : str
         The directory where the model is saved.
-    vocab_size: int, None, optional
-        Vocab size for the choosen tokenizer type (BPE, Unigram).
+    vocab_size : int, None, optional
+        Vocab size for the chosen tokenizer type (BPE, Unigram).
         The vocab_size is optional for char, and mandatory for BPE & unigram
         tokenization.
-    csv_train: str
-        Path of the csv file which is used for learn of create the tokenizer.
-    csv_read: str
-        The data entry which contain the word sequence in the csv file.
-    model_type: str
+    csv_train : str
+        Path of the csv file which is used to learn the tokenizer.
+    csv_read : str
+        The data entry which contains the word sequence in the csv file.
+    model_type : str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
         https://www.aclweb.org/anthology/P16-1162/
@@ -46,33 +46,29 @@ class SentencePiece:
         If "unigram" do piece of word tokenization using unigram language
         model, see: https://arxiv.org/abs/1804.10959
     char_format_input : bool
-        Default : False
-        Whether the csv_read entry contains characters format input.
-        (ex. a p p l e _ i s _ g o o d)
-    character_coverage: int
-        Default: 1.0, Amount of characters covered by the model, good defaults
-        are: 0.9995 for languages with rich character set like Japanse or
-        Chinese and 1.0 for other languages with small character set.
-    user_defined_symbols: string
-        Default: None,
-        String contained a list of symbols separated by comma.
-        User defined symbols are handled as one piece in any context.
-    max_sentencepiece_length: int
-        Deault: 10,
-        Maximum number of characters for the tokens.
-    bos_id: int
-        Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
-    eos_id: int
-        Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
-    split_by_whitespace: bool,
-        Default: True,
+        Whether the csv_read entry contains characters format input. (default: False)
+        (e.g., a p p l e _ i s _ g o o d)
+    character_coverage : int
+        Amount of characters covered by the model, good defaults
+        are: 0.9995 for languages with a rich character set like Japanse or
+        Chinese and 1.0 for other languages with small character set. (default: 1.0)
+    user_defined_symbols : string
+        String contained a list of symbols separated by a comma.
+        User-defined symbols are handled as one piece in any context. (default: None)
+    max_sentencepiece_length : int
+        Maximum number of characters for the tokens. (default: 10)
+    bos_id : int
+        If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    eos_id : int
+        If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    split_by_whitespace : bool
         If False, allow the sentenciepiece to extract piece crossing multiple words.
-        This feature is important for : Chinese/Japenese/Korean.
-    num_sequences: int
-        Default: None
-        If not none, use at most this many sequences to train the tokenizer (for large datasets).
-    csv_list_to_check: list,
+        This feature is important for : Chinese/Japenese/Korean. (default: True)
+    num_sequences : int
+        If not none, use at most this many sequences to train the tokenizer (for large datasets). (default: None)
+    csv_list_to_check : list,
         List of the csv file which is used for checking the accuracy of recovering words from the tokenizer.
+
     Example
     -------
     >>> import torch
@@ -165,8 +161,7 @@ class SentencePiece:
             sb.utils.distributed.ddp_barrier()
 
     def _csv2text(self):
-        """
-        Read CSV file and convert specific data entries into text file.
+        """Read CSV file and convert specific data entries into text file.
         """
         if not os.path.isfile(os.path.abspath(self.csv_train)):
             raise ValueError(
@@ -202,8 +197,7 @@ class SentencePiece:
         logger.info("Text file created at: " + self.text_file)
 
     def _train_BPE(self):
-        """
-        Train tokenizer with unsupervised techniques (BPE, Unigram) using
+        """Train tokenizer with unsupervised techniques (BPE, Unigram) using
         SentencePiece Library. If you use "char" mode, the SentencePiece
         creates a char dict so the vocab_size attribute is not needed.
         """
@@ -238,12 +232,11 @@ class SentencePiece:
         spm.SentencePieceTrainer.train(query)
 
     def _check_coverage_from_bpe(self, list_csv_files=[]):
-        """
-        Logging the accuracy of the BPE model to recover words from the training text.
+        """Logging the accuracy of the BPE model to recover words from the training text.
 
         Arguments
         ---------
-        csv_list_to_check: list,
+        csv_list_to_check : list,
             List of the csv file which is used for checking the accuracy of recovering words from the tokenizer.
         """
         for csv_file in list_csv_files:
@@ -305,24 +298,22 @@ class SentencePiece:
     def __call__(
         self, batch, batch_lens=None, ind2lab=None, task="encode",
     ):
-        """
-        This __call__ function implements the tokenizer encoder and decoder
+        """This __call__ function implements the tokenizer encoder and decoder
         (restoring the string of word) for BPE, Regularized BPE (with unigram),
         and char (speechbrain/nnet/RNN.py).
 
         Arguments
         ----------
         batch : tensor.IntTensor or list
-            list if ( batch_lens = None and task = "decode_from_list")
+            List if ( batch_lens = None and task = "decode_from_list")
             Contains the original labels. Shape: [batch_size, max_length]
         batch_lens : tensor.LongTensor
-            Default: None,
             Cotaining the relative length of each label sequences. Must be 1D
-            tensor of shape: [batch_size].
+            tensor of shape: [batch_size]. (default: None)
         ind2lab : dict
             Dictionnary which map the index from label sequences
             (batch tensor) to string label.
-        task: str
+        task : str
             ("encode", "decode", "decode_from_list)
             "encode": convert the batch tensor into sequence of tokens.
                 the output contain a list of (tokens_seq, tokens_lens)

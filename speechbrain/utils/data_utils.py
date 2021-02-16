@@ -19,13 +19,13 @@ import re
 
 def undo_padding(batch, lengths):
     """Produces Python lists given a batch of sentences with
-    their corresponding relative lenghts.
+    their corresponding relative lengths.
 
     Arguments
     ---------
     batch : tensor
         Batch of sentences gathered in a batch.
-    lenght: tensor
+    lengths : tensor
         Relative length of each sentence in the batch.
 
     Example
@@ -56,18 +56,18 @@ def get_all_files(
     Arguments
     ---------
     dirName : str
-        the directory to search
+        The directory to search.
     match_and : list
-        a list that contains patterns to match. The file is
+        A list that contains patterns to match. The file is
         returned if it matches all the entries in `match_and`.
     match_or : list
-        a list that contains patterns to match. The file is
+        A list that contains patterns to match. The file is
         returned if it matches one or more of the entries in `match_or`.
     exclude_and : list
-        a list that contains patterns to match. The file is
+        A list that contains patterns to match. The file is
         returned if it matches none of the entries in `exclude_and`.
     exclude_or : list
-        a list that contains pattern to match. The file is
+        A list that contains pattern to match. The file is
         returned if it fails to match one of the entries in `exclude_or`.
 
     Example
@@ -158,9 +158,9 @@ def split_list(seq, num):
     Arguments
     ---------
     seq : iterable
-        the input list, to be split.
+        The input list, to be split.
     num : int
-        the number of chunks to produce.
+        The number of chunks to produce.
 
     Example
     -------
@@ -181,12 +181,12 @@ def split_list(seq, num):
 
 
 def recursive_items(dictionary):
-    """Yield each (key, value) of a nested dictionary
+    """Yield each (key, value) of a nested dictionary.
 
     Arguments
     ---------
     dictionary : dict
-        the nested dictionary to list.
+        The nested dictionary to list.
 
     Yields
     ------
@@ -229,9 +229,9 @@ def recursive_update(d, u, must_match=False):
     Arguments
     ---------
     d : dict
-        mapping to be updated
+        Mapping to be updated.
     u : dict
-        mapping to update with
+        Mapping to update with.
     must_match : bool
         Whether to throw an error if the key in `u` does not exist in `d`.
 
@@ -264,7 +264,7 @@ def download_file(
      Arguments
     ---------
     source : path or url
-        Path of the source file. If source is an URL, it downloads it from
+        Path of the source file. If the source is an URL, it downloads it from
         the web.
     dest : path
         Destination path.
@@ -302,7 +302,7 @@ def download_file(
                         source, filename=dest, reporthook=t.update_to
                     )
             else:
-                print("Destination path is not empty. Skipping download")
+                print(f"{dest} exists. Skipping download")
 
             # Unpack if necessary
             if unpack:
@@ -370,10 +370,9 @@ def pad_right_to(
     Returns
     -------
     tensor : torch.Tensor
-        Padded tensor
+        Padded tensor.
     valid_vals : list
-        List containing proportion for each dimension of original, non-padded values
-
+        List containing proportion for each dimension of original, non-padded values.
     """
     assert len(target_shape) == tensor.ndim
 
@@ -396,8 +395,7 @@ def pad_right_to(
 
 
 def batch_pad_right(tensors: list, mode="constant", value=0):
-    """
-    Given a list of torch tensors it batches them together by padding to the right
+    """Given a list of torch tensors it batches them together by padding to the right
     on each dimension in order to get same length for all.
 
     Parameters
@@ -412,9 +410,9 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     Returns
     -------
     tensor : torch.Tensor
-        Padded tensor
+        Padded tensor.
     valid_vals : list
-        List containing proportion for each dimension of original, non-padded values
+        List containing proportion for each dimension of original, non-padded values.
 
     """
 
@@ -463,7 +461,7 @@ def split_by_whitespace(text):
 
 
 def recursive_to(data, *args, **kwargs):
-    """Moves data to device, or other type, and handles containers
+    """Moves data to device, or other type, and handles containers.
 
     Very similar to torch.utils.data._utils.pin_memory.pin_memory,
     but applies .to() instead.
@@ -493,10 +491,10 @@ np_str_obj_array_pattern = re.compile(r"[SaUO]")
 
 
 def mod_default_collate(batch):
-    r"""Makes a tensor from list of batch values
+    r"""Makes a tensor from list of batch values.
 
     Note that this doesn't need to zip(*) values together
-    as PaddedBatch connects them alread (by key)
+    as PaddedBatch connects them already (by key).
 
     Here the idea is not to error out.
 

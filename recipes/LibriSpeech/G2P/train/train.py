@@ -29,6 +29,7 @@ from speechbrain.utils.distributed import run_on_main
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
+        """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
         chars, char_lens = batch.grapheme_encoded
         phn_bos, phn_lens = batch.phn_encoded_bos
@@ -49,6 +50,7 @@ class ASR(sb.Brain):
         return p_seq, char_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss (CTC+NLL) given predictions and targets."""
         if stage == sb.Stage.TRAIN:
             p_seq, char_lens = predictions
         else:
@@ -75,6 +77,7 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
@@ -84,17 +87,20 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
         self.seq_metrics = self.hparams.seq_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -134,7 +140,8 @@ class ASR(sb.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -176,12 +183,12 @@ def dataio_prep(hparams):
     grapheme_encoder = sb.dataio.encoder.TextEncoder()
 
     # 2. Define graphene pipeline:
-    @sb.utils.data_pipeline.takes("graphemes")
+    @sb.utils.data_pipeline.takes("char")
     @sb.utils.data_pipeline.provides(
         "grapheme_list", "grapheme_encoded_list", "grapheme_encoded"
     )
-    def grapheme_pipeline(graphemes):
-        grapheme_list = graphemes.strip().split(" ")
+    def grapheme_pipeline(char):
+        grapheme_list = char.strip().split(" ")
         yield grapheme_list
         grapheme_encoded_list = grapheme_encoder.encode_sequence(grapheme_list)
         yield grapheme_encoded_list
@@ -191,7 +198,7 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, grapheme_pipeline)
 
     # 3. Define phoneme pipeline:
-    @sb.utils.data_pipeline.takes("phonemes")
+    @sb.utils.data_pipeline.takes("phn")
     @sb.utils.data_pipeline.provides(
         "phn_list",
         "phn_encoded_list",
@@ -199,8 +206,8 @@ def dataio_prep(hparams):
         "phn_encoded_eos",
         "phn_encoded_bos",
     )
-    def phoneme_pipeline(phonemes):
-        phn_list = phonemes.strip().split(" ")
+    def phoneme_pipeline(phn):
+        phn_list = phn.strip().split(" ")
         yield phn_list
         phn_encoded_list = phoneme_encoder.encode_sequence(phn_list)
         yield phn_encoded_list
@@ -265,6 +272,13 @@ if __name__ == "__main__":
 
     from librispeech_prepare import prepare_librispeech  # noqa
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_librispeech,
@@ -272,18 +286,12 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "create_lexicon": True,
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, phoneme_encoder = dataio_prep(hparams)
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
 
     # Trainer initialization
     asr_brain = ASR(

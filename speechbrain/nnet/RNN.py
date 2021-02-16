@@ -21,8 +21,38 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def pack_padded_sequence(inputs, lengths):
+    """Returns packed speechbrain-formatted tensors.
+
+    Arguments
+    ---------
+    inputs : torch.Tensor
+        The sequences to pack.
+    lengths : torch.Tensor
+        The length of each sequence.
+    """
+    lengths = (lengths * inputs.size(1)).cpu()
+    return torch.nn.utils.rnn.pack_padded_sequence(
+        inputs, lengths, batch_first=True, enforce_sorted=False
+    )
+
+
+def pad_packed_sequence(inputs):
+    """Returns speechbrain-formatted tensor from packed sequences.
+
+    Arguments
+    ---------
+    inputs : torch.nn.utils.rnn.PackedSequence
+        An input set of sequences to convert to a tensor.
+    """
+    outputs, lengths = torch.nn.utils.rnn.pad_packed_sequence(
+        inputs, batch_first=True
+    )
+    return outputs
+
+
 class RNN(torch.nn.Module):
-    """ This function implements a vanilla RNN.
+    """This function implements a vanilla RNN.
 
     It accepts in input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
@@ -45,11 +75,11 @@ class RNN(torch.nn.Module):
         If True, the additive bias b is adopted.
     dropout : float
         It is the dropout factor (must be between 0 and 1).
-    re_init : bool:
-        It True, orthogonal initialization is used for the recurrent weights.
+    re_init : bool
+        If True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        If True, a bidirectioal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -99,12 +129,17 @@ class RNN(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, lengths=None):
         """Returns the output of the vanilla RNN.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Starting hidden state.
+        lengths : torch.Tensor
+            Relative lengths of the input signals.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -114,17 +149,25 @@ class RNN(torch.nn.Module):
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
+        # Pack sequence for proper RNN handling of padding
+        if lengths is not None:
+            x = pack_padded_sequence(x, lengths)
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
             output, hn = self.rnn(x)
 
+        # Unpack the packed sequence
+        if lengths is not None:
+            output = pad_packed_sequence(output)
+
         return output, hn
 
 
 class LSTM(torch.nn.Module):
-    """ This function implements a basic LSTM.
+    """This function implements a basic LSTM.
 
     It accepts in input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
@@ -149,7 +192,7 @@ class LSTM(torch.nn.Module):
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        if True, a bidirectioal model that scans the sequence both
+        If True, a bidirectinoal model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -197,12 +240,17 @@ class LSTM(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, lengths=None):
         """Returns the output of the LSTM.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Starting hidden state.
+        lengths : torch.Tensor
+            Relative length of the input signals.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -212,11 +260,19 @@ class LSTM(torch.nn.Module):
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
+        # Pack sequence for proper RNN handling of padding
+        if lengths is not None:
+            x = pack_padded_sequence(x, lengths)
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
             output, hn = self.rnn(x)
+
+        # Unpack the packed sequence
+        if lengths is not None:
+            output = pad_packed_sequence(output)
 
         return output, hn
 
@@ -224,7 +280,7 @@ class LSTM(torch.nn.Module):
 class GRU(torch.nn.Module):
     """ This function implements a basic GRU.
 
-    It accepts in input tensors formatted as (batch, time, fea).
+    It accepts input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
     flattened as (batch, time, fea*channel).
 
@@ -244,10 +300,10 @@ class GRU(torch.nn.Module):
     dropou t: float
         It is the dropout factor (must be between 0 and 1).
     re_init : bool
-        It True, orthogonal initialization is used for the recurrent weights.
+        If True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        if True, a bidirectioal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -295,12 +351,17 @@ class GRU(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, lengths=None):
         """Returns the output of the GRU.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Starting hidden state.
+        lengths : torch.Tensor
+            Relative length of the input signals.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -310,11 +371,19 @@ class GRU(torch.nn.Module):
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
+        # Pack sequence for proper RNN handling of padding
+        if lengths is not None:
+            x = pack_padded_sequence(x, lengths)
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
             output, hn = self.rnn(x)
+
+        # Unpack the packed sequence
+        if lengths is not None:
+            output = pad_packed_sequence(output)
 
         return output, hn
 
@@ -322,7 +391,8 @@ class GRU(torch.nn.Module):
 class RNNCell(nn.Module):
     """ This class implements a basic RNN Cell for a timestep of input,
     while RNN() takes the whole sequence as input.
-    It is designed for autoregressive decoder (ex. attentional decoder),
+
+    It is designed for an autoregressive decoder (ex. attentional decoder),
     which takes one input at a time.
     Using torch.nn.RNNCell() instead of torch.nn.RNN() to reduce VRAM
     consumption.
@@ -428,7 +498,8 @@ class RNNCell(nn.Module):
 class GRUCell(nn.Module):
     """ This class implements a basic GRU Cell for a timestep of input,
     while GRU() takes the whole sequence as input.
-    It is designed for autoregressive decoder (ex. attentional decoder),
+
+    It is designed for an autoregressive decoder (ex. attentional decoder),
     which takes one input at a time.
     Using torch.nn.GRUCell() instead of torch.nn.GRU() to reduce VRAM
     consumption.
@@ -442,13 +513,13 @@ class GRUCell(nn.Module):
         The shape of an example input. Alternatively, use ``input_size``.
     input_size : int
         The size of the input. Alternatively, use ``input_shape``.
-    num_layers: int
+    num_layers : int
         Number of layers to employ in the GRU architecture.
-    bias: bool
+    bias : bool
         If True, the additive bias b is adopted.
-    dropout: float
+    dropout : float
         It is the dropout factor (must be between 0 and 1).
-    re_init: bool:
+    re_init : bool
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
 
@@ -505,6 +576,7 @@ class GRUCell(nn.Module):
 
     def forward(self, x, hx=None):
         """Returns the output of the GRUCell.
+
         Arguments
         ---------
         x : torch.Tensor
@@ -512,6 +584,7 @@ class GRUCell(nn.Module):
         hx : torch.Tensor
             The hidden states of GRUCell.
         """
+
         # if not provided, initialized with zeros
         if hx is None:
             hx = x.new_zeros(self.num_layers, x.shape[0], self.hidden_size)
@@ -530,7 +603,8 @@ class GRUCell(nn.Module):
 class LSTMCell(nn.Module):
     """ This class implements a basic LSTM Cell for a timestep of input,
     while LSTM() takes the whole sequence as input.
-    It is designed for autoregressive decoder (ex. attentional decoder),
+
+    It is designed for an autoregressive decoder (ex. attentional decoder),
     which takes one input at a time.
     Using torch.nn.LSTMCell() instead of torch.nn.LSTM() to reduce VRAM
     consumption.
@@ -544,14 +618,14 @@ class LSTMCell(nn.Module):
         The shape of an example input. Alternatively, use ``input_size``.
     input_size : int
         The size of the input. Alternatively, use ``input_shape``.
-    num_layers: int
+    num_layers : int
         Number of layers to employ in the LSTM architecture.
-    bias: bool
+    bias : bool
         If True, the additive bias b is adopted.
-    dropout: float
+    dropout : float
         It is the dropout factor (must be between 0 and 1).
-    re_init: bool:
-        It True, orthogonal initialization is used for the recurrent weights.
+    re_init : bool
+        If True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
 
     Example
@@ -637,7 +711,7 @@ class LSTMCell(nn.Module):
 
 
 class AttentionalRNNDecoder(nn.Module):
-    """This funtion implements RNN decoder model with attention.
+    """This function implements RNN decoder model with attention.
 
     This function implements different RNN models. It accepts in enc_states
     tensors formatted as (batch, time, fea). In the case of 4d inputs
@@ -801,10 +875,10 @@ class AttentionalRNNDecoder(nn.Module):
         self.rnn = cell_class(**kwargs)
 
     def forward_step(self, inp, hs, c, enc_states, enc_len):
-        """
-        One step of forward pass process.
+        """One step of forward pass process.
 
-        Arguments:
+        Arguments
+        ---------
         inp : torch.Tensor
             The input of current timestep.
         hs : torch.Tensor or tuple of torch.Tensor
@@ -816,8 +890,10 @@ class AttentionalRNNDecoder(nn.Module):
         enc_len : torch.LongTensor
             The actual length of encoder states.
 
-        Returns:
+        Returns
+        -------
         dec_out : torch.Tensor
+            The output tensor.
         hs : torch.Tensor or tuple of torch.Tensor
             The new cell state for RNN.
         c : torch.Tensor
@@ -836,10 +912,10 @@ class AttentionalRNNDecoder(nn.Module):
         return dec_out, hs, c, w
 
     def forward(self, inp_tensor, enc_states, wav_len):
-        """
-        This method implements the forward pass of the attentional RNN decoder.
+        """This method implements the forward pass of the attentional RNN decoder.
 
-        Arguments:
+        Arguments
+        ---------
         inp_tensor : torch.Tensor
             The input tensor for each timesteps of RNN decoder.
         enc_states : torch.Tensor
@@ -847,7 +923,8 @@ class AttentionalRNNDecoder(nn.Module):
         wav_len : torch.Tensor
             This variable stores the relative length of wavform.
 
-        Returns:
+        Returns
+        -------
         outputs : torch.Tensor
             The output of the RNN decoder.
         attn : torch.Tensor
@@ -919,10 +996,10 @@ class LiGRU(torch.nn.Module):
     dropout : float
         It is the dropout factor (must be between 0 and 1).
     re_init : bool
-        It True, orthogonal initialization is used for the recurrent weights.
+        If True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        if True, a bidirectional model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -997,9 +1074,9 @@ class LiGRU(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor
+            The input tensor.
         hx : torch.Tensor
-            Starting hidden state
+            Starting hidden state.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -1017,7 +1094,7 @@ class LiGRU(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor
+            Input tensor.
         hx : torch.Tensor
         """
         h = []
@@ -1065,7 +1142,7 @@ class LiGRU_Layer(torch.nn.Module):
     dropout : float
         It is the dropout factor (must be between 0 and 1).
     bidirectional : bool
-        if True, a bidirectioal model that scans the sequence both
+        if True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
     """
 
@@ -1134,6 +1211,7 @@ class LiGRU_Layer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -1337,7 +1415,7 @@ class QuasiRNNLayer(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            input to transform linearly.
+            Input to transform linearly.
         """
         if x.ndim == 4:
             # if input is a 4d tensor (batch, time, channel1, channel2)
@@ -1403,12 +1481,11 @@ class QuasiRNNLayer(torch.nn.Module):
 
 
 class QuasiRNN(nn.Module):
-    """This is a implementation for the Quasi-RNN
+    """This is a implementation for the Quasi-RNN.
 
     https://arxiv.org/pdf/1611.01576.pdf
 
     Part of the code is adapted from:
-
     https://github.com/salesforce/pytorch-qrnn
 
     Arguments
@@ -1509,8 +1586,7 @@ class QuasiRNN(nn.Module):
 
 
 def rnn_init(module):
-    """
-    This function is used to initialize the RNN weight.
+    """This function is used to initialize the RNN weight.
     Recurrent connection: orthogonal initialization.
 
     Arguments

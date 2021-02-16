@@ -10,6 +10,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
 """
+import os
 import sys
 import torch
 import logging
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         phns_bos, _ = batch.phn_encoded_bos
@@ -62,6 +64,7 @@ class ASR(sb.Brain):
         return p_ctc, p_seq, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the NLL loss."
         if stage == sb.Stage.TRAIN:
             p_ctc, p_seq, wav_lens = predictions
         else:
@@ -72,6 +75,8 @@ class ASR(sb.Brain):
         phns, phn_lens = batch.phn_encoded
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
             phns_eos = torch.cat([phns_eos, phns_eos], dim=0)
             phn_lens_eos = torch.cat([phn_lens_eos, phn_lens_eos], dim=0)
 
@@ -91,6 +96,7 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
@@ -100,11 +106,13 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.ctc_metrics = self.hparams.ctc_stats()
         self.seq_metrics = self.hparams.seq_stats()
 
@@ -112,6 +120,7 @@ class ASR(sb.Brain):
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -154,7 +163,8 @@ class ASR(sb.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -234,28 +244,20 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    # NOTE: In this minimal example, also update from valid data
-
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
-    if (
-        hparams["blank_index"] != hparams["bos_index"]
-        or hparams["blank_index"] != hparams["eos_index"]
-    ):
-        label_encoder.insert_blank(index=hparams["blank_index"])
-
-    if hparams["bos_index"] == hparams["eos_index"]:
-        label_encoder.insert_bos_eos(
-            bos_label="<eos-bos>",
-            eos_label="<eos-bos>",
-            bos_index=hparams["bos_index"],
-        )
-    else:
-        label_encoder.insert_bos_eos(
-            bos_label="<bos>",
-            eos_label="<eos>",
-            bos_index=hparams["bos_index"],
-            eos_index=hparams["eos_index"],
-        )
+    # Load or compute the label encoder
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    special_labels = {
+        "bos_label": hparams["bos_index"],
+        "eos_label": hparams["eos_index"],
+        "blank_label": hparams["blank_index"],
+    }
+    label_encoder.load_or_create(
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="phn_list",
+        special_labels=special_labels,
+        sequence_input=True,
+    )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
@@ -294,6 +296,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

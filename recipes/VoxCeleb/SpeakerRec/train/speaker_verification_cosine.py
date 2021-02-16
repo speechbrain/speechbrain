@@ -14,13 +14,12 @@ Authors
 import os
 import sys
 import torch
-import torchaudio
 import logging
+import torchaudio
 import speechbrain as sb
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import EER, minDCF
-from speechbrain.utils.data_utils import download_file
 
 
 # Compute embeddings from the waveforms
@@ -28,13 +27,7 @@ def compute_embedding(wavs, lens):
     """Computes the embeddings of the input waveform batch
     """
     with torch.no_grad():
-        wavs, lens = wavs.to(params["device"]), lens.to(params["device"])
-        feats = params["compute_features"](wavs)
-        feats = params["mean_var_norm"](feats, lens)
-        emb = params["embedding_model"](feats, lens)
-        emb = params["mean_var_norm_emb"](
-            emb, torch.ones(emb.shape[0]).to(params["device"])
-        )
+        emb = params["embedding_model"].compute_embeddings(wavs, lens)
     return emb
 
 
@@ -56,7 +49,7 @@ def compute_embedding_loop(data_loader):
             if not found:
                 continue
             wavs, lens = wavs.to(params["device"]), lens.to(params["device"])
-            emb = compute_embedding(wavs, lens)
+            emb = compute_embedding(wavs, lens).unsqueeze(1)
             for i, seg_id in enumerate(seg_ids):
                 embedding_dict[seg_id] = emb[i].detach().clone()
     return embedding_dict
@@ -92,12 +85,24 @@ def get_verification_scores(veri_test):
             # Getting norm stats for enrol impostors
             enrol_rep = enrol.repeat(train_cohort.shape[0], 1, 1)
             score_e_c = similarity(enrol_rep, train_cohort)
+
+            if "cohort_size" in params:
+                score_e_c = torch.topk(
+                    score_e_c, k=params["cohort_size"], dim=0
+                )[0]
+
             mean_e_c = torch.mean(score_e_c, dim=0)
             std_e_c = torch.std(score_e_c, dim=0)
 
             # Getting norm stats for test impostors
             test_rep = test.repeat(train_cohort.shape[0], 1, 1)
             score_t_c = similarity(test_rep, train_cohort)
+
+            if "cohort_size" in params:
+                score_t_c = torch.topk(
+                    score_t_c, k=params["cohort_size"], dim=0
+                )[0]
+
             mean_t_c = torch.mean(score_t_c, dim=0)
             std_t_c = torch.std(score_t_c, dim=0)
 
@@ -126,20 +131,6 @@ def get_verification_scores(veri_test):
 
     s_file.close()
     return positive_scores, negative_scores
-
-
-# Function for pre-trained model downloads
-def download_and_pretrain():
-    """ Downloads the specified pre-trained model
-    """
-    if "http" in params["embedding_file"]:
-        save_model_path = params["output_folder"] + "/save/embedding_model.ckpt"
-        download_file(params["embedding_file"], save_model_path)
-    else:
-        save_model_path = params["embedding_file"]
-    params["embedding_model"].load_state_dict(
-        torch.load(save_model_path), strict=True
-    )
 
 
 def dataio_prep(params):
@@ -238,21 +229,11 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
 
-    # Dictionary to store the last waveform read for each speaker
-    wav_stored = {}
-
-    # Pretrain the model (download it if needed)
-    download_and_pretrain()
     params["embedding_model"].eval()
-
-    # Putting models on the specified device
-    params["compute_features"].to(params["device"])
-    params["mean_var_norm"].to(params["device"])
-    params["embedding_model"].to(params["device"])
-    params["mean_var_norm_emb"].to(params["device"])
+    params["embedding_model"].mean_var_norm_emb.count = 0
 
     # Computing  enrollment and test embeddings
-    print("Computing enroll/test embeddings...")
+    logger.info("Computing enroll/test embeddings...")
 
     # First run
     enrol_dict = compute_embedding_loop(enrol_dataloader)
@@ -266,7 +247,7 @@ if __name__ == "__main__":
         train_dict = compute_embedding_loop(train_dataloader)
 
     # Compute the EER
-    print("Computing EER..")
+    logger.info("Computing EER..")
     # Reading standard verification split
     gt_file = os.path.join(params["data_folder"], "meta", "veri_test.txt")
     with open(gt_file) as f:
@@ -276,7 +257,7 @@ if __name__ == "__main__":
     del enrol_dict, test_dict
 
     eer, th = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-    logger.info("EER=%f", eer * 100)
+    logger.info("EER(%%)=%f", eer * 100)
 
     min_dcf, th = minDCF(
         torch.tensor(positive_scores), torch.tensor(negative_scores)

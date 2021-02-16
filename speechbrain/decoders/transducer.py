@@ -1,5 +1,4 @@
-"""
-Decoders and output normalization for Transducer sequence
+"""Decoders and output normalization for Transducer sequence.
 
 Author:
     Abdelwahab HEBA 2020
@@ -10,35 +9,35 @@ import torch
 
 class TransducerBeamSearcher(torch.nn.Module):
     """
-    This class implements the beam-search algorithm for transducer model.
+    This class implements the beam-search algorithm for the transducer model.
 
     Parameters
     ----------
     decode_network_lst : list
-        list of prediction netowrk (PN) layers
+        List of prediction network (PN) layers.
     tjoint: transducer_joint module
-        this module perform the joint between TN and PN
+        This module perform the joint between TN and PN.
     classifier_network : list
-        list of output layers (after performing joint between TN and PN)
+        List of output layers (after performing joint between TN and PN)
         exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
-    blank_id : int,
+    blank_id : int
         The blank symbol/index.
     beam : int
         The width of beam. Greedy Search is used when beam = 1.
     nbest : int
-        Number of hypothesis to keep.
-    lm_module: torch.nn.ModuleList
-        neural networks modules for LM.
-    lm_weight: float
-        Default: 0.3
+        Number of hypotheses to keep.
+    lm_module : torch.nn.ModuleList
+        Neural networks modules for LM.
+    lm_weight : float
         The weight of LM when performing beam search (λ).
-        log P(y|x) + λ log P_LM(y)
-    state_beam: float
+        log P(y|x) + λ log P_LM(y). (default: 0.3)
+    state_beam : float
         The threshold coefficient in log space to decide if hyps in A (process_hyps)
         is likely to compete with hyps in B (beam_hyps), if not, end the while loop.
         Reference: https://arxiv.org/pdf/1911.01629.pdf
-    expand_beam: float
-        The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
+    expand_beam : float
+        The threshold coefficient to limit the number of expanded hypotheses
+        that are added in A (process_hyp).
         Reference: https://arxiv.org/pdf/1911.01629.pdf
         Reference: https://github.com/kaldi-asr/kaldi/blob/master/src/decoder/simple-decoder.cc (See PruneToks)
 
@@ -82,10 +81,6 @@ class TransducerBeamSearcher(torch.nn.Module):
     ... )
     >>> enc = torch.rand([1, 20, 10])
     >>> hyps, scores, _, _ = searcher(enc)
-
-    Author:
-        Abdelwahab HEBA 2020
-        Sung-Lin Yeh 2020
     """
 
     def __init__(
@@ -128,8 +123,9 @@ class TransducerBeamSearcher(torch.nn.Module):
         Arguments
         ----------
         tn_output : torch.tensor
-            output from transcription network with shape
-            [batch, time_len, hiddens]
+            Output from transcription network with shape
+            [batch, time_len, hiddens].
+
         Returns
         -------
         Topk hypotheses
@@ -139,9 +135,8 @@ class TransducerBeamSearcher(torch.nn.Module):
         return hyps
 
     def transducer_greedy_decode(self, tn_output):
-        """
-        transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
-            1- for each time stemps in the Transcription Network (TN) output:
+        """Transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
+            1- for each time step in the Transcription Network (TN) output:
                 -> Update the ith utterance only if
                     the previous target != the new one (we save the hiddens and the target)
                 -> otherwise:
@@ -150,17 +145,14 @@ class TransducerBeamSearcher(torch.nn.Module):
         Arguments
         ----------
         tn_output : torch.tensor
-            output from transcription network with shape
-            [batch, time_len, hiddens]
+            Output from transcription network with shape
+            [batch, time_len, hiddens].
 
         Returns
         -------
         torch.tensor
             Outputs a logits tensor [B,T,1,Output_Dim]; padding
             has not been removed.
-
-        Author:
-            Abdelwahab HEBA 2020
         """
         hyp = {
             "prediction": [[] for _ in range(tn_output.size(0))],
@@ -225,10 +217,9 @@ class TransducerBeamSearcher(torch.nn.Module):
         )
 
     def transducer_beam_search_decode(self, tn_output):
-        """
-        transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
+        """Transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
             1- for each utterance:
-                2- for each time stemps in the Transcription Network (TN) output:
+                2- for each time steps in the Transcription Network (TN) output:
                     -> Do forward on PN and Joint network
                     -> Select topK <= beam
                     -> Do a while loop extending the hyps until we reach blank
@@ -238,19 +229,16 @@ class TransducerBeamSearcher(torch.nn.Module):
         Arguments
         ----------
         tn_output : torch.tensor
-            output from transcription network with shape
-            [batch, time_len, hiddens]
+            Output from transcription network with shape
+            [batch, time_len, hiddens].
 
         Returns
         -------
         torch.tensor
             Outputs a logits tensor [B,T,1,Output_Dim]; padding
             has not been removed.
-
-        Author:
-            Abdelwahab HEBA 2020
-            Sung-Lin Yeh 2020
         """
+
         # min between beam and max_target_lent
         nbest_batch = []
         nbest_batch_score = []
@@ -389,9 +377,8 @@ class TransducerBeamSearcher(torch.nn.Module):
         )
 
     def _joint_forward_step(self, h_i, out_PN):
-        """
-        Join predictions (TN & PN)
-        """
+        """Join predictions (TN & PN)."""
+
         with torch.no_grad():
             # the output would be a tensor of [B,T,U, oneof[sum,concat](Hidden_TN,Hidden_PN)]
             out = self.tjoint(h_i, out_PN,)
@@ -407,18 +394,18 @@ class TransducerBeamSearcher(torch.nn.Module):
         Arguments
         ---------
         inp_tokens : torch.Tensor
-            The input tensor of current timestep.
+            The input tensor of the current timestep.
         memory : No limit
-            The momory variables input for this timestep.
-            (ex. RNN hidden states).
+            The memory variables input for this timestep.
+            (e.g., RNN hidden states).
 
         Return
         ------
         log_probs : torch.Tensor
-            Log-probilities of the current timestep output.
+            Log-probabilities of the current timestep output.
         hs : No limit
-            The memory variables generated in this timestep.
-            (ex. RNN hidden states).
+            The memory variables are generated in this timestep.
+            (e.g., RNN hidden states).
         """
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
@@ -426,30 +413,27 @@ class TransducerBeamSearcher(torch.nn.Module):
         return log_probs, hs
 
     def _get_sentence_to_update(self, selected_sentences, output_PN, hidden):
-        """
-        Select and return the updated hiddens and output
-        from the Prediction Network
+        """Select and return the updated hiddens and output
+        from the Prediction Network.
 
         Arguments
         ----------
         selected_sentences : list
-            list of updated sentences (indexes)
+            List of updated sentences (indexes).
         output_PN: torch.tensor
-            output tensor from prediction netowrk (PN)
+            Output tensor from prediction network (PN).
         hidden : torch.tensor
             Optional: None, hidden tensor to be used for
-            reccurent layers in the prediction network
+            recurrent layers in the prediction network.
 
         Returns
         -------
         selected_output_PN: torch.tensor
-            Outputs a logits tensor [B_selected,U, hiddens]
+            Outputs a logits tensor [B_selected,U, hiddens].
         hidden_update_hyp: torch.tensor
-            selected hiddens tensor
-
-        Author:
-            Abdelwahab HEBA 2020
+            Selected hiddens tensor.
         """
+
         selected_output_PN = output_PN[selected_sentences, :]
         # for LSTM hiddens (hn, hc)
         if isinstance(hidden, tuple):
@@ -461,26 +445,23 @@ class TransducerBeamSearcher(torch.nn.Module):
         return selected_output_PN, hidden_update_hyp
 
     def _update_hiddens(self, selected_sentences, updated_hidden, hidden):
-        """
-        Update hidden tensor by a subset of hidden tensor (updated ones)
+        """Update hidden tensor by a subset of hidden tensor (updated ones).
 
         Arguments
         ----------
         selected_sentences : list
-            list of index to be updated
-        updated_hidden: torch.tensor
-            hidden tensor of the selected sentences for update
-        hidden: torch.tensor
-            hidden tensor to be updated
+            List of index to be updated.
+        updated_hidden : torch.tensor
+            Hidden tensor of the selected sentences for update.
+        hidden : torch.tensor
+            Hidden tensor to be updated.
 
         Returns
         -------
         torch.tensor
-            updated hidden tensor
-
-        Author:
-            Abdelwahab HEBA 2020
+            Updated hidden tensor.
         """
+
         if isinstance(hidden, tuple):
             hidden[0][:, selected_sentences, :] = updated_hidden[0]
             hidden[1][:, selected_sentences, :] = updated_hidden[1]
@@ -489,31 +470,28 @@ class TransducerBeamSearcher(torch.nn.Module):
         return hidden
 
     def _forward_PN(self, out_PN, decode_network_lst, hidden=None):
-        """
-        Compute forward-pass through a list of prediction network (PN) layers
+        """Compute forward-pass through a list of prediction network (PN) layers.
 
         Arguments
         ----------
         out_PN : torch.tensor
-            input sequence from prediction network with shape
-            [batch, target_seq_lens]
+            Input sequence from prediction network with shape
+            [batch, target_seq_lens].
         decode_network_lst: list
-            list of prediction netowrk (PN) layers
+            List of prediction netowrk (PN) layers.
         hinne : torch.tensor
             Optional: None, hidden tensor to be used for
-                reccurent layers in the prediction network
+                recurrent layers in the prediction network
 
         Returns
         -------
-        out_PN: torch.tensor
-            Outputs a logits tensor [B,U, hiddens]
-        hidden: torch.tensor
+        out_PN : torch.tensor
+            Outputs a logits tensor [B,U, hiddens].
+        hidden : torch.tensor
             Hidden tensor to be used for the next step
-            by reccurent layers in prediction network
-
-        Author:
-            Abdelwahab HEBA 2020
+            by recurrent layers in prediction network.
         """
+
         for layer in decode_network_lst:
             if layer.__class__.__name__ in [
                 "RNN",
@@ -528,26 +506,23 @@ class TransducerBeamSearcher(torch.nn.Module):
         return out_PN, hidden
 
     def _forward_after_joint(self, out, classifier_network):
-        """
-        Compute forward-pass through a list of classifier neural network
+        """Compute forward-pass through a list of classifier neural network.
 
         Arguments
         ----------
-        out: torch.tensor
-            output from joint network with shape
+        out : torch.tensor
+            Output from joint network with shape
             [batch, target_len, time_len, hiddens]
-        classifier_network: list
-            list of output layers (after performing joint between TN and PN)
+        classifier_network : list
+            List of output layers (after performing joint between TN and PN)
             exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
 
         Returns
         -------
         torch.tensor
             Outputs a logits tensor [B, U,T, Output_Dim];
-
-        Author:
-            Abdelwahab HEBA 2020
         """
+
         for layer in classifier_network:
             out = layer(out)
         return out

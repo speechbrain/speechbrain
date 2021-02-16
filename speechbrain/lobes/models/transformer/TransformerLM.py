@@ -1,4 +1,4 @@
-"""An implementation of Transformer Language model
+"""An implementation of Transformer Language model.
 
 Authors
 * Jianyuan Zhong
@@ -19,26 +19,26 @@ from speechbrain.lobes.models.transformer.Transformer import (
 
 
 class TransformerLM(TransformerInterface):
-    """This is an implementation of transformer language model
+    """This is an implementation of transformer language model.
 
     The architecture is based on the paper "Attention Is All You Need": https://arxiv.org/pdf/1706.03762.pdf
 
-    Arguements
+    Arguments
     ----------
-    d_model: int
-        the number of expected features in the encoder/decoder inputs (default=512).
-    nhead: int
-        the number of heads in the multiheadattention models (default=8).
-    num_encoder_layers: int
-        the number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers: int
-        the number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn: int
-        the dimension of the feedforward network model (default=2048).
-    dropout: int
-        the dropout value (default=0.1).
+    d_model : int
+        The number of expected features in the encoder/decoder inputs (default=512).
+    nhead : int
+        The number of heads in the multiheadattention models (default=8).
+    num_encoder_layers : int
+        The number of sub-encoder-layers in the encoder (default=6).
+    num_decoder_layers : int
+        The number of sub-decoder-layers in the decoder (default=6).
+    dim_ffn : int
+        The dimension of the feedforward network model (default=2048).
+    dropout : int
+        The dropout value (default=0.1).
     activation: torch class
-        the activation function of encoder/decoder intermediate layer, relu or gelu (default=relu)
+        The activation function of encoder/decoder intermediate layer, relu or gelu (default=relu).
 
     Example
     -------
@@ -99,12 +99,12 @@ class TransformerLM(TransformerInterface):
         # reset the params of the transformer model
         self._reset_params()
 
-    def forward(self, src):
+    def forward(self, src, hx=None):
         """
-        Arguements
-        ----------
-        src: tensor
-            the sequence to the encoder (required).
+        Arguments
+        ---------
+        src : tensor
+            The sequence to the encoder (required).
         """
         src_mask, src_key_padding_mask = self.make_masks(src)
 

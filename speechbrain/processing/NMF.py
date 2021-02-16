@@ -1,7 +1,7 @@
 """Non-negative matrix factorization
 
 Authors
-* Cem Subakan
+ * Cem Subakan
 """
 import torch
 from speechbrain.processing.features import spectral_magnitude
@@ -21,15 +21,15 @@ def spectral_phase(stft, power=2, log=False):
     >>> BS, nfft, T = 10, 20, 300
     >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
     >>> phase_mix = spectral_phase(X_stft)
-
     """
+
     phase = torch.atan2(stft[:, :, :, 1], stft[:, :, :, 0])
 
     return phase
 
 
 def NMF_separate_spectra(Whats, Xmix):
-    """This function separates the mixture signals, given NMF template matrices
+    """This function separates the mixture signals, given NMF template matrices.
 
     Arguments
     ---------
@@ -38,18 +38,18 @@ def NMF_separate_spectra(Whats, Xmix):
         the NMF template matrices that correspond to source1 and source2.
         W1, W2 are of size [nfft/2 + 1, K], where nfft is the fft size for STFT,
         and K is the number of vectors (templates) in W.
-    Xmix: torch.tensor
+    Xmix : torch.tensor
         This is the magnitude spectra for the mixtures.
         The size is [BS x T x nfft//2 + 1] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
 
     Outputs
     -------
-    X1hat: Separated spectrum for source1
+    X1hat : Separated spectrum for source1
         Size = [BS x (nfft/2 +1) x T] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
-    X2hat: Seperated Spectrum for source2
-        The size definitions are same as above.
+    X2hat : Seperated Spectrum for source2
+        The size definitions are the same as above.
 
     Example
     --------
@@ -60,8 +60,8 @@ def NMF_separate_spectra(Whats, Xmix):
     >>> Whats = [W1hat, W2hat]
     >>> Xmix = torch.randn(BS, T, nfft//2 + 1)
     >>> X1hat, X2hat = NMF_separate_spectra(Whats, Xmix)
-
     """
+
     W1, W2 = Whats
 
     nmixtures = Xmix.shape[0]
@@ -110,32 +110,27 @@ def reconstruct_results(
     Xhat1 : torch.tensor
         The separated spectrum for source 1 of size [BS, nfft/2 + 1, T],
         where,  BS = batch size, nfft = fft size, T = length of the spectra.
-
     Xhat2 : torch.tensor
         The separated spectrum for source 2 of size [BS, nfft/2 + 1, T].
-        The size definitions are same as Xhat1.
-
+        The size definitions are the same as Xhat1.
     X_stft : torch.tensor
         This is the magnitude spectra for the mixtures.
         The size is [BS x nfft//2 + 1 x T x 2] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
         The last dimension is to represent complex numbers.
-
-    sample_rate : int (Hz)
-        The sampling rate in which we would like to save the results.
-
-    win_length : int (ms)
-        the length of stft windows (ms)
-
-    hop_length : int (ms)
-        the length with which we shift the STFT windows.
+    sample_rate : int
+        The sampling rate (in Hz) in which we would like to save the results.
+    win_length : int
+        The length of stft windows (in ms).
+    hop_length : int
+        The length with which we shift the STFT windows (in ms).
 
     Returns
     -------
-    x1hats : (list)
-        List of waveforms for source 1
-    x2hats : (list)
-        List of waveforms for source 2
+    x1hats : list
+        List of waveforms for source 1.
+    x2hats : list
+        List of waveforms for source 2.
 
     Example
     -------

@@ -15,35 +15,34 @@ from speechbrain.utils.data_utils import undo_padding
 
 @register_checkpoint_hooks
 class HMMAligner(torch.nn.Module):
-    """
-    This class calculates Viterbi alignments in the forward method.
+    """This class calculates Viterbi alignments in the forward method.
+
     It also records alignments and creates batches of them for use
     in Viterbi training.
 
     Arguments
     ---------
-    states_per_phoneme: int
-        Number of hidden states to use per phoneme
-    output_folder: str
+    states_per_phoneme : int
+        Number of hidden states to use per phoneme.
+    output_folder : str
         It is the folder that the alignments will be stored in when
         saved to disk. Not yet implemented.
-    neg_inf: float
+    neg_inf : float
         The float used to represent a negative infinite log probability.
         Using `-float("Inf")` tends to give numerical instability.
         A number more negative than -1e5 also sometimes gave errors when
-        the `genbmm` library was used (currently not in use).
-        Default: -1e5
-    batch_reduction: string
-        One of "none", "sum" or "mean"
+        the `genbmm` library was used (currently not in use). (default: -1e5)
+    batch_reduction : string
+        One of "none", "sum" or "mean".
         What kind of batch-level reduction to apply to the loss calculated
-        in the forward method
-    input_len_norm: bool
-        Whether to normalise the loss in the forward method by the length of
+        in the forward method.
+    input_len_norm : bool
+        Whether to normalize the loss in the forward method by the length of
         the inputs.
-    target_len_norm: bool
-        Whether to normalise the loss in the forward method by the length of
+    target_len_norm : bool
+        Whether to normalize the loss in the forward method by the length of
         the targets.
-    lexicon_path: string
+    lexicon_path : string
         The location of the lexicon.
 
     Example
@@ -137,33 +136,32 @@ class HMMAligner(torch.nn.Module):
             self.lex_ind2lab[0] = "sil"
 
     def _use_lexicon(self, words, interword_sils, sample_pron):
-        """
-        Do processing using the lexicon to return a sequence of the possible
-        phonemes, the transition/pi probabilities and the possible final states
-        Inputs correspond to a single utterance, not a whole batch
+        """Do processing using the lexicon to return a sequence of the possible
+        phonemes, the transition/pi probabilities, and the possible final states.
+        Inputs correspond to a single utterance, not a whole batch.
 
         Arguments
         ---------
-        words: list
-            list of the words in the transcript
-        interword_sils: bool
-            If True: optional silences will be inserted between every word.
-            If False: optional silences will only be placed at the beginning
+        words : list
+            List of the words in the transcript.
+        interword_sils : bool
+            If True, optional silences will be inserted between every word.
+            If False, optional silences will only be placed at the beginning
             and end of each utterance.
-        sample_pron: bool
-            If True: will sample a single possible sequence of phonemes.
-            If False: will return statistics for all possible sequences of
+        sample_pron : bool
+            If True, it will sample a single possible sequence of phonemes.
+            If False, it will return statistics for all possible sequences of
             phonemes.
 
         Returns
         -------
-        poss_phns: torch.Tensor (phoneme)
+        poss_phns : torch.Tensor (phoneme)
             The phonemes that are thought to be in each utterance.
-        log_transition_matric: torch.Tensor (batch, from, to)
+        log_transition_matrix : torch.Tensor (batch, from, to)
             Tensor containing transition (log) probabilities.
-        start_states: list of ints
+        start_states : list of ints
             A list of the possible starting states in each utterance.
-        final_states: list of ints
+        final_states : list of ints
             A list of the possible final states for each utterance.
         """
 
@@ -296,24 +294,23 @@ class HMMAligner(torch.nn.Module):
     def use_lexicon(
         self, words, interword_sils=True, sample_pron=False,
     ):
-        """
-        Do processing using the lexicon to return a sequence of the possible
-        phonemes, the transition/pi probabilities and the possible final
+        """Do processing using the lexicon to return a sequence of the possible
+        phonemes, the transition/pi probabilities, and the possible final
         states.
         Does processing on an utterance-by-utterance basis. Each utterance
         in the batch is processed by a helper method `_use_lexicon`.
 
         Arguments
         ---------
-        words: list
-            list of the words in the transcript
-        interword_sils: bool
-            If True: optional silences will be inserted between every word.
-            If False: optional silences will only be placed at the beginning
+        words : list
+            List of the words in the transcript
+        interword_sils : bool
+            If True, optional silences will be inserted between every word.
+            If False, optional silences will only be placed at the beginning
             and end of each utterance.
         sample_pron: bool
-            If True: will sample a single possible sequence of phonemes.
-            If False: will return statistics for all possible sequences of
+            If True, it will sample a single possible sequence of phonemes.
+            If False, it will return statistics for all possible sequences of
             phonemes.
 
         Returns
@@ -454,18 +451,17 @@ class HMMAligner(torch.nn.Module):
         return poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states
 
     def _make_pi_prob(self, phn_lens_abs):
-        """
-        Creates tensor of initial (log) probabilities (known as 'pi').
-        Assigns all probability mass to first phoneme in the sequence.
+        """Creates tensor of initial (log) probabilities (known as 'pi').
+        Assigns all probability mass to the first phoneme in the sequence.
 
         Arguments
         ---------
-        phn_lens_abs: torch.Tensor (batch)
+        phn_lens_abs : torch.Tensor (batch)
             The absolute length of each phoneme sequence in the batch.
 
         Returns
         -------
-        pi_prob: torch.Tensor (batch, phn)
+        pi_prob : torch.Tensor (batch, phn)
         """
         batch_size = len(phn_lens_abs)
         U_max = int(phn_lens_abs.max())
@@ -476,20 +472,18 @@ class HMMAligner(torch.nn.Module):
         return pi_prob
 
     def _make_trans_prob(self, phn_lens_abs):
-        """
-        Creates tensor of transition (log) probabilities.
+        """Creates tensor of transition (log) probabilities.
         Only allows transitions to the same phoneme (self-loop) or the next
         phoneme in the phn sequence
 
         Arguments
         ---------
-        phn_lens_abs: torch.Tensor (batch)
+        phn_lens_abs : torch.Tensor (batch)
             The absolute length of each phoneme sequence in the batch.
-
 
         Returns
         -------
-        trans_prob: torch.Tensor (batch, from, to)
+        trans_prob : torch.Tensor (batch, from, to)
         """
         # Extract useful values for later
         batch_size = len(phn_lens_abs)
@@ -546,25 +540,25 @@ class HMMAligner(torch.nn.Module):
     def _make_emiss_pred_useful(
         self, emission_pred, lens_abs, phn_lens_abs, phns
     ):
-        """
-        Creates a 'useful' form of the posterior probabilities, rearranged
-        into order of phoneme appearance in phns.
+        """Creates a 'useful' form of the posterior probabilities, rearranged
+        into the order of phoneme appearance in phns.
 
         Arguments
         ---------
-        emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
+        emission_pred : torch.Tensor (batch, time, phoneme in vocabulary)
             posterior probabilities from our acoustic model
-        lens_abs: torch.Tensor (batch)
+        lens_abs : torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
-            i.e. the number of frames
-        phn_lens_abs: torch.Tensor (batch)
+            i.e., the number of frames.
+        phn_lens_abs : torch.Tensor (batch)
             The absolute length of each phoneme sequence in the batch.
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance.
 
         Returns
         -------
-        emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
+        emiss_pred_useful : torch.Tensor
+            Tensor shape (batch, phoneme in phn sequence, time).
         """
         # Extract useful values for later
         U_max = int(phn_lens_abs.max().item())
@@ -610,34 +604,28 @@ class HMMAligner(torch.nn.Module):
         phn_lens_abs,
         phns,
     ):
-        """
-        Does forward dynamic programming algorithm.
+        """Does forward dynamic programming algorithm.
 
         Arguments
         ---------
-        pi_prob: torch.Tensor (batch, phn)
-            Tensor containing initial (log) probabilities
-
-        trans_prob: torch.Tensor (batch, from, to)
+        pi_prob : torch.Tensor (batch, phn)
+            Tensor containing initial (log) probabilities.
+        trans_prob : torch.Tensor (batch, from, to)
             Tensor containing transition (log) probabilities.
-
-        emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
+        emiss_pred_useful : torch.Tensor (batch, phoneme in phn sequence, time)
             A 'useful' form of the posterior probabilities, rearranged
-            into order of phoneme appearance in phns.
-
-        lens_abs: torch.Tensor (batch)
+            into the order of phoneme appearance in phns.
+        lens_abs : torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
-            i.e. the number of frames
-
-        phn_lens_abs: torch.Tensor (batch)
+            i.e., the number of frames.
+        phn_lens_abs : torch.Tensor (batch)
             The absolute length of each phoneme sequence in the batch.
-
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance.
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance.
 
         Returns
         -------
-        sum_alpha_T: torch.Tensor (batch)
+        sum_alpha_T : torch.Tensor (batch)
             The (log) likelihood of each utterance in the batch.
         """
         # useful values
@@ -689,41 +677,35 @@ class HMMAligner(torch.nn.Module):
         phns,
         final_states,
     ):
-        """
-        Calculates Viterbi alignment using dynamic programming.
+        """Calculates Viterbi alignment using dynamic programming.
 
         Arguments
         ---------
-        pi_prob: torch.Tensor (batch, phn)
-            Tensor containing initial (log) probabilities
-
-        trans_prob: torch.Tensor (batch, from, to)
+        pi_prob : torch.Tensor (batch, phn)
+            Tensor containing initial (log) probabilities.
+        trans_prob : torch.Tensor (batch, from, to)
             Tensor containing transition (log) probabilities.
-
-        emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
+        emiss_pred_useful : torch.Tensor (batch, phoneme in phn sequence, time)
             A 'useful' form of the posterior probabilities, rearranged
-            into order of phoneme appearance in phns.
-
-        lens_abs: torch.Tensor (batch)
+            into the order of phoneme appearance in phns.
+        lens_abs : torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
-            i.e. the number of frames
-
-        phn_lens_abs: torch.Tensor (batch)
+            i.e., the number of frames.
+        phn_lens_abs : torch.Tensor (batch)
             The absolute length of each phoneme sequence in the batch.
-
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance.
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance.
 
         Returns
         -------
-        z_stars: list of lists of int
+        z_stars : list of lists of int
             Viterbi alignments for the files in the batch.
-        z_stars_loc: list of lists of int
+        z_stars_loc : list of lists of int
             The locations of the Viterbi alignments for the files in the batch.
-            e.g. for a batch with a single utterance with 5 phonemes,
-            z_stars_loc will look like:
-            [[0, 0, 0, 1, 1, 2, 3, 3, 3, 4, 4]]
-        viterbi_scores: torch.Tensor (batch)
+            e.g., for a batch with a single utterance with 5 phonemes,
+            `z_stars_loc` will look like:
+            [[0, 0, 0, 1, 1, 2, 3, 3, 3, 4, 4]].
+        viterbi_scores : torch.Tensor (batch)
             The (log) likelihood of the Viterbi path for each utterance.
         """
 
@@ -800,21 +782,20 @@ class HMMAligner(torch.nn.Module):
         return z_stars, z_stars_loc, viterbi_scores
 
     def _loss_reduction(self, loss, input_lens, target_lens):
-        """
-        Applies reduction to loss as specified during object initialisation.
+        """Applies reduction to loss as specified during object initialization.
 
         Arguments
         ---------
-        loss: torch.Tensor (batch)
+        loss : torch.Tensor (batch)
             The loss tensor to be reduced.
-        input_lens: torch.Tensor (batch)
+        input_lens : torch.Tensor (batch)
             The absolute durations of the inputs.
-        target_lens: torch.Tensor (batch)
+        target_lens : torch.Tensor (batch)
             The absolute durations of the targets.
 
         Returns
         -------
-        loss: torch.Tensor (batch, or scalar)
+        loss : torch.Tensor (batch, or scalar)
             The loss with reduction applied if it is specified.
 
         """
@@ -846,47 +827,48 @@ class HMMAligner(torch.nn.Module):
         dp_algorithm,
         prob_matrices=None,
     ):
-        """
-        Prepares relevant (log) probability tensors and does dynamic
+        """Prepares relevant (log) probability tensors and does dynamic
         programming: either the forward or the Viterbi algorithm. Applies
-        reduction as specified during object initialisation.
+        reduction as specified during object initialization.
 
         Arguments
         ---------
-        emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
-            posterior probabilities from our acoustic model
-        lens: torch.Tensor (batch)
+        emission_pred : torch.Tensor (batch, time, phoneme in vocabulary)
+            Posterior probabilities from our acoustic model.
+        lens : torch.Tensor (batch)
             The relative duration of each utterance sound file.
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance
-        phn_lens: torch.Tensor (batch)
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance
+        phn_lens : torch.Tensor (batch)
             The relative length of each phoneme sequence in the batch.
-        dp_algorithm: string
-            Either "forward" or "viterbi"
-        prob_matrices: dict
-            Optional.
-            Must contain keys 'trans_prob', 'pi_prob' and 'final_states'.
+        dp_algorithm : string
+            Either "forward" or "viterbi".
+        prob_matrices : dict
+            (Optional) Must contain keys 'trans_prob', 'pi_prob' and 'final_states'.
             Used to override the default forward and viterbi operations which
             force traversal over all of the states in the `phns` sequence.
 
         Returns
         -------
-        Either
-        (1) if dp_algorithm == "forward"
+        tensor
 
-        forward_scores: torch.Tensor (batch, or scalar)
-            The (log) likelihood of each utterance in the batch, with reduction
-            applied if specified.
+            (1) if dp_algorithm == "forward".
 
-        or
+                ``forward_scores`` : torch.Tensor (batch, or scalar)
 
-        (2) if dp_algorithm == "viterbi"
+                The (log) likelihood of each utterance in the batch, with reduction
+                applied if specified. (OR)
 
-        viterbi_scores: torch.Tensor (batch, or scalar)
-            The (log) likelihood of the Viterbi path for each utterance, with
-            reduction applied if specified.
-        alignments: list of lists of int
-            Viterbi alignments for the files in the batch.
+            (2) if dp_algorithm == "viterbi".
+
+                ``viterbi_scores`` : torch.Tensor (batch, or scalar)
+
+                The (log) likelihood of the Viterbi path for each utterance, with
+                reduction applied if specified.
+
+                ``alignments`` : list of lists of int
+
+                Viterbi alignments for the files in the batch.
         """
 
         lens_abs = torch.round(emission_pred.shape[1] * lens).long()
@@ -956,20 +938,19 @@ class HMMAligner(torch.nn.Module):
             )
 
     def expand_phns_by_states_per_phoneme(self, phns, phn_lens):
-        """
-        Expands each phoneme in the phn sequence by the number of hidden
+        """Expands each phoneme in the phn sequence by the number of hidden
         states per phoneme defined in the HMM.
 
         Arguments
         ---------
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance
-        phn_lens: torch.Tensor (batch)
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance.
+        phn_lens : torch.Tensor (batch)
             The relative length of each phoneme sequence in the batch.
 
         Returns
         -------
-        expanded_phns: torch.Tensor (batch, phoneme in expanded phn sequence)
+        expanded_phns : torch.Tensor (batch, phoneme in expanded phn sequence)
 
         Example
         -------
@@ -1005,14 +986,13 @@ class HMMAligner(torch.nn.Module):
         return expanded_phns
 
     def store_alignments(self, ids, alignments):
-        """
-        Records Viterbi alignments in `self.align_dict`.
+        """Records Viterbi alignments in `self.align_dict`.
 
         Arguments
         ---------
-        ids: list of str
-            IDs of the files in the batch
-        alignments: list of lists of int
+        ids : list of str
+            IDs of the files in the batch.
+        alignments : list of lists of int
             Viterbi alignments for the files in the batch.
             Without padding.
 
@@ -1034,28 +1014,27 @@ class HMMAligner(torch.nn.Module):
             self.align_dict[id] = alignment_i
 
     def _get_flat_start_batch(self, lens_abs, phn_lens_abs, phns):
-        """
-        Prepares flat start alignments (with zero padding) for every utterance
+        """Prepares flat start alignments (with zero padding) for every utterance
         in the batch.
-        Every phoneme will have equal duration, except for the final phoneme
+        Every phoneme will have an equal duration, except for the final phoneme
         potentially. E.g. if 104 frames and 10 phonemes, 9 phonemes will have
-        duration of 10 frames, and one phoneme will have duration of 14 frames.
+        duration of 10 frames, and one phoneme will have a duration of 14 frames.
 
         Arguments
         ---------
-        lens_abs: torch.Tensor (batch)
+        lens_abs : torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
-            i.e. the number of frames
+            i.e., the number of frames.
 
-        phn_lens_abs: torch.Tensor (batch)
+        phn_lens_abs : torch.Tensor (batch)
             The absolute length of each phoneme sequence in the batch.
 
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance.
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance.
 
         Returns
         -------
-        flat_start_batch: torch.Tensor (batch, time)
+        flat_start_batch : torch.Tensor (batch, time)
             Flat start alignments for utterances in the batch, with zero padding.
         """
         phns = phns.long()
@@ -1091,23 +1070,22 @@ class HMMAligner(torch.nn.Module):
         return flat_start_batch
 
     def _get_viterbi_batch(self, ids, lens_abs):
-        """
-        Retrieves Viterbi alignments stored in `self.align_dict` and
-        creates batch of them, with zero padding.
+        """Retrieves Viterbi alignments stored in `self.align_dict` and
+        creates a batch of them, with zero padding.
 
         Arguments
         ---------
-        ids: list of str
-            IDs of the files in the batch
-        lens_abs: torch.Tensor (batch)
+        ids : list of str
+            IDs of the files in the batch.
+        lens_abs : torch.Tensor (batch)
             The absolute length of each input to the acoustic model,
-            i.e. the number of frames
+            i.e., the number of frames.
 
         Returns
         -------
-        viterbi_batch: torch.Tensor (batch, time)
+        viterbi_batch : torch.Tensor (batch, time)
             The previously-recorded Viterbi alignments for the utterances
-            in the batch
+            in the batch.
 
         """
         batch_size = len(lens_abs)
@@ -1125,31 +1103,30 @@ class HMMAligner(torch.nn.Module):
         return viterbi_batch
 
     def get_prev_alignments(self, ids, emission_pred, lens, phns, phn_lens):
-        """
-        Fetches previously recorded Viterbi alignments if they are available.
+        """Fetches previously recorded Viterbi alignments if they are available.
         If not, fetches flat start alignments.
-        Currently, assumes that if a Viterbi alignment is not availble for the
+        Currently, assumes that if a Viterbi alignment is not available for the
         first utterance in the batch, it will not be available for the rest of
         the utterances.
 
         Arguments
         ---------
-        ids: list of str
-            IDs of the files in the batch
-        emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
+        ids : list of str
+            IDs of the files in the batch.
+        emission_pred : torch.Tensor (batch, time, phoneme in vocabulary)
             Posterior probabilities from our acoustic model. Used to infer the
             duration of the longest utterance in the batch.
-        lens: torch.Tensor (batch)
+        lens : torch.Tensor (batch)
             The relative duration of each utterance sound file.
-        phns: torch.Tensor (batch, phoneme in phn sequence)
-            The phonemes that are known/thought to be to be in each utterance
-        phn_lens: torch.Tensor (batch)
+        phns : torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be in each utterance.
+        phn_lens : torch.Tensor (batch)
             The relative length of each phoneme sequence in the batch.
 
         Returns
         -------
         torch.Tensor (batch, time)
-            Zero-padded alignments
+            Zero-padded alignments.
 
         Example
         -------
@@ -1183,23 +1160,22 @@ class HMMAligner(torch.nn.Module):
             return self._get_flat_start_batch(lens_abs, phn_lens_abs, phns)
 
     def _calc_accuracy_sent(self, alignments_, ends_, phns_):
-        """
-        Calculates the accuracy between predicted alignments and ground truth
+        """Calculates the accuracy between predicted alignments and ground truth
         alignments for a single sentence/utterance.
 
         Arguments
         ---------
-        alignments_: list of ints
+        alignments_ : list of ints
             The predicted alignments for the utterance.
-        ends_: list of ints
+        ends_ : list of ints
             A list of the sample indices where each ground truth phoneme
             ends, according to the transcription.
-        phns_: list of ints
+        phns_ : list of ints
             The unpadded list of ground truth phonemes in the utterance.
 
         Returns
         -------
-        mean_acc: float
+        mean_acc : float
             The mean percentage of times that the upsampled predicted alignment
             matches the ground truth alignment.
         """
@@ -1236,32 +1212,29 @@ class HMMAligner(torch.nn.Module):
         return accuracy
 
     def calc_accuracy(self, alignments, ends, phns, ind2labs=None):
-        """
-        Calculates mean accuracy between predicted alignments and ground truth
+        """Calculates mean accuracy between predicted alignments and ground truth
         alignments. Ground truth alignments are derived from ground truth phns
         and their ends in the audio sample.
 
         Arguments
         ---------
-        alignments: list of lists of ints/floats
+        alignments : list of lists of ints/floats
             The predicted alignments for each utterance in the batch.
-        ends: list of lists of ints
+        ends : list of lists of ints
             A list of lists of sample indices where each ground truth phoneme
             ends, according to the transcription.
             Note: current implementation assumes that 'ends' mark the index
             where the next phoneme begins.
-
-        phns: list of lists of ints/floats
+        phns : list of lists of ints/floats
             The unpadded list of lists of ground truth phonemes in the batch.
-
-        ind2labs: tuple
-            Optional
+        ind2labs : tuple
+            (Optional)
             Contains the original index-to-label dicts for the first and second
             sequence of phonemes.
 
         Returns
         -------
-        mean_acc: float
+        mean_acc : float
             The mean percentage of times that the upsampled predicted alignment
             matches the ground truth alignment.
 
@@ -1303,12 +1276,12 @@ class HMMAligner(torch.nn.Module):
 
         Arguments
         ---------
-        alignments: list of ints
+        alignments : list of ints
             Predicted alignments for a single utterance.
 
         Returns
         -------
-        sequence: list of ints
+        sequence : list of ints
             The predicted alignments converted to a 1 state per phoneme style.
 
         Example
@@ -1347,28 +1320,27 @@ class HMMAligner(torch.nn.Module):
 
 
 def map_inds_to_intersect(lists1, lists2, ind2labs):
-    """
-    Converts 2 lists containing indices for phonemes from different
+    """Converts 2 lists containing indices for phonemes from different
     phoneme sets to a single phoneme so that comparing the equality
     of the indices of the resulting lists will yield the correct
     accuracy.
 
     Arguments
     ---------
-    lists1: list of lists of ints
+    lists1 : list of lists of ints
         Contains the indices of the first sequence of phonemes.
-    lists2: list of lists of ints
+    lists2 : list of lists of ints
         Contains the indices of the second sequence of phonemes.
-    ind2labs: tuple (dict, dict)
+    ind2labs : tuple (dict, dict)
         Contains the original index-to-label dicts for the first and second
         sequence of phonemes.
 
     Returns
     -------
-    lists1_new: list of lists of ints
+    lists1_new : list of lists of ints
         Contains the indices of the first sequence of phonemes, mapped
         to the new phoneme set.
-    lists2_new: list of lists of ints
+    lists2_new : list of lists of ints
         Contains the indices of the second sequence of phonemes, mapped
         to the new phoneme set.
 
@@ -1422,19 +1394,20 @@ def map_inds_to_intersect(lists1, lists2, ind2labs):
 
 
 def batch_log_matvecmul(A, b):
-    """
-    For each 'matrix' and 'vector' pair in the batch, do matrix-vector
-    multiplication in the log domain, i.e. logsumexp instead of add,
-    add instead of multiply
+    """For each 'matrix' and 'vector' pair in the batch, do matrix-vector
+    multiplication in the log domain, i.e., logsumexp instead of add,
+    add instead of multiply.
 
     Arguments
     ---------
-    A: torch.Tensor (batch, dim1, dim2)
-    b: torch.Tensor (batch, dim1)
+    A : torch.Tensor (batch, dim1, dim2)
+        Tensor
+    b : torch.Tensor (batch, dim1)
+        Tensor.
 
     Outputs
     -------
-    x: torch.Tensor (batch, dim1)
+    x : torch.Tensor (batch, dim1)
 
     Example
     -------
@@ -1460,19 +1433,22 @@ def batch_log_matvecmul(A, b):
 
 
 def batch_log_maxvecmul(A, b):
-    """
-    Similar to batch_log_matvecmul, but takes a maximum instead of
+    """Similar to batch_log_matvecmul, but takes a maximum instead of
     logsumexp. Returns both the max and the argmax.
 
     Arguments
     ---------
-    A: torch.Tensor (batch, dim1, dim2)
-    b: torch.Tensor (batch, dim1)
+    A : torch.Tensor (batch, dim1, dim2)
+        Tensor.
+    b : torch.Tensor (batch, dim1)
+        Tensor
 
     Outputs
     -------
-    x: torch.Tensor (batch, dim1)
-    argmax: torch.Tensor (batch, dim1)
+    x : torch.Tensor (batch, dim1)
+        Tensor.
+    argmax : torch.Tensor (batch, dim1)
+        Tensor.
 
     Example
     -------

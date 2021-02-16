@@ -14,6 +14,7 @@ Author
     * Hwidong Na 2020
     * Nauman Dawalatabad 2020
 """
+import os
 import sys
 import random
 import torch
@@ -159,9 +160,11 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, label_pipeline)
 
     # 3. Fit encoder:
-    # NOTE: In this minimal example, also update from valid data
-    label_encoder.update_from_didataset(train_data, output_key="spk_id")
-    label_encoder.update_from_didataset(valid_data, output_key="spk_id")
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file, from_didatasets=[train_data], output_key="spk_id",
+    )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "spk_id_encoded"])
@@ -177,12 +180,12 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
+    # Initialize ddp (useful only for multi-GPU DDP training)
+    sb.utils.distributed.ddp_init_group(run_opts)
+
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-
-    # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Dataset prep (parsing VoxCeleb and annotation into csv files)
     from voxceleb_prepare import prepare_voxceleb  # noqa
@@ -191,10 +194,11 @@ if __name__ == "__main__":
         prepare_voxceleb,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
             "seg_dur": int(hparams["sentence_len"]) * 100,
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

@@ -1,5 +1,4 @@
-"""
-A dependency graph for finding evaluation order.
+"""A dependency graph for finding evaluation order.
 
 Example
 -------
@@ -73,8 +72,7 @@ DGNode = collections.namedtuple("DGNode", ["key", "edges", "data"])
 
 
 class DependencyGraph:
-    """
-    General purpose dependency graph.
+    """General-purpose dependency graph.
 
     Essentially a directed acyclic graph.
     Usually used to find an evaluation order for e.g. variable substitution
@@ -91,7 +89,6 @@ class DependencyGraph:
     created for you. You'll only need to know that key while adding edges
     to/from it.
     Implicit keys and explicit keys can also be mixed.
-
     """
 
     def __init__(self):
@@ -118,13 +115,13 @@ class DependencyGraph:
         Returns
         -------
         hashable
-            the key that was used (either yours or generated)
+            The key that was used (either yours or generated).
 
         Raises
         ------
         ValueError
             If node with the given key has already been added explicitly
-            (with this method, not "add_edge")
+            (with this method, not "add_edge").
         """
         if key is None:
             key = self.get_unique_key()
@@ -143,18 +140,17 @@ class DependencyGraph:
         return key
 
     def add_edge(self, from_key, to_key):
-        """
-        Adds an edge, and implicitly also creates nodes for keys which have
+        """Adds an edge, and implicitly also creates nodes for keys which have
         not been seen before. This will not let you add data to your nodes.
         The relation encodes: "from_key depends on to_key"
-        (to_key must be evaluated before from_key)
+        (to_key must be evaluated before from_key).
 
         Arguments
         ---------
         from_key : hashable
-            The key which depends on
+            The key which depends on.
         to_key : hashable
-            The key which is depended on
+            The key which is depended on.
 
         Returns
         -------
@@ -174,22 +170,20 @@ class DependencyGraph:
         return self.key2ind[key]
 
     def is_valid(self):
-        """
-        Checks if an evaluation order can be found.
+        """Checks if an evaluation order can be found.
 
         A dependency graph is evaluatable if there are no circular
-        dependencies, i.e. the graph is acyclic
+        dependencies, i.e., the graph is acyclic.
 
         Returns
         -------
         bool
-            Indicating if the graph is evaluatable
+            Indicating if the graph is evaluatable.
         """
         return not self._find_first_cycle()
 
     def get_evaluation_order(self, selected_keys=None):
-        """
-        Finds one valid evaluation order.
+        """Finds one valid evaluation order.
 
         There can be many different valid
         orders.
@@ -210,13 +204,13 @@ class DependencyGraph:
         Yields
         ------
         DGNode
-            The added DGNodes in a valid evaluation order
-            See the DGNode namedtuple above
+            The added DGNodes in a valid evaluation order.
+            See the DGNode namedtuple above.
 
         Raises
         ------
         CircularDependencyError
-            If a circular dependency is found
+            If a circular dependency is found.
         """
         seen_ever = set()
 

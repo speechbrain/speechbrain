@@ -8,7 +8,7 @@
 
 # Pretrained models to download
 asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
-tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+normalize_file: https://www.dropbox.com/s/ib20ub7liaqcirw/normalizer.ckpt?dl=1
 save_folder: model_checkpoints
 
 # Device selection
@@ -109,8 +109,8 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-    hparams_file: ../../../../LibriSpeech/LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
     overrides: {'device': !ref <device>}
+    save_folder: !ref <save_folder>
 
 asr_model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]

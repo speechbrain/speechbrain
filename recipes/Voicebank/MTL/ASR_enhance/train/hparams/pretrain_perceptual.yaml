@@ -13,9 +13,10 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/valid.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: False
 
 # Training parameters
 number_of_epochs: 20
@@ -23,17 +24,17 @@ ctc_epochs: 5
 batch_size: 8
 lr: 0.0005
 sorting: ascending
-target_type: phn
+target_type: phones
 checkpoint_avg: 1
-eval_min_key: phnER
+eval_min_key: phonesER
 eval_max_key: null
 train_loader_options:
     batch_size: !ref <batch_size>
 valid_loader_options:
-    batch_size: 30
+    batch_size: !ref <batch_size>
     shuffle: False
 test_loader_options:
-    batch_size: 30
+    batch_size: !ref <batch_size>
     shuffle: False
 
 # Loss weights
