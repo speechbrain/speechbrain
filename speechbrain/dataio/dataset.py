@@ -1,4 +1,4 @@
-"""Datasets load individual data points (examples)
+"""Dataset examples for loading individual data points
 
 Authors
   * Aku Rouhe 2020
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class DynamicItemDataset(Dataset):
-    """Dataset that reads, wrangles and produces dicts
+    """Dataset that reads, wrangles, and produces dicts.
 
-    Each data point dict provides some items (by key), for example a path to a
+    Each data point dict provides some items (by key), for example, a path to a
     wavefile with the key "wav_file". When a data point is fetched from this
     Dataset, more items are produced dynamically, based on pre-existing items
     and other dynamic created items. For example, a dynamic item could take the
-    wavfile path and load the audio from disk.
+    wavfile path and load the audio from the disk.
 
     The dynamic items can depend on other dynamic items: a suitable evaluation
     order is used automatically,  as long as there are no circular dependencies.
@@ -41,6 +41,7 @@ class DynamicItemDataset(Dataset):
     different items in that data point.
 
     Altogether the data collection could look like this:
+
     >>> data = {
     ...  "spk1utt1": {
     ...      "wav_file": "/path/to/spk1utt1.wav",
@@ -56,7 +57,7 @@ class DynamicItemDataset(Dataset):
 
     NOTE
     ----
-        The top level key, the data point id, is implicitly added as an item
+        The top-level key, the data point id, is implicitly added as an item
         in the data point, with the key "id"
 
     Each dynamic item is configured by three things: a key, a func, and a list
@@ -67,6 +68,7 @@ class DynamicItemDataset(Dataset):
     argkeys).
 
     The dynamic_items configuration could look like this:
+
     >>> import torch
     >>> dynamic_items = [
     ...     {"func": lambda l: torch.Tensor(l),
@@ -80,6 +82,7 @@ class DynamicItemDataset(Dataset):
     ...     "provides": "words"}]
 
     With these, different views of the data can be loaded:
+
     >>> from speechbrain.dataio.dataloader import SaveableDataLoader
     >>> from speechbrain.dataio.batch import PaddedBatch
     >>> dataset = DynamicItemDataset(data, dynamic_items)
@@ -111,7 +114,9 @@ class DynamicItemDataset(Dataset):
     >>> batch.words_encoded
     PaddedData(data=tensor([[1, 2, 0, 0],
             [3, 4, 5, 2]]), lengths=tensor([0.5000, 1.0000]))
-    >>> # Output keys can also be a map:
+
+    Output keys can also be a map:
+
     >>> dataset.set_output_keys({"id":"id", "signal": "wav", "words": "words_encoded"})
     >>> batch = next(iter(dataloader))
     >>> batch.words
@@ -124,8 +129,8 @@ class DynamicItemDataset(Dataset):
     data : dict
         Dictionary containing single data points (e.g. utterances).
     dynamic_items : list, optional
-        Configuration for the dynamic items produced when fetchin an example.
-        List of DynamicItems or dicts with the format
+        Configuration for the dynamic items produced when fetching an example.
+        List of DynamicItems or dicts with the format::
             func: <callable> # To be called
             takes: <list> # key or list of keys of args this takes
             provides: key # key or list of keys that this provides
@@ -164,11 +169,11 @@ class DynamicItemDataset(Dataset):
         """Makes a new dynamic item available on the dataset.
 
         Two calling conventions. For DynamicItem objects, just use:
-        add_dynamic_item(dynamic_item)
+        add_dynamic_item(dynamic_item).
         But otherwise, should use:
-        add_dynamic_item(func, takes, provides)
+        add_dynamic_item(func, takes, provides).
 
-        See `speechbrain.utils.data_pipeline`
+        See `speechbrain.utils.data_pipeline`.
 
         Arguments
         ---------
@@ -189,7 +194,7 @@ class DynamicItemDataset(Dataset):
         self.pipeline.add_dynamic_item(func, takes, provides)
 
     def set_output_keys(self, keys):
-        """Use this to change the output keys
+        """Use this to change the output keys.
 
         These are the keys that are actually evaluated when a data point
         is fetched from the dataset.
@@ -197,7 +202,7 @@ class DynamicItemDataset(Dataset):
         Arguments
         ---------
         keys : dict, list
-            List of of keys (str) to produce in output.
+            List of keys (str) to produce in output.
 
             If a dict is given; it is used to map internal keys to output keys.
             From the output_keys dict key:value pairs the key appears outside,
@@ -207,7 +212,7 @@ class DynamicItemDataset(Dataset):
 
     @contextlib.contextmanager
     def output_keys_as(self, keys):
-        """Context manager to temporarily set output keys
+        """Context manager to temporarily set output keys.
 
         Example
         -------
@@ -264,7 +269,7 @@ class DynamicItemDataset(Dataset):
         select_n : None, int
             If not None, only keep (at most) the first n filtered data_points.
             The possible sorting is applied, but only on the first n data
-            points found. Meant for debuggging.
+            points found. Meant for debugging.
 
         Returns
         -------
@@ -293,7 +298,7 @@ class DynamicItemDataset(Dataset):
         reverse=False,
         select_n=None,
     ):
-        """Returns a list of data ids, fulfilling the sorting and filtering"""
+        """Returns a list of data ids, fulfilling the sorting and filtering."""
 
         def combined_filter(computed):
             for key, limit in key_min_value.items():
@@ -364,7 +369,7 @@ class DynamicItemDataset(Dataset):
     def from_arrow_dataset(
         cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
     ):
-        """loading a prepared huggingface dataset"""
+        """Loading a prepared huggingface dataset"""
         # define an unbound method to generate puesdo keys
         def keys(self):
             return [i for i in range(dataset.__len__())]
@@ -375,7 +380,7 @@ class DynamicItemDataset(Dataset):
 
 
 class FilteredSortedDynamicItemDataset(DynamicItemDataset):
-    """Possibly filtered, possibly sorted DynamicItemDataset
+    """Possibly filtered, possibly sorted DynamicItemDataset.
 
     Shares the static data (reference).
     Has its own dynamic_items and output_keys (deepcopy).

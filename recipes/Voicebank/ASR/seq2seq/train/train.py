@@ -33,6 +33,7 @@ Authors
 import os
 import sys
 import torch
+import urllib.parse
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file, undo_padding
@@ -61,7 +62,7 @@ class ASR(sb.Brain):
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
+        feats = self.modules.normalizer(feats, wav_lens)
         encoded_sig = self.modules.enc(feats.detach())
         embedded_tokens = self.modules.emb(tokens_bos)
         h, _ = self.modules.dec(embedded_tokens, encoded_sig, wav_lens)
@@ -171,42 +172,34 @@ class ASR(sb.Brain):
         )
         download_file(self.hparams.lm_ckpt_file, save_model_path)
         state_dict = torch.load(save_model_path)
-        self.hparams.lm_model.load_state_dict(state_dict, strict=True)
-        self.hparams.lm_model.eval()
+        self.modules.lm_model.load_state_dict(state_dict, strict=True)
+        self.modules.lm_model.eval()
+
+    def load_pretrained(self):
+        """Load the pre-trained model"""
+        save_dir = os.path.join(self.hparams.output_folder, "save")
+        model_path = download_to_dir(self.hparams.model_ckpt_file, save_dir)
+        norm_path = download_to_dir(self.hparams.norm_ckpt_file, save_dir)
+
+        self.hparams.model.load_state_dict(torch.load(model_path), strict=True)
+        self.hparams.normalizer._load(
+            norm_path, end_of_epoch=False, device=self.device
+        )
 
 
 def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
     # 1. define tokenizer and load it
+    modelpath = download_to_dir(hparams["tok_mdl_file"], hparams["save_folder"])
+    download_to_dir(hparams["tok_voc_file"], hparams["save_folder"])
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
-        csv_train=hparams["train_annotation"],
-        csv_read="wrd",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
     )
-
-    """Loads the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(hparams["save_folder"], "tok_unigram.model")
-    save_vocab_path = os.path.join(hparams["save_folder"], "tok_unigram.vocab")
-
-    if "tok_mdl_file" in hparams:
-        download_file(
-            source=hparams["tok_mdl_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
-        tokenizer.sp.load(save_model_path)
-
-    if "tok_voc_file" in hparams:
-        download_file(
-            source=hparams["tok_voc_file"],
-            dest=save_vocab_path,
-            replace_existing=True,
-        )
-        tokenizer.sp.load(save_model_path)
+    tokenizer.sp.load(modelpath)
 
     if (tokenizer.sp.eos_id() + 1) == (tokenizer.sp.bos_id() + 1) == 0 and not (
         hparams["eos_index"]
@@ -228,10 +221,10 @@ def dataio_prep(hparams):
         return sig
 
     # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.takes("words")
     @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "tokens")
-    def text_pipeline(wrd):
-        tokens_list = tokenizer.sp.encode_as_ids(wrd)
+    def text_pipeline(words):
+        tokens_list = tokenizer.sp.encode_as_ids(words)
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
@@ -242,19 +235,19 @@ def dataio_prep(hparams):
     # 4. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root", hparams["data_folder"]},
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
             output_keys=["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
         )
         if dataset != "train":
-            data[dataset] = data[dataset].filtered_sorted(sort_key="duration")
+            data[dataset] = data[dataset].filtered_sorted(sort_key="length")
 
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending",
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -265,7 +258,22 @@ def dataio_prep(hparams):
     return data, tokenizer
 
 
+def download_to_dir(url, directory):
+    """Parse filename from url and download to directory."""
+    print("called download_to_dir")
+    os.makedirs(directory, exist_ok=True)
+    filename = os.path.basename(urllib.parse.urlparse(url).path)
+    download_file(url, os.path.join(directory, filename))
+    return os.path.join(directory, filename)
+
+
 if __name__ == "__main__":
+
+    # Download the asr model yaml file so we can "!include" it
+    download_to_dir(
+        url="https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1",
+        directory=os.path.join("hparams", "models"),
+    )
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -278,14 +286,6 @@ if __name__ == "__main__":
     # Prepare data
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
-    run_on_main(
-        prepare_voicebank,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_folder"],
-        },
-    )
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -293,12 +293,17 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    run_on_main(
+        prepare_voicebank,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
+
     # Create dataset objects and tokenizer
     datasets, tokenizer = dataio_prep(hparams)
-
-    # Load pretrained models if provided
-    if "pretrain_checkpointer" in hparams:
-        hparams["pretrain_checkpointer"].recover_if_possible()
 
     # Brain class initialization
     asr_brain = ASR(
@@ -309,8 +314,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     asr_brain.tokenizer = tokenizer
-    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
-        asr_brain.load_lm()
+    asr_brain.load_pretrained()
+    asr_brain.load_lm()
 
     # Training
     asr_brain.fit(

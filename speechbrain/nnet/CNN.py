@@ -28,33 +28,33 @@ class SincConv(nn.Module):
         The shape of the input. Alternatively use ``in_channels``.
     in_channels : int
         The number of input channels. Alternatively use ``input_shape``.
-    out_channels: int
+    out_channels : int
         It is the number of output channels.
     kernel_size: int
         Kernel size of the convolutional filters.
-    stride: int
+    stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
-    dilation: int
+    dilation : int
         Dilation factor of the convolutional filters.
-    padding: str
+    padding : str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    padding_mode: str
+    padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    groups: int
+    groups : int
         This option specifies the convolutional groups. See torch.nn
         documentation for more information.
-    bias: bool
+    bias : bool
         If True, the additive bias b is adopted.
-    sample_rate: int,
+    sample_rate : int,
         Sampling rate of the input signals. It is only used for sinc_conv.
-    min_low_hz: float
+    min_low_hz : float
         Lowest possible frequency (in Hz) for a filter. It is only used for
         sinc_conv.
-    min_low_hz: float
+    min_low_hz : float
         Lowest possible value (in Hz) for a filter bandwidth.
 
     Example
@@ -153,8 +153,7 @@ class SincConv(nn.Module):
         return wx
 
     def _check_input_shape(self, shape):
-        """
-        Checks the input shape and returns the number of input channels.
+        """Checks the input shape and returns the number of input channels.
         """
 
         if len(shape) == 2:
@@ -274,9 +273,13 @@ class SincConv(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         kernel_size : int
+            Size of kernel.
         dilation : int
-        stride: int
+            Dilation used.
+        stride : int
+            Stride.
         """
 
         # Detecting input shape
@@ -296,24 +299,24 @@ class Conv1d(nn.Module):
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         It is the number of output channels.
-    kernel_size: int
+    kernel_size : int
         Kernel size of the convolutional filters.
     input_shape : tuple
         The shape of the input. Alternatively use ``in_channels``.
     in_channels : int
         The number of input channels. Alternatively use ``input_shape``.
-    stride: int
+    stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
-    dilation: int
+    dilation : int
         Dilation factor of the convolutional filters.
-    padding: str
+    padding : str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    padding_mode: str
+    padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
 
@@ -375,8 +378,8 @@ class Conv1d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
-
         """
+
         if not self.skip_transpose:
             x = x.transpose(1, -1)
 
@@ -420,9 +423,13 @@ class Conv1d(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
         kernel_size : int
+            Size of kernel.
         dilation : int
-        stride: int
+            Dilation used.
+        stride : int
+            Stride.
         """
 
         # Detecting input shape
@@ -437,8 +444,7 @@ class Conv1d(nn.Module):
         return x
 
     def _check_input_shape(self, shape):
-        """
-        Checks the input shape and returns the number of input channels.
+        """Checks the input shape and returns the number of input channels.
         """
 
         if len(shape) == 2:
@@ -467,9 +473,9 @@ class Conv2d(nn.Module):
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         It is the number of output channels.
-    kernel_size: tuple
+    kernel_size : tuple
         Kernel size of the 2d convolutional filters over time and frequency
         axis.
     input_shape : tuple
@@ -479,19 +485,19 @@ class Conv2d(nn.Module):
     stride: int
         Stride factor of the 2d convolutional filters over time and frequency
         axis.
-    dilation: int
+    dilation : int
         Dilation factor of the 2d convolutional filters over time and
         frequency axis.
-    padding: str
+    padding : str
         (same, valid). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
-    padding_mode: str
+    padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    groups: int
+    groups : int
         This option specifies the convolutional groups. See torch.nn
         documentation for more information.
-    bias: bool
+    bias : bool
         If True, the additive bias b is adopted.
 
     Example
@@ -625,9 +631,9 @@ class Conv2d(nn.Module):
         return x
 
     def _check_input(self, shape):
+        """Checks the input shape and returns the number of input channels.
         """
-        Checks the input shape and returns the number of input channels.
-        """
+
         if len(shape) == 3:
             self.unsqueeze = True
             in_channels = 1
@@ -649,32 +655,33 @@ class Conv2d(nn.Module):
 
 
 class DepthwiseSeparableConv1d(nn.Module):
-    """This class implements the depthwise seperable convolution
-    First, a channel wise convolution is applied to the input
-    Then, a point wise convolution to project the input to output
+    """This class implements the depthwise separable convolution.
+
+    First, a channel-wise convolution is applied to the input
+    Then, a point-wise convolution to project the input to output
 
     Arguments
     ---------
-    out_channels: int
+    out_channels : int
         It is the number of output channels.
-    kernel_size: int
+    kernel_size : int
         Kernel size of the convolutional filters.
     input_shape : tuple
         Expected shape of the input.
-    stride: int
+    stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
-    dilation: int
+    dilation : int
         Dilation factor of the convolutional filters.
-    padding: str
+    padding : str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    padding_mode: str
+    padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    bias: bool
-        If True, the additive bias b is adopted
+    bias : bool
+        If True, the additive bias b is adopted.
 
     Example
     -------
@@ -728,30 +735,31 @@ class DepthwiseSeparableConv1d(nn.Module):
 
 
 class DepthwiseSeparableConv2d(nn.Module):
-    """This class implements the depthwise seperable convolution
-    First, a channel wise convolution is applied to the input
-    Then, a point wise convolution to project the input to output
+    """This class implements the depthwise separable convolution.
+
+    First, a channel-wise convolution is applied to the input
+    Then, a point-wise convolution to project the input to output
 
     Arguments
     ---------
-    ut_channels: int
+    ut_channels : int
         It is the number of output channels.
-    kernel_size: int
+    kernel_size : int
         Kernel size of the convolutional filters.
-    stride: int
+    stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
-    dilation: int
+    dilation : int
         Dilation factor of the convolutional filters.
-    padding: str
+    padding : str
         (same, valid, causal). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
+        If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    padding_mode: str
+    padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    bias: bool
-        If True, the additive bias b is adopted
+    bias : bool
+        If True, the additive bias b is adopted.
 
     Example
     -------

@@ -1,5 +1,4 @@
-"""
-Managing the logger, utilities
+"""Managing the logger, utilities
 
 Author
  * Fang-Pen Lin 2012 https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
@@ -10,6 +9,7 @@ Author
 import sys
 import os
 import yaml
+import tqdm
 import logging
 import logging.config
 import math
@@ -60,20 +60,39 @@ ORDERS_WORDS = {
 }
 
 
+class TqdmCompatibleStreamHandler(logging.StreamHandler):
+    """TQDM compatible StreamHandler.
+
+    Writes and prints should be passed through tqdm.tqdm.write
+    so that the tqdm progressbar doesn't get messed up.
+    """
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            stream = self.stream
+            tqdm.tqdm.write(msg, end=self.terminator, file=stream)
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:
+            self.handleError(record)
+
+
 def setup_logging(
     config_path="log-config.yaml", overrides={}, default_level=logging.INFO,
 ):
-    """Setup logging configuration
+    """Setup logging configuration.
 
     Arguments
     ---------
     config_path : str
-        the path to a logging config file
+        The path to a logging config file.
     default_level : int
-        the level to use if config file is not found
+        The level to use if the config file is not found.
     overrides : dict
-        a dictionary of the same structure as the config dict
-        with any updated values that need to be applied
+        A dictionary of the same structure as the config dict
+        with any updated values that need to be applied.
     """
     if os.path.exists(config_path):
         with open(config_path, "rt") as f:
@@ -85,16 +104,15 @@ def setup_logging(
 
 
 def format_order_of_magnitude(number, abbreviate=True):
-    """
-    Formats number to appropriate order of magnitude for printing
+    """Formats number to the appropriate order of magnitude for printing.
 
     Arguments
     ---------
     number : int, float
-        The number to format
+        The number to format.
     abbreviate : bool
         Whether to use abbreviations (k,M,G) or words (Thousand, Million,
-        Billion). Numbers will be either like: "123.5k" or "123.5 Thousand"
+        Billion). Numbers will be either like: "123.5k" or "123.5 Thousand".
 
     Returns
     -------
@@ -132,8 +150,7 @@ def format_order_of_magnitude(number, abbreviate=True):
 
 
 def get_environment_description():
-    """
-    Returns a string describing the current Python / SpeechBrain environment.
+    """Returns a string describing the current Python / SpeechBrain environment.
 
     Useful for making experiments as replicable as possible.
 
@@ -143,6 +160,7 @@ def get_environment_description():
         The string is formatted ready to be written to a file.
 
     Example
+    -------
     >>> get_environment_description().splitlines()[0]
     'SpeechBrain system description'
     """

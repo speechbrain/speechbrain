@@ -1,5 +1,4 @@
-"""
-Basic feature pipelines
+"""Basic feature pipelines.
 
 Authors
  * Mirco Ravanelli 2020
@@ -38,13 +37,13 @@ class Fbank(torch.nn.Module):
         Number of filters to use for creating filterbank.
     filter_shape : str
         Shape of the filters ('triangular', 'rectangular', 'gaussian').
-    param_change_factor: bool
+    param_change_factor : bool
         If freeze=False, this parameter affects the speed at which the filter
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
         When low (e.g. param_change_factor=0.1) the filter parameters are more
-        stable during training
-    param_rand_factor: float
+        stable during training.
+    param_rand_factor : float
         This parameter can be used to randomly change the filter parameters
         (i.e, central frequencies and bands) during training.  It is thus a
         sort of regularization. param_rand_factor=0 does not affect, while
@@ -154,7 +153,7 @@ class MFCC(torch.nn.Module):
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
         When low (e.g. param_change_factor=0.1) the filter parameters are more
-        stable during training
+        stable during training.
     param_rand_factor: float
         This parameter can be used to randomly change the filter parameters
         (i.e, central frequencies and bands) during training.  It is thus a

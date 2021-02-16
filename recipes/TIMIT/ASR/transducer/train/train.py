@@ -11,6 +11,7 @@ Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
 """
+import os
 import sys
 import torch
 import logging
@@ -101,12 +102,14 @@ class ASR_Brain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.transducer_metrics = self.hparams.transducer_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -142,7 +145,8 @@ class ASR_Brain(sb.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     data_folder = hparams["data_folder"]
 
@@ -209,8 +213,15 @@ def dataio_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    # Load or compute the label encoder (with multi-gpu dpp support)
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="phn_list",
+        special_labels={"blank_label": hparams["blank_index"]},
+        sequence_input=True,
+    )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "phn_encoded"])
@@ -248,6 +259,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

@@ -8,16 +8,16 @@ from speechbrain.dataio.dataio import length_to_mask
 
 
 def Accuracy(log_probablities, targets, length=None):
-    """Calculate accuarcy for predicted log probabilities and targets in a batch
+    """Calculates the accuracy for predicted log probabilities and targets in a batch.
 
-    Arguements
+    Arguments
     ----------
-    log_probablities: tensor
-        predicted log probabilities (batch_size, time, feature)
-    targets: tensor
-        target (batch_size, time)
-    length: tensor
-        length of target (batch_size,)
+    log_probablities : tensor
+        Predicted log probabilities (batch_size, time, feature).
+    targets : tensor
+        Target (batch_size, time).
+    length : tensor
+        Length of target (batch_size,).
 
     Example
     -------
@@ -47,7 +47,7 @@ def Accuracy(log_probablities, targets, length=None):
 
 
 class AccuracyStats:
-    """Module for calculate the overall one-step-forward prediction accuarcy
+    """Module for calculate the overall one-step-forward prediction accuracy.
 
     Example
     -------
@@ -64,16 +64,17 @@ class AccuracyStats:
         self.total = 0
 
     def append(self, log_probablities, targets, length=None):
-        """ this function is for update the stats according to the prediction and target in current batch
+        """This function is for updating the stats according to the prediction
+        and target in the current batch.
 
-        Arguements
+        Arguments
         ----------
-        log_probablities: tensor
-            predicted log probabilities (batch_size, time, feature)
-        targets: tensor
-            target (batch_size, time)
+        log_probablities : tensor
+            Predicted log probabilities (batch_size, time, feature).
+        targets : tensor
+            Target (batch_size, time).
         length: tensor
-            length of target (batch_size,)
+            Length of target (batch_size,).
         """
         numerator, denominator = Accuracy(log_probablities, targets, length)
         self.correct += numerator

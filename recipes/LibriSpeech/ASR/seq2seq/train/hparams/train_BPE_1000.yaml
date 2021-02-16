@@ -20,7 +20,7 @@ train_log: !ref <output_folder>/train_log.txt
 # NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
 # for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
 # # object. In this case, it is based on 1000 tokens.
-lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
+lm_hparam_file: ../../LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -29,6 +29,8 @@ data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
@@ -52,7 +54,6 @@ opt_class: !name:torch.optim.Adadelta
    lr: !ref <lr>
    rho: 0.95
    eps: 1.e-8
-
 
 # Dataloader options
 train_dataloader_opts:
@@ -99,15 +100,6 @@ ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
-
-# LM Model parameters
-lm_emb_size: 128
-lm_activation: !name:torch.nn.LeakyReLU
-lm_dropout: 0.0
-lm_rnn_layers: 2
-lm_rnn_neurons: 2048
-lm_dnn_blocks: 1
-lm_dnn_neurons: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>

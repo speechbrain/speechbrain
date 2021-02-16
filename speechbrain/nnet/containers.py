@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 class Sequential(torch.nn.ModuleDict):
     """A sequence of modules with potentially inferring shape on construction.
 
-    If layers are passed with names
+    If layers are passed with names, these can be referenced with dot notation.
 
     Arguments
     ---------
     input_shape : iterable
         A list or tuple of ints or None, representing the expected shape of an
-        input tensor. None represents a variable length dimension. If no
-        ``input_shape`` is passed, no shape inferenced will be performed
+        input tensor. None represents a variable-length dimension. If no
+        ``input_shape`` is passed, no shape inference will be performed.
     *layers, **named_layers
         The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
@@ -36,15 +36,21 @@ class Sequential(torch.nn.ModuleDict):
     -------
     >>> inputs = torch.rand(10, 40, 50)
     >>> model = Sequential(input_shape=inputs.shape)
-    >>> model.append(Linear, n_neurons=100)
-    >>> model.append(Linear, n_neurons=200)
+    >>> model.append(Linear, n_neurons=100, layer_name="layer1")
+    >>> model.append(Linear, n_neurons=200, layer_name="layer2")
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 40, 200])
+    >>> outputs = model.layer1(inputs)
+    >>> outputs.shape
+    torch.Size([10, 40, 100])
     """
 
     def __init__(self, *layers, input_shape=None, **named_layers):
         super().__init__()
+
+        # Keep track of what layers need "lengths" passed
+        self.length_layers = []
 
         # Replace None dimensions with arbitrary value
         self.input_shape = input_shape
@@ -104,16 +110,22 @@ class Sequential(torch.nn.ModuleDict):
         self.add_module(layer_name, layer)
 
     def get_output_shape(self):
+        """Returns expected shape of the output.
+
+        Computed by passing dummy input constructed with the
+        ``self.input_shape`` attribute.
+        """
         dummy_input = torch.zeros(self.input_shape)
         dummy_output = self(dummy_input)
         return dummy_output.shape
 
     def forward(self, x):
-        """
+        """Applies layers in sequence, passing only the first element of tuples.
+
         Arguments
         ---------
-        x : tensor
-            the input tensor to run through the network.
+        x : torch.Tensor
+            The input tensor to run through the network.
         """
         for layer in self.values():
             x = layer(x)
@@ -123,15 +135,63 @@ class Sequential(torch.nn.ModuleDict):
         return x
 
 
-class ModuleList(torch.nn.Module):
-    """This class implements a wraper to torch.nn.ModuleList with a forward() method to forward all the layers sequentially.
+class LengthCapableSequential(Sequential):
+    """Sequential model that can take ``lengths`` in the forward method.
 
-    For some pretained model with the SpeechBrain older implementation of Sequential class, user can use this class to load those pretrained models
+    This is useful for Sequential models that include RNNs where it is
+    important to avoid padding, or for some feature normalization layers.
+
+    Unfortunately, this module is not jit-able because the compiler doesn't
+    know ahead of time if the length will be passed, and some layers don't
+    accept the length parameter.
+    """
+
+    def forward(self, x, lengths=None):
+        """Applies layers in sequence, passing only the first element of tuples.
+
+        In addition, forward the ``lengths`` argument to all layers that accept
+        a ``lengths`` argument in their ``forward()`` method (e.g. RNNs).
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input tensor to run through the network.
+        lengths : torch.Tensor
+            The relative lengths of each signal in the tensor.
+        """
+        for layer in self.values():
+            if lengths_arg_exists(layer):
+                x = layer(x, lengths=lengths)
+            else:
+                x = layer(x)
+            if isinstance(x, tuple):
+                x = x[0]
+
+        return x
+
+
+def lengths_arg_exists(module):
+    """Returns True if module takes ``lengths`` keyword argument.
 
     Arguments
     ---------
-    *layers: torch class
-        torch objects to be put in a ModuleList
+    module : torch.nn.Module
+        Torch module to use for determination.
+    """
+    spec = inspect.getfullargspec(module.forward)
+    return "lengths" in spec.args + spec.kwonlyargs
+
+
+class ModuleList(torch.nn.Module):
+    """This class implements a wrapper to torch.nn.ModuleList with a forward()
+    method to forward all the layers sequentially.
+    For some pretained model with the SpeechBrain older implementation of
+    Sequential class, user can use this class to load those pretrained models
+
+    Arguments
+    ---------
+    *layers : torch class
+        Torch objects to be put in a ModuleList.
     """
 
     def __init__(self, *layers):
@@ -155,11 +215,6 @@ class ModuleList(torch.nn.Module):
         self.layers.insert(module)
 
 
-def ignore_init(function):
-    """Wrapper function to ignore the init_params argument"""
-    return lambda x, y, init_params=False: function(x, y)
-
-
 class ConnectBlocks(torch.nn.Module):
     """Connect a sequence of blocks with shortcut connections.
 
@@ -172,9 +227,9 @@ class ConnectBlocks(torch.nn.Module):
         The shape of the
     shortcut_type : str
         One of:
-        * "residual" - first block output passed to final output
-        * "dense" - input of each block is from all previous blocks
-        * "skip" - output of each block is passed to final output
+        * "residual" - first block output passed to final output,
+        * "dense" - input of each block is from all previous blocks,
+        * "skip" - output of each block is passed to final output.
     shortcut_projection : bool
         Only has an effect if `shortcut_type` is passed. Whether to add a
         linear projection layer to the shortcut connection before combining
@@ -233,7 +288,7 @@ class ConnectBlocks(torch.nn.Module):
             the argument ``input_shape`` will be passed if the layer takes it.
         *args, **kwargs
             Passed unchanged to the layer **EXCEPT** the kwarg ``end_of_block``
-            which is used to indicate that the shorcut should be added in.
+            which is used to indicate that the shortcut should be added in.
         """
         if self.new_block:
             self.blocks.append(Sequential(input_shape=self.block_input_shape))

@@ -12,6 +12,8 @@
 #
 import os
 import sys
+import hyperpyyaml
+
 
 sys.path.insert(0, os.path.abspath("../../speechbrain"))
 
@@ -19,8 +21,8 @@ sys.path.insert(0, os.path.abspath("../../speechbrain"))
 # -- Project information -----------------------------------------------------
 
 project = "SpeechBrain"
-copyright = "2020, Mirco Ravanelli"
-author = "Mirco Ravanelli"
+copyright = "2021, SpeechBrain"
+author = "SpeechBrain"
 
 # The full version, including alpha/beta/rc tags
 release = "0.0.0"
@@ -38,6 +40,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
+    "recommonmark",
 ]
 
 
@@ -61,8 +64,19 @@ intersphinx_mapping = {
     "torch": ("https://pytorch.org/docs/master/", None),
 }
 
+# AUTODOC:
+
+autodoc_default_options = {}
+
 # Autodoc mock extra dependencies:
-autodoc_mock_imports = ["numba"]
+autodoc_mock_imports = ["numba", "sklearn"]
+
+# Order of API items:
+autodoc_member_order = "bysource"
+autodoc_default_options = {"member-order": "bysource"}
+
+# Don't show inherited docstrings:
+autodoc_inherit_docstrings = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -70,7 +84,43 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ["_apidoc_templates"]
+
+# -- Better apidoc -----------------------------------------------------------
+
+
+def run_apidoc(app):
+    """Generage API documentation"""
+    import better_apidoc
+
+    better_apidoc.APP = app
+
+    better_apidoc.main(
+        [
+            "better-apidoc",
+            "-t",
+            os.path.join("source", "_apidoc_templates"),
+            "--force",
+            "--no-toc",
+            "--separate",
+            "-o",
+            "source",
+            os.path.dirname(hyperpyyaml.__file__),
+        ]
+    )
+    better_apidoc.main(
+        [
+            "better-apidoc",
+            "-t",
+            os.path.join("source", "_apidoc_templates"),
+            "--force",
+            "--no-toc",
+            "--separate",
+            "-o",
+            "source",
+            os.path.join("..", "speechbrain"),
+        ]
+    )
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -79,8 +129,28 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
+# See https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
+# for rtd theme options
+html_theme_options = {
+    # Toc options
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "navigation_depth": 4,
+    "includehidden": True,
+}
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".txt": "markdown",
+    ".md": "markdown",
+}
+
+
+def setup(app):
+    app.connect("builder-inited", run_apidoc)

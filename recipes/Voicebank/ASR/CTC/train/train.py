@@ -7,21 +7,23 @@ To run this recipe, do the following:
 Use your own hyperparameter file or the provided `hyperparams.yaml`
 
 To use noisy inputs, change `input_type` field from `clean_wav` to `noisy_wav`.
-To use pretrained model, enter path in `pretrained` field.
+To use pretrained model, enter the path in `pretrained` field.
 
 Authors
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
 
 
 # Define training procedure
 class ASR_Brain(sb.Brain):
     def compute_forward(self, batch, stage):
+        "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs = self.modules.augmentation(wavs, wav_lens)
@@ -34,6 +36,7 @@ class ASR_Brain(sb.Brain):
         return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
@@ -41,7 +44,7 @@ class ASR_Brain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             sequence = sb.decoders.ctc_greedy_decode(
-                pout, pout_lens, blank_id=-1
+                pout, pout_lens, blank_id=self.hparams.blank_index
             )
             self.per_metrics.append(
                 ids=batch.id,
@@ -54,12 +57,14 @@ class ASR_Brain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch):
+        "Gets called when a stage (either training, validation, test) starts."
         self.ctc_metrics = self.hparams.ctc_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -91,7 +96,7 @@ class ASR_Brain(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """Creates the datasets and their data processing pipelines"""
+    "Creates the datasets and their data processing pipelines."
 
     label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
@@ -103,10 +108,10 @@ def dataio_prep(hparams):
         return sig
 
     # 2. Define text pipeline:
-    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.takes("phones")
     @sb.utils.data_pipeline.provides("phn_list", "phn_encoded")
-    def text_pipeline(phn):
-        phn_list = phn.strip().split()
+    def text_pipeline(phones):
+        phn_list = phones.strip().split()
         yield phn_list
         phn_encoded = label_encoder.encode_sequence_torch(phn_list)
         yield phn_encoded
@@ -114,9 +119,9 @@ def dataio_prep(hparams):
     # 3. Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
-        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root", hparams["data_folder"]},
+        data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
             output_keys=["id", "sig", "phn_encoded"],
         )
@@ -124,7 +129,7 @@ def dataio_prep(hparams):
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="duration", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending",
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -132,9 +137,16 @@ def dataio_prep(hparams):
             "Sorting must be random, ascending, or descending"
         )
 
-    # 4. Fit encoder to train data
-    label_encoder.insert_blank(index=hparams["blank_index"])
-    label_encoder.update_from_didataset(data["train"], output_key="phn_list")
+    # 4. Fit encoder:
+    # Load or compute the label encoder (with multi-gpu dpp support)
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file,
+        from_didatasets=[data["train"]],
+        output_key="phn_list",
+        special_labels={"blank_label": hparams["blank_index"]},
+        sequence_input=True,
+    )
 
     return data, label_encoder
 
@@ -153,22 +165,23 @@ if __name__ == "__main__":
     # Prepare data on one process
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
-    run_on_main(
-        prepare_voicebank,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_folder"],
-        },
-    )
-
-    datasets, label_encoder = dataio_prep(hparams)
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    run_on_main(
+        prepare_voicebank,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
+
+    datasets, label_encoder = dataio_prep(hparams)
 
     # Load pretrained model
     if "pretrained" in hparams:

@@ -47,6 +47,7 @@ def prepare_voxceleb(
     source=None,
     split_speaker=False,
     random_segment=False,
+    skip_prep=False,
 ):
     """
     Prepares the csv files for the Voxceleb1 or Voxceleb2 datasets.
@@ -75,6 +76,8 @@ def prepare_voxceleb(
         Speaker-wise split
     random_segment : bool
         Train random segments
+    skip_prep: Bool
+        If True, skip preparation.
 
     Example
     -------
@@ -86,6 +89,8 @@ def prepare_voxceleb(
     >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio)
     """
 
+    if skip_prep:
+        return
     # Create configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,
@@ -107,17 +112,17 @@ def prepare_voxceleb(
     # Create the data folder contains VoxCeleb1 test data from the source
     if source is not None:
         if not os.path.exists(os.path.join(data_folder, "wav", "id10270")):
-            print(f"Extracting {source}/{TEST_WAV} to {data_folder}")
+            logger.info(f"Extracting {source}/{TEST_WAV} to {data_folder}")
             shutil.unpack_archive(os.path.join(source, TEST_WAV), data_folder)
         if not os.path.exists(os.path.join(data_folder, "meta")):
-            print(f"Copying {source}/meta to {data_folder}")
+            logger.info(f"Copying {source}/meta to {data_folder}")
             shutil.copytree(
                 os.path.join(source, "meta"), os.path.join(data_folder, "meta")
             )
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        print("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains VoxCeleb data
@@ -129,7 +134,7 @@ def prepare_voxceleb(
     # _check_voxceleb1_folders(data_folder, splits)
 
     msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
-    print(msg)
+    logger.info(msg)
 
     # Split data into 90% train and 10% validation (verification split)
     wav_lst_train, wav_lst_dev = _get_utt_split_lists(
@@ -281,7 +286,7 @@ def _get_utt_split_lists(data_folders, split_ratio, split_speaker=False):
                 try:
                     spk_id = f.split("/wav/")[1].split("/")[0]
                 except ValueError:
-                    print(f"Malformed path: {f}")
+                    logger.info(f"Malformed path: {f}")
                     continue
                 if spk_id not in test_spks:
                     audio_files_list.append(f)
@@ -333,7 +338,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     """
 
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    print(msg)
+    logger.info(msg)
 
     csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id"]]
 
@@ -346,7 +351,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
         try:
             [spk_id, sess_id, utt_id] = wav_file.split("/")[-3:]
         except ValueError:
-            print(f"Malformed path: {wav_file}")
+            logger.info(f"Malformed path: {wav_file}")
             continue
         audio_id = my_sep.join([spk_id, sess_id, utt_id.split(".")[0]])
 
@@ -406,7 +411,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
     # Final prints
     msg = "\t%s Sucessfully created!" % (csv_file)
-    print(msg)
+    logger.info(msg)
 
 
 def prepare_csv_enrol_test(data_folders, save_folder):
@@ -449,7 +454,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
         test_ids = list(np.unique(np.array(test_ids)))
 
         # Prepare enrol csv
-        print("preparing enrol csv")
+        logger.info("preparing enrol csv")
         enrol_csv = []
         for id in enrol_ids:
             wav = data_folder + "/wav/" + id + ".wav"
@@ -485,7 +490,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
                 csv_writer.writerow(line)
 
         # Prepare test csv
-        print("preparing test csv")
+        logger.info("preparing test csv")
         test_csv = []
         for id in test_ids:
             wav = data_folder + "/wav/" + id + ".wav"

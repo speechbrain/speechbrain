@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 class ContentBasedAttention(nn.Module):
     """ This class implements content-based attention module for seq2seq
-    learning. Ref: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
+    learning.
+
+    Refereance: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
     AND TRANSLATE, Bahdanau et.al. https://arxiv.org/pdf/1409.0473.pdf
 
     Arguments
@@ -102,8 +104,9 @@ class ContentBasedAttention(nn.Module):
 
 
 class LocationAwareAttention(nn.Module):
-    """ This class implements location-aware attention module for seq2seq learning.
-    Ref: Attention-Based Models for Speech Recognition, Chorowski et.al.
+    """This class implements location-aware attention module for seq2seq learning.
+
+    Reference: Attention-Based Models for Speech Recognition, Chorowski et.al.
     https://arxiv.org/pdf/1506.07503.pdf
 
     Arguments
@@ -172,7 +175,7 @@ class LocationAwareAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in attention module
+        """Reset the memory in attention module.
         """
         self.enc_len = None
         self.precomputed_enc_h = None
@@ -229,7 +232,9 @@ class LocationAwareAttention(nn.Module):
 
 class KeyValueAttention(nn.Module):
     """ This class implements a single-headed key-value attention module for seq2seq
-    learning. Ref: "Attention Is All You Need" by Vaswani et al., sec. 3.2.1
+    learning.
+
+    Reference: "Attention Is All You Need" by Vaswani et al., sec. 3.2.1
 
     Arguments
     ---------
@@ -282,7 +287,6 @@ class KeyValueAttention(nn.Module):
             The real length (without padding) of enc_states for each sentence.
         dec_states : torch.Tensor
             The query tensor.
-
         """
 
         if self.keys is None:
@@ -303,24 +307,25 @@ class KeyValueAttention(nn.Module):
 
 class MultiheadAttention(nn.Module):
     """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
-    ref: https://pytorch.org/docs/stable/nn.html
 
-    Arguements
+    Reference: https://pytorch.org/docs/stable/nn.html
+
+    Arguments
     ----------
     num_heads : int
         parallel attention heads.
     dropout : float
-        a Dropout layer on attn_output_weights. Default: 0.0.
+        a Dropout layer on attn_output_weights (default: 0.0).
     bias : bool
-        add bias as module parameter. Default: True.
+        add bias as module parameter (default: True).
     add_bias_kv : bool
         add bias to the key and value sequences at dim=0.
     add_zero_attn : bool
         add a new batch of zeros to the key and value sequences at dim=1.
     kdim : int
-        total number of features in key. Default: None.
+        total number of features in key (default: None).
     vdim : int
-        total number of features in value. Default: None.
+        total number of features in value (default: None).
 
     Example
     -------
@@ -364,25 +369,25 @@ class MultiheadAttention(nn.Module):
         key_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
-        Arguements
+        Arguments
         ----------
-        query: tensor
+        query : tensor
             (L, N, E) where L is the target sequence length,
             N is the batch size, E is the embedding dimension.
-        key: tensor
+        key : tensor
             (S, N, E) where S is the source sequence length,
             N is the batch size, E is the embedding dimension.
-        value: tensor
+        value : tensor
             (S, N, E) where S is the source sequence length,
             N is the batch size, E is the embedding dimension.
-        key_padding_mask: tensor
+        key_padding_mask : tensor
             (N, S) where N is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
             be ignored while the position with the zero positions will be
             unchanged. If a BoolTensor is provided, the positions with the
             value of True will be ignored while the position with the value
             of False will be unchanged.
-        attn_mask: tensor
+        attn_mask : tensor
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
             3D mask (N*num_heads, L, S) where N is the batch
@@ -396,10 +401,10 @@ class MultiheadAttention(nn.Module):
 
         Outputs
         -------
-        attn_output: tensor
+        attn_output : tensor
             (L, N, E) where L is the target sequence length, N is the
             batch size, E is the embedding dimension.
-        attn_output_weights: tensor
+        attn_output_weights : tensor
             (N, L, S) where N is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
@@ -424,13 +429,13 @@ class MultiheadAttention(nn.Module):
 
 class PositionalwiseFeedForward(nn.Module):
     """The class implements the positional-wise feed forward module in
-    “Attention Is All You Need”
+    “Attention Is All You Need”.
 
-    Arguements
+    Arguments
     ----------
     d_ffn: int
-        dimention of representation space of this positional-wise feed
-        forward module
+        Dimension of representation space of this positional-wise feed
+        forward module.
     input_shape : tuple
         Expected shape of the input. Alternatively use ``input_size``.
     input_size : int
@@ -438,7 +443,7 @@ class PositionalwiseFeedForward(nn.Module):
     dropout: float
         Fraction of outputs to drop.
     activation: torch class
-        activation functions to be applied (Recommandation: ReLU, GELU)
+        activation functions to be applied (Recommendation: ReLU, GELU).
 
     Example
     -------

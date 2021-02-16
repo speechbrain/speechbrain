@@ -24,19 +24,19 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 model: !new:speechbrain.nnet.containers.Sequential
     input_shape: [!ref <N_batch>, null, 660]  # input_size
-    conv1: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d # yamllint disable-line rule:line-length
+    conv1: !name:speechbrain.nnet.quaternion_networks.q_CNN.QConv1d
         out_channels: 16
         kernel_size: 3
     act1: !ref <activation>
-    conv2: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d # yamllint disable-line rule:line-length
+    conv2: !name:speechbrain.nnet.quaternion_networks.q_CNN.QConv1d
         out_channels: 32
         kernel_size: 3
-    nrm2: !name:speechbrain.nnet.quaternion_networks.quaternion_CNN.QuaternionConv1d # yamllint disable-line rule:line-length
+    nrm2: !name:speechbrain.nnet.quaternion_networks.q_CNN.QConv1d
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
         pool_type: "avg"
         kernel_size: 3
-    RNN: !name:speechbrain.nnet.quaternion_networks.quaternion_RNN.QuaternionLiGRU
+    RNN: !name:speechbrain.nnet.quaternion_networks.q_RNN.QLiGRU
         hidden_size: 64
         bidirectional: True
     linear: !name:speechbrain.nnet.linear.Linear

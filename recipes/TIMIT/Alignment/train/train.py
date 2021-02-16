@@ -9,6 +9,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+import os
 import sys
 import torch
 import speechbrain as sb
@@ -136,7 +137,8 @@ class AlignBrain(sb.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
 
     data_folder = hparams["data_folder"]
 
@@ -213,8 +215,18 @@ def dataio_prep(hparams):
 
     sb.dataio.dataset.add_dynamic_item(datasets, phn_ends_pipeline)
 
-    # 5. Fit encoder:
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
+    # 3. Fit encoder:
+    # Load or compute the label encoder
+    label_encoder_file = os.path.join(
+        hparams["save_folder"], "label_encoder.txt"
+    )
+    if os.path.exists(label_encoder_file):
+        label_encoder.load(label_encoder_file)
+    else:
+        label_encoder.update_from_didataset(train_data, output_key="phn_list")
+        label_encoder.save(
+            os.path.join(hparams["save_folder"], "label_encoder.txt")
+        )
 
     # 6. Set output:
     sb.dataio.dataset.set_output_keys(
@@ -240,6 +252,13 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_timit,
@@ -248,18 +267,12 @@ if __name__ == "__main__":
             "splits": ["train", "dev", "test"],
             "save_folder": hparams["data_folder"],
             "phn_set": hparams["phn_set"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
 
     # Trainer initialization
     align_brain = AlignBrain(

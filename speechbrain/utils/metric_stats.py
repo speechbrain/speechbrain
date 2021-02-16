@@ -1,6 +1,5 @@
-"""
-The ``metric_stats`` module provides an abstract class for storing
-statistics produced over the course of an experiment, and summarizing them.
+"""The ``metric_stats`` module provides an abstract class for storing
+statistics produced over the course of an experiment and summarizing them.
 
 Authors:
  * Peter Plantinga 2020
@@ -8,9 +7,8 @@ Authors:
 """
 import torch
 from joblib import Parallel, delayed
-from speechbrain.utils import edit_distance
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.edit_distance import wer_summary
+from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
 from speechbrain.dataio.dataio import merge_char, split_word
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
@@ -82,7 +80,7 @@ class MetricStats:
         ids : list
             List of ids corresponding to utterances.
         *args, **kwargs
-            Arguments to pass to the metric function
+            Arguments to pass to the metric function.
         """
         self.ids.extend(ids)
 
@@ -155,12 +153,12 @@ class MetricStats:
 
 
 class ErrorRateStats(MetricStats):
-    """A class for tracking error rates (e.g. WER, PER).
+    """A class for tracking error rates (e.g., WER, PER).
 
     Arguments
     ---------
     merge_tokens : bool
-        Whether to merge the successive tokens (used for e.g.
+        Whether to merge the successive tokens (used for e.g.,
         creating words out of character tokens).
 
     Example
@@ -241,7 +239,7 @@ class ErrorRateStats(MetricStats):
             predict = split_word(predict)
             target = split_word(target)
 
-        scores = edit_distance.wer_details_for_batch(ids, target, predict, True)
+        scores = wer_details_for_batch(ids, target, predict, True)
 
         self.scores.extend(scores)
 
@@ -261,7 +259,7 @@ class ErrorRateStats(MetricStats):
             return self.summary
 
     def write_stats(self, filestream):
-        """Write all relevant info (e.g. error rate alignments) to file.
+        """Write all relevant info (e.g., error rate alignments) to file.
         * See MetricStats.write_stats()
         """
         if not self.summary:
@@ -273,7 +271,6 @@ class ErrorRateStats(MetricStats):
 
 class BinaryMetricStats(MetricStats):
     """Tracks binary metrics, such as precision, recall, F1, EER, etc.
-
     """
 
     def __init__(self, positive_label=1):
@@ -290,7 +287,7 @@ class BinaryMetricStats(MetricStats):
         """Appends scores and labels to internal lists.
 
         Does not compute metrics until time of summary, since
-        automatic thresholds (e.g. EER) need full set of scores.
+        automatic thresholds (e.g., EER) need full set of scores.
 
         Arguments
         ---------
@@ -303,7 +300,7 @@ class BinaryMetricStats(MetricStats):
         self.labels.extend(labels.detach())
 
     def summarize(self, field=None, threshold=None, beta=1, eps=1e-8):
-        """Compute statistics using full set of scores.
+        """Compute statistics using a full set of scores.
 
         Full set of fields:
          - TP - True Positive
@@ -376,7 +373,7 @@ class BinaryMetricStats(MetricStats):
 
 
 def EER(positive_scores, negative_scores):
-    """Computes the EER (and its threshold)
+    """Computes the EER (and its threshold).
 
     Arguments
     ---------
@@ -447,12 +444,12 @@ def minDCF(
         The scores from entries of the same class.
     negative_scores : torch.tensor
         The scores from entries of different classes.
-    c_miss: float
+    c_miss : float
          Cost assigned to a missing error (default 1.0).
-    c_fa: float
+    c_fa : float
         Cost assigned to a false alarm (default 1.0).
     p_target: float
-        Prior probability of having a target (defaul 0.01).
+        Prior probability of having a target (default 0.01).
 
 
     Example

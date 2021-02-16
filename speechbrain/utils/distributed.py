@@ -30,7 +30,7 @@ def run_on_main(
     Arguments
     ---------
     func : callable
-        Function to run on main process.
+        Function to run on the main process.
     args : list, None
         Positional args to pass to func.
     kwargs : dict, None
@@ -43,7 +43,7 @@ def run_on_main(
     post_kwargs : dict, None
         Keyword args to pass to post_func.
     run_post_on_main : bool
-        Whether to run post_func on main process as well. By default False.
+        Whether to run post_func on main process as well. (default: False)
     """
     # Handle the mutable data types' default args:
     if args is None:
@@ -80,7 +80,7 @@ def run_on_main(
 
 
 def if_main_process():
-    """Check if the current process is the main process and authorized to run
+    """Checks if the current process is the main process and authorized to run
     I/O commands. In DDP mode, the main process is the one with RANK == 0.
     In standard mode, the process will not have `RANK` Unix var and will be
     authorized to run the I/O commands.
@@ -96,7 +96,7 @@ def if_main_process():
 
 
 def ddp_barrier():
-    """In DDP mode, this function will synchronizes all processes.
+    """In DDP mode, this function will synchronize all processes.
     torch.distributed.barrier() will block processes until the whole
     group enters this function.
     """
@@ -105,8 +105,7 @@ def ddp_barrier():
 
 
 def ddp_init_group(run_opts):
-    """
-    This function will initialize the ddp group if
+    """This function will initialize the ddp group if
     distributed_launch=True bool is given in the python command line.
 
     The ddp group will use distributed_backend arg for setting the
@@ -116,7 +115,7 @@ def ddp_init_group(run_opts):
     Arguments
     ---------
     run_opts: list
-        a list of arguments to parse, most often from `sys.argv[1:]`
+        A list of arguments to parse, most often from `sys.argv[1:]`.
     """
     if run_opts["distributed_launch"]:
         if "local_rank" not in run_opts:

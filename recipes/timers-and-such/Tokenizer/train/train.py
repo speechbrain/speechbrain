@@ -4,7 +4,7 @@ The tokenizer coverts semantics into sub-word units that can
 be used to train a language (LM) or an acoustic model (AM).
 
 To run this recipe, do the following:
-> python train.py hyperparams/tokenizer_bpe51.yaml
+> python train.py hparams/tokenizer_bpe51.yaml
 
 
 Authors

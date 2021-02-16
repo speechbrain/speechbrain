@@ -8,7 +8,7 @@ formatters:
 
 handlers:
   console:
-    class: logging.StreamHandler
+    class: speechbrain.utils.logger.TqdmCompatibleStreamHandler
     level: INFO
     formatter: console
     stream: ext://sys.stdout
