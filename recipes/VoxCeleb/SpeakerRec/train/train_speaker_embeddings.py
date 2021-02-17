@@ -62,7 +62,7 @@ class SpeakerBrain(sb.core.Brain):
                     wavs_aug_tot[0] = wavs
 
             wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = int(wavs.shape[0] / self.hparams.batch_size)
+            self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
