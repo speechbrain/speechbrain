@@ -20,6 +20,7 @@ import speechbrain as sb
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import EER, minDCF
+from speechbrain.utils.data_utils import download_file
 
 
 # Compute embeddings from the waveforms
@@ -204,6 +205,13 @@ if __name__ == "__main__":
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
+
+    # Download verification list (to exlude verification sentences from train)
+    veri_file_path = os.path.join(
+        params["save_folder"], os.path.basename(params["verification_file"])
+    )
+    download_file(params["verification_file"], veri_file_path)
+
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
 
     # Create experiment directory
@@ -217,6 +225,7 @@ if __name__ == "__main__":
     prepare_voxceleb(
         data_folder=params["data_folder"],
         save_folder=params["save_folder"],
+        verification_pairs_file=veri_file_path,
         splits=["train", "dev", "test"],
         split_ratio=[90, 10],
         seg_dur=300,
@@ -249,8 +258,7 @@ if __name__ == "__main__":
     # Compute the EER
     logger.info("Computing EER..")
     # Reading standard verification split
-    gt_file = os.path.join(params["data_folder"], "meta", "veri_test.txt")
-    with open(gt_file) as f:
+    with open(veri_file_path) as f:
         veri_test = [line.rstrip() for line in f]
 
     positive_scores, negative_scores = get_verification_scores(veri_test)
