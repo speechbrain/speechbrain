@@ -2,6 +2,7 @@
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
 numpy>=1.17.0
+packaging
 pre-commit>=2.3.0
 scipy>=1.4.1
 sentencepiece>=0.1.91
