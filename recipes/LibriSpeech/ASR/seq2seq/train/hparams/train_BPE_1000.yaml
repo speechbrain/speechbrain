@@ -35,6 +35,9 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# We store the generated csv (SpeechBrain format) in the data folder to avoid
+# rebuilding them at each new experiment. If you wish, simply change this path.
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
