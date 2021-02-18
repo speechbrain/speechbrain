@@ -1,9 +1,6 @@
 """
 Downloads and creates manifest files for Mini LibriSpeech.
-Noise is automatically added to samples.
-
-Download and resample, use ``download_vctk`` below.
-https://datashare.is.ed.ac.uk/handle/10283/2791
+Noise is automatically added to samples, managed by the EnvCorrupt class.
 
 Authors:
  * Peter Plantinga, 2020
@@ -33,7 +30,7 @@ def prepare_mini_librispeech(data_folder, save_folder):
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the original Voicebank dataset is stored.
+        Path to the folder where the Mini Librispeech dataset is stored.
     save_folder : str
         The directory where to store the json files.
 
@@ -41,7 +38,7 @@ def prepare_mini_librispeech(data_folder, save_folder):
     -------
     >>> data_folder = '/path/to/mini_librispeech'
     >>> save_folder = '.'
-    >>> prepare_voicebank(data_folder, save_folder)
+    >>> prepare_mini_librispeech(data_folder, save_folder)
     """
 
     # Setting ouput files
@@ -108,7 +105,7 @@ def create_json(wav_list, json_file):
 
 def skip(*filenames):
     """
-    Detects if the Voicebank data_preparation has been already done.
+    Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
 
     Returns
