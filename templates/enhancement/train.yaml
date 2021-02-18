@@ -17,7 +17,7 @@ output_folder: !ref ./results/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Manifets files are stored by default in the current directory.
+# Manifets files are stored by default in the save folder.
 train_annotation: !ref <save_folder>/train.json
 valid_annotation: !ref <save_folder>/valid.json
 
