@@ -9,6 +9,7 @@ import os.path
 import torch
 import logging
 import csv
+import json
 import sentencepiece as spm
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
@@ -29,15 +30,18 @@ class SentencePiece:
     Arguments
     ---------
     model_dir : str
-        The directory where the model is saved.
+        The directory where the model will be saved (or already stored).
     vocab_size : int, None, optional
         Vocab size for the chosen tokenizer type (BPE, Unigram).
         The vocab_size is optional for char, and mandatory for BPE & unigram
         tokenization.
-    csv_train : str
-        Path of the csv file which is used to learn the tokenizer.
-    csv_read : str
-        The data entry which contains the word sequence in the csv file.
+    annotation_train : str
+        Path of the annotation file which is used to learn the tokenizer. It
+        can be in JSON or csv format.
+    annotation_read : str
+        The data entry which contains the word sequence in the annotation file.
+    annotation_format : str
+        The format of the annotation file. JSON or csv are the formats supported.
     model_type : str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
@@ -46,15 +50,18 @@ class SentencePiece:
         If "unigram" do piece of word tokenization using unigram language
         model, see: https://arxiv.org/abs/1804.10959
     char_format_input : bool
-        Whether the csv_read entry contains characters format input. (default: False)
+        Whether the read entry contains characters format input.
+        (default: False)
         (e.g., a p p l e _ i s _ g o o d)
     character_coverage : int
         Amount of characters covered by the model, good defaults
         are: 0.9995 for languages with a rich character set like Japanse or
-        Chinese and 1.0 for other languages with small character set. (default: 1.0)
+        Chinese and 1.0 for other languages with small character set.
+        (default: 1.0)
     user_defined_symbols : string
         String contained a list of symbols separated by a comma.
-        User-defined symbols are handled as one piece in any context. (default: None)
+        User-defined symbols are handled as one piece in any context.
+        (default: None)
     max_sentencepiece_length : int
         Maximum number of characters for the tokens. (default: 10)
     bos_id : int
@@ -62,24 +69,37 @@ class SentencePiece:
     eos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     split_by_whitespace : bool
-        If False, allow the sentenciepiece to extract piece crossing multiple words.
-        This feature is important for : Chinese/Japenese/Korean. (default: True)
+        If False, allow the sentenciepiece to extract piece crossing multiple
+        words. This feature is important for : Chinese/Japenese/Korean.
+        (default: True)
     num_sequences : int
-        If not none, use at most this many sequences to train the tokenizer (for large datasets). (default: None)
-    csv_list_to_check : list,
-        List of the csv file which is used for checking the accuracy of recovering words from the tokenizer.
+        If not none, use at most this many sequences to train the tokenizer
+        (for large datasets). (default: None)
+    annotation_list_to_check : list,
+        List of the annotation file which is used for checking the accuracy of
+        recovering words from the tokenizer.
 
     Example
     -------
     >>> import torch
     >>> dict_int2lab = {1: "HELLO", 2: "MORNING"}
     >>> model_dir = "tests/unittests/tokenizer_data/"
-    >>> csv_train = "tests/unittests/tokenizer_data/dev-clean.csv"
-    >>> csv_read = "wrd"
+    >>> # Example with csv
+    >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.csv"
+    >>> annotation_read = "wrd"
     >>> model_type = "bpe"
-    >>> bpe = SentencePiece(model_dir,2000, csv_train, csv_read, model_type)
+    >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
+                            model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
+    >>> encoded_seq_ids, encoded_seq_pieces = bpe(
+    ...     batch_seq, batch_lens, dict_int2lab, task="encode"
+    ... )
+    >>> # Example using JSON
+    >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.json"
+    >>> annotation_read = "wrd"
+    >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
+                            model_type, annotation_format = 'json')
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
@@ -89,8 +109,8 @@ class SentencePiece:
         self,
         model_dir,
         vocab_size,
-        csv_train=None,
-        csv_read=None,
+        annotation_train=None,
+        annotation_read=None,
         model_type="unigram",
         char_format_input=False,
         character_coverage=1.0,
@@ -102,7 +122,8 @@ class SentencePiece:
         unk_id=0,
         split_by_whitespace=True,
         num_sequences=None,
-        csv_list_to_check=None,
+        annotation_list_to_check=None,
+        annotation_format="csv",
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -111,10 +132,11 @@ class SentencePiece:
         if not isinstance(vocab_size, int):
             raise ValueError("vocab_size must be integer.")
 
-        self.csv_train = csv_train
-        self.csv_read = csv_read
-        if self.csv_train is not None:
-            self.text_file = self.csv_train.replace(".csv", ".txt")
+        self.annotation_train = annotation_train
+        self.annotation_read = annotation_read
+        if self.annotation_train is not None:
+            ext = os.path.splitext(self.annotation_train)[1]
+            self.text_file = self.annotation_train.replace(ext, ".txt")
 
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
@@ -137,7 +159,17 @@ class SentencePiece:
             if not os.path.isfile(self.text_file):
                 try:
                     if sb.utils.distributed.if_main_process():
-                        self._csv2text()
+                        if annotation_format == "csv":
+                            self._csv2text()
+                        elif annotation_format == "json":
+                            self._json2text()
+                            print("bbbbbbbbbbb")
+                        else:
+                            raise ValueError(
+                                "Annotation format not supported. Supported formats are csv and json. Got "
+                                + annotation_format
+                            )
+
                 finally:
                     sb.utils.distributed.ddp_barrier()
             try:
@@ -155,28 +187,33 @@ class SentencePiece:
         self.sp.load(self.prefix_model_file + ".model")
         try:
             if sb.utils.distributed.if_main_process():
-                if csv_list_to_check is not None:
-                    self._check_coverage_from_bpe(csv_list_to_check)
+                if annotation_list_to_check is not None:
+                    self._check_coverage_from_bpe(annotation_list_to_check)
         finally:
             sb.utils.distributed.ddp_barrier()
 
     def _csv2text(self):
         """Read CSV file and convert specific data entries into text file.
         """
-        if not os.path.isfile(os.path.abspath(self.csv_train)):
+        if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
-                self.csv_train
-                + " is not a file. please provide csv file for training."
+                self.annotation_train
+                + " is not a file. please provide annotation file for training."
             )
         logger.info(
-            "Extract " + self.csv_read + " sequences from:" + self.csv_train
+            "Extract "
+            + self.annotation_read
+            + " sequences from:"
+            + self.annotation_train
         )
-        csv_file = open(self.csv_train, "r")
-        reader = csv.reader(csv_file)
+        annotation_file = open(self.annotation_train, "r")
+        reader = csv.reader(annotation_file)
         headers = next(reader, None)
-        if self.csv_read not in headers:
-            raise ValueError(self.csv_read + " must exist in:" + self.csv_train)
-        index_label = headers.index(self.csv_read)
+        if self.annotation_read not in headers:
+            raise ValueError(
+                self.annotation_read + " must exist in:" + self.annotation_train
+            )
+        index_label = headers.index(self.annotation_read)
         text_file = open(self.text_file, "w+")
         row_idx = 0
         for row in reader:
@@ -193,7 +230,48 @@ class SentencePiece:
                 sent = " ".join(sent)
             text_file.write(sent + "\n")
         text_file.close()
-        csv_file.close()
+        annotation_file.close()
+        logger.info("Text file created at: " + self.text_file)
+
+    def _json2text(self):
+        """Read JSON file and convert specific data entries into text file.
+        """
+        if not os.path.isfile(os.path.abspath(self.annotation_train)):
+            raise ValueError(
+                self.annotation_train
+                + " is not a file. please provide annotation file for training."
+            )
+        logger.info(
+            "Extract "
+            + self.annotation_read
+            + " sequences from:"
+            + self.annotation_train
+        )
+
+        # Read JSON
+        with open(self.annotation_train, "r") as f:
+            out_json = json.load(f)
+
+        # Save text file
+        text_file = open(self.text_file, "w+")
+        row_idx = 0
+
+        for snt_id in out_json.keys():
+            if self.num_sequences is not None and row_idx > self.num_sequences:
+                print(
+                    "Using %d sequences to train the tokenizer."
+                    % self.num_sequences
+                )
+                break
+            row_idx += 1
+            sent = out_json[snt_id][self.annotation_read]
+            if self.char_format_input:
+                (sent,) = merge_char([sent.split()])
+                sent = " ".join(sent)
+
+            text_file.write(sent + "\n")
+        text_file.close()
+
         logger.info("Text file created at: " + self.text_file)
 
     def _train_BPE(self):
@@ -231,27 +309,29 @@ class SentencePiece:
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
-    def _check_coverage_from_bpe(self, list_csv_files=[]):
+    def _check_coverage_from_bpe(self, list_annotation_files=[]):
         """Logging the accuracy of the BPE model to recover words from the training text.
 
         Arguments
         ---------
-        csv_list_to_check : list,
-            List of the csv file which is used for checking the accuracy of recovering words from the tokenizer.
+        annotation_list_to_check : list,
+            List of the annotation file which is used for checking the accuracy of recovering words from the tokenizer.
         """
-        for csv_file in list_csv_files:
-            if os.path.isfile(os.path.abspath(csv_file)):
+        for annotation_file in list_annotation_files:
+            if os.path.isfile(os.path.abspath(annotation_file)):
                 logger.info(
                     "==== Accuracy checking for recovering text from tokenizer ==="
                 )
-                fcsv_file = open(csv_file, "r")
-                reader = csv.reader(fcsv_file)
+                fannotation_file = open(annotation_file, "r")
+                reader = csv.reader(fannotation_file)
                 headers = next(reader, None)
-                if self.csv_read not in headers:
+                if self.annotation_read not in headers:
                     raise ValueError(
-                        self.csv_read + " must exist in:" + csv_file
+                        self.annotation_read
+                        + " must exist in:"
+                        + annotation_file
                     )
-                index_label = headers.index(self.csv_read)
+                index_label = headers.index(self.annotation_read)
                 wrong_recover_list = []
                 for row in reader:
                     row = row[index_label]
@@ -272,8 +352,8 @@ class SentencePiece:
                             if align[0] != "=" and align[1] is not None:
                                 if align[1] not in wrong_recover_list:
                                     wrong_recover_list.append(align[1])
-                fcsv_file.close()
-                logger.info("recover words from: " + csv_file)
+                fannotation_file.close()
+                logger.info("recover words from: " + annotation_file)
                 if len(wrong_recover_list) > 0:
                     logger.warn(
                         "Wrong recover words: " + str(len(wrong_recover_list))
@@ -293,7 +373,9 @@ class SentencePiece:
                     logger.info("Wrong recover words: 0")
                     logger.warning("accuracy recovering words: " + str(1.0))
             else:
-                logger.info("No accuracy recover checking for" + csv_file)
+                logger.info(
+                    "No accuracy recover checking for" + annotation_file
+                )
 
     def __call__(
         self, batch, batch_lens=None, ind2lab=None, task="encode",
