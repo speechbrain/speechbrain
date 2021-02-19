@@ -433,7 +433,6 @@ def load_teachers(hparams):
 
     return train_dict, valid_dict, test_dict
 
-
 def st_load(hparams, asr_brain):
     """
     load pre-trained student model and remove last layer.
@@ -441,15 +440,15 @@ def st_load(hparams, asr_brain):
     print("loading pre-trained student model...")
     chpt_path = hparams["pretrain_st_dir"] + "/model.ckpt"
     weight_dict = torch.load(chpt_path)
-    # del the last layer
+    # del the decoder layer
     key_list = []
     for k in weight_dict.keys():
         key_list.append(k)
     for k in key_list:
-        if k.startswith("1") or k.startswith("2"):
+        if not k.startswith("0"):
             del weight_dict[k]
 
-    asr_brain.modules.load_state_dict(weight_dict, strict=False)
+    asr_brain.hparams.model.load_state_dict(weight_dict, strict=False)
 
 
 if __name__ == "__main__":
