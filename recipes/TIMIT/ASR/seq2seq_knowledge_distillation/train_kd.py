@@ -435,7 +435,7 @@ def load_teachers(hparams):
 
 def st_load(hparams, asr_brain):
     """
-    load pre-trained student model and remove last layer.
+    load pre-trained student model and remove decoder layer.
     """
     print("loading pre-trained student model...")
     chpt_path = hparams["pretrain_st_dir"] + "/model.ckpt"
@@ -448,6 +448,7 @@ def st_load(hparams, asr_brain):
         if not k.startswith("0"):
             del weight_dict[k]
 
+    # loading weights
     asr_brain.hparams.model.load_state_dict(weight_dict, strict=False)
 
 
