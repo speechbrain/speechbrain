@@ -433,6 +433,7 @@ def load_teachers(hparams):
 
     return train_dict, valid_dict, test_dict
 
+
 def st_load(hparams, asr_brain):
     """
     load pre-trained student model and remove decoder layer.
