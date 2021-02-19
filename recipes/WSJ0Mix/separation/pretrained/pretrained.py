@@ -14,10 +14,10 @@ from recipes.WSJ0Mix.separation.train.train import Separation
 
 
 class pretrained_separator(Separation):
-    """A "ready-to-use" speechseparation model for 2 or 3 speaker mixtures.
+    """A "ready-to-use" speech separation model for 2 or 3 speaker mixtures.
     This pretrained model is based on the WSJ0Mix recipe.
 
-    The SepFormer system achieves SI-SNR=22.3dB on WSJ0-2Mix test set.
+    The SepFormer system achieves an SI-SNR=22.3dB on WSJ0-2Mix test set.
 
     Arguments
     ---------
