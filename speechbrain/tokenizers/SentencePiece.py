@@ -89,7 +89,7 @@ class SentencePiece:
     >>> annotation_read = "wrd"
     >>> model_type = "bpe"
     >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
-                            model_type)
+    ...                     model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
@@ -99,7 +99,7 @@ class SentencePiece:
     >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.json"
     >>> annotation_read = "wrd"
     >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
-                            model_type, annotation_format = 'json')
+    ...                     model_type, annotation_format = 'json')
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )

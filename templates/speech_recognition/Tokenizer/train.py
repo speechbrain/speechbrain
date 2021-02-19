@@ -28,7 +28,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -37,9 +36,9 @@ if __name__ == "__main__":
     )
 
     # Data preparation, to be run on only one process.
-    prepare_mini_librispeech(data_folder = hparams["data_folder"],
-                             save_folder = hparams["save_folder"])
-    
+    prepare_mini_librispeech(
+        data_folder=hparams["data_folder"], save_folder=hparams["save_folder"]
+    )
 
     # Train tokenizer
     hparams["tokenizer"]()
