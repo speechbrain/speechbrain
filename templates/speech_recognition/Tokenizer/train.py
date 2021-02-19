@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """Script for training a BPE tokenizer on the top of CSV or JSON annotation files.
-The tokenizer coverts words into sub-word units that can be used to train a l
-anguage (LM) or an acoustic model (AM).
+The tokenizer coverts words into sub-word units that can be used to train a
+language (LM) or an acoustic model (AM).
 When doing a speech recognition experiment you have to make
 sure that the acoustic and language models are trained with
 the same tokinizer. Otherwise, a token mismatch is introduced
@@ -37,7 +37,10 @@ if __name__ == "__main__":
 
     # Data preparation, to be run on only one process.
     prepare_mini_librispeech(
-        data_folder=hparams["data_folder"], save_folder=hparams["save_folder"]
+        data_folder=hparams["data_folder"],
+        save_json_train=hparams["train_annotation"],
+        save_json_valid=hparams["valid_annotation"],
+        save_json_test=hparams["test_annotation"],
     )
 
     # Train tokenizer

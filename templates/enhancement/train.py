@@ -230,7 +230,7 @@ def dataio_prep(hparams):
 
     # Define datasets sorted by ascending lengths for efficiency
     datasets = {}
-    for dataset in ["train", "valid"]:
+    for dataset in ["train", "valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
@@ -264,7 +264,9 @@ if __name__ == "__main__":
         prepare_mini_librispeech,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["save_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
         },
     )
 

@@ -5,6 +5,8 @@
 #
 # Author: Mirco Ravanelli 2021
 
+# TEMPLATES
+python templates/enhancement/train.py templates/enhancement/train.yaml --output_folder=test_results/template_enhancement --debug
 
 # TIMIT
 python recipes/TIMIT/ASR/CTC/train/train.py recipes/TIMIT/ASR/CTC/train/hparams/train.yaml --output_folder=test_results/TIMIT_CTC --data_folder=samples/audio_samples/nn_training_samples  --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --test_annotation=samples/audio_samples/nn_training_samples/debug.csv --output_neurons=44 --skip_prep=True --debug 

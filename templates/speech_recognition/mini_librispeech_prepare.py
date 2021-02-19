@@ -1,9 +1,9 @@
 """
-Downloads and creates manifest files for Mini LibriSpeech.
-Noise is automatically added to samples, managed by the EnvCorrupt class.
+Downloads and creates manifest files for speech recognition with Mini LibriSpeech.
 
 Authors:
  * Peter Plantinga, 2020
+ * Mirco Ravanelli, 2021
 """
 
 import os
@@ -62,22 +62,57 @@ def prepare_mini_librispeech(
         f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
     )
     extension = [".flac"]
+
+    # List of flac audio files
     wav_list_train = get_all_files(train_folder, match_and=extension)
     wav_list_valid = get_all_files(valid_folder, match_and=extension)
     wav_list_test = get_all_files(test_folder, match_and=extension)
-    create_json(wav_list_train, save_json_train)
-    create_json(wav_list_valid, save_json_valid)
-    create_json(wav_list_test, save_json_test)
+
+    # List of transcription file
+    extension = [".trans.txt"]
+    trans_list = get_all_files(data_folder, match_and=extension)
+    trans_dict = get_transcription(trans_list)
+
+    # Create the json files
+    create_json(wav_list_train, trans_dict, save_json_train)
+    create_json(wav_list_valid, trans_dict, save_json_valid)
+    create_json(wav_list_test, trans_dict, save_json_test)
 
 
-def create_json(wav_list, json_file):
+def get_transcription(trans_list):
     """
-    Creates the json file given a list of wav files.
+    Returns a dictionary with the transcription of each sentence in the dataset.
+
+    Arguments
+    ---------
+    trans_list : list of str
+        The list of transcription files.
+    """
+    # Processing all the transcription files in the list
+    trans_dict = {}
+    for trans_file in trans_list:
+        # Reading the text file
+        with open(trans_file) as f:
+            for line in f:
+                uttid = line.split(" ")[0]
+                text = line.rstrip().split(" ")[1:]
+                text = " ".join(text)
+                trans_dict[uttid] = text
+
+    logger.info("Transcription files read!")
+    return trans_dict
+
+
+def create_json(wav_list, trans_dict, json_file):
+    """
+    Creates the json file given a list of wav files and their transcriptions.
 
     Arguments
     ---------
     wav_list : list of str
         The list of wav files.
+    trans_dict : dict
+        Dictionary of sentence ids and word transcriptions.
     json_file : str
         The path of the output json file
     """
@@ -95,7 +130,11 @@ def create_json(wav_list, json_file):
         relative_path = os.path.join("{data_root}", *path_parts[-5:])
 
         # Create entry for this utterance
-        json_dict[uttid] = {"wav": relative_path, "length": duration}
+        json_dict[uttid] = {
+            "wav": relative_path,
+            "length": duration,
+            "wrd": trans_dict[uttid],
+        }
 
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:
