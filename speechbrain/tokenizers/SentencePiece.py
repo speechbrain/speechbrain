@@ -40,8 +40,6 @@ class SentencePiece:
         can be in JSON or csv format.
     annotation_read : str
         The data entry which contains the word sequence in the annotation file.
-    annotation_format : str
-        The format of the annotation file. JSON or csv are the formats supported.
     model_type : str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
@@ -78,6 +76,8 @@ class SentencePiece:
     annotation_list_to_check : list,
         List of the annotation file which is used for checking the accuracy of
         recovering words from the tokenizer.
+    annotation_format : str
+        The format of the annotation file. JSON or csv are the formats supported.
 
     Example
     -------
@@ -134,6 +134,7 @@ class SentencePiece:
 
         self.annotation_train = annotation_train
         self.annotation_read = annotation_read
+        self.annotation_format = annotation_format
         if self.annotation_train is not None:
             ext = os.path.splitext(self.annotation_train)[1]
             self.text_file = self.annotation_train.replace(ext, ".txt")
@@ -163,7 +164,6 @@ class SentencePiece:
                             self._csv2text()
                         elif annotation_format == "json":
                             self._json2text()
-                            print("bbbbbbbbbbb")
                         else:
                             raise ValueError(
                                 "Annotation format not supported. Supported formats are csv and json. Got "
@@ -322,19 +322,30 @@ class SentencePiece:
                 logger.info(
                     "==== Accuracy checking for recovering text from tokenizer ==="
                 )
-                fannotation_file = open(annotation_file, "r")
-                reader = csv.reader(fannotation_file)
-                headers = next(reader, None)
-                if self.annotation_read not in headers:
-                    raise ValueError(
-                        self.annotation_read
-                        + " must exist in:"
-                        + annotation_file
-                    )
-                index_label = headers.index(self.annotation_read)
+                # csv reading
+                if self.annotation_format == "csv":
+                    fannotation_file = open(annotation_file, "r")
+                    reader = csv.reader(fannotation_file)
+                    headers = next(reader, None)
+                    if self.annotation_read not in headers:
+                        raise ValueError(
+                            self.annotation_read
+                            + " must exist in:"
+                            + annotation_file
+                        )
+                    index_label = headers.index(self.annotation_read)
+                # json reading
+                else:
+                    with open(self.annotation_train, "r") as f:
+                        reader = json.load(f)
+                        index_label = self.annotation_read
+
                 wrong_recover_list = []
                 for row in reader:
-                    row = row[index_label]
+                    if self.annotation_format == "csv":
+                        row = row[index_label]
+                    else:
+                        row = reader[row][index_label]
                     if self.char_format_input:
                         (row,) = merge_char([row.split()])
                         row = " ".join(row)
@@ -352,7 +363,8 @@ class SentencePiece:
                             if align[0] != "=" and align[1] is not None:
                                 if align[1] not in wrong_recover_list:
                                     wrong_recover_list.append(align[1])
-                fannotation_file.close()
+                if self.annotation_format == "csv":
+                    fannotation_file.close()
                 logger.info("recover words from: " + annotation_file)
                 if len(wrong_recover_list) > 0:
                     logger.warn(
