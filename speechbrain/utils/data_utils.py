@@ -434,7 +434,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     max_shape = []
     for dim in range(tensors[0].ndim):
         if (dim < tensors[0].ndim - 1) and not all(
-            [x.shape[dim] != tensors[0][dim] for x in tensors]
+            [x.shape[dim] != tensors[0].shape[dim] for x in tensors]
         ):
             raise EnvironmentError(
                 "Tensors should have same dimensions except for last one"

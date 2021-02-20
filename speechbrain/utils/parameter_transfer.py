@@ -67,6 +67,6 @@ def torch_parameter_transfer(obj, path):
     for unexpected_key in incompatible_keys.unexpected_keys:
         logger.warning(
             f"During parameter transfer to {obj} loading from "
-            + f"{path}, the object could not use the parameters loaded"
+            + f"{path}, the object could not use the parameters loaded "
             + f"with the key: {unexpected_key}"
         )
