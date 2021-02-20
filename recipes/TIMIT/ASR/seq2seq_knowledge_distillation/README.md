@@ -5,6 +5,13 @@ the error rate metric to the teacher selection rather than solely focusing on th
 This way, we directly distillate and optimize the student toward the relevant metric for speech recognition.
 For details please refer to: https://arxiv.org/abs/2005.09310
 
+### Results with this recipe
+
+| Distillation Strategy | Valid PER | Test PER | Model link | GPUs |
+|:---------------------------:| -----:| -----:| -----:| --------:|
+| Weighted | 11.87 | 13.11 | [model](https://drive.google.com/drive/folders/1MHR2AZvCYZr88yUQZTmORCvKJqTsYZAQ?usp=sharing) | 1xV100 16GB |
+| Best | 11.93 | 13.15 | [model](https://drive.google.com/drive/folders/1D-3GNh-XzjoU-_6egT3Ns6maCvF-fAJH?usp=sharing) | 1xV100 16GB |
+
 ### Extra-Dependencies
 Before running this recipe, make sure h5py is installed. Otherwise, run:
 pip install h5py
