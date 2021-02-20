@@ -8,7 +8,7 @@ For details please refer to: https://arxiv.org/abs/2005.09310
 ### Results with this recipe
 
 | Distillation Strategy | Valid PER | Test PER | Model link | GPUs |
-|:---------------------------:| -----:| -----:| -----:| --------:|
+|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | Weighted | 11.87 | 13.11 | [model](https://drive.google.com/drive/folders/1MHR2AZvCYZr88yUQZTmORCvKJqTsYZAQ?usp=sharing) | 1xV100 16GB |
 | Best | 11.93 | 13.15 | [model](https://drive.google.com/drive/folders/1D-3GNh-XzjoU-_6egT3Ns6maCvF-fAJH?usp=sharing) | 1xV100 16GB |
 
