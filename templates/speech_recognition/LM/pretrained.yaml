@@ -1,0 +1,31 @@
+# ############################################################################
+# Model: Pretrain language model on mini-librispeech. The tokenizer and
+# language model trained in the previous steps can be stored in the web and
+# donwloaded when we initialize the pretrained class. As an alternative, you 
+# can set here the paths where the models are stored.
+# Author:  Mirco Ravanelli 2021
+# ############################################################################
+
+save_folder: model_checkpoints
+lm_ckpt_file: https://www.dropbox.com/s/3ap28q0tgboa2zf/model.ckpt?dl=1
+tokenizer_file: https://www.dropbox.com/s/78hynv8ezxfd5zc/1000_unigram.model?dl=1
+device: 'cuda:0'
+
+# Model parameters
+emb_dim: 256 # dimension of the embeddings
+rnn_size: 512 # dimension of hidden layers
+layers: 2 # number of hidden layers
+
+# Language model neural net
+# When using this model within beamforming we need the hidden state of the 
+# RNNLM model as well. We thus set return_hidden=True.
+model: !new:templates.speech_recognition.LM.custom_model.CustomModel
+    embedding_dim: !ref <emb_dim>
+    rnn_size: !ref <rnn_size>
+    layers: !ref <layers>
+    return_hidden: True
+
+# Tokenizer
+tokenizer: !new:templates.speech_recognition.Tokenizer.pretrained.tokenizer
+    tokenizer_file: !ref <tokenizer_file>
+    save_folder: !ref <save_folder>
