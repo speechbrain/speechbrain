@@ -237,6 +237,7 @@ def dataio_prep(hparams):
             dynamic_items=[audio_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
         ).filtered_sorted(sort_key="length")
+        hparams[f"{dataset}_dataloader_opts"]["shuffle"] = False
 
     return datasets
 
@@ -244,13 +245,15 @@ def dataio_prep(hparams):
 # Recipe begins!
 if __name__ == "__main__":
 
-    # Load hyperparameters file with command-line overrides
+    # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
+
+    # Load hyperparameters file with command-line overrides
+    with open(hparams_file) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
