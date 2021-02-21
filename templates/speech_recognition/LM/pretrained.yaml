@@ -1,7 +1,7 @@
 # ############################################################################
 # Model: Pretrain language model on mini-librispeech. The tokenizer and
 # language model trained in the previous steps can be stored in the web and
-# donwloaded when we initialize the pretrained class. As an alternative, you 
+# donwloaded when we initialize the pretrained class. As an alternative, you
 # can set here the paths where the models are stored.
 # Author:  Mirco Ravanelli 2021
 # ############################################################################
@@ -17,7 +17,7 @@ rnn_size: 512 # dimension of hidden layers
 layers: 2 # number of hidden layers
 
 # Language model neural net
-# When using this model within beamforming we need the hidden state of the 
+# When using this model within beamforming we need the hidden state of the
 # RNNLM model as well. We thus set return_hidden=True.
 model: !new:templates.speech_recognition.LM.custom_model.CustomModel
     embedding_dim: !ref <emb_dim>

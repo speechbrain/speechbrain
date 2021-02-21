@@ -19,7 +19,7 @@ lm_test_data: data/test.txt
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-    
+
 # Tokenizer model (you must use the same tokenizer for LM and ASR training)
 tokenizer_file: ../Tokenizer/save/1000_unigram.model
 
@@ -68,7 +68,7 @@ model: !new:templates.speech_recognition.LM.custom_model.CustomModel
 
 # Cost function used for training the model
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
-    
+
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
 optimizer: !name:torch.optim.Adam
@@ -77,7 +77,7 @@ optimizer: !name:torch.optim.Adam
     eps: 0.000000001
 
 # This function manages learning rate annealing over the epochs.
-# We here use the NewBoB algorithm, that anneals the learning rate if 
+# We here use the NewBoB algorithm, that anneals the learning rate if
 # the improvements over two consecutive epochs is less than the defined
 # threshold.
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
@@ -85,7 +85,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
-    
+
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -97,8 +97,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
     model: !ref <model>
-    
-    
+
+
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
 # can be later loaded for evaluation or inference.
@@ -108,4 +108,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
