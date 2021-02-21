@@ -71,7 +71,7 @@ class LM(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Runs all the steps needed to train the model on a single batch.
-        
+
         Arguments
         ---------
         batch : PaddedBatch
