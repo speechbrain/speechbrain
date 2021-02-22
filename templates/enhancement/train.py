@@ -2,7 +2,7 @@
 """Recipe for training a speech enhancement system with spectral masking.
 
 To run this recipe, do the following:
-> python train.py train.yaml
+> python train.py train.yaml --data_folder /path/to/save/mini_librispeech
 
 To read the code, first scroll to the bottom to see the "main" code.
 This gives a high-level overview of what is going on, while the
