@@ -26,7 +26,7 @@ lm_hparam_file: ../LM/pretrained.yaml
 
 # Path where data manifets files will be stored
 train_annotation: ../train.json
-valid_annotation: ../valid.json
+valid_annotation: ../train.json
 test_annotation: ../test.json
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -34,8 +34,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 # Training parameters
-number_of_epochs: 15
-number_of_ctc_epochs: 5
+number_of_epochs: 50
+number_of_ctc_epochs: 50
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
@@ -62,16 +62,16 @@ bos_index: 0
 eos_index: 0
 unk_index: 0
 emb_size: 256
-rnn_size: 128
-rnn_layers: 2
-dec_size: 128
-att_dim: 128
+rnn_size: 512
+rnn_layers: 4
+dec_size: 512
+att_dim: 1024
 output_dim: 1000  # Number of tokens (same as LM)
 
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_beam_size: 80
+valid_beam_size: 1
 test_beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
@@ -241,7 +241,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
-    annealing_factor: 0.8
+    annealing_factor: 1.0
     patient: 0
 
 # This optimizer will be constructed by the Brain class after all parameters
