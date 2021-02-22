@@ -3,8 +3,8 @@
 ######################
 
 # folder where created dataset will be stored.
-out_folder: /tmp/LibriParty/dataset
-metadata_folder: /tmp/LibriParty/dataset/metadata
+out_folder: ../dataset/LibriParty/dataset
+metadata_folder: ../dataset/LibriParty/dataset/metadata
 samplerate: 16000 # dataset samplerate (should be <=16000)
 
 save_wet_sources: False

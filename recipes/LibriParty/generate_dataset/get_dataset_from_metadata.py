@@ -21,11 +21,11 @@ URL_METADATA = (
 )
 
 # Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
     params = load_hyperpyyaml(fin, overrides)
 
-metadata_folder = params.metadata_folder
+metadata_folder = params["metadata_folder"]
 if not os.path.exists(metadata_folder):
     os.makedirs(metadata_folder)
 
@@ -41,7 +41,7 @@ for data_split in ["train", "dev", "eval"]:
     with open(os.path.join(metadata_folder, data_split + ".json"), "r") as f:
         metadata = json.load(f)
     print("Creating data for {} set".format(data_split))
-    c_folder = os.path.join(params.out_folder, data_split)
+    c_folder = os.path.join(params["out_folder"], data_split)
     os.makedirs(c_folder, exist_ok=True)
     for sess in tqdm(metadata.keys()):
         create_mixture(sess, c_folder, params, metadata[sess])

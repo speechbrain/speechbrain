@@ -1131,3 +1131,169 @@ class Dual_Path_Model(nn.Module):
             input = input[:, :, :-gap]
 
         return input
+
+
+class SepformerWrapper(nn.Module):
+    """The wrapper for the sepformer model which combines the Encoder, Masknet and the decoder
+    https://arxiv.org/abs/2010.13154
+
+    Arguments
+    ---------
+
+    encoder_kernel_size: int,
+        The kernel size used in the encoder
+    encoder_in_nchannels: int,
+        The number of channels of the input audio
+    encoder_out_nchannels: int,
+        The number of filters used in the encoder.
+        Also, number of channels that would be inputted to the intra and inter blocks.
+    masknet_chunksize: int,
+        The chunk length that is to be processed by the intra blocks
+    masknet_numlayers: int,
+        The number of layers of combination of inter and intra blocks
+    masknet_norm: str,
+        The normalization type to be used in the masknet
+        Should be one of 'ln' -- layernorm, 'gln' -- globallayernorm
+                         'cln' -- cumulative layernorm, 'bn' -- batchnorm
+                         -- see the select_norm function above for more details
+    masknet_useextralinearlayer: bool,
+        Whether or not to use a linear layer at the output of intra and inter blocks
+    masknet_extraskipconnection: bool,
+        This introduces extra skip connections around the intra block
+    masknet_numspks: int,
+        This determines the number of sepakers to estimate
+    intra_numlayers: int,
+        This determines the number of layers in the intra block
+    inter_numlayers: int,
+        This determines the number of layers in the inter block
+    intra_nhead: int,
+        This determines the number of parallel attention heads in the intra block
+    inter_nhead: int,
+        This determines the number of parallel attention heads in the inter block
+    intra_dffn: int,
+        The number of dimensions in the positional feedforward model in the inter block
+    inter_dffn: int,
+        The number of dimensions in the positional feedforward model in the intra block
+    intra_use_positional: bool,
+        Whether or not to use positional encodings in the intra block
+    inter_use_positional: bool,
+        Whether or not to use positional encodings in the inter block
+    intra_norm_before: bool
+        Whether or not we use normalization before the transformations in the intra block
+    inter_norm_before: bool
+        Whether or not we use normalization before the transformations in the inter block
+
+    Example
+    -----
+    >>> model = SepformerWrapper()
+    >>> inp = torch.rand(1, 160)
+    >>> result = model.forward(inp)
+    >>> result.shape
+    torch.Size([1, 160, 2])
+    """
+
+    def __init__(
+        self,
+        encoder_kernel_size=16,
+        encoder_in_nchannels=1,
+        encoder_out_nchannels=256,
+        masknet_chunksize=250,
+        masknet_numlayers=2,
+        masknet_norm="ln",
+        masknet_useextralinearlayer=False,
+        masknet_extraskipconnection=True,
+        masknet_numspks=2,
+        intra_numlayers=8,
+        inter_numlayers=8,
+        intra_nhead=8,
+        inter_nhead=8,
+        intra_dffn=1024,
+        inter_dffn=1024,
+        intra_use_positional=True,
+        inter_use_positional=True,
+        intra_norm_before=True,
+        inter_norm_before=True,
+    ):
+
+        super(SepformerWrapper, self).__init__()
+        self.encoder = Encoder(
+            kernel_size=encoder_kernel_size,
+            out_channels=encoder_out_nchannels,
+            in_channels=encoder_in_nchannels,
+        )
+        intra_model = SBTransformerBlock(
+            num_layers=intra_numlayers,
+            d_model=encoder_out_nchannels,
+            nhead=intra_nhead,
+            d_ffn=intra_dffn,
+            use_positional_encoding=intra_use_positional,
+            norm_before=intra_norm_before,
+        )
+
+        inter_model = SBTransformerBlock(
+            num_layers=inter_numlayers,
+            d_model=encoder_out_nchannels,
+            nhead=inter_nhead,
+            d_ffn=inter_dffn,
+            use_positional_encoding=inter_use_positional,
+            norm_before=inter_norm_before,
+        )
+
+        self.masknet = Dual_Path_Model(
+            in_channels=encoder_out_nchannels,
+            out_channels=encoder_out_nchannels,
+            intra_model=intra_model,
+            inter_model=inter_model,
+            num_layers=masknet_numlayers,
+            norm=masknet_norm,
+            K=masknet_chunksize,
+            num_spks=masknet_numspks,
+            skip_around_intra=masknet_extraskipconnection,
+            linear_layer_after_inter_intra=masknet_useextralinearlayer,
+        )
+        self.decoder = Decoder(
+            in_channels=encoder_out_nchannels,
+            out_channels=encoder_in_nchannels,
+            kernel_size=encoder_kernel_size,
+            stride=encoder_kernel_size // 2,
+            bias=False,
+        )
+        self.num_spks = masknet_numspks
+
+        # reinitialize the parameters
+        for module in [self.encoder, self.masknet, self.decoder]:
+            self.reset_layer_recursively(module)
+
+    def reset_layer_recursively(self, layer):
+        """Reinitializes the parameters of the network"""
+        if hasattr(layer, "reset_parameters"):
+            layer.reset_parameters()
+        for child_layer in layer.modules():
+            if layer != child_layer:
+                self.reset_layer_recursively(child_layer)
+
+    def forward(self, mix):
+
+        mix_w = self.encoder(mix)
+        est_mask = self.masknet(mix_w)
+        mix_w = torch.stack([mix_w] * self.num_spks)
+        sep_h = mix_w * est_mask
+
+        # Decoding
+        est_source = torch.cat(
+            [
+                self.decoder(sep_h[i]).unsqueeze(-1)
+                for i in range(self.num_spks)
+            ],
+            dim=-1,
+        )
+
+        # T changed after conv1d in encoder, fix it here
+        T_origin = mix.size(1)
+        T_est = est_source.size(1)
+        if T_origin > T_est:
+            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
+        else:
+            est_source = est_source[:, :T_origin, :]
+
+        return est_source

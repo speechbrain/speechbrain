@@ -25,6 +25,7 @@ from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
+from speechbrain.utils.data_utils import download_file
 
 
 def compute_embeddings(wavs, lens):
@@ -89,14 +90,13 @@ def emb_computation_loop(split, set_loader, stat_file):
 
 def verification_performance(scores_plda):
     """Computes the Equal Error Rate give the PLDA scores"""
-    gt_file = os.path.join(params["data_folder"], "meta", "veri_test.txt")
 
     # Create ids, labels, and scoring list for EER evaluation
     ids = []
     labels = []
     positive_scores = []
     negative_scores = []
-    for line in open(gt_file):
+    for line in open(veri_file_path):
         lab = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
         test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
@@ -204,6 +204,13 @@ if __name__ == "__main__":
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
+
+    # Download verification list (to exlude verification sentences from train)
+    veri_file_path = os.path.join(
+        params["save_folder"], os.path.basename(params["verification_file"])
+    )
+    download_file(params["verification_file"], veri_file_path)
+
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
 
     # Create experiment directory
@@ -215,14 +222,15 @@ if __name__ == "__main__":
 
     # Prepare data from dev of Voxceleb1
     logger.info("Data preparation")
-    prepare_voxceleb(
-        data_folder=params["data_folder"],
-        save_folder=params["save_folder"],
-        splits=["train", "test"],
-        split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=params["seed"],
-    )
+    # prepare_voxceleb(
+    #    data_folder=params["data_folder"],
+    #    save_folder=params["save_folder"],
+    #    verification_pairs_file = veri_file_path,
+    #    splits=["train", "test"],
+    #    split_ratio=[90, 10],
+    #    seg_dur=300,
+    #    rand_seed=params["seed"],
+    # )
 
     # here we create the datasets objects as well as tokenization and encoding
     train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
