@@ -37,7 +37,7 @@ class Fbank(torch.nn.Module):
     n_fft : int (default: 400)
         Number of samples to use in each stft.
     n_mels : int (default: 40)
-        Lowest frequency for the Mel filters.
+        Number of Mel filters.
     filter_shape : str (default: triangular)
         Shape of the filters ('triangular', 'rectangular', 'gaussian').
     param_change_factor : float (default: 1.0)
