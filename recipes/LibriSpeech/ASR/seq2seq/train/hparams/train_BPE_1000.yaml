@@ -19,6 +19,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Language model (LM) parameter file
+
 # NB: To avoid mismatch, the speech recognizer must be trained with the same
 # tokenizer used for LM training. By default, we download the LM and tokenizer
 # from the SpeechBrain HuggingFace repository. If you wish to not use the LM

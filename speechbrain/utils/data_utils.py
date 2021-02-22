@@ -423,10 +423,9 @@ def pad_right_to(
         List containing proportion for each dimension of original, non-padded values.
     """
     assert len(target_shape) == tensor.ndim
-
-    pads = []
-    valid_vals = []
-    i = len(target_shape) - 1
+    pads = []  # this contains the abs length of the padding for each dimension.
+    valid_vals = []  # thic contains the relative lengths for each dimension.
+    i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
         assert (
@@ -468,6 +467,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
         raise IndexError("Tensors list must not be empty")
 
     if len(tensors) == 1:
+        # if there is only one tensor in the batch we simply unsqueeze it.
         return tensors[0].unsqueeze(0), torch.tensor([1.0])
 
     if not (
@@ -477,12 +477,13 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     ):
         raise IndexError("All tensors must have same number of dimensions")
 
-    # FIXME we limit the support here: we allow padding of only the last dimension
-
     max_shape = []
     for dim in range(tensors[0].ndim):
+        # iterating over number of dims
+        # FIXME we limit the support here: we allow padding of only the last dimension
+        # need to remove this when feat extraction is updated to handle multichannel.
         if (dim < tensors[0].ndim - 1) and not all(
-            [x.shape[dim] != tensors[0][dim] for x in tensors]
+            [x.shape[dim] != tensors[0].shape[dim] for x in tensors]
         ):
             raise EnvironmentError(
                 "Tensors should have same dimensions except for last one"
@@ -492,6 +493,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     batched = []
     valid = []
     for t in tensors:
+        # for each tensor we apply pad_right_to
         padded, valid_percent = pad_right_to(
             t, max_shape, mode=mode, value=value
         )
