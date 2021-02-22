@@ -46,7 +46,7 @@ class CustomModel(torch.nn.Module):
         super().__init__()
         self.layers = torch.nn.ModuleList()
         self.return_hidden = return_hidden
-        self.resape = False
+        self.reshape = False
 
         # Embedding model
         self.embedding = sb.nnet.embedding.Embedding(

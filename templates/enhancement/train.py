@@ -230,6 +230,7 @@ def dataio_prep(hparams):
 
     # Define datasets sorted by ascending lengths for efficiency
     datasets = {}
+    hparams["dataloader_options"]["shuffle"] = False
     for dataset in ["train", "valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{dataset}_annotation"],
@@ -237,8 +238,6 @@ def dataio_prep(hparams):
             dynamic_items=[audio_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
         ).filtered_sorted(sort_key="length")
-        hparams[f"{dataset}_dataloader_opts"]["shuffle"] = False
-
     return datasets
 
 
