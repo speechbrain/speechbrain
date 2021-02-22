@@ -16,9 +16,9 @@ test_annotation: !ref <data_folder>/test.csv
 tea_infer_dir: !PLACEHOLDER
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 50
 batch_size: 8
-lr: 0.0002
+lr: 0.0005
 ctc_weight: 0.1
 sorting: ascending
 

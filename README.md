@@ -17,7 +17,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 SpeechBrain provides various useful tools to speed up and facilitate research on speech technologies:
 - The `Brain` class, a fully-customizable tool for managing training and evaluation loops over data. The annoying details of training loops are handled for you while retaining complete flexibility to override any part of the process when needed.
 - A YAML-based hyperparameter specification language that describes all types of hyperparameters, from individual numbers (e.g. learning rate) to complete objects (e.g. custom models). This dramatically simplifies recipe code by distilling basic algorithmic components.
-- Multigpu training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
+- Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loader and dataset style and enables users to customize the i/o pipelines (e.g adding on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
 
@@ -26,18 +26,18 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 
 SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 - State-of-the-art performance or at least comparable with other existing toolkits in several ASR benchmarks.
-- Easily customizable neural language models including RNNLM and TransformerLM. We also propose few pre-trained models to save you computations (more to come!). We support the hugging face `dataset` to facilitate the training over a large text dataset.
+- Easily customizable neural language models including RNNLM and TransformerLM. We also propose few pre-trained models to save you computations (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
     - Many available encoders: CRDNN (VGG + {LSTM,GRU,LiGRU} + DNN), ResNet, SincNet, vanilla transformers, contextnet-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in few hours of work. The decoder is fully customizable as well: LSTM, GRU, LiGRU, transformer, or your neural network!
     - Optimised and fast beam search on both CPUs or GPUs.
 - Transducer end-to-end ASR with a custom Numba loss to accelerate the training. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
-- Pertaining Libraries to simply use a pre-trained ASR model to transcribe an audio file.
+- Pre-trained ASR models for transcribing an audio file or extracting features for a downstream task.
 
 ### Feature extraction and augmentation
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic features extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to necessarily dump features on disk). 
-- On-the-fly features normalization (global, sentence, bath, or speaker level).
+- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to necessarily dump features on disk). 
+- On-the-fly feature normalization (global, sentence, bath, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
 
