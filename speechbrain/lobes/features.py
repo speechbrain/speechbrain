@@ -20,39 +20,42 @@ class Fbank(torch.nn.Module):
 
     Arguments
     ---------
-    deltas : bool
+    deltas : bool (default: False)
         Whether or not to append derivatives and second derivatives
         to the features.
-    context : bool
+    context : bool (default: False)
         Whether or not to append forward and backward contexts to
         the features.
-    requires_grad : bool
+    requires_grad : bool (default: False)
         Whether to allow parameters (i.e. fbank centers and
         spreads) to update during training.
-    sample_rate : int
+    sample_rate : int (default: 160000)
         Sampling rate for the input waveforms.
-    n_fft : int
+    f_min : int (default: 0)
+        Lowest frequency for the Mel filters. Note that f_max (i.e highest
+        frequency for the Mel filters) is determined by sample_rate // 2.
+    n_fft : int (default: 400)
         Number of samples to use in each stft.
-    n_mels : int
-        Number of filters to use for creating filterbank.
-    filter_shape : str
+    n_mels : int (default: 40)
+        Number of Mel filters.
+    filter_shape : str (default: triangular)
         Shape of the filters ('triangular', 'rectangular', 'gaussian').
-    param_change_factor : bool
+    param_change_factor : float (default: 1.0)
         If freeze=False, this parameter affects the speed at which the filter
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
         When low (e.g. param_change_factor=0.1) the filter parameters are more
         stable during training.
-    param_rand_factor : float
+    param_rand_factor : float (default: 0.0)
         This parameter can be used to randomly change the filter parameters
         (i.e, central frequencies and bands) during training.  It is thus a
         sort of regularization. param_rand_factor=0 does not affect, while
         param_rand_factor=0.15 allows random variations within +-15% of the
         standard values of the filter parameters (e.g., if the central freq
         is 100 Hz, we can randomly change it from 85 Hz to 115 Hz).
-    left_frames : int
+    left_frames : int (default: 5)
         Number of frames of left context to add.
-    right_frames : int
+    right_frames : int (default: 5)
         Number of frames of right context to add.
 
     Example
@@ -71,6 +74,7 @@ class Fbank(torch.nn.Module):
         context=False,
         requires_grad=False,
         sample_rate=16000,
+        f_min=0,
         n_fft=400,
         n_mels=40,
         filter_shape="triangular",
@@ -88,7 +92,7 @@ class Fbank(torch.nn.Module):
         self.compute_fbanks = Filterbank(
             n_fft=n_fft,
             n_mels=n_mels,
-            f_min=0,
+            f_min=f_min,
             f_max=sample_rate / 2,
             freeze=not requires_grad,
             filter_shape=filter_shape,
@@ -109,6 +113,7 @@ class Fbank(torch.nn.Module):
             A batch of audio signals to transform to features.
         """
         with torch.no_grad():
+
             STFT = self.compute_STFT(wav)
             mag = spectral_magnitude(STFT)
             fbanks = self.compute_fbanks(mag)
@@ -140,6 +145,9 @@ class MFCC(torch.nn.Module):
         spreads) to update during training.
     sample_rate : int
         Sampling rate for the input waveforms.
+    f_min : int
+        Lowest frequency for the Mel filters. Note that f_max (i.e highest
+        frequency for the Mel filters) is determined by sample_rate // 2.
     n_fft : int
         Number of samples to use in each stft.
     n_mels : int
@@ -182,6 +190,7 @@ class MFCC(torch.nn.Module):
         context=True,
         requires_grad=False,
         sample_rate=16000,
+        f_min=0,
         n_fft=400,
         n_mels=23,
         n_mfcc=20,
@@ -200,7 +209,7 @@ class MFCC(torch.nn.Module):
         self.compute_fbanks = Filterbank(
             n_fft=n_fft,
             n_mels=n_mels,
-            f_min=0,
+            f_min=f_min,
             f_max=sample_rate / 2,
             freeze=not requires_grad,
             filter_shape=filter_shape,
