@@ -1,6 +1,5 @@
 # ################################
-# Model: SepFormer for source separation
-# https://arxiv.org/abs/2010.13154
+# Model: Conformer within the dualpath processing pipeline for source separation
 #
 # Dataset : WSJ0-2mix and WSJ0-3mix
 # ################################
@@ -20,7 +19,7 @@ data_folder: !PLACEHOLDER
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: dprnn
+experiment_name: sepconformer
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -96,30 +95,32 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     out_channels: !ref <N_encoder_out>
 
 
-intra: !new:speechbrain.lobes.models.dual_path.SBRNNBlock
-    num_layers: 1
-    input_size: !ref <out_channels>
-    hidden_channels: !ref <out_channels>
+intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
+    num_layers: 6
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 1024
     dropout: 0
-    bidirectional: True
+    use_positional_encoding: False
 
-inter: !new:speechbrain.lobes.models.dual_path.SBRNNBlock
-    num_layers: 1
-    input_size: !ref <out_channels>
-    hidden_channels: !ref <out_channels>
+inter: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
+    num_layers: 6
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 1024
     dropout: 0
-    bidirectional: True
+    use_positional_encoding: False
 
 MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     num_spks: !ref <num_spks>
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
-    num_layers: 6
+    num_layers: 2
     K: 250
     intra_model: !ref <intra>
     inter_model: !ref <inter>
     norm: ln
-    linear_layer_after_inter_intra: True
+    linear_layer_after_inter_intra: False
     skip_around_intra: True
 
 Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
