@@ -145,7 +145,7 @@ class MFCC(torch.nn.Module):
         spreads) to update during training.
     sample_rate : int
         Sampling rate for the input waveforms.
-    f_min : int 
+    f_min : int
         Lowest frequency for the Mel filters. Note that f_max (i.e highest
         frequency for the Mel filters) is determined by sample_rate // 2.
     n_fft : int
@@ -209,7 +209,7 @@ class MFCC(torch.nn.Module):
         self.compute_fbanks = Filterbank(
             n_fft=n_fft,
             n_mels=n_mels,
-            f_minf_min,
+            f_min=f_min,
             f_max=sample_rate / 2,
             freeze=not requires_grad,
             filter_shape=filter_shape,
