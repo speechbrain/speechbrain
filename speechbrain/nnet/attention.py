@@ -4,6 +4,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Jianyuan Zhong 2020
  * Loren Lugosch 2020
+ * Samuele Cornell 2020
 """
 
 import torch
@@ -12,6 +13,7 @@ import torch.nn as nn
 import numpy as np
 from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
+import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +305,171 @@ class KeyValueAttention(nn.Module):
         normalized_scores = scores.softmax(1).transpose(1, 2)
         out = torch.matmul(normalized_scores, self.values).squeeze(1)
         return out, normalized_scores
+
+
+class RelPosMultiHeadAttention(nn.Module):
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        head_dim=None,
+        dropout=0.0,
+        bias=False,
+        rr_bias=None,
+        rw_bias=None,
+    ):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.dropout = nn.Dropout(dropout)
+
+        if head_dim is None:
+            self.head_dim = embed_dim // num_heads
+            assert (
+                self.head_dim * num_heads == self.embed_dim
+            ), "embed_dim must be divisible by num_heads"
+        else:
+            self.head_dim = head_dim
+
+        self.q_proj = nn.Linear(
+            embed_dim, self.head_dim * self.num_heads, bias=False
+        )
+        self.k_proj = nn.Linear(
+            embed_dim, self.head_dim * self.num_heads, bias=False
+        )
+        self.v_proj = nn.Linear(
+            embed_dim, self.head_dim * self.num_heads, bias=bias
+        )
+        self.r_proj = nn.Linear(
+            embed_dim, self.head_dim * self.num_heads, bias=False
+        )
+        self.out_proj = nn.Linear(
+            self.head_dim * self.num_heads, embed_dim, bias=bias
+        )
+
+        self.scale = 1 / (self.head_dim ** 0.5)
+
+        if (
+            rr_bias is None or rw_bias is None
+        ):  # Learned position biases are not shared
+            self.r_r_bias = nn.Parameter(
+                torch.FloatTensor(self.num_heads, self.head_dim)
+            )
+            self.r_w_bias = nn.Parameter(
+                torch.FloatTensor(self.num_heads, self.head_dim)
+            )
+            self.rel_shared = False
+        else:
+            self.r_r_bias = rr_bias
+            self.r_w_bias = rw_bias
+            self.rel_shared = True
+
+        self._init_params()
+
+        if next(self.parameters()).dtype == torch.float16:
+            self.attn_fill_value = -65000
+        else:
+            self.attn_fill_value = -1e30
+
+    def _init_params(self):
+
+        torch.nn.init.xavier_uniform_(self.q_proj.weight)
+        torch.nn.init.xavier_uniform_(self.k_proj.weight)
+        torch.nn.init.xavier_uniform_(self.v_proj.weight)
+        torch.nn.init.xavier_uniform_(self.r_proj.weight)
+        if not self.rel_shared:
+            torch.nn.init.xavier_uniform_(self.r_r_bias)
+            torch.nn.init.xavier_uniform_(self.r_w_bias)
+
+    def _rel_shift(self, x):
+
+        zero_pad_shape = (x.size(0), 1) + x.size()[2:]
+        zero_pad = torch.zeros(zero_pad_shape, device=x.device, dtype=x.dtype)
+        x_padded = torch.cat([zero_pad, x], dim=1)
+        x_padded_shape = (x.size(1) + 1, x.size(0)) + x.size()[2:]
+        x_padded = x_padded.view(*x_padded_shape)
+        x = x_padded[1:].view_as(x)
+
+        return x
+
+    def forward(
+        self, query, key, value, r, key_padding_mask=None, attn_mask=None
+    ):
+
+        qlen, bsz, embed_dim = query.size()
+        klen = key.size(0)
+        assert bsz == value.size(1) == query.size(1)
+        assert klen == value.size(0)
+        assert r.size(0) == klen
+
+        if key_padding_mask is not None:
+            assert key_padding_mask.size(0) == bsz
+            assert key_padding_mask.size(1) == klen
+
+        k = self.k_proj(key).view(klen, bsz, self.num_heads, self.head_dim)
+        v = self.v_proj(value).view(klen, bsz, self.num_heads, self.head_dim)
+        q = self.q_proj(query).view(qlen, bsz, self.num_heads, self.head_dim)
+
+        r = self.r_proj(r).view(
+            klen, self.num_heads, self.head_dim
+        )  # for rel_pos
+        # qlen x num_heads x d_head
+
+        # compute attention score
+        r_w_q = q + self.r_w_bias  # qlen x bsz x num_heads x d_head
+        AC = torch.einsum(
+            "ibnd,jbnd->ijbn", (r_w_q, k)
+        )  # qlen x klen x bsz x num_heads
+
+        r_r_q = q + self.r_r_bias
+        BD = torch.einsum(
+            "ibnd,jnd->ijbn", (r_r_q, r)
+        )  # qlen x klen x bsz x num_heads
+        BD = self._rel_shift(BD)
+
+        # [qlen x klen x bsz x num_heads]
+        attn_score = AC + BD
+        attn_score.mul_(self.scale)
+
+        # compute attention probability
+        if attn_mask is not None and torch.sum(attn_mask).item():
+            if attn_mask.dim() == 2:
+                attn_score = attn_score.masked_fill(
+                    attn_mask[None, :, :, None], self.attn_fill_value
+                )
+            elif attn_mask.dim() == 3:
+                attn_score = attn_score.masked_fill(
+                    attn_mask[:, :, :, None], self.attn_fill_value
+                )
+
+        if key_padding_mask is not None:
+            attn_score = attn_score.masked_fill(
+                key_padding_mask.transpose(0, 1)
+                .unsqueeze(0)
+                .reshape(1, klen, bsz, 1),
+                self.attn_fill_value,
+            )
+
+        # [qlen x klen x bsz x num_heads]
+        attn_prob = F.softmax(attn_score, dim=1)
+        attn_prob = self.dropout(attn_prob)
+
+        # Mask attention
+        if attn_mask is not None:
+            attn_prob = attn_prob * attn_mask
+
+        # compute attended vector
+        attn_vec = torch.einsum("ijbn,jbnd->ibnd", (attn_prob, v))
+
+        # [qlen x bsz x num_heads x d_head]
+        attn_vec = attn_vec.contiguous().view(
+            attn_vec.size(0), attn_vec.size(1), self.num_heads * self.head_dim
+        )
+
+        # linear projection
+        attn_out = self.out_proj(attn_vec)
+
+        return attn_out, attn_prob
 
 
 class MultiheadAttention(nn.Module):
