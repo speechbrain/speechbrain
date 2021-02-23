@@ -119,6 +119,41 @@ def torch_save(obj, path):
     torch.save(state_dict, path)
 
 
+def torch_parameter_transfer(obj, path):
+    """Non-strict Torch Module state_dict load.
+
+    Loads a set of parameters from path to obj. If obj has layers for which
+    parameters can't be found, only a warning is logged. Same thing
+    if the path has parameters for layers which don't find a counterpart
+    in obj.
+
+    Arguments
+    ---------
+    obj : torch.nn.Module
+        Instance for which to load the parameters.
+    path : str
+        Path where to load from.
+
+    Returns
+    -------
+    None
+        The object is modified in place.
+    """
+    incompatible_keys = obj.load_state_dict(torch.load(path), strict=False)
+    for missing_key in incompatible_keys.missing_keys:
+        logger.warning(
+            f"During parameter transfer to {obj} loading from "
+            + f"{path}, the transferred parameters did not have "
+            + f"parameters for the key: {missing_key}"
+        )
+    for unexpected_key in incompatible_keys.unexpected_keys:
+        logger.warning(
+            f"During parameter transfer to {obj} loading from "
+            + f"{path}, the object could not use the parameters loaded "
+            + f"with the key: {unexpected_key}"
+        )
+
+
 # These dicts are indexed by class and hold the default checkpoints methods
 DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
@@ -127,6 +162,9 @@ DEFAULT_LOAD_HOOKS = {
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
     torch.optim.Optimizer: torch_save,
+}
+DEFAULT_TRANSFER_HOOKS = {
+    torch.nn.Module: torch_parameter_transfer,
 }
 
 

@@ -41,17 +41,6 @@ class ASR(torch.nn.Module):
         If true, the model is frozen and the gradient is not backpropagated
         through the languange model.
 
-    >>> import torch
-    >>> import torchaudio
-    >>> from pretrained import ASR
-    >>> asr_model = ASR()
-    >>> audio_file='../../../../../samples/audio_samples/example2.flac'
-    >>> # Make sure your output is sampled at 16 kHz
-    >>> wav, fs = torchaudio.load(audio_file)
-    >>> wav_lens = torch.tensor([1]).float()
-    >>> words, tokens = asr_model.transcribe(wav, wav_lens)
-    >>> words
-    [['MY', 'FATHER', 'HAS', 'REVEALED', 'THE', "CULPRIT'S", 'NAME']]
     """
 
     def __init__(
