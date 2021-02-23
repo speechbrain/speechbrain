@@ -101,12 +101,14 @@ class VCTK:
         Returns data for all available speakers in the dataset
         :return: a generator of dictionaries with speaker data
         """
+        # NOTE: The text is quick to read - it will be included in the CSV
         return (
             {'ID': filename_to_id(txt_file_name),
              'speaker_id': speaker_id,
              'speaker': speaker,
              'txt_file_name': txt_file_name,
-             'wav_file_name': wav_file_name}
+             'wav_file_name': wav_file_name,
+             'text': _read_text(txt_file_name)}
             for speaker_id, speaker in self.speakers.items()
             for txt_file_name, wav_file_name in self.get_speaker_file_names(speaker_id))
     
@@ -134,11 +136,9 @@ class VCTK:
             self._write_csv(target)
 
     def _write_csv(self, csv_file):
-        print(f"CSV: {csv_file}")
         writer = csv.DictWriter(
             csv_file,
             fieldnames=self._get_csv_fieldnames())
-        print(f"Writer: {writer}")
         writer.writeheader()
         items = self.get_all_speakers_data()
         writer.writerows(
@@ -163,7 +163,6 @@ class VCTK:
         sample_record = next(self.get_all_speakers_data())
         return _flatten_speaker(sample_record).keys()
 
-
 def _flatten_speaker(item):
     """
     Flattens the 'speaker' key
@@ -173,6 +172,16 @@ def _flatten_speaker(item):
     result = dict(item, **speaker_dict)
     del result['speaker']
     return result
+
+
+def _read_text(file_name):
+    """
+    Reads the contents of a text file
+
+    :param file_name: the name of the file to read
+    """
+    with open(file_name) as text_file:
+        return text_file.read().strip()
 
 
 def _get_wav_file_name(target_path: str, file_name: str) -> str:
@@ -270,10 +279,12 @@ def test_to_csv():
             assert item['speaker_ID'] == '225'
             assert item['txt_file_name'].endswith('p225_001.txt')
             assert item['wav_file_name'].endswith('p225_001.wav')
+            assert item['text'] == 'Please call Stella.'
             item = data['p226_002']
             assert item['speaker_ID'] == '226'
             assert item['txt_file_name'].endswith('p226_002.txt')
             assert item['wav_file_name'].endswith('p226_002.wav')
+            assert item['text'] == 'Ask her to bring these things with her from the store.'
     finally:
         if os.path.isdir(temp_dir):
             shutil.rmtree(temp_dir)
