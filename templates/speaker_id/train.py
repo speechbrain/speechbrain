@@ -295,7 +295,7 @@ if __name__ == "__main__":
     datasets = dataio_prep(hparams)
 
     # Initialize the Brain object to prepare for mask training.
-    se_brain = SEBrain(
+    spk_id_brain = SpkIdBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
