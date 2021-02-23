@@ -33,7 +33,7 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 
 
 # Brain class for speech enhancement training
-class SEBrain(sb.Brain):
+class SpkIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         """Runs all the computation of the that transfor the input into the
         output probabilities over the N classes.
