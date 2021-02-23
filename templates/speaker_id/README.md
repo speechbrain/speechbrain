@@ -19,7 +19,7 @@ python train.py train.yaml
 ```
 
 This will automatically download and prepare the data manifest for mini
-librispeech, and then train a model with dynamically augmente samples.
+librispeech, and then train a model with dynamically augmented samples.
 
 More details about what each file does and how to make modifications
 are found within each file. The whole folder can be copied and used
