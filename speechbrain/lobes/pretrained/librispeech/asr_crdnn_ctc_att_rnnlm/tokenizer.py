@@ -33,18 +33,6 @@ class tokenizer:
     save_filename : str
         New filename of the model that has been downloaded.
 
-    Example
-    -------
-    >>> from pretrained import tokenizer
-    >>> token_file = 'tokenizer/1000_unigram.model'
-    >>> model_name = 'sb/asr-crdnn-librispeech'
-    >>> save_dir = 'model_checkpoints'
-    >>> tokenizer = tokenizer(token_file, model_name, save_dir)
-    >>> text = "THE CAT IS ON THE TABLE"
-    >>> print(tokenizer.spm.encode(text))
-    [2, 262, 7, 55, 39, 2, 100, 157]
-    >>> print(tokenizer.spm.encode(text, out_type='str'))
-    ['▁THE', '▁CA', 'T', '▁IS', '▁ON', '▁THE', '▁T', 'ABLE']
     """
 
     def __init__(

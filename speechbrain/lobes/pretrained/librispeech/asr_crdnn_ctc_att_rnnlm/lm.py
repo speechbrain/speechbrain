@@ -36,31 +36,6 @@ class LM(torch.nn.Module):
         If true, the model is frozen and the gradient is not backpropagated
         through the languange model.
 
-    Example:
-    ---------
-    >>> import torch
-    >>> from pretrained import LM
-    >>> # RNN LM
-    >>> lm = LM()
-    >>> # Next word prediction
-    >>> text = "THE CAT IS ON"
-    >>> encoded_text = lm.tokenizer.encode_as_ids(text)
-    >>> encoded_text = torch.Tensor(encoded_text).unsqueeze(0)
-    >>> prob_out, _ = lm(encoded_text.to(lm.device))
-    >>> index = int(torch.argmax(prob_out[0,-1,:]))
-    >>> print(lm.tokenizer.decode(index))
-    THE
-    >>> # Text Generation
-    >>> encoded_text = torch.tensor([0, 2]) # bos token + the
-    >>> encoded_text = encoded_text.unsqueeze(0).to(lm.device)
-    >>> for i in range(19):
-    >>>     prob_out, _ = lm(encoded_text)
-    >>>     index = torch.argmax(prob_out[0,-1,:]).unsqueeze(0)
-    >>>     encoded_text = torch.cat([encoded_text, index.unsqueeze(0)], dim=1)
-    >>>
-    >>> encoded_text = encoded_text[0,1:].tolist()
-    >>> print(lm.tokenizer.decode(encoded_text))
-    THE NEXT DAY THE SKY WAS CLEAR AND THE SUN WAS SHINING BRIGHTLY
     """
 
     def __init__(
