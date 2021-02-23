@@ -316,7 +316,7 @@ if __name__ == "__main__":
     )
 
     # Load best checkpoint (highest STOI) for evaluation
-    test_stats = se_brain.evaluate(
+    test_stats = spk_id_brain.evaluate(
         test_set=datasets["test"],
         min_key="error",
         test_loader_kwargs=hparams["dataloader_options"],
