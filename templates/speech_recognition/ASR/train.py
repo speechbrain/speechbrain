@@ -8,12 +8,12 @@ To run this recipe, do the following:
 > python train.py train.yaml
 
 With the default hyperparameters, the system employs an LSTM encoder.
-The decoder is based on a standard  GRU. Beam search coupled with an RNN language 
+The decoder is based on a standard  GRU. Beam search coupled with an RNN language
 model is used on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the mini-librispeech 
+are used as basic recognition tokens. Training is performed on the mini-librispeech
 dataset. Note that this is a tiny dataset used here just to
 provide a working example. To achieve a better performance you have to train with
 larger datasets, such as the full LibriSpeech one.
@@ -69,7 +69,7 @@ class ASR(sb.Brain):
         Returns
         -------
         predictions : List
-            At taining time it return the predictions of the seq2seq system with 
+            At taining time it return the predictions of the seq2seq system with
             their corresponding relative lengths. If needed it also returns the
             ctc ouput probabilities.
             At validation/test time, it returns the predicted tokens as well.
@@ -209,7 +209,7 @@ class ASR(sb.Brain):
 
     def fit_batch(self, batch):
         """Runs all the steps needed to train the model on a single batch.
-        
+
         Arguments
         ---------
         batch : PaddedBatch
@@ -239,7 +239,7 @@ class ASR(sb.Brain):
 
     def evaluate_batch(self, batch, stage):
         """Runs all the steps needed to evaluate the model on a single batch.
-        
+
         Arguments
         ---------
         batch : PaddedBatch
