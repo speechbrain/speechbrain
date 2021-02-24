@@ -39,7 +39,7 @@ import logging
 
 # Define training procedure
 class Separation(sb.Brain):
-    def compute_forward(self, mix, targets, stage):
+    def compute_forward(self, mix, targets, stage, noise=None):
         """Forward computations from the mixture to the separated signals."""
 
         # Unpack lists and put tensors in the right device
@@ -57,6 +57,18 @@ class Separation(sb.Brain):
             with torch.no_grad():
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
+
+                if "wham_original" in self.hparams.data_folder:
+                    noise = noise.to(self.device)
+                    len_noise = noise.shape[1]
+                    len_mix = mix.shape[1]
+                    min_len = min(len_noise, len_mix)
+
+                    # add the noise
+                    mix = mix[:, :min_len] + noise[:, :min_len]
+
+                    # fix the length of targets also
+                    targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -98,13 +110,18 @@ class Separation(sb.Brain):
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
+        if "wham_original" in self.hparams.data_folder:
+            noise = batch.noise_sig[0]
+        else:
+            noise = None
+
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN
+                    mixture, targets, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, targets)
 
@@ -138,7 +155,7 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN
+                mixture, targets, sb.Stage.TRAIN, noise
             )
             loss = self.compute_objectives(predictions, targets)
 
@@ -486,6 +503,14 @@ def dataio_prep(hparams):
             s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             return s3_sig
 
+    if "wham_original" in hparams["data_folder"]:
+
+        @sb.utils.data_pipeline.takes("noise_wav")
+        @sb.utils.data_pipeline.provides("noise_sig")
+        def audio_pipeline_noise(noise_wav):
+            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+            return noise_sig
+
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
@@ -495,9 +520,16 @@ def dataio_prep(hparams):
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
         )
     else:
-        sb.dataio.dataset.set_output_keys(
-            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
-        )
+        if "wham_original" in hparams["data_folder"]:
+            print("Using the WHAM! dataset")
+            sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+            sb.dataio.dataset.set_output_keys(
+                datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
+            )
+        else:
+            sb.dataio.dataset.set_output_keys(
+                datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
+            )
 
     return train_data, valid_data, test_data
 
