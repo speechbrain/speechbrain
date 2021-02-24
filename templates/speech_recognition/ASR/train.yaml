@@ -1,32 +1,37 @@
 # ############################################################################
 # Model: E2E ASR with attention-based ASR
-# Encoder: LSTM
-# Decoder: LSTM + beamsearch + RNNLM
-# Tokens: 100 BPE
+# Encoder: CRDNN
+# Decoder: GRU + beamsearch + RNNLM
+# Tokens: 1000 BPE
 # losses: CTC+ NLL
 # Training: mini-librispeech
+# Pre-Training: librispeech 960h
 # Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 2020
-# ############################################################################
+# # ############################################################################
 
-# Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1986
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+seed: 2602
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
-data_folder: ../data
-output_folder: !ref ./results/<seed>
+data_folder: ../data # data will be automatically downloaded here
+data_folder_rirs: !ref <data_folder> # noise/ris dataset will automatically be downloaded here
+output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
+wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-wer_file: !ref <output_folder>/wer.txt # file with the final word error rate
-ckpt_interval_minutes: 15 # save checkpoint every N min
-tokenizer_file: https://www.dropbox.com/s/78hynv8ezxfd5zc/1000_unigram.model?dl=1
 
 # Language model (LM) parameter file
-lm_hparam_file: ../LM/pretrained.yaml
+# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
+# for LM training. By default, the code in train.py uses the tokenizer defined in the lm_model
+# object. In this case, it is based on 1000 tokens.
+tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+lm_hparam_file: https://www.dropbox.com/s/j51op5l7i356s3v/pretrained_RNNLM_BPE1000.yaml?dl=1
+pretrain_model: https://www.dropbox.com/s/t2es1c9k4q8dvs2/pretrained.ckpt?dl=1
 
-# Path where data manifets files will be stored
+# Path where data manifest files will be stored
 train_annotation: ../train.json
-valid_annotation: ../train.json
+valid_annotation: ../valid.json
 test_annotation: ../test.json
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -34,12 +39,13 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 # Training parameters
-number_of_epochs: 50
-number_of_ctc_epochs: 50
+number_of_epochs: 15
+number_of_ctc_epochs: 5
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
 train_dataloader_opts:
@@ -51,27 +57,38 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: !ref <batch_size>
 
+
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
 # Model parameters
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 2
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
+cnn_kernelsize: (3, 3)
+time_pooling_size: 4
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
+rnn_layers: 4
+rnn_neurons: 1024
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 512
+emb_size: 128
+dec_neurons: 1024
+output_neurons: 1000  # Number of tokens (same as LM)
 blank_index: 0
 bos_index: 0
 eos_index: 0
 unk_index: 0
-emb_size: 256
-rnn_size: 512
-rnn_layers: 4
-dec_size: 512
-att_dim: 1024
-output_dim: 1000  # Number of tokens (same as LM)
 
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_beam_size: 1
+valid_beam_size: 80
 test_beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
@@ -81,6 +98,12 @@ ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
 
 # Feature extraction
 compute_features: !new:speechbrain.lobes.features.Fbank
@@ -95,70 +118,83 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 # Added noise and reverb come from OpenRIR dataset, automatically
 # downloaded and prepared with this Environmental Corruption class.
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <data_folder_rirs>
     babble_prob: 0.0
     reverb_prob: 0.0
     noise_prob: 1.0
     noise_snr_low: 0
     noise_snr_high: 15
 
-# Adds speech change + time and frequnecy dropouts (time-domain implementation)
+# Adds speech change + time and frequnecy dropouts (time-domain implementation).
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-# Encoder model
-enc: !new:speechbrain.nnet.RNN.LSTM
-    input_size: !ref <n_mels>
-    hidden_size: !ref <rnn_size>
-    num_layers: !ref <rnn_layers>
-    bidirectional: True
+# The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    rnn_re_init: True
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+    use_rnnp: False
 
-# Embedding (from indexes to an embedding space of dimension emb_size)
+# Embedding (from indexes to an embedding space of dimension emb_size).
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_dim>
+    num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
 
-
-# Attention-based RNN decoder
+# Attention-based RNN decoder.
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <rnn_size> * 2 # bidirectional encoder (double dimensionality)
+    enc_dim: !ref <dnn_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
-    hidden_size: !ref <dec_size>
-    attn_dim: !ref <att_dim>
+    hidden_size: !ref <dec_neurons>
+    attn_dim: 1024
     num_layers: 1
     scaling: 1.0
     channels: 10
     kernel_size: 100
     re_init: True
-    dropout: 0.1
+    dropout: !ref <dropout>
 
-# Linear transformation on the top of the encoder
+# Linear transformation on the top of the encoder.
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <rnn_size> * 2 # bidirectional encoder (double dimensionality)
-    n_neurons: !ref <output_dim>
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
 
-# Linear transformation on the top of the decoder
+# Linear transformation on the top of the decoder.
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <dec_size>
-    n_neurons: !ref <output_dim>
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>
 
-# Final softmax (for log posteriors computation)
+# Final softmax (for log posteriors computation).
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-# Cost definition for the CTC part
+# Cost definition for the CTC part.
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-# Cost definition for the seq2seq part
+# Cost definition for the seq2seq part.
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
 
-# Language models. It is pretrained using the specified lm_hparam_file.
-lm_model: !new:templates.speech_recognition.LM.pretrained.LM
+# Cost definition for the seq2seq part.
+lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
     hparams_file: !ref <lm_hparam_file>
     save_folder: !ref <save_folder>
 
@@ -170,7 +206,7 @@ tokenizer: !new:templates.speech_recognition.Tokenizer.pretrained.tokenizer
     save_folder: !ref <save_folder>
 
 # Objects in "modules" dict will have their parameters moved to the correct
-# device, as well as having train()/eval() called on them by the Brain class.
+# device, as well as having train()/eval() called on them by the Brain class
 modules:
     enc: !ref <enc>
     emb: !ref <emb>
@@ -185,19 +221,19 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
-
 # Beamsearch is applied on the top of the decoder. If the language model is
 # given, a language model is applied (with a weight specified in lm_weight).
 # If ctc_weight is set, the decoder uses CTC + attention beamsearch. This
-# improves the performance, but slows down decoding. For ta description of
+# improves the performance, but slows down decoding. For a description of
 # the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearchLM.
 
-# It makese sense to have a lighter search during validation. In this case,
+# It makes sense to have a lighter search during validation. In this case,
 # we don't use the LM and CTC probabilities during decoding.
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -210,9 +246,9 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     coverage_penalty: !ref <coverage_penalty>
     temperature: !ref <temperature>
 
-# The final decoding on the test set can be more computational demanding.
+# The final decoding on the test set can be more computationally demanding.
 # In this case, we use the LM + CTC probabilities during decoding as well.
-# Please, removie this part if you need a faster decoder.
+# Please, remove this part if you need a faster decoder.
 test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     embedding: !ref <emb>
     decoder: !ref <dec>
@@ -241,7 +277,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
-    annealing_factor: 1.0
+    annealing_factor: 0.8
     patient: 0
 
 # This optimizer will be constructed by the Brain class after all parameters
@@ -250,12 +286,6 @@ opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
     rho: 0.95
     eps: 1.e-8
-
-# The first object passed to the Brain class is this "Epoch Counter"
-# which is saved by the Checkpointer so that training can be resumed
-# if it gets interrupted at any point.
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
 
 # Functions that compute the statistics to track during the validation step.
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
