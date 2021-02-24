@@ -133,7 +133,7 @@ def create_json(wav_list, trans_dict, json_file):
         json_dict[uttid] = {
             "wav": relative_path,
             "length": duration,
-            "wrd": trans_dict[uttid],
+            "words": trans_dict[uttid],
         }
 
     # Writing the dictionary to the json file
