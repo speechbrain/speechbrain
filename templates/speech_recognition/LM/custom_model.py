@@ -3,7 +3,7 @@ This file contains a very simple PyTorch module to use for language modeling.
 
 To replace this model, change the `!new:` tag in the hyperparameter file
 to refer to a built-in SpeechBrain model or another file containing
-a custom PyTorch module. Instead of this simple model, we suggest to use one
+a custom PyTorch module. Instead of this simple model, we suggest using one
 of the following built-in neural models:
 
 RNN-LM: speechbrain.lobes.models.RNNLM.RNNLM

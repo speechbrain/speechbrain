@@ -16,7 +16,9 @@ targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the mini-librispeech
 dataset. Note that this is a tiny dataset used here just to
 provide a working example. To achieve a better performance you have to train with
-larger datasets, such as the full LibriSpeech one.
+larger datasets, such as the full LibriSpeech one. In this case, to allow the
+model to converge, we pre-train it with a bigger one (trained on the full librispeech
+with the seq2seq 1k BPE recipe).
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -41,14 +43,14 @@ Authors
  * Samuele Cornell 2020
 """
 
-
+import os
 import sys
 import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
-
+from speechbrain.utils.data_utils import download_file
 
 logger = logging.getLogger(__name__)
 
@@ -69,13 +71,12 @@ class ASR(sb.Brain):
         Returns
         -------
         predictions : List
-            At taining time it return the predictions of the seq2seq system with
+            At training time it returns the predictions of the seq2seq system with
             their corresponding relative lengths. If needed it also returns the
             ctc ouput probabilities.
             At validation/test time, it returns the predicted tokens as well.
         """
-        # We first move the batch to the appropriate device, and
-        # compute the features necesary for masking.
+        # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
@@ -103,7 +104,7 @@ class ASR(sb.Brain):
         feats = self.modules.normalize(feats, wav_lens)
 
         # Running the encoder
-        x, _ = self.modules.enc(feats.detach())
+        x = self.modules.enc(feats.detach())
 
         # Decoder + embedding
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
@@ -218,7 +219,7 @@ class ASR(sb.Brain):
         Returns
         -------
         Loss : torch.Tensor
-            A tensor contaning the loss (single real number).
+            A tensor containing the loss (single real number).
         """
         # Perform forward step
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
@@ -248,7 +249,7 @@ class ASR(sb.Brain):
         Returns
         -------
         Loss : torch.Tensor
-            A tensor contaning the loss (single real number).
+            A tensor containing the loss (single real number).
         """
         predictions = self.compute_forward(batch, stage=stage)
         with torch.no_grad():
@@ -343,7 +344,6 @@ def dataio_prepare(hparams):
         List containing "train", "valid", and "test" sets that correspond
         to the DynamicItemDataset objects.
     """
-
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
     @sb.utils.data_pipeline.takes("wav")
@@ -416,6 +416,25 @@ def dataio_prepare(hparams):
     return datasets
 
 
+def pretrain_model(hparams):
+    """This function pre-trains the ASR model with the model defined by the user.
+    It can either be a web-url or a simple path.
+
+
+    Arguments
+    ---------
+    hparams : dict
+        This dictionary is loaded from the `train.yaml` file, and it includes
+        all the hyperparameters needed for dataset construction and loading.
+
+    """
+    save_model_path = os.path.join(
+        hparams["save_folder"], "pretrained_model.ckpt"
+    )
+    download_file(hparams["pretrain_model"], save_model_path)
+    hparams["model"].load_state_dict(torch.load(save_model_path), strict=True)
+
+
 if __name__ == "__main__":
 
     # Reading command line arguments
@@ -448,6 +467,12 @@ if __name__ == "__main__":
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)
+
+    # ASR pre-training
+    # In this case, pre-training is essential because mini-librispeech is not
+    # big enough to train an end-to-end model from scratch. With bigger dataset
+    # you can train from scratch and avoid this step.
+    pretrain_model(hparams)
 
     # Trainer initialization
     asr_brain = ASR(
