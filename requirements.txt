@@ -1,4 +1,5 @@
 -r lint-requirements.txt
+git+git://github.com/huggingface/huggingface_hub@d7855db
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
 numpy>=1.17.0
@@ -9,3 +10,5 @@ sentencepiece>=0.1.91
 torch==1.7.1
 torchaudio==0.7.2
 tqdm>=4.42.0
+
+
