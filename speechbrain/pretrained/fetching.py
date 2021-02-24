@@ -2,6 +2,9 @@
 import huggingface_hub
 import re
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def list_models(user="sb", regex=None):
@@ -19,22 +22,35 @@ def list_models(user="sb", regex=None):
     return models
 
 
-def _fetch_all_from_hub(model_url, local_dir, **huggingface_kwargs):
-    huggingface_hub.Repository(
-        local_dir, clone_from=model_url, **huggingface_kwargs
-    )
+def fetch(local_path, filename, hub_modelID=None, **download_kwargs):
 
-
-def fetch(
-    hub_modelID,
-    local_dir,
-    hparams_file="hyperparams.yaml",
-    **huggingface_kwargs,
-):
-    """
-    """
-    if os.path.exists(local_dir) and os.path.join(local_dir, hparams_file):
-        print("Model already exists locally, loading local copy")
+    local_path = os.path.abspath(local_path)
+    local_abs_path = os.path.join(local_path, filename)
+    if os.path.isfile(local_abs_path):
+        logger.info(
+            "Requested file {} exists locally, using local copy.".format(
+                filename
+            )
+        )
     else:
-        _fetch_all_from_hub(hub_modelID, local_dir, **huggingface_kwargs)
-    return os.path.join(local_dir, hparams_file)
+        if hub_modelID is None:
+            logger.error(
+                "Requested file {} does not exists locally. It can be downloaded from HuggingFace ModelHub using 'hub_modelID' argument".format(
+                    filename
+                )
+            )
+            raise FileNotFoundError
+
+        os.makedirs(local_path)
+
+        url = huggingface_hub.hf_hub_url(hub_modelID, filename)
+        logger.info(
+            "Downloading requested file {} from {}.".format(filename, url)
+        )
+
+        fetched_file = huggingface_hub.cached_download(
+            url, cache_dir=local_path, **download_kwargs
+        )
+
+        os.rename(os.path.join(local_path, fetched_file), local_abs_path)
+    return local_abs_path
