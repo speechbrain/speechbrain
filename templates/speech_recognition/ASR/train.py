@@ -340,8 +340,8 @@ def dataio_prepare(hparams):
 
     Returns
     -------
-    datasets : list
-        List containing "train", "valid", and "test" sets that correspond
+    datasets : dict
+        Dictionary containing "train", "valid", and "test" keys that correspond
         to the DynamicItemDataset objects.
     """
     # Define audio pipeline. In this case, we simply read the path contained
