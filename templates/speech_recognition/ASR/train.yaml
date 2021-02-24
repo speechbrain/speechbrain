@@ -46,6 +46,7 @@ lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
 ckpt_interval_minutes: 15 # save checkpoint every N min
+label_smoothing: 0.1
 
 # Dataloader options
 train_dataloader_opts:
@@ -131,7 +132,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
-enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -152,12 +153,12 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     use_rnnp: False
 
 # Embedding (from indexes to an embedding space of dimension emb_size).
-emb: !new:speechbrain.nnet.embedding.Embedding
+embedding: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
 
 # Attention-based RNN decoder.
-dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+decoder: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     enc_dim: !ref <dnn_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
@@ -190,10 +191,6 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 # Cost definition for the seq2seq part.
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
-
-# Cost definition for the seq2seq part.
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
     hparams_file: !ref <lm_hparam_file>
     save_folder: !ref <save_folder>
@@ -208,9 +205,9 @@ tokenizer: !new:templates.speech_recognition.Tokenizer.pretrained.tokenizer
 # Objects in "modules" dict will have their parameters moved to the correct
 # device, as well as having train()/eval() called on them by the Brain class
 modules:
-    enc: !ref <enc>
-    emb: !ref <emb>
-    dec: !ref <dec>
+    encoder: !ref <encoder>
+    embedding: !ref <embedding>
+    decoder: !ref <decoder>
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
@@ -219,7 +216,11 @@ modules:
 
 # Gathering all the submodels in a single model object.
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+    - - !ref <encoder>
+      - !ref <embedding>
+      - !ref <decoder>
+      - !ref <ctc_lin>
+      - !ref <seq_lin>
 
 # Beamsearch is applied on the top of the decoder. If the language model is
 # given, a language model is applied (with a weight specified in lm_weight).
@@ -230,8 +231,8 @@ model: !new:torch.nn.ModuleList
 # It makes sense to have a lighter search during validation. In this case,
 # we don't use the LM and CTC probabilities during decoding.
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
-    embedding: !ref <emb>
-    decoder: !ref <dec>
+    embedding: !ref <embedding>
+    decoder: !ref <decoder>
     linear: !ref <seq_lin>
     ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
@@ -250,8 +251,8 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
 # In this case, we use the LM + CTC probabilities during decoding as well.
 # Please, remove this part if you need a faster decoder.
 test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
-    embedding: !ref <emb>
-    decoder: !ref <dec>
+    embedding: !ref <embedding>
+    decoder: !ref <decoder>
     linear: !ref <seq_lin>
     ctc_linear: !ref <ctc_lin>
     language_model: !ref <lm_model>

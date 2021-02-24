@@ -70,17 +70,68 @@ class ASR(sb.Brain):
 
         Returns
         -------
-        predictions : List
-            At training time it returns the predictions of the seq2seq system with
-            their corresponding relative lengths. If needed it also returns the
-            ctc ouput probabilities.
+        predictions : dict
+            At training time it returns predicted seq2seq log probabilities.
+            If needed it also returns the ctc output log probabilities.
             At validation/test time, it returns the predicted tokens as well.
         """
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        feats, self.feat_lens = self.prepare_features(stage, batch.sig)
+        tokens_bos, _ = self.prepare_tokens(stage, batch.tokens_bos)
+
+        # Running the encoder (prevent propagation to feature extraction)
+        encoded_signal = self.modules.encoder(feats.detach())
+
+        # Embed tokens and pass tokens & encoded signal to decoder
+        embedded_tokens = self.modules.embedding(tokens_bos)
+        decoder_outputs, _ = self.modules.decoder(
+            embedded_tokens, encoded_signal, self.feat_lens
+        )
+
+        # Output layer for seq2seq log-probabilities
+        logits = self.modules.seq_lin(decoder_outputs)
+        predictions = {"seq_logprobs": self.hparams.log_softmax(logits)}
+
+        if self.is_ctc_active(stage):
+            # Output layer for ctc log-probabilities
+            ctc_logits = self.modules.ctc_lin(encoded_signal)
+            predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
+        elif stage == sb.Stage.VALID:
+            predictions["tokens"], _ = self.hparams.valid_search(
+                encoded_signal, self.feat_lens
+            )
+        elif stage == sb.Stage.TEST:
+            predictions["tokens"], _ = self.hparams.test_search(
+                encoded_signal, self.feat_lens
+            )
+
+        return predictions
+
+    def is_ctc_active(self, stage):
+        """Check if CTC is currently active.
+
+        Arguments
+        ---------
+        stage : sb.Stage
+            Currently executing stage.
+        """
+        if stage != sb.Stage.TRAIN:
+            return False
+        current_epoch = self.hparams.epoch_counter.current
+        return current_epoch <= self.hparams.number_of_ctc_epochs
+
+    def prepare_features(self, stage, wavs):
+        """Prepare features for computation on-the-fly
+
+        Arguments
+        ---------
+        stage : sb.Stage
+            Currently executing stage.
+        wavs : tuple
+            The input signals (tensor) and their lengths (tensor).
+        """
+        wavs, wav_lens = wavs
 
         # Add augmentation if specified. In this version of augmentation, we
         # concatenate the original and the augment batches in a single bigger
@@ -91,45 +142,31 @@ class ASR(sb.Brain):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
 
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
-
-        # wav_lens is used for ctc cost computation as well
-        self.wav_lens = wav_lens
 
         # Feature computation and normalization
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
 
-        # Running the encoder
-        x = self.modules.enc(feats.detach())
+        return feats, wav_lens
 
-        # Decoder + embedding
-        e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
-        h, _ = self.modules.dec(e_in, x, wav_lens)
+    def prepare_tokens(self, stage, tokens):
+        """Double the tokens batch if features are doubled.
 
-        # Output layer for seq2seq log-probabilities
-        logits = self.modules.seq_lin(h)
-        p_seq = self.hparams.log_softmax(logits)
-
-        # Compute outputs based on stage.
-        if stage == sb.Stage.TRAIN:
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                # Output layer for ctc log-probabilities
-                logits = self.modules.ctc_lin(x)
-                p_ctc = self.hparams.log_softmax(logits)
-                return p_ctc, p_seq
-            else:
-                return p_seq
-        else:
-            if stage == sb.Stage.VALID:
-                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
-            else:
-                p_tokens, scores = self.hparams.test_search(x, wav_lens)
-            return p_seq, p_tokens
+        Arguments
+        ---------
+        stage : sb.Stage
+            Currently executing stage.
+        tokens : tuple
+            The tokens (tensor) and their lengths (tensor).
+        """
+        tokens, token_lens = tokens
+        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            tokens = torch.cat([tokens, tokens], dim=0)
+            token_lens = torch.cat([token_lens, token_lens], dim=0)
+        return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs. We here
@@ -150,111 +187,42 @@ class ASR(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        current_epoch = self.hparams.epoch_counter.current
-
-        # Getting posterior probs for both CTC and seq2seq
-        if stage == sb.Stage.TRAIN:
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                p_ctc, p_seq = predictions
-            else:
-                p_seq = predictions
-        else:
-            p_seq, predicted_tokens = predictions
-
-        # Reading labels
-        ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
-
-        # Getting the proper label set when env corruption is used
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
-            tokens = torch.cat([tokens, tokens], dim=0)
-            tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
-
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
+        # Compute sequence loss against targets with EOS
+        tokens_eos, tokens_eos_lens = self.prepare_tokens(
+            stage, batch.tokens_eos
+        )
+        loss = sb.nnet.losses.nll_loss(
+            log_probabilities=predictions["seq_logprobs"],
+            targets=tokens_eos,
+            length=tokens_eos_lens,
+            label_smoothing=self.hparams.label_smoothing,
         )
 
         # Add ctc loss if necessary. The total cost is a weighted sum of
         # ctc loss + seq2seq loss
-        if (
-            stage == sb.Stage.TRAIN
-            and current_epoch <= self.hparams.number_of_ctc_epochs
-        ):
+        if self.is_ctc_active(stage):
+            # Load tokens without EOS as CTC targets
+            tokens, tokens_lens = self.prepare_tokens(stage, batch.tokens)
             loss_ctc = self.hparams.ctc_cost(
-                p_ctc, tokens, self.wav_lens, tokens_lens
+                predictions["ctc_logprobs"], tokens, self.feat_lens, tokens_lens
             )
-            loss = self.hparams.ctc_weight * loss_ctc
-            loss += (1 - self.hparams.ctc_weight) * loss_seq
-        else:
-            loss = loss_seq
+            loss *= 1 - self.hparams.ctc_weight
+            loss += self.hparams.ctc_weight * loss_ctc
 
         if stage != sb.Stage.TRAIN:
             # Converted predicted tokens from indexes to words
             predicted_words = [
-                self.hparams.tokenizer.spm.decode_ids(utt_seq).split(" ")
-                for utt_seq in predicted_tokens
+                self.hparams.tokenizer.spm.decode_ids(prediction).split(" ")
+                for prediction in predictions["tokens"]
             ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            target_words = [words.split(" ") for words in batch.words]
 
             # Monitor word error rate and character error rated at
             # valid and test time.
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
+            self.wer_metric.append(batch.id, predicted_words, target_words)
+            self.cer_metric.append(batch.id, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        """Runs all the steps needed to train the model on a single batch.
-
-        Arguments
-        ---------
-        batch : PaddedBatch
-            This batch object contains all the relevant tensors for computation.
-
-        Returns
-        -------
-        Loss : torch.Tensor
-            A tensor containing the loss (single real number).
-        """
-        # Perform forward step
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-
-        # Loss computation
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # Loss backpropagation (i.e., gradient computation)
-        loss.backward()
-
-        # Gradient check + parameter update
-        if self.check_gradients(loss):
-            self.optimizer.step()
-
-        # Zeroing gradient buffers
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Runs all the steps needed to evaluate the model on a single batch.
-
-        Arguments
-        ---------
-        batch : PaddedBatch
-            This batch object contains all the relevant tensors for computation.
-
-        Returns
-        -------
-        Loss : torch.Tensor
-            A tensor containing the loss (single real number).
-        """
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch.
@@ -354,16 +322,17 @@ def dataio_prepare(hparams):
         return sig
 
     # Define text processing pipeline. We start from the raw text and then
-    # encode it using the tokenizer. The tokens with bos are used for feeding
-    # decoder during training, the tokens with eos for computing the cost function.
-    @sb.utils.data_pipeline.takes("wrd")
+    # encode it using the tokenizer. The tokens with BOS are used for feeding
+    # decoder during training, the tokens with EOS for computing the cost function.
+    # The tokens without BOS or EOS is for computing CTC loss.
+    @sb.utils.data_pipeline.takes("words")
     @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "words", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
-    def text_pipeline(wrd):
+    def text_pipeline(words):
         """Processes the transcriptions to generate proper labels"""
-        yield wrd
-        tokens_list = hparams["tokenizer"].spm.encode_as_ids(wrd)
+        yield words
+        tokens_list = hparams["tokenizer"].spm.encode_as_ids(words)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
@@ -384,12 +353,12 @@ def dataio_prepare(hparams):
             output_keys=[
                 "id",
                 "sig",
-                "wrd",
+                "words",
                 "tokens_bos",
                 "tokens_eos",
                 "tokens",
             ],
-        ).filtered_sorted(sort_key="length")
+        )
         hparams[f"{dataset}_dataloader_opts"]["shuffle"] = False
 
     # Sorting traiing data with ascending order makes the code  much
@@ -416,9 +385,9 @@ def dataio_prepare(hparams):
     return datasets
 
 
-def pretrain_model(hparams):
-    """This function pre-trains the ASR model with the model defined by the user.
-    It can either be a web-url or a simple path.
+def load_pretrained(hparams):
+    """This function loads a pre-trained ASR model's parameters to the model
+    defined by the user. It can either be a web-url or a simple path.
 
 
     Arguments
@@ -426,7 +395,7 @@ def pretrain_model(hparams):
     hparams : dict
         This dictionary is loaded from the `train.yaml` file, and it includes
         all the hyperparameters needed for dataset construction and loading.
-
+        Expects the dict to have "save_folder" and "model" and "pretrain_model"
     """
     save_model_path = os.path.join(
         hparams["save_folder"], "pretrained_model.ckpt"
@@ -468,11 +437,10 @@ if __name__ == "__main__":
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)
 
-    # ASR pre-training
     # In this case, pre-training is essential because mini-librispeech is not
     # big enough to train an end-to-end model from scratch. With bigger dataset
     # you can train from scratch and avoid this step.
-    pretrain_model(hparams)
+    load_pretrained(hparams)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -498,6 +466,6 @@ if __name__ == "__main__":
     # Load best checkpoint (highest STOI) for evaluation
     test_stats = asr_brain.evaluate(
         test_set=datasets["test"],
-        min_key="wer",
+        min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
