@@ -37,6 +37,7 @@ class Xvector(torch.nn.Module):
         List of dilations for kernels in each TDNN layer.
     lin_neurons : int
         Number of neurons in linear layers.
+
     Example
     -------
     >>> compute_xvect = Xvector()
@@ -61,7 +62,7 @@ class Xvector(torch.nn.Module):
         super().__init__()
         self.blocks = nn.ModuleList()
 
-        # TDNN are convolutional layers with the given dilation factors
+        # TDNN has convolutional layers with the given dilation factors
         # and kernel sizes. We here loop over all the convolutional layers
         # that we wanna add. Note that batch normalization is used after
         # the activations function in this case. This improves the
@@ -83,11 +84,11 @@ class Xvector(torch.nn.Module):
             in_channels = tdnn_channels[block_index]
 
         # Statistical pooling. It converts a tensor of variable length
-        # into a fixed length tensor. The statistica pooling returns the
+        # into a fixed-length tensor. The statistical pooling returns the
         # mean and the standard deviation.
         self.blocks.append(StatisticsPooling())
 
-        # Final linear transformation
+        # Final linear transformation.
         self.blocks.append(
             Linear(
                 input_size=out_channels * 2,  # mean + std,
@@ -99,6 +100,7 @@ class Xvector(torch.nn.Module):
 
     def forward(self, x, lens=None):
         """Returns the x-vectors.
+
         Arguments
         ---------
         x : torch.Tensor
@@ -126,6 +128,7 @@ class Classifier(sb.nnet.containers.Sequential):
         Number of neurons in linear layers.
     out_neurons : int
         Number of output neurons.
+
     Example
     -------
     >>> input_feats = torch.rand([5, 10, 40])

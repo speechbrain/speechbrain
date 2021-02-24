@@ -31,7 +31,7 @@ def prepare_mini_librispeech(
     """
     Prepares the json files for the Mini Librispeech dataset.
 
-    Downloads the dataset if its not found in the `data_folder`.
+    Downloads the dataset if it is not found in the `data_folder`.
 
     Arguments
     ---------
@@ -153,8 +153,8 @@ def split_sets(wav_list, split_ratio):
     same proportion of samples (e.g, spk01 should have 80% of samples in
     training, 10% validation, 10% test, the same for speaker2 etc.). This
     is the approach followed in some recipes such as the Voxceleb one. For
-    simplicity, we here simply split the full list without necessary respecting
-    the split ration within each class.
+    simplicity, we here simply split the full list without necessarly respecting
+    the split ratio within each class.
 
     Arguments
     ---------
@@ -162,13 +162,13 @@ def split_sets(wav_list, split_ratio):
         list of all the signals in the dataset
     split_ratio: list
         List composed of three integers that sets split ratios for train, valid,
-        and test sets, respecively. For instance split_ratio=[80, 10, 10] will
+        and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
 
     Returns
     ------
-    dictionary contaning train, valid, and test splits.
+    dictionary containing train, valid, and test splits.
     """
     # Random shuffle of the list
     random.shuffle(wav_list)

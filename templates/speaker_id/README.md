@@ -1,16 +1,15 @@
 # Template for Speaker Identification
-
+  
 This folder provides a working, well-documented example for training
 a speaker identification model from scratch, based on a few hours of
 data. The data we use is from Mini Librispeech + OpenRIR.
 
 There are four files here:
 
-* `train.py`: the main code file, outlines entire training process.
+* `train.py`: the main code file, outlines the entire training process.
 * `train.yaml`: the hyperparameters file, sets all parameters of execution.
 * `custom_model.py`: A file containing the definition of a PyTorch module.
-* `mini_librispeech_prepare.py`: If necessary, downloads and prepares data
-    manifests.
+* `mini_librispeech_prepare.py`: If necessary, downloads and prepares data manifests.
 
 To train the speaker-id model, just execute the following on the command-line:
 

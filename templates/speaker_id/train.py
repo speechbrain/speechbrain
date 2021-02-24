@@ -1,9 +1,9 @@
 #!/usr/bin/env/python3
 """Recipe for training a speaker-id system. The template can use used as a
-basic example for any signal classifications taks such as language_id,
+basic example for any signal classification task such as language_id,
 emotion recognition, command classification, etc. The proposed task classifies
-28 speakers using Mini Librispeech. This task is very easy and in a real
-scenario you need to use datasets with a larger number of speakers such as
+28 speakers using Mini Librispeech. This task is very easy. In a real
+scenario, you need to use datasets with a larger number of speakers such as
 the voxceleb one (see recipes/VoxCeleb). Speechbrain has already some built-in
 models for signal classifications (see the ECAPA one in
 speechbrain.lobes.models.ECAPA_TDNN.py or the xvector in
@@ -35,7 +35,7 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 # Brain class for speech enhancement training
 class SpkIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Runs all the computation of the that transfor the input into the
+        """Runs all the computation of that transforms the input into the
         output probabilities over the N classes.
 
         Arguments
@@ -49,11 +49,9 @@ class SpkIdBrain(sb.Brain):
         -------
         predictions : Tensor
             Tensor that contains the posterior probabilities over the N classes.
-
         """
 
-        # We first move the batch to the appropriate device, and
-        # compute the features necesary for masking.
+        # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -108,7 +106,7 @@ class SpkIdBrain(sb.Brain):
                 spkid = torch.cat([spkid, spkid], dim=0)
                 lens = torch.cat([lens, lens])
 
-        # Compute the cost function to backpropagate
+        # Compute the cost function
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
         # Append this batch of losses to the loss metric for easy
@@ -168,7 +166,7 @@ class SpkIdBrain(sb.Brain):
                 "error": self.error_metrics.summarize("average"),
             }
 
-        # At the end of validation, we can wrote
+        # At the end of validation...
         if stage == sb.Stage.VALID:
 
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
@@ -182,7 +180,6 @@ class SpkIdBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            # unless they have the current best STOI score.
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -214,7 +211,7 @@ def dataio_prep(hparams):
     """
 
     # Initialization of the label encoder. The label encoder assignes to each
-    # of the observed label a uniq index (e.g, 'spk01': 0, 'spk02': 1, ..)
+    # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
     # Define audio pipeline
@@ -248,7 +245,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng
+    # mappinng.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -262,13 +259,13 @@ def dataio_prep(hparams):
 # Recipe begins!
 if __name__ == "__main__":
 
-    # Reading command line arguments
+    # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # Initialize ddp (useful only for multi-GPU DDP training)
+    # Initialize ddp (useful only for multi-GPU DDP training).
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # Load hyperparameters file with command-line overrides
+    # Load hyperparameters file with command-line overrides.
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
@@ -291,7 +288,7 @@ if __name__ == "__main__":
         },
     )
 
-    # Create dataset objects "train", "valid", and "test"
+    # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)
 
     # Initialize the Brain object to prepare for mask training.
@@ -307,15 +304,15 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    se_brain.fit(
-        epoch_counter=se_brain.hparams.epoch_counter,
+    spk_id_brain.fit(
+        epoch_counter=spk_id_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
 
-    # Load best checkpoint (highest STOI) for evaluation
+    # Load the best checkpoint for evaluation
     test_stats = spk_id_brain.evaluate(
         test_set=datasets["test"],
         min_key="error",
