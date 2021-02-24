@@ -174,7 +174,7 @@ class SEBrain(sb.Brain):
                 "stoi": -self.stoi_metric.summarize("average"),
             }
 
-        # At the end of validation, we can wrote
+        # At the end of validation, we can write stats and checkpoints
         if stage == sb.Stage.VALID:
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
