@@ -2,7 +2,7 @@
 Downloads and creates manifest files for speech recognition with Mini LibriSpeech.
 
 Authors:
- * Peter Plantinga, 2020
+ * Peter Plantinga, 2021
  * Mirco Ravanelli, 2021
 """
 
