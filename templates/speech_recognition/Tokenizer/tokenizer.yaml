@@ -8,7 +8,7 @@
 
 # Set up folders for reading from and writing to
 data_folder: ../data
-output_folder: !ref ./save
+output_folder: ./save
 
 # Path where data-specification files are stored
 train_annotation: ../train.json
