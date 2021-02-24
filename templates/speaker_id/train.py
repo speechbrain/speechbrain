@@ -1,4 +1,4 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python3
 """Recipe for training a speaker-id system. The template can use used as a
 basic example for any signal classification task such as language_id,
 emotion recognition, command classification, etc. The proposed task classifies
@@ -53,7 +53,25 @@ class SpkIdBrain(sb.Brain):
 
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
-        wavs, lens = batch.sig
+
+        # Compute features, embeddings, and predictions
+        feats, lens = self.prepare_features(batch.sig, stage)
+        embeddings = self.modules.embedding_model(feats, lens)
+        predictions = self.modules.classifier(embeddings)
+
+        return predictions
+
+    def prepare_features(self, wavs, stage):
+        """Prepare the features for computation, including augmentation.
+
+        Arguments
+        ---------
+        wavs : tuple
+            Input signals (tensor) and their relative lengths (tensor).
+        stage : sb.Stage
+            The current stage of training.
+        """
+        wavs, lens = wavs
 
         # Add augmentation if specified. In this version of augmentation, we
         # concatenate the original and the augment batches in a single bigger
@@ -72,11 +90,7 @@ class SpkIdBrain(sb.Brain):
         feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
-        # Embeddings + speaker classifier
-        embeddings = self.modules.embedding_model(feats, lens)
-        predictions = self.modules.classifier(embeddings)
-
-        return predictions
+        return feats, lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -96,18 +110,16 @@ class SpkIdBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        wavs, lens = batch.sig
+        _, lens = batch.sig
         spkid, _ = batch.spk_id_encoded
-        uttid = batch.id
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                spkid = torch.cat([spkid, spkid], dim=0)
-                lens = torch.cat([lens, lens])
+        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
+            spkid = torch.cat([spkid, spkid], dim=0)
+            lens = torch.cat([lens, lens])
 
         # Compute the cost function
-        loss = self.hparams.compute_cost(predictions, spkid, lens)
+        loss = sb.nnet.losses.nll_loss(predictions, spkid, lens)
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
@@ -116,7 +128,7 @@ class SpkIdBrain(sb.Brain):
 
         # Compute classification error at test time
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(uttid, predictions, spkid, lens)
+            self.error_metrics.append(batch.id, predictions, spkid, lens)
 
         return loss
 
@@ -228,7 +240,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("spk_id", "spk_id_encoded")
     def label_pipeline(spk_id):
         yield spk_id
-        spk_id_encoded = label_encoder.encode_sequence_torch([spk_id])
+        spk_id_encoded = label_encoder.encode_label_torch(spk_id)
         yield spk_id_encoded
 
     # Define datasets. We also connect the dataset with the data processing

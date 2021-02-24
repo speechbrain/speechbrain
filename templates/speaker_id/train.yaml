@@ -11,6 +11,7 @@ seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
+# Dataset will be downloaded to the `data_folder`
 data_folder: ./data
 output_folder: !ref ./results/speaker_id/<seed>
 save_folder: !ref <output_folder>/save
@@ -38,7 +39,7 @@ n_mels: 23
 sample_rate: 16000
 number_of_epochs: 35
 batch_size: 16
-lr: 0.001
+lr_start: 0.001
 lr_final: 0.0001
 n_classes: 28 # In this case, we have 28 speakers
 emb_dim: 512 # dimensionality of the embeddings
@@ -90,10 +91,6 @@ classifier: !new:custom_model.Classifier
     lin_neurons: !ref <emb_dim>
     out_neurons: !ref <n_classes>
 
-# cost functions
-compute_cost: !name:speechbrain.nnet.losses.nll_loss
-compute_error: !name:speechbrain.nnet.losses.classification_error
-
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
 # if it gets interrupted at any point.
@@ -113,13 +110,13 @@ modules:
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
 opt_class: !name:torch.optim.Adam
-    lr: !ref <lr>
+    lr: !ref <lr_start>
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
 # the lr from the initial value to the final one.
 lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
-    initial_value: !ref <lr>
+    initial_value: !ref <lr_start>
     final_value: !ref <lr_final>
     epoch_count: !ref <number_of_epochs>
 
