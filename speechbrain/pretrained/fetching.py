@@ -41,7 +41,7 @@ def fetch(local_path, filename, hub_modelID=None, **download_kwargs):
             )
             raise FileNotFoundError
 
-        os.makedirs(local_path)
+        os.makedirs(local_path, exist_ok=True)
 
         url = huggingface_hub.hf_hub_url(hub_modelID, filename)
         logger.info(

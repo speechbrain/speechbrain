@@ -119,7 +119,7 @@ def torch_save(obj, path):
     torch.save(state_dict, path)
 
 
-def torch_parameter_transfer(obj, path):
+def torch_parameter_transfer(obj, path, device):
     """Non-strict Torch Module state_dict load.
 
     Loads a set of parameters from path to obj. If obj has layers for which
@@ -139,7 +139,9 @@ def torch_parameter_transfer(obj, path):
     None
         The object is modified in place.
     """
-    incompatible_keys = obj.load_state_dict(torch.load(path), strict=False)
+    incompatible_keys = obj.load_state_dict(
+        torch.load(path, map_location=device), strict=False
+    )
     for missing_key in incompatible_keys.missing_keys:
         logger.warning(
             f"During parameter transfer to {obj} loading from "

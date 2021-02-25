@@ -8,20 +8,23 @@ Authors
 """
 import logging
 
+from speechbrain.pretrained.fetching import fetch
 from speechbrain.utils.checkpoints import (
     DEFAULT_LOAD_HOOKS,
     DEFAULT_TRANSFER_HOOKS,
+    PARAMFILE_EXT,
+    get_default_hook,
 )
-from speechbrain.utils.checkpoints import get_default_hook
 
 logger = logging.getLogger(__name__)
 
 
 class Pretrainer:
-    """A pretrainig equivalent to Checkpointer"""
+    """A pretraining equivalent to Checkpointer"""
 
-    def __init__(self, loadables=None, custom_load_hooks=None):
+    def __init__(self, save_dir, loadables=None, custom_load_hooks=None):
         self.loadables = {}
+        self.save_dir = save_dir
         if loadables is not None:
             self.add_loadables(loadables)
         self.custom_load_hooks = {}
@@ -46,8 +49,13 @@ class Pretrainer:
         dict
             Mapping from loadable names to parameter files
         """
-        # TODO
-        pass
+        loadable_paths = {}
+        for name, loadable in self.loadables.items():
+            filename = name + PARAMFILE_EXT
+            path = fetch(self.save_dir, filename, source)
+            loadable_paths[name] = path
+
+        return loadable_paths
 
     def fetch_and_load(self, source, device=None):
         paramfiles = self.fetch_parameters(source)
