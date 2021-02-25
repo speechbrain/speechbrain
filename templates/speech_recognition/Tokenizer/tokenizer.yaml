@@ -19,7 +19,7 @@ test_annotation: ../test.json
 token_type: unigram  # ["unigram", "bpe", "char"]
 token_output: 1000  # index(blank/eos/bos/unk) = 0
 character_coverage: 1.0
-annotation_read: wrd # field to read
+annotation_read: words # field to read
 
 # Tokenizer object
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
