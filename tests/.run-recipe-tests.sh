@@ -5,6 +5,16 @@
 #
 # Author: Mirco Ravanelli 2021
 
+# TEMPLATES
+python templates/enhancement/train.py templates/enhancement/train.yaml --output_folder=test_results/template_enhancement --data_folder='data_enh' --train_annotation='data_enh/train.json' --valid_annotation='data_enh/valid.json' --test_annotation='data_enh/test.json' --debug
+
+python templates/speaker_id/train.py templates/speaker_id/train.yaml --output_folder=test_results/template_speaker_id --data_folder='data_spk_id' --train_annotation='data_spk_id/train.json' --valid_annotation='data_spk_id/valid.json' --test_annotation='data_spk_id/test.json' --debug
+
+python templates/speech_recognition/Tokenizer/train.py templates/speech_recognition/Tokenizer/tokenizer.yaml --output_folder=test_results/template_tokenizer/ --data_folder='data_tok' --train_annotation='data_tok/train.json' --valid_annotation='data_tok/valid.json' --test_annotation='data_tok/test.json' --debug
+
+python templates/speech_recognition/LM/train.py templates/speech_recognition/LM/RNNLM.yaml --output_folder=test_results/template_lm/ --lm_train_data=templates/speech_recognition/LM/data/train.txt --lm_valid_data=templates/speech_recognition/LM/data/valid.txt --lm_test_data=templates/speech_recognition/LM/data/test.txt --tokenizer_file=templates/speech_recognition/Tokenizer/save/1000_unigram.model --debug
+
+python templates/speech_recognition/ASR/train.py templates/speech_recognition/ASR/train.yaml --output_folder=test_results/template_asr/ --data_folder='data_asr' --train_annotation='data_asr/train.json' --valid_annotation='data_asr/valid.json' --test_annotation='data_asr/test.json' --debug
 
 # TIMIT
 python recipes/TIMIT/ASR/CTC/train/train.py recipes/TIMIT/ASR/CTC/train/hparams/train.yaml --output_folder=test_results/TIMIT_CTC --data_folder=samples/audio_samples/nn_training_samples  --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --test_annotation=samples/audio_samples/nn_training_samples/debug.csv --output_neurons=44 --skip_prep=True --debug 
