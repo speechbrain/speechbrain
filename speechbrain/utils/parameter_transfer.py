@@ -22,9 +22,14 @@ logger = logging.getLogger(__name__)
 class Pretrainer:
     """A pretraining equivalent to Checkpointer"""
 
-    def __init__(self, save_dir, loadables=None, custom_load_hooks=None):
+    def __init__(
+        self,
+        savedir="./model_checkpoints",
+        loadables=None,
+        custom_load_hooks=None,
+    ):
         self.loadables = {}
-        self.save_dir = save_dir
+        self.savedir = savedir
         if loadables is not None:
             self.add_loadables(loadables)
         self.custom_load_hooks = {}
@@ -52,7 +57,7 @@ class Pretrainer:
         loadable_paths = {}
         for name, loadable in self.loadables.items():
             filename = name + PARAMFILE_EXT
-            path = fetch(self.save_dir, filename, source)
+            path = fetch(filename, source, self.savedir)
             loadable_paths[name] = path
         return loadable_paths
 

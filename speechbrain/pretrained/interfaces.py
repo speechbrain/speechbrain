@@ -136,8 +136,9 @@ class Mind:
         cls,
         source,
         hparams_file="hyperparams.yaml",
-        local_path="./data",
         overrides={},
+        savedir="./data",
+        **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
 
@@ -161,7 +162,7 @@ class Mind:
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
         """
-        hparams_local_path = fetch(local_path, hparams_file, source)
+        hparams_local_path = fetch(hparams_file, source, savedir)
 
         # Load the modules:
         with open(hparams_local_path) as fin:
@@ -169,10 +170,11 @@ class Mind:
 
         # Pretraining:
         pretrainer = hparams["pretrainer"]
+        pretrainer.savedir = savedir
         pretrainer.fetch_and_load(source)
 
         # Now return the system
-        return cls(hparams["modules"], hparams)
+        return cls(hparams["modules"], hparams, **kwargs)
 
 
 class EncoderDecoderASR(Mind):
