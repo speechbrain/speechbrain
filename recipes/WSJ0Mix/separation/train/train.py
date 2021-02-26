@@ -58,7 +58,14 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
-                if "wham_original" in self.hparams.data_folder:
+                if "whamr" in self.hparams.data_folder:
+                    targets = self.hparams.reverb(
+                        targets[0].t(), torch.ones(targets.size(-1))
+                    )
+                    targets = targets.t().unsqueeze(0)
+                    mix = targets.sum(-1)
+
+                if "wham" in self.hparams.data_folder:
                     noise = noise.to(self.device)
                     len_noise = noise.shape[1]
                     len_mix = mix.shape[1]
@@ -110,7 +117,7 @@ class Separation(sb.Brain):
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
-        if "wham_original" in self.hparams.data_folder:
+        if "wham" in self.hparams.data_folder:
             noise = batch.noise_sig[0]
         else:
             noise = None
@@ -196,8 +203,9 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        predictions, targets = self.compute_forward(mixture, targets, stage)
-        loss = self.compute_objectives(predictions, targets)
+        with torch.no_grad():
+            predictions, targets = self.compute_forward(mixture, targets, stage)
+            loss = self.compute_objectives(predictions, targets)
 
         # Manage audio file saving
         if stage == sb.Stage.TEST and self.hparams.save_audio:
@@ -355,9 +363,11 @@ class Separation(sb.Brain):
                     targets = [batch.s1_sig, batch.s2_sig]
                     if self.hparams.num_spks == 3:
                         targets.append(batch.s3_sig)
-                    predictions, targets = self.compute_forward(
-                        batch.mix_sig, targets, sb.Stage.TEST
-                    )
+
+                    with torch.no_grad():
+                        predictions, targets = self.compute_forward(
+                            batch.mix_sig, targets, sb.Stage.TEST
+                        )
 
                     # Compute SI-SNR
                     sisnr = self.compute_objectives(predictions, targets)
@@ -446,7 +456,7 @@ class Separation(sb.Brain):
             )
 
         # Mixture
-        signal = mixture[1][0, :]
+        signal = mixture[0][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
         torchaudio.save(
@@ -503,7 +513,7 @@ def dataio_prep(hparams):
             s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             return s3_sig
 
-    if "wham_original" in hparams["data_folder"]:
+    if "wham" in hparams["data_folder"]:
 
         @sb.utils.data_pipeline.takes("noise_wav")
         @sb.utils.data_pipeline.provides("noise_sig")
@@ -520,7 +530,7 @@ def dataio_prep(hparams):
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
         )
     else:
-        if "wham_original" in hparams["data_folder"]:
+        if "wham" in hparams["data_folder"]:
             print("Using the WHAM! dataset")
             sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
             sb.dataio.dataset.set_output_keys(

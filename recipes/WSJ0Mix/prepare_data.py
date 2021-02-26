@@ -49,6 +49,9 @@ def prepare_wsjmix(datapath, savepath, n_spks=2, skip_prep=False):
     if "wham_original" in datapath:
         # if we want to train a model on the original wham dataset
         create_wham_csv(datapath, savepath)
+    elif "whamr" in datapath:
+        # if we want to train a model on the whamr dataset
+        create_whamr_csv(datapath, savepath)
     else:
         if skip_prep:
             return
@@ -99,6 +102,76 @@ def create_wham_csv(datapath, savepath):
         ]
 
         with open(savepath + "/whamorg_" + set_type + ".csv", "w") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+            writer.writeheader()
+            for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
+                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
+            ):
+
+                row = {
+                    "ID": i,
+                    "duration": 1.0,
+                    "mix_wav": mix_path,
+                    "mix_wav_format": "wav",
+                    "mix_wav_opts": None,
+                    "s1_wav": s1_path,
+                    "s1_wav_format": "wav",
+                    "s1_wav_opts": None,
+                    "s2_wav": s2_path,
+                    "s2_wav_format": "wav",
+                    "s2_wav_opts": None,
+                    "noise_wav": noise_path,
+                    "noise_wav_format": "wav",
+                    "noise_wav_opts": None,
+                }
+                writer.writerow(row)
+
+
+def create_whamr_csv(datapath, savepath):
+    """
+    This function creates the csv files to get the speechbrain data loaders for the whamr dataset.
+
+    Arguments:
+        datapath (str) : path for the wsj0-mix dataset.
+        savepath (str) : path where we save the csv file
+    """
+    for set_type in ["tr", "cv", "tt"]:
+        mix_path = os.path.join(
+            datapath, "wav8k/min/" + set_type + "/mix_both_reverb/"
+        )
+        s1_path = os.path.join(
+            datapath, "wav8k/min/" + set_type + "/s1_anechoic/"
+        )
+        s2_path = os.path.join(
+            datapath, "wav8k/min/" + set_type + "/s2_anechoic/"
+        )
+        noise_path = os.path.join(datapath, "wav8k/min/" + set_type + "/noise/")
+
+        files = os.listdir(mix_path)
+
+        mix_fl_paths = [mix_path + fl for fl in files]
+        s1_fl_paths = [s1_path + fl for fl in files]
+        s2_fl_paths = [s2_path + fl for fl in files]
+        noise_fl_paths = [noise_path + fl for fl in files]
+
+        csv_columns = [
+            "ID",
+            "duration",
+            "mix_wav",
+            "mix_wav_format",
+            "mix_wav_opts",
+            "s1_wav",
+            "s1_wav_format",
+            "s1_wav_opts",
+            "s2_wav",
+            "s2_wav_format",
+            "s2_wav_opts",
+            "noise_wav",
+            "noise_wav_format",
+            "noise_wav_opts",
+        ]
+
+        with open(savepath + "/whamr_" + set_type + ".csv", "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
