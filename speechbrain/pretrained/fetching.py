@@ -76,7 +76,7 @@ def fetch(filename, source, savedir="./data"):
                 "is not installed. Please install with pip install huggingface-hub"
             )
         url = huggingface_hub.hf_hub_url(source, filename)
-        fetched_file = huggingface_hub.cached_download(url, cache_dir=savedir)
+        fetched_file = huggingface_hub.cached_download(url)
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
         destination.unlink(missing_ok=True)
