@@ -5,12 +5,10 @@
 # Tokens: BPE with unigram
 # losses: CTC+ NLL
 # Training: Librispeech 960h
-# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga,
-# Samuele Cornell, Titouan Parcollet
+# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 2020
 # ############################################################################
 
-# Seed needs to be set at top of yaml, before objects with parameters are
-# instantiated
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
@@ -19,13 +17,10 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Language model (LM) parameter file
-
-# NB: To avoid mismatch, the speech recognizer must be trained with the same
-# tokenizer used for LM training. By default, we download the LM and tokenizer
-# from the SpeechBrain HuggingFace repository. If you wish to not use the LM
-# at decoding time, simply switch to the train_BPE_1000_no_lm.yaml file!
-huggingface_model: 'sb/asr-crdnn-librispeech'
-lm_hparam_file: 'lm/RNNLM_BPE1000.yaml'
+# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
+# for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
+# # object. In this case, it is based on 1000 tokens.
+lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_RNNLM_BPE1000.yaml
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -36,9 +31,6 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-
-# We store the generated csv (SpeechBrain format) in the data folder to avoid
-# rebuilding them at each new experiment. If you wish, simply change this path.
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
@@ -188,10 +180,9 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
    label_smoothing: 0.1
 
 # Models
-lm_model: !new:speechbrain.lobes.pretrained.librispeech.asr-crdnn-ctc-att-rnnlm.lm.LM
-   save_folder: !ref <save_folder>
+lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
    hparams_file: !ref <lm_hparam_file>
-   huggingface_model: !ref <huggingface_model>
+   save_folder: !ref <save_folder>
 
 modules:
    enc: !ref <enc>
