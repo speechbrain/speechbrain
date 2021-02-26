@@ -145,6 +145,10 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
+        # check if we need to switch optimizer
+        # if so change the optimizer from Adam to SGD
+        self.check_and_reset_optimizer()
+
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
 
@@ -159,9 +163,7 @@ class ASR(sb.core.Brain):
             self.optimizer.zero_grad()
 
             # anneal lr every update
-            # due to the CTC loss, the two stage gradient annealing can improve the convergence rate
             self.hparams.noam_annealing(self.optimizer)
-            self.hparams.cosine_annealing(self.optimizer)
 
         return loss.detach()
 
@@ -196,10 +198,23 @@ class ASR(sb.core.Brain):
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+            
+            # report different epoch stages acccording current stage
+            current_epoch = self.hparams.epoch_counter.current
+            if current_epoch <= self.hparams.stage_one_epochs:
+                lr = self.hparams.noam_annealing.current_lr
+                steps = self.hparams.noam_annealing.n_steps
+                optimizer = self.optimizer.__class__.__name__
+            else:
+                lr = self.hparams.lr_sgd
+                steps = -1
+                optimizer = self.optimizer.__class__.__name__
+
             epoch_stats = {
                 "epoch": epoch,
-                "lr": self.hparams.cosine_annealing.current_lr,
-                "steps": self.hparams.cosine_annealing.n_steps,
+                "lr": lr,
+                "steps": steps,
+                "optimizer": optimizer
             }
             self.hparams.train_logger.log_stats(
                 stats_meta=epoch_stats,
@@ -230,10 +245,65 @@ class ASR(sb.core.Brain):
         state_dict = torch.load(
             save_model_path, map_location=torch.device(self.device)
         )
-        state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
         logger.info("loaded LM from {}".format(save_model_path))
+
+    def check_and_reset_optimizer(self):
+        """reset the optimizer if training enters stage 2"""
+        current_epoch = self.hparams.epoch_counter.current
+        if not hasattr(self, "switched"):
+            self.switched = False
+            if isinstance(self.optimizer, torch.optim.SGD):
+                self.switched = True
+
+        if self.switched == True:
+            return
+
+        if current_epoch > self.hparams.stage_one_epochs:
+            self.optimizer = self.hparams.SGD(self.modules.parameters())
+
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+            self.switched = True
+
+    def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if ``distributed_count > 0`` and backend is ddp.
+
+        Default implementation compiles the jit modules, initializes
+        optimizers, and loads the latest checkpoint to resume training.
+        """
+        # Run this *after* starting all processes since jit modules cannot be
+        # pickled.
+        self._compile_jit()
+
+        # Wrap modules with parallel backend after jit
+        self._wrap_distributed()
+
+        # Initialize optimizers after parameters are configured
+        self.init_optimizers()
+
+        # Load latest checkpoint to check to current epoch number
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible(
+                device=torch.device(self.device)
+            )
+
+        # if the model is resumed from stage two, reinitilaize the optimizer
+        current_epoch = self.hparams.epoch_counter.current
+        if current_epoch > self.hparams.stage_one_epochs:
+            self.optimizer = self.hparams.SGD(self.modules.parameters())
+
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+        # Load latest checkpoint to resume training if interrupted
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible(
+                device=torch.device(self.device)
+            )
 
 
 def dataio_prepare(hparams):
@@ -353,7 +423,7 @@ if __name__ == "__main__":
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
-        opt_class=hparams["optimizer"],
+        opt_class=hparams["Adam"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
