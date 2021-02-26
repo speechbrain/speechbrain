@@ -198,7 +198,7 @@ class ASR(sb.core.Brain):
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
-            
+
             # report different epoch stages acccording current stage
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.stage_one_epochs:
@@ -214,7 +214,7 @@ class ASR(sb.core.Brain):
                 "epoch": epoch,
                 "lr": lr,
                 "steps": steps,
-                "optimizer": optimizer
+                "optimizer": optimizer,
             }
             self.hparams.train_logger.log_stats(
                 stats_meta=epoch_stats,
@@ -257,7 +257,7 @@ class ASR(sb.core.Brain):
             if isinstance(self.optimizer, torch.optim.SGD):
                 self.switched = True
 
-        if self.switched == True:
+        if self.switched is True:
             return
 
         if current_epoch > self.hparams.stage_one_epochs:
