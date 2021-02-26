@@ -10,7 +10,7 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-class Flow:
+class Mind:
     """Takes a trained model and makes predictions on new data.
 
     Arguments
@@ -175,8 +175,22 @@ class Flow:
         return cls(hparams["modules"], hparams)
 
 
-class ASRInterface(Flow):
-    """General interface for Automatic Speech Recognition"""
+class EncoderDecoderASR(Mind):
+    """A ready-to-use Encoder-Decoder ASR model
+
+    The class can be used either to run only the encoder (encode()) to extract
+    features or to run the entire encoder-decoder model
+    (transcribe()) to transcribe speech.
+
+    TODO: Make this list sensible and minimal
+    Relies on a few keys in the modules dictionary, as follows.
+        compute_features
+        normalize
+        asr_encoder
+        beam_searcher
+        tokenizer
+    ```
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -184,6 +198,8 @@ class ASRInterface(Flow):
         # TODO: How to integrate this better?
         if not hasattr(self, "normalizer"):
             self.normalizer = AudioNormalizer()
+
+        self.tokenizer = self.hparams.tokenizer
 
     def load_audio(self, path):
         """Load an audio file with this model's input spec
@@ -198,40 +214,52 @@ class ASRInterface(Flow):
         return self.normalizer(signal, sr)
 
     def transcribe_file(self, path):
+        """Transcribes the given audiofile into a sequence of words.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to transcribe.
+
+        Returns
+        -------
+        str
+            The audiofile transcription produced by this ASR system.
+        """
         waveform = self.load_audio(path)
-        return self.transcribe(waveform)
-
-    def transcribe(self, waveform):
-        MSG = "Each ASR model should implement the transcribe() method."
-        raise NotImplementedError(MSG)
-
-
-class EncoderDecoderASR(ASRInterface):
-    """A ready-to-use Encoder-Decoder ASR model
-
-    The class can be used either to run only the encoder (encode()) to extract
-    features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech.
-
-    Relies on a few keys in the modules dictionary, as follows.
-        compute_features
-        normalize
-        asr_encoder
-        beam_searcher
-    ```
-    TODO: Make this list sensible and minimal
-
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # TODO: Don't rely on LM!!
-        # The tokenizer is the one used by the LM
-        self.tokenizer = self.hparams.tokenizer
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words, predicted_tokens = self.transcribe_batch(
+            batch, rel_length
+        )
+        return predicted_words[0]
 
     def encode_batch(self, wavs, wav_lens):
-        """Encodes the input audio into a sequence of hidden states"""
+        """Encodes the input audio into a sequence of hidden states
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        tensor
+            The encoded batch
+
+        """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         feats = self.modules.compute_features(wavs)
@@ -240,25 +268,39 @@ class EncoderDecoderASR(ASRInterface):
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
-        """Transcribes the input audio into a sequence of words"""
+        """Transcribes the input audio into a sequence of words
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch transcribed.
+        tensor
+            Each predicted token id.
+        """
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             predicted_tokens, scores = self.modules.beam_searcher(
                 encoder_out, wav_lens
             )
-
             predicted_words = [
-                self.tokenizer.decode_ids(predicted_tokens[i])
-                for i in range(len(predicted_tokens))
+                self.tokenizer.decode_ids(token_seq)
+                for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
-
-    def transcribe(self, waveform):
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
-        return predicted_words[0]

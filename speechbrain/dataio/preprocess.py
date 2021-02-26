@@ -7,6 +7,16 @@ from speechbrain.processing.speech_augmentation import Resample
 class AudioNormalizer:
     """Normalizes audio into a standard format
 
+    Arguments
+    ---------
+    sample_rate : int
+        The sampling rate to which the incoming signals should be converted.
+    mix : {"avg-to-mono", "keep"}
+        "avg-to-mono" - add all channels together and normalize by number of
+        channels. This also removes the channel dimension, resulting in [time]
+        format tensor.
+        "keep" - don't normalize channel information
+
     Example
     -------
     >>> import torchaudio
@@ -19,6 +29,11 @@ class AudioNormalizer:
     >>> normalized.shape
     torch.Size([16941])
 
+    NOTE
+    ----
+    This will also upsample audio. However, upsampling cannot produce meaningful
+    information in the bandwidth which it adds. Generally models will not work
+    well for upsampled data if they have not specifically been trained to do so.
     """
 
     def __init__(self, sample_rate=16000, mix="avg-to-mono"):
@@ -42,6 +57,7 @@ class AudioNormalizer:
         return self._mix(resampled)
 
     def _mix(self, audio):
+        """Handle channel mixing"""
         flat_input = audio.dim() == 1
         if self.mix == "avg-to-mono":
             if flat_input:
