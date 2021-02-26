@@ -81,12 +81,14 @@ class MetricGanBrain(sb.Brain):
         clean_spec = self.compute_feats(clean_wav)
         mse_cost = self.hparams.compute_cost(predict_spec, clean_spec, lens)
 
+        ids = self.compute_ids(batch.id, optim_name)
+
         # One is real, zero is fake
         if optim_name == "generator" or optim_name == "":
             target_score = torch.ones(self.batch_size, 1, device=self.device)
             est_score = self.est_score(predict_spec, clean_spec)
             self.mse_metric.append(
-                batch.id, predict_spec, clean_spec, lens, reduction="batch"
+                ids, predict_spec, clean_spec, lens, reduction="batch"
             )
 
         # D Learns to estimate the scores of clean speech
@@ -96,12 +98,12 @@ class MetricGanBrain(sb.Brain):
 
         # D Learns to estimate the scores of enhanced speech
         elif optim_name == "D_enh" and self.sub_stage == SubStage.CURRENT:
-            target_score = self.score(batch.id, predict_wav, clean_wav, lens)
+            target_score = self.score(ids, predict_wav, clean_wav, lens)
             est_score = self.est_score(predict_spec, clean_spec)
 
             # Write enhanced wavs during discriminator training, because we
             # compute the actual score here and we can save it
-            self.write_wavs(batch.id, predict_wav, target_score, lens)
+            self.write_wavs(batch.id, ids, predict_wav, target_score, lens)
 
         # D Relearns to estimate the scores of previous epochs
         elif optim_name == "D_enh" and self.sub_stage == SubStage.HISTORICAL:
@@ -112,8 +114,11 @@ class MetricGanBrain(sb.Brain):
         elif optim_name == "D_noisy":
             noisy_wav, _ = batch.noisy_sig
             noisy_spec = self.compute_feats(noisy_wav)
-            target_score = self.score(batch.id, noisy_wav, clean_wav, lens)
+            target_score = self.score(ids, noisy_wav, clean_wav, lens)
             est_score = self.est_score(noisy_spec, clean_spec)
+
+            # Save scores of noisy wavs
+            self.save_noisy_scores(ids, target_score)
 
         else:
             raise ValueError(f"{optim_name} is not a valid 'optim_name'")
@@ -150,6 +155,16 @@ class MetricGanBrain(sb.Brain):
         # we do not use mse_cost to update model
         return adv_cost
 
+    def compute_ids(self, batch_id, optim_name):
+        """Returns the list of ids, edited via optimizer name."""
+        if optim_name == "D_enh":
+            return [f"{uid}@{self.epoch}" for uid in batch_id]
+        return batch_id
+
+    def save_noisy_scores(self, batch_id, scores):
+        for i, score in zip(batch_id, scores):
+            self.noisy_scores[i] = score
+
     def score(self, batch_id, deg_wav, ref_wav, lens):
         """Returns actual metric score, either pesq or stoi
 
@@ -164,19 +179,31 @@ class MetricGanBrain(sb.Brain):
         length : torch.Tensor
             The relative lengths of the utterances
         """
-        if self.hparams.target_metric == "pesq":
+        new_ids = [
+            i
+            for i, d in enumerate(batch_id)
+            if d not in self.historical_set and d not in self.noisy_scores
+        ]
+
+        if len(new_ids) == 0:
+            pass
+        elif self.hparams.target_metric == "pesq":
             self.target_metric.append(
-                ids=batch_id,
-                predict=deg_wav.detach(),
-                target=ref_wav.detach(),
-                lengths=lens,
+                ids=[batch_id[i] for i in new_ids],
+                predict=deg_wav[new_ids].detach(),
+                target=ref_wav[new_ids].detach(),
+                lengths=lens[new_ids],
             )
             score = torch.tensor(
                 [[s] for s in self.target_metric.scores], device=self.device,
             )
         elif self.hparams.target_metric == "stoi":
             self.target_metric.append(
-                batch_id, deg_wav, ref_wav, lens, reduction="batch",
+                [batch_id[i] for i in new_ids],
+                deg_wav[new_ids],
+                ref_wav[new_ids],
+                lens[new_ids],
+                reduction="batch",
             )
             score = torch.tensor(
                 [[-s] for s in self.target_metric.scores], device=self.device,
@@ -187,7 +214,17 @@ class MetricGanBrain(sb.Brain):
         # Clear metric scores to prepare for next batch
         self.target_metric.clear()
 
-        return score
+        # Combine old scores and new
+        final_score = []
+        for i, d in enumerate(batch_id):
+            if d in self.historical_set:
+                final_score.append([self.historical_set[d]["score"]])
+            elif d in self.noisy_scores:
+                final_score.append([self.noisy_scores[d]])
+            else:
+                final_score.append([score[new_ids.index(i)]])
+
+        return torch.tensor(final_score, device=self.device)
 
     def est_score(self, deg_spec, ref_spec):
         """Returns score as estimated by discriminator
@@ -204,7 +241,7 @@ class MetricGanBrain(sb.Brain):
         )
         return self.modules.discriminator(combined_spec)
 
-    def write_wavs(self, batch_id, wavs, score, lens):
+    def write_wavs(self, clean_id, batch_id, wavs, score, lens):
         """Write wavs to files, for historical discriminator training
 
         Arguments
@@ -220,18 +257,19 @@ class MetricGanBrain(sb.Brain):
         """
         lens = lens * wavs.shape[1]
         record = {}
-        for i, (name, pred_wav, length) in enumerate(zip(batch_id, wavs, lens)):
-            uttid = name + f"@{self.epoch}"
-            path = os.path.join(self.hparams.MetricGAN_folder, uttid + ".wav")
+        for i, (cleanid, name, pred_wav, length) in enumerate(
+            zip(clean_id, batch_id, wavs, lens)
+        ):
+            path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
             torchaudio.save(path, data, self.hparams.Sample_rate)
 
             # Make record of path and score for historical training
             score = float(score[i][0])
             clean_path = os.path.join(
-                self.hparams.train_clean_folder, name + ".wav"
+                self.hparams.train_clean_folder, cleanid + ".wav"
             )
-            record[uttid] = {
+            record[name] = {
                 "enh_wav": path,
                 "score": score,
                 "clean_wav": clean_path,
@@ -515,6 +553,7 @@ if __name__ == "__main__":
     )
     se_brain.train_set = datasets["train"]
     se_brain.historical_set = {}
+    se_brain.noisy_scores = {}
     se_brain.batch_size = hparams["dataloader_options"]["batch_size"]
     se_brain.sub_stage = SubStage.GENERATOR
 
