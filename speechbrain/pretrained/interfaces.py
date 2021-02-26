@@ -18,8 +18,16 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-class Mind:
+class Pretrained:
     """Takes a trained model and makes predictions on new data.
+
+    This is a base class which handles some common boilerplate.
+    It intentionally has an interface similar to ``Brain`` - these base
+    classes handle similar things.
+
+    Subclasses of Pretrained should implement the actual logic of how
+    the pretrained system runs, and add methods with descriptive names
+    (e.g. transcribe_file() for ASR).
 
     Arguments
     ---------
@@ -185,7 +193,7 @@ class Mind:
         return cls(hparams["modules"], hparams, **kwargs)
 
 
-class EncoderDecoderASR(Mind):
+class EncoderDecoderASR(Pretrained):
     """A ready-to-use Encoder-Decoder ASR model
 
     The class can be used either to run only the encoder (encode()) to extract
