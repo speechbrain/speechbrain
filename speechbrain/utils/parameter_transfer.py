@@ -54,10 +54,20 @@ class Pretrainer:
             filename = name + PARAMFILE_EXT
             path = fetch(self.save_dir, filename, source)
             loadable_paths[name] = path
-
         return loadable_paths
 
     def fetch_and_load(self, source, device=None):
+        """Fetches and loads the pretrained parameters.
+
+        Arguments
+        ---------
+        source : str
+            Path in local filesystem or hubmodel ID in Huggingface
+            model hub.
+        device : str
+            Compute device on which to load to - this may be ignored by objects
+            for which it is not relevant.
+        """
         paramfiles = self.fetch_parameters(source)
         logger.info(f"Loading pretrained weights from {source}")
         self._call_load_hooks(paramfiles, device)

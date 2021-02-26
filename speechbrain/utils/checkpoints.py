@@ -169,6 +169,19 @@ DEFAULT_TRANSFER_HOOKS = {
     torch.nn.Module: torch_parameter_transfer,
 }
 
+# Add a transfer hook for sentencepiece if it is installed:
+try:
+    import sentencepiece as spm
+
+    def _load_spm(obj, path, device=None):
+        obj.load(path)
+
+    DEFAULT_TRANSFER_HOOKS[spm.SentencePieceProcessor] = _load_spm
+    del spm  # Don't leave it here bare.
+except ImportError:
+    # SentencePiece not loaded, fine!
+    pass
+
 
 def mark_as_saver(method):
     """Method decorator which marks given method as the checkpoint saving hook.
@@ -205,9 +218,9 @@ def mark_as_loader(method):
     ---------
     method : callable
         Method of the class to decorate. Must be callable with
-        signature (instance, path, end_of_epoch) using positional
+        signature (instance, path, end_of_epoch, device) using positional
         arguments. This is satisfied by for example:
-        `def loader(self, path, end_of_epoch):`
+        `def loader(self, path, end_of_epoch, device):`
 
     Note
     ----
@@ -225,10 +238,44 @@ def mark_as_loader(method):
     return method
 
 
-def register_checkpoint_hooks(cls):
-    """Class decorator which registers the recover load and save hooks.
+def mark_as_transfer(method):
+    """Method decorator which marks given method as a parameter transfer hook.
 
-    The hooks must have been marked with mark_as_loader and mark_as_saver.
+    Arguments
+    ---------
+    method : callable
+        Method of the class to decorate. Must be callable with
+        signature (instance, path, device) using positional
+        arguments. This is satisfied by for example:
+        `def loader(self, path, device):`
+
+    Note
+    ----
+    This will not add the hook (not possible via a method decorator),
+    you must also decorate the class with @register_checkpoint_hooks
+    Only one method can be added as the hook.
+
+    Note
+    ----
+    The transfer hook is prioritized over the loader hook by the ``Pretrainer``
+    However, if no transfer hook is registered, the Pretrainer will use the
+    loader hook.
+    """
+    sig = inspect.signature(method)
+    try:
+        sig.bind(object(), pathlib.Path("testpath"), None)
+    except TypeError:
+        MSG = "Transfer hook must have signature (self, path, device)"
+        raise TypeError(MSG)
+    method._speechbrain_transfer = True
+    return method
+
+
+def register_checkpoint_hooks(cls):
+    """Class decorator which registers the load, save and transfer hooks.
+
+    The hooks must have been marked with mark_as_loader and mark_as_saver,
+    and possibly mark_as_transfer.
 
     Arguments
     ---------
@@ -255,6 +302,7 @@ def register_checkpoint_hooks(cls):
     """
     global DEFAULT_LOAD_HOOKS
     global DEFAULT_SAVE_HOOKS
+    global DEFAULT_TRANSFER_HOOKS
     for name, method in cls.__dict__.items():
         if hasattr(method, "_speechbrain_saver"):
             DEFAULT_SAVE_HOOKS[cls] = method
@@ -262,6 +310,9 @@ def register_checkpoint_hooks(cls):
         if hasattr(method, "_speechbrain_loader"):
             DEFAULT_LOAD_HOOKS[cls] = method
             logger.debug(f"Registered checkpoint load hook for {name}")
+        if hasattr(method, "_speechbrain_transfer"):
+            DEFAULT_TRANSFER_HOOKS[cls] = method
+            logger.debug(f"Registered parameter transfer hook for {name}")
     return cls
 
 
