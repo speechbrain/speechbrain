@@ -1,4 +1,9 @@
-"""Downloads or otherwise fetches pretrained models"""
+"""Downloads or otherwise fetches pretrained models
+
+Authors:
+ * Aku Rouhe 2021
+ * Samuele Cornell 2021
+"""
 import urllib.request
 import urllib.error
 import pathlib

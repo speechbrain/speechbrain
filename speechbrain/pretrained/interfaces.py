@@ -1,4 +1,12 @@
-"""Defines interfaces for simple inference with pretrained models"""
+"""Defines interfaces for simple inference with pretrained models
+
+Authors:
+ * Aku Rouhe 2021
+ * Peter Plantinga 2021
+ * Loren Lugosch 2020
+ * Mirco Ravanelli 2020
+ * Titouan Parcollet 2021
+"""
 import torch
 import torchaudio
 from types import SimpleNamespace
