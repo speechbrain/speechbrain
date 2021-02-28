@@ -1,0 +1,33 @@
+# ############################################################################
+# Tokenizer: subword BPE tokenizer with unigram 1K
+# Training: Mini-LibriSpeech
+# Authors:  Abdel Heba 2021
+#           Mirco Ravanelli 2021
+# ############################################################################
+
+
+# Set up folders for reading from and writing to
+data_folder: ../data
+output_folder: ./save
+
+# Path where data-specification files are stored
+train_annotation: ../train.json
+valid_annotation: ../valid.json
+test_annotation: ../test.json
+
+# Tokenizer parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+token_output: 1000  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+annotation_read: words # field to read
+
+# Tokenizer object
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <train_annotation>
+   annotation_read: !ref <annotation_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   character_coverage: !ref <character_coverage>
+   annotation_list_to_check: [!ref <train_annotation>, !ref <valid_annotation>]
+   annotation_format: json
