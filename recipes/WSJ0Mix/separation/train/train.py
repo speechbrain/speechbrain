@@ -58,24 +58,24 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
-                if "whamr" in self.hparams.data_folder:
-                    targets = self.hparams.reverb(
-                        targets[0].t(), torch.ones(targets.size(-1))
-                    )
-                    targets = targets.t().unsqueeze(0)
-                    mix = targets.sum(-1)
+                    if "whamr" in self.hparams.data_folder:
+                        targets = self.hparams.reverb(
+                            targets[0].t(), torch.ones(targets.size(-1))
+                        )
+                        targets = targets.t().unsqueeze(0)
+                        mix = targets.sum(-1)
 
-                if "wham" in self.hparams.data_folder:
-                    noise = noise.to(self.device)
-                    len_noise = noise.shape[1]
-                    len_mix = mix.shape[1]
-                    min_len = min(len_noise, len_mix)
+                    if "wham" in self.hparams.data_folder:
+                        noise = noise.to(self.device)
+                        len_noise = noise.shape[1]
+                        len_mix = mix.shape[1]
+                        min_len = min(len_noise, len_mix)
 
-                    # add the noise
-                    mix = mix[:, :min_len] + noise[:, :min_len]
+                        # add the noise
+                        mix = mix[:, :min_len] + noise[:, :min_len]
 
-                    # fix the length of targets also
-                    targets = targets[:, :min_len, :]
+                        # fix the length of targets also
+                        targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
