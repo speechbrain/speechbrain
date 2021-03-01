@@ -222,15 +222,15 @@ if __name__ == "__main__":
 
     # Prepare data from dev of Voxceleb1
     logger.info("Data preparation")
-    # prepare_voxceleb(
-    #    data_folder=params["data_folder"],
-    #    save_folder=params["save_folder"],
-    #    verification_pairs_file = veri_file_path,
-    #    splits=["train", "test"],
-    #    split_ratio=[90, 10],
-    #    seg_dur=300,
-    #    rand_seed=params["seed"],
-    # )
+    prepare_voxceleb(
+        data_folder=params["data_folder"],
+        save_folder=params["save_folder"],
+        verification_pairs_file=veri_file_path,
+        splits=["train", "test"],
+        split_ratio=[90, 10],
+        seg_dur=300,
+        rand_seed=params["seed"],
+    )
 
     # here we create the datasets objects as well as tokenization and encoding
     train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
