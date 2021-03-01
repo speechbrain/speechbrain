@@ -441,6 +441,9 @@ class MetricGanBrain(sb.Brain):
             )
             loader_kwargs["sampler"] = sampler
 
+            if self.sub_stage == SubStage.GENERATOR:
+                self.train_sampler = sampler
+
         # Make the dataloader as normal
         return super().make_dataloader(
             dataset, stage, ckpt_prefix, **loader_kwargs
