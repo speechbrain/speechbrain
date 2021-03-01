@@ -7,8 +7,7 @@
 
 save_folder: pretrained_models
 
-# Plz go to https://drive.google.com/drive/u/2/folders/1oCEAjYUyummzcQSkhCbl_3Vf2ozy0BXp and download the lastest LM
-lm_ckpt_file: !PLACEHOLDER
+lm_ckpt_file: https://www.dropbox.com/s/gtomtku5hhuwam1/model.ckpt?dl=1
 tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/5000_unigram.model
 device: 'cuda:0'
 
