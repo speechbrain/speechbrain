@@ -269,41 +269,26 @@ class ASR(sb.core.Brain):
             self.switched = True
 
     def on_fit_start(self):
-        """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp.
-
-        Default implementation compiles the jit modules, initializes
-        optimizers, and loads the latest checkpoint to resume training.
-        """
-        # Run this *after* starting all processes since jit modules cannot be
-        # pickled.
-        self._compile_jit()
-
-        # Wrap modules with parallel backend after jit
-        self._wrap_distributed()
-
-        # Initialize optimizers after parameters are configured
-        self.init_optimizers()
-
-        # Load latest checkpoint to check to current epoch number
-        if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+        super().on_fit_start()
 
         # if the model is resumed from stage two, reinitilaize the optimizer
         current_epoch = self.hparams.epoch_counter.current
+        current_optimizer = self.optimizer
         if current_epoch > self.hparams.stage_one_epochs:
+            del self.optimizer
             self.optimizer = self.hparams.SGD(self.modules.parameters())
 
+            # Load latest checkpoint to resume training if interrupted
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
-        # Load latest checkpoint to resume training if interrupted
-        if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+                # do not reload the weights if training is interrupted right before stage 2
+                group = current_optimizer.param_groups[0]
+                if "momentum" not in group:
+                    return
+
+                self.checkpointer.recover_if_possible(
+                    device=torch.device(self.device)
+                )
 
 
 def dataio_prepare(hparams):
