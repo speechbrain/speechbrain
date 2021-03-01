@@ -339,9 +339,7 @@ if __name__ == "__main__":
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(
         hparams["pretrainer"].fetch_and_load,
-        kwargs={
-            "source": hparams["pretrained_lm_tokenizer_path"],
-        },
+        kwargs={"source": hparams["pretrained_lm_tokenizer_path"]},
     )
 
     # Trainer initialization
@@ -354,7 +352,7 @@ if __name__ == "__main__":
     )
 
     # We dynamicaly add the tokenizer to our brain class.
-    # NB: This tokenizer corresponds to the one used for the LM!!!
+    # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
 
     # Training
