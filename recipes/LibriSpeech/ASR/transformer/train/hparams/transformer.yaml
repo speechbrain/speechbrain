@@ -17,7 +17,8 @@ train_log: !ref <output_folder>/train_log.txt
 
 # LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
 # # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
-language_model_file: /network/tmp1/jianyuan.zhong/TransformerLM/Transformer_bz32_w150000/2223/save/CKPT+2021-02-28+18-10-08+00/model.ckpt  # yamllint disable-line rule:line-length
+# Plz go to https://drive.google.com/drive/u/2/folders/1oCEAjYUyummzcQSkhCbl_3Vf2ozy0BXp and download the lastest LM
+language_model_file: !PLACEHOLDER  # yamllint disable-line rule:line-length
 tokenizer_file: ../../../Tokenizer/pretrained/pretrained_tok/5000_unigram.model # yamllint disable-line rule:line-length
 
 # Data files
@@ -92,7 +93,7 @@ valid_search_interval: 10
 valid_beam_size: 10
 test_beam_size: 66
 lm_weight: 0.60
-ctc_weight_decode: 0.55
+ctc_weight_decode: 0.52
 
 ############################## models ################################
 
