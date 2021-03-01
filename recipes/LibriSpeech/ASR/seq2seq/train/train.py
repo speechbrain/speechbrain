@@ -257,9 +257,9 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
-    # Defining tokenizer and loading it
-    # To avoid mismatch, we have to use the same tokenizer used for LM training
-    tokenizer = hparams["lm_model"].tokenizer
+    # We get the tokenizer as we need it to encode the labels when creating
+    # mini-batches.
+    tokenizer = hparams["tokenizer"]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -314,7 +314,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # 1.  # Dataset prep (parsing Librispeech)
+    # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
 
     # multi-gpu (ddp) save data preparation
@@ -335,6 +335,15 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets, tokenizer = dataio_prepare(hparams)
 
+    # We download the pretrained LM from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    run_on_main(
+        hparams["pretrainer"].fetch_and_load,
+        kwargs={
+            "source": hparams["pretrained_lm_tokenizer_path"],
+        },
+    )
+
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -344,8 +353,9 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # adding objects to trainer:
-    asr_brain.tokenizer = tokenizer
+    # We dynamicaly add the tokenizer to our brain class.
+    # NB: This tokenizer corresponds to the one used for the LM!!!
+    asr_brain.tokenizer = hparams["tokenizer"]
 
     # Training
     asr_brain.fit(
