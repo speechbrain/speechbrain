@@ -11,4 +11,4 @@ To train a full speech recognition system the pipeline is the following:
 ## How to simply use pretrained models to transcribe my audio file?
 
 SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories corresponding to our different models for LibriSpeech:
-- [seq2seq (ctc+attention)](https://huggingface.co/sb/asr-crdnn-rnnlm-librispeech)
+- [seq2seq (ctc+attention)](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech)
