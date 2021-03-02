@@ -11,7 +11,7 @@ python train.py train/train.yaml
 # Results
 
 | Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
+|:-------------:|:---------------------------:| -----:| -----:| --------:|
 | 20-05-22 | transformer.yaml | -.-- | Not Available | 1xV100 32GB |
 | 20-05-22 | conformer.yaml | -.-- | Not Available | 1xV100 32GB |
 
