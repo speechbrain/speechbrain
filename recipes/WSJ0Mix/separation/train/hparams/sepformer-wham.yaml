@@ -145,7 +145,7 @@ loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
     patience: 2
-    dont_halve_until_epoch: 85
+    dont_halve_until_epoch: 65
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
