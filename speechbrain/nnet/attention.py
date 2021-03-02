@@ -308,6 +308,19 @@ class KeyValueAttention(nn.Module):
 
 
 class RelPosMultiHeadAttention(nn.Module):
+    """ This class implements the relative multihead implementation similar to that in Transformer XL
+    https://arxiv.org/pdf/1901.02860.pdf
+
+    Arguments
+    ---------
+    enbed_dim : int
+        Size of the encoder feature vectors from which keys and values are computed.
+    num_heads: int
+        Number of parallel attention heads
+    dropout : float
+        The drop probability in dropout
+    """
+
     def __init__(
         self,
         embed_dim,
