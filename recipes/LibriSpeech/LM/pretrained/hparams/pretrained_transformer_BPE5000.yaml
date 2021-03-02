@@ -8,7 +8,7 @@
 save_folder: pretrained_models
 
 lm_ckpt_file: https://www.dropbox.com/s/gtomtku5hhuwam1/model.ckpt?dl=1
-tokenizer_file: ../../Tokenizer/pretrained/pretrained_tok/5000_unigram.model
+tokenizer_file: https://www.dropbox.com/s/261yfn5xazxfjzr/5000_unigram.model?dl=1
 device: 'cuda:0'
 
 # Model params
