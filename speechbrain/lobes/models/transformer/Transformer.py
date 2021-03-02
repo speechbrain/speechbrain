@@ -287,14 +287,22 @@ class TransformerEncoderLayer(nn.Module):
             )
             pos_enc = self.pos_enc(pos_seq)
 
-        output, self_attn = self.self_att(
-            src1,
-            src1,
-            src1,
-            r=pos_enc,
-            attn_mask=src_mask,
-            key_padding_mask=src_key_padding_mask,
-        )
+            output, self_attn = self.self_att(
+                src1,
+                src1,
+                src1,
+                r=pos_enc,
+                attn_mask=src_mask,
+                key_padding_mask=src_key_padding_mask,
+            )
+        else:
+            output, self_attn = self.self_att(
+                src1,
+                src1,
+                src1,
+                attn_mask=src_mask,
+                key_padding_mask=src_key_padding_mask,
+            )
 
         # add & norm
         src = src + self.dropout1(output)
