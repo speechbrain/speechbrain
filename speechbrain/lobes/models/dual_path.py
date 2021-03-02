@@ -548,6 +548,7 @@ class SBTransformerBlock(nn.Module):
         use_group_comm=False,
         use_positional_encoding=False,
         norm_before=False,
+        attention_type="regularMHA",
     ):
         super(SBTransformerBlock, self).__init__()
         self.use_positional_encoding = use_positional_encoding
@@ -570,6 +571,7 @@ class SBTransformerBlock(nn.Module):
             dropout=dropout,
             activation=activation,
             normalize_before=norm_before,
+            attention_type=attention_type,
         )
 
         if use_positional_encoding:

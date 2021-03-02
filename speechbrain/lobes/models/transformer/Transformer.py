@@ -126,6 +126,22 @@ class TransformerInterface(nn.Module):
         raise NotImplementedError
 
 
+class RelPosMHAPositional(nn.Module):
+    def __init__(self, demb):
+        super().__init__()
+        self.demb = demb
+        inv_freq = 1 / (10000 ** (torch.arange(0.0, demb, 2.0) / demb))
+        self.register_buffer("inv_freq", inv_freq)
+
+    def forward(self, pos_seq, bsz=None):
+        sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
+        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
+        if bsz is not None:
+            return pos_emb[:, None, :].expand(-1, bsz, -1)
+        else:
+            return pos_emb[:, None, :]
+
+
 class PositionalEncoding(nn.Module):
     """This class implements the positional encoding function.
 
@@ -211,12 +227,25 @@ class TransformerEncoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
 
-        self.self_att = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
-        )
+        self.attention_type = attention_type
+        if attention_type == "regularMHA":
+            self.self_att = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                dropout=dropout,
+                kdim=kdim,
+                vdim=vdim,
+            )
+        elif attention_type == "relposMHA":
+            self.self_att = sb.nnet.attention.RelPosMultiHeadAttention(
+                num_heads=nhead, embed_dim=d_model, dropout=dropout
+            )
+            self.pos_enc = RelPosMHAPositional(d_model)
+
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
@@ -252,10 +281,17 @@ class TransformerEncoderLayer(nn.Module):
         else:
             src1 = src
 
+        if self.attention_type == "relposMHA":
+            pos_seq = torch.arange(
+                src.size(0) - 1, -1, -1.0, device=src1.device, dtype=src1.dtype
+            )
+            pos_enc = self.pos_enc(pos_seq)
+
         output, self_attn = self.self_att(
             src1,
             src1,
             src1,
+            r=pos_enc,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
         )
@@ -326,6 +362,7 @@ class TransformerEncoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
 
@@ -349,6 +386,7 @@ class TransformerEncoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    attention_type=attention_type,
                 )
                 for i in range(num_layers)
             ]
