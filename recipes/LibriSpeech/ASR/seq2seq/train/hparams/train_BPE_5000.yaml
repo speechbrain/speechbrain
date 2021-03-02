@@ -20,7 +20,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Language model (LM) parameter file
 # NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
 # for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
-# # object. In this case, it is based on 1000 tokens.
+# object. In this case, it is based on 5000 tokens.
 lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_transformer_BPE5000.yaml
 
 # Data files
@@ -31,7 +31,7 @@ train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
-ckpt_interval_minutes: 15 # save checkpoint every N min
+ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
@@ -96,10 +96,10 @@ valid_beam_size: 20
 test_beam_size: 40
 eos_threshold: 1.5
 using_max_attn_shift: True
-max_attn_shift: 240
-lm_weight: 0.70
-ctc_weight_decode: 0.30
-ctc_window_size: 100
+max_attn_shift: 300
+lm_weight: 0.80
+ctc_weight_decode: 0.40
+ctc_window_size: 200
 coverage_penalty: 1.5
 temperature: 1.0
 temperature_lm: 1.0
