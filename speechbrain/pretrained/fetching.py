@@ -12,14 +12,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def fetch(filename, source, savedir="./data"):
+def fetch(
+    filename, source, savedir="./data", overwrite=False, save_filename=None
+):
     """Ensures you have a local copy of the file, returns its path
 
-    In case the source is an external location, downloads the file.
-    In case the source is already accessible on the filesystem,
-    creates a symlink in the savedir. Thus, the side effects of
-    this function always look similar: savedir/filename can be used
-    to access the file.
+    In case the source is an external location, downloads the file.  In case
+    the source is already accessible on the filesystem, creates a symlink in
+    the savedir. Thus, the side effects of this function always look similar:
+    savedir/save_filename can be used to access the file. And save_filename
+    defaults to the filename arg.
 
     Arguments
     ---------
@@ -35,20 +37,29 @@ def fetch(filename, source, savedir="./data"):
         Huggingface model hub ID, the file is downloaded from there.
     savedir : str
         Path where to save downloads/symlinks.
+    overwrite : bool
+        If True, always overwrite existing savedir/filename file and download
+        or recreate the link. If False (as by default), if savedir/filename
+        exists, assume it is correct and don't download/relink. Note that
+        Huggingface local cache is always used - with overwrite=True we just
+        relink from the local cache.
+    save_filename : str
+        The filename to use for saving this file. Defaults to filename if not
+        given.
 
     Returns
     -------
     pathlib.Path
         Path to file on local file system.
-
-    NOTE
-    ----
-    This will overwrite savedir/filename
     """
+    if save_filename is None:
+        save_filename = filename
     savedir = pathlib.Path(savedir)
     savedir.mkdir(exist_ok=True)
     sourcefile = f"{source}/{filename}"
-    destination = savedir / filename
+    destination = savedir / save_filename
+    if destination.exists() and not overwrite:
+        return destination
     if source.startswith("http://") or source.startswith("https://"):
         # Interpret source as web address.
         # Download
