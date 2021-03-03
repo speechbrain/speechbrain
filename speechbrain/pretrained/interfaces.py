@@ -16,6 +16,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.utils.distributed import run_on_main
 
 
 class Pretrained:
@@ -177,6 +178,8 @@ class Pretrained:
             "modules" and "pretrainer", as described.
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
+        savedir : str or Path
+            Where to put the pretraining material.
         """
         hparams_local_path = fetch(hparams_file, source, savedir)
 
@@ -186,8 +189,10 @@ class Pretrained:
 
         # Pretraining:
         pretrainer = hparams["pretrainer"]
-        pretrainer.savedir = savedir
-        pretrainer.fetch_and_load(source)
+        pretrainer.set_collect_in(savedir)
+        # For distributed setups, have this here:
+        run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+        pretrainer.load_collected()
 
         # Now return the system
         return cls(hparams["modules"], hparams, **kwargs)

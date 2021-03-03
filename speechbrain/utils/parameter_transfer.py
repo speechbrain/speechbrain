@@ -7,6 +7,7 @@ Authors
  * Aku Rouhe 2020
 """
 import logging
+import pathlib
 
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.utils.checkpoints import (
@@ -20,21 +21,53 @@ logger = logging.getLogger(__name__)
 
 
 class Pretrainer:
-    """A pretraining equivalent to Checkpointer"""
+    """Orchestrates pretraining
+
+    First collects parameter file symlinks into the given directory. Then
+    calls load hooks for each of those parameter files.
+
+    Arguments
+    ---------
+    collect_in : str or Path
+        Path to directory where the parameter file symlinks are collected.
+    loadables : mapping
+        Mapping from loadable key to object. This connects the keys to
+        the actual object instances.
+    paths : mapping
+        Mapping from loadable key to filepath. The last part
+        of the path is treated as file name, the rest of it
+        is treated as a "source" which can be either a directory
+        path or a magic source like Huggingface hub ID.
+        e.g. sb/asr-crdnn-libri/lm.ckpt
+        -> source=sb/asr-crdnn-libri, file=lm.ckpt
+        Note that when collecting, you can specify a default source,
+        which is used for all loadables that don't have a path specified.
+    custom_hooks : mapping
+        Mapping from loadable key to parameter transfer hook function. If you
+        want to use a custom loading function, specify it here.
+    """
 
     def __init__(
         self,
-        savedir="./model_checkpoints",
+        collect_in="./model_checkpoints",
         loadables=None,
-        custom_load_hooks=None,
+        paths=None,
+        custom_hooks=None,
     ):
         self.loadables = {}
-        self.savedir = savedir
+        self.collect_in = pathlib.Path(collect_in)
         if loadables is not None:
             self.add_loadables(loadables)
-        self.custom_load_hooks = {}
-        if custom_load_hooks is not None:
-            self.custom_load_hooks.update(custom_load_hooks)
+        self.paths = {}
+        if paths is not None:
+            self.add_paths(paths)
+        self.custom_hooks = {}
+        if custom_hooks is not None:
+            self.add_custom_hooks(custom_hooks)
+
+    def set_collect_in(self, path):
+        """Change the collecting path"""
+        self.collect_in = pathlib.Path(path)
 
     def add_loadables(self, loadables):
         """Update the loadables dict from the given mapping.
@@ -42,39 +75,97 @@ class Pretrainer:
         Arguments
         ---------
         loadables : mapping
-            The objects to pretrain.
+            Mapping from loadable key to object
         """
         self.loadables.update(loadables)
 
-    def fetch_parameters(self, source):
-        """Fetches from given source (path, huggingface_hub code etc.)
+    def add_paths(self, paths):
+        """Update the paths for different loadables.
+
+        When collecting parameters, paths here are preferred. Note that when
+        collecting, you can specify a default source, which is used for all
+        loadables that don't have a path specified.
+
+        Arguments
+        ---------
+        paths : mapping
+            Mapping from loadable key to filepath. The last part
+            of the path is treated as file name, the rest of it
+            is treated as a "source" which can be either a directory
+            path or a magic source like Huggingface hub ID.
+            e.g. sb/asr-crdnn-libri/lm.ckpt
+            -> source=sb/asr-crdnn-libri, file=lm.ckpt
+        """
+        self.paths.update({name: pathlib.Path(path) for name, path in paths})
+
+    def add_custom_hooks(self, custom_hooks):
+        """Update the custom hooks.
+
+        When loading parameters, hooks here are preferred over class defaults.
+
+        Arguments
+        ---------
+        custom_hooks : mapping
+            Mapping from loadable key to parameter transfer hook function. If
+            you want to use a custom loading function, specify it here.
+
+        """
+        self.custom_hooks.update(custom_hooks)
+
+    def collect_files(self, default_source=None):
+        """Fetches parameters from known paths with fallback default_source
+
+        The actual parameter files may reside elsewhere, but this ensures a
+        symlink in the self.collect_in directory. The symlink always uses the
+        loadable key in the filename. This standardization makes it easier to
+        orchestrate pretraining on e.g. distributed setups.
+
+        Use the default_source if you have everything organized neatly into one
+        location, like a Huggingface hub repo.
+
+        Arguments
+        ---------
+        default_source : str or Path
+            This is used for each loadable which doesn't have a path already
+            specified. If the loadable has key "asr", then the file to look for is
+            default_source/asr.ckpt
 
         Returns
         -------
         dict
-            Mapping from loadable names to parameter files
+            Mapping from loadable key to a local path from which loadable's
+            parameters can be loaded. This is not used in this class, but
+            can possibly be helpful.
         """
+        self.collect_in.mkdir(exist_ok=True)
         loadable_paths = {}
-        for name, loadable in self.loadables.items():
-            filename = name + PARAMFILE_EXT
-            path = fetch(filename, source, self.savedir)
+        for name in self.loadables:
+            save_filename = name + PARAMFILE_EXT
+            if name in self.paths:
+                filename = self.paths[name].name
+                source = self.paths[name].parent
+            else:
+                filename = save_filename
+                source = default_source
+            path = fetch(
+                filename, source, self.collect_in, save_filename=save_filename
+            )
             loadable_paths[name] = path
         return loadable_paths
 
-    def fetch_and_load(self, source, device=None):
-        """Fetches and loads the pretrained parameters.
+    def load_collected(self, device=None):
+        """Loads the files that have been collected.
 
         Arguments
         ---------
-        source : str
-            Path in local filesystem or hubmodel ID in Huggingface
-            model hub.
         device : str
-            Compute device on which to load to - this may be ignored by objects
-            for which it is not relevant.
+            Device on which to load, if you want to load to a specific device
+            directly ( otherwise just leave it to None ).
         """
-        paramfiles = self.fetch_parameters(source)
-        logger.info(f"Loading pretrained weights from {source}")
+        paramfiles = {}
+        for name in self.loadables:
+            filename = name + PARAMFILE_EXT
+            paramfiles[name] = self.collect_in / filename
         self._call_load_hooks(paramfiles, device)
 
     def _call_load_hooks(self, paramfiles, device=None):
@@ -84,8 +175,8 @@ class Pretrainer:
             loadpath = paramfiles[name]
 
             # First see if object has custom load hook:
-            if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](obj, loadpath, device)
+            if name in self.custom_hooks:
+                self.custom_hooks[name](obj, loadpath, device)
                 continue
             # Try the default transfer hook:
             default_hook = get_default_hook(obj, DEFAULT_TRANSFER_HOOKS)
