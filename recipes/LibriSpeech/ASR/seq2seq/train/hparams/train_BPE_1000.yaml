@@ -195,6 +195,8 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
    dnn_neurons: 512
    return_hidden: True  # For inference
 
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
 # Models
 modules:
    enc: !ref <enc>
