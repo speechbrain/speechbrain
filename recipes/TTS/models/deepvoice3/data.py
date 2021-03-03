@@ -5,7 +5,7 @@ from speechbrain.dataio.encoder import TextEncoder
 from typing import Collection
 
 
-from datasets.common import audio_pipeline, mel_spectrogram
+from datasets.common import audio_pipeline, mel_spectrogram, resample
 
 
 #TODO: This is temporary. Add support for different characters for different languages
@@ -63,7 +63,8 @@ def frame_positions(max_output_len=128):
 OUTPUT_KEYS = ["text_sequences", "mel", "input_lengths", "text_positions", "frame_positions"]
 
 
-def data_prep(datasets: Collection[DynamicItemDataset], max_input_len=128, max_output_len=512, tokens=None):
+def data_prep(datasets: Collection[DynamicItemDataset], max_input_len=128, max_output_len=512, tokens=None,
+              mel_dim: int=80, n_fft:int=512, sample_rate=22050):
     """
     Prepares one or more datasets for use with deepvoice.
 
@@ -82,7 +83,8 @@ def data_prep(datasets: Collection[DynamicItemDataset], max_input_len=128, max_o
     
     pipeline = [
         audio_pipeline,
-        mel_spectrogram(),
+        resample(new_freq=sample_rate),
+        mel_spectrogram(takes="sig_resampled", n_mels=mel_dim, n_fft=n_fft),
         text_encoder(max_input_len=max_input_len, tokens=tokens),
         frame_positions(max_output_len=max_output_len)]
 

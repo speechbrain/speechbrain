@@ -1,6 +1,25 @@
 import speechbrain as sb
 from torchaudio import transforms
 
+
+def wrap_transform(transform_type, takes=None, provides=None):
+    """
+    Wraps a Torch transform for the pipeline, returning a
+    decorator
+    """
+    default_takes = takes
+    default_provides = provides
+    def decorator(takes=None, provides=None, *args, **kwargs):
+        transform = transform_type(*args, **kwargs)
+        @sb.utils.data_pipeline.takes(takes or default_takes)
+        @sb.utils.data_pipeline.provides(provides or default_provides)
+        def f(*args, **kwargs):
+            return transform(*args, **kwargs)
+        return f
+
+    return decorator
+
+
 @sb.utils.data_pipeline.takes("wav")
 @sb.utils.data_pipeline.provides("sig")
 def audio_pipeline(file_name: str):
@@ -11,17 +30,5 @@ def audio_pipeline(file_name: str):
     return sb.dataio.dataio.read_audio(file_name)
 
 
-def mel_spectrogram(*args, **kwargs):
-    """
-    A pipeline wrapper function for torchaudio.transforms.MelSpectrogram,
-    which produces a MEL spectrogram out of a raw waveform
-    """
-    mel = transforms.MelSpectrogram(*args, **kwargs)
-
-    @sb.utils.data_pipeline.takes("sig")
-    @sb.utils.data_pipeline.provides("mel")
-    def f(sig):
-        return mel(sig)
-
-    return f
-    
+resample = wrap_transform(transforms.Resample, takes="sig", provides="sig_resampled")
+mel_spectrogram = wrap_transform(transforms.MelSpectrogram, takes="sig", provides="mel")

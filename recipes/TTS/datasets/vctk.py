@@ -106,9 +106,9 @@ class VCTK:
             {'ID': filename_to_id(txt_file_name),
              'speaker_id': speaker_id,
              'speaker': speaker,
-             'txt_file_name': txt_file_name,
-             'wav_file_name': wav_file_name,
-             'text': _read_text(txt_file_name)}
+             'txt': txt_file_name,
+             'wav': wav_file_name,
+             'label': _read_text(txt_file_name)}
             for speaker_id, speaker in self.speakers.items()
             for txt_file_name, wav_file_name in self.get_speaker_file_names(speaker_id))
     
@@ -250,17 +250,17 @@ def test_get_all_speakers_data():
         item['speaker']['ID'] == '226'
         for item in data)
     assert any(
-        item['wav_file_name'].endswith('p225/p225_002.wav') 
+        item['wav'].endswith('p225/p225_002.wav') 
         for item in data)
     assert any(
-        item['wav_file_name'].endswith('p226/p226_003.wav') 
+        item['wav'].endswith('p226/p226_003.wav') 
         for item in data)
     assert any(
-        item['txt_file_name'].endswith('p225/p225_002.txt') 
+        item['txt'].endswith('p225/p225_002.txt') 
         for item in data)
     assert all(
-        os.path.exists(item['wav_file_name'])
-        and os.path.exists(item['txt_file_name'])
+        os.path.exists(item['wav'])
+        and os.path.exists(item['txt'])
         for item in data)
 
 def test_to_csv():
@@ -278,13 +278,13 @@ def test_to_csv():
             item = data['p225_001']
             assert item['speaker_ID'] == '225'
             assert item['txt_file_name'].endswith('p225_001.txt')
-            assert item['wav_file_name'].endswith('p225_001.wav')
-            assert item['text'] == 'Please call Stella.'
+            assert item['wav'].endswith('p225_001.wav')
+            assert item['label'] == 'Please call Stella.'
             item = data['p226_002']
             assert item['speaker_ID'] == '226'
             assert item['txt_file_name'].endswith('p226_002.txt')
-            assert item['wav_file_name'].endswith('p226_002.wav')
-            assert item['text'] == 'Ask her to bring these things with her from the store.'
+            assert item['wav'].endswith('p226_002.wav')
+            assert item['label'] == 'Ask her to bring these things with her from the store.'
     finally:
         if os.path.isdir(temp_dir):
             shutil.rmtree(temp_dir)
