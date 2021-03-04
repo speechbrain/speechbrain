@@ -29,4 +29,4 @@ tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
    annotation_read: !ref <csv_read>
    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
    character_coverage: !ref <character_coverage>
-   csv_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
