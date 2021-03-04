@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 def torch_parameter_transfer(obj, path):
-    """Non-strict Torch Module state_dict load
+    """Non-strict Torch Module state_dict load.
 
     Loads a set of parameters from path to obj. If obj has layers for which
     parameters can't be found, only a warning is logged. Same thing
@@ -48,14 +48,14 @@ def torch_parameter_transfer(obj, path):
     Arguments
     ---------
     obj : torch.nn.Module
-        Instance for which to load the parameters
+        Instance for which to load the parameters.
     path : str
-        Path where to load from
+        Path where to load from.
 
     Returns
     -------
     None
-        The object is modified in place
+        The object is modified in place.
     """
     incompatible_keys = obj.load_state_dict(torch.load(path), strict=False)
     for missing_key in incompatible_keys.missing_keys:
@@ -67,6 +67,6 @@ def torch_parameter_transfer(obj, path):
     for unexpected_key in incompatible_keys.unexpected_keys:
         logger.warning(
             f"During parameter transfer to {obj} loading from "
-            + f"{path}, the object could not use the parameters loaded"
+            + f"{path}, the object could not use the parameters loaded "
             + f"with the key: {unexpected_key}"
         )

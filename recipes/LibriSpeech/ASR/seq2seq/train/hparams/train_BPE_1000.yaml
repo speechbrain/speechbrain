@@ -44,14 +44,6 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
-dynamic_batching: True
-
-dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 4000 # in terms of frames
-   left_bucket_len: 200
-   multiplier: 1.1
-   shuffle: False # if true re-creates batches at each epoch shuffling examples.
 
 # Feature parameters
 sample_rate: 16000
@@ -62,7 +54,6 @@ opt_class: !name:torch.optim.Adadelta
    lr: !ref <lr>
    rho: 0.95
    eps: 1.e-8
-
 
 # Dataloader options
 train_dataloader_opts:
@@ -109,15 +100,6 @@ ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
-
-# LM Model parameters
-lm_emb_size: 128
-lm_activation: !name:torch.nn.LeakyReLU
-lm_dropout: 0.0
-lm_rnn_layers: 2
-lm_rnn_neurons: 2048
-lm_dnn_blocks: 1
-lm_dnn_neurons: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -200,6 +182,7 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 # Models
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
    hparams_file: !ref <lm_hparam_file>
+   save_folder: !ref <save_folder>
 
 modules:
    enc: !ref <enc>

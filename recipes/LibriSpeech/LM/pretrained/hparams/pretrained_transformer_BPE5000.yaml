@@ -2,21 +2,18 @@
 # Model: LM for LibriSpeech
 # Tokens: Pre-trained LibriSpeech tokens
 # losses: NLL
-# Training: Timers and Such
-# Authors:  Loren Lugosch 2020
+# Training: LibriSpeech
 # ############################################################################
 
-# WORK IN PROGRESS. DO NOT USE THIS PRETRAINED MODEL UNTIL WE TRAINED
-# THE LM WITH TRANSDUCERS
 save_folder: pretrained_models
-lm_ckpt_file: https://www.dropbox.com/s/x5czm16p66c1i2g/lm_model.ckpt?dl=1 # update
-tokenizer_file: https://www.dropbox.com/s/5l8xecri9o2fk6l/5000_unigram.model?dl=1 #update
+
+lm_ckpt_file: https://www.dropbox.com/s/gtomtku5hhuwam1/model.ckpt?dl=1
+tokenizer_file: https://www.dropbox.com/s/261yfn5xazxfjzr/5000_unigram.model?dl=1
 device: 'cuda:0'
 
 # Model params
 d_model: 768
 num_asr_tokens: 5000
-
 
 model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <num_asr_tokens>
@@ -29,6 +26,6 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     activation: !name:torch.nn.GELU
     normalize_before: False
 
-tokenizer: !new:recipes.LibriSpeech.Tokenizer.inference.pretrained.tokenizer
+tokenizer: !new:recipes.LibriSpeech.Tokenizer.pretrained.pretrained.tokenizer
     tokenizer_file: !ref <tokenizer_file>
     save_folder: !ref <save_folder>

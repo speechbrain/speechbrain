@@ -39,6 +39,9 @@ def test_saveable_dataloader_multiprocess(tmpdir):
         dataloader._speechbrain_save(save_file)
         second_item = next(data_iterator)
         assert second_item == dataset[1]
+        # Cleanup needed for MacOS (open file limit)
+        del data_iterator
+        del dataloader
         # Now make a new dataloader and recover:
         new_dataloader = SaveableDataLoader(
             dataset, num_workers=num_parallel, collate_fn=None
@@ -49,3 +52,5 @@ def test_saveable_dataloader_multiprocess(tmpdir):
         new_data_iterator = iter(new_dataloader)
         second_second_item = next(new_data_iterator)
         assert second_second_item == second_item
+        del new_data_iterator
+        del new_dataloader
