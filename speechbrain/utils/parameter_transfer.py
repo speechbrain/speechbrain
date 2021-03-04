@@ -146,9 +146,14 @@ class Pretrainer:
             if name in self.paths:
                 filename = self.paths[name].name
                 source = self.paths[name].parent
-            else:
+            elif default_source is not None:
                 filename = save_filename
                 source = default_source
+            else:
+                raise ValueError(
+                    f"Path not specified for '{name}', "
+                    "and no default_source given!"
+                )
             path = fetch(
                 filename, source, self.collect_in, save_filename=save_filename
             )
