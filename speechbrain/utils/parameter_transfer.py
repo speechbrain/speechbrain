@@ -96,7 +96,9 @@ class Pretrainer:
             e.g. sb/asr-crdnn-libri/lm.ckpt
             -> source=sb/asr-crdnn-libri, file=lm.ckpt
         """
-        self.paths.update({name: pathlib.Path(path) for name, path in paths})
+        self.paths.update(
+            {name: pathlib.Path(path) for name, path in paths.items()}
+        )
 
     def add_custom_hooks(self, custom_hooks):
         """Update the custom hooks.
