@@ -17,7 +17,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/aishell # e,g./path/to/LibriSpeech
+data_folder: !PLACEHOLDER # e,g./path/to/aishell
 # noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
 skip_prep: False
@@ -25,6 +25,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev.csv
 test_csv: !ref <data_folder>/test.csv
+tokenizer_file: https://drive.google.com/uc?export=download&id=1VHcphRLJITHFkF6NbnSy_6s5gelYKW07
 
 # Training parameters
 number_of_epochs: 40
@@ -194,7 +195,7 @@ model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
 tokenizer: !new:recipes.AISHELL-1.Tokenizer.pretrained.pretrained.tokenizer
-   tokenizer_file: ../../Tokenizer/train/results/tokenizer_bpe5000/5000_unigram.model
+   tokenizer_file: !ref <tokenizer_file>
    save_folder: !ref <save_folder>/aishell_tokenizer
 
 beam_search: !new:speechbrain.decoders.S2SRNNBeamSearcher

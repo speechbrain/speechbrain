@@ -5,7 +5,6 @@ AISHELL-1 seq2seq model recipe. (Adapted from the LibriSpeech recipe.)
 
 """
 
-import os
 import sys
 import torch
 import logging
@@ -302,9 +301,6 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.hparams.cer_file = os.path.join(
-        hparams["output_folder"], hparams["cer_file"]
-    )
     asr_brain.evaluate(
         test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
     )
