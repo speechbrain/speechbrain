@@ -139,6 +139,9 @@ class Pretrainer:
             parameters can be loaded. This is not used in this class, but
             can possibly be helpful.
         """
+        logger.debug(
+            f"Collecting files (or symlinks) for pretraining in {self.collect_in}."
+        )
         self.collect_in.mkdir(exist_ok=True)
         loadable_paths = {}
         for name in self.loadables:
@@ -169,6 +172,9 @@ class Pretrainer:
             Device on which to load, if you want to load to a specific device
             directly ( otherwise just leave it to None ).
         """
+        logger.info(
+            f"Loading pretrained files for: {', '.join(self.loadables)}"
+        )
         paramfiles = {}
         for name in self.loadables:
             filename = name + PARAMFILE_EXT
