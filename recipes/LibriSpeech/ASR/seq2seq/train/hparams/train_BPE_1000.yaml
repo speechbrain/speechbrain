@@ -275,3 +275,6 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    loadables:
       lm: !ref <lm_model>
       tokenizer: !ref <tokenizer>
+   paths:
+      lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
+      tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
