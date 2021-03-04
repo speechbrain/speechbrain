@@ -1,14 +1,27 @@
-# Recipes for ASR with AISHELL-1
+# Recipes for ASR with AISHELL-1SR/train
+python train.py hparams/train.yaml
+```
+
 This folder contains recipes for tokenization and speech recognition with [AISHELL-1](https://www.openslr.org/33/), a 150-hour Chinese ASR dataset.
 
 ### Base recipe
 The recipe uses an attention-based CRDNN sequence-to-sequence model with an auxiliary CTC loss.
-Outputs are tokenized using a 5000-token SentencePiece tokenizer.
-This recipe is based on the LibriSpeech recipe, but uses no external language model, which is the convention for this dataset.
+To train a full recipe:
+
+1- Train a tokenizer. The tokenizer takes in input the training transcripts and determines the subword units that will be used for both acoustic and language model training.
 
 ```
+cd Tokenier/train
+python train.py hparams/tokenizer_bpe5000.yaml --data_folder=/localscratch/aishell/
+``
+If not present in the specified data_folder, the dataset will be automatically downloaded there.
+This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not 
+specify a different tokenizer in the speech recognition recipe. 
+
+2- Train the speech recognizer
+```
 cd ASR/train
-python train.py hparams/train.yaml
+python train.py hparams/train.yaml --data_folder=/localscratch/aishell/
 ```
 
 # Performance summary
@@ -19,3 +32,8 @@ Results are reported in terms of Character Error Rate (CER). It is not clear fro
 |----------------- | ------|
 | Base (remove spaces) | 7.76 |
 | Base (keep spaces) | 7.51 |
+
+You can checkout our results (models, training logs, etc,) here:
+https://drive.google.com/drive/folders/1zlTBib0XEwWeyhaXDXnkqtPsIBI18Uzs?usp=sharing
+
+

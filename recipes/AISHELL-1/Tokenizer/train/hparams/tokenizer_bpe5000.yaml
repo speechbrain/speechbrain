@@ -8,7 +8,7 @@ output_folder: !ref results/tokenizer_bpe5000/
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/aishell
+data_folder: !PLACEHOLDER # e.g, /localscratch/aishell
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev.csv
 
@@ -23,8 +23,8 @@ csv_read: transcript
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
    model_dir: !ref <output_folder>
    vocab_size: !ref <token_output>
-   csv_train: !ref <train_csv>
-   csv_read: !ref <csv_read>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
    character_coverage: !ref <character_coverage>
-   csv_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
