@@ -60,7 +60,7 @@ def fetch(
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
         return destination
-    if source.startswith("http://") or source.startswith("https://"):
+    if str(source).startswith("http://") or str(source).startswith("https://"):
         # Interpret source as web address.
         # Download
         try:
