@@ -21,6 +21,36 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def pack_padded_sequence(inputs, lengths):
+    """Returns packed speechbrain-formatted tensors.
+
+    Arguments
+    ---------
+    inputs : torch.Tensor
+        The sequences to pack.
+    lengths : torch.Tensor
+        The length of each sequence.
+    """
+    lengths = (lengths * inputs.size(1)).cpu()
+    return torch.nn.utils.rnn.pack_padded_sequence(
+        inputs, lengths, batch_first=True, enforce_sorted=False
+    )
+
+
+def pad_packed_sequence(inputs):
+    """Returns speechbrain-formatted tensor from packed sequences.
+
+    Arguments
+    ---------
+    inputs : torch.nn.utils.rnn.PackedSequence
+        An input set of sequences to convert to a tensor.
+    """
+    outputs, lengths = torch.nn.utils.rnn.pad_packed_sequence(
+        inputs, batch_first=True
+    )
+    return outputs
+
+
 class RNN(torch.nn.Module):
     """This function implements a vanilla RNN.
 
@@ -99,12 +129,17 @@ class RNN(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, lengths=None):
         """Returns the output of the vanilla RNN.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Starting hidden state.
+        lengths : torch.Tensor
+            Relative lengths of the input signals.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -114,11 +149,19 @@ class RNN(torch.nn.Module):
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
+        # Pack sequence for proper RNN handling of padding
+        if lengths is not None:
+            x = pack_padded_sequence(x, lengths)
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
             output, hn = self.rnn(x)
+
+        # Unpack the packed sequence
+        if lengths is not None:
+            output = pad_packed_sequence(output)
 
         return output, hn
 
@@ -197,13 +240,17 @@ class LSTM(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, lengths=None):
         """Returns the output of the LSTM.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Starting hidden state.
+        lengths : torch.Tensor
+            Relative length of the input signals.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -213,11 +260,19 @@ class LSTM(torch.nn.Module):
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
+        # Pack sequence for proper RNN handling of padding
+        if lengths is not None:
+            x = pack_padded_sequence(x, lengths)
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
             output, hn = self.rnn(x)
+
+        # Unpack the packed sequence
+        if lengths is not None:
+            output = pad_packed_sequence(output)
 
         return output, hn
 
@@ -296,12 +351,17 @@ class GRU(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, lengths=None):
         """Returns the output of the GRU.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Starting hidden state.
+        lengths : torch.Tensor
+            Relative length of the input signals.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -311,11 +371,19 @@ class GRU(torch.nn.Module):
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
+        # Pack sequence for proper RNN handling of padding
+        if lengths is not None:
+            x = pack_padded_sequence(x, lengths)
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
             output, hn = self.rnn(x)
+
+        # Unpack the packed sequence
+        if lengths is not None:
+            output = pad_packed_sequence(output)
 
         return output, hn
 

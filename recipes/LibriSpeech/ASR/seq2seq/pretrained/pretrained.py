@@ -4,6 +4,7 @@ Ready to use models for ASR with librispeech
 Authors
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
+ * Titouan Parcollet 2021
 """
 
 import os
@@ -34,14 +35,19 @@ class ASR(torch.nn.Module):
     >>> import torch
     >>> import torchaudio
     >>> from pretrained import ASR
-    >>> asr_model = ASR()
+    >>> asr_model = ASR(save_folder='asr_bpe1000_rnnlm')
     >>> audio_file='../../../../../samples/audio_samples/example2.flac'
     >>> # Make sure your output is sampled at 16 kHz
     >>> wav, fs = torchaudio.load(audio_file)
     >>> wav_lens = torch.tensor([1]).float()
     >>> words, tokens = asr_model.transcribe(wav, wav_lens)
     >>> words
-    [['MY', 'FATHER', 'HAS', 'REVEALED', 'THE', "CULPRIT'S", 'NAME']]
+    ["MY FATHER HAS REVEALED THE CULPRIT'S NAME"]
+    >>> asr_model = asr_model = ASR(hparams_file='hparams/pretrained_BPE5000.yaml',
+            save_folder='asr_bpe5000_transflm')
+    >>> words, tokens = asr_model.transcribe(wav, wav_lens)
+    >>> words
+    ["MY FATHER HAS REVEALED THE CULPRIT'S NAME"]
     """
 
     def __init__(
@@ -63,7 +69,15 @@ class ASR(torch.nn.Module):
             overrides["save_folder"] = save_folder
             self.hparams = load_hyperpyyaml(fin, overrides)
 
-        self.device = self.hparams["device"]
+        # putting modules on the right device
+        # We need to check if DDP has been initialised
+        # in order to give the right device
+        if torch.distributed.is_initialized():
+            self.device = ":".join(
+                [self.hparams["device"].split(":")[0], os.environ["LOCAL_RANK"]]
+            )
+        else:
+            self.device = self.hparams["device"]
 
         # Creating directory where pre-trained models are stored
         if not os.path.isdir(self.hparams["save_folder"]):

@@ -38,6 +38,7 @@ META = "meta"
 def prepare_voxceleb(
     data_folder,
     save_folder,
+    verification_pairs_file,
     splits=["train", "dev", "test"],
     split_ratio=[90, 10],
     seg_dur=300,
@@ -60,7 +61,8 @@ def prepare_voxceleb(
         Path to the folder where the original VoxCeleb dataset is stored.
     save_folder : str
         The directory where to store the csv files.
-
+    verification_pairs_file : str
+        txt file contaning the verification split.
     splits : list
         List of splits to prepare from ['train', 'dev']
     split_ratio : list
@@ -133,12 +135,12 @@ def prepare_voxceleb(
 
     # _check_voxceleb1_folders(data_folder, splits)
 
-    msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
+    msg = "\tCreating csv file for the VoxCeleb Dataset.."
     logger.info(msg)
 
     # Split data into 90% train and 10% validation (verification split)
     wav_lst_train, wav_lst_dev = _get_utt_split_lists(
-        data_folder, split_ratio, split_speaker
+        data_folder, split_ratio, verification_pairs_file, split_speaker
     )
 
     # Creating csv file for training data
@@ -152,7 +154,9 @@ def prepare_voxceleb(
 
     # For PLDA verification
     if "test" in splits:
-        prepare_csv_enrol_test(data_folder, save_folder)
+        prepare_csv_enrol_test(
+            data_folder, save_folder, verification_pairs_file
+        )
 
     # Saving options (useful to skip this phase when already done)
     save_pkl(conf, save_opt)
@@ -241,22 +245,24 @@ def _check_voxceleb_folders(data_folders, splits):
 
 
 # Used for verification split
-def _get_utt_split_lists(data_folders, split_ratio, split_speaker=False):
+def _get_utt_split_lists(
+    data_folders, split_ratio, verification_pairs_file, split_speaker=False
+):
     """
     Tot. number of speakers vox1= 1211.
     Tot. number of speakers vox2= 5994.
     Splits the audio file list into train and dev.
-    This function is useful when using verification split
+    This function automatically removes verification test files from the training and dev set (if any).
     """
     train_lst = []
     dev_lst = []
 
+    print("Getting file list...")
     for data_folder in data_folders:
 
-        # Get test sentences (useful for verification)
-        test_lst_file = os.path.join(data_folder, "meta", "veri_test.txt")
         test_lst = [
-            line.rstrip("\n").split(" ")[1] for line in open(test_lst_file)
+            line.rstrip("\n").split(" ")[1]
+            for line in open(verification_pairs_file)
         ]
         test_lst = set(sorted(test_lst))
 
@@ -414,7 +420,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     logger.info(msg)
 
 
-def prepare_csv_enrol_test(data_folders, save_folder):
+def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
     """
     Creates the csv file for test data (useful for verification)
 
@@ -439,7 +445,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
 
     for data_folder in data_folders:
 
-        test_lst_file = os.path.join(data_folder, "meta", "veri_test.txt")
+        test_lst_file = verification_pairs_file
 
         enrol_ids, test_ids = [], []
 

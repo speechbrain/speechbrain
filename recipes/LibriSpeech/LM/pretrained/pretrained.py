@@ -4,6 +4,7 @@ Pre-trained LM on LibriSpeech for inference.
 Authors
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
+ * Titouan Parcollet 2021
 """
 
 import os
@@ -51,6 +52,28 @@ class LM(torch.nn.Module):
     >>>
     >>> encoded_text = encoded_text[0,1:].tolist()
     >>> print(lm.tokenizer.decode(encoded_text))
+    >>>
+    >>> # Transformer LM
+    >>> lm = LM('hparams/pretrained_transformer_BPE5000.yaml')
+    >>> # Next word prediction
+    >>> text = "THE CAT IS ON"
+    >>> encoded_text = lm.tokenizer.encode_as_ids(text)
+    >>> encoded_text = torch.Tensor(encoded_text).unsqueeze(0)
+    >>> prob_out = lm(encoded_text.to(lm.device))
+    >>> index = int(torch.argmax(prob_out[0,-1,:]))
+    >>> print(lm.tokenizer.decode(index))
+
+    >>> # Text Generation
+    >>> encoded_text = torch.tensor([1]) # bos token + the
+    >>> encoded_text = encoded_text.unsqueeze(0).to(lm.device)
+    >>>
+    >>> for i in range(25):
+    >>>     prob_out = lm(encoded_text)
+    >>>     index = torch.argmax(prob_out[0,-1,:]).unsqueeze(0)
+    >>>     encoded_text = torch.cat([encoded_text, index.unsqueeze(0)], dim=1)
+    >>>
+    >>> encoded_text = encoded_text[0,1:].tolist()
+    >>> print(lm.tokenizer.decode(encoded_text))
     """
 
     def __init__(
@@ -78,7 +101,15 @@ class LM(torch.nn.Module):
             os.makedirs(self.hparams["save_folder"])
 
         # putting modules on the right device
-        self.device = self.hparams["device"]
+        # We need to check if DDP has been initialised
+        # in order to give the right device
+        if torch.distributed.is_initialized():
+            self.device = ":".join(
+                [self.hparams["device"].split(":")[0], os.environ["LOCAL_RANK"]]
+            )
+        else:
+            self.device = self.hparams["device"]
+
         self.model = self.hparams["model"].to(self.device)
 
         # Load pretrained modules
@@ -95,7 +126,8 @@ class LM(torch.nn.Module):
 
     def forward(self, x, hx=None):
         """Compute the LM probabilities given and encoded input."""
-        return self.model.forward(x, hx)
+        pout = self.model.forward(x, hx)
+        return pout
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""

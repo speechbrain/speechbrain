@@ -14,9 +14,9 @@ def test_tokenizer():
 
     spm = SentencePiece(
         "tokenizer_data/",
-        2000,
-        csv_train="tests/unittests/tokenizer_data/dev-clean.csv",
-        csv_read="wrd",
+        100,
+        annotation_train="tests/unittests/tokenizer_data/dev-clean.csv",
+        annotation_read="wrd",
         model_type="bpe",
     )
     encoded_seq_ids, encoded_seq_pieces = spm(
@@ -53,9 +53,9 @@ def test_tokenizer():
 
     spm = SentencePiece(
         "tokenizer_data/",
-        2000,
-        csv_train="tests/unittests/tokenizer_data/dev-clean.csv",
-        csv_read="char",
+        100,
+        annotation_train="tests/unittests/tokenizer_data/dev-clean.csv",
+        annotation_read="char",
         char_format_input=True,
         model_type="bpe",
     )

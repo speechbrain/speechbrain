@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class DynamicItemDataset(Dataset):
-    """Dataset that reads, wrangles, and produces dicts
+    """Dataset that reads, wrangles, and produces dicts.
 
     Each data point dict provides some items (by key), for example, a path to a
     wavefile with the key "wav_file". When a data point is fetched from this
@@ -169,11 +169,11 @@ class DynamicItemDataset(Dataset):
         """Makes a new dynamic item available on the dataset.
 
         Two calling conventions. For DynamicItem objects, just use:
-        add_dynamic_item(dynamic_item)
+        add_dynamic_item(dynamic_item).
         But otherwise, should use:
-        add_dynamic_item(func, takes, provides)
+        add_dynamic_item(func, takes, provides).
 
-        See `speechbrain.utils.data_pipeline`
+        See `speechbrain.utils.data_pipeline`.
 
         Arguments
         ---------
@@ -194,7 +194,7 @@ class DynamicItemDataset(Dataset):
         self.pipeline.add_dynamic_item(func, takes, provides)
 
     def set_output_keys(self, keys):
-        """Use this to change the output keys
+        """Use this to change the output keys.
 
         These are the keys that are actually evaluated when a data point
         is fetched from the dataset.
@@ -212,7 +212,7 @@ class DynamicItemDataset(Dataset):
 
     @contextlib.contextmanager
     def output_keys_as(self, keys):
-        """Context manager to temporarily set output keys
+        """Context manager to temporarily set output keys.
 
         Example
         -------
@@ -298,7 +298,7 @@ class DynamicItemDataset(Dataset):
         reverse=False,
         select_n=None,
     ):
-        """Returns a list of data ids, fulfilling the sorting and filtering"""
+        """Returns a list of data ids, fulfilling the sorting and filtering."""
 
         def combined_filter(computed):
             for key, limit in key_min_value.items():
@@ -369,7 +369,7 @@ class DynamicItemDataset(Dataset):
     def from_arrow_dataset(
         cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
     ):
-        """loading a prepared huggingface dataset"""
+        """Loading a prepared huggingface dataset"""
         # define an unbound method to generate puesdo keys
         def keys(self):
             return [i for i in range(dataset.__len__())]
@@ -380,7 +380,7 @@ class DynamicItemDataset(Dataset):
 
 
 class FilteredSortedDynamicItemDataset(DynamicItemDataset):
-    """Possibly filtered, possibly sorted DynamicItemDataset
+    """Possibly filtered, possibly sorted DynamicItemDataset.
 
     Shares the static data (reference).
     Has its own dynamic_items and output_keys (deepcopy).

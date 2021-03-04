@@ -1,4 +1,4 @@
-# Multi-Task (Enhancement and ASR) Recipe
+# Voicebank Multi-Task (Enhancement and ASR) Recipe
 
 This recipe combines enhancement and ASR to improve performance on both tasks.
 The technique we use in this recipe is called _mimic loss_ [1, 2, 3] and
@@ -55,8 +55,8 @@ which is slower, but a bit better.
 | Clean | (noisy phase) | 3.85 | 94.6  | 1.26    | 2.45     |
 | Noisy | -             | 1.97 | 78.7  | 4.19    | 3.46     |
 | *Joint Training*                                          |
-| Noisy | MSE           | 2.72 | 84.8  | 3.40    | 3.12     |
-| Noisy | MSE + mimic   | 2.81 | 85.1  | 3.50    | 3.32     |
+| Noisy | MSE           | 2.45 | 83.3  | 3.40    | 3.12     |
+| Noisy | MSE + mimic   | 2.58 | 83.5  | 3.50    | 3.32     |
 | *Frozen Mask Training*                                    |
 | Noisy | MSE           | 2.72 | 84.8  | 3.48    | 3.12     |
 | Noisy | MSE + mimic   | 2.87 | 85.2  | 3.20    | 2.96     |

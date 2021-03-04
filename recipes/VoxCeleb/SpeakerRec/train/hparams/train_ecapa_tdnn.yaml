@@ -6,20 +6,29 @@
 # Basic parameters
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/ecapa/<seed>
+output_folder: !ref results/ecapa_augment/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/VoxCeleb
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/dev.csv
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
+train_annotation: !ref <save_folder>/train.csv
+valid_annotation: !ref <save_folder>/dev.csv
+
+# Use the following links for the official voxceleb splits:
+# VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+# VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
+# VoxCeleb1-E (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_all2.txt.
+# VoxCeleb1-E and VoxCeleb1-H lists are drawn from the VoxCeleb1 training set.
+# Therefore you cannot use any files in VoxCeleb1 for training if you are using these lists for testing.
+verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 100
-batch_size: 64
+number_of_epochs: 10
+batch_size: 32
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
@@ -43,7 +52,7 @@ dataloader_options:
     shuffle: !ref <shuffle>
     num_workers: 2
 
-
+# Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
@@ -52,7 +61,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     input_size: !ref <n_mels>
-    channels: [512, 512, 512, 512, 1536]
+    channels: [1024, 1024, 1024, 1024, 3072]
     kernel_sizes: [5, 3, 3, 3, 1]
     dilations: [1, 2, 3, 4, 1]
     attention_channels: 128
@@ -65,7 +74,34 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+
+augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [100]
+
+augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 0.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 1.0
@@ -74,18 +110,32 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_high: 15
     rir_scale_factor: 1.0
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: 16000
-    speeds: [100]
+
+# Definition of the augmentation pipeline.
+# If concat_augment = False, the augmentation techniques are applied
+# in sequence. If concat_augment = True, all the augmented signals
+# # are concatenated in a single big batch.
+
+augment_pipeline: [
+    !ref <augment_wavedrop>,
+    !ref <augment_speed>,
+    !ref <add_rev>,
+    !ref <add_noise>,
+    !ref <add_rev_noise>
+]
+concat_augment: True
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
-    std_norm: True
+    std_norm: False
 
 modules:
     compute_features: !ref <compute_features>
-    augmentation: !ref <augmentation>
-    env_corrupt: !ref <env_corrupt>
+    augment_wavedrop: !ref <augment_wavedrop>
+    augment_speed: !ref <augment_speed>
+    add_rev: !ref <add_rev>
+    add_noise: !ref <add_noise>
+    add_rev_noise: !ref <add_rev_noise>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
@@ -99,6 +149,7 @@ compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
+    weight_decay: 0.000002
 
 lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
     base_lr: !ref <base_lr>
