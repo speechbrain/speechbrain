@@ -61,7 +61,7 @@ class MetricGanBrain(sb.Brain):
             noisy_spec = self.compute_feats(noisy_wav)
 
             # mask with "signal approximation (SA)"
-            mask = self.modules.generator(noisy_spec)
+            mask = self.modules.generator(noisy_spec, lengths=lens)
             mask = mask.clamp(min=self.hparams.min_mask).squeeze(2)
             predict_spec = torch.mul(mask, noisy_spec)
 
