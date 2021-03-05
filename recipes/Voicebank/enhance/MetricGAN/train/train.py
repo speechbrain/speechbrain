@@ -289,7 +289,8 @@ class MetricGanBrain(sb.Brain):
                 )
                 self.d_optimizer.zero_grad()
                 loss.backward()
-                self.d_optimizer.step()
+                if self.check_gradients(loss):
+                    self.d_optimizer.step()
                 loss_tracker += loss.detach() / 3
         elif self.sub_stage == SubStage.HISTORICAL:
             loss = self.compute_objectives(
@@ -297,7 +298,8 @@ class MetricGanBrain(sb.Brain):
             )
             self.d_optimizer.zero_grad()
             loss.backward()
-            self.d_optimizer.step()
+            if self.check_gradients(loss):
+                self.d_optimizer.step()
             loss_tracker += loss.detach()
         elif self.sub_stage == SubStage.GENERATOR:
             loss = self.compute_objectives(
@@ -305,7 +307,8 @@ class MetricGanBrain(sb.Brain):
             )
             self.g_optimizer.zero_grad()
             loss.backward()
-            self.g_optimizer.step()
+            if self.check_gradients(loss):
+                self.g_optimizer.step()
             loss_tracker += loss.detach()
         return loss_tracker
 

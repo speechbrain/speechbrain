@@ -8,7 +8,7 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 7233
+seed: 7231
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: /data/member1/user_jasonfu/noisy-vctk-16k
@@ -49,10 +49,10 @@ number_of_epochs: 600
 number_of_samples: 100
 min_mask: 0
 train_N_batch: 1
-valid_N_batch: 1
+valid_N_batch: 30
 history_portion: 0.2
-G_lr: 0.001
-D_lr: 0.001
+G_lr: 0.0005
+D_lr: 0.0005
 mse_weight: 0
 
 dataloader_options:
