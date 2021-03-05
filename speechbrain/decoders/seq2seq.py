@@ -7,7 +7,6 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-import numpy as np
 
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScorer
@@ -492,7 +491,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     continue
                 hyp = alived_seq[index, :]
                 log_probs = alived_log_probs[index, :]
-                final_scores = scores[index].item() + self.length_rewarding * (
+                final_scores = scores[index] + self.length_rewarding * (
                     timesteps + 1
                 )
                 hyps_and_scores[batch_id].append((hyp, log_probs, final_scores))
@@ -510,29 +509,45 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         Returns
         -------
-        predictions : list
-            This list contains the predicted hypothesis.
-            The order will be the following:
-            h_i_j, i is utterance id, and j is hypothesis id.
-            When topk=2, and 3 sentences:
-            [h_0_0, h_0_1,h_1_0, h_1_1, h_2_0, h_2_1].
-        top_scores : list
-            This list contains the final scores of hypotheses.
-            The order is the same as predictions.
-        top_log_probs : list
-            This list contains the log probabilities of each hypotheses.
-            The order is the same as predictions.
+        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
+            This tensor stores the topk predicted hypothesis.
+        topk_scores : torch.Tensor (batch, topk)
+            The length of each topk sequence in the batch.
+        topk_lengths : torch.Tensor (batch, topk)
+            This tensor contains the final scores of topk hypotheses.
+        topk_log_probs : list
+            The log probabilities of each hypotheses.
         """
-        predictions, top_log_probs, top_scores = [], [], []
+        top_hyps, top_log_probs, top_scores, top_lengths = [], [], [], []
+        batch_size = len(hyps_and_scores)
+
+        # Collect hypotheses
         for i in range(len(hyps_and_scores)):
             hyps, log_probs, scores = zip(*hyps_and_scores[i])
+            top_hyps += hyps
+            top_scores += scores
+            top_log_probs += log_probs
+            top_lengths += [len(hyp) for hyp in hyps]
+        top_hyps = torch.nn.utils.rnn.pad_sequence(
+            top_hyps, batch_first=True, padding_value=0
+        )
+        top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
+        top_lengths = torch.tensor(
+            top_lengths, dtype=torch.int, device=top_scores.device
+        )
+        # Get topk indices
+        topk_scores, indices = top_scores.topk(self.topk, dim=-1)
+        indices = (indices + self.beam_offset.unsqueeze(1)).view(
+            batch_size * self.topk
+        )
+        # Select topk hypotheses
+        topk_hyps = torch.index_select(top_hyps, dim=0, index=indices,)
+        topk_hyps = topk_hyps.view(batch_size, self.topk, -1)
+        topk_lengths = torch.index_select(top_lengths, dim=0, index=indices,)
+        topk_lengths = topk_lengths.view(batch_size, self.topk)
+        topk_log_probs = [top_lengths[index.item()] for index in indices]
 
-            # get topk indices and reverse it to make it descending
-            indices = np.argsort(np.array(scores))[::-1][:topk]
-            predictions += [hyps[index] for index in indices]
-            top_scores += [scores[index] for index in indices]
-            top_log_probs += [log_probs[index] for index in indices]
-        return predictions, top_scores, top_log_probs
+        return topk_hyps, topk_scores, topk_lengths, topk_log_probs
 
     def forward(self, enc_states, wav_len):  # noqa: C901
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
@@ -570,7 +585,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         # The first index of each sentence.
-        beam_offset = torch.arange(batch_size, device=device) * self.beam_size
+        self.beam_offset = (
+            torch.arange(batch_size, device=device) * self.beam_size
+        )
 
         # initialize sequence scores variables.
         sequence_scores = torch.empty(
@@ -579,7 +596,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         sequence_scores.fill_(float("-inf"))
 
         # keep only the first to make sure no redundancy.
-        sequence_scores.index_fill_(0, beam_offset, 0.0)
+        sequence_scores.index_fill_(0, self.beam_offset, 0.0)
 
         # keep the hypothesis that reaches eos and their corresponding score and log_probs.
         hyps_and_scores = [[] for _ in range(batch_size)]
@@ -688,7 +705,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # The index of which beam the current top-K output came from in (t-1) timesteps.
             predecessors = (
                 candidates // vocab_size
-                + beam_offset.unsqueeze(1).expand_as(candidates)
+                + self.beam_offset.unsqueeze(1).expand_as(candidates)
             ).view(batch_size * self.beam_size)
 
             # Permute the memory to synchoronize with the output.
@@ -786,17 +803,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 timesteps=max_decode_steps,
             )
 
-        predictions, top_scores, log_probs = self._get_top_score_prediction(
-            hyps_and_scores, topk=self.topk,
-        )
+        (
+            topk_hyps,
+            topk_scores,
+            topk_lengths,
+            log_probs,
+        ) = self._get_top_score_prediction(hyps_and_scores, topk=self.topk,)
+        # pick the best hyp
+        predictions = topk_hyps[:, 0, :]
         predictions = batch_filter_seq2seq_output(
             predictions, eos_id=self.eos_index
         )
 
         if self.return_log_probs:
-            return predictions, top_scores, log_probs
+            return predictions, topk_scores, log_probs
         else:
-            return predictions, top_scores
+            return predictions, topk_scores
 
     def ctc_forward_step(self, x):
         logits = self.ctc_fc(x)

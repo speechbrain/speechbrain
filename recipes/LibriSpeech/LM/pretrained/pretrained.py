@@ -52,6 +52,28 @@ class LM(torch.nn.Module):
     >>>
     >>> encoded_text = encoded_text[0,1:].tolist()
     >>> print(lm.tokenizer.decode(encoded_text))
+    >>>
+    >>> # Transformer LM
+    >>> lm = LM('hparams/pretrained_transformer_BPE5000.yaml')
+    >>> # Next word prediction
+    >>> text = "THE CAT IS ON"
+    >>> encoded_text = lm.tokenizer.encode_as_ids(text)
+    >>> encoded_text = torch.Tensor(encoded_text).unsqueeze(0)
+    >>> prob_out = lm(encoded_text.to(lm.device))
+    >>> index = int(torch.argmax(prob_out[0,-1,:]))
+    >>> print(lm.tokenizer.decode(index))
+
+    >>> # Text Generation
+    >>> encoded_text = torch.tensor([1]) # bos token + the
+    >>> encoded_text = encoded_text.unsqueeze(0).to(lm.device)
+    >>>
+    >>> for i in range(25):
+    >>>     prob_out = lm(encoded_text)
+    >>>     index = torch.argmax(prob_out[0,-1,:]).unsqueeze(0)
+    >>>     encoded_text = torch.cat([encoded_text, index.unsqueeze(0)], dim=1)
+    >>>
+    >>> encoded_text = encoded_text[0,1:].tolist()
+    >>> print(lm.tokenizer.decode(encoded_text))
     """
 
     def __init__(
