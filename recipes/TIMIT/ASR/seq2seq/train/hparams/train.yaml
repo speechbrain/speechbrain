@@ -1,3 +1,11 @@
+# ################################
+# Model: seq2seq ASR on TIMIT with CRDNN (with LiGRU)
+# Authors:
+# * Mirco Ravanelli 2020
+# * Ju-Chieh Chou 2020
+# * Abdel Heba 2020
+# ################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
@@ -8,9 +16,9 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/dev.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/dev.json
+test_annotation: !ref <output_folder>/test.json
 skip_prep: False # Skip data preparation
 
 # Training parameters
@@ -71,15 +79,6 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-
-# Can be removed to speed up training a little
-#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#    openrir_folder: !ref <data_folder>
-#    babble_prob: 0.0
-#    reverb_prob: 0.0
-#   noise_prob: 1.0
-#    noise_snr_low: 0
-#    noise_snr_high: 15
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
@@ -175,8 +174,8 @@ modules:
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
-    #env_corrupt: !ref <env_corrupt>
 
+# Compile the encoder (to speed up training)
 jit_module_keys: [enc]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

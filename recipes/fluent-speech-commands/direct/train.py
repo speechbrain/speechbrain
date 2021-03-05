@@ -1,6 +1,5 @@
 #!/usr/bin/env/python3
 """
-
 Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
 
 We encode input waveforms into features using a model trained on LibriSpeech,

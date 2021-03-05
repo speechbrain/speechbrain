@@ -9,8 +9,8 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Test WER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:|
-| 20-05-22 | train_BPE_1000.yaml | 3.08 | Not Available | 1xV100 32GB |
-| 20-05-22 | train_BPE_5000.yaml | 2.89 | Not Available | 1xV100 32GB |
+| 20-05-22 | train_BPE_1000.yaml | 3.08 | https://drive.google.com/drive/folders/1SAndjcThdkO-YQF8kvwPOXlQ6LMT71vt?usp=sharing | 1xV100 32GB |
+| 20-05-22 | train_BPE_5000.yaml | 2.89 | https://drive.google.com/drive/folders/1kSwdBT8kDhnmTLzrOPDL77LX_Eq-3Tzl?usp=sharing | 1xV100 32GB |
 
 
 # Training Time

@@ -40,3 +40,6 @@ python train.py hparams/train.yaml
 | Multistage (LibriSpeech LM) | 69.9% ± 2.5% | 69.8% ± 3.5% |
 | Multistage (Timers and Such LM) | 73.1% ± 8.7% | 75.3% ± 4.2% |
 | Direct | 96.1% ± 0.2% | 74.5% ± 6.9% |
+
+You can find the output folder (model, logs, etc) here:
+https://drive.google.com/drive/folders/1kSwdBT8kDhnmTLzrOPDL77LX_Eq-3Tzl?usp=sharing

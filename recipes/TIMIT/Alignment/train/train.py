@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Recipe for doing HMM-DNN Alignment on the TIMIT dataset
+"""Recipe for training a HMM-DNN alignment system on the TIMIT dataset.
+The system is trained can be trained with Viterbi, forward, or CTC loss.
 
 To run this recipe, do the following:
 > python train.py hparams/train.yaml --data_folder /path/to/TIMIT
 
 Authors
- * Elena Rastorgueve 2020
+ * Elena Rastorgueva 2020
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """

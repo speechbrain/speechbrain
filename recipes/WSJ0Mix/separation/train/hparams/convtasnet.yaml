@@ -1,7 +1,6 @@
 # ################################
 # Model: SepFormer for source separation
 # https://arxiv.org/abs/2010.13154
-#
 # Dataset : WSJ0-2mix and WSJ0-3mix
 # ################################
 # Basic parameters

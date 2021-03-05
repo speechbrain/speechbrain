@@ -1,6 +1,5 @@
 #!/usr/bin/env/python3
 """
-
 Recipe for "decoupled" (speech -> ASR -> text -> NLU -> semantics) SLU.
 
 The NLU part is trained on the ground truth transcripts, and at test time
