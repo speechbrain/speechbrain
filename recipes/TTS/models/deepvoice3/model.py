@@ -9,9 +9,9 @@ import math
 import torch
 import numpy as np
 from torch.nn import functional as F
-from torch import nn
+from torch import nn, Tensor
 from speechbrain.nnet import CNN
-from typing import List
+from typing import List, Tuple
 
 
 class WeightNorm(nn.Module):
@@ -89,7 +89,7 @@ class ConvBlock(nn.Module):
         self.conv.weight.data.normal_(mean=0, std=std)
         self.conv.bias.data.zero_()
     
-    def forward(self, x, *args, **kwargs):
+    def forward(self, x: Tensor, *args, **kwargs):
         residual = x
         x = self.conv(x)
         x = self.glu(x)
@@ -114,7 +114,7 @@ class Encoder(nn.Module):
         self.dropout = dropout
 
     def forward(self, text_sequences, text_positions=None, lengths=None,
-                speaker_embed=None):
+                speaker_embed=None) -> Tuple[Tensor, Tensor]:
         # embed text_sequences
         x = self.embed_tokens(text_sequences.long())
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -162,7 +162,7 @@ class AttentionLayer(nn.Module):
         self.window_ahead = window_ahead
         self.window_backward = window_backward
 
-    def forward(self, query, encoder_out, mask=None, last_attended=None):
+    def forward(self, query: Tensor, encoder_out: Tensor, mask=None, last_attended: Tensor=None) -> Tuple[Tensor, Tensor]:
         keys, values = encoder_out
         residual = query
         values = self.value_projection(values)
@@ -206,6 +206,8 @@ class AttentionLayer(nn.Module):
         return x, attn_scores
 
 
+DECODER_OUTPUT_TYPE = Tuple[Tensor, Tensor, Tensor, Tensor]
+
 class Decoder(nn.Module):
     def __init__(
         self,
@@ -217,7 +219,7 @@ class Decoder(nn.Module):
         max_positions: int=512,
         in_dim: int=80,
         in_channels: int=128,
-        r: int=5,
+        outputs_per_step: int=5,
         dropout: float=0.1,
         query_position_rate: float=1.0,
         key_position_rate: float=1.29):
@@ -226,11 +228,11 @@ class Decoder(nn.Module):
         self.dropout = dropout
         self.in_dim = in_dim
         self.in_channels = in_channels
-        self.r = r
+        self.outputs_per_step = outputs_per_step
         self.query_position_rate = query_position_rate
         self.key_position_rate = key_position_rate
 
-        in_channels = in_dim * r
+        in_channels = in_dim * outputs_per_step
         
         # Position encodings for query (decoder states) and keys (encoder states)
         self.embed_query_positions = SinusoidalEncoding(
@@ -240,7 +242,7 @@ class Decoder(nn.Module):
         # Used for compute multiplier for positional encodings
 
         # Prenet: causal convolution blocks
-        in_channels = in_dim * r
+        in_channels = in_dim * self.outputs_per_step
         std_mul = 1.0
         self.preattention = nn.Sequential(*preattention)
         self.convolutions = nn.ModuleList(convolutions)
@@ -249,19 +251,20 @@ class Decoder(nn.Module):
         self.output = output
 
         # Mel-spectrogram (before sigmoid) -> Done binary flag
-        self.fc = nn.Linear(in_dim * r, 1)
+        self.fc = nn.Linear(in_dim * outputs_per_step, 1)
 
         self.max_decoder_steps = 200
         self.min_decoder_steps = 10
 
-    def forward(self, encoder_out, inputs=None,
-                text_positions=None, frame_positions=None, lengths=None):
+    def forward(self, encoder_out: Tensor, inputs: Tensor=None,
+                text_positions: Tensor=None, frame_positions: Tensor=None,
+                lengths: Tensor=None) -> DECODER_OUTPUT_TYPE:
 
         # Grouping multiple frames if necessary
         if inputs.size(-1) == self.in_dim:
-            inputs = inputs.view(inputs.size(0), inputs.size(1) // self.r, -1)
+            inputs = inputs.view(inputs.size(0), inputs.size(1) // self.outputs_per_step, -1)
 
-        assert inputs.size(-1) == self.in_dim * self.r
+        assert inputs.size(-1) == self.in_dim * self.outputs_per_step
 
         keys, values = encoder_out
 
@@ -340,7 +343,7 @@ class SinusoidalEncoding(nn.Embedding):
     """
     A sinusoidal encoding implementation
     """
-    def __init__(self, num_embeddings, embedding_dim,
+    def __init__(self, num_embeddings: int, embedding_dim: int,
                  *args, **kwargs):
         super(SinusoidalEncoding, self).__init__(num_embeddings, embedding_dim,
                                                  padding_idx=0,
@@ -349,7 +352,7 @@ class SinusoidalEncoding(nn.Embedding):
                                                   position_rate=1.0,
                                                   sinusoidal=False)
 
-    def forward(self, x, w=1.0):
+    def forward(self, x: Tensor, w: float=1.0) -> Tensor:
         isscaler = np.isscalar(w)
         assert self.padding_idx is not None
 
@@ -370,8 +373,8 @@ class SinusoidalEncoding(nn.Embedding):
             pe = torch.stack(pe)
             return pe
 
-def position_encoding_init(n_position, d_pos_vec, position_rate=1.0,
-                           sinusoidal=True):
+def position_encoding_init(n_position: int, d_pos_vec: int, position_rate: float=1.0,
+                           sinusoidal: bool=True):
     ''' Init the sinusoid position encoding table '''
 
     # keep dim 0 for padding token position encoding zero vector
@@ -387,7 +390,7 @@ def position_encoding_init(n_position, d_pos_vec, position_rate=1.0,
     return position_enc
 
 
-def sinusoidal_encode(x, w):
+def sinusoidal_encode(x: Tensor, w: Tensor):
     y = w * x
     y[1:, 0::2] = torch.sin(y[1:, 0::2].clone())
     y[1:, 1::2] = torch.cos(y[1:, 1::2].clone())
@@ -401,7 +404,7 @@ class Converter(nn.Module):
         self.convolutions = nn.Sequential(*convolutions)
 
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = x.transpose(1, 2)
         x = self.convolutions(x)
         x = x.transpose(1, 2)
@@ -420,8 +423,9 @@ class AttentionSeq2Seq(nn.Module):
             self.encoder.num_attention_layers = sum(
                 [layer is not None for layer in decoder.attention])
 
-    def forward(self, text_sequences, mel_targets=None, 
-                text_positions=None, frame_positions=None, input_lengths=None):
+    def forward(self, text_sequences: Tensor, mel_targets: Tensor=None, 
+                text_positions: Tensor=None, frame_positions: Tensor=None,
+                input_lengths: Tensor=None):
         # (B, T, text_embed_dim)
         encoder_outputs = self.encoder(
             text_sequences, lengths=input_lengths)
@@ -436,6 +440,8 @@ class AttentionSeq2Seq(nn.Module):
 
         return mel_outputs, alignments, done, decoder_states
 
+
+MODEL_OUTPUT_TYPE = Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]
 
 class TTSModel(nn.Module):
     """Attention seq2seq model + post processing network
@@ -484,7 +490,7 @@ class TTSModel(nn.Module):
         return (p for p in self.parameters() if id(p) not in frozen_param_ids)
 
     def forward(self, text_sequences, mel_targets=None, 
-                text_positions=None, frame_positions=None, input_lengths=None):
+                text_positions=None, frame_positions=None, input_lengths=None, target_lengths=None) -> MODEL_OUTPUT_TYPE:
         B = text_sequences.size(0)
 
         # Apply seq2seq
@@ -506,4 +512,154 @@ class TTSModel(nn.Module):
         linear_outputs = self.postnet(postnet_inputs)
         assert linear_outputs.size(-1) == self.linear_dim
 
-        return mel_outputs, linear_outputs, alignments, done
+        return mel_outputs, linear_outputs, alignments, done, target_lengths
+
+
+def logit(x, eps=1e-8):
+    return torch.log(x + eps) - torch.log(1 - x + eps)
+
+
+def masked_mean(y, mask):
+    # (B, T, D)
+    mask_ = mask.expand_as(y)
+    return (y * mask_).sum() / mask_.sum()
+
+
+def sequence_mask(sequence_length, max_len=None):
+    if max_len is None:
+        max_len = sequence_length.data.max()
+    batch_size = sequence_length.size(0)
+    seq_range = torch.arange(0, max_len).long()
+    seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
+    seq_length_expand = sequence_length.unsqueeze(1) \
+        .expand_as(seq_range_expand)
+    return (seq_range_expand < seq_length_expand).float()
+
+
+class MaskedL1Loss(nn.Module):
+    def __init__(self):
+        super(MaskedL1Loss, self).__init__()
+        self.criterion = nn.L1Loss(reduction="sum")
+
+    def forward(self, input, target, lengths=None, mask=None, max_len=None):
+        if lengths is None and mask is None:
+            raise RuntimeError("Should provide either lengths or mask")
+
+        # (B, T, 1)
+        if mask is None:
+            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+
+        # (B, T, D)
+        mask_ = mask.expand_as(input)
+        loss = self.criterion(input * mask_, target * mask_)
+        return loss / mask_.sum()
+
+
+def spec_loss(y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
+    masked_l1 = MaskedL1Loss()
+    l1 = nn.L1Loss()
+
+    # L1 loss
+    if masked_loss_weight > 0:
+        assert mask is not None
+        l1_loss = masked_loss_weight * masked_l1(y_hat, y, mask=mask) + (1 - masked_loss_weight) * l1(y_hat, y)
+    else:
+        assert mask is None
+        l1_loss = l1(y_hat, y)
+
+    # Priority L1 loss
+    if priority_bin is not None and priority_w > 0:
+        if masked_loss_weight > 0:
+            priority_loss = masked_loss_weight * masked_l1(
+                y_hat[:, :, :priority_bin], y[:, :, :priority_bin], mask=mask) \
+                + (1 - masked_loss_weight) * l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+        else:
+            priority_loss = l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+        l1_loss = (1 - priority_w) * l1_loss + priority_w * priority_loss
+
+    # Binary divergence loss
+    if binary_divergence_weight <= 0:
+        binary_div = y.data.new(1).zero_()
+    else:
+        y_hat_logits = logit(y_hat)
+        z = -y * y_hat_logits + torch.log1p(torch.exp(y_hat_logits))
+        if masked_loss_weight > 0:
+            binary_div = masked_loss_weight * masked_mean(z, mask) + (1 - masked_loss_weight) * z.mean()
+        else:
+            binary_div = z.mean()
+
+    return l1_loss, binary_div
+
+
+class Loss(nn.Module):
+    """
+    The loss for the DeepVoice3 model
+    """
+
+    def __init__(
+        self,
+        linear_dim: int,
+        downsample_step: int,
+        outputs_per_step: int,
+        masked_loss_weight: float,
+        binary_divergence_weight: float,
+        priority_freq: float,
+        sample_rate: float):
+        """
+        Class constructor
+
+        Arguments
+        ----------
+        linear_dim : int
+            The dimension of the linear layer
+        downsample_step : int
+            The number of steps of signal downsampling
+        outputs_per_step: int
+            The number of output steps for each decoder input step
+        masked_loss_weight: float
+            The relative weight of the masked loss
+        binary_divergence_weight: float
+            The relative weight of the binary divergence criterion (comparing linear outputs)
+        
+
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient
+        """
+
+        super().__init__()
+        self.linear_dim = linear_dim
+        self.downsample_step = downsample_step
+        self.outputs_per_step = outputs_per_step
+        self.masked_loss_weight = masked_loss_weight
+        self.binary_divergence_weight = binary_divergence_weight
+        self.priority_freq = priority_freq
+        self.sample_rate = sample_rate
+        self.binary_criterion = nn.BCELoss()
+
+    def forward(self, input: MODEL_OUTPUT_TYPE, target: MODEL_OUTPUT_TYPE) -> Tensor:
+        input_mel, input_linear, input_alignments, input_done, _ = input
+        target_mel, target_linear, target_alignments, target_done, target_lengths = target
+        decoder_target_mask = sequence_mask(
+            target_lengths // (self.outputs_per_step * self.downsample_step),
+            max_len=target_mel.size(1)).unsqueeze(-1)
+        mel_l1_loss, mel_binary_div = spec_loss(
+            input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask)
+        mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
+
+        done_loss = self.binary_criterion(input_done, target_done)
+
+        target_mask = sequence_mask(
+            target_lengths, max_len=target_linear.size(1)).unsqueeze(-1)
+
+        n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim)
+        linear_l1_loss, linear_binary_div = spec_loss(
+            input_linear[:, :-self.outputs_per_step, :], target_linear[:, self.outputs_per_step:, :], target_mask,
+            priority_bin=n_priority_freq,
+            priority_w=self.priority_freq_weight)
+        linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div
+
+        # Combine losses
+        loss = mel_loss + linear_loss + done_loss
+        return loss

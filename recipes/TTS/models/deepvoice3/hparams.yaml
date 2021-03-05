@@ -1,8 +1,18 @@
+seed: 42
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
 embed_dim: 128
+batch_size: 32
 encoder_conv_channels: 256
 n_vocab: 26
 dropout: 0.1
 mel_dim: 80
+outputs_per_step: 5
+downsample_step: 4
+masked_loss_weight: 0.5
+binary_divergence_weight: 0.1
+priority_freq: 3000
+sample_rate: 22050
 encoder_in_std_mul: 1.0
 encoder_mid_std_mul: 2.0
 encoder_out_std_mul: 4.0
@@ -16,7 +26,6 @@ preattention_conv_std_mul: 2.0
 decoder_in_dim: !ref <mel_dim>
 decoder_conv_std_mul: 1.0
 decoder_conv_channels: 256
-decoder_r: 1
 decoder_query_position_rate: 1.0
 decoder_key_position_rate: 1.29
 decoder_max_positions: 512
@@ -28,6 +37,14 @@ converter_mid_std_mul: 4.0
 converter_out_std_mul: 4.0
 converter_in_dim: !ref <decoder_conv_channels>
 linear_dim: 513
+
+lr: 0.0005
+lr_warmup_steps: 4000
+number_of_epochs: 2
+
+output_folder: !ref ./results/tts/deepvoice/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
 
 encoder: !new:models.deepvoice3.model.Encoder
   embed_dim: !ref <embed_dim>
@@ -182,7 +199,7 @@ decoder: !new:models.deepvoice3.model.Decoder
     output: !new:models.deepvoice3.model.WeightNorm
       inner: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <preattention_out_channels>
-        out_channels: !ref <decoder_in_dim> * <decoder_r>
+        out_channels: !ref <decoder_in_dim> * <outputs_per_step>
         kernel_size: 5
         dilation: 1
         skip_transpose: True
@@ -191,7 +208,7 @@ decoder: !new:models.deepvoice3.model.Decoder
 
     max_positions: !ref <decoder_max_positions>
     in_dim: !ref <decoder_in_dim>
-    r: !ref <decoder_r>
+    outputs_per_step: !ref <outputs_per_step>
     dropout: !ref <dropout>
     query_position_rate: !ref <decoder_query_position_rate>
     key_position_rate: !ref <decoder_key_position_rate>  
@@ -250,3 +267,38 @@ model: !new:models.deepvoice3.model.TTSModel
   mel_dim: !ref <mel_dim>
   linear_dim: !ref <linear_dim>
   postnet: !ref <converter>
+
+compute_cost: !new:models.deepvoice3.model.Loss
+    linear_dim: !ref <linear_dim>
+    downsample_step: !ref <downsample_step>
+    outputs_per_step: !ref <outputs_per_step>
+    masked_loss_weight: !ref <masked_loss_weight>
+    binary_divergence_weight: !ref <binary_divergence_weight>
+    priority_freq: !ref <priority_freq>
+    sample_rate: !ref <sample_rate>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: !ref <lr_warmup_steps>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <epoch_counter>
+
+modules:
+  model: !ref <model>
+
+datasets:
+  train:
+    path: datasets/testdata/fake_vctk
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+
+dataloader_options:
+  batch_size: !ref <batch_size>

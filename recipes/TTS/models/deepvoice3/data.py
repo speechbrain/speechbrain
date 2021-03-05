@@ -59,11 +59,16 @@ def frame_positions(max_output_len=128):
         return range_tensor
     return f
 
+@sb.utils.data_pipeline.takes("mel")
+@sb.utils.data_pipeline.provides("target_lengths")
+def target_lengths(mel):
+    return len(mel)
 
-OUTPUT_KEYS = ["text_sequences", "mel", "input_lengths", "text_positions", "frame_positions"]
+
+OUTPUT_KEYS = ["text_sequences", "mel", "input_lengths", "text_positions", "frame_positions", "target_lengths"]
 
 
-def data_prep(datasets: Collection[DynamicItemDataset], max_input_len=128, max_output_len=512, tokens=None,
+def data_prep(dataset: DynamicItemDataset, max_input_len=128, max_output_len=512, tokens=None,
               mel_dim: int=80, n_fft:int=512, sample_rate=22050):
     """
     Prepares one or more datasets for use with deepvoice.
@@ -86,9 +91,11 @@ def data_prep(datasets: Collection[DynamicItemDataset], max_input_len=128, max_o
         resample(new_freq=sample_rate),
         mel_spectrogram(takes="sig_resampled", n_mels=mel_dim, n_fft=n_fft),
         text_encoder(max_input_len=max_input_len, tokens=tokens),
-        frame_positions(max_output_len=max_output_len)]
+        frame_positions(max_output_len=max_output_len),
+        target_lengths]
 
     for element in pipeline:
-        sb.dataio.dataset.add_dynamic_item(datasets, element)
-        sb.dataio.dataset.set_output_keys(datasets, OUTPUT_KEYS)
-    return datasets
+        dataset.add_dynamic_item(element)
+
+    dataset.set_output_keys(OUTPUT_KEYS)
+    return dataset
