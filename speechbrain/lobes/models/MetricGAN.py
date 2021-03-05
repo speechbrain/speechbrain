@@ -6,6 +6,7 @@ Authors:
 import torch
 from torch import nn
 from torch.nn.utils import spectral_norm
+import speechbrain as sb
 
 
 def shifted_sigmoid(x):
@@ -51,16 +52,16 @@ class EnhancementGenerator(nn.Module):
         super().__init__()
         self.activation = nn.LeakyReLU(negative_slope=0.3)
 
-        self.blstm = nn.LSTM(
+        self.blstm = sb.nnet.RNN.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             dropout=dropout,
             bidirectional=True,
-            batch_first=True,
         )
         """
-        Use orthogonal init for recurrent layers, xavier uniform for input layers
+        Use orthogonal init for recurrent layers,
+        xavier uniform for input layers
         Bias is 0 except for forget gate bias
         """
         for name, param in self.blstm.named_parameters():
@@ -75,8 +76,8 @@ class EnhancementGenerator(nn.Module):
         self.linear1 = xavier_init_layer(400, 300, spec_norm=False)
         self.linear2 = xavier_init_layer(300, 257, spec_norm=False)
 
-    def forward(self, x):
-        out, _ = self.blstm(x)
+    def forward(self, x, lengths):
+        out, _ = self.blstm(x, lengths=lengths)
 
         out = self.linear1(out)
         out = self.activation(out)
