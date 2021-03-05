@@ -8,7 +8,7 @@
 # Authors:  Jianyuan Zhong
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 8886
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -17,8 +17,8 @@ train_log: !ref <output_folder>/train_log.txt
 
 # LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
 # # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
-tokenizer_file: ../../Tokenizer/pre-trained/5000_unigram.model # yamllint disable-line rule:line-length
+language_model_file: https://www.dropbox.com/s/gtomtku5hhuwam1/model.ckpt?dl=1  # yamllint disable-line rule:line-length
+tokenizer_file: ../../../Tokenizer/pretrained/pretrained_tok/5000_unigram.model # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
@@ -34,17 +34,20 @@ valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
     - !ref <data_folder>/test-clean.csv
     - !ref <data_folder>/test-other.csv
-ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 50
-batch_size: 8
-lr: 1.0
+number_of_epochs: 110
+batch_size: 16
 ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 sorting: random
+
+# stages related parameters
+stage_one_epochs: 90
+lr_adam: 1.0
+lr_sgd: 0.000025
 
 # Feature parameters
 sample_rate: 16000
@@ -87,9 +90,9 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_search_interval: 10
 valid_beam_size: 10
-test_beam_size: 30
+test_beam_size: 66
 lm_weight: 0.60
-ctc_weight_decode: 0.40
+ctc_weight_decode: 0.52
 
 ############################## models ################################
 
@@ -118,7 +121,7 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM 
     vocab: !ref <output_neurons>
     d_model: 768
     nhead: 12
-    num_encoder_layers: 16
+    num_encoder_layers: 12
     num_decoder_layers: 0
     d_ffn: 3072
     dropout: 0.0
@@ -142,10 +145,16 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
-optimizer: !name:torch.optim.Adam
+# define two optimizers here for two-stage training
+Adam: !name:torch.optim.Adam
     lr: 0
     betas: (0.9, 0.98)
     eps: 0.000000001
+
+SGD: !name:torch.optim.SGD
+    lr: !ref <lr_sgd>
+    momentum: 0.99
+    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -188,19 +197,15 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
     reduction: !ref <loss_reduction>
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
-    lr_initial: !ref <lr>
+    lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
     model_size: !ref <d_model>
-
-cosine_annealing: !new:speechbrain.nnet.schedulers.CyclicCosineScheduler
-    n_warmup_steps: 25000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
         noam_scheduler: !ref <noam_annealing>
-        cosine_scheduler: !ref <cosine_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
@@ -209,7 +214,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
-    update_until_epoch: 3
+    update_until_epoch: 4
 
 augmentation: !new:speechbrain.lobes.augment.SpecAugment
     time_warp: True
@@ -223,13 +228,9 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask_width: 30
     time_mask_width: 40
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
