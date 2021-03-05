@@ -1,19 +1,29 @@
-# VoiceBank Speech Enhancement with Spectral Mask
-This recipe implements a speech enhancement system based on spectral mask
-with the VoiceBank dataset.
+# MetricGAN Recipe for Enhancement
 
-!!Add downloading instructions!!
+This recipe implements MetricGAN recipe for enhancement as described in the paper
+[MetricGAN: Generative Adversarial Networks based Black-box Metric Scores Optimization for Speech Enhancement](https://arxiv.org/abs/1905.04874)
 
-# How to run
-python train.py train/train.yaml
+Use the `download_vctk` function in `voicebank_prepare.py` to download the dataset
+and resample it to 16000 Hz. To run an experiment, execute the following command in
+the current folder:
 
-# Results
+```bash
+python train.py hparams/train.yaml --data_folder /path/to/data_folder
+```
 
-| Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml | -.-- | Not Available | 1xV100 32GB |
+## Results
 
+Experiment Date | PESQ | STOI
+-|-|-
+2021-03-04 | 3.02 | 92.8
 
-# Training Time
-About N for each epoch with a  TESLA V100.
+## Citation
 
+If you find the code useful in your research, please cite:
+
+    @inproceedings{fu2019metricGAN,
+      title     = {MetricGAN: Generative Adversarial Networks based Black-box Metric Scores Optimization for Speech Enhancement},
+      author    = {Fu, Szu-Wei and Liao, Chien-Feng and Tsao, Yu and Lin, Shou-De},
+      booktitle = {International Conference on Machine Learning (ICML)},
+      year      = {2019}
+    }
