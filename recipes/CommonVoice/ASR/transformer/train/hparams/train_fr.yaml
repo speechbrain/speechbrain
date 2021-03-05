@@ -92,9 +92,9 @@ unk_index: 0
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_search_interval: 1
+valid_search_interval: 5
 valid_beam_size: 10
-test_beam_size: 60
+test_beam_size: 80
 ctc_weight_decode: 0.3
 
 ############################## models ################################

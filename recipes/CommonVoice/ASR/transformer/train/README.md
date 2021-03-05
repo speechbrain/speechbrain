@@ -16,4 +16,4 @@ with our transformers:
 
 | Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
-| French | 2020-06-22 | train_fr.yaml | No | 5.28 | 19.91 | 6.12 | 21.30 | [model]() | 1xV100 16GB |
+| French | 2020-06-22 | train_fr.yaml | No | 5.28 | 19.26 | 6.13 | 20.57 | [model]() | 1xV100 16GB |
