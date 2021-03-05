@@ -11,7 +11,14 @@ output_folder: !ref results/RNNLM/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# path to the lm_corpus
+# If you plan to train a system on an HPC cluster with a big dataset,
+# we strongly suggest doing the following:
+# 1- Compress the dataset in a single tar or zip file.
+# 2- Copy your dataset locally (i.e., the local disk of the computing node).
+# 3- Uncompress the dataset in the local folder.
+# 4- Set lm_{train,valid,test}_data with the local path.
+# Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
+# It allows you to read the data much faster without slowing down the shared filesystem.
 lm_train_data: data/train.txt
 lm_valid_data: data/valid.txt
 lm_test_data: data/test.txt

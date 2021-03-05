@@ -13,8 +13,16 @@
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Set up folders for reading from and writing to
-data_folder: ../data # data will be automatically downloaded here
+# If you plan to train a system on an HPC cluster with a big dataset,
+# we strongly suggest doing the following:
+# 1- Compress the dataset in a single tar or zip file.
+# 2- Copy your dataset locally (i.e., the local disk of the computing node).
+# 3- Uncompress the dataset in the local folder.
+# 4- Set data_folder with the local path
+# Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
+# It allows you to read the data much faster without slowing down the shared filesystem.
+
+data_folder: ../data # In this case, data will be automatically downloaded here.
 data_folder_rirs: !ref <data_folder> # noise/ris dataset will automatically be downloaded here
 output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -29,7 +37,8 @@ tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=
 lm_hparam_file: https://www.dropbox.com/s/j51op5l7i356s3v/pretrained_RNNLM_BPE1000.yaml?dl=1
 pretrain_model: https://www.dropbox.com/s/t2es1c9k4q8dvs2/pretrained.ckpt?dl=1
 
-# Path where data manifest files will be stored
+# Path where data manifest files will be stored. The data manifest files are created by the
+# data preparation script
 train_annotation: ../train.json
 valid_annotation: ../valid.json
 test_annotation: ../test.json

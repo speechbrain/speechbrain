@@ -10,8 +10,8 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Test Accuracy | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train_BPE_1000.yaml | -.-- | Not Available | 1xV100 32GB |
+| 20-05-22 | train_BPE_1000.yaml | 79.55 | https://drive.google.com/drive/folders/1fXu7JAVUYxZLosH05iBTEPrJyVSCjNRi?usp=sharing  | 1xV100 32GB |
 
 
 # Training Time
-About N for each epoch with a  TESLA V100.
+About 2 minutes for each epoch with a  TESLA V100.

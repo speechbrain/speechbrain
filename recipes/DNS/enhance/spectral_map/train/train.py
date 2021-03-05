@@ -1,5 +1,6 @@
 #!/usr/bin/env/python3
 """Recipe for training a speech enhancement system with the DNS dataset.
+The system is based on spectral masking.
 
 To run this recipe, do the following:
 > python train.py hparams/{hyperparam_file}.yaml

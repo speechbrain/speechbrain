@@ -1,5 +1,6 @@
 #!/usr/bin/env/python3
-"""Recipe for training a speech enhancement system with the Voicebank dataset.
+"""Recipe for training a waveform-based speech enhancement
+system with the Voicebank dataset.
 
 To run this recipe, do the following:
 > python train.py hparams/{hyperparam_file}.yaml
