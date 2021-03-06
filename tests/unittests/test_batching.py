@@ -2,6 +2,26 @@ import pytest
 import torch
 
 
+def test_batch_pad_right_to():
+    from speechbrain.utils.data_utils import batch_pad_right
+    import random
+
+    n_channels = 40
+    batch_lens = [1, 5]
+
+    for b in batch_lens:
+        tensors = [
+            torch.ones(n_channels, random.randint(10, 53),) for x in range(b)
+        ]
+        batched, lens = batch_pad_right(tensors)
+        assert batched.shape[0] == b
+
+    for b in batch_lens:
+        tensors = [torch.ones(random.randint(10, 53),) for x in range(b)]
+        batched, lens = batch_pad_right(tensors)
+        assert batched.shape[0] == b
+
+
 def test_paddedbatch():
     from speechbrain.dataio.batch import PaddedBatch
 
