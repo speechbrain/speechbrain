@@ -64,7 +64,7 @@ def prepare_common_voice(
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
     >>> data_folder = '/datasets/CommonVoice/en'
     >>> save_folder = 'exp/CommonVoice_exp'
-    >>> train_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
+    >>> train_tsv_file = '/datasets/CommonVoice/en/train.tsv'
     >>> dev_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
     >>> test_tsv_file = '/datasets/CommonVoice/en/test.tsv'
     >>> accented_letters = False
