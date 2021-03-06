@@ -15,7 +15,7 @@ python train.py hparams/train.yaml --data_folder /path/to/data_folder
 
 Experiment Date | PESQ | STOI
 -|-|-
-2021-03-04 | 3.02 | 92.8
+2021-03-06 | 3.08 | 93.0
 
 ## Citation
 
