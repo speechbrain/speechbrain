@@ -25,7 +25,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 ### Speech recognition
 
 SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
-- State-of-the-art performance or at least comparable with other existing toolkits in several ASR benchmarks.
+- State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models including RNNLM and TransformerLM. We also propose few pre-trained models to save you computations (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
     - Many available encoders: CRDNN (VGG + {LSTM,GRU,LiGRU} + DNN), ResNet, SincNet, vanilla transformers, contextnet-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in few hours of work. The decoder is fully customizable as well: LSTM, GRU, LiGRU, transformer, or your neural network!
@@ -36,7 +36,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 ### Feature extraction and augmentation
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to necessarily dump features on disk). 
+- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk). 
 - On-the-fly feature normalization (global, sentence, bath, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
@@ -48,9 +48,9 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Spectral clustering for speaker diarization (combined with speakers embeddings).
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
-### Speech enhancement
+### Speech enhancement and separation
 - Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
-- Differentiable PESQ loss function for enhancement and robust ASR training, including MetricGAN and mimic loss.
+- Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
 - State-of-the-art performance on speech separation with Conv-TasNet, DualPath RNN, and SepFormer.
 
 ### Multi-microphone processing
