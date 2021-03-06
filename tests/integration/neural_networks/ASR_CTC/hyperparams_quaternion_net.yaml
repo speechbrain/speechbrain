@@ -4,7 +4,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Training params
-N_epochs: 30
+N_epochs: 25
 lr: 0.002
 dataloader_options:
     batch_size: 1
@@ -23,7 +23,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 
 model: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [!ref <N_batch>, null, 660]  # input_size
+    input_shape: [null, null, 660]  # input_size
     conv1: !name:speechbrain.nnet.quaternion_networks.q_CNN.QConv1d
         out_channels: 16
         kernel_size: 3
@@ -31,7 +31,6 @@ model: !new:speechbrain.nnet.containers.Sequential
     conv2: !name:speechbrain.nnet.quaternion_networks.q_CNN.QConv1d
         out_channels: 32
         kernel_size: 3
-    nrm2: !name:speechbrain.nnet.quaternion_networks.q_CNN.QConv1d
     act2: !ref <activation>
     pooling: !new:speechbrain.nnet.pooling.Pooling1d
         pool_type: "avg"
@@ -39,14 +38,9 @@ model: !new:speechbrain.nnet.containers.Sequential
     RNN: !name:speechbrain.nnet.quaternion_networks.q_RNN.QLiGRU
         hidden_size: 64
         bidirectional: True
-    linear: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 43  # 42 phonemes + 1 blank
-        bias: False
-    softmax: !new:speechbrain.nnet.activations.Softmax
-        apply_log: True
 
 lin: !new:speechbrain.nnet.linear.Linear
-    input_size: 256
+    input_size: 512 # 64 * 2 (bidirectional) * 4 (quaternion)
     n_neurons: !ref <num_labels>
     bias: False
 
