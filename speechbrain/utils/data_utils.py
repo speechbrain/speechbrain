@@ -429,17 +429,17 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     ):
         raise IndexError("All tensors must have same number of dimensions")
 
+    # FIXME we limit the support here: we allow padding of only the last dimension
+    # need to remove this when feat extraction is updated to handle multichannel.
     max_shape = []
     for dim in range(tensors[0].ndim):
-        # iterating over number of dims
-        # FIXME we limit the support here: we allow padding of only the last dimension
-        # need to remove this when feat extraction is updated to handle multichannel.
-        if (dim < tensors[0].ndim - 1) and not all(
-            [x.shape[dim] != tensors[0].shape[dim] for x in tensors]
-        ):
-            raise EnvironmentError(
-                "Tensors should have same dimensions except for last one"
-            )
+        if dim != (tensors[0].ndim - 1):
+            if not all(
+                [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
+            ):
+                raise EnvironmentError(
+                    "Tensors should have same dimensions except for last one"
+                )
         max_shape.append(max([x.shape[dim] for x in tensors]))
 
     batched = []
