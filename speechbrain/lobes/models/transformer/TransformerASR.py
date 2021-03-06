@@ -77,6 +77,7 @@ class TransformerASR(TransformerInterface):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        attention_type: Optional[str] = "regularMHA",
     ):
         super().__init__(
             d_model=d_model,
@@ -92,6 +93,7 @@ class TransformerASR(TransformerInterface):
             bias=bias,
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
+            attention_type=attention_type,
         )
 
         self.custom_src_module = ModuleList(

@@ -307,6 +307,22 @@ class KeyValueAttention(nn.Module):
         return out, normalized_scores
 
 
+class RelPosMHAPositional(nn.Module):
+    def __init__(self, demb):
+        super().__init__()
+        self.demb = demb
+        inv_freq = 1 / (10000 ** (torch.arange(0.0, demb, 2.0) / demb))
+        self.register_buffer("inv_freq", inv_freq)
+
+    def forward(self, pos_seq, bsz=None):
+        sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
+        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
+        if bsz is not None:
+            return pos_emb[:, None, :].expand(-1, bsz, -1)
+        else:
+            return pos_emb[:, None, :]
+
+
 class RelPosMultiHeadAttention(nn.Module):
     """ This class implements the relative multihead implementation similar to that in Transformer XL
     https://arxiv.org/pdf/1901.02860.pdf
@@ -319,6 +335,14 @@ class RelPosMultiHeadAttention(nn.Module):
         Number of parallel attention heads
     dropout : float
         The drop probability in dropout
+
+    Example
+    -------
+    >>> inputs = torch.rand([6, 60, 512])
+    >>> net = RelPosMultiHeadAttention(num_heads=8, embed_dim=inputs.shape[-1])
+    >>> outputs, attn = net(inputs, inputs, inputs)
+    >>> outputs.shape
+    torch.Size([6, 60, 512])
     """
 
     def __init__(
@@ -343,6 +367,8 @@ class RelPosMultiHeadAttention(nn.Module):
             ), "embed_dim must be divisible by num_heads"
         else:
             self.head_dim = head_dim
+
+        self.pos_enc = RelPosMHAPositional(embed_dim)
 
         self.q_proj = nn.Linear(
             embed_dim, self.head_dim * self.num_heads, bias=False
@@ -394,6 +420,14 @@ class RelPosMultiHeadAttention(nn.Module):
             torch.nn.init.xavier_uniform_(self.r_r_bias)
             torch.nn.init.xavier_uniform_(self.r_w_bias)
 
+    def _get_rel_pos_enc(self, x):
+
+        pos_seq = torch.arange(
+            x.size(0) - 1, -1, -1.0, device=x.device, dtype=x.dtype
+        )
+        pos_enc = self.pos_enc(pos_seq)
+        return pos_enc
+
     def _rel_shift(self, x):
 
         zero_pad_shape = (x.size(0), 1) + x.size()[2:]
@@ -405,14 +439,19 @@ class RelPosMultiHeadAttention(nn.Module):
 
         return x
 
-    def forward(
-        self, query, key, value, r, key_padding_mask=None, attn_mask=None
-    ):
+    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None):
+
+        # give tensors of shape (time, batch, fea)
+        query = query.permute(1, 0, 2)
+        key = key.permute(1, 0, 2)
+        value = value.permute(1, 0, 2)
 
         qlen, bsz, embed_dim = query.size()
         klen = key.size(0)
         assert bsz == value.size(1) == query.size(1)
         assert klen == value.size(0)
+
+        r = self._get_rel_pos_enc(key)
         assert r.size(0) == klen
 
         if key_padding_mask is not None:
@@ -448,7 +487,7 @@ class RelPosMultiHeadAttention(nn.Module):
         if attn_mask is not None and torch.sum(attn_mask).item():
             if attn_mask.dim() == 2:
                 attn_score = attn_score.masked_fill(
-                    attn_mask[None, :, :, None], self.attn_fill_value
+                    attn_mask[:, :, None, None], self.attn_fill_value
                 )
             elif attn_mask.dim() == 3:
                 attn_score = attn_score.masked_fill(
@@ -464,12 +503,8 @@ class RelPosMultiHeadAttention(nn.Module):
             )
 
         # [qlen x klen x bsz x num_heads]
-        attn_prob = F.softmax(attn_score, dim=1)
+        attn_prob = F.softmax(attn_score / (embed_dim ** 0.5), dim=1)
         attn_prob = self.dropout(attn_prob)
-
-        # Mask attention
-        if attn_mask is not None:
-            attn_prob = attn_prob * attn_mask
 
         # compute attended vector
         attn_vec = torch.einsum("ijbn,jbnd->ibnd", (attn_prob, v))
@@ -481,6 +516,9 @@ class RelPosMultiHeadAttention(nn.Module):
 
         # linear projection
         attn_out = self.out_proj(attn_vec)
+
+        # reshape the output back to (batch, time, fea)
+        attn_out = attn_out.permute(1, 0, 2)
 
         return attn_out, attn_prob
 
