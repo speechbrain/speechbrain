@@ -7,7 +7,7 @@ python train.py hparams/file.yaml
 
 # Results
 
-| Release | hyperparams file | Test WER | HuggingFace link | Full model link | GPUs |
+| Release | hyperparams file | Test Clean WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 01-03-21 | train_BPE_1000.yaml | 3.08 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech) | Not Available| 1xV100 32GB |
-| 01-03-21 | train_BPE_5000.yaml | 2.89 | Not Available | Not Available | 1xV100 32GB |
+| 01-03-21 | train_BPE_5000.yaml | 2.89 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) | Not Available | 1xV100 32GB |
