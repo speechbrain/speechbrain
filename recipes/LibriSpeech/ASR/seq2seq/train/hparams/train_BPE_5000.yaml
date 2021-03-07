@@ -5,11 +5,12 @@
 # Tokens: BPE with unigram
 # losses: CTC+ NLL
 # Training: Librispeech 960h
-# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell
-#           Sung-Lin Yeh 2020
+# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga,
+# Samuele Cornell, Sung-Lin Yeh, Titouan Parcollet 2021
 # ############################################################################
 
-# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+# Seed needs to be set at top of yaml, before objects with parameters
+# are instantiated
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_960h_5k_LM/<seed>
@@ -17,11 +18,13 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Language model (LM) parameter file
-# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
-# for LM training. By default, the code in train.py usea the tokenizer define in the lm_model
-# object. In this case, it is based on 5000 tokens.
-lm_hparam_file: ../../../LM/pretrained/hparams/pretrained_transformer_BPE5000.yaml
+# Language model (LM) pretraining
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. Here, we download everything from the
+# speechbrain HuggingFace repository. However, a local path pointing to a
+# directory containing the lm.ckpt and tokenizer.ckpt may also be specified
+# instead. E.g if you want to use your own LM / tokenizer.
+pretrained_lm_tokenizer_path: speechbrain/asr-crdnn-transformerlm-librispeech
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -182,10 +185,22 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
    label_smoothing: 0.1
 
-# Models
-lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-   hparams_file: !ref <lm_hparam_file>
-   save_folder: !ref <save_folder>
+# This is the TransformerLM that is used according to the Huggingface repository
+# Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
+# For more details about the model!
+# NB: It has to match the pre-trained TransformerLM!!
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
+   vocab: 5000
+   d_model: 768
+   nhead: 12
+   num_encoder_layers: 12
+   num_decoder_layers: 0
+   d_ffn: 3072
+   dropout: 0.0
+   activation: !name:torch.nn.GELU
+   normalize_before: False
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 modules:
    enc: !ref <enc>
@@ -260,3 +275,15 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
+
+# The pretrainer allows a mapping between pretrained files and instances that
+# are declared in the yaml. E.g here, we will download the file lm.ckpt
+# and it will be loaded into "lm" which is pointing to the <lm_model> defined
+# before.
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+   loadables:
+      lm: !ref <lm_model>
+      tokenizer: !ref <tokenizer>
+   paths:
+      lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
+      tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt

@@ -5,7 +5,7 @@
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong
+# Authors:  Jianyuan Zhong, Titouan Parcollet
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 8886
@@ -15,10 +15,13 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
-# # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/gtomtku5hhuwam1/model.ckpt?dl=1  # yamllint disable-line rule:line-length
-tokenizer_file: ../../../Tokenizer/pretrained/pretrained_tok/5000_unigram.model # yamllint disable-line rule:line-length
+# Language model (LM) pretraining
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. Here, we download everything from the
+# speechbrain HuggingFace repository. However, a local path pointing to a
+# directory containing the lm.ckpt and tokenizer.ckpt may also be specified
+# instead. E.g if you want to use your own LM / tokenizer.
+pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
@@ -37,7 +40,7 @@ test_csv:
 
 # Training parameters
 number_of_epochs: 110
-batch_size: 16
+batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
@@ -117,6 +120,10 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     activation: !ref <activation>
     normalize_before: False
 
+# This is the TransformerLM that is used according to the Huggingface repository
+# Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
+# For more details about the model!
+# NB: It has to match the pre-trained TransformerLM!!
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
     d_model: 768
@@ -127,6 +134,8 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM 
     dropout: 0.0
     activation: !name:torch.nn.GELU
     normalize_before: False
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
@@ -242,3 +251,15 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+
+# The pretrainer allows a mapping between pretrained files and instances that
+# are declared in the yaml. E.g here, we will download the file lm.ckpt
+# and it will be loaded into "lm" which is pointing to the <lm_model> defined
+# before.
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        lm: !ref <lm_model>
+        tokenizer: !ref <tokenizer>
+    paths:
+        lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
+        tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
