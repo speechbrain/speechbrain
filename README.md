@@ -15,6 +15,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 # Key features
 
 SpeechBrain provides various useful tools to speed up and facilitate research on speech technologies:
+- Various pretrained models nicely integrated with <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> <sub>(HuggingFace)</sub> in our official [organization account](https://huggingface.co/speechbrain). These models are given with an interface to easily run inference, facilitating integration. If a *HuggingFace* model isn't available, we usually provide a least a Google Drive folder containing all the experimental results corresponding.
 - The `Brain` class, a fully-customizable tool for managing training and evaluation loops over data. The annoying details of training loops are handled for you while retaining complete flexibility to override any part of the process when needed.
 - A YAML-based hyperparameter specification language that describes all types of hyperparameters, from individual numbers (e.g. learning rate) to complete objects (e.g. custom models). This dramatically simplifies recipe code by distilling basic algorithmic components.
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
@@ -36,7 +37,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 ### Feature extraction and augmentation
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to necessarily dump features on disk). 
+- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to necessarily dump features on disk).
 - On-the-fly feature normalization (global, sentence, bath, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
@@ -127,9 +128,9 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 
 Instead of a long and boring README, we prefer to provide you with different resources that can be used to learn how to customize SpeechBrain to adapt it to your needs:
 
-- General information and Google Colab tutorials can be found on the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
+- General information can be found on the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
 - Many [tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) about the basics of SpeechBrain.
-- Details on the SpeechBrain API, how to contribute, and the code are given the [documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html).
+- Details on the SpeechBrain API, how to contribute, and the code are given in the [documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html).
 
 # License
 SpeechBrain is released under the Apache License, version 2.0. The Apache license is a popular BSD-like license. SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances, you may have to distribute a license document). Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
