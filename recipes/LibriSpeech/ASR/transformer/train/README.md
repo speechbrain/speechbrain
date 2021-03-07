@@ -1,4 +1,4 @@
-# LibriSpeech ASR with Trasformers.
+# LibriSpeech ASR with Transformers.
 This folder contains the scripts to train a Transformer-based speech recognizer
 using LibriSpeech.
 
@@ -14,7 +14,3 @@ python train.py train/train.yaml
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 20-05-22 | transformer.yaml | 2.55 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | Not Available | 1xV100 32GB |
 | 20-05-22 | conformer.yaml | -.-- | Not Available | Not Available | 1xV100 32GB |
-
-
-# Training Time
-About N for each epoch with 4 TESLA V100.
