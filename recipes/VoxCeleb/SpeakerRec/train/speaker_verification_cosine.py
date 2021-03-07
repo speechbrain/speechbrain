@@ -21,15 +21,30 @@ from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.distributed import run_on_main
 
 
 # Compute embeddings from the waveforms
-def compute_embedding(wavs, lens):
-    """Computes the embeddings of the input waveform batch
+def compute_embedding(wavs, wav_lens):
+    """Compute speaker embeddings.
+
+    Arguments
+    ---------
+    wavs : Torch.Tensor
+        Tensor containing the speech waveform (batch, time).
+        Make sure the sample rate is fs=16000 Hz.
+    wav_lens: Torch.Tensor
+        Tensor containing the relative length for each sentence
+        in the length (e.g., [0.8 0.6 1.0])
     """
     with torch.no_grad():
-        emb = params["embedding_model"].compute_embeddings(wavs, lens)
-    return emb
+        feats = params["compute_features"](wavs)
+        feats = params["mean_var_norm"](feats, wav_lens)
+        embeddings = params["embedding_model"](feats, wav_lens)
+        embeddings = params["mean_var_norm_emb"](
+            embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
+        )
+    return embeddings.squeeze(1)
 
 
 def compute_embedding_loop(data_loader):
@@ -40,6 +55,7 @@ def compute_embedding_loop(data_loader):
 
     with torch.no_grad():
         for batch in tqdm(data_loader, dynamic_ncols=True):
+            batch = batch.to(params["device"])
             seg_ids = batch.id
             wavs, lens = batch.sig
 
@@ -239,7 +255,13 @@ if __name__ == "__main__":
     train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
 
     params["embedding_model"].eval()
-    params["embedding_model"].mean_var_norm_emb.count = 0
+    params["mean_var_norm_emb"].count = 0
+    params["embedding_model"].to(params["device"])
+
+    # We download the pretrained LM from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    run_on_main(params["pretrainer"].collect_files)
+    params["pretrainer"].load_collected()
 
     # Computing  enrollment and test embeddings
     logger.info("Computing enroll/test embeddings...")
