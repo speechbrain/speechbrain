@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from speechbrain.utils.data_utils import download_file
 
 
-class FaiseqWav2Vec2(nn.Module):
+class FairseqWav2Vec2(nn.Module):
     """This lobes enables the integration of fairseq pretrained wav2vec2.0 models.
 
     Source paper: https://arxiv.org/abs/2006.11477
@@ -40,7 +40,9 @@ class FaiseqWav2Vec2(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([10, 600])
-    >>> model = FairseqWav2Vec2()
+    >>> model_url = "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt"
+    >>> save_path = "models_checkpoints/wav2vec2.pt"
+    >>> model = FairseqWav2Vec2(model_url, save_path)
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 768])
@@ -62,9 +64,7 @@ class FaiseqWav2Vec2(nn.Module):
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check of the model has be trained with or without it.
-        self.normalize = ("normalize" in cfg["task"]) and cfg["task"][
-            "normalize"
-        ]
+        self.normalize = cfg.normalize
         model = model[0]
         self.model = model
         self.freeze = freeze
@@ -98,7 +98,7 @@ class FaiseqWav2Vec2(nn.Module):
         out = self.model.extract_features(x, padding_mask=None, mask=False)[0]
 
         # We normalize the output if required
-        if self.output_nom:
+        if self.output_norm:
             out = F.layer_norm(out, out.shape)
 
         return out
