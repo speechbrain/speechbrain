@@ -743,9 +743,9 @@ def get_lookahead_mask(padded_input):
     -------
     >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
     >>> get_lookahead_mask(a)
-    tensor([[0., -inf, -inf],
-            [0., 0., -inf],
-            [0., 0., 0.]])
+    tensor([[False,  True,  True],
+            [False, False,  True],
+            [False, False, False]])
     """
     seq_len = padded_input.shape[1]
     mask = (
