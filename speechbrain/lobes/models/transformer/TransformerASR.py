@@ -207,7 +207,7 @@ class TransformerASR(TransformerInterface):
         src : tensor
             The sequence to the encoder (required).
         """
-        # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
+        # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
         if src.dim() == 4:
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
@@ -219,7 +219,9 @@ class TransformerASR(TransformerInterface):
 
         src = self.custom_src_module(src)
         src = src + self.positional_encoding(src)
-        encoder_out, _ = self.encoder(src=src, src_key_padding_mask=src_key_padding_mask)
+        encoder_out, _ = self.encoder(
+            src=src, src_key_padding_mask=src_key_padding_mask
+        )
         return encoder_out
 
     def _init_params(self):
