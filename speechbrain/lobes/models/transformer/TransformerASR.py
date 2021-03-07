@@ -196,6 +196,32 @@ class TransformerASR(TransformerInterface):
         )
         return prediction, multihead_attns[-1]
 
+    def encode(
+        self, src, wav_len=None,
+    ):
+        """
+        forward the encoder with source input
+
+        Arguments
+        ----------
+        src : tensor
+            The sequence to the encoder (required).
+        """
+        # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
+        if src.dim() == 4:
+            bz, t, ch1, ch2 = src.shape
+            src = src.reshape(bz, t, ch1 * ch2)
+
+        src_key_padding_mask = None
+        if wav_len is not None and self.training:
+            abs_len = torch.round(wav_len * src.shape[1])
+            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+
+        src = self.custom_src_module(src)
+        src = src + self.positional_encoding(src)
+        encoder_out, _ = self.encoder(src=src, src_key_padding_mask=src_key_padding_mask)
+        return encoder_out
+
     def _init_params(self):
         for p in self.parameters():
             if p.dim() > 1:
