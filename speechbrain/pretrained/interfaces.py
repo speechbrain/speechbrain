@@ -327,3 +327,140 @@ class EncoderDecoderASR(Pretrained):
                 for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
+
+
+class TransformerASR(Pretrained):
+    """A ready-to-use Transformer ASR model
+
+    The class can be used either to run only the encoder (encode()) to extract
+    features or to run the entire encoder-decoder model
+    (transcribe()) to transcribe speech.
+
+    TODO: Make this list sensible and minimal
+    Relies on a few keys in the modules dictionary, as follows.
+        compute_features
+        normalize
+        pre_transformer
+        transformer
+        beam_searcher
+        tokenizer
+
+    ```
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # TODO: How to integrate this better?
+        if not hasattr(self, "normalizer"):
+            self.normalizer = AudioNormalizer()
+
+        self.tokenizer = self.hparams.tokenizer
+
+    def load_audio(self, path):
+        """Load an audio file with this model's input spec
+
+        When using an ASR model, it is important to use the same type of data,
+        as was used to train the model. This means for example using the same
+        sampling rate and number of channels. It is, however, possible to
+        convert a file from a higher sampling rate to a lower one (downsampling).
+        Similarly, it is simple to downmix a stereo file to mono.
+        """
+        signal, sr = torchaudio.load(path, channels_first=False)
+        return self.normalizer(signal, sr)
+
+    def transcribe_file(self, path):
+        """Transcribes the given audiofile into a sequence of words.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to transcribe.
+
+        Returns
+        -------
+        str
+            The audiofile transcription produced by this ASR system.
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words, predicted_tokens = self.transcribe_batch(
+            batch, rel_length
+        )
+        return predicted_words[0]
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the input audio into a sequence of hidden states
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        tensor
+            The encoded batch
+
+        """
+        torch.Tensor([self.hparams.bos_index])
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        feats = self.modules.compute_features(wavs)
+        normalized = self.modules.normalize(feats, wav_lens)
+        pre_trans_out = self.modules.pre_transformer(normalized)
+        transformer_out = self.modules.transformer.encode(
+            pre_trans_out, wav_lens,
+        )
+        return transformer_out
+
+    def transcribe_batch(self, wavs, wav_lens):
+        """Transcribes the input audio into a sequence of words
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch transcribed.
+        tensor
+            Each predicted token id.
+        """
+        with torch.no_grad():
+            wav_lens = wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            predicted_tokens, scores = self.modules.beam_searcher(
+                encoder_out, wav_lens
+            )
+            predicted_words = [
+                self.tokenizer.decode_ids(token_seq)
+                for token_seq in predicted_tokens
+            ]
+        return predicted_words, predicted_tokens
