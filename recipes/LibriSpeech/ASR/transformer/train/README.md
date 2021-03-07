@@ -10,10 +10,10 @@ python train.py train/train.yaml
 
 # Results
 
-| Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:|
-| 20-05-22 | transformer.yaml | -.-- | Not Available | 1xV100 32GB |
-| 20-05-22 | conformer.yaml | -.-- | Not Available | 1xV100 32GB |
+| Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
+|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
+| 20-05-22 | transformer.yaml | 2.55 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | Not Available | 1xV100 32GB |
+| 20-05-22 | conformer.yaml | -.-- | Not Available | Not Available | 1xV100 32GB |
 
 
 # Training Time
