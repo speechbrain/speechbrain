@@ -19,7 +19,6 @@ def test_rel_pos_MHA():
                     relpos = RelPosMultiHeadAttention(
                         emb_dim, 2, bias=b, head_dim=h
                     )
-                    q = torch.rand((ql, bsz, emb_dim))
-                    k = torch.rand((kl, bsz, emb_dim))
-                    r = torch.rand((kl, emb_dim))
-                    relpos(q, k, k, r)
+                    q = torch.rand((bsz, ql, emb_dim))
+                    k = torch.rand((bsz, kl, emb_dim))
+                    relpos(q, k, k)
