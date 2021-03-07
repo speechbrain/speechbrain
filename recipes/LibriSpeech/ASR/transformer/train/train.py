@@ -29,16 +29,15 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
  * Samuele Cornell 2020
+ * Titouan Parcollet 2021
 """
 import os
 import sys
 import torch
 import logging
 from pathlib import Path
-import sentencepiece as spm
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -234,21 +233,6 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams.output_folder, "save", "lm_model.ckpt"
-        )
-        download_file(self.hparams.language_model_file, save_model_path)
-
-        # Load downloaded model, removing prefix
-        state_dict = torch.load(
-            save_model_path, map_location=torch.device(self.device)
-        )
-        self.hparams.lm_model.load_state_dict(state_dict, strict=True)
-        self.hparams.lm_model.eval()
-        logger.info("loaded LM from {}".format(save_model_path))
-
     def check_and_reset_optimizer(self):
         """reset the optimizer if training enters stage 2"""
         current_epoch = self.hparams.epoch_counter.current
@@ -318,21 +302,9 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
-    """Loads the sentence piece tokenizer specified in the yaml file"""
-    save_model_path = os.path.join(
-        hparams["save_folder"], "{}_unigram.model".format(hparams["vocab_size"])
-    )
-
-    if "tokenizer_file" in hparams:
-        download_file(
-            source=hparams["tokenizer_file"],
-            dest=save_model_path,
-            replace_existing=True,
-        )
-
-    # Defining tokenizer and loading it
-    tokenizer = spm.SentencePieceProcessor()
-    tokenizer.load(save_model_path)
+    # We get the tokenizer as we need it to encode the labels when creating
+    # mini-batches.
+    tokenizer = hparams["tokenizer"]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -405,6 +377,11 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets, tokenizer = dataio_prepare(hparams)
 
+    # We download the pretrained LM from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
+
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -415,11 +392,7 @@ if __name__ == "__main__":
     )
 
     # adding objects to trainer:
-    asr_brain.tokenizer = tokenizer
-
-    # if a language model is specified it is loaded
-    if hasattr(asr_brain.hparams, "language_model_file"):
-        asr_brain.load_lm()
+    asr_brain.tokenizer = hparams["tokenizer"]
 
     # Training
     asr_brain.fit(
