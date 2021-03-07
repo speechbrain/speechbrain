@@ -182,6 +182,7 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 # Models
 lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
    hparams_file: !ref <lm_hparam_file>
+   save_folder: !ref <save_folder>
 
 modules:
    enc: !ref <enc>

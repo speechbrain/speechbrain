@@ -25,8 +25,8 @@ csv_read: wrd
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
    model_dir: !ref <output_folder>
    vocab_size: !ref <token_output>
-   csv_train: !ref <train_csv>
-   csv_read: !ref <csv_read>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
    character_coverage: !ref <character_coverage>
    csv_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
