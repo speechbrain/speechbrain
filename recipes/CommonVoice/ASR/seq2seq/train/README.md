@@ -22,3 +22,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | Kinyarwanda | 2020-06-22 | train_rw.yaml | No | x | x | x | x | Not Avail. | Not Avail. | 2xV100 16GB |
 | Italian | 2020-06-22 | train_it.yaml | No | 5.14 | 15.59 | 5.40 | 16.61 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-it) | [model](https://drive.google.com/drive/folders/1asxPsY1EBGHIpIFhBtUi9oiyR6C7gC0g?usp=sharing) | 2xV100 16GB |
 | English | 2020-06-22 | train_it.yaml | No | x | x | x | x | Not Avail. | Not Avail. | 2xV100 16GB |
+
+## How to simply use pretrained models to transcribe my audio file?
+
+SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories (see the results table above) corresponding to our different models for CommonVoice.
