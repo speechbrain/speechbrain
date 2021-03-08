@@ -192,7 +192,9 @@ class Pretrained:
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
         run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
-        pretrainer.load_collected()
+        # Load on the CPU. Later the params can be moved elsewhere by specifying
+        # run_opts={"device": ...}
+        pretrainer.load_collected(device="cpu")
 
         # Now return the system
         return cls(hparams["modules"], hparams, **kwargs)
