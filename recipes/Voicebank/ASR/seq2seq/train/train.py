@@ -7,26 +7,10 @@ language model.
 To run this recipe, do the following:
 > python train.py hparams/train.yaml
 
-With the default hyperparameters, the system employs a CRDNN encoder.
-The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
-language model is used  on the top of decoder probabilities.
-
-The neural network is trained on both CTC and negative-log likelihood
-targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
-
-The experiment file is flexible enough to support a large variety of
-different systems. By properly changing the parameter files, you can try
-different encoders, decoders, tokens (e.g, characters instead of BPE),
-training split (e.g, train-clean 100 rather than the full one), and many
-other possible variations.
-
+With the default hyperparameters, the system downloads a pre-trained
+librispeech model and fine-tunes it on Voicebank.
 
 Authors
- * Ju-Chieh Chou 2020
- * Mirco Ravanelli 2020
- * Abdel Heba 2020
  * Peter Plantinga 2020
 """
 
@@ -37,7 +21,6 @@ import urllib.parse
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file, undo_padding
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -116,13 +99,16 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predictions["p_tokens"], task="decode_from_list"
-            )
+            predicted_words = [
+                self.hparams.tokenizer.decode_ids(token_seq)
+                for token_seq in predictions["p_tokens"]
+            ]
 
             # Convert indices to words
-            target_words = undo_padding(tokens, tokens_lens)
-            target_words = self.tokenizer(target_words, task="decode_from_list")
+            target_words = [
+                self.hparams.tokenizer.decode_ids(token_seq)
+                for token_seq in undo_padding(tokens, tokens_lens)
+            ]
 
             self.wer_metric.append(batch.id, predicted_words, target_words)
             self.cer_metric.append(batch.id, predicted_words, target_words)
@@ -165,66 +151,20 @@ class ASR(sb.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams.output_folder, "save", "lm_model.ckpt"
-        )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
-        state_dict = torch.load(save_model_path)
-        self.modules.lm_model.load_state_dict(state_dict, strict=True)
-        self.modules.lm_model.eval()
-
-    def load_pretrained(self):
-        """Load the pre-trained model"""
-        save_dir = os.path.join(self.hparams.output_folder, "save")
-        model_path = download_to_dir(self.hparams.model_ckpt_file, save_dir)
-        norm_path = download_to_dir(self.hparams.norm_ckpt_file, save_dir)
-
-        self.hparams.model.load_state_dict(torch.load(model_path), strict=True)
-        self.hparams.normalizer._load(
-            norm_path, end_of_epoch=False, device=self.device
-        )
-
 
 def dataio_prep(hparams):
     """Creates the datasets and their data processing pipelines"""
 
-    # 1. define tokenizer and load it
-    modelpath = download_to_dir(hparams["tok_mdl_file"], hparams["save_folder"])
-    download_to_dir(hparams["tok_voc_file"], hparams["save_folder"])
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-    )
-    tokenizer.sp.load(modelpath)
-
-    if (tokenizer.sp.eos_id() + 1) == (tokenizer.sp.bos_id() + 1) == 0 and not (
-        hparams["eos_index"]
-        == hparams["bos_index"]
-        == hparams["blank_index"]
-        == hparams["unk_index"]
-        == 0
-    ):
-        raise ValueError(
-            "Desired indexes for special tokens do not agree "
-            "with loaded tokenizer special tokens !"
-        )
-
-    # 2. Define audio pipeline:
+    # Define pipelines
     @sb.utils.data_pipeline.takes(hparams["input_type"])
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        return sb.dataio.dataio.read_audio(wav)
 
-    # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("words")
     @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "tokens")
     def text_pipeline(words):
-        tokens_list = tokenizer.sp.encode_as_ids(words)
+        tokens_list = hparams["tokenizer"].encode_as_ids(words)
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
@@ -255,7 +195,7 @@ def dataio_prep(hparams):
             "Sorting must be random, ascending, or descending"
         )
 
-    return data, tokenizer
+    return data
 
 
 def download_to_dir(url, directory):
@@ -302,8 +242,12 @@ if __name__ == "__main__":
         },
     )
 
+    # Load pre-trained models
+    run_on_main(hparams["asr_pretrained"].collect_files)
+    hparams["asr_pretrained"].load_collected()
+
     # Create dataset objects and tokenizer
-    datasets, tokenizer = dataio_prep(hparams)
+    datasets = dataio_prep(hparams)
 
     # Brain class initialization
     asr_brain = ASR(
@@ -313,9 +257,6 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
     )
-    asr_brain.tokenizer = tokenizer
-    asr_brain.load_pretrained()
-    asr_brain.load_lm()
 
     # Training
     asr_brain.fit(
