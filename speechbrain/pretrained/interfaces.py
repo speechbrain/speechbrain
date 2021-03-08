@@ -207,13 +207,11 @@ class EncoderDecoderASR(Pretrained):
     features or to run the entire encoder-decoder model
     (transcribe()) to transcribe speech.
 
-    TODO: Make this list sensible and minimal
-    Relies on a few keys in the modules dictionary, as follows.
-        compute_features
-        normalize
-        asr_encoder
-        beam_searcher
-        tokenizer
+    Example
+    -------
+    >>> from speechbrain.pretrained import EncoderDecoderASR
+    >>> asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-crdnn-rnnlm-librispeech")
+    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac'")
     ```
     """
 
@@ -338,15 +336,11 @@ class TransformerASR(Pretrained):
     features or to run the entire encoder-decoder model
     (transcribe()) to transcribe speech.
 
-    TODO: Make this list sensible and minimal
-    Relies on a few keys in the modules dictionary, as follows.
-        compute_features
-        normalize
-        pre_transformer
-        transformer
-        beam_searcher
-        tokenizer
-
+    Example
+    -------
+    >>> from speechbrain.pretrained import EncoderDecoderASR
+    >>> asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-crdnn-transformerlm-librispeech")
+    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac'")
     ```
     """
 
@@ -466,3 +460,123 @@ class TransformerASR(Pretrained):
                 for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
+
+
+class SpeakerRecognition(Pretrained):
+    """A ready-to-use model for speaker recognition. It can be used to 
+    compute the speaker embeddings as well.
+
+    The class can be used either to run only the encoder (encode_batch()) to 
+    extract embeddings or to run the entire verification system
+    (verify()) to check speaker identifies.
+    ```
+    
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import SpeakerRecognition
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
+
+    >>> # Compute embeddings
+    >>> signal, fs =torchaudio.load('samples/audio_samples/example1.wav')
+    >>> embeddings = verification.encode(signal)
+
+    >>> # Speaker Verification
+    >>> signal2, fs = torchaudio.load('samples/audio_samples/example2.flac')
+    >>> score, prediction = verification.verify(signal, signal2)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not hasattr(self, "normalizer"):
+            self.normalizer = AudioNormalizer()
+
+        self.similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+
+    def encode(self, wavs, wav_lens=None, normalize=False):
+        """Encodes the input audio into a single vector embedding.
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model. Make sure the sample rate is fs=16000 Hz.
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+        normalize : bool
+            If True, it normalizes the embeddings with the statistics 
+            contained in mean_var_norm_emb.
+            
+        Returns
+        -------
+        tensor
+            The encoded batch
+
+        """
+        # Manage single waveforms in input
+        if len(wavs.shape) == 1:
+            wavs = wavs.unsqueeze(0)
+
+        # Assign full length if wav_lens is not assigned
+        if wav_lens is None:
+            wav_lens = torch.ones(wavs.shape[0], device=self.device)
+
+        # Storing waveform in the specified device
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        wavs = wavs.float()
+
+        feats = self.modules.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, wav_lens)
+        embeddings = self.modules.embedding_model(feats, wav_lens)
+        if normalize:
+            embeddings = self.modules.mean_var_norm_emb(
+                embeddings, torch.ones(embeddings.shape[0], device=self.device)
+            )
+        return embeddings
+
+    def verify(self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.25):
+        """Performs speaker verification with cosine distance.
+        It returns the score and the decision (0 different speakers,
+        1 same speakers).
+        
+        Arguments
+        ---------
+        wavs1 : Torch.Tensor
+                Tensor containing the speech waveform1 (batch, time).
+                Make sure the sample rate is fs=16000 Hz.
+        wav1_lens: Torch.Tensor
+                Tensor containing the relative length for each sentence
+                in the length (e.g., [0.8 0.6 1.0])
+        wavs2 : Torch.Tensor
+                Tensor containing the speech waveform2 (batch, time).
+                Make sure the sample rate is fs=16000 Hz.
+        wav2_lens: Torch.Tensor
+                Tensor containing the relative length for each sentence
+                in the length (e.g., [0.8 0.6 1.0])
+        threshold: Float
+                Threshold applied to the cosine distance to decide if the
+                speaker is different (0) or the same (1).
+        
+        Returns
+        -------
+        score
+            The score associated to the binary verification output 
+            (cosine distance).
+        prediction
+            The prediction is 1 if the two signals in input are from the same
+            speaker and 0 otherwise.
+        """
+        emb1 = self.encode(wavs1, wav1_lens, normalize=True)
+        emb2 = self.encode(wavs2, wav2_lens, normalize=True)
+        score = self.similarity(emb1, emb2)
+        return score, score > threshold
