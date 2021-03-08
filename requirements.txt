@@ -9,3 +9,4 @@ sentencepiece>=0.1.91
 torch==1.7.1
 torchaudio==0.7.2
 tqdm>=4.42.0
+huggingface_hub>=0.0.6
