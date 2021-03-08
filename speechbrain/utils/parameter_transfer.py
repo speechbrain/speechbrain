@@ -189,12 +189,12 @@ class Pretrainer:
 
             # First see if object has custom load hook:
             if name in self.custom_hooks:
-                self.custom_hooks[name](obj, loadpath, device)
+                self.custom_hooks[name](obj, loadpath, device=device)
                 continue
             # Try the default transfer hook:
             default_hook = get_default_hook(obj, DEFAULT_TRANSFER_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, device)
+                default_hook(obj, loadpath, device=device)
                 continue
             # Otherwise find the default loader for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)

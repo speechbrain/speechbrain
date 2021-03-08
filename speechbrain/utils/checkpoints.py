@@ -263,7 +263,7 @@ def mark_as_transfer(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), None)
+        sig.bind(object(), pathlib.Path("testpath"), device=None)
     except TypeError:
         MSG = "Transfer hook must have signature (self, path, device)"
         raise TypeError(MSG)
