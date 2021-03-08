@@ -544,7 +544,9 @@ class SpeakerRecognition(Pretrained):
             )
         return embeddings
 
-    def verify(self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.25):
+    def verify(
+        self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.25
+    ):
         """Performs speaker verification with cosine distance.
         It returns the score and the decision (0 different speakers,
         1 same speakers).
