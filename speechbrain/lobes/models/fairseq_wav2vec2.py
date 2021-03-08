@@ -1,6 +1,6 @@
 """This lobes enables the integration of fairseq pretrained wav2vec2.0 models.
 
-Source paper: https://arxiv.org/abs/2006.11477
+Reference: https://arxiv.org/abs/2006.11477
 FairSeq needs to be installed: https://fairseq.readthedocs.io/en/latest/
 
 Authors
