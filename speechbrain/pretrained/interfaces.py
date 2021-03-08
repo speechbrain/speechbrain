@@ -554,12 +554,12 @@ class SpeakerRecognition(Pretrained):
         wavs1 : Torch.Tensor
                 Tensor containing the speech waveform1 (batch, time).
                 Make sure the sample rate is fs=16000 Hz.
-        wav1_lens: Torch.Tensor
-                Tensor containing the relative length for each sentence
-                in the length (e.g., [0.8 0.6 1.0])
         wavs2 : Torch.Tensor
                 Tensor containing the speech waveform2 (batch, time).
                 Make sure the sample rate is fs=16000 Hz.
+        wav1_lens: Torch.Tensor
+                Tensor containing the relative length for each sentence
+                in the length (e.g., [0.8 0.6 1.0])
         wav2_lens: Torch.Tensor
                 Tensor containing the relative length for each sentence
                 in the length (e.g., [0.8 0.6 1.0])
