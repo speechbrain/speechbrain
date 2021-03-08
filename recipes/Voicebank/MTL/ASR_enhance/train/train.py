@@ -26,7 +26,6 @@ from pesq import pesq
 from pystoi import stoi
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file, undo_padding
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -43,7 +42,7 @@ def estoi_eval(pred_wav, target_wav):
 
 
 # Define training procedure
-class ASR_Brain(sb.Brain):
+class MTLbrain(sb.Brain):
     def compute_forward(self, batch, stage):
         """The forward pass computes enhanced feats and targets"""
 
@@ -221,22 +220,27 @@ class ASR_Brain(sb.Brain):
             )
             loss += self.hparams.seq_weight * seq_loss
 
-            if stage != sb.Stage.TRAIN and self.hparams.target_type == "words":
-                pred_words = self.tokenizer(
-                    predictions["hyps"], task="decode_from_list"
-                )
-                target_words = self.tokenizer(
-                    undo_padding(*batch.tokens), task="decode_from_list"
-                )
-                self.err_rate_metrics.append(batch.id, pred_words, target_words)
-            elif stage != sb.Stage.TRAIN:
-                self.err_rate_metrics.append(
-                    ids=batch.id,
-                    predict=predictions["hyps"],
-                    target=tokens,
-                    target_len=token_lens,
-                    ind2lab=self.tokenizer.decode_ndim,
-                )
+            if stage != sb.Stage.TRAIN:
+                if hasattr(self.hparams, "asr_pretrained"):
+                    pred_words = [
+                        self.token_encoder.decode_ids(token_seq)
+                        for token_seq in predictions["hyps"]
+                    ]
+                    target_words = [
+                        self.token_encoder.decode_ids(token_seq)
+                        for token_seq in undo_padding(*batch.tokens)
+                    ]
+                    self.err_rate_metrics.append(
+                        batch.id, pred_words, target_words
+                    )
+                else:
+                    self.err_rate_metrics.append(
+                        ids=batch.id,
+                        predict=predictions["hyps"],
+                        target=tokens,
+                        target_len=token_lens,
+                        ind2lab=self.token_encoder.decode_ndim,
+                    )
 
         return loss
 
@@ -349,86 +353,29 @@ class ASR_Brain(sb.Brain):
                 )
                 self.modules[model].load_state_dict(model_state_dict)
 
-    def load_lm(self):
-        """Loads the LM specified in the yaml file"""
-        save_model_path = os.path.join(
-            self.hparams.output_folder, "save", "lm_model.ckpt"
-        )
-        download_file(self.hparams.lm_ckpt_file, save_model_path)
 
-        # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path)
-        self.hparams.modules["lm_model"].load_state_dict(state_dict)
-
-    def load_pretrained(self):
-        """Loads the specified pretrained files"""
-
-        for model_name, model_path in self.hparams.pretrained_path.items():
-
-            # Try parsing model_path as a url first.
-            try:
-                print("trying to download " + model_path)
-                save_dir = os.path.join(self.hparams.output_folder, "save")
-                model_path = download_to_dir(model_path, save_dir)
-
-            # If it fails, assume its a valid filepath already
-            except ValueError:
-                pass
-
-            if model_name == "normalizer":
-                self.hparams.normalizer._load(
-                    model_path, end_of_epoch=False, device=self.device
-                )
-            elif model_name == "asr_model":
-                state_dict = torch.load(model_path)
-                self.hparams.model.load_state_dict(state_dict, strict=True)
-            else:
-                state_dict = torch.load(model_path)
-                self.modules[model_name].load_state_dict(state_dict)
-
-
-def dataio_prep(hparams):
+def dataio_prep(hparams, token_encoder):
     """Creates the datasets and their data processing pipelines"""
 
-    # 1. define tokenizer
-    if hparams["target_type"] == "words":
-        save_model_path = download_to_dir(
-            hparams["tok_mdl_file"], hparams["save_folder"]
-        )
-        download_to_dir(hparams["tok_voc_file"], hparams["save_folder"])
-        tokenizer = SentencePiece(
-            model_dir=hparams["save_folder"],
-            vocab_size=hparams["output_neurons"],
-            model_type=hparams["token_type"],
-            character_coverage=hparams["character_coverage"],
-        )
-    else:
-        tokenizer = sb.dataio.encoder.CTCTextEncoder()
+    # Define pipelines
+    @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
+    @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
+    def audio_pipeline(noisy_wav, clean_wav):
+        yield sb.dataio.dataio.read_audio(noisy_wav)
+        yield sb.dataio.dataio.read_audio(clean_wav)
 
-    # 2. Define audio pipelines:
-    @sb.utils.data_pipeline.takes("noisy_wav")
-    @sb.utils.data_pipeline.provides("noisy_sig")
-    def noisy_pipeline(wav):
-        return sb.dataio.dataio.read_audio(wav)
-
-    @sb.utils.data_pipeline.takes("clean_wav")
-    @sb.utils.data_pipeline.provides("clean_sig")
-    def clean_pipeline(wav):
-        return sb.dataio.dataio.read_audio(wav)
-
-    # 3. Define target pipeline:
     token_keys = ["tokens_bos", "tokens_eos", "tokens"]
 
     @sb.utils.data_pipeline.takes(hparams["target_type"])
     @sb.utils.data_pipeline.provides("tokens_list", *[t for t in token_keys])
     def target_pipeline(target):
-        if hparams["target_type"] == "words":
-            tokens_list = tokenizer.sp.encode_as_ids(target)
+        if "asr_pretrained" in hparams:
+            tokens_list = token_encoder.encode_as_ids(target)
             yield tokens_list
         else:
             tokens_list = target.strip().split()
             yield tokens_list
-            tokens_list = tokenizer.encode_sequence(tokens_list)
+            tokens_list = token_encoder.encode_sequence(tokens_list)
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
@@ -436,13 +383,13 @@ def dataio_prep(hparams):
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
-    # 4. Create datasets
+    # Create datasets
     data = {}
     for dataset in ["train", "valid", "test"]:
         data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[noisy_pipeline, clean_pipeline, target_pipeline],
+            dynamic_items=[audio_pipeline, target_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"] + token_keys,
         )
         if dataset != "train":
@@ -459,32 +406,18 @@ def dataio_prep(hparams):
             "Sorting must be random, ascending, or descending"
         )
 
-    # 5. Load or update tokenizer
-    if hparams["target_type"] == "words":
-        tokenizer.sp.load(save_model_path)
-
-        if (tokenizer.sp.eos_id() + 1) == (
-            tokenizer.sp.bos_id() + 1
-        ) == 0 and not (
-            hparams["eos_index"]
-            == hparams["bos_index"]
-            == hparams["blank_index"]
-            == hparams["unk_index"]
-            == 0
-        ):
-            raise ValueError(
-                "Desired indexes for special tokens do not agree "
-                "with loaded tokenizer special tokens !"
-            )
-    else:
-        tokenizer.update_from_didataset(data["train"], output_key="tokens_list")
-        tokenizer.insert_bos_eos(
+    # Update token_encoder
+    if "asr_pretrained" not in hparams:
+        token_encoder.update_from_didataset(
+            data["train"], output_key="tokens_list"
+        )
+        token_encoder.insert_bos_eos(
             bos_label="<eos-bos>",
             eos_label="<eos-bos>",
             bos_index=hparams["bos_index"],
         )
 
-    return data, tokenizer
+    return data
 
 
 def download_to_dir(url, directory):
@@ -530,24 +463,35 @@ if __name__ == "__main__":
         },
     )
 
-    datasets, tokenizer = dataio_prep(hparams)
+    # Load pretrained models
+    for model in ["asr", "enhance", "perceptual"]:
+        pretrained = f"{model}_pretrained"
+        if pretrained in hparams:
+            # We download the model from HuggingFace (by default).
+            run_on_main(hparams[pretrained].collect_files)
+            hparams[pretrained].load_collected()
+
+    # Switch encoder based on task
+    if "asr_pretrained" in hparams:
+        token_encoder = hparams["tokenizer"]
+    else:
+        token_encoder = sb.dataio.encoder.CTCTextEncoder()
+
+    datasets = dataio_prep(hparams, token_encoder)
 
     # Initialize trainer
-    asr_brain = ASR_Brain(
+    mtl_brain = MTLbrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         run_opts=run_opts,
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
     )
-    asr_brain.tokenizer = tokenizer
-    asr_brain.load_pretrained()
-    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
-        asr_brain.load_lm()
+    mtl_brain.token_encoder = token_encoder
 
     # Fit dataset
-    asr_brain.fit(
-        epoch_counter=asr_brain.hparams.epoch_counter,
+    mtl_brain.fit(
+        epoch_counter=mtl_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
         train_loader_kwargs=hparams["train_loader_options"],
@@ -555,18 +499,12 @@ if __name__ == "__main__":
     )
 
     # Evaluate best checkpoint, using lowest or highest value on validation
-    outdir = asr_brain.hparams.output_folder
-    asr_brain.hparams.stats_file = os.path.join(outdir, "valid_stats.txt")
-    asr_brain.evaluate(
-        datasets["valid"],
-        max_key=hparams["eval_max_key"],
-        min_key=hparams["eval_min_key"],
-        test_loader_kwargs=hparams["test_loader_options"],
-    )
-    asr_brain.hparams.stats_file = os.path.join(outdir, "test_stats.txt")
-    asr_brain.evaluate(
-        datasets["test"],
-        max_key=hparams["eval_max_key"],
-        min_key=hparams["eval_min_key"],
-        test_loader_kwargs=hparams["test_loader_options"],
-    )
+    outdir = mtl_brain.hparams.output_folder
+    for dset in ["valid", "test"]:
+        mtl_brain.hparams.stats_file = os.path.join(outdir, f"{dset}_stats.txt")
+        mtl_brain.evaluate(
+            datasets[dset],
+            max_key=hparams["eval_max_key"],
+            min_key=hparams["eval_min_key"],
+            test_loader_kwargs=hparams["test_loader_options"],
+        )
