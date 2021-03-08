@@ -4,10 +4,10 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 embed_dim: 128
 batch_size: 32
 encoder_conv_channels: 256
-n_vocab: 26
+n_vocab: 59
 dropout: 0.1
 mel_dim: 80
-outputs_per_step: 5
+outputs_per_step: 1
 downsample_step: 4
 masked_loss_weight: 0.5
 binary_divergence_weight: 0.1
@@ -28,7 +28,7 @@ decoder_conv_std_mul: 1.0
 decoder_conv_channels: 256
 decoder_query_position_rate: 1.0
 decoder_key_position_rate: 1.29
-decoder_max_positions: 512
+decoder_max_positions: 1024
 converter_conv_channels: 256
 converter_conv_kernel_size: 5
 converter_out_kernel_size: 1
@@ -124,6 +124,7 @@ encoder: !new:models.deepvoice3.model.Encoder
 
 decoder: !new:models.deepvoice3.model.Decoder
     embed_dim: !ref <embed_dim>
+    in_channels: !ref <decoder_conv_channels>
     preattention:
     - !new:models.deepvoice3.model.WeightNorm
       inner: !new:speechbrain.nnet.CNN.Conv1d

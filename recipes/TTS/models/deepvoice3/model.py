@@ -154,7 +154,12 @@ class AttentionLayer(nn.Module):
         super().__init__()
         self.query_projection = query_projection
         self.key_projection = key_projection
-        if conv_channels == embed_dim:
+        clone_projection_weights = (
+            conv_channels == embed_dim 
+            and hasattr(self.key_projection, 'weight')
+            and hasattr(self.query_projection, 'weight')
+        )
+        if clone_projection_weights:
             self.key_projection.weight.data = self.query_projection.weight.data.clone()
         self.value_projection = value_projection
         self.out_projection = out_projection
@@ -232,18 +237,16 @@ class Decoder(nn.Module):
         self.query_position_rate = query_position_rate
         self.key_position_rate = key_position_rate
 
-        in_channels = in_dim * outputs_per_step
+#        in_channels = in_dim * outputs_per_step
         
         # Position encodings for query (decoder states) and keys (encoder states)
         self.embed_query_positions = SinusoidalEncoding(
-            max_positions, self.in_channels)
+            max_positions + 1, self.in_channels)
         self.embed_keys_positions = SinusoidalEncoding(
-            max_positions, embed_dim)
+            max_positions + 1, embed_dim)
         # Used for compute multiplier for positional encodings
 
         # Prenet: causal convolution blocks
-        in_channels = in_dim * self.outputs_per_step
-        std_mul = 1.0
         self.preattention = nn.Sequential(*preattention)
         self.convolutions = nn.ModuleList(convolutions)
         self.attention = nn.ModuleList(attention)
@@ -262,7 +265,7 @@ class Decoder(nn.Module):
 
         # Grouping multiple frames if necessary
         if inputs.size(-1) == self.in_dim:
-            inputs = inputs.view(inputs.size(0), inputs.size(1) // self.outputs_per_step, -1)
+            inputs = inputs.reshape(inputs.size(0), inputs.size(1) // self.outputs_per_step, -1)
 
         assert inputs.size(-1) == self.in_dim * self.outputs_per_step
 
@@ -490,9 +493,11 @@ class TTSModel(nn.Module):
         return (p for p in self.parameters() if id(p) not in frozen_param_ids)
 
     def forward(self, text_sequences, mel_targets=None, 
-                text_positions=None, frame_positions=None, input_lengths=None, target_lengths=None) -> MODEL_OUTPUT_TYPE:
+                text_positions=None, frame_positions=None, input_lengths=None, target_lengths=None) -> MODEL_OUTPUT_TYPE:        
         B = text_sequences.size(0)
 
+        if mel_targets is not None:
+            mel_targets = mel_targets.transpose(1, 2)
         # Apply seq2seq
         # (B, T//r, mel_dim*r)
         mel_outputs, alignments, done, decoder_states = self.seq2seq(
@@ -501,7 +506,8 @@ class TTSModel(nn.Module):
 
         # Reshape
         # (B, T, mel_dim)
-        mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
+        
+        #mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
 
         # Prepare postnet inputs
         postnet_inputs = decoder_states.view(B, mel_outputs.size(1), -1)
@@ -561,10 +567,8 @@ def spec_loss(y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weigh
 
     # L1 loss
     if masked_loss_weight > 0:
-        assert mask is not None
         l1_loss = masked_loss_weight * masked_l1(y_hat, y, mask=mask) + (1 - masked_loss_weight) * l1(y_hat, y)
     else:
-        assert mask is None
         l1_loss = l1(y_hat, y)
 
     # Priority L1 loss
@@ -589,6 +593,9 @@ def spec_loss(y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weigh
             binary_div = z.mean()
 
     return l1_loss, binary_div
+
+
+LOSS_INPUT_TYPE = Tuple[Tensor, Tensor, Tensor, Tensor]
 
 
 class Loss(nn.Module):
@@ -638,9 +645,9 @@ class Loss(nn.Module):
         self.sample_rate = sample_rate
         self.binary_criterion = nn.BCELoss()
 
-    def forward(self, input: MODEL_OUTPUT_TYPE, target: MODEL_OUTPUT_TYPE) -> Tensor:
-        input_mel, input_linear, input_alignments, input_done, _ = input
-        target_mel, target_linear, target_alignments, target_done, target_lengths = target
+    def forward(self, input: LOSS_INPUT_TYPE, target: LOSS_INPUT_TYPE) -> Tensor:
+        input_mel, input_linear, input_done, _ = input
+        target_mel, target_linear, target_done, target_lengths = target
         decoder_target_mask = sequence_mask(
             target_lengths // (self.outputs_per_step * self.downsample_step),
             max_len=target_mel.size(1)).unsqueeze(-1)

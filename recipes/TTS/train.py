@@ -21,8 +21,14 @@ class TTSBrain(sb.core.Brain):
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
-        tokens_bos, _ = batch.tokens_bos
-        pred = self.hparams.model(tokens_bos)
+        pred = self.hparams.model(
+            text_sequences=batch.text_sequences.data, 
+            mel_targets=batch.mel.data, 
+            text_positions=batch.text_positions.data,
+            frame_positions=batch.frame_positions.data,
+            input_lengths=batch.input_lengths.data,
+            target_lengths=batch.target_lengths.data 
+        )
         return pred
 
     def compute_objectives(self, predictions, batch, stage):
@@ -41,9 +47,17 @@ class TTSBrain(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = batch.to(self.device)
-        tokens_eos, tokens_len = batch.tokens_eos
+
+        output_mel, output_lienar, _, output_done, output_lengths = predictions
+        target_mel = batch.mel.data
+        target_done = batch.done.data
+        target_linear = batch.linear.data
+        target_lengths = batch.target_lengths.data
+
+        outputs = target_mel, target_linear, target_done, target_lengths
+        targets = output_mel, output_lienar, output_done, output_lengths
         loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
+            outputs, targets
         )
         return loss
 
