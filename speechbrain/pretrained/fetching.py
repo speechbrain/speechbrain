@@ -8,6 +8,7 @@ import urllib.request
 import urllib.error
 import pathlib
 import logging
+import huggingface_hub
 
 logger = logging.getLogger(__name__)
 
@@ -80,14 +81,6 @@ def fetch(
     else:
         # Interpret source as huggingface hub ID
         # Use huggingface hub's fancy cached download.
-        try:
-            import huggingface_hub
-        except ImportError:
-            # Extra tools pattern:
-            raise ValueError(
-                f"Interpreted {source} as Huggingface hub ID, but Huggingface-hub"
-                "is not installed. Please install with pip install huggingface-hub"
-            )
         url = huggingface_hub.hf_hub_url(source, filename)
         fetched_file = huggingface_hub.cached_download(url)
         # Huggingface hub downloads to etag filename, symlink to the expected one:
