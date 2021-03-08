@@ -80,4 +80,4 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         mean_var_norm_emb: !ref <mean_var_norm_emb>
     paths:
         embedding_model: !ref <pretrain_path>/embedding_model.ckpt
-        mean_var_norm_emb: !ref <pretrain_path>/mean_var_norm_emb.pkl
+        mean_var_norm_emb: !ref <pretrain_path>/mean_var_norm_emb.ckpt

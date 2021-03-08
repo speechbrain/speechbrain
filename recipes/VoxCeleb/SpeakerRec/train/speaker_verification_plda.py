@@ -26,13 +26,32 @@ from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.distributed import run_on_main
 
 
-def compute_embeddings(wavs, lens):
-    """Definition of the steps for embedding computation from the waveforms"""
+# Compute embeddings from the waveforms
+def compute_embeddings(wavs, wav_lens):
+    """Compute speaker embeddings.
+
+    Arguments
+    ---------
+    wavs : Torch.Tensor
+        Tensor containing the speech waveform (batch, time).
+        Make sure the sample rate is fs=16000 Hz.
+    wav_lens: Torch.Tensor
+        Tensor containing the relative length for each sentence
+        in the length (e.g., [0.8 0.6 1.0])
+    """
+    wavs = wavs.to(params["device"])
+    wav_lens = wav_lens.to(params["device"])
     with torch.no_grad():
-        emb = params["embedding_model"].compute_embeddings(wavs, lens)
-    return emb
+        feats = params["compute_features"](wavs)
+        feats = params["mean_var_norm"](feats, wav_lens)
+        embeddings = params["embedding_model"](feats, wav_lens)
+        embeddings = params["mean_var_norm_emb"](
+            embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
+        )
+    return embeddings.squeeze(1)
 
 
 def emb_computation_loop(split, set_loader, stat_file):
@@ -45,7 +64,6 @@ def emb_computation_loop(split, set_loader, stat_file):
         modelset = []
         segset = []
         with tqdm(set_loader, dynamic_ncols=True) as t:
-
             for batch in t:
                 ids = batch.id
                 wavs, lens = batch.sig
@@ -244,8 +262,13 @@ if __name__ == "__main__":
         params["save_folder"], "VoxCeleb1_train_embeddings_stat_obj.pkl"
     )
 
-    # Switch encoder to eval modality
+    # We download the pretrained LM from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    run_on_main(params["pretrainer"].collect_files)
+    params["pretrainer"].load_collected()
+
     params["embedding_model"].eval()
+    params["embedding_model"].to(params["device"])
 
     # Computing training embeddigs (skip it of if already extracted)
     if not os.path.exists(xv_file):
