@@ -45,7 +45,7 @@ class FairseqWav2Vec2(nn.Module):
     >>> model = FairseqWav2Vec2(model_url, save_path)
     >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 768])
+    torch.Size([10, 100, 768])
     """
 
     def __init__(
