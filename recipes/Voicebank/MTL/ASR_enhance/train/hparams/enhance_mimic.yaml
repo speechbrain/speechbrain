@@ -52,8 +52,14 @@ alignment_weight: 0.0
 label_smoothing: 0.1
 
 # Set this to the path of a pretrained model to load before training
-pretrained_path:
-    src_embedding: http://www.dropbox.com/s/2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1
+#pretrained_path:
+#    src_embedding: http://www.dropbox.com/s/2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1
+
+# Here, the pretrained perceptual model is downloaded from the
+# speechbrain HuggingFace repository. However, a local path pointing
+# to a directory containing your checkpoints may also be specified
+# instead (see pretrainer below)
+pretrain_perceptual_path: speechbrain/mtl-mimic-voicebank
 
 frozen_models: [src_embedding]
 
@@ -75,6 +81,13 @@ enhance_model: !include:models/enhance_model.yaml
 perceptual_model: !include:models/perceptual_model.yaml
     n_fft: !ref <n_fft>
     output_neurons: !ref <output_neurons>
+
+perceptual_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        perceptual_model: !ref <perceptual_model[src_embedding]>
+    paths:
+        perceptual_model: !ref <pretrain_perceptual_path>/perceptual.ckpt
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
