@@ -517,7 +517,9 @@ class TTSModel(nn.Module):
         # high resolution spectrogram
         linear_outputs = self.postnet(postnet_inputs)
         assert linear_outputs.size(-1) == self.linear_dim
-
+        linear_outputs = linear_outputs.transpose(1, 2)
+        
+        mel_outputs = mel_outputs.transpose(1, 2)
         return mel_outputs, linear_outputs, alignments, done, target_lengths
 
 
@@ -610,6 +612,7 @@ class Loss(nn.Module):
         outputs_per_step: int,
         masked_loss_weight: float,
         binary_divergence_weight: float,
+        priority_freq_weight: float,
         priority_freq: float,
         sample_rate: float):
         """
@@ -641,6 +644,7 @@ class Loss(nn.Module):
         self.outputs_per_step = outputs_per_step
         self.masked_loss_weight = masked_loss_weight
         self.binary_divergence_weight = binary_divergence_weight
+        self.priority_freq_weight = priority_freq_weight
         self.priority_freq = priority_freq
         self.sample_rate = sample_rate
         self.binary_criterion = nn.BCELoss()
@@ -655,7 +659,7 @@ class Loss(nn.Module):
             input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask)
         mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
 
-        done_loss = self.binary_criterion(input_done, target_done)
+        done_loss = self.binary_criterion(target_done.squeeze(), input_done)
 
         target_mask = sequence_mask(
             target_lengths, max_len=target_linear.size(1)).unsqueeze(-1)

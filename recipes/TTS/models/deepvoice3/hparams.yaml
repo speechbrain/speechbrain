@@ -12,6 +12,7 @@ downsample_step: 4
 masked_loss_weight: 0.5
 binary_divergence_weight: 0.1
 priority_freq: 3000
+priority_freq_weight: 0.0
 sample_rate: 22050
 encoder_in_std_mul: 1.0
 encoder_mid_std_mul: 2.0
@@ -270,26 +271,27 @@ model: !new:models.deepvoice3.model.TTSModel
   postnet: !ref <converter>
 
 compute_cost: !new:models.deepvoice3.model.Loss
-    linear_dim: !ref <linear_dim>
-    downsample_step: !ref <downsample_step>
-    outputs_per_step: !ref <outputs_per_step>
-    masked_loss_weight: !ref <masked_loss_weight>
-    binary_divergence_weight: !ref <binary_divergence_weight>
-    priority_freq: !ref <priority_freq>
-    sample_rate: !ref <sample_rate>
+  linear_dim: !ref <linear_dim>
+  downsample_step: !ref <downsample_step>
+  outputs_per_step: !ref <outputs_per_step>
+  masked_loss_weight: !ref <masked_loss_weight>
+  binary_divergence_weight: !ref <binary_divergence_weight>
+  priority_freq: !ref <priority_freq>
+  priority_freq_weight: !ref <priority_freq_weight>
+  sample_rate: !ref <sample_rate>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
-    lr_initial: !ref <lr>
-    n_warmup_steps: !ref <lr_warmup_steps>
+  lr_initial: !ref <lr>
+  n_warmup_steps: !ref <lr_warmup_steps>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+  limit: !ref <number_of_epochs>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        counter: !ref <epoch_counter>
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    counter: !ref <epoch_counter>
 
 modules:
   model: !ref <model>

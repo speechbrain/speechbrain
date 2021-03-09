@@ -62,17 +62,17 @@ def text_encoder(max_input_len=128, tokens=None):
     return f
 
 
-def downsample_mel(downsample_step=4):
+def downsample_spectrogram(takes, provides, downsample_step=4):
     """
-    A pipeline function that downsamples a MEL spectrogram
+    A pipeline function that downsamples a spectrogram
 
     Arguments
     ---------
     downsample_step
         the number of steps by which to downsample the target spectrograms
     """
-    @sb.utils.data_pipeline.takes("mel_raw")
-    @sb.utils.data_pipeline.provides("mel_downsampled")
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
     def f(mel):
         mel = mel[:, 0::downsample_step].contiguous()
         return mel
@@ -139,8 +139,8 @@ OUTPUT_KEYS = [
 
 def data_prep(dataset: DynamicItemDataset, max_input_len=128,
               max_output_len=1024, tokens=None, mel_dim: int=80,
-              n_fft:int=512, sample_rate=22050, mel_downsample_step=4,
-              outputs_per_step=1):
+              n_fft:int=1024, sample_rate=22050, mel_downsample_step=4,
+              hop_length=256, outputs_per_step=1):
     """
     Prepares one or more datasets for use with deepvoice.
 
@@ -167,13 +167,31 @@ def data_prep(dataset: DynamicItemDataset, max_input_len=128,
         audio_pipeline,
         resample(new_freq=sample_rate),
         mel_spectrogram(
-            takes="sig_resampled", provides="mel_raw", n_mels=mel_dim,
+            takes="sig_resampled",
+            provides="mel_raw",
+            n_mels=mel_dim,
             n_fft=n_fft),
-        downsample_mel(mel_downsample_step),
+        downsample_spectrogram(
+            takes="mel_raw",
+            provides="mel_downsampled",
+            downsample_step=mel_downsample_step),
         pad(takes="mel_downsampled", provides="mel", length=max_output_len),
         text_encoder(max_input_len=max_input_len, tokens=tokens),
-        frame_positions(max_output_len=max_output_len),
-        spectrogram(n_fft=n_fft, takes="sig", provides="linear"),
+        frame_positions(
+            max_output_len=max_output_len),
+        spectrogram(
+            n_fft=n_fft,
+            hop_length=hop_length,
+            takes="sig",
+            provides="linear_raw"),
+        downsample_spectrogram(
+            takes="linear_raw",
+            provides="linear_downsampled",
+            downsample_step=mel_downsample_step),
+        pad(
+            takes="linear_downsampled",
+            provides="linear",
+            length=max_output_len),
         done(max_output_len=max_output_len,
              downsample_step=mel_downsample_step,
              outputs_per_step=outputs_per_step),

@@ -90,21 +90,24 @@ class TTSBrain(sb.core.Brain):
         if stage == sb.Stage.VALID:
 
             # Update learning rate
-            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            # TODO: Bring this back
+#            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
+#            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
-                {"Epoch": epoch},
-                train_stats={"loss": self.train_loss},
-                valid_stats=stats,
-            )
+#            TODO: Bring this back
+#            self.hparams.train_logger.log_stats(
+#                {"Epoch": epoch},
+#                train_stats={"loss": self.train_loss},
+#                valid_stats=stats,
+#            )
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
+#            TODO: Bring this back
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
