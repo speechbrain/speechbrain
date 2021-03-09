@@ -53,14 +53,15 @@ class ASR(sb.Brain):
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
         # wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "augmentation"):
-                wavs = self.modules.augmentation(wavs, wav_lens)
-
         # Forward pass
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
+
+        # Add augmentation if specified
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.modules, "augmentation"):
+                wavs = self.modules.augmentation(feats)
+
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
@@ -313,8 +314,8 @@ def dataio_prepare(hparams):
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
-        csv_train=hparams["train_csv"],
-        csv_read="wrd",
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
     )
