@@ -334,8 +334,8 @@ def dataio_prepare(hparams):
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
-        csv_train=hparams["train_csv"],
-        csv_read="wrd",
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
     )
