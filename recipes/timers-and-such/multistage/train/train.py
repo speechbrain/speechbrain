@@ -46,7 +46,7 @@ class SLU(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # ASR forward pass
-        words, asr_tokens = self.modules.asr_model.transcribe(
+        words, asr_tokens = self.hparams.asr_model.transcribe_batch(
             wavs.detach(), wav_lens
         )
 
