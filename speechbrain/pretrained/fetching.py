@@ -13,6 +13,15 @@ import huggingface_hub
 logger = logging.getLogger(__name__)
 
 
+def _missing_ok_unlink(path):
+    # missing_ok=True was added to Path.unlink() in Python 3.8
+    # This does the same.
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def fetch(
     filename, source, savedir="./pretrained_model_checkpoints", overwrite=False, save_filename=None
 ):
@@ -76,7 +85,7 @@ def fetch(
         # Interpret source as local directory path
         # Just symlink
         sourcepath = pathlib.Path(sourcefile).absolute()
-        destination.unlink(missing_ok=True)
+        _missing_ok_unlink(destination)
         destination.symlink_to(sourcepath)
     else:
         # Interpret source as huggingface hub ID
@@ -85,6 +94,6 @@ def fetch(
         fetched_file = huggingface_hub.cached_download(url)
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
-        destination.unlink(missing_ok=True)
+        _missing_ok_unlink(destination)
         destination.symlink_to(sourcepath)
     return destination

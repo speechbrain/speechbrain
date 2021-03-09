@@ -54,12 +54,6 @@ alignment_weight: 0.0
 label_smoothing: 0.1
 mask_weight: 0.7
 
-# Set this to the path of a pretrained model to load before training
-pretrained_path:
-    enhance_model: https://www.dropbox.com/s/o7hdph54kv1julo/enhance_model.ckpt?dl=1
-    #asr_model: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
-    #normalizer: https://www.dropbox.com/s/ib20ub7liaqcirw/normalizer.ckpt?dl=1
-
 # Here, the pretrained models are downloaded from the speechbrain
 # HuggingFace repository. However, a local path pointing to a directory with
 # your checkpoints may also be specified instead (see pretrainer below)
