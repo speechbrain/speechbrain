@@ -1,6 +1,7 @@
-"""This lobes enables the integration of fairseq pretrained wav2vec2.0 models.
+"""This lobes enables the integration of fairseq pretrained wav2vec models.
 
 Reference: https://arxiv.org/abs/2006.11477
+Reference: https://arxiv.org/abs/1904.05862
 FairSeq needs to be installed: https://fairseq.readthedocs.io/en/latest/
 
 Authors
@@ -9,8 +10,9 @@ Authors
 """
 
 import fairseq
-from torch import nn
+import torch
 import torch.nn.functional as F
+from torch import nn
 from speechbrain.utils.data_utils import download_file
 
 
@@ -81,10 +83,14 @@ class FairseqWav2Vec2(nn.Module):
             A batch of audio signals to transform to features.
         """
 
-        # If freeze is specified, we remove the model from the gradient graph.
+        # If we freeze, we simply remove all grads and features from the graph.
         if self.freeze:
-            for p in self.model.parameters():
-                p.requires_grad = True
+            with torch.no_grad():
+                return self.extract_features(wav).detach()
+
+        return self.extract_features(wav)
+
+    def extract_features(self, wav):
 
         # We normalize the input signal if needed.
         if self.normalize:
