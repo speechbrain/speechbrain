@@ -94,10 +94,10 @@ class FairseqWav2Vec2(nn.Module):
 
         # We normalize the input signal if needed.
         if self.normalize:
-            x = F.layer_norm(wav, wav.shape)
+            wav = F.layer_norm(wav, wav.shape)
 
         # Extract wav2vec output
-        out = self.model.extract_features(x, padding_mask=None, mask=False)[0]
+        out = self.model.extract_features(wav, padding_mask=None, mask=False)[0]
 
         # We normalize the output if required
         if self.output_norm:
