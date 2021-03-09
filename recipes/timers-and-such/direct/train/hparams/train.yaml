@@ -61,7 +61,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 # Models
 asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
-    source: sb/asr-crdnn-libri
+    source: speechbrain/asr-crdnn-rnnlm-librispeech
     run_opts: {"device":"cuda:0"}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
