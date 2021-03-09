@@ -35,11 +35,11 @@ class SLU(sb.Brain):
         # Forward pass
         if stage == sb.Stage.TRAIN or stage == sb.Stage.VALID:
             asr_tokens = [
-                self.modules.asr_model.tokenizer.encode_as_ids(t)
+                self.hparams.asr_model.tokenizer.encode_as_ids(t)
                 for t in true_transcripts
             ]
         else:
-            words, asr_tokens = self.modules.asr_model.transcribe(
+            words, asr_tokens = self.hparams.asr_model.transcribe_batch(
                 wavs.detach(), wav_lens
             )
 

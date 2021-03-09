@@ -23,7 +23,6 @@ csv_train: !ref <data_folder>/train-type=decoupled.csv
 csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
 csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
-asr_hparam_file: https://www.dropbox.com/s/54vmm04g3gezwz3/pretrained_ASR_BPE1000.yaml?dl=1
 tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
@@ -61,10 +60,9 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.pretrained.ASR
-    hparams_file: !ref <asr_hparam_file>
-    overrides: {'beam_size': !ref <asr_beam_size>}
-    save_folder: !ref <save_folder>
+asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
+    source: speechbrain/asr-crdnn-rnnlm-librispeech
+    run_opts: {"device":"cuda:0", "beam_size": !ref <asr_beam_size>}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <emb_size>]
@@ -101,16 +99,14 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
 
 modules:
-    asr_model: !ref <asr_model>
     slu_enc: !ref <slu_enc>
     input_emb: !ref <input_emb>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
 
-
 model: !new:torch.nn.ModuleList
-    - [!ref <asr_model>, !ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
+    - [!ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
 tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.pretrained.tokenizer
