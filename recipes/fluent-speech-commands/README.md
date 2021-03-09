@@ -2,7 +2,9 @@
 This folder contains recipes for spoken language understanding (SLU) with [Fluent Speech Commands](fluent.ai/research/fluent-speech-commands/).
 
 ### Tokenizer recipe
-The tokenizer needs to be created before training an SLU model. Run this to train the tokenizer:
+(You don't need to run this because the other recipes download a tokenizer, but you can run this if you want to train a new tokenizer for Fluent Speech Commands.)
+
+Run this to train the tokenizer:
 
 ```
 cd Tokenizer/train
