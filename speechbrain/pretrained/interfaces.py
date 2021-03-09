@@ -154,7 +154,7 @@ class Pretrained:
         source,
         hparams_file="hyperparams.yaml",
         overrides={},
-        savedir="./data",
+        savedir="./pretrained_model_checkpoints",
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
