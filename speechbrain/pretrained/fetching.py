@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def fetch(
-    filename, source, savedir="./data", overwrite=False, save_filename=None
+    filename, source, savedir="./pretrained_model_checkpoints", overwrite=False, save_filename=None
 ):
     """Ensures you have a local copy of the file, returns its path
 
