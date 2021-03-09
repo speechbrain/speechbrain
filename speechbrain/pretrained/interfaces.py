@@ -210,9 +210,13 @@ class EncoderDecoderASR(Pretrained):
     Example
     -------
     >>> from speechbrain.pretrained import EncoderDecoderASR
-    >>> asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-crdnn-rnnlm-librispeech")
-    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac'")
-    ```
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = EncoderDecoderASR.from_hparams(
+    ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
+    ...     savedir=tmpdir,
+    ... )
+    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
+    "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
     def __init__(self, *args, **kwargs):
@@ -225,7 +229,7 @@ class EncoderDecoderASR(Pretrained):
         self.tokenizer = self.hparams.tokenizer
 
     def load_audio(self, path):
-        """Load an audio file with this model's input spec
+        """Load an audio file with this model"s input spec
 
         When using an ASR model, it is important to use the same type of data,
         as was used to train the model. This means for example using the same
@@ -279,9 +283,8 @@ class EncoderDecoderASR(Pretrained):
 
         Returns
         -------
-        tensor
+        torch.tensor
             The encoded batch
-
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
@@ -343,14 +346,18 @@ class SpeakerRecognition(Pretrained):
     >>> import torchaudio
     >>> from speechbrain.pretrained import SpeakerRecognition
     >>> # Model is downloaded from the speechbrain HuggingFace repo
-    >>> verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
+    >>> tmpdir = getfixture("tmpdir")
+    >>> verification = SpeakerRecognition.from_hparams(
+    ...     source="speechbrain/spkrec-ecapa-voxceleb",
+    ...     savedir=tmpdir,
+    ... )
 
     >>> # Compute embeddings
-    >>> signal, fs =torchaudio.load('samples/audio_samples/example1.wav')
+    >>> signal, fs =torchaudio.load("samples/audio_samples/example1.wav")
     >>> embeddings = verification.encode(signal)
 
     >>> # Speaker Verification
-    >>> signal2, fs = torchaudio.load('samples/audio_samples/example2.flac')
+    >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
     >>> score, prediction = verification.verify(signal, signal2)
     """
 
@@ -386,9 +393,8 @@ class SpeakerRecognition(Pretrained):
 
         Returns
         -------
-        tensor
+        torch.tensor
             The encoded batch
-
         """
         # Manage single waveforms in input
         if len(wavs.shape) == 1:
@@ -461,11 +467,15 @@ class SpectralMaskEnhancement(Pretrained):
     Example
     -------
     >>> import torchaudio
-    >>> from speechbrain.pretrained import Enhancement
+    >>> from speechbrain.pretrained import SpectralMaskEnhancement
     >>> # Model is downloaded from the speechbrain HuggingFace repo
-    >>> enhancer = Enhancement.from_hparams(source="speechbrain/mtl-mimic-voicebank")
-    >>> signal, fs = torchaudio.load('samples/audio_samples/example1.wav')
-    >>> noise, fs = torchaudio.load('samples/noise_samples/noise2.wav')
+    >>> tmpdir = getfixture("tmpdir")
+    >>> enhancer = SpectralMaskEnhancement.from_hparams(
+    ...     source="speechbrain/mtl-mimic-voicebank",
+    ...     savedir=tmpdir,
+    ... )
+    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
+    >>> noise, fs = torchaudio.load("samples/noise_samples/noise2.wav")
     >>> noisy = signal + noise[:, :signal.size(1)]
     >>> # Channel dimension is interpreted as batch dimension here
     >>> enhanced = enhancer.enhance_batch(noisy)
