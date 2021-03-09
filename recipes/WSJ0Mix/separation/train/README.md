@@ -1,11 +1,5 @@
-# Speech separation with WSJMIX
-This folder contains some popular recipes for the WSJMIX task (2/3 sources).
-
-# SepFormer recipe
-
-# DualPath RNN recipe
-
-# ConvTasnet Recipe
+# Speech separation with WSJ0MIX
+This folder contains some popular recipes for the WSJ0MIX task (2/3 sources).
 
 * This recipe supports train with several source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
 
@@ -38,6 +32,10 @@ graphics_toolkit: = toolkit is not available
 ```
 This is in essence a warning and does not affect the results of this script.
 
+# WHAM! and WHAMR! dataset:
+
+* This recipe also supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM, simply use `--data_folder /yourpath/wham_original`, and for WHAMR use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder `wham_original` and `whamr`.
+
 # Results
 
 Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix datasets with SepFormer:
@@ -45,9 +43,24 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix dataset
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
 |NoAugment | 20.4 |
-|DynamicMixing | 22.3 |
+|DynamicMixing | 22.5 |
 
 | | SepFormer, WSJ0-3Mix |
 |--- | --- |
 |NoAugment | 17.6 |
-|DynamicMixing | 19.5 |
+|DynamicMixing | 19.8 |
+
+
+| |SepFormer, WHAM! |
+|--- | ---|
+|SpeedAugment | 16.3 |
+
+
+| | SepFormer. WHAMR! |
+| --- | --- |
+|NoAugment | 11.4 |
+
+
+
+
+
