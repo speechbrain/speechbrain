@@ -51,10 +51,6 @@ seq_type: null  # null, clean, joint
 alignment_weight: 0.0
 label_smoothing: 0.1
 
-# Set this to the path of a pretrained model to load before training
-#pretrained_path:
-#    src_embedding: http://www.dropbox.com/s/2zv9mk8qw2avxbm/src_embedding.ckpt?dl=1
-
 # Here, the pretrained perceptual model is downloaded from the
 # speechbrain HuggingFace repository. However, a local path pointing
 # to a directory containing your checkpoints may also be specified
