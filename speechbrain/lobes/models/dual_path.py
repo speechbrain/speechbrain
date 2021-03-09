@@ -955,9 +955,6 @@ class Dual_Computation_Block(nn.Module):
 
         # [BS, K, N]
         if self.linear_layer_after_inter_intra:
-            # intra = self.intra_linear(
-            #    intra.contiguous().view(B * S * K, -1)
-            # ).view(B * S, K, -1)
             intra = self.intra_linear(intra)
 
         # [B, S, K, N]
@@ -979,9 +976,6 @@ class Dual_Computation_Block(nn.Module):
 
         # [BK, S, N]
         if self.linear_layer_after_inter_intra:
-            # inter = self.inter_linear(
-            #    inter.contiguous().view(B * S * K, -1)
-            # ).view(B * K, S, -1)
             inter = self.inter_linear(inter)
 
         # [B, K, S, N]
@@ -1110,8 +1104,11 @@ class Dual_Path_Model(nn.Module):
                L = the number of time points
         """
 
+        # before each line we indicate the shape after executing the line
+
         # [B, N, L]
         x = self.norm(x)
+
         # [B, N, L]
         x = self.conv1d(x)
         if self.use_global_pos_enc:
@@ -1121,26 +1118,31 @@ class Dual_Path_Model(nn.Module):
 
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
-        # [B, N*spks, K, S]
+
+        # [B, N, K, S]
         for i in range(self.num_layers):
             x = self.dual_mdl[i](x)
-
-        # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
-
         x = self.prelu(x)
+
+        # [B, N*spks, K, S]
         x = self.conv2d(x)
-        # [B*spks, N, K, S]
         B, _, K, S = x.shape
+
+        # [B*spks, N, K, S]
         x = x.view(B * self.num_spks, -1, K, S)
+
         # [B*spks, N, L]
         x = self._over_add(x, gap)
         x = self.output(x) * self.output_gate(x)
-        # [spks*B, N, L]
+
+        # [B*spks, N, L]
         x = self.end_conv1x1(x)
-        # [B*spks, N, L] -> [B, spks, N, L]
+
+        # [B, spks, N, L]
         _, N, L = x.shape
         x = x.view(B, self.num_spks, N, L)
         x = self.activation(x)
+
         # [spks, B, N, L]
         x = x.transpose(0, 1)
 
