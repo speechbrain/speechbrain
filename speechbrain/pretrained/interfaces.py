@@ -449,3 +449,81 @@ class SpeakerRecognition(Pretrained):
         emb2 = self.encode(wavs2, wav2_lens, normalize=True)
         score = self.similarity(emb1, emb2)
         return score, score > threshold
+
+
+class SpectralMaskEnhancement(Pretrained):
+    """A ready-to-use model for speech enhancement.
+
+    Arguments
+    ---------
+    See ``Pretrained``.
+
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import Enhancement
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> enhancer = Enhancement.from_hparams(source="speechbrain/mtl-mimic-voicebank")
+    >>> signal, fs = torchaudio.load('samples/audio_samples/example1.wav')
+    >>> noise, fs = torchaudio.load('samples/noise_samples/noise2.wav')
+    >>> noisy = signal + noise[:, :signal.size(1)]
+    >>> # Channel dimension is interpreted as batch dimension here
+    >>> enhanced = enhancer.enhance_batch(noisy)
+    """
+
+    def compute_features(self, wavs):
+        """Compute the log spectral magnitude features for masking.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            A batch of waveforms to convert to log spectral mags.
+        """
+        feats = self.hparams.compute_stft(wavs)
+        feats = self.hparams.spectral_magnitude(feats)
+        return torch.log1p(feats)
+
+    def enhance_batch(self, noisy, lengths=None):
+        """Enhance a batch of noisy waveforms.
+
+        Arguments
+        ---------
+        noisy : torch.tensor
+            A batch of waveforms to perform enhancement on.
+        lengths : torch.tensor
+            The lengths of the waveforms if the enhancement model handles them.
+
+        Returns
+        -------
+        torch.tensor
+            A batch of enhanced waveforms of the same shape as input.
+        """
+        noisy_features = self.compute_features(noisy)
+
+        # Perform masking-based enhancement, multiplying output with input.
+        if lengths is not None:
+            mask = self.modules.enhance_model(noisy_features, lengths=lengths)
+        else:
+            mask = self.modules.enhance_model(noisy_features)
+        enhanced = torch.mul(mask, noisy_features)
+
+        # Return resynthesized waveforms
+        return self.hparams.resynth(torch.expm1(enhanced), noisy)
+
+    def enhance_file(self, filename, output_filename=None):
+        """Enhance a wav file.
+
+        Arguments
+        ---------
+        filename : str
+            Location on disk to load file for enhancement.
+        output_filename : str
+            If provided, writes enhanced data to this file.
+        """
+        noisy, fs = torchaudio.load(filename)
+        enhanced = self.enhance_batch(noisy)
+
+        if output_filename is not None:
+            torchaudio.save(output_filename, enhanced, channels_first=False)
+
+        return enhanced.squeeze(0)
