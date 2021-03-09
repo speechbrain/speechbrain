@@ -329,148 +329,15 @@ class EncoderDecoderASR(Pretrained):
         return predicted_words, predicted_tokens
 
 
-class TransformerASR(Pretrained):
-    """A ready-to-use Transformer ASR model
-
-    The class can be used either to run only the encoder (encode()) to extract
-    features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech.
-
-    Example
-    -------
-    >>> from speechbrain.pretrained import EncoderDecoderASR
-    >>> asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-crdnn-transformerlm-librispeech")
-    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac'")
-    ```
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # TODO: How to integrate this better?
-        if not hasattr(self, "normalizer"):
-            self.normalizer = AudioNormalizer()
-
-        self.tokenizer = self.hparams.tokenizer
-
-    def load_audio(self, path):
-        """Load an audio file with this model's input spec
-
-        When using an ASR model, it is important to use the same type of data,
-        as was used to train the model. This means for example using the same
-        sampling rate and number of channels. It is, however, possible to
-        convert a file from a higher sampling rate to a lower one (downsampling).
-        Similarly, it is simple to downmix a stereo file to mono.
-        """
-        signal, sr = torchaudio.load(path, channels_first=False)
-        return self.normalizer(signal, sr)
-
-    def transcribe_file(self, path):
-        """Transcribes the given audiofile into a sequence of words.
-
-        Arguments
-        ---------
-        path : str
-            Path to audio file which to transcribe.
-
-        Returns
-        -------
-        str
-            The audiofile transcription produced by this ASR system.
-        """
-        waveform = self.load_audio(path)
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
-        return predicted_words[0]
-
-    def encode_batch(self, wavs, wav_lens):
-        """Encodes the input audio into a sequence of hidden states
-
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        tensor
-            The encoded batch
-
-        """
-        torch.Tensor([self.hparams.bos_index])
-        wavs = wavs.float()
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        feats = self.modules.compute_features(wavs)
-        normalized = self.modules.normalize(feats, wav_lens)
-        pre_trans_out = self.modules.pre_transformer(normalized)
-        transformer_out = self.modules.transformer.encode(
-            pre_trans_out, wav_lens,
-        )
-        return transformer_out
-
-    def transcribe_batch(self, wavs, wav_lens):
-        """Transcribes the input audio into a sequence of words
-
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        list
-            Each waveform in the batch transcribed.
-        tensor
-            Each predicted token id.
-        """
-        with torch.no_grad():
-            wav_lens = wav_lens.to(self.device)
-            encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.modules.beam_searcher(
-                encoder_out, wav_lens
-            )
-            predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predicted_tokens
-            ]
-        return predicted_words, predicted_tokens
-
-
 class SpeakerRecognition(Pretrained):
-    """A ready-to-use model for speaker recognition. It can be used to 
+    """A ready-to-use model for speaker recognition. It can be used to
     compute the speaker embeddings as well.
 
-    The class can be used either to run only the encoder (encode_batch()) to 
+    The class can be used either to run only the encoder (encode_batch()) to
     extract embeddings or to run the entire verification system
     (verify()) to check speaker identifies.
     ```
-    
+
     Example
     -------
     >>> import torchaudio
@@ -514,9 +381,9 @@ class SpeakerRecognition(Pretrained):
             relative length 1.0 and others len(waveform) / max_length.
             Used for ignoring padding.
         normalize : bool
-            If True, it normalizes the embeddings with the statistics 
+            If True, it normalizes the embeddings with the statistics
             contained in mean_var_norm_emb.
-            
+
         Returns
         -------
         tensor
@@ -550,7 +417,7 @@ class SpeakerRecognition(Pretrained):
         """Performs speaker verification with cosine distance.
         It returns the score and the decision (0 different speakers,
         1 same speakers).
-        
+
         Arguments
         ---------
         wavs1 : Torch.Tensor
@@ -568,11 +435,11 @@ class SpeakerRecognition(Pretrained):
         threshold: Float
                 Threshold applied to the cosine distance to decide if the
                 speaker is different (0) or the same (1).
-        
+
         Returns
         -------
         score
-            The score associated to the binary verification output 
+            The score associated to the binary verification output
             (cosine distance).
         prediction
             The prediction is 1 if the two signals in input are from the same
