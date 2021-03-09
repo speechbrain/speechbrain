@@ -314,41 +314,6 @@ def download_file(
         sb.utils.distributed.ddp_barrier()
 
 
-class FuncPipeline:
-    """
-    Chain together functions.
-
-    The class instances are callable, and will apply all given functions to the input,
-    in the given order.
-
-    Arguments
-    ---------
-    *funcs : list, optional
-        Any number of functions, given in order of execution.
-
-    Returns
-    -------
-    Any
-        The input as processed by each function. If no functions were given, simply returns the input.
-    """
-
-    def __init__(self, *funcs):
-        self.funcs = funcs
-
-    def __call__(self, x):
-        if not self.funcs:
-            return x
-        for func in self.funcs:
-            x = func(x)
-        return x
-
-    def __str__(self):
-        if self.funcs:
-            return "FuncPipeline:\n" + "\n".join(str(f) for f in self.funcs)
-        else:
-            return "Empty FuncPipeline"
-
-
 def pad_right_to(
     tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
 ):
