@@ -23,7 +23,11 @@ def _missing_ok_unlink(path):
 
 
 def fetch(
-    filename, source, savedir="./pretrained_model_checkpoints", overwrite=False, save_filename=None
+    filename,
+    source,
+    savedir="./pretrained_model_checkpoints",
+    overwrite=False,
+    save_filename=None,
 ):
     """Ensures you have a local copy of the file, returns its path
 
