@@ -254,14 +254,12 @@ if __name__ == "__main__":
     # here we create the datasets objects as well as tokenization and encoding
     train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
 
-    params["embedding_model"].eval()
-    params["mean_var_norm_emb"].count = 0
-    params["embedding_model"].to(params["device"])
-
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(params["pretrainer"].collect_files)
     params["pretrainer"].load_collected()
+    params["embedding_model"].eval()
+    params["embedding_model"].to(params["device"])
 
     # Computing  enrollment and test embeddings
     logger.info("Computing enroll/test embeddings...")

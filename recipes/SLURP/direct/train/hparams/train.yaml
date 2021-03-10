@@ -23,7 +23,6 @@ train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/devel-type=direct.csv
 csv_test: !ref <data_folder>/test-type=direct.csv
-asr_hparam_file: https://www.dropbox.com/s/54vmm04g3gezwz3/pretrained_ASR_BPE1000.yaml?dl=1
 tokenizer_file: https://www.dropbox.com/s/w72vtnf273yjwu4/SLURP_51_unigram.model?dl=1
 skip_prep: False
 
@@ -60,9 +59,9 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.pretrained.ASR
-    hparams_file: !ref <asr_hparam_file>
-    save_folder: !ref <save_folder>
+asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
+    source: speechbrain/asr-crdnn-rnnlm-librispeech
+    run_opts: {"device":"cuda:0"}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]
@@ -103,7 +102,6 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_high: 15
 
 modules:
-    asr_model: !ref <asr_model>
     slu_enc: !ref <slu_enc>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
@@ -111,7 +109,7 @@ modules:
     env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <asr_model>, !ref <slu_enc>, !ref <output_emb>,
+    - [!ref <slu_enc>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
 tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.pretrained.tokenizer

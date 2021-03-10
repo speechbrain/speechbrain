@@ -154,7 +154,7 @@ class Pretrained:
         source,
         hparams_file="hyperparams.yaml",
         overrides={},
-        savedir="./data",
+        savedir="./pretrained_model_checkpoints",
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -210,9 +210,13 @@ class EncoderDecoderASR(Pretrained):
     Example
     -------
     >>> from speechbrain.pretrained import EncoderDecoderASR
-    >>> asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-crdnn-rnnlm-librispeech")
-    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac'")
-    ```
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = EncoderDecoderASR.from_hparams(
+    ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
+    ...     savedir=tmpdir,
+    ... )
+    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
+    "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
     def __init__(self, *args, **kwargs):
@@ -225,7 +229,7 @@ class EncoderDecoderASR(Pretrained):
         self.tokenizer = self.hparams.tokenizer
 
     def load_audio(self, path):
-        """Load an audio file with this model's input spec
+        """Load an audio file with this model"s input spec
 
         When using an ASR model, it is important to use the same type of data,
         as was used to train the model. This means for example using the same
@@ -279,9 +283,8 @@ class EncoderDecoderASR(Pretrained):
 
         Returns
         -------
-        tensor
+        torch.tensor
             The encoded batch
-
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
@@ -343,14 +346,18 @@ class SpeakerRecognition(Pretrained):
     >>> import torchaudio
     >>> from speechbrain.pretrained import SpeakerRecognition
     >>> # Model is downloaded from the speechbrain HuggingFace repo
-    >>> verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
+    >>> tmpdir = getfixture("tmpdir")
+    >>> verification = SpeakerRecognition.from_hparams(
+    ...     source="speechbrain/spkrec-ecapa-voxceleb",
+    ...     savedir=tmpdir,
+    ... )
 
     >>> # Compute embeddings
-    >>> signal, fs =torchaudio.load('samples/audio_samples/example1.wav')
+    >>> signal, fs =torchaudio.load("samples/audio_samples/example1.wav")
     >>> embeddings = verification.encode(signal)
 
     >>> # Speaker Verification
-    >>> signal2, fs = torchaudio.load('samples/audio_samples/example2.flac')
+    >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
     >>> score, prediction = verification.verify(signal, signal2)
     """
 
@@ -386,9 +393,8 @@ class SpeakerRecognition(Pretrained):
 
         Returns
         -------
-        tensor
+        torch.tensor
             The encoded batch
-
         """
         # Manage single waveforms in input
         if len(wavs.shape) == 1:
@@ -497,3 +503,85 @@ class separator(Pretrained):
         else:
             est_source = est_source[:, :T_origin, :]
         return est_source
+
+
+class SpectralMaskEnhancement(Pretrained):
+    """A ready-to-use model for speech enhancement.
+
+    Arguments
+    ---------
+    See ``Pretrained``.
+
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import SpectralMaskEnhancement
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> tmpdir = getfixture("tmpdir")
+    >>> enhancer = SpectralMaskEnhancement.from_hparams(
+    ...     source="speechbrain/mtl-mimic-voicebank",
+    ...     savedir=tmpdir,
+    ... )
+    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
+    >>> noise, fs = torchaudio.load("samples/noise_samples/noise2.wav")
+    >>> noisy = signal + noise[:, :signal.size(1)]
+    >>> # Channel dimension is interpreted as batch dimension here
+    >>> enhanced = enhancer.enhance_batch(noisy)
+    """
+
+    def compute_features(self, wavs):
+        """Compute the log spectral magnitude features for masking.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            A batch of waveforms to convert to log spectral mags.
+        """
+        feats = self.hparams.compute_stft(wavs)
+        feats = self.hparams.spectral_magnitude(feats)
+        return torch.log1p(feats)
+
+    def enhance_batch(self, noisy, lengths=None):
+        """Enhance a batch of noisy waveforms.
+
+        Arguments
+        ---------
+        noisy : torch.tensor
+            A batch of waveforms to perform enhancement on.
+        lengths : torch.tensor
+            The lengths of the waveforms if the enhancement model handles them.
+
+        Returns
+        -------
+        torch.tensor
+            A batch of enhanced waveforms of the same shape as input.
+        """
+        noisy_features = self.compute_features(noisy)
+
+        # Perform masking-based enhancement, multiplying output with input.
+        if lengths is not None:
+            mask = self.modules.enhance_model(noisy_features, lengths=lengths)
+        else:
+            mask = self.modules.enhance_model(noisy_features)
+        enhanced = torch.mul(mask, noisy_features)
+
+        # Return resynthesized waveforms
+        return self.hparams.resynth(torch.expm1(enhanced), noisy)
+
+    def enhance_file(self, filename, output_filename=None):
+        """Enhance a wav file.
+
+        Arguments
+        ---------
+        filename : str
+            Location on disk to load file for enhancement.
+        output_filename : str
+            If provided, writes enhanced data to this file.
+        """
+        noisy, fs = torchaudio.load(filename)
+        enhanced = self.enhance_batch(noisy)
+
+        if output_filename is not None:
+            torchaudio.save(output_filename, enhanced, channels_first=False)
+
+        return enhanced.squeeze(0)
