@@ -17,7 +17,6 @@ from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.distributed import run_on_main
-from recipes.WSJ0Mix.separation.train.train import Separation
 
 
 class Pretrained:
@@ -452,110 +451,49 @@ class SpeakerRecognition(Pretrained):
         return score, score > threshold
 
 
-class separator(Separation, Pretrained):
+class separator(Pretrained):
     """A "ready-to-use" speech separation model for 2 or 3 speaker mixtures.
     This pretrained model is based on the WSJ0Mix recipe.
 
-    The SepFormer system achieves an SI-SNR=22.3dB on WSJ0-2Mix test set.
-
-    Arguments
-    ---------
-    hparams_file : str
-        Path where the yaml file with the model definition is stored.
-        If it is an url, the yaml file is downloaded.
-    encoder_file : str
-        Path where the parameters of the encoder (.ckpt file) is stored.
-        If it is an url, the checkpoint file is downloaded.
-    mask_file : str
-        Path where the parameters of the masknet (.ckpt file) is stored.
-        If it is an url, the checkpoint file is downloaded.
-    decoder_file : str
-        Path where the parameters of the decoder (.ckpt file) is stored.
-        If it is an url, the checkpoint file is downloaded.
-    save_folder : str
-        Path where the lm (yaml + model) will be saved (default 'separation_model')
+    The SepFormer system achieves an SI-SNR=22.5dB on WSJ0-2Mix test set.
 
     Example
     -------
-    >>> import torch
-    >>> model = pretrained_separator()
-    Downloading https://drive.google.com/uc?export=download&id=1AHbegv1btiINzmXJsZyZ9qQL-e-6f8hH to separation_model/sepformer_wsj02mix_dm.yaml
-    Downloading https://drive.google.com/uc?export=download&id=1OQcKtJjF5bn9I7WQ3uMY-0RBD9DW5nto to separation_model/encoder.ckpt
-    Downloading https://www.dropbox.com/s/jqjy6pr9rz0lwda/masknet.ckpt?dl=1 to separation_model/masknet.ckpt
-    Downloading https://drive.google.com/uc?export=download&id=1R0AsN9f-5aYB-aeKyL2o5xNKeKFmBMC2 to separation_model/decoder.ckpt
-    >>> mix = torch.randn(1, 160)
-    >>> result, _ = model.compute_forward([mix, torch.tensor([1])], [[mix], [mix]], stage='test')
-    >>> print(result.shape)
-    torch.Size([1, 160, 2])
+    >>> from speechbrain.pretrained import separator
+    >>> model = separator.from_hparams(source="speechbrain/sepformer-wsj02mix")
+    >>> mix = torch.randn(1, 400)
+    >>> est_sources = model.separate(mix)
+    >>> print(est_sources.shape)
+    torch.Size([1, 400, 2])
     """
 
     def __init__(self, *args, **kwargs):
+
         super().__init__(*args, **kwargs)
 
-        self.tokenizer = self.hparams.tokenizer
+    def separate(self, mix):
+        import torch.nn.functional as F
 
-    def init(
-        self,
-        hparams_file="https://drive.google.com/uc?export=download&id=1AHbegv1btiINzmXJsZyZ9qQL-e-6f8hH",
-        encoder_file="https://drive.google.com/uc?export=download&id=1OQcKtJjF5bn9I7WQ3uMY-0RBD9DW5nto",
-        masknet_file="https://www.dropbox.com/s/jqjy6pr9rz0lwda/masknet.ckpt?dl=1",
-        decoder_file="https://drive.google.com/uc?export=download&id=1R0AsN9f-5aYB-aeKyL2o5xNKeKFmBMC2",
-        save_folder="separation_model",
-        overrides={},
-    ):
-        """Downloads the pretrained modules specified in the yaml"""
+        # Separation
+        mix_w = self.modules.encoder(mix)
+        est_mask = self.modules.masknet(mix_w)
+        mix_w = torch.stack([mix_w] * self.hparams.num_spks)
+        sep_h = mix_w * est_mask
 
-        self.encoder_file = encoder_file
-        self.masknet_file = masknet_file
-        self.decoder_file = decoder_file
-        save_model_path = os.path.join(
-            save_folder, "sepformer_wsj02mix_dm.yaml"
-        )
-        download_file(hparams_file, save_model_path)
-        hparams_file = save_model_path
-
-        # Loading modules defined in the yaml file
-        with open(hparams_file) as fin:
-            overrides["save_folder"] = save_folder
-            self.hyparams = load_hyperpyyaml(fin, overrides)
-
-        # initialize the inherited class
-        super(pretrained_separator, self).__init__(hparams=self.hyparams)
-
-        self.device = "cuda" if torch.cuda.is_available else "cpu"
-
-        # Creating directory where pre-trained models are stored
-        if not os.path.isdir(self.hyparams["save_folder"]):
-            os.makedirs(self.hyparams["save_folder"])
-
-        # putting modules on the right device
-        self.mod = torch.nn.ModuleDict(self.hyparams["modules"]).to(self.device)
-
-        # Load pretrained modules
-        self.load_separator()
-
-    def load_separator(self):
-        """Loads the separator model specified in the yaml file"""
-        encoder_savepath = os.path.join(
-            self.hyparams["save_folder"], "encoder.ckpt"
-        )
-        masknet_savepath = os.path.join(
-            self.hyparams["save_folder"], "masknet.ckpt"
-        )
-        decoder_savepath = os.path.join(
-            self.hyparams["save_folder"], "decoder.ckpt"
+        # Decoding
+        est_source = torch.cat(
+            [
+                self.modules.decoder(sep_h[i]).unsqueeze(-1)
+                for i in range(self.hparams.num_spks)
+            ],
+            dim=-1,
         )
 
-        download_file(self.encoder_file, encoder_savepath)
-        download_file(self.masknet_file, masknet_savepath)
-        download_file(self.decoder_file, decoder_savepath)
-
-        self.mod.encoder.load_state_dict(
-            torch.load(encoder_savepath, map_location=self.device), strict=True
-        )
-        self.mod.masknet.load_state_dict(
-            torch.load(masknet_savepath, map_location=self.device), strict=True
-        )
-        self.mod.decoder.load_state_dict(
-            torch.load(decoder_savepath, map_location=self.device), strict=True
-        )
+        # T changed after conv1d in encoder, fix it here
+        T_origin = mix.size(1)
+        T_est = est_source.size(1)
+        if T_origin > T_est:
+            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
+        else:
+            est_source = est_source[:, :T_origin, :]
+        return est_source
