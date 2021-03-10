@@ -457,6 +457,54 @@ class SpeakerRecognition(Pretrained):
         return score, score > threshold
 
 
+class separator(Pretrained):
+    """A "ready-to-use" speech separation model for 2 or 3 speaker mixtures.
+    This pretrained model is based on the WSJ0Mix recipe.
+
+    The SepFormer system achieves an SI-SNR=22.5dB on WSJ0-2Mix test set.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import separator
+    >>> model = separator.from_hparams(source="speechbrain/sepformer-wsj02mix")
+    >>> mix = torch.randn(1, 400)
+    >>> est_sources = model.separate(mix)
+    >>> print(est_sources.shape)
+    torch.Size([1, 400, 2])
+    """
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+    def separate(self, mix):
+        import torch.nn.functional as F
+
+        # Separation
+        mix_w = self.modules.encoder(mix)
+        est_mask = self.modules.masknet(mix_w)
+        mix_w = torch.stack([mix_w] * self.hparams.num_spks)
+        sep_h = mix_w * est_mask
+
+        # Decoding
+        est_source = torch.cat(
+            [
+                self.modules.decoder(sep_h[i]).unsqueeze(-1)
+                for i in range(self.hparams.num_spks)
+            ],
+            dim=-1,
+        )
+
+        # T changed after conv1d in encoder, fix it here
+        T_origin = mix.size(1)
+        T_est = est_source.size(1)
+        if T_origin > T_est:
+            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
+        else:
+            est_source = est_source[:, :T_origin, :]
+        return est_source
+
+
 class SpectralMaskEnhancement(Pretrained):
     """A ready-to-use model for speech enhancement.
 
@@ -474,9 +522,7 @@ class SpectralMaskEnhancement(Pretrained):
     ...     source="speechbrain/mtl-mimic-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
-    >>> noise, fs = torchaudio.load("samples/noise_samples/noise2.wav")
-    >>> noisy = signal + noise[:, :signal.size(1)]
+    >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
     >>> # Channel dimension is interpreted as batch dimension here
     >>> enhanced = enhancer.enhance_batch(noisy)
     """
