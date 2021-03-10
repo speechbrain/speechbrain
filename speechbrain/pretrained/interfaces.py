@@ -522,9 +522,7 @@ class SpectralMaskEnhancement(Pretrained):
     ...     source="speechbrain/mtl-mimic-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
-    >>> noise, fs = torchaudio.load("samples/noise_samples/noise2.wav")
-    >>> noisy = signal + noise[:, :signal.size(1)]
+    >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
     >>> # Channel dimension is interpreted as batch dimension here
     >>> enhanced = enhancer.enhance_batch(noisy)
     """
