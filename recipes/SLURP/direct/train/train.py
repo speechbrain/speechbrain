@@ -47,7 +47,7 @@ class SLU(sb.Brain):
 
         # ASR encoder forward pass
         with torch.no_grad():
-            ASR_encoder_out = self.modules.asr_model.encode(
+            ASR_encoder_out = self.hparams.asr_model.encode_batch(
                 wavs.detach(), wav_lens
             )
 

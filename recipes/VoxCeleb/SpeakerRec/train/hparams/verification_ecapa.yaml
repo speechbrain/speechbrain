@@ -36,7 +36,7 @@ test_data: !ref <save_folder>/test.csv
 batch_size: 32
 score_norm: 's-norm' # z-norm t-norm s-norm none
 cohort_size: 20000 # amount of imposter utterances in normalization cohort
-n_train_snts: 300000 # used for normalization stats
+n_train_snts: 400000 # used for normalization stats
 
 # Feature parameters
 n_mels: 80
@@ -77,7 +77,5 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         embedding_model: !ref <embedding_model>
-        mean_var_norm_emb: !ref <mean_var_norm_emb>
     paths:
         embedding_model: !ref <pretrain_path>/embedding_model.ckpt
-        mean_var_norm_emb: !ref <pretrain_path>/mean_var_norm_emb.ckpt

@@ -23,7 +23,6 @@ csv_train: !ref <data_folder>/train-type=decoupled.csv
 csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
 csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
-asr_hparam_file: https://www.dropbox.com/s/lemq9rg0p2nde9t/pretrained_ASR_BPE1000_TAS_LM.yaml?dl=1
 tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
@@ -62,9 +61,23 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.pretrained.ASR
-    hparams_file: !ref <asr_hparam_file>
-    overrides: {'beam_size': !ref <asr_beam_size>}
+asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
+    source: speechbrain/asr-crdnn-rnnlm-librispeech
+    run_opts: {"device":"cuda:0"}
+    overrides:
+        beam_size: !ref <asr_beam_size>
+        lm_model: #!new:speechbrain.lobes.models.RNNLM.RNNLM
+            output_neurons: !ref <num_asr_tokens>
+            embedding_dim: 128
+            dropout: 0.
+            rnn_layers: 2
+            rnn_neurons: 1024
+            dnn_blocks: 1
+            dnn_neurons: 1024
+            return_hidden: True
+        pretrainer:
+            paths:
+                lm: "https://www.dropbox.com/s/h2nigdmx55o9rjx/timers-and-such-lm.ckpt?dl=1"
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <emb_size>]
@@ -101,7 +114,6 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
 
 modules:
-    asr_model: !ref <asr_model>
     slu_enc: !ref <slu_enc>
     input_emb: !ref <input_emb>
     output_emb: !ref <output_emb>
@@ -110,7 +122,7 @@ modules:
 
 
 model: !new:torch.nn.ModuleList
-    - [!ref <asr_model>, !ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
+    - [!ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
 tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.pretrained.tokenizer
