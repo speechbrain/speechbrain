@@ -73,16 +73,6 @@ def compute_embeddings(wavs, lens):
     return emb
 
 
-def download_and_pretrain():
-    """Downloads pre-trained model
-    """
-    save_model_path = params["model_dir"] + "/emb.ckpt"
-    download_file(params["embedding_file"], save_model_path)
-    params["embedding_model"].load_state_dict(
-        torch.load(save_model_path), strict=True
-    )
-
-
 def embedding_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given dataset loader
     """
@@ -168,14 +158,6 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     N = str(len(all_rec_ids))
     split = "AMI_" + split_type
     i = 1
-
-    # Pretrain model
-    if "https://" in params["embedding_file"]:
-        download_and_pretrain()
-    else:
-        params["embedding_model"].load_state_dict(
-            torch.load(params["embedding_file"]), strict=True
-        )
 
     # Setting eval modality
     params["embedding_model"].eval()
@@ -432,7 +414,6 @@ if __name__ == "__main__":  # noqa: C901
 
     # Few more experiment directories (to have cleaner structure)
     exp_dirs = [
-        params["model_dir"],
         params["embedding_dir"],
         params["csv_dir"],
         params["ref_rttm_dir"],
@@ -442,6 +423,13 @@ if __name__ == "__main__":  # noqa: C901
     for dir_ in exp_dirs:
         if not os.path.exists(dir_):
             os.makedirs(dir_)
+
+    # We download the pretrained LM from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    run_on_main(params["pretrainer"].collect_files)
+    params["pretrainer"].load_collected()
+    params["embedding_model"].eval()
+    params["embedding_model"].to(params["device"])
 
     # AMI Dev Set
     full_csv = []
