@@ -29,7 +29,6 @@ import speechbrain as sb
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing import diarization as diar
 from speechbrain.utils.DER import DER

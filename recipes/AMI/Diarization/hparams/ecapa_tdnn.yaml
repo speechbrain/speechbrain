@@ -62,7 +62,7 @@ ignore_overlap: True
 forgiveness_collar: 0.25
 
 dataloader_opts:
-        batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
@@ -89,4 +89,3 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         embedding_model: !ref <embedding_model>
     paths:
         embedding_model: !ref <pretrain_path>/embedding_model.ckpt
-
