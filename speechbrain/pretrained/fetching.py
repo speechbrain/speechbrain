@@ -47,8 +47,8 @@ def fetch(
         interpreted as a web address and the file is downloaded.
         Second, if the source is a valid directory path, a symlink is
         created to the file.
-        Third, if huggingface-hub is installed and the source is a valid
-        Huggingface model hub ID, the file is downloaded from there.
+        Otherwise, the source is interpreted as a Huggingface model hub ID, and
+        the file is downloaded from there.
     savedir : str
         Path where to save downloads/symlinks.
     overwrite : bool
@@ -73,11 +73,17 @@ def fetch(
     sourcefile = f"{source}/{filename}"
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
+        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}."
+        logger.info(MSG)
         return destination
-    if str(source).startswith("http:/") or str(source).startswith("https:/"):
+    if str(source).startswith("http:") or str(source).startswith("https:"):
         # Interpret source as web address.
         # Replace http:/ with http://
         sourcefile = sourcefile.replace(":/", "://")
+        MSG = (
+            f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."
+        )
+        logger.info(MSG)
         # Download
         try:
             urllib.request.urlretrieve(sourcefile, destination)
@@ -89,11 +95,15 @@ def fetch(
         # Interpret source as local directory path
         # Just symlink
         sourcepath = pathlib.Path(sourcefile).absolute()
+        MSG = f"Fetch {filename}: Linking to local file in {str(sourcepath)}."
+        logger.info(MSG)
         _missing_ok_unlink(destination)
         destination.symlink_to(sourcepath)
     else:
         # Interpret source as huggingface hub ID
         # Use huggingface hub's fancy cached download.
+        MSG = f"Fetch {filename}: Delegating to Huggingface hub, source {str(source)}."
+        logger.info(MSG)
         url = huggingface_hub.hf_hub_url(source, filename)
         fetched_file = huggingface_hub.cached_download(url)
         # Huggingface hub downloads to etag filename, symlink to the expected one:
