@@ -7,7 +7,7 @@ This folder contains recipes for spoken language understanding (SLU) with [SLURP
 Run this to train the tokenizer:
 
 ```
-cd Tokenizer/train
+cd Tokenizer
 python train.py hparams/tokenizer_bpe51.yaml
 ```
 
@@ -15,7 +15,7 @@ python train.py hparams/tokenizer_bpe51.yaml
 The "NLU" recipe takes the true transcript as input rather than speech and trains a seq2seq model to map the transcript to the semantics.
 
 ```
-cd NLU/train
+cd NLU
 python train.py hparams/train.yaml
 ```
 
@@ -25,7 +25,7 @@ The "direct" recipe maps the input speech to directly to semantics using a seq2s
 The encoder is pre-trained using the LibriSpeech seq2seq recipe.
 
 ```
-cd direct/train
+cd direct
 python train.py hparams/train.yaml
 ```
 
