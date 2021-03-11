@@ -62,6 +62,7 @@ class TransformerInterface(nn.Module):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        attention_type: Optional[str] = "regularMHA",
     ):
         super().__init__()
 
@@ -85,6 +86,7 @@ class TransformerInterface(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    attention_type=attention_type,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -96,6 +98,7 @@ class TransformerInterface(nn.Module):
                     activation=conformer_activation,
                     kernel_size=kernel_size,
                     bias=bias,
+                    attention_type=attention_type,
                 )
                 assert (
                     normalize_before
@@ -118,28 +121,13 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 normalize_before=normalize_before,
+                attention_type=attention_type,
             )
 
     def forward(self, **kwags):
         """Users should modify this function according to their own tasks.
         """
         raise NotImplementedError
-
-
-class RelPosMHAPositional(nn.Module):
-    def __init__(self, demb):
-        super().__init__()
-        self.demb = demb
-        inv_freq = 1 / (10000 ** (torch.arange(0.0, demb, 2.0) / demb))
-        self.register_buffer("inv_freq", inv_freq)
-
-    def forward(self, pos_seq, bsz=None):
-        sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
-        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
-        if bsz is not None:
-            return pos_emb[:, None, :].expand(-1, bsz, -1)
-        else:
-            return pos_emb[:, None, :]
 
 
 class PositionalEncoding(nn.Module):
@@ -244,7 +232,6 @@ class TransformerEncoderLayer(nn.Module):
             self.self_att = sb.nnet.attention.RelPosMultiHeadAttention(
                 num_heads=nhead, embed_dim=d_model, dropout=dropout
             )
-            self.pos_enc = RelPosMHAPositional(d_model)
 
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
@@ -281,28 +268,13 @@ class TransformerEncoderLayer(nn.Module):
         else:
             src1 = src
 
-        if self.attention_type == "relposMHA":
-            pos_seq = torch.arange(
-                src.size(0) - 1, -1, -1.0, device=src1.device, dtype=src1.dtype
-            )
-            pos_enc = self.pos_enc(pos_seq)
-
-            output, self_attn = self.self_att(
-                src1,
-                src1,
-                src1,
-                r=pos_enc,
-                attn_mask=src_mask,
-                key_padding_mask=src_key_padding_mask,
-            )
-        else:
-            output, self_attn = self.self_att(
-                src1,
-                src1,
-                src1,
-                attn_mask=src_mask,
-                key_padding_mask=src_key_padding_mask,
-            )
+        output, self_attn = self.self_att(
+            src1,
+            src1,
+            src1,
+            attn_mask=src_mask,
+            key_padding_mask=src_key_padding_mask,
+        )
 
         # add & norm
         src = src + self.dropout1(output)
@@ -469,14 +441,35 @@ class TransformerDecoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
-        self.self_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
-        )
-        self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
-        )
+
+        self.attention_type = attention_type
+        if attention_type == "regularMHA":
+            self.self_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
+            )
+            self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
+            )
+        elif attention_type == "relposMHA":
+            self.self_attn = sb.nnet.attention.RelPosMultiHeadAttention(
+                num_heads=nhead, embed_dim=d_model, dropout=dropout
+            )
+            self.mutihead_attn = sb.nnet.attention.RelPosMultiHeadAttention(
+                num_heads=nhead, embed_dim=d_model, dropout=dropout
+            )
+            # self.pos_enc = RelPosMHAPositional(d_model)
+
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
@@ -524,7 +517,6 @@ class TransformerDecoderLayer(nn.Module):
         else:
             tgt1 = tgt
 
-        # self-attention over the target sequence
         tgt2, self_attn = self.self_attn(
             query=tgt1,
             key=tgt1,
@@ -543,7 +535,6 @@ class TransformerDecoderLayer(nn.Module):
         else:
             tgt1 = tgt
 
-        # multi-head attention over the target sequence and encoder states
         tgt2, multihead_attention = self.mutihead_attn(
             query=tgt1,
             key=memory,
@@ -611,6 +602,7 @@ class TransformerDecoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -624,6 +616,7 @@ class TransformerDecoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    attention_type=attention_type,
                 )
                 for _ in range(num_layers)
             ]
@@ -750,9 +743,9 @@ def get_lookahead_mask(padded_input):
     -------
     >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
     >>> get_lookahead_mask(a)
-    tensor([[0., -inf, -inf],
-            [0., 0., -inf],
-            [0., 0., 0.]])
+    tensor([[False,  True,  True],
+            [False, False,  True],
+            [False, False, False]])
     """
     seq_len = padded_input.shape[1]
     mask = (
@@ -761,7 +754,7 @@ def get_lookahead_mask(padded_input):
     ).transpose(0, 1)
     mask = (
         mask.float()
-        .masked_fill(mask == 0, float("-inf"))
-        .masked_fill(mask == 1, float(0.0))
-    )
+        .masked_fill(mask == 0.0, True)
+        .masked_fill(mask == 1.0, False)
+    ).bool()
     return mask.detach().to(padded_input.device)
