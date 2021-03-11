@@ -224,6 +224,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
+                num_to_keep=5,
             )
 
         elif stage == sb.Stage.TEST:
@@ -289,6 +290,16 @@ class ASR(sb.core.Brain):
                 self.checkpointer.recover_if_possible(
                     device=torch.device(self.device)
                 )
+
+    def on_evaluate_start(self, max_key, min_key):
+        super().on_evaluate_start(max_key=max_key, min_key=min_key)
+        ckpts = self.checkpointer.find_checkpoints(max_key="ACC")
+        avg_weight = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model"
+        )
+
+        self.hparams.model.load_state_dict(avg_weight, strict=True)
+        self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):
