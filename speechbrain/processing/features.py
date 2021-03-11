@@ -40,6 +40,7 @@ from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
+    mark_as_transfer,
     register_checkpoint_hooks,
 )
 
@@ -1183,16 +1184,17 @@ class InputNormalization(torch.nn.Module):
         stats = self._statistics_dict()
         torch.save(stats, path)
 
+    @mark_as_transfer
     @mark_as_loader
-    def _load(self, path, end_of_epoch, device):
+    def _load(self, path, end_of_epoch=False, device=None):
         """Load statistic dictionary.
 
         Arguments
         ---------
         path : str
             The path of the statistic dictionary
-        end_of_epoch: bool
-            If True, the training has completed a full epoch.
+        device : str, None
+            Passed to torch.load(..., map_location=device)
         """
         del end_of_epoch  # Unused here.
         stats = torch.load(path, map_location=device)

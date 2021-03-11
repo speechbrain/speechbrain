@@ -480,7 +480,7 @@ def overlap_and_add(signal, frame_step):
     return result
 
 
-def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
+def resynthesize(enhanced_mag, noisy_inputs, stft, istft, normalize_wavs=True):
     """Function for resynthesizing waveforms from enhanced mags.
 
     Arguments
@@ -495,6 +495,8 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
         Module for computing the STFT for extracting phase.
     istft : torch.nn.Module
         Module for computing the iSTFT for resynthesis.
+    normalize_wavs : bool
+        Whether to normalize the output wavs before returning them.
 
     Returns
     -------
@@ -520,6 +522,7 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft):
     pred_wavs = istft(complex_predictions, sig_length=noisy_inputs.shape[1])
 
     # Normalize. Since we're using peak amplitudes, ignore lengths
-    pred_wavs = normalize(pred_wavs, amp_type="peak")
+    if normalize_wavs:
+        pred_wavs = normalize(pred_wavs, amp_type="peak")
 
     return pred_wavs
