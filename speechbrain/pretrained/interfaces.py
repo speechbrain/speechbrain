@@ -15,6 +15,7 @@ from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
+import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.distributed import run_on_main
 
@@ -54,6 +55,9 @@ class Pretrained:
         you want to freeze the params. Also calls .eval() on all modules.
     """
 
+    HPARAMS_NEEDED = []
+    MODULES_NEEDED = []
+
     def __init__(
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
@@ -81,13 +85,28 @@ class Pretrained:
 
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
+        for mod in self.MODULES_NEEDED:
+            if mod not in modules:
+                raise ValueError("Need modules['{mod}']")
 
-        # Make hyperparams available with dot notation too
+        # Check MODULES_NEEDED and HPARAMS_NEEDED and
+        # make hyperparams available with dot notation
+        if self.HPARAMS_NEEDED and hparams is None:
+            raise ValueError(f"Need to provide hparams dict.")
         if hparams is not None:
+            # Also first check that all required params are found:
+            for hp in self.HPARAMS_NEEDED:
+                if hp not in hparams:
+                    raise ValueError("Need hparams['{hp}']")
             self.hparams = SimpleNamespace(**hparams)
 
         # Prepare modules for computation, e.g. jit
         self._prepare_modules(freeze_params)
+
+        # Audio normalization
+        self.audio_normalizer = hparams.get(
+            "audio_normalizer", AudioNormalizer()
+        )
 
     def _prepare_modules(self, freeze_params):
         """Prepare modules for computation, e.g. jit.
@@ -107,6 +126,18 @@ class Pretrained:
             self.modules.eval()
             for p in self.modules.parameters():
                 p.requires_grad = False
+
+    def load_audio(self, path):
+        """Load an audio file with this model"s input spec
+
+        When using a speech model, it is important to use the same type of data,
+        as was used to train the model. This means for example using the same
+        sampling rate and number of channels. It is, however, possible to
+        convert a file from a higher sampling rate to a lower one (downsampling).
+        Similarly, it is simple to downmix a stereo file to mono.
+        """
+        signal, sr = torchaudio.load(path, channels_first=False)
+        return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
         """Compile requested modules with ``torch.jit.script``."""
@@ -219,26 +250,17 @@ class EncoderDecoderASR(Pretrained):
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
+    HPARAMS_NEEDED = ["tokenizer"]
+    MODULES_NEEDED = [
+        "compute_features",
+        "normalize",
+        "asr_encoder",
+        "beam_searcher",
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # TODO: How to integrate this better?
-        if not hasattr(self, "normalizer"):
-            self.normalizer = AudioNormalizer()
-
         self.tokenizer = self.hparams.tokenizer
-
-    def load_audio(self, path):
-        """Load an audio file with this model"s input spec
-
-        When using an ASR model, it is important to use the same type of data,
-        as was used to train the model. This means for example using the same
-        sampling rate and number of channels. It is, however, possible to
-        convert a file from a higher sampling rate to a lower one (downsampling).
-        Similarly, it is simple to downmix a stereo file to mono.
-        """
-        signal, sr = torchaudio.load(path, channels_first=False)
-        return self.normalizer(signal, sr)
 
     def transcribe_file(self, path):
         """Transcribes the given audiofile into a sequence of words.
@@ -338,7 +360,7 @@ class SpeakerRecognition(Pretrained):
 
     The class can be used either to run only the encoder (encode_batch()) to
     extract embeddings or to run the entire verification system
-    (verify()) to check speaker identifies.
+    (verify_batch()) to check speaker identifies.
     ```
 
     Example
@@ -353,28 +375,31 @@ class SpeakerRecognition(Pretrained):
     ... )
 
     >>> # Compute embeddings
-    >>> signal, fs =torchaudio.load("samples/audio_samples/example1.wav")
-    >>> embeddings = verification.encode(signal)
+    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
+    >>> embeddings = verification.encode_batch(signal)
 
     >>> # Speaker Verification
     >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
-    >>> score, prediction = verification.verify(signal, signal2)
+    >>> score, prediction = verification.verify_batch(signal, signal2)
     """
+
+    MODULES_NEEDED = [
+        "compute_features",
+        "mean_var_norm",
+        "embedding_model",
+        "mean_var_norm_emb",
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        if not hasattr(self, "normalizer"):
-            self.normalizer = AudioNormalizer()
-
         self.similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
-    def encode(self, wavs, wav_lens=None, normalize=False):
+    def encode_batch(self, wavs, wav_lens=None, normalize=False):
         """Encodes the input audio into a single vector embedding.
 
         The waveforms should already be in the model's desired format.
         You can call:
-        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
+        ``normalized = <this>.normalizer(signal, sample_rate)``
         to get a correctly converted signal in most cases.
 
         Arguments
@@ -417,10 +442,11 @@ class SpeakerRecognition(Pretrained):
             )
         return embeddings
 
-    def verify(
+    def verify_batch(
         self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.25
     ):
         """Performs speaker verification with cosine distance.
+
         It returns the score and the decision (0 different speakers,
         1 same speakers).
 
@@ -451,34 +477,69 @@ class SpeakerRecognition(Pretrained):
             The prediction is 1 if the two signals in input are from the same
             speaker and 0 otherwise.
         """
-        emb1 = self.encode(wavs1, wav1_lens, normalize=True)
-        emb2 = self.encode(wavs2, wav2_lens, normalize=True)
+        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=True)
+        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=True)
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
+    def verify_files(self, path_x, path_y):
+        """Speaker verification with cosine distance
 
-class separator(Pretrained):
-    """A "ready-to-use" speech separation model for 2 or 3 speaker mixtures.
-    This pretrained model is based on the WSJ0Mix recipe.
+        Returns the score and the decision (0 different speakers,
+        1 same speakers).
 
-    The SepFormer system achieves an SI-SNR=22.5dB on WSJ0-2Mix test set.
+        Returns
+        -------
+        score
+            The score associated to the binary verification output
+            (cosine distance).
+        prediction
+            The prediction is 1 if the two signals in input are from the same
+            speaker and 0 otherwise.
+        """
+        waveform_x = self.load_audio(path_x)
+        waveform_y = self.load_audio(path_y)
+        # Fake batches:
+        batch_x = waveform_x.unsqueeze(0)
+        batch_y = waveform_y.unsqueeze(0)
+        # Verify:
+        score, decision = self.verify_batch(batch_x, batch_y)
+        # Squeeze:
+        return score[0], decision[0]
+
+
+class SepformerSeparation(Pretrained):
+    """A "ready-to-use" speech separation model.
+
+    Uses Sepformer architecture.
 
     Example
     -------
-    >>> from speechbrain.pretrained import separator
-    >>> model = separator.from_hparams(source="speechbrain/sepformer-wsj02mix")
+    >>> tmpdir = getfixture("tmpdir")
+    >>> model = SepformerSeparation.from_hparams(
+    ...     source="speechbrain/sepformer-wsj02mix",
+    ...     savedir=tmpdir)
     >>> mix = torch.randn(1, 400)
-    >>> est_sources = model.separate(mix)
+    >>> est_sources = model.separate_batch(mix)
     >>> print(est_sources.shape)
     torch.Size([1, 400, 2])
     """
 
-    def __init__(self, *args, **kwargs):
+    MODULES_NEEDED = ["encoder", "masknet"]
 
-        super().__init__(*args, **kwargs)
+    def separate_batch(self, mix):
+        """Run source separation on batch of audio.
 
-    def separate(self, mix):
-        import torch.nn.functional as F
+        Arguments
+        ---------
+        mix : torch.tensor
+            The mixture of sources.
+
+        Returns
+        -------
+        tensor
+            Separated sources
+        """
 
         # Separation
         mix_w = self.modules.encoder(mix)
@@ -504,6 +565,23 @@ class separator(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
+    def separate_file(self, path):
+        """Separate sources from file.
+
+        Arguments
+        ---------
+        path : str
+            Path to file which has a mixture of sources.
+
+        Returns
+        -------
+        tensor
+            Separated sources
+        """
+        waveform = self.load_audio(path)
+        batch = waveform.unsqueeze(0)
+        return self.separate_batch(batch)[0]
+
 
 class SpectralMaskEnhancement(Pretrained):
     """A ready-to-use model for speech enhancement.
@@ -526,6 +604,9 @@ class SpectralMaskEnhancement(Pretrained):
     >>> # Channel dimension is interpreted as batch dimension here
     >>> enhanced = enhancer.enhance_batch(noisy)
     """
+
+    HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
+    MODULES_NEEDED = ["enhance_model"]
 
     def compute_features(self, wavs):
         """Compute the log spectral magnitude features for masking.
