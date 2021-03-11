@@ -43,7 +43,7 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix dataset
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
 |NoAugment | 20.4 |
-|DynamicMixing | 22.5 |
+|DynamicMixing | 22.4 |
 
 | | SepFormer, WSJ0-3Mix |
 |--- | --- |
