@@ -1,7 +1,4 @@
-# Recipes for ASR with AISHELL-1SR/train
-python train.py hparams/train.yaml
-```
-
+# Recipes for ASR with AISHELL-1
 This folder contains recipes for tokenization and speech recognition with [AISHELL-1](https://www.openslr.org/33/), a 150-hour Chinese ASR dataset.
 
 ### Base recipe
@@ -11,16 +8,16 @@ To train a full recipe:
 1- Train a tokenizer. The tokenizer takes in input the training transcripts and determines the subword units that will be used for both acoustic and language model training.
 
 ```
-cd Tokenier/train
+cd Tokenizer
 python train.py hparams/tokenizer_bpe5000.yaml --data_folder=/localscratch/aishell/
-``
+```
 If not present in the specified data_folder, the dataset will be automatically downloaded there.
 This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not 
 specify a different tokenizer in the speech recognition recipe. 
 
 2- Train the speech recognizer
 ```
-cd ASR/train
+cd ASR
 python train.py hparams/train.yaml --data_folder=/localscratch/aishell/
 ```
 
