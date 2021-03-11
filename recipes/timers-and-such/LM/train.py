@@ -136,7 +136,7 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_real_data, test_synth_data]
 
-    tokenizer = hparams["tokenizer"].spm
+    tokenizer = hparams["tokenizer"]
 
     @sb.utils.data_pipeline.takes("transcript")
     @sb.utils.data_pipeline.provides(
@@ -187,6 +187,10 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+
+    # We download and pretrain the tokenizer
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Create experiment directory
     sb.create_experiment_directory(

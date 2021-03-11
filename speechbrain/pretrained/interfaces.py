@@ -466,7 +466,10 @@ class separator(Pretrained):
     Example
     -------
     >>> from speechbrain.pretrained import separator
-    >>> model = separator.from_hparams(source="speechbrain/sepformer-wsj02mix")
+    >>> tmpdir = getfixture("tmpdir")
+    >>> model = separator.from_hparams(
+    ...     source="speechbrain/sepformer-wsj02mix",
+    ...     savedir=tmpdir)
     >>> mix = torch.randn(1, 400)
     >>> est_sources = model.separate(mix)
     >>> print(est_sources.shape)

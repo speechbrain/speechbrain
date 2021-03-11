@@ -13,12 +13,9 @@ output_folder: !ref results/RNNLM_1024/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.tokenizer
-    save_folder: !ref <save_folder>
-    tokenizer_file: !ref <tokenizer_file>
 
 # Data files
-data_folder: /localscratch/timers-and-such
+data_folder: !PLACEHOLDER # e.g., /localscratch/timers-and-such
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <data_folder>/train-type=decoupled.csv
 csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
@@ -70,6 +67,15 @@ net: !new:speechbrain.lobes.models.RNNLM.RNNLM
     dnn_neurons: !ref <net_dim>
 
 model: !ref <net>
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>/TAS_tokenizer
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

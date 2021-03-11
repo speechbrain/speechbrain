@@ -225,8 +225,8 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    asr_tokenizer = hparams["asr_tokenizer"].spm
-    slu_tokenizer = hparams["slu_tokenizer"].spm
+    asr_tokenizer = hparams["asr_tokenizer"]
+    slu_tokenizer = hparams["slu_tokenizer"]
 
     # 2. Define input pipeline:
     @sb.utils.data_pipeline.takes("transcript")
@@ -323,6 +323,10 @@ if __name__ == "__main__":
         asr_tokenizer,
         slu_tokenizer,
     ) = dataio_prepare(hparams)
+
+    # We download and pretrain the tokenizer
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Brain class initialization
     slu_brain = SLU(

@@ -110,9 +110,14 @@ model: !new:torch.nn.ModuleList
     - [!ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
-tokenizer: !new:recipes.timers-and-such.Tokenizer.pretrained.tokenizer
-    save_folder: !ref <save_folder>
-    tokenizer_file: !ref <tokenizer_file>
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>/TAS_tokenizer
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
