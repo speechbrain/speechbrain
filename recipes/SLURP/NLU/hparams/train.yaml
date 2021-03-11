@@ -104,13 +104,17 @@ model: !new:torch.nn.ModuleList
     - [!ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
-asr_tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.tokenizer
-    tokenizer_file: !ref <asr_tokenizer_file>
-    save_folder: !ref <save_folder>/asr_tokenizer
+asr_tokenizer: !new:sentencepiece.SentencePieceProcessor
+slu_tokenizer: !new:sentencepiece.SentencePieceProcessor
 
-slu_tokenizer: !new:recipes.SLURP.Tokenizer.pretrained.tokenizer
-    tokenizer_file: !ref <slu_tokenizer_file>
-    save_folder: !ref <save_folder>/slu_tokenizer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>/tokenizers
+    loadables:
+        asr_tokenizer: !ref <asr_tokenizer>
+        slu_tokenizer: !ref <slu_tokenizer>
+    paths:
+        asr_tokenizer: !ref <asr_tokenizer_file>
+        slu_tokenizer: !ref <slu_tokenizer_file>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>

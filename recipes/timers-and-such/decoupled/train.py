@@ -189,8 +189,6 @@ def data_io_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
 
-    print(hparams["tokenizer"].spm)
-
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -237,7 +235,7 @@ def data_io_prepare(hparams):
 
     datasets = [train_data, valid_data, test_real_data, test_synth_data]
 
-    tokenizer = hparams["tokenizer"].spm
+    tokenizer = hparams["tokenizer"]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -324,6 +322,10 @@ if __name__ == "__main__":
         test_synth_set,
         tokenizer,
     ) = data_io_prepare(hparams)
+
+    # We download and pretrain the tokenizer
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Brain class initialization
     slu_brain = SLU(

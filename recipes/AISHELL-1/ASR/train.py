@@ -214,7 +214,7 @@ def dataio_prepare(hparams):
     datasets = [train_data, valid_data, test_data]
 
     # Defining tokenizer and loading it
-    tokenizer = hparams["tokenizer"].spm
+    tokenizer = hparams["tokenizer"]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -278,6 +278,10 @@ if __name__ == "__main__":
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data, tokenizer = dataio_prepare(hparams)
+
+    # We download and pretrain the tokenizer
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Trainer initialization
     asr_brain = ASR(
