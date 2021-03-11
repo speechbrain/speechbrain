@@ -38,7 +38,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
 - On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk). 
-- On-the-fly feature normalization (global, sentence, bath, or speaker level).
+- On-the-fly feature normalization (global, sentence, batch, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
 
