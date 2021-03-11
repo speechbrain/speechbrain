@@ -78,8 +78,6 @@ def fetch(
         return destination
     if str(source).startswith("http:") or str(source).startswith("https:"):
         # Interpret source as web address.
-        # Replace http:/ with http://
-        sourcefile = sourcefile.replace(":/", "://")
         MSG = (
             f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."
         )

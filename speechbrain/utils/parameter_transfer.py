@@ -96,9 +96,7 @@ class Pretrainer:
             e.g. sb/asr-crdnn-libri/lm.ckpt
             -> source=sb/asr-crdnn-libri, file=lm.ckpt
         """
-        self.paths.update(
-            {name: pathlib.Path(path) for name, path in paths.items()}
-        )
+        self.paths.update(paths)
 
     def add_custom_hooks(self, custom_hooks):
         """Update the custom hooks.
@@ -113,6 +111,30 @@ class Pretrainer:
 
         """
         self.custom_hooks.update(custom_hooks)
+
+    @staticmethod
+    def split_path(path):
+        """Splits a path to source and filename
+
+        This also handles URLs and Huggingface hub paths, in addition to
+        regular paths.
+
+        Arguments
+        ---------
+        path : str
+
+        Returns
+        -------
+        str
+            Source
+        str
+            Filename
+        """
+        if "/" in path:
+            return path.rsplit("/", maxsplit=1)
+        else:
+            # Interpret as path to file in current directory.
+            return "./", path
 
     def collect_files(self, default_source=None):
         """Fetches parameters from known paths with fallback default_source
@@ -147,8 +169,7 @@ class Pretrainer:
         for name in self.loadables:
             save_filename = name + PARAMFILE_EXT
             if name in self.paths:
-                filename = self.paths[name].name
-                source = self.paths[name].parent
+                source, filename = self.split_path(self.paths[name])
             elif default_source is not None:
                 filename = save_filename
                 source = default_source
