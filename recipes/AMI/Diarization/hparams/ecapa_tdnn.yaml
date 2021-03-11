@@ -17,9 +17,11 @@ save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
 # Embedding model
-embedding_file:
-        https://www.dropbox.com/s/2mdnl784ram5w8o/embedding_model.ckpt?dl=1
-model_dir: !ref <save_folder>/emb_model
+# Here, the pretrained embedding model trained with train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml
+# is downloaded from the speechbrain HuggingFace repository.
+# However, a local path pointing to a directory containing your checkpoints may also be specified
+# instead (see pretrainer below)
+pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
 # Some more exp folders (for cleaner structure)
 embedding_dir: !ref <save_folder>/emb
@@ -60,26 +62,30 @@ ignore_overlap: True
 forgiveness_collar: 0.25
 
 dataloader_opts:
-        batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
-# Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
-        n_mels: !ref <n_mels>
-        left_frames: !ref <left_frames>
-        right_frames: !ref <right_frames>
-        deltas: !ref <deltas>
+    n_mels: !ref <n_mels>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-        norm_type: global
-
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-        norm_type: global
-        std_norm: False
+    norm_type: sentence
+    std_norm: False
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-        input_size: !ref <n_mels>
-        channels: [1024, 1024, 1024, 1024, 3072]
-        kernel_sizes: [5, 3, 3, 3, 1]
-        dilations: [1, 2, 3, 4, 1]
-        attention_channels: 128
-        lin_neurons: !ref <emb_dim>
+    input_size: !ref <n_mels>
+    channels: [1024, 1024, 1024, 1024, 3072]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    attention_channels: 128
+    lin_neurons: 192
+
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: False
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    paths:
+        embedding_model: !ref <pretrain_path>/embedding_model.ckpt
