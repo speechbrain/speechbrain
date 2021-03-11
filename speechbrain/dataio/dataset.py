@@ -162,8 +162,7 @@ class DynamicItemDataset(Dataset):
     def __getitem__(self, index):
         data_id = self.data_ids[index]
         data_point = self.data[data_id]
-        data_point["id"] = data_id
-        return self.pipeline.compute_outputs(data_point)
+        return self.pipeline.compute_outputs({"id": data_id, **data_point})
 
     def add_dynamic_item(self, func, takes=None, provides=None):
         """Makes a new dynamic item available on the dataset.

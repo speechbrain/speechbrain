@@ -21,13 +21,14 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Language model (LM) parameter file
-# NB: To avoid mismatch, the speech recognizer must be trained with the same tokenizer used
-# for LM training. By default, the code in train.py uses the tokenizer defined in the lm_model
-# object. In this case, it is based on 1000 tokens.
-tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-lm_hparam_file: https://www.dropbox.com/s/j51op5l7i356s3v/pretrained_RNNLM_BPE1000.yaml?dl=1
-pretrain_model: https://www.dropbox.com/s/t2es1c9k4q8dvs2/pretrained.ckpt?dl=1
+# Language model (LM) pretraining
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. Here, we download everything from the
+# speechbrain HuggingFace repository. However, a local path pointing to a
+# directory containing the lm.ckpt and tokenizer.ckpt may also be specified
+# instead. E.g if you want to use your own LM / tokenizer.
+pretrained_path: speechbrain/asr-crdnn-rnnlm-librispeech
+
 
 # Path where data manifest files will be stored
 train_annotation: ../train.json
@@ -190,17 +191,9 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-# Cost definition for the seq2seq part.
-lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-    hparams_file: !ref <lm_hparam_file>
-    save_folder: !ref <save_folder>
 
-# Tokenizer object (we here assume it is already trained, see ../Tokenizer)
-# NB: To avoid mismatch, the speech recognizer must be trained with the same
-# tokenizer used for LM training.
-tokenizer: !new:templates.speech_recognition.Tokenizer.pretrained.tokenizer
-    tokenizer_file: !ref <tokenizer_file>
-    save_folder: !ref <save_folder>
+# Tokenizer initialization
+tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 # Objects in "modules" dict will have their parameters moved to the correct
 # device, as well as having train()/eval() called on them by the Brain class
@@ -221,6 +214,19 @@ model: !new:torch.nn.ModuleList
       - !ref <decoder>
       - !ref <ctc_lin>
       - !ref <seq_lin>
+
+# This is the RNNLM that is used according to the Huggingface repository
+# NB: It has to match the pre-trained RNNLM!!
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    activation: !name:torch.nn.LeakyReLU
+    dropout: 0.0
+    rnn_layers: 2
+    rnn_neurons: 2048
+    dnn_blocks: 1
+    dnn_neurons: 512
+    return_hidden: True  # For inference
 
 # Beamsearch is applied on the top of the decoder. If the language model is
 # given, a language model is applied (with a weight specified in lm_weight).
@@ -304,3 +310,17 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
+
+# This object is used to pretrain the language model and the tokenizers
+# (defined above). In this case, we also pretrain the ASR model (to make
+# sure the model converges on a small amount of data)
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        lm: !ref <lm_model>
+        tokenizer: !ref <tokenizer>
+        model: !ref <model>
+    paths:
+        lm: !ref <pretrained_path>/lm.ckpt
+        tokenizer: !ref <pretrained_path>/tokenizer.ckpt
+        model: !ref <pretrained_path>/asr.ckpt

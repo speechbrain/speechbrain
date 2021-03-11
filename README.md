@@ -15,6 +15,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 # Key features
 
 SpeechBrain provides various useful tools to speed up and facilitate research on speech technologies:
+- Various pretrained models nicely integrated with <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> <sub>(HuggingFace)</sub> in our official [organization account](https://huggingface.co/speechbrain). These models are given with an interface to easily run inference, facilitating integration. If a *HuggingFace* model isn't available, we usually provide a least a Google Drive folder containing all the experimental results corresponding.
 - The `Brain` class, a fully-customizable tool for managing training and evaluation loops over data. The annoying details of training loops are handled for you while retaining complete flexibility to override any part of the process when needed.
 - A YAML-based hyperparameter specification language that describes all types of hyperparameters, from individual numbers (e.g. learning rate) to complete objects (e.g. custom models). This dramatically simplifies recipe code by distilling basic algorithmic components.
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
@@ -37,7 +38,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
 - On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk). 
-- On-the-fly feature normalization (global, sentence, bath, or speaker level).
+- On-the-fly feature normalization (global, sentence, batch, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
 
