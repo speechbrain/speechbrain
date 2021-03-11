@@ -52,10 +52,6 @@ blank_index: 0
 bos_index: 0
 eos_index: 0
 
-# Tokenizer object (we here assume it is already trained, see ../Tokenizer)
-tokenizer: !new:templates.speech_recognition.Tokenizer.pretrained.tokenizer
-    tokenizer_file: !ref <tokenizer_file>
-    save_folder: !ref <save_folder>
 
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
@@ -98,6 +94,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 modules:
     model: !ref <model>
 
+# Tokenier initialization
+tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
@@ -108,3 +106,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
+
+# Pretrain the tokenizer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>
