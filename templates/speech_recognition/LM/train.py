@@ -203,7 +203,7 @@ def dataio_prepare(hparams):
     )
 
     datasets = [train_data, valid_data, test_data]
-    tokenizer = hparams["tokenizer"].spm
+    tokenizer = hparams["tokenizer"]
 
     # Define text processing pipeline. We start from the raw text and then
     # encode it using the tokenizer. The tokens with bos are used for feeding

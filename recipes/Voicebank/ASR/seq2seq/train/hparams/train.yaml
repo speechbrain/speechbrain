@@ -34,6 +34,11 @@ valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
 skip_prep: False
 
+# Here, the pretrained models are downloaded from the speechbrain
+# HuggingFace repository. However, a local path pointing to a directory with
+# your checkpoints may also be specified instead (see pretrainer below)
+pretrained_asr_path: speechbrain/asr-crdnn-rnnlm-librispeech
+
 # Training parameters
 number_of_epochs: 30
 number_of_ctc_epochs: 0
@@ -68,16 +73,38 @@ coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
 
+normalizer: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
 asr_model: !include:models/asr_model.yaml
     n_mels: !ref <n_mels>
     dropout_rate: 0.15
     output_neurons: !ref <output_neurons>
 
+model: !new:torch.nn.ModuleList
+    - - !ref <asr_model[src_embedding]>
+      - !ref <asr_model[tgt_embedding]>
+      - !ref <asr_model[recognizer]>
+      - !ref <asr_model[ctc_output]>
+      - !ref <asr_model[seq_output]>
+
+# Change the path to use a local model instead of the remote one
+asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        normalizer: !ref <normalizer>
+        tokenizer: !ref <tokenizer>
+        asr_model: !ref <model>
+        lm: !ref <asr_model[lm_model]>
+    paths:
+        normalizer: !ref <pretrained_asr_path>/normalizer.ckpt
+        tokenizer: !ref <pretrained_asr_path>/tokenizer.ckpt
+        asr_model: !ref <pretrained_asr_path>/asr.ckpt
+        lm: !ref <pretrained_asr_path>/lm.ckpt
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-normalizer: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
@@ -113,13 +140,6 @@ modules:
     seq_lin: !ref <asr_model[seq_output]>
     lm_model: !ref <asr_model[lm_model]>
     normalizer: !ref <normalizer>
-
-model: !new:torch.nn.ModuleList
-    - - !ref <asr_model[src_embedding]>
-      - !ref <asr_model[tgt_embedding]>
-      - !ref <asr_model[recognizer]>
-      - !ref <asr_model[ctc_output]>
-      - !ref <asr_model[seq_output]>
 
 beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     embedding: !ref <asr_model[tgt_embedding]>
