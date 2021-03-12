@@ -16,7 +16,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/timers-and-such
+data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <output_folder>/train-type=direct.csv
