@@ -2,6 +2,7 @@
 # Recipe for performing enhancement in the time domain
 # To change model, switch "!include:" statement
 # To change loss function, change
+# #######################################
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made

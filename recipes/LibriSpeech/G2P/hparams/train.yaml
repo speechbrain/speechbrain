@@ -1,3 +1,8 @@
+# ################################
+# Model: LSTM (encoder) + GRU (decoder)
+# Authors: Loren Lugosch & Mirco Ravanelli 2020
+# ################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
@@ -20,7 +25,7 @@ skip_prep: False
 sorting: random #ascending
 
 # Neural Parameters
-N_epochs: 100
+N_epochs: 75
 batch_size: 1024
 lr: 0.002
 

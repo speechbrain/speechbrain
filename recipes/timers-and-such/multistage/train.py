@@ -1,6 +1,5 @@
 #!/usr/bin/env/python3
 """
-
 Recipe for "multistage" (speech -> ASR -> text -> NLU -> semantics) SLU.
 
 We transcribe each minibatch using a model trained on LibriSpeech,

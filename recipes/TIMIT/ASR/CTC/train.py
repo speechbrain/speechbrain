@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Recipe for doing ASR with phoneme targets and CTC loss on the TIMIT dataset
+"""Recipe for training a phoneme recognizer on TIMIT.
+The system relies on a model trained with CTC.
+Greedy search is using for validation, while beamsearch
+is used at test time to improve the system performance.
 
 To run this recipe, do the following:
 > python train.py hparams/train.yaml --data_folder /path/to/TIMIT
@@ -8,6 +11,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
 """
+
 import os
 import sys
 import torch
@@ -113,8 +117,8 @@ def dataio_prep(hparams):
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_annotation"],
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
 
@@ -139,14 +143,14 @@ def dataio_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_annotation"],
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_annotation"],
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
@@ -219,8 +223,9 @@ if __name__ == "__main__":
         prepare_timit,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "splits": ["train", "dev", "test"],
-            "save_folder": hparams["data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
             "skip_prep": hparams["skip_prep"],
         },
     )

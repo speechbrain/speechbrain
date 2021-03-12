@@ -989,7 +989,6 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-
     with open(os.path.join(data_folder, csv_lst[0])) as f:
         header = f.readline()
     lines = []

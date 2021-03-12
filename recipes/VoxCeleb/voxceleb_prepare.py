@@ -34,7 +34,6 @@ TEST_WAV = "vox1_test_wav.zip"
 META = "meta"
 
 
-# TODO: delete unused arguments
 def prepare_voxceleb(
     data_folder,
     save_folder,
