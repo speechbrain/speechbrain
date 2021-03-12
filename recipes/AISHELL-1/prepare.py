@@ -17,13 +17,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def prepare_aishell(data_folder, skip_prep=False):
+def prepare_aishell(data_folder, save_folder, skip_prep=False):
     """
     This function prepares the AISHELL-1 dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
 
     data_folder : path to AISHELL-1 dataset.
-    skip_prep: If True, skip data preparation
+    save_folder: path where to store the manifest csv files.
+    skip_prep: If True, skip data preparation.
 
     """
     if skip_prep:
@@ -65,7 +66,7 @@ def prepare_aishell(data_folder, skip_prep=False):
     ]
     ID_start = 0  # needed to have a unique ID for each audio
     for split in splits:
-        new_filename = os.path.join(data_folder, split) + ".csv"
+        new_filename = os.path.join(save_folder, split) + ".csv"
         if os.path.exists(new_filename):
             continue
         logger.info("Preparing %s..." % new_filename)
@@ -118,14 +119,7 @@ def prepare_aishell(data_folder, skip_prep=False):
                 "ID": ID,
                 "duration": duration,
                 "wav": wav,
-                "wav_format": wav_format,
-                "wav_opts": wav_opts,
-                # "spk_id": spk_id,
-                # "spk_id_format": spk_id_format,
-                # "spk_id_opts": spk_id_opts,
                 "transcript": transcript,
-                "transcript_format": transcript_format,
-                "transcript_opts": transcript_opts,
             }
         )
         new_df.to_csv(new_filename, index=False)

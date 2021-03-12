@@ -273,7 +273,11 @@ if __name__ == "__main__":
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_aishell, kwargs={"data_folder": hparams["data_folder"]},
+        prepare_aishell,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
+        },
     )
 
     # here we create the datasets objects as well as tokenization and encoding
