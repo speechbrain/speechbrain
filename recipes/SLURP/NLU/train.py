@@ -1,6 +1,8 @@
 #!/usr/bin/env/python3
 """
-Text-only NLU recipe.
+Text-only NLU recipe. This recipes takes the golden ASR
+transcriptions and tries to estimate the semantics on
+the top of that.
 
 Authors
  * Loren Lugosch, Mirco Ravanelli 2020
@@ -309,6 +311,7 @@ if __name__ == "__main__":
         prepare_SLURP,
         kwargs={
             "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "slu_type": "decoupled",
             "skip_prep": hparams["skip_prep"],

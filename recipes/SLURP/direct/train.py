@@ -1,6 +1,5 @@
 #!/usr/bin/env/python3
 """
-
 Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
 
 We encode input waveforms into features using a model trained on LibriSpeech,
@@ -314,6 +313,7 @@ if __name__ == "__main__":
         prepare_SLURP,
         kwargs={
             "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "slu_type": "direct",
             "skip_prep": hparams["skip_prep"],

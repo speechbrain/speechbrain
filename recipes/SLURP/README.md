@@ -1,5 +1,8 @@
-# SLU recipes for SLURP
-This folder contains recipes for spoken language understanding (SLU) with [SLURP](https://www.aclweb.org/anthology/2020.emnlp-main.588.pdf).
+# SLU recipes for SLURM
+This folder contains recipes for spoken language understanding (SLU) with [SLURM](https://zenodo.org/record/4274930#.YEFCYHVKg5k).
+
+### Direct recipe
+The "direct" maps the input speech directly to semantics using a seq2seq model.
 
 ### Tokenizer recipe
 (You don't need to run this because the direct recipe downloads a tokenizer, but you can if you'd like to train a new tokenizer for SLURP.)
@@ -20,17 +23,7 @@ python train.py hparams/train.yaml
 ```
 
 
-### Direct recipe
-The "direct" recipe maps the input speech to directly to semantics using a seq2seq model.
-The encoder is pre-trained using the LibriSpeech seq2seq recipe.
-
-```
-cd direct
-python train.py hparams/train.yaml
-```
-
-# Results
-
+# Performance summary
 Note: SLURP comes with a tool for measuring SLU-F1 and other metrics.
 The recipes here dump the model outputs to a file called `predictions.jsonl` in the `results` folder.
 You can compute the metrics by feeding `predictions.jsonl` into the [SLURP evaluation tool](https://github.com/pswietojanski/slurp/tree/master/scripts/evaluation).
