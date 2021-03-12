@@ -36,6 +36,30 @@ def test_l1():
     assert torch.all(torch.eq(out_cost, 0))
 
 
+def test_bce_loss():
+    from speechbrain.nnet.losses import bce_loss
+
+    # Ensure this works both with and without singleton dimension
+    predictions_singleton = torch.zeros(4, 10, 1)
+    predictions_match = torch.zeros(4, 10)
+    targets = torch.ones(4, 10)
+    lengths = torch.ones(4)
+    out_cost_singleton = bce_loss(predictions_singleton, targets, lengths)
+    out_cost_match = bce_loss(predictions_match, targets, lengths)
+    assert torch.allclose(torch.exp(out_cost_singleton), torch.tensor(2.0))
+    assert torch.allclose(torch.exp(out_cost_match), torch.tensor(2.0))
+
+    # How about one dimensional inputs
+    predictions = torch.zeros(5, 1)
+    targets = torch.ones(5)
+    out_cost = bce_loss(predictions, targets)
+    assert torch.allclose(torch.exp(out_cost), torch.tensor(2.0))
+
+    # Can't pass lengths in 1D case
+    with pytest.raises(ValueError):
+        bce_loss(predictions, targets, length=torch.ones(5))
+
+
 def test_classification_error():
     from speechbrain.nnet.losses import classification_error
 
