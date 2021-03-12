@@ -17,6 +17,7 @@ import torch
 from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    tokenizer = hparams["tokenizer"].spm
+    tokenizer = hparams["tokenizer"]
 
     """Define text pipeline"""
     # TODO: implement text augmentations piplines
@@ -182,6 +183,11 @@ if __name__ == "__main__":
 
     # here we create the dataloader objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams)
+
+    # We download the tokenizer from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file).
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     lm_brain = LM(
         modules=hparams["modules"],
