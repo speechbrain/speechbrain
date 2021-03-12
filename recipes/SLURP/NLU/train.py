@@ -311,6 +311,7 @@ if __name__ == "__main__":
         prepare_SLURP,
         kwargs={
             "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "slu_type": "decoupled",
             "skip_prep": hparams["skip_prep"],

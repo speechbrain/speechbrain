@@ -20,9 +20,9 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER # e.g, /localscratch/SLURP
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train_synthetic", "train_real"]
-csv_train: !ref <data_folder>/train-type=decoupled.csv
-csv_valid: !ref <data_folder>/devel-type=decoupled.csv
-csv_test: !ref <data_folder>/test-type=decoupled.csv
+csv_train: !ref <output_folder>/train-type=decoupled.csv
+csv_valid: !ref <output_folder>/devel-type=decoupled.csv
+csv_test: !ref <output_folder>/test-type=decoupled.csv
 asr_tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 slu_tokenizer_file: https://www.dropbox.com/s/w72vtnf273yjwu4/SLURP_51_unigram.model?dl=1
 skip_prep: False
