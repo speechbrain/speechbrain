@@ -19,10 +19,10 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: /localscratch/timers-and-such
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
-csv_train: !ref <data_folder>/train-type=decoupled.csv
-csv_valid: !ref <data_folder>/dev-real-type=decoupled.csv
-csv_test_real: !ref <data_folder>/test-real-type=decoupled.csv
-csv_test_synth: !ref <data_folder>/test-synth-type=decoupled.csv
+csv_train: !ref <output_folder>/train-type=decoupled.csv
+csv_valid: !ref <output_folder>/dev-real-type=decoupled.csv
+csv_test_real: !ref <output_folder>/test-real-type=decoupled.csv
+csv_test_synth: !ref <output_folder>/test-synth-type=decoupled.csv
 tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min

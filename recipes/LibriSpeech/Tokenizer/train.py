@@ -34,8 +34,14 @@ if __name__ == "__main__":
     # 1.  # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
 
-    # multi-gpu (ddp) save data preparation
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
 
+    # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_librispeech,
         kwargs={
@@ -47,13 +53,6 @@ if __name__ == "__main__":
             "merge_lst": hparams["train_splits"],
             "merge_name": hparams["train_csv"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # Train tokenizer
