@@ -59,6 +59,21 @@ Combining multiple microphones is a powerful approach to achieve robustness in a
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
+### Performance
+The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:
+
+| Dataset        | Task           | System  | Performance  |
+| ------------- |:-------------:| -----:|-----:|
+| LibriSpeech      | Speech Recognition | ContextNet + Transformer | WER=2.55% (test-clean) |
+| TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
+| VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
+| AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.13% (lapel-mix)|
+| VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
+| WSJ2MIX      | Speech Separation | SepFormer| SDRi=22.6 dB (test)|
+| WSJ3MIX      | Speech Separation | SepFormer| SDRi=20.0 dB (test)|
+
+For more details, take a look into the corresponding implementation in recipes/dataset/.
+
 ### Documentation & Tutorials
 SpeechBrain is designed to speed-up research and development of speech technologies. Hence, our code is backed-up with three different levels of documentation:
 - **Low-level:** during the review process of the different pull requests, we are focusing on the level of comments that are given. Hence, any complex functionality or long pipeline is supported with helpful comments enabling users to handily customize the code.
@@ -79,7 +94,7 @@ SpeechBrain can be installed via PyPI to rapidly use the standard library. Moreo
 Once you have created your Python environment (Python 3.8+) you can simply type:
 
 ```
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple BeechSprain
+pip install speechbrain
 ```
 
 Then you can access SpeechBrain with:
