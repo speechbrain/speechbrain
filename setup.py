@@ -8,6 +8,6 @@ setup(
     author="Mirco Ravanelli & Others",
     author_email="speechbrain@gmail.com",
     packages=["speechbrain"],
-    python_requires=">=3.8",
-    url="https://speechbrain.github.io/"
+    python_requires=">=3.7",
+    url="https://speechbrain.github.io/",
 )
