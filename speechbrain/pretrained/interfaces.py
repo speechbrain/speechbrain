@@ -525,7 +525,7 @@ class SepformerSeparation(Pretrained):
     torch.Size([1, 400, 2])
     """
 
-    MODULES_NEEDED = ["encoder", "masknet"]
+    MODULES_NEEDED = ["encoder", "masknet", "decoder"]
 
     def separate_batch(self, mix):
         """Run source separation on batch of audio.
@@ -578,9 +578,10 @@ class SepformerSeparation(Pretrained):
         tensor
             Separated sources
         """
-        waveform = self.load_audio(path)
-        batch = waveform.unsqueeze(0)
-        return self.separate_batch(batch)[0]
+        batch, _ = torchaudio.load(path)
+        est_sources = self.separate_batch(batch)
+        est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
+        return est_sources
 
 
 class SpectralMaskEnhancement(Pretrained):
