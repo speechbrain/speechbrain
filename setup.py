@@ -3,7 +3,7 @@ import setuptools
 from distutils.core import setup
 
 setup(
-    name="SpeechBrain",
+    name="speechbrain",
     version="0.5.0",
     description="All-in-one speech toolkit in pure Python and Pytorch",
     author="Mirco Ravanelli & Others",
