@@ -578,6 +578,13 @@ class SepformerSeparation(Pretrained):
         tensor
             Separated sources
         """
+        if path is None:
+            path = fetch(
+                "test_mixture.wav",
+                source="speechbrain/sepformer-wsj02mix",
+                savedir="audio_files",
+            )
+
         batch, _ = torchaudio.load(path)
         est_sources = self.separate_batch(batch)
         est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
