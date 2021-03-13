@@ -183,7 +183,7 @@ if __name__ == "__main__":
         prepare_voicebank,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "skip_prep": hparams["skip_prep"],
         },
     )

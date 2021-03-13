@@ -32,21 +32,22 @@ if __name__ == "__main__":
     # 1.  # Dataset prep (parsing timers-and-such)
     from prepare import prepare_TAS  # noqa
 
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_TAS,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "train_splits": hparams["train_splits"],
-            "type": "direct",
-        },
-    )
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
+    )
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_TAS,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
+            "train_splits": hparams["train_splits"],
+            "type": "direct",
+        },
     )
 
     # Train tokenizer
