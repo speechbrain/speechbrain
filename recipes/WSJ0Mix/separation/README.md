@@ -34,7 +34,7 @@ This is in essence a warning and does not affect the results of this script.
 
 # WHAM! and WHAMR! dataset:
 
-* This recipe also supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM, simply use `--data_folder /yourpath/wham_original`, and for WHAMR use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder `wham_original` and `whamr`.
+* This recipe also supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM, simply use `--data_folder /yourpath/wham_original`, and for WHAMR use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder `wham_original` and `whamr`. Currently, speed augmentation is not correctly implemented for WHAMR, as the reverberation parameters do not match the valid and test set. This issue will be fixed in the near future.
 
 # Results
 

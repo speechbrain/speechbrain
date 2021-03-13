@@ -9,8 +9,8 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/aishell
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/dev.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
 
 
 # Training parameters

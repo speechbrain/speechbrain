@@ -53,6 +53,8 @@ class CRDNN(sb.nnet.containers.Sequential):
         The number of linear neural blocks to include.
     dnn_neurons : int
         The number of neurons in the linear layers.
+    use_rnnp: bool
+        If True, a linear projection layer is added between RNN layers.
     projection_dim : int
         The number of neurons in the projection layer.
         This layer is used to reduce the size of the flattened

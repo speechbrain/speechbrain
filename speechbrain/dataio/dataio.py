@@ -21,7 +21,9 @@ import torchaudio
 import json
 import re
 
-torchaudio.set_audio_backend("sox_io")  # switch backend
+torchaudio.set_audio_backend(
+    "sox_io"
+)  # switch to 'soundfile' for windows machines.
 logger = logging.getLogger(__name__)
 
 
