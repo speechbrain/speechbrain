@@ -29,19 +29,23 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing timers-and-such)
-    from prepare import prepare_aishell  # noqa
-
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_aishell, kwargs={"data_folder": hparams["data_folder"]},
-    )
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
+    )
+
+    # 1.  # Dataset prep (parsing timers-and-such)
+    from prepare import prepare_aishell  # noqa
+
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_aishell,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
+        },
     )
 
     # Train tokenizer

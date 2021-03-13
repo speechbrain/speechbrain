@@ -9,9 +9,9 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e,g. /localscratch/fluent_speech_commands_dataset
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/valid.csv
-
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/valid.csv
+skip_prep: False
 
 # Training parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -29,4 +29,4 @@ tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
    character_coverage: !ref <character_coverage>
    num_sequences: !ref <num_sequences>
-   csv_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
