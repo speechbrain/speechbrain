@@ -13,7 +13,7 @@ To run it:
 ```
 python train.py hyperparams/sepformer.yaml
 ```
-Make sure you modified the paths inside the parameter file before running the recipe.
+Make sure you modified the paths inside the parameter file before running the recipe. Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 
 # WSJ0-2mix and WSJ0-3mix dataset creation
