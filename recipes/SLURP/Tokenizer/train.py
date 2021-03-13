@@ -29,7 +29,13 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing SLURP)
+    sb.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
+    # Dataset prep (parsing SLURP)
     from prepare import prepare_SLURP  # noqa
 
     # multi-gpu (ddp) save data preparation
@@ -37,16 +43,11 @@ if __name__ == "__main__":
         prepare_SLURP,
         kwargs={
             "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "slu_type": "direct",
+            "skip_prep": hparams["skip_prep"],
         },
-    )
-
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
     )
 
     # Train tokenizer
