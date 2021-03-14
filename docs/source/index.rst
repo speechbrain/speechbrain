@@ -56,7 +56,6 @@ API Documentation
 
 .. toctree::
    :caption: API Documentation:
-   :hidden:
    :maxdepth: 3
 
    Core library (speechbrain) <speechbrain>
