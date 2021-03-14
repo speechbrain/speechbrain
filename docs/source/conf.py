@@ -99,7 +99,7 @@ def run_apidoc(app):
         [
             "better-apidoc",
             "-t",
-            os.path.join("source", "_apidoc_templates"),
+            "_apidoc_templates",
             "--force",
             "--no-toc",
             "--separate",
@@ -112,7 +112,7 @@ def run_apidoc(app):
         [
             "better-apidoc",
             "-t",
-            os.path.join("source", "_apidoc_templates"),
+            "_apidoc_templates",
             "--force",
             "--no-toc",
             "--separate",
