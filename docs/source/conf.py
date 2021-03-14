@@ -15,7 +15,7 @@ import sys
 import hyperpyyaml
 
 
-sys.path.insert(0, os.path.abspath("../speechbrain"))
+sys.path.insert(0, os.path.abspath("../../speechbrain"))
 
 
 # -- Project information -----------------------------------------------------
@@ -118,7 +118,7 @@ def run_apidoc(app):
             "--separate",
             "-o",
             "source",
-            os.path.join("..", "speechbrain"),
+            os.path.join("../..", "speechbrain"),
         ]
     )
 
