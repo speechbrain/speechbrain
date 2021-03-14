@@ -81,7 +81,7 @@ SpeechBrain is designed to speed-up research and development of speech technolog
 - **Educational-level:** we provide various Google Colab (i.e. interactive) tutorials describing all the building-blocks of SpeechBrain ranging from the core of the toolkit to a specific model designed for a particular task. The number of available tutorials is expected to increase over time.
 
 ### Under development
-We currently are working towards integrating DNN-HMM for speech recognition and machine translation.
+We are currently working towards integrating DNN-HMM for speech recognition and machine translation.
 
 # Quick installation
 
@@ -142,9 +142,8 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 # Learning SpeechBrain
 
 Instead of a long and boring README, we prefer to provide you with different resources that can be used to learn how to customize SpeechBrain to adapt it to your needs:
-
 - General information can be found on the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
-- Many [tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) about the basics of SpeechBrain. More of them on different functionalities (e.g SpeechBrain advanced, signal processing ...) are given with the drop down menu of the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
+- We offer many tutorials, you can start out from the basilar ones: [tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) which explain SpeechBrain basic functionalities and building blocks. We provide also more advanced tutorials as well as ones for educational purposes (e.g SpeechBrain advanced, signal processing ...). You can browse them via the Tutorials drop down menu of the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/) in the upper right.
 - Details on the SpeechBrain API, how to contribute, and the code are given in the [documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html).
 
 # License
