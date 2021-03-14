@@ -59,7 +59,7 @@ API Documentation
    :hidden:
    :maxdepth: 3
 
-   speechbrain
+   Core library (speechbrain) <speechbrain>
    Runnable Tools (tools) <tools>
 
 .. autosummary::
