@@ -15,7 +15,7 @@ import sys
 import hyperpyyaml
 
 
-sys.path.insert(0, os.path.abspath("../../speechbrain"))
+sys.path.insert(0, os.path.abspath("../speechbrain"))
 
 
 # -- Project information -----------------------------------------------------
@@ -25,7 +25,7 @@ copyright = "2021, SpeechBrain"
 author = "SpeechBrain"
 
 # The full version, including alpha/beta/rc tags
-release = "0.0.0"
+release = "0.5.0"
 
 
 # -- General configuration ---------------------------------------------------
