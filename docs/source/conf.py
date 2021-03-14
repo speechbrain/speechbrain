@@ -118,7 +118,7 @@ def run_apidoc(app):
             "--separate",
             "-o",
             "source",
-            "speechbrain",
+            os.path.join("../..", "speechbrain"),,
         ]
     )
 
