@@ -143,7 +143,7 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 
 Instead of a long and boring README, we prefer to provide you with different resources that can be used to learn how to customize SpeechBrain to adapt it to your needs:
 - General information can be found on the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
-- We offer many tutorials, you can start out from the basilar ones: [tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) which explain SpeechBrain basic functionalities and building blocks. We provide also more advanced tutorials as well as ones for educational purposes (e.g SpeechBrain advanced, signal processing ...). You can browse them via the Tutorials drop down menu of the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/) in the upper right.
+- We offer many tutorials, you can start out from the [basic ones](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) about SpeechBrain basic functionalities and building blocks. We provide also more advanced tutorials (e.g SpeechBrain advanced, signal processing ...). You can browse them via the Tutorials drop down menu on [SpeechBrain website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/) in the upper right.
 - Details on the SpeechBrain API, how to contribute, and the code are given in the [documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html).
 
 # License
