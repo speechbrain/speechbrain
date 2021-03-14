@@ -75,7 +75,6 @@ class IncrementalConv1d(CNN.Conv1d):
         self.register_backward_hook(self._clear_linearized_weight)
 
     def incremental_forward(self, input):
-        # input: transpose to (B, T, C)
         input = input.transpose(1, 2).contiguous()
         if self.training:
             raise RuntimeError('incremental_forward only supports eval mode')
@@ -104,7 +103,9 @@ class IncrementalConv1d(CNN.Conv1d):
             if dilation > 1:
                 input = input[:, 0::dilation, :].contiguous()
         output = F.linear(input.view(bsz, -1), weight, self.conv.bias)
-        return output.unsqueeze(0).transpose(1, 2)
+
+        output = output.unsqueeze(-1)
+        return output
 
     def clear_buffer(self):
         self.input_buffer = None
@@ -438,7 +439,7 @@ class Decoder(nn.Module):
 
         # Done flag
         done = torch.sigmoid(self.fc(x))
-
+    
         return outputs, torch.stack(alignments), done, decoder_states
 
     # TODO: Improve this method
@@ -536,10 +537,10 @@ class Decoder(nn.Module):
 
 
         # Combine outputs for all time steps
-        alignments = torch.stack(alignments).transpose(0, 1)
-        decoder_states = torch.cat(decoder_states, dim=2).transpose(1, 2).contiguous()
-        outputs = torch.stack(outputs).transpose(0, 1)
-
+        alignments = torch.stack(alignments).transpose(0, 1).squeeze(2)
+        decoder_states = torch.cat(decoder_states, dim=2).transpose(1, 2).squeeze(2).contiguous()
+        outputs = torch.stack(outputs).transpose(0, 1).squeeze(2)
+        dones = torch.cat(dones, dim=1).transpose(1, 2)
         return outputs, alignments, dones, decoder_states
 
 
@@ -872,7 +873,6 @@ class Loss(nn.Module):
         mel_l1_loss, mel_binary_div = spec_loss(
             input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask)
         mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
-
         done_loss = self.binary_criterion(target_done.squeeze(), input_done)
 
         target_mask = sequence_mask(

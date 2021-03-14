@@ -41,7 +41,7 @@ linear_dim: 513
 
 lr: 0.0005
 lr_warmup_steps: 4000
-number_of_epochs: 2
+number_of_epochs: 10
 
 output_folder: !ref ./results/tts/deepvoice/<seed>
 save_folder: !ref <output_folder>/save

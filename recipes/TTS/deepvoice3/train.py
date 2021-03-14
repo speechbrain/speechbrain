@@ -34,8 +34,7 @@ class DeepVoice3Brain(sb.core.Brain):
             frame_positions=batch.frame_positions.data
                 if stage == sb.Stage.TRAIN else None,
             input_lengths=batch.input_lengths.data,
-            target_lengths=batch.target_lengths.data
-                if stage == sb.Stage.TRAIN else None 
+            target_lengths=batch.target_lengths.data                 
         )
         return pred
 
@@ -56,18 +55,26 @@ class DeepVoice3Brain(sb.core.Brain):
         """
         batch = batch.to(self.device)
 
-        output_mel, output_lienar, _, output_done, output_lengths = predictions
+        output_mel, output_linear, _, output_done, output_lengths = predictions
         target_mel = batch.mel.data
         target_done = batch.done.data
         target_linear = batch.linear.data
         target_lengths = batch.target_lengths.data
 
+        if stage == sb.Stage.VALID:
+            output_mel = self._pad_output(output_mel)
+            output_linear = self._pad_output(output_linear)
+            output_done = self._pad_output(output_done, 1.)
         outputs = target_mel, target_linear, target_done, target_lengths
-        targets = output_mel, output_lienar, output_done, output_lengths
+        targets = output_mel, output_linear, output_done, output_lengths
         loss = self.hparams.compute_cost(
             outputs, targets
         )
         return loss
+
+    def _pad_output(self, tensor, value=0.):
+        padding = self.hparams.decoder_max_positions - tensor.size(2)
+        return F.pad(tensor, (0, padding), value=value)
 
 
     def on_stage_end(self, stage, stage_loss, epoch):
