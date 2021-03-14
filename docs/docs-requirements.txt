@@ -3,3 +3,4 @@ recommonmark>=0.7.1
 sphinx-rtd-theme>=0.4.3
 Sphinx>=3.4.3
 six
+numba
