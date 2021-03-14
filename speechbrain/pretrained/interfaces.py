@@ -189,7 +189,7 @@ class Pretrained:
         source,
         hparams_file="hyperparams.yaml",
         overrides={},
-        savedir="./pretrained_model_checkpoints",
+        savedir=None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -214,8 +214,12 @@ class Pretrained:
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
-            Where to put the pretraining material.
+            Where to put the pretraining material. If not given, will use
+            ./pretrained_checkpoints/<class-name>-hash(source).
         """
+        if savedir is None:
+            clsname = cls.__name__
+            savedir = f"./pretrained_checkpoints/{clsname}-{hash(source)}"
         hparams_local_path = fetch(hparams_file, source, savedir)
 
         # Load the modules:
