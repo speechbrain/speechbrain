@@ -577,8 +577,6 @@ class SepformerSeparation(Pretrained):
         path : str
             Path to file which has a mixture of sources. It can be a local
             path, a web url, or a huggingface repo.
-        source : str
-            Hugging face repository path
         savedir : path
             Path where to store the wav signals (when downloaded from the web).
         Returns
