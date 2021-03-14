@@ -22,14 +22,7 @@ jobs:
               run: |
                   python -m pip install --upgrade pip
                   pip install -r lint-requirements.txt
-            - name: Show Python errors separately
-              uses: samuelmeuli/lint-action@v1
-              with:
-                  github_token: ${{ secrets.github_token }}
-                  # Enable linters
-                  black: True
-                  flake8: True
-            - name: Run lint again for error code
+            - name: Run linters
               run: |
                   flake8 . --count --show-source --statistics
                   black --check --diff .
