@@ -5,7 +5,7 @@ build:
 
 python:
   version: 3.8
-  setup_py_install: true
+  setup_py_install: True
 
 # Don't build any extra formats
 formats: []
