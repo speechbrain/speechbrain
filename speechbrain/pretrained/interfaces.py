@@ -565,25 +565,23 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path):
+    def separate_file(self, path, source=None):
         """Separate sources from file.
 
         Arguments
         ---------
         path : str
             Path to file which has a mixture of sources.
+        source : str
+            Hugging face repository path
 
         Returns
         -------
         tensor
             Separated sources
         """
-        if path is None:
-            path = fetch(
-                "test_mixture.wav",
-                source="speechbrain/sepformer-wsj02mix",
-                savedir="audio_files",
-            )
+        if source is not None:
+            path = fetch(path, source=source, savedir=".",)
 
         batch, _ = torchaudio.load(path)
         est_sources = self.separate_batch(batch)
