@@ -17,6 +17,7 @@ from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -127,7 +128,7 @@ class Pretrained:
             for p in self.modules.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path):
+    def load_audio(self, path, savedir="."):
         """Load an audio file with this model"s input spec
 
         When using a speech model, it is important to use the same type of data,
@@ -135,7 +136,10 @@ class Pretrained:
         sampling rate and number of channels. It is, however, possible to
         convert a file from a higher sampling rate to a lower one (downsampling).
         Similarly, it is simple to downmix a stereo file to mono.
+        The path can be a local path, a web url, or a link to a huggingface repo.
         """
+        source, fl = split_path(path)
+        path = fetch(fl, source=source, savedir=savedir)
         signal, sr = torchaudio.load(path, channels_first=False)
         return self.audio_normalizer(signal, sr)
 
@@ -565,26 +569,25 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path):
+    def separate_file(self, path, savedir="."):
         """Separate sources from file.
 
         Arguments
         ---------
         path : str
-            Path to file which has a mixture of sources.
+            Path to file which has a mixture of sources. It can be a local
+            path, a web url, or a huggingface repo.
         source : str
             Hugging face repository path
-
+        savedir : path
+            Path where to store the wav signals (when downloaded from the web).
         Returns
         -------
         tensor
             Separated sources
         """
-        from speechbrain.utils.data_utils import split_path
-
         source, fl = split_path(path)
-
-        path = fetch(fl, source=source, savedir=".",)
+        path = fetch(fl, source=source, savedir=savedir)
 
         batch, _ = torchaudio.load(path)
         est_sources = self.separate_batch(batch)
