@@ -4,8 +4,8 @@ build:
   image: latest
 
 python:
-  version: 3.8
-  setup_py_install: True
+  version: 3.9
+  pip_install: true
 
 # Don't build any extra formats
 formats: []
