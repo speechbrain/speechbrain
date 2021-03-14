@@ -127,7 +127,7 @@ class ASR(sb.Brain):
             tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
 
         loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
+            p_seq, tokens_eos, lengths=tokens_eos_lens
         )
 
         # Add ctc loss if necessary

@@ -91,7 +91,7 @@ class SLU(sb.Brain):
             )
 
         loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
+            p_seq, tokens_eos, lengths=tokens_eos_lens
         )
 
         # (No ctc loss)

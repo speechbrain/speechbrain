@@ -40,7 +40,7 @@ class seq2seqBrain(sb.Brain):
             outputs, seq = predictions
 
         phns, phn_lens = batch.phn_encoded_eos
-        loss = self.hparams.compute_cost(outputs, phns, length=phn_lens)
+        loss = self.hparams.compute_cost(outputs, phns, lengths=phn_lens)
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics.append(batch.id, seq, phns, target_len=phn_lens)

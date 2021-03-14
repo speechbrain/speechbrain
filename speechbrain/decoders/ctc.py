@@ -7,7 +7,7 @@ Authors
 """
 import torch
 from itertools import groupby
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import lengths_to_mask
 
 
 class CTCPrefixScorer:
@@ -56,7 +56,7 @@ class CTCPrefixScorer:
         self.ctc_window_size = ctc_window_size
 
         # mask frames > enc_lens
-        mask = 1 - length_to_mask(enc_lens)
+        mask = 1 - lengths_to_mask(enc_lens)
         mask = mask.unsqueeze(-1).expand(-1, -1, x.size(-1)).eq(1)
         x.masked_fill_(mask, self.minus_inf)
         x[:, :, 0] = x[:, :, 0].masked_fill_(mask[:, :, 0], 0)

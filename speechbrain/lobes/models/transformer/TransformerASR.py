@@ -18,7 +18,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import lengths_to_mask
 
 
 class TransformerASR(TransformerInterface):
@@ -171,7 +171,7 @@ class TransformerASR(TransformerInterface):
         src_key_padding_mask = None
         if wav_len is not None and self.training:
             abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+            src_key_padding_mask = (1 - lengths_to_mask(abs_len)).bool()
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
 
         src_mask = None
@@ -215,7 +215,7 @@ class TransformerASR(TransformerInterface):
         src_key_padding_mask = None
         if wav_len is not None and self.training:
             abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+            src_key_padding_mask = (1 - lengths_to_mask(abs_len)).bool()
 
         src = self.custom_src_module(src)
         src = src + self.positional_encoding(src)

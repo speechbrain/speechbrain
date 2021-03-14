@@ -23,7 +23,7 @@ class LMBrain(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the NLL loss."
         chars, char_lens = batch.char_encoded_eos
-        loss = self.hparams.compute_cost(predictions, chars, length=char_lens)
+        loss = self.hparams.compute_cost(predictions, chars, lengths=char_lens)
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):

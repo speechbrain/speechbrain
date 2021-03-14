@@ -4,10 +4,10 @@ Authors
 * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import lengths_to_mask
 
 
-def Accuracy(log_probablities, targets, length=None):
+def Accuracy(log_probablities, targets, lengths=None):
     """Calculates the accuracy for predicted log probabilities and targets in a batch.
 
     Arguments
@@ -16,7 +16,7 @@ def Accuracy(log_probablities, targets, length=None):
         Predicted log probabilities (batch_size, time, feature).
     targets : tensor
         Target (batch_size, time).
-    length : tensor
+    lengths : tensor
         Length of target (batch_size,).
 
     Example
@@ -26,16 +26,16 @@ def Accuracy(log_probablities, targets, length=None):
     >>> print(acc)
     (1.0, 2.0)
     """
-    if length is not None:
-        mask = length_to_mask(
-            length * targets.shape[1], max_len=targets.shape[1],
+    if lengths is not None:
+        mask = lengths_to_mask(
+            lengths * targets.shape[1], max_len=targets.shape[1],
         ).bool()
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
     padded_pred = log_probablities.argmax(-1)
 
-    if length is not None:
+    if lengths is not None:
         numerator = torch.sum(
             padded_pred.masked_select(mask) == targets.masked_select(mask)
         )
@@ -63,7 +63,7 @@ class AccuracyStats:
         self.correct = 0
         self.total = 0
 
-    def append(self, log_probablities, targets, length=None):
+    def append(self, log_probablities, targets, lengths=None):
         """This function is for updating the stats according to the prediction
         and target in the current batch.
 
@@ -73,10 +73,10 @@ class AccuracyStats:
             Predicted log probabilities (batch_size, time, feature).
         targets : tensor
             Target (batch_size, time).
-        length: tensor
+        lengths : tensor
             Length of target (batch_size,).
         """
-        numerator, denominator = Accuracy(log_probablities, targets, length)
+        numerator, denominator = Accuracy(log_probablities, targets, lengths)
         self.correct += numerator
         self.total += denominator
 

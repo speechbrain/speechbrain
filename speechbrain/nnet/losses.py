@@ -17,7 +17,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from itertools import permutations
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import lengths_to_mask
 from speechbrain.decoders.ctc import filter_ctc_output
 
 
@@ -263,7 +263,7 @@ def ctc_loss(
 
 
 def l1_loss(
-    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
+    predictions, targets, lengths=None, allowed_len_diff=3, reduction="mean"
 ):
     """Compute the true l1 loss, accounting for length differences.
 
@@ -273,7 +273,7 @@ def l1_loss(
         Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor with the same size as predicted tensor.
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
@@ -291,12 +291,12 @@ def l1_loss(
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.l1_loss, reduction="none")
     return compute_masked_loss(
-        loss, predictions, targets, length, reduction=reduction
+        loss, predictions, targets, lengths, reduction=reduction
     )
 
 
 def mse_loss(
-    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
+    predictions, targets, lengths=None, allowed_len_diff=3, reduction="mean"
 ):
     """Compute the true mean squared error, accounting for length differences.
 
@@ -306,7 +306,7 @@ def mse_loss(
         Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor with the same size as predicted tensor.
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
@@ -324,12 +324,12 @@ def mse_loss(
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.mse_loss, reduction="none")
     return compute_masked_loss(
-        loss, predictions, targets, length, reduction=reduction
+        loss, predictions, targets, lengths, reduction=reduction
     )
 
 
 def classification_error(
-    probabilities, targets, length=None, allowed_len_diff=3, reduction="mean"
+    probabilities, targets, lengths=None, allowed_len_diff=3, reduction="mean"
 ):
     """Computes the classification error at frame or batch level.
 
@@ -340,7 +340,7 @@ def classification_error(
         [batch, prob] or [batch, frames, prob]
     targets : torch.Tensor
         The targets, of shape [batch] or [batch, frames]
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
@@ -365,14 +365,14 @@ def classification_error(
         return (predictions != targets).float()
 
     return compute_masked_loss(
-        error, probabilities, targets.long(), length, reduction=reduction
+        error, probabilities, targets.long(), lengths, reduction=reduction
     )
 
 
 def nll_loss(
     log_probabilities,
     targets,
-    length=None,
+    lengths=None,
     label_smoothing=0.0,
     allowed_len_diff=3,
     reduction="mean",
@@ -386,7 +386,7 @@ def nll_loss(
         Format is [batch, log_p] or [batch, frames, log_p].
     targets : torch.Tensor
         The targets, of shape [batch] or [batch, frames].
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
@@ -413,7 +413,7 @@ def nll_loss(
         loss,
         log_probabilities,
         targets.long(),
-        length,
+        lengths,
         label_smoothing=label_smoothing,
         reduction=reduction,
     )
@@ -422,7 +422,7 @@ def nll_loss(
 def bce_loss(
     inputs,
     targets,
-    length=None,
+    lengths=None,
     weight=None,
     pos_weight=None,
     reduction="mean",
@@ -440,7 +440,7 @@ def bce_loss(
         (Works with or without a singleton dimension at the end).
     targets : torch.Tensor
         The targets, of shape [batch] or [batch, frames].
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance, if frame-level loss is desired.
     weight : torch.Tensor
         A manual rescaling weight if provided it’s repeated to match input
@@ -469,7 +469,7 @@ def bce_loss(
     # Make sure tensor lengths match
     if len(inputs.shape) >= 2:
         inputs, targets = truncate(inputs, targets, allowed_len_diff)
-    elif length is not None:
+    elif lengths is not None:
         raise ValueError("length can be passed only for >= 2D inputs.")
 
     # Pass the loss function but apply reduction="none" first
@@ -483,7 +483,7 @@ def bce_loss(
         loss,
         inputs,
         targets.float(),
-        length,
+        lengths,
         label_smoothing=label_smoothing,
         reduction=reduction,
     )
@@ -492,7 +492,7 @@ def bce_loss(
 def kldiv_loss(
     log_probabilities,
     targets,
-    length=None,
+    lengths=None,
     label_smoothing=0.0,
     allowed_len_diff=3,
     pad_idx=0,
@@ -508,7 +508,7 @@ def kldiv_loss(
         [batch, prob] or [batch, frames, prob].
     targets : torch.Tensor
         The targets, of shape [batch] or [batch, frames].
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
@@ -552,13 +552,15 @@ def kldiv_loss(
         elif reduction == "batchmean":
             return loss.sum() / bz
         elif reduction == "batch":
-            return loss.view(bz, -1).sum(1) / length
+            return loss.view(bz, -1).sum(1) / lengths
         elif reduction == "sum":
             return loss.sum()
         else:
             return loss
     else:
-        return nll_loss(log_probabilities, targets, length, reduction=reduction)
+        return nll_loss(
+            log_probabilities, targets, lengths, reduction=reduction
+        )
 
 
 def truncate(predictions, targets, allowed_len_diff=3):
@@ -591,7 +593,7 @@ def compute_masked_loss(
     loss_fn,
     predictions,
     targets,
-    length=None,
+    lengths=None,
     label_smoothing=0.0,
     reduction="mean",
 ):
@@ -606,7 +608,7 @@ def compute_masked_loss(
         First argument to loss function.
     targets : torch.Tensor
         Second argument to loss function.
-    length : torch.Tensor
+    lengths : torch.Tensor
         Length of each utterance to compute mask. If None, global average is
         computed and returned.
     label_smoothing: float
@@ -619,9 +621,9 @@ def compute_masked_loss(
         'batchmean' is sum / batch_size and 'none' returns all.
     """
     mask = torch.ones_like(targets)
-    if length is not None:
-        length_mask = length_to_mask(
-            length * targets.shape[1], max_len=targets.shape[1],
+    if lengths is not None:
+        length_mask = lengths_to_mask(
+            lengths * targets.shape[1], max_len=targets.shape[1],
         )
 
         # Handle any dimensionality of input
@@ -938,7 +940,7 @@ class LogSoftmaxWrapper(nn.Module):
         self.loss_fn = loss_fn
         self.criterion = torch.nn.KLDivLoss(reduction="sum")
 
-    def forward(self, outputs, targets, length=None):
+    def forward(self, outputs, targets, lengths=None):
         """
         Arguments
         ---------
@@ -1084,7 +1086,7 @@ def nll_loss_kd(
     prob_curr = probabilities.reshape(N_snt * max_len, probabilities.shape[-1])
 
     # Generating mask
-    mask = length_to_mask(
+    mask = lengths_to_mask(
         lab_lengths, max_len=max_len, dtype=torch.float, device=prob_curr.device
     )
 
