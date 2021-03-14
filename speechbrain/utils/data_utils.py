@@ -506,3 +506,27 @@ def mod_default_collate(batch):
         return torch.tensor(batch)
     else:
         return batch
+
+
+def split_path(path):
+    """Splits a path to source and filename
+
+    This also handles URLs and Huggingface hub paths, in addition to
+    regular paths.
+
+    Arguments
+    ---------
+    path : str
+
+    Returns
+    -------
+    str
+        Source
+    str
+        Filename
+    """
+    if "/" in path:
+        return path.rsplit("/", maxsplit=1)
+    else:
+        # Interpret as path to file in current directory.
+        return "./", path
