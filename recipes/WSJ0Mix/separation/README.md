@@ -15,6 +15,8 @@ python train.py hyperparams/sepformer.yaml
 ```
 Make sure you modified the paths inside the parameter file before running the recipe.
 
+Note that during training we print the negative SI-SNR (as we treat this value as the loss).
+
 
 # WSJ0-2mix and WSJ0-3mix dataset creation
 * The best way to create the datasets is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
@@ -59,8 +61,3 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix dataset
 | | SepFormer. WHAMR! |
 | --- | --- |
 |NoAugment | 11.4 |
-
-
-
-
-

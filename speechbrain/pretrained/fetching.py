@@ -69,7 +69,7 @@ def fetch(
     if save_filename is None:
         save_filename = filename
     savedir = pathlib.Path(savedir)
-    savedir.mkdir(exist_ok=True)
+    savedir.mkdir(parents=True, exist_ok=True)
     sourcefile = f"{source}/{filename}"
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
