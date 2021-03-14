@@ -88,7 +88,7 @@ class Pretrained:
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
         for mod in self.MODULES_NEEDED:
             if mod not in modules:
-                raise ValueError("Need modules['{mod}']")
+                raise ValueError(f"Need modules['{mod}']")
 
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
@@ -98,7 +98,7 @@ class Pretrained:
             # Also first check that all required params are found:
             for hp in self.HPARAMS_NEEDED:
                 if hp not in hparams:
-                    raise ValueError("Need hparams['{hp}']")
+                    raise ValueError(f"Need hparams['{hp}']")
             self.hparams = SimpleNamespace(**hparams)
 
         # Prepare modules for computation, e.g. jit
