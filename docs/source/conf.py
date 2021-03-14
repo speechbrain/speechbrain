@@ -25,7 +25,7 @@ copyright = "2021, SpeechBrain"
 author = "SpeechBrain"
 
 # The full version, including alpha/beta/rc tags
-release = "0.0.0"
+release = "0.5.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -118,7 +118,7 @@ def run_apidoc(app):
             "--separate",
             "-o",
             "source",
-            os.path.join("../..", "speechbrain"),,
+            os.path.join("../..", "speechbrain"),
         ]
     )
 
