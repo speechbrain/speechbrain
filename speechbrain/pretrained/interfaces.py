@@ -565,7 +565,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, source=None):
+    def separate_file(self, path):
         """Separate sources from file.
 
         Arguments
@@ -580,8 +580,11 @@ class SepformerSeparation(Pretrained):
         tensor
             Separated sources
         """
-        if source is not None:
-            path = fetch(path, source=source, savedir=".",)
+        from speechbrain.utils.data_utils import split_path
+
+        source, fl = split_path(path)
+
+        path = fetch(fl, source=source, savedir=".",)
 
         batch, _ = torchaudio.load(path)
         est_sources = self.separate_batch(batch)
