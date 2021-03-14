@@ -29,11 +29,13 @@ class DeepVoice3Brain(sb.core.Brain):
         batch = batch.to(self.device)
         pred = self.hparams.model(
             text_sequences=batch.text_sequences.data, 
-            mel_targets=batch.mel.data, 
+            mel_targets=batch.mel.data if stage == sb.Stage.TRAIN else None, 
             text_positions=batch.text_positions.data,
-            frame_positions=batch.frame_positions.data,
+            frame_positions=batch.frame_positions.data
+                if stage == sb.Stage.TRAIN else None,
             input_lengths=batch.input_lengths.data,
-            target_lengths=batch.target_lengths.data 
+            target_lengths=batch.target_lengths.data
+                if stage == sb.Stage.TRAIN else None 
         )
         return pred
 
@@ -97,8 +99,8 @@ class DeepVoice3Brain(sb.core.Brain):
 
             # Update learning rate
             # TODO: Bring this back
-#            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
-#            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
@@ -112,7 +114,6 @@ class DeepVoice3Brain(sb.core.Brain):
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
-#            TODO: Bring this back
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
