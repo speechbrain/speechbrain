@@ -372,7 +372,7 @@ class TransformerASR(Pretrained):
     -------
     >>> from speechbrain.pretrained import TransformerASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = Transformer.from_hparams(
+    >>> asr_model = TransformerASR.from_hparams(
     ...     source="speechbrain/asr-transformer-transformerlm-librispeech",
     ...     savedir=tmpdir,
     ... )
