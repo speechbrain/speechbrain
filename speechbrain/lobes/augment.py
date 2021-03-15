@@ -266,8 +266,8 @@ class TimeDomainSpecAugment(torch.nn.Module):
     ):
         super().__init__()
         self.speed_perturb = SpeedPerturb(
-            perturb_prob=perturb_prob,
-            orig_freq=sample_rate,
+            perturb_prob=perturb_prob, 
+            orig_freq=sample_rate, 
             speeds=speeds,
         )
         self.drop_freq = DropFreq(
