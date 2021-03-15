@@ -1151,6 +1151,7 @@ def average_checkpoints(
     """
 
     try:
+        # try to map the ckps to the correct device
         parameter_iterator = (
             parameter_loader(
                 ckpt.paramfiles[recoverable_name], map_location=device
