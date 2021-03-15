@@ -7,3 +7,60 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # If input_type is raw or mulaw, network assumes scalar input and discretized mixture 
 # of logistic distributions output, otherwise one-hot input and softmax output are assumed.
 input_type: "raw"
+quantize_channels: 65536  # 65536 or 256
+
+# Model:
+# This should equal to `quantize_channels` if mu-law quantize enabled
+# otherwise num_mixture * 3 (pi, mean, log_scale)
+# single mixture case: 2
+num_mixture: 10
+out_channels: !ref <num_mixture> * 3
+layers: 24
+stacks: 4
+residual_channels: 128
+gate_channels: 256  # split into 2 gropus internally for gated activation
+skip_out_channels: 128
+dropout: 0.0
+kernel_size: 3
+
+# Local conditioning (set negative value to disable, e.g. -1))
+cin_channels: 80
+cin_pad: 2
+# If True, use transposed convolutions to upsample conditional features,
+# otherwise repeat features to adjust time resolution
+# (refer to section 2.5 in Wavenet paper)
+'''
+upsample_conditional_features: True
+upsample_net: !new:models.wavenet.upsample.ConvInUpsampleNetwork
+    upsample_params={
+        "upsample_scales": [4, 4, 4, 4],  # should np.prod(upsample_scales) == hop_size
+    },
+
+    # Global conditioning (set negative value to disable)
+    # currently limited for speaker embedding
+    # this should only be enabled for multi-speaker dataset
+    gin_channels=-1,  # i.e., speaker embedding dim
+    n_speakers=7,  # 7 for CMU ARCTIC
+'''
+
+lr: 0.0005
+lr_warmup_steps: 4000
+number_of_epochs: 2
+
+model: !new:models.wavenet.model.WavenetModel
+# TO ADD
+
+output_folder: !ref ./results/tts/deepvoice/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <epoch_counter>
+
+causal: True
