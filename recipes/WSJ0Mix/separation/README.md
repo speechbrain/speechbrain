@@ -1,7 +1,7 @@
 # Speech separation with WSJ0MIX
 This folder contains some popular recipes for the WSJ0MIX task (2/3 sources).
 
-* This recipe supports train with several source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
+* This recipe supports train with several source separation models on WSJ2 - Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
 Additional dependency:
 ```
