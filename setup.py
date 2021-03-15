@@ -18,6 +18,7 @@ setup(
     author="Mirco Ravanelli & Others",
     author_email="speechbrain@gmail.com",
     packages=setuptools.find_packages(),
+    package_data={"speechbrain": ["version.txt", "log-config.yaml"]},
     install_requires=[
         "hyperpyyaml",
         "joblib",
