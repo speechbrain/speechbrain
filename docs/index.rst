@@ -59,8 +59,9 @@ API Documentation
    :hidden:
    :maxdepth: 3
 
-   Core library (speechbrain) <speechbrain>
-   Runnable Tools (tools) <tools>
+   Core library (speechbrain) <API/speechbrain>
+   HyperPyYAML (hyperpyyaml) <API/hyperpyyaml>
+   Runnable Tools (tools) <API/tools>
 
 .. autosummary::
 
