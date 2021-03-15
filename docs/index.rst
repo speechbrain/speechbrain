@@ -61,7 +61,6 @@ API Documentation
 
    Core library (speechbrain) <API/speechbrain>
    HyperPyYAML (hyperpyyaml) <API/hyperpyyaml>
-   Runnable Tools (tools) <API/tools>
 
 .. autosummary::
 
