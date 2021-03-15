@@ -12,7 +12,7 @@ We support pytorch >= 1.7 (https://pytorch.org/) and Python >= 3.7.
 Once you have created your Python environment (see instructions below) you can simply type:
 
 ```
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple BeechSprain
+pip install speechbrain
 ```
 
 Then you can then access SpeechBrain with:
