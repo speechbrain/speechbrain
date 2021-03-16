@@ -786,7 +786,10 @@ class TextEncoder(CategoricalEncoder):
         # Same thing with unk, see base class.
         if "bos_label" in special_labels and "eos_label" in special_labels:
             self.insert_bos_eos(
-                special_labels["bos_label"], special_labels["eos_label"]
+                bos_label="<bos>",
+                eos_label="<eos>",
+                bos_index=special_labels["bos_label"],
+                eos_index=special_labels["eos_label"],
             )
         elif "bos_label" in special_labels or "eos_label" in special_labels:
             raise TypeError("Only BOS or EOS specified. Need both for init.")
@@ -967,14 +970,16 @@ class CTCTextEncoder(TextEncoder):
     """
 
     def handle_special_labels(self, special_labels):
-        super().handle_special_labels(special_labels)
+        # super().handle_special_labels(special_labels)
         # NOTE: blank_label is not necessarily set at all!
         # This is because None is a suitable value.
         # So the test is: hasattr(self, "blank_label")
         # rather than self.blank_label is not None
         # Same thing with unk, see base class.
         if "blank_label" in special_labels:
-            self.insert_blank(special_labels["blank_label"])
+            self.insert_blank(index=special_labels["blank_label"])
+
+        super().handle_special_labels(special_labels)
 
     def add_blank(self, blank_label=DEFAULT_BLANK):
         """Add blank symbol to labelset."""

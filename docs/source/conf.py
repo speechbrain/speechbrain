@@ -15,7 +15,7 @@ import sys
 import hyperpyyaml
 
 
-sys.path.insert(0, os.path.abspath("../../speechbrain"))
+sys.path.insert(0, os.path.abspath("../speechbrain"))
 
 
 # -- Project information -----------------------------------------------------
@@ -25,7 +25,7 @@ copyright = "2021, SpeechBrain"
 author = "SpeechBrain"
 
 # The full version, including alpha/beta/rc tags
-release = "0.0.0"
+release = "0.5.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -99,7 +99,7 @@ def run_apidoc(app):
         [
             "better-apidoc",
             "-t",
-            os.path.join("source", "_apidoc_templates"),
+            "_apidoc_templates",
             "--force",
             "--no-toc",
             "--separate",
@@ -112,13 +112,13 @@ def run_apidoc(app):
         [
             "better-apidoc",
             "-t",
-            os.path.join("source", "_apidoc_templates"),
+            "_apidoc_templates",
             "--force",
             "--no-toc",
             "--separate",
             "-o",
             "source",
-            os.path.join("..", "speechbrain"),
+            os.path.join("../..", "speechbrain"),
         ]
     )
 

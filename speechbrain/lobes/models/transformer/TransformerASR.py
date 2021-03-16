@@ -139,7 +139,8 @@ class TransformerASR(TransformerInterface):
         ) = self.make_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         src = self.custom_src_module(src)
-        src = src + self.positional_encoding(src)
+        if hasattr(self, "positional_encoding"):
+            src = src + self.positional_encoding(src)
         encoder_out, _ = self.encoder(
             src=src,
             src_mask=src_mask,
@@ -147,13 +148,13 @@ class TransformerASR(TransformerInterface):
         )
 
         tgt = self.custom_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
+        if hasattr(self, "positional_encoding"):
+            tgt = tgt + self.positional_encoding(tgt)
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
-            memory_key_padding_mask=src_key_padding_mask,
         )
 
         return encoder_out, decoder_out
@@ -192,11 +193,41 @@ class TransformerASR(TransformerInterface):
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
+        if hasattr(self, "positional_encoding"):
+            tgt = tgt + self.positional_encoding(tgt)
         prediction, self_attns, multihead_attns = self.decoder(
             tgt, encoder_out, tgt_mask=tgt_mask
         )
         return prediction, multihead_attns[-1]
+
+    def encode(
+        self, src, wav_len=None,
+    ):
+        """
+        forward the encoder with source input
+
+        Arguments
+        ----------
+        src : tensor
+            The sequence to the encoder (required).
+        """
+        # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
+        if src.dim() == 4:
+            bz, t, ch1, ch2 = src.shape
+            src = src.reshape(bz, t, ch1 * ch2)
+
+        src_key_padding_mask = None
+        if wav_len is not None and self.training:
+            abs_len = torch.round(wav_len * src.shape[1])
+            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+
+        src = self.custom_src_module(src)
+        if hasattr(self, "positional_encoding"):
+            src = src + self.positional_encoding(src)
+        encoder_out, _ = self.encoder(
+            src=src, src_key_padding_mask=src_key_padding_mask
+        )
+        return encoder_out
 
     def _init_params(self):
         for p in self.parameters():

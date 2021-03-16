@@ -1,0 +1,220 @@
+# ############################################################################
+# Model: E2E ASR with Transducer ASR
+# Encoder: CRDNN model
+# Decoder: LiGRU + beamsearch
+# losses: Transducer
+# Training: TIMIT
+# Authors:  Abdel Heba, Mirco Ravanelli, Sung-Lin Yeh 2020
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/augment_noise_CRDNN/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+openrir_folder: !ref <data_folder> # where storing the noisy data for augment
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/dev.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: False # Skip data preparation
+
+# Training parameters
+number_of_epochs: 50
+batch_size: 8
+lr: 1.0
+sorting: ascending # choose between ascending, descending and random
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 40
+
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 2
+cnn_channels: (128, 256)
+cnn_kernelsize: (3, 3)
+rnn_layers: 4
+rnn_neurons: 512
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 512
+emb_size: 128
+dec_neurons: 128
+
+# Outputs
+output_neurons: 40
+joint_dim: 128
+blank_index: 0
+
+# Decoding parameters
+beam_size: 4
+nbest: 1
+# by default {state,expand}_beam = 2.3 as mention in paper
+# https://arxiv.org/abs/1904.02619
+state_beam: 1.0
+expand_beam: 1.0
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <openrir_folder>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+
+
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+jit_module_keys: [enc]
+
+enc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <joint_dim>
+    bias: False
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    consider_as_one_hot: True
+    blank_id: !ref <blank_index>
+
+dec: !new:speechbrain.nnet.RNN.LiGRU
+    input_shape: [null, null, !ref <output_neurons> - 1]
+    hidden_size: !ref <dec_neurons>
+    num_layers: 1
+    dropout: 0.0
+    normalization: layernorm
+    bidirectional: False
+
+dec_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <joint_dim>
+    bias: False
+
+Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
+    joint: sum # joint [sum | concat]
+    nonlinearity: !ref <activation>
+
+output: !new:speechbrain.nnet.linear.Linear
+    input_size: 128
+    n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
+    bias: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+compute_cost: !name:speechbrain.nnet.losses.transducer_loss
+    blank_index: !ref <blank_index>
+
+model: !new:torch.nn.ModuleList [[
+    !ref <enc>,
+    !ref <enc_lin>,
+    !ref <emb>,
+    !ref <dec>,
+    !ref <dec_lin>,
+    !ref <output>
+]]
+
+Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+    decode_network_lst: [!ref <emb>, !ref <dec>, !ref <dec_lin>]
+    tjoint: !ref <Tjoint>
+    classifier_network: [!ref <output>]
+    blank_id: !ref <blank_index>
+    beam_size: 1
+    nbest: 1
+
+Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+    decode_network_lst: [!ref <emb>, !ref <dec>, !ref <dec_lin>]
+    tjoint: !ref <Tjoint>
+    classifier_network: [!ref <output>]
+    blank_id: !ref <blank_index>
+    beam_size: !ref <beam_size>
+    nbest: !ref <nbest>
+    state_beam: !ref <state_beam>
+    expand_beam: !ref <expand_beam>
+
+opt_class: !name:torch.optim.Adadelta
+    rho: 0.95
+    eps: 1.e-8
+    lr: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+modules:
+    enc: !ref <enc>
+    enc_lin: !ref <enc_lin>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    dec_lin: !ref <dec_lin>
+    Tjoint: !ref <Tjoint>
+    output: !ref <output>
+    normalize: !ref <normalize>
+    env_corrupt: !ref <env_corrupt>
+    augmentation: !ref <augmentation>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        normalizer: !ref <normalize>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+transducer_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.transducer_loss
+        blank_index: !ref <blank_index>
+        reduction: none
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

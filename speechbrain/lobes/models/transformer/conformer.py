@@ -142,7 +142,6 @@ class ConformerEncoderLayer(nn.Module):
             self.Multihead_attn = sb.nnet.attention.RelPosMultiHeadAttention(
                 num_heads=nhead, embed_dim=d_model, dropout=dropout,
             )
-            # self.pos_enc = RelPosMHAPositional(d_model)
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout
@@ -174,19 +173,9 @@ class ConformerEncoderLayer(nn.Module):
 
         # muti-head attention module
         x = self.norm1(x)
-        # if self.attention_type == "regularMHA":
         output, self_attn = self.Multihead_attn(
             x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask,
         )
-        # else:
-        #     pos_seq = torch.arange(
-        #         x.size(1) - 1, -1, -1.0, device=x.device, dtype=x.dtype
-        #     )
-        #     pos_enc = self.pos_enc(pos_seq)
-
-        #     output, self_attn = self.Multihead_attn(
-        #         x, x, x, r=pos_enc, attn_mask=src_mask, key_padding_mask=src_key_padding_mask,
-        #     )
 
         x = x + output
 
