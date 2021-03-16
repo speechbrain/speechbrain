@@ -104,7 +104,7 @@ def run_apidoc(app):
             "--no-toc",
             "--separate",
             "-o",
-            "source",
+            "API",
             os.path.dirname(hyperpyyaml.__file__),
         ]
     )
@@ -117,8 +117,8 @@ def run_apidoc(app):
             "--no-toc",
             "--separate",
             "-o",
-            "source",
-            os.path.join("../..", "speechbrain"),
+            "API",
+            os.path.join("../", "speechbrain"),
         ]
     )
 
