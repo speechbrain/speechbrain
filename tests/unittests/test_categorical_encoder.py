@@ -178,8 +178,11 @@ def test_text_encoder(tmpdir):
 def test_ctc_encoder(tmpdir):
     from speechbrain.dataio.encoder import CTCTextEncoder
 
-    encoder = CTCTextEncoder(bos_label="<s>", eos_label="</s>")
-    encoder.add_blank(blank_label="_")
+    encoder = CTCTextEncoder()
+    encoder.insert_bos_eos(
+        bos_label="<s>", bos_index=0, eos_label="</s>", eos_index=1
+    )
+    encoder.insert_blank(blank_label="_", index=2)
     encoding_file = tmpdir / "ctc_encoding.txt"
     encoder.update_from_iterable(["abcd", "bcdef"], sequence_input=True)
     encoded = encoder.encode_sequence(encoder.prepend_bos_label(["a", "b"]))

@@ -136,7 +136,7 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device):
+    def load(self, path, end_of_epoch=False, device=None):
         del end_of_epoch  # Unused in this class
         del device  # Unused in here
         data = torch.load(path)
@@ -330,7 +330,7 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch=False, device=None):
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)
@@ -431,7 +431,7 @@ class CyclicCosineScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch=False, device=None):
         del end_of_epoch  # Unused in this class
         del device  # Unused here
         data = torch.load(path)
@@ -541,8 +541,9 @@ class ReduceLROnPlateau:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch=False, device=None):
         del end_of_epoch  # Unused in this class
+        del device  # Not used
         data = torch.load(path)
         self.losses = data["losses"]
         self.anchor = data["anchor"]
@@ -709,7 +710,7 @@ class CyclicLRScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device):
+    def load(self, path, end_of_epoch=False, device=None):
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)

@@ -21,7 +21,9 @@ import torchaudio
 import json
 import re
 
-torchaudio.set_audio_backend("sox_io")  # switch backend
+torchaudio.set_audio_backend(
+    "sox_io"
+)  # switch to 'soundfile' for windows machines.
 logger = logging.getLogger(__name__)
 
 
@@ -989,7 +991,6 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-
     with open(os.path.join(data_folder, csv_lst[0])) as f:
         header = f.readline()
     lines = []

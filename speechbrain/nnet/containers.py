@@ -10,6 +10,7 @@ import logging
 import operator
 import functools
 from speechbrain.nnet.linear import Linear
+from speechbrain.utils.callchains import lengths_arg_exists
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ class Sequential(torch.nn.ModuleDict):
         return x
 
 
-class LengthCapableSequential(Sequential):
+class LengthsCapableSequential(Sequential):
     """Sequential model that can take ``lengths`` in the forward method.
 
     This is useful for Sequential models that include RNNs where it is
@@ -145,6 +146,17 @@ class LengthCapableSequential(Sequential):
     know ahead of time if the length will be passed, and some layers don't
     accept the length parameter.
     """
+
+    def __init__(self, *args, **kwargs):
+        # Add takes_lengths list here.
+        super().__init__(*args, **kwargs)
+        self.takes_lengths = []
+
+    def append(self, *args, **kwargs):
+        # Add lengths arg inference here.
+        super().append(*args, **kwargs)
+        latest_forward_method = self.values()[-1].forward
+        self.takes_lengths.append(lengths_arg_exists(latest_forward_method))
 
     def forward(self, x, lengths=None):
         """Applies layers in sequence, passing only the first element of tuples.
@@ -159,27 +171,14 @@ class LengthCapableSequential(Sequential):
         lengths : torch.Tensor
             The relative lengths of each signal in the tensor.
         """
-        for layer in self.values():
-            if lengths_arg_exists(layer):
+        for layer, give_lengths in zip(self.values(), self.takes_lengths):
+            if give_lengths:
                 x = layer(x, lengths=lengths)
             else:
                 x = layer(x)
             if isinstance(x, tuple):
                 x = x[0]
-
         return x
-
-
-def lengths_arg_exists(module):
-    """Returns True if module takes ``lengths`` keyword argument.
-
-    Arguments
-    ---------
-    module : torch.nn.Module
-        Torch module to use for determination.
-    """
-    spec = inspect.getfullargspec(module.forward)
-    return "lengths" in spec.args + spec.kwonlyargs
 
 
 class ModuleList(torch.nn.Module):
