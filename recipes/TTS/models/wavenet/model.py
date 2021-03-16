@@ -7,6 +7,8 @@ https://github.com/r9y9/wavenet_vocoder
 
 from __future__ import with_statement, print_function, absolute_import
 from speechbrain.nnet import CNN
+from torch.nn import functional as F
+
 
 # verify input type
 def _assert_valid_input_type(s):
@@ -22,6 +24,13 @@ def is_raw(s):
     return s == "raw"
 def is_scalar_input(s):
     return is_raw(s) or is_mulaw(s)
+
+
+def Conv1d1x1(in_channels, out_channels, bias=True):
+    """1-by-1 convolution layer
+    """
+    return CNN.Conv1d(in_channels = in_channels, out_channels = out_channels, kernel_size=1, padding=0,
+                  dilation=1, bias=bias)
 
 class ResidualConv1dGLU(nn.Module):
     """Residual dilated conv1d + Gated linear unit
@@ -45,23 +54,21 @@ class ResidualConv1dGLU(nn.Module):
     def __init__(self, residual_channels, gate_channels, kernel_size,
                  skip_out_channels=None,
                  cin_channels=-1, gin_channels=-1,
-                 dropout=1 - 0.95, padding=None, dilation=1, causal=True,
+                 dropout=1 - 0.95, dilation=1, causal=True,
                  bias=True, *args, **kwargs):
         super(ResidualConv1dGLU, self).__init__()
         self.dropout = dropout
         if skip_out_channels is None:
             skip_out_channels = residual_channels
-        if padding is None:
-            # no future time stamps available
-            if causal:
-                padding = (kernel_size - 1) * dilation
-            else:
-                padding = (kernel_size - 1) // 2 * dilation
-        self.causal = causal
 
-        self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
-                           padding=padding, dilation=dilation,
-                           bias=bias, *args, **kwargs)
+        self.causal = causal
+        
+        if self.causal:
+            self.conv = CNN.Conv1d(in_channels=residual_channels, out_channels=gate_channels, kernel_size=kernel_size,
+                           padding="causal", dilation=dilation, bias=bias)
+        else: # no causal convolutions, padding ="same" and stride=1 return output shape same as input shape
+            self.conv = CNN.Conv1d(in_channels=residual_channels, out_channels=gate_channels, kernel_size=kernel_size,
+                           padding="same", dilation=dilation, bias=bias)
 
         # local conditioning
         if cin_channels > 0:
@@ -71,7 +78,7 @@ class ResidualConv1dGLU(nn.Module):
 
         # global conditioning
         if gin_channels > 0:
-            self.conv1x1g = Conv1d1x1(gin_channels, gate_channels, bias=False)
+            self.conv1x1c = Conv1d1x1(gin_channels, gate_channels, bias=False)
         else:
             self.conv1x1g = None
 
@@ -100,6 +107,7 @@ class ResidualConv1dGLU(nn.Module):
         """
         residual = x
         x = F.dropout(x, p=self.dropout, training=self.training)
+        ## NEED TO FIGURE OUT INCREMENTAL STUFF
         if is_incremental:
             splitdim = -1
             x = self.conv.incremental_forward(x)
@@ -141,7 +149,7 @@ class ResidualConv1dGLU(nn.Module):
                   self.conv1x1c, self.conv1x1g]:
             if c is not None:
                 c.clear_buffer()
-
+ 
 
 
 class WaveNet(nn.Module):
@@ -207,6 +215,7 @@ class WaveNet(nn.Module):
         else:
             self.first_conv = CNN.Conv1d(out_channels, residual_channels, bias=True, kernel_size=1, padding=0, dilation=1, dropout=0)
 
+        # building convolutional layers for a residual block
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
