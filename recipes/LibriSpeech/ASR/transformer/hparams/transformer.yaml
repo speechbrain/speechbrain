@@ -263,6 +263,5 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         lm: !ref <lm_model>
         tokenizer: !ref <tokenizer>
     paths:
-        # lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
-        lm: /network/tmp1/jianyuan.zhong/TransformerLM/Transformer_bz32_w150000/2223/save/CKPT+2021-03-15+05-17-41+00/model.ckpt
+        lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
         tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
