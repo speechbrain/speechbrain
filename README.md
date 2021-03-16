@@ -64,7 +64,7 @@ The recipes released with speechbrain implement speech processing systems with c
 
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
-| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.50% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | CommonVoice (French) | Speech Recognition | CRDNN | WER=17.7% (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
