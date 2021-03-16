@@ -6,7 +6,7 @@
 SpeechBrain
 =======================================
 
-.. image:: ../images/logo_noname_rounded_big.png
+.. image:: images/logo_noname_rounded_big.png
   :width: 400
   :align: center
 
