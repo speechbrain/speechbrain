@@ -1030,7 +1030,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
 
 
 def ce_kd(inp, target):
-    """Simple version of distillation fro cross-entropy loss.
+    """Simple version of distillation for cross-entropy loss.
 
     Arguments
     ---------
