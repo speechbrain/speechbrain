@@ -7,6 +7,7 @@ https://github.com/r9y9/wavenet_vocoder
 
 from __future__ import with_statement, print_function, absolute_import
 from speechbrain.nnet import CNN
+from torch import nn
 from torch.nn import functional as F
 
 
@@ -24,6 +25,71 @@ def is_raw(s):
     return s == "raw"
 def is_scalar_input(s):
     return is_raw(s) or is_mulaw(s)
+
+class Conv1d(nn.Conv1d):
+    """Extended nn.Conv1d for incremental dilated convolutions
+    """ 
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clear_buffer()
+        self._linearized_weight = None
+        self.register_backward_hook(self._clear_linearized_weight)
+
+    def incremental_forward(self, input):
+        # input: (B, T, C)
+        if self.training: # incremental forward used only for auto-regressive samples generation during inference time
+            raise RuntimeError('incremental_forward only supports eval mode')
+
+        # run forward pre hooks (e.g., weight norm)
+        for hook in self._forward_pre_hooks.values():
+            hook(self, input)
+
+        # reshape weight
+        weight = self._get_linearized_weight()
+        kw = self.kernel_size[0]
+        dilation = self.dilation[0]
+
+        bsz = input.size(0)  # input: bsz x len x dim = batch size x time length x channels
+        if kw > 1:
+            input = input.data
+            if self.input_buffer is None:
+                # apply dilation
+                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                # reset entries to zero
+                self.input_buffer.zero_()
+            else:
+                # shift buffer
+                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
+            # append next input
+            self.input_buffer[:, -1, :] = input[:, -1, :]
+            input = self.input_buffer
+            if dilation > 1:
+                input = input[:, 0::dilation, :].contiguous()
+        output = F.linear(input.view(bsz, -1), weight, self.bias)
+        return output.view(bsz, 1, -1)
+
+    def clear_buffer(self):
+        self.input_buffer = None
+
+    def _get_linearized_weight(self): 
+    """
+    linearized weights output shape = [out channels, in channels*kernel size]
+    """
+        if self._linearized_weight is None:
+            kw = self.kernel_size[0]
+            # nn.Conv1d
+            if self.weight.size() == (self.out_channels, self.in_channels, kw):
+                weight = self.weight.transpose(1, 2).contiguous()
+            else:
+                # fairseq.modules.conv_tbc.ConvTBC
+                weight = self.weight.transpose(2, 1).transpose(1, 0).contiguous()
+            assert weight.size() == (self.out_channels, kw, self.in_channels)
+            self._linearized_weight = weight.view(self.out_channels, -1)
+        return self._linearized_weight
+
+    def _clear_linearized_weight(self, *args):
+        self._linearized_weight = None
 
 
 def Conv1d1x1(in_channels, out_channels, bias=True):
@@ -107,7 +173,7 @@ class ResidualConv1dGLU(nn.Module):
         """
         residual = x
         x = F.dropout(x, p=self.dropout, training=self.training)
-        ## NEED TO FIGURE OUT INCREMENTAL STUFF
+        ## NEED TO FIGURE OUT INCREMENTAL S TUFF
         if is_incremental:
             splitdim = -1
             x = self.conv.incremental_forward(x)
