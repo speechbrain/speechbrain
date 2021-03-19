@@ -17,8 +17,7 @@ targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
 
-The best model is the avergage of the avergage of the checkpoints from last
-5 epochs.
+The best model is the avergage of the checkpoints from last 5 epochs.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -237,7 +236,7 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-            # save the averaged checkpoint at the end of the evalation statge
+            # save the averaged checkpoint at the end of the evalation stage
             # delete the rest of the intermediate checkpoints
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": 1.1, "epoch": epoch},
