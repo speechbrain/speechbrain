@@ -39,7 +39,7 @@ import logging
 
 # Define training procedure
 class Separation(sb.Brain):
-    def compute_forward(self, mix, targets, stage, noise=None):
+    def compute_forward(self, mix, targets, stage, noise=None, rirs=None):
         """Forward computations from the mixture to the separated signals."""
 
         # Unpack lists and put tensors in the right device
@@ -59,10 +59,33 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if "whamr" in self.hparams.data_folder:
-                        targets = self.hparams.reverb(
-                            targets[0].t(), torch.ones(targets.size(-1))
+
+                        mix = 0
+                        for mic in rirs:
+                            # rir_cat = torch.flip(torch.stack(mic), [1]).unsqueeze(0)
+                            rir_cat = (torch.stack(mic)).unsqueeze(0)
+
+                            rir_cat = rir_cat.to(self.device)
+
+                            mix = mix + F.conv1d(
+                                targets.permute(0, 2, 1), rir_cat
+                            )
+                        mix = mix.squeeze(1)
+
+                        # fix the levels
+                        coef = (
+                            targets.abs().max().item() / mix.abs().max().item()
                         )
-                        targets = targets.t().unsqueeze(0)
+                        mix = mix * coef
+
+                        # torchaudio.save('reverbtest.wav', mix.cpu(), 8000)
+                        # torchaudio.save('target.wav', targets[:, :, 0].cpu(), 8000)
+
+                        # targets = self.hparams.reverb(
+                        #     targets[0].t(), torch.ones(targets.size(-1))
+                        # )
+
+                    else:
                         mix = targets.sum(-1)
 
                     if "wham" in self.hparams.data_folder:
@@ -122,13 +145,18 @@ class Separation(sb.Brain):
         else:
             noise = None
 
+        if "whamr" in self.hparams.data_folder:
+            rir = batch.rir_wavs[0]
+        else:
+            rir = None
+
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN, noise
+                    mixture, targets, sb.Stage.TRAIN, noise, rir
                 )
                 loss = self.compute_objectives(predictions, targets)
 
@@ -162,7 +190,7 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN, noise
+                mixture, targets, sb.Stage.TRAIN, noise, rir
             )
             loss = self.compute_objectives(predictions, targets)
 
@@ -521,6 +549,14 @@ def dataio_prep(hparams):
             noise_sig = sb.dataio.dataio.read_audio(noise_wav)
             return noise_sig
 
+    if "whamr" in hparams["data_folder"]:
+
+        @sb.utils.data_pipeline.takes("rir_t")
+        @sb.utils.data_pipeline.provides("rir_wavs")
+        def audio_pipeline_rir(rir_t):
+            rirs = torch.load(rir_t)
+            return rirs
+
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
@@ -533,9 +569,26 @@ def dataio_prep(hparams):
         if "wham" in hparams["data_folder"]:
             print("Using the WHAM! dataset")
             sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
-            sb.dataio.dataset.set_output_keys(
-                datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
-            )
+
+            if "whamr" in hparams["data_folder"]:
+                print("Using the WHAMR! dataset")
+                sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_rir)
+                sb.dataio.dataset.set_output_keys(
+                    datasets,
+                    [
+                        "id",
+                        "mix_sig",
+                        "s1_sig",
+                        "s2_sig",
+                        "noise_sig",
+                        "rir_wavs",
+                    ],
+                )
+            else:
+                sb.dataio.dataset.set_output_keys(
+                    datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
+                )
+
         else:
             sb.dataio.dataset.set_output_keys(
                 datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]

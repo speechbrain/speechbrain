@@ -146,6 +146,7 @@ def create_whamr_csv(datapath, savepath):
             datapath, "wav8k/min/" + set_type + "/s2_anechoic/"
         )
         noise_path = os.path.join(datapath, "wav8k/min/" + set_type + "/noise/")
+        rir_path = os.path.join(datapath, "wav8k/min/" + set_type + "/rirs/")
 
         files = os.listdir(mix_path)
 
@@ -153,6 +154,7 @@ def create_whamr_csv(datapath, savepath):
         s1_fl_paths = [s1_path + fl for fl in files]
         s2_fl_paths = [s2_path + fl for fl in files]
         noise_fl_paths = [noise_path + fl for fl in files]
+        rir_fl_paths = [rir_path + fl + ".t" for fl in files]
 
         csv_columns = [
             "ID",
@@ -169,13 +171,25 @@ def create_whamr_csv(datapath, savepath):
             "noise_wav",
             "noise_wav_format",
             "noise_wav_opts",
+            "rir_t",
+            "rir_format",
+            "rir_opts",
         ]
 
         with open(savepath + "/whamr_" + set_type + ".csv", "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
-            for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
-                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
+            for (
+                i,
+                (mix_path, s1_path, s2_path, noise_path, rir_path),
+            ) in enumerate(
+                zip(
+                    mix_fl_paths,
+                    s1_fl_paths,
+                    s2_fl_paths,
+                    noise_fl_paths,
+                    rir_fl_paths,
+                )
             ):
 
                 row = {
@@ -193,6 +207,9 @@ def create_whamr_csv(datapath, savepath):
                     "noise_wav": noise_path,
                     "noise_wav_format": "wav",
                     "noise_wav_opts": None,
+                    "rir_t": rir_path,
+                    "rir_format": ".t",
+                    "rir_opts": None,
                 }
                 writer.writerow(row)
 
