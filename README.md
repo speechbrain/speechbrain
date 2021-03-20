@@ -37,7 +37,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 ### Feature extraction and augmentation
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk). 
+- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk).
 - On-the-fly feature normalization (global, sentence, batch, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
@@ -64,7 +64,7 @@ The recipes released with speechbrain implement speech processing systems with c
 
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
-| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.50% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | CommonVoice (French) | Speech Recognition | CRDNN | WER=17.7% (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |

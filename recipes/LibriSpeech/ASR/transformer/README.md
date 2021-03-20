@@ -12,5 +12,5 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 20-05-22 | transformer.yaml | 2.55 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | Not Available | 1xV100 32GB |
-| 20-05-22 | conformer.yaml | -.-- | Not Available | Not Available | 1xV100 32GB |
+| 20-05-22 | transformer.yaml | 2.46 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1ZudxqMWb8VNCJKvY2Ws5oNY3WI1To0I7?usp=sharing) | 2xRTX8000 42GB |
+| 20-05-22 | conformer.yaml | -.-- | Not Available | Not Available | 4xV100 32GB |
