@@ -238,7 +238,7 @@ class ASR(sb.core.Brain):
 
             # save the averaged checkpoint at the end of the evalation stage
             # delete the rest of the intermediate checkpoints
-            # ACC is set to 1.1 such the checkpointer only keeps the averaged checkpoint            
+            # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": 1.1, "epoch": epoch},
                 max_keys=["ACC"],
