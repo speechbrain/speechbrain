@@ -8,24 +8,28 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-output_folder: !ref results/ecapa_V12_test/<seed>
+# Use 12 for V2 12 task and 35 for V2 35 task
+number_of_commands: 12
+output_folder: !ref results/ecapa_v<number_of_commands>/<seed>
 save_folder: !ref <output_folder>/save            
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/GSC
-train_annotation: !ref <data_folder>/train.csv
-valid_annotation: !ref <data_folder>/valid.csv
-test_annotation: !ref <data_folder>/test.csv
+train_annotation: !ref <output_folder>/train.csv
+valid_annotation: !ref <output_folder>/valid.csv
+test_annotation: !ref <output_folder>/test.csv
+
 
 # Folder to extract data augmentation files
-rir_folder: !ref <data_folder>
+rir_folder: !ref <data_folder> # Change it if needed
 
 # Percentage of files used for validation and test
 validation_percentage: 10 
 testing_percentage: 10
 
-# Percentage of unknown and silence examples (relative to total of known word samples) to include
+# Percentage of unknown and silence examples 
+# (relative to total of known word samples) to include
 percentage_unknown: 10
 percentage_silence: 10
 
@@ -52,8 +56,7 @@ right_frames: 0
 deltas: False
 
 # Number of classes (i.e. different commands)
-# Use 12 for V2 12 task and 35 for V2 35 task
-out_n_neurons: 12 #includes core commands & auxiliary words
+out_n_neurons: !ref <number_of_commands>  #includes core commands & auxiliary words
 
 dataloader_options:
     batch_size: !ref <batch_size>
@@ -126,7 +129,6 @@ add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
 # If concat_augment = False, the augmentation techniques are applied
 # in sequence. If concat_augment = True, all the augmented signals
 # # are concatenated in a single big batch.
-
 augment_pipeline: [
     !ref <augment_wavedrop>,
     !ref <augment_speed>,
@@ -152,10 +154,6 @@ modules:
     softmax: !ref <softmax>
     mean_var_norm: !ref <mean_var_norm>
 
-#compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-#    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-#        margin: 0.2
-#        scale: 30
 
 # Cost + optimization
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
