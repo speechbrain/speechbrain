@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Recipe for training a classifier using the
-Google Speech Commands v0.02 Dataset. 
+Google Speech Commands v0.02 Dataset.
 
 To run this recipe, use the following command:
 > python train.py {hyperparameter_file}
@@ -16,11 +16,9 @@ Author
 """
 import os
 import sys
-import random
 import torch
 import torchaudio
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
@@ -49,10 +47,10 @@ class SpeakerBrain(sb.core.Brain):
 
                 # Managing speed change
                 if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0: wavs.shape[1]]
+                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
                 else:
                     zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0: wavs_aug.shape[1]] = wavs_aug
+                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
                     wavs_aug = zero_sig
 
                 if self.hparams.concat_augment:
@@ -74,7 +72,7 @@ class SpeakerBrain(sb.core.Brain):
         outputs = self.modules.classifier(embeddings)
 
         # Ecapa model uses softmax outside of its classifer
-        if 'softmax' in self.modules.keys():
+        if "softmax" in self.modules.keys():
             outputs = self.modules.softmax(outputs)
 
         return outputs, lens
@@ -92,7 +90,7 @@ class SpeakerBrain(sb.core.Brain):
 
         # compute the cost function
         loss = self.hparams.compute_cost(predictions, command, lens)
-        #loss = sb.nnet.losses.nll_loss(predictions, command, lens)
+        # loss = sb.nnet.losses.nll_loss(predictions, command, lens)
 
         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
@@ -197,7 +195,8 @@ def dataio_prep(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "command_encoded"])
+        datasets, ["id", "sig", "command_encoded"]
+    )
 
     return train_data, valid_data, test_data, label_encoder
 
@@ -229,11 +228,56 @@ if __name__ == "__main__":
 
     # Known words for V2 12 and V2 35 sets
     if hparams["number_of_commands"] == 12:
-        words_wanted = ['yes', 'no', 'up', 'down',
-                        'left', 'right', 'on', 'off', 'stop', 'go']
+        words_wanted = [
+            "yes",
+            "no",
+            "up",
+            "down",
+            "left",
+            "right",
+            "on",
+            "off",
+            "stop",
+            "go",
+        ]
     elif hparams["number_of_commands"] == 35:
-        words_wanted = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-                        "bed", "bird", "cat", "dog", "happy", "house", "marvin", "sheila", "tree", "wow", "backward", "forward", "follow", "learn", "visual"]
+        words_wanted = [
+            "yes",
+            "no",
+            "up",
+            "down",
+            "left",
+            "right",
+            "on",
+            "off",
+            "stop",
+            "go",
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "bed",
+            "bird",
+            "cat",
+            "dog",
+            "happy",
+            "house",
+            "marvin",
+            "sheila",
+            "tree",
+            "wow",
+            "backward",
+            "forward",
+            "follow",
+            "learn",
+            "visual",
+        ]
     else:
         raise ValueError("number_of_commands must be 12 or 35")
 
@@ -248,7 +292,7 @@ if __name__ == "__main__":
             "percentage_unknown": hparams["percentage_unknown"],
             "percentage_silence": hparams["percentage_silence"],
             "words_wanted": words_wanted,
-            "skip_prep": hparams["skip_prep"]
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

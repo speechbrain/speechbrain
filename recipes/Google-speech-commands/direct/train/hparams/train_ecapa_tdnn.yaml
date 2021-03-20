@@ -11,7 +11,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Use 12 for V2 12 task and 35 for V2 35 task
 number_of_commands: 12
 output_folder: !ref results/ecapa_v<number_of_commands>/<seed>
-save_folder: !ref <output_folder>/save            
+save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -20,15 +20,14 @@ train_annotation: !ref <output_folder>/train.csv
 valid_annotation: !ref <output_folder>/valid.csv
 test_annotation: !ref <output_folder>/test.csv
 
-
 # Folder to extract data augmentation files
 rir_folder: !ref <data_folder> # Change it if needed
 
 # Percentage of files used for validation and test
-validation_percentage: 10 
+validation_percentage: 10
 testing_percentage: 10
 
-# Percentage of unknown and silence examples 
+# Percentage of unknown and silence examples
 # (relative to total of known word samples) to include
 percentage_unknown: 10
 percentage_silence: 10
