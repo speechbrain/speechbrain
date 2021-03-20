@@ -59,32 +59,19 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if "whamr" in self.hparams.data_folder:
+                        from speechbrain.processing.signal_processing import (
+                            reverberate,
+                        )
+
+                        random_channel = torch.randint(2, (1,)).item()
+                        rirs = rirs[random_channel]
 
                         mix = 0
-                        for mic in rirs:
-                            # rir_cat = torch.flip(torch.stack(mic), [1]).unsqueeze(0)
-                            rir_cat = (torch.stack(mic)).unsqueeze(0)
+                        for n, rir in enumerate(rirs):
+                            rir = rir.to(self.device)
 
-                            rir_cat = rir_cat.to(self.device)
-
-                            mix = mix + F.conv1d(
-                                targets.permute(0, 2, 1), rir_cat
-                            )
-                        mix = mix.squeeze(1)
-
-                        # fix the levels
-                        coef = (
-                            targets.abs().max().item() / mix.abs().max().item()
-                        )
-                        mix = mix * coef
-
-                        # torchaudio.save('reverbtest.wav', mix.cpu(), 8000)
-                        # torchaudio.save('target.wav', targets[:, :, 0].cpu(), 8000)
-
-                        # targets = self.hparams.reverb(
-                        #     targets[0].t(), torch.ones(targets.size(-1))
-                        # )
-
+                            mix = mix + reverberate(targets[0, :, n], rir)
+                        mix = mix.unsqueeze(0)
                     else:
                         mix = targets.sum(-1)
 
