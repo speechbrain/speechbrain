@@ -76,7 +76,7 @@ class TransposeConv1d(nn.Module):
         if in_channels is None:
             in_channels = self._check_input_shape(input_shape)
 
-        self.conv = nn.ConvTranpose1d(
+        self.conv = nn.ConvTranspose1d(
             in_channels,
             out_channels,
             self.kernel_size,
