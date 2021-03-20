@@ -1,1 +1,0 @@
-../../prepare_GSC.py
