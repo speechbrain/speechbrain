@@ -656,6 +656,7 @@ class Conv2d(nn.Module):
 
 class ConvTranspose1d(nn.Module):
     """This class implements 1d transposed convolution with speechbrain dimension convention.
+    Transpose convolution is normally used to perform upsampling.
 
     Arguments
     ---------
@@ -669,7 +670,7 @@ class ConvTranspose1d(nn.Module):
         The number of input channels. Alternatively use ``input_shape``.
     stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
-        a decimation in time is performed.
+        upsampling in time is performed.
     dilation : int
         Dilation factor of the convolutional filters.
     padding : int
@@ -678,13 +679,24 @@ class ConvTranspose1d(nn.Module):
 
     Example
     -------
-    >>> inp_tensor = torch.rand([10, 40, 16])
+    >>> inp_tensor = torch.rand([10, 12, 40]) #[batch, time, fea]
     >>> convtranspose_1d = ConvTranspose1d(
-    ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=5, padding=10
+    ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=3, stride=2
     ... )
     >>> out_tensor = convtranspose_1d(inp_tensor)
     >>> out_tensor.shape
-    torch.Size([10, 24, 8])
+    torch.Size([10, 25, 8])
+    
+    >>> # Combination of Conv1d and ConvTranspose1d
+    >>> from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d
+    >>> signal = torch.tensor([1,100])
+    >>> signal = torch.rand([1,100]) #[batch, time]
+    >>> conv1d = Conv1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2)
+    >>> conv_out = conv1d(signal)
+    >>> conv_t = ConvTranspose1d(input_shape=conv_out.shape, out_channels=1, kernel_size=3, stride=2)
+    >>> signal_rec = conv_t(conv_out)
+    >>> signal_rec.shape
+    torch.Size([1, 101])
     """
 
     def __init__(
