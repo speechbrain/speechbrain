@@ -654,6 +654,127 @@ class Conv2d(nn.Module):
         return in_channels
 
 
+class ConvTranspose1d(nn.Module):
+    """This class implements 1d transposed convolution with speechbrain dimension convention.
+
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    kernel_size : int
+        Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
+    stride : int
+        Stride factor of the convolutional filters. When the stride factor > 1,
+        a decimation in time is performed.
+    dilation : int
+        Dilation factor of the convolutional filters.
+    padding : int
+        controls the amount of implicit zero padding on both sides for
+        dilation * (kernel_size - 1) - padding number of points.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 40, 16])
+    >>> convtranspose_1d = ConvTranspose1d(
+    ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=5, padding=10
+    ... )
+    >>> out_tensor = convtranspose_1d(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 24, 8])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        kernel_size,
+        input_shape=None,
+        in_channels=None,
+        stride=1,
+        dilation=1,
+        padding=0,
+        groups=1,
+        bias=True,
+        skip_transpose=False,
+    ):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.unsqueeze = False
+        self.skip_transpose = skip_transpose
+
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
+
+        self.conv = nn.ConvTranspose1d(
+            in_channels,
+            out_channels,
+            self.kernel_size,
+            stride=self.stride,
+            dilation=self.dilation,
+            padding=padding,
+            groups=groups,
+            bias=bias,
+        )
+
+    def forward(self, x):
+        """Returns the output of the convolution.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel)
+            input to convolve. 2d or 4d tensors are expected.
+        """
+
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
+        if self.unsqueeze:
+            x = x.unsqueeze(1)
+
+        wx = self.conv(x)
+
+        if self.unsqueeze:
+            wx = wx.squeeze(1)
+
+        if not self.skip_transpose:
+            wx = wx.transpose(1, -1)
+
+        return wx
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            self.unsqueeze = True
+            in_channels = 1
+        elif self.skip_transpose:
+            in_channels = shape[1]
+        elif len(shape) == 3:
+            in_channels = shape[2]
+        else:
+            raise ValueError(
+                "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
+
+
 class DepthwiseSeparableConv1d(nn.Module):
     """This class implements the depthwise separable convolution.
 
