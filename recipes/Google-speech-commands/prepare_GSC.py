@@ -12,13 +12,15 @@ David Raby-Pepin 2021
 import os
 from os import walk
 import glob
+import shutil
 import logging
 import torch
-from speechbrain.dataio.dataio import read_audio
 import re
 import hashlib
 import copy
 import numpy as np
+from speechbrain.utils.data_utils import download_file
+from speechbrain.dataio.dataio import read_audio
 
 try:
     import pandas as pd
@@ -31,26 +33,55 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+GSC_URL = "http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz"
+
 # List of all the words (i.e. classes) within the GSC v2 dataset
 all_words = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
             "bed", "bird", "cat", "dog", "happy", "house", "marvin", "sheila", "tree", "wow", "backward", "forward", "follow", "learn", "visual"]
 
-def prepare_GSC(data_folder, validation_percentage=10, testing_percentage=10, percentage_unknown=10, percentage_silence=10, 
+def prepare_GSC(data_folder, save_folder, validation_percentage=10, testing_percentage=10, percentage_unknown=10, percentage_silence=10, 
                 words_wanted=["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go"] , skip_prep=False):
     """
     Prepares the Google Speech Commands V2 dataset.
-    Args:
-      data_folder : path to dataset.
-      validation_percentage: How much of the data set to use for validation.
-      testing_percentage: How much of the data set to use for testing.
-      percentage unknown: How much data outside of the known (i.e wanted) words to preserve; relative to the total number of known words.
-      percentage silence: How many silence samples to generate; relative to the total number of known words.
-      skip_prep: If True, skip data preparation
+
+    Arguments
+    ---------
+    data_folder : str
+	path to dataset. If not present, it will be downloaded here.
+    save_folder: str
+	folder where to store the data manifest files.
+    validation_percentage: int
+	How much of the data set to use for validation.
+    testing_percentage: int
+	How much of the data set to use for testing.
+    percentage unknown: int.
+	How much data outside of the known (i.e wanted) words to preserve; relative to the total number of known words.
+    percentage silence: int
+	How many silence samples to generate; relative to the total number of known words.
+    skip_prep: bool
+	If True, skip data preparation.
+
+    Example
+    -------
+    >>> data_folder = '/path/to/GSC'
+    >>> prepare_GSC(data_folder)
     """
+
     if skip_prep:
         return
-    
-    # define the words that we do not want to identify
+
+    # If the data folders do not exist, we need to extract the data
+    if not os.path.isdir(os.path.join(data_folder, "train-synth")):
+        # Check for zip file and download if it doesn't exist
+        tar_location = os.path.join(data_folder, "speech_commands_v0.02.tar.gz")
+        if not os.path.exists(tar_location):
+            download_file(GSC_URL, tar_location, unpack=True)
+        else:
+            logger.info("Extracting speech_commands_v0.02.tar.gz...")
+            shutil.unpack_archive(tar_location, data_folder)
+
+
+    # Define the words that we do not want to identify
     unknown_words = list(np.setdiff1d(all_words, words_wanted))
 
     # All metadata fields to appear within our dataset annotation files (i.e. train.csv, valid.csv, test.cvs)
@@ -113,10 +144,6 @@ def prepare_GSC(data_folder, validation_percentage=10, testing_percentage=10, pe
 
           splits[split]['ID'].append(command + '/' + re.sub(r'.wav', '', filename))
 
-          # Duration takes a long time to compute. Uncomment only if duration is a necessary field.
-          # signal = read_audio(os.path.join(data_folder, command, filename))
-          # splits[split]['duration'].append(signal.shape[0] / 16000)
-          
           # We know that all recordings are 1 second long (i.e.16000 frames). No need to compute the duration. 
           splits[split]['duration'].append(1.0)
           splits[split]['start'].append(0)
@@ -149,7 +176,7 @@ def prepare_GSC(data_folder, validation_percentage=10, testing_percentage=10, pe
       generate_silence_data(num_known_samples_per_split, splits, data_folder, percentage_silence=percentage_silence)
 
     for split in splits:
-        new_filename = os.path.join(data_folder, split) + ".csv"
+        new_filename = os.path.join(save_folder, split) + ".csv"
         new_df = pd.DataFrame(splits[split])
         new_df.to_csv(new_filename, index=False)
 
@@ -171,13 +198,19 @@ def which_set(filename, validation_percentage, testing_percentage):
   ignored for set determination. This ensures that 'bobby_nohash_0.wav' and
   'bobby_nohash_1.wav' are always in the same set, for example.
 
-  Args:
-    filename: File path of the data sample.
-    validation_percentage: How much of the data set to use for validation.
-    testing_percentage: How much of the data set to use for testing.
+    Arguments
+    ---------
+    filename: path
+	File path of the data sample.
+    validation_percentage: int
+	How much of the data set to use for validation.
+    testing_percentage: int
+	How much of the data set to use for testing.
 
-  Returns:
-    String, one of 'training', 'validation', or 'testing'.
+    Returns
+    ---------
+    result: str
+	one of 'training', 'validation', or 'testing'.
   """
   base_name = os.path.basename(filename)
   # We want to ignore anything after '_nohash_' in the file name when

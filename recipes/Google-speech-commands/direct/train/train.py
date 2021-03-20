@@ -1,13 +1,12 @@
 #!/usr/bin/python3
-"""Recipe for training a classifier (e.g, xvectors or Ecapa TDNN) using the Google Speech Commands v0.02 Dataset.
-We employ an encoder followed by a classifier.
+"""Recipe for training a classifier using the
+Google Speech Commands v0.02 Dataset. 
 
 To run this recipe, use the following command:
-> python train_ecapa_x_vector.py {hyperparameter_file}
+> python train.py {hyperparameter_file}
 
 Using your own hyperparameter file or one of the following:
-    hyperparams/train_x_vectors.yaml (for standard xvectors)
-    hyperparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
+    hyperparams/train_ecapa_tdnn.yaml (ecapa+tdnn system)
 
 Author
     * Mirco Ravanelli 2020
@@ -27,17 +26,16 @@ from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training"
+    """Class for GSC training"
     """
 
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + speaker classifier.
+        """Computation pipeline based on a encoder + command classifier.
         Data augmentation and environmental corruption are applied to the
         input speech.
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
-
 
         if stage == sb.Stage.TRAIN and self.hparams.apply_data_augmentation:
 
@@ -51,10 +49,10 @@ class SpeakerBrain(sb.core.Brain):
 
                 # Managing speed change
                 if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
+                    wavs_aug = wavs_aug[:, 0: wavs.shape[1]]
                 else:
                     zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
+                    zero_sig[:, 0: wavs_aug.shape[1]] = wavs_aug
                     wavs_aug = zero_sig
 
                 if self.hparams.concat_augment:
@@ -71,18 +69,18 @@ class SpeakerBrain(sb.core.Brain):
         feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
-        # Embeddings + speaker classifier
+        # Embeddings + classifier
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
         # Ecapa model uses softmax outside of its classifer
         if 'softmax' in self.modules.keys():
-          outputs = self.modules.softmax(outputs)
+            outputs = self.modules.softmax(outputs)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
+        """Computes the loss using command-id as label.
         """
         predictions, lens = predictions
         uttid = batch.id
@@ -132,7 +130,7 @@ class SpeakerBrain(sb.core.Brain):
                 meta={"ErrorRate": stage_stats["ErrorRate"]},
                 min_keys=["ErrorRate"],
             )
-          
+
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -198,7 +196,8 @@ def dataio_prep(hparams):
     )
 
     # 4. Set output:
-    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "command_encoded"])
+    sb.dataio.dataset.set_output_keys(
+        datasets, ["id", "sig", "command_encoded"])
 
     return train_data, valid_data, test_data, label_encoder
 
@@ -218,20 +217,32 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    # Create experiment directory
+    sb.core.create_experiment_directory(
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
+        overrides=overrides,
+    )
+
     # Dataset prep (parsing GSC and annotation into csv files)
-    from prepare_GSC import prepare_GSC 
+    from prepare_GSC import prepare_GSC
 
-    # Known words for V2 12
-    words_wanted = ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
-    
-    # Known words for V2 35
-    # words_wanted = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-    #         "bed", "bird", "cat", "dog", "happy", "house", "marvin", "sheila", "tree", "wow", "backward", "forward", "follow", "learn", "visual"]
+    # Known words for V2 12 and V2 35 sets
+    if hparams["number_of_commands"] == 12:
+        words_wanted = ['yes', 'no', 'up', 'down',
+                        'left', 'right', 'on', 'off', 'stop', 'go']
+    elif hparams["number_of_commands"] == 35:
+        words_wanted = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+                        "bed", "bird", "cat", "dog", "happy", "house", "marvin", "sheila", "tree", "wow", "backward", "forward", "follow", "learn", "visual"]
+    else:
+        raise ValueError("number_of_commands must be 12 or 35")
 
+    # Data preparation
     run_on_main(
         prepare_GSC,
         kwargs={
             "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "validation_percentage": hparams["validation_percentage"],
             "testing_percentage": hparams["testing_percentage"],
             "percentage_unknown": hparams["percentage_unknown"],
@@ -243,13 +254,6 @@ if __name__ == "__main__":
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)
-
-    # Create experiment directory
-    sb.core.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
 
     # Brain class initialization
     speaker_brain = SpeakerBrain(
