@@ -110,8 +110,8 @@ class SLU(sb.Brain):
             target_semantics = [wrd.split(" ") for wrd in batch.semantics]
 
             for i in range(len(target_semantics)):
-                print(" ".join(predicted_semantics[i]).replace("|", ","))
-                print(" ".join(target_semantics[i]).replace("|", ","))
+                print(" ".join(predicted_semantics[i]))
+                print(" ".join(target_semantics[i]))
                 print("")
 
             if stage != sb.Stage.TRAIN:
@@ -159,10 +159,11 @@ class SLU(sb.Brain):
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            stage_stats["SER"] = self.wer_metric.summarize("SER")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
+            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["SER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
@@ -170,7 +171,7 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"SER": stage_stats["SER"]}, min_keys=["SER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -229,7 +230,13 @@ def dataio_prepare(hparams):
     )
     test_synth_data = test_synth_data.filtered_sorted(sort_key="duration")
 
-    datasets = [train_data, valid_data, test_real_data, test_synth_data]
+    all_real_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["csv_all_real"],
+        replacements={"data_root": data_folder},
+    )
+    all_real_data = all_real_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, valid_data, test_real_data, test_synth_data, all_real_data]
 
     tokenizer = hparams["tokenizer"]
 
@@ -265,7 +272,7 @@ def dataio_prepare(hparams):
         datasets,
         ["id", "sig", "semantics", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_real_data, test_synth_data, tokenizer
+    return train_data, valid_data, test_real_data, test_synth_data, all_real_data, tokenizer
 
 
 if __name__ == "__main__":
@@ -309,6 +316,7 @@ if __name__ == "__main__":
         valid_set,
         test_real_set,
         test_synth_set,
+        all_real_set,
         tokenizer,
     ) = dataio_prepare(hparams)
 
@@ -338,13 +346,21 @@ if __name__ == "__main__":
     )
 
     # Test
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
-    slu_brain.evaluate(
-        test_real_set, test_loader_kwargs=hparams["dataloader_opts"]
-    )
+    if slu_brain.hparams.test_on_all_real:
+        slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_all_real.txt"
+        slu_brain.evaluate(
+            all_real_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
+        )
+
+    else:
+        slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+        slu_brain.evaluate(
+            test_real_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
+        )
+
     slu_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_synth.txt"
     )
     slu_brain.evaluate(
-        test_synth_set, test_loader_kwargs=hparams["dataloader_opts"]
+        test_synth_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
     )
