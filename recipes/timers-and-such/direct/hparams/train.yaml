@@ -26,7 +26,6 @@ csv_test_real: !ref <output_folder>/test-real-type=direct.csv
 csv_test_synth: !ref <output_folder>/test-synth-type=direct.csv
 csv_all_real: !ref <output_folder>/all-real-type=direct.csv
 tokenizer_file: /home/mila/l/lugoschl/code/speechbrain/recipes/timers-and-such/Tokenizer/results/tokenizer_bpe51/51_unigram.model
-#tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 test_on_all_real: False
@@ -173,5 +172,3 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     split_tokens: True
-
-
