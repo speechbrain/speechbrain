@@ -686,17 +686,17 @@ class ConvTranspose1d(nn.Module):
     >>> out_tensor = convtranspose_1d(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 25, 8])
-    
+
     >>> # Combination of Conv1d and ConvTranspose1d
     >>> from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d
     >>> signal = torch.tensor([1,100])
     >>> signal = torch.rand([1,100]) #[batch, time]
     >>> conv1d = Conv1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2)
     >>> conv_out = conv1d(signal)
-    >>> conv_t = ConvTranspose1d(input_shape=conv_out.shape, out_channels=1, kernel_size=3, stride=2)
-    >>> signal_rec = conv_t(conv_out)
+    >>> conv_t = ConvTranspose1d(input_shape=conv_out.shape, out_channels=1, kernel_size=3, stride=2, padding=1)
+    >>> signal_rec = conv_t(conv_out, output_size=[100])
     >>> signal_rec.shape
-    torch.Size([1, 101])
+    torch.Size([1, 100])
     """
 
     def __init__(
@@ -737,7 +737,7 @@ class ConvTranspose1d(nn.Module):
             bias=bias,
         )
 
-    def forward(self, x):
+    def forward(self, x, output_size=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -752,7 +752,7 @@ class ConvTranspose1d(nn.Module):
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        wx = self.conv(x)
+        wx = self.conv(x, output_size=output_size)
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
@@ -779,11 +779,11 @@ class ConvTranspose1d(nn.Module):
             )
 
         # Kernel size must be odd
-        if self.kernel_size % 2 == 0:
-            raise ValueError(
-                "The field kernel size must be an odd number. Got %s."
-                % (self.kernel_size)
-            )
+        # if self.kernel_size % 2 == 0:
+        #    raise ValueError(
+        #        "The field kernel size must be an odd number. Got %s."
+        #        % (self.kernel_size)
+        #    )
         return in_channels
 
 
