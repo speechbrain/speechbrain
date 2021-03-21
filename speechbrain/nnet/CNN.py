@@ -319,6 +319,8 @@ class Conv1d(nn.Module):
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
+    skip_transpose : bool
+        If True, uses batch x time x channel convention of speechbrain
 
     Example
     -------
@@ -673,9 +675,18 @@ class ConvTranspose1d(nn.Module):
         upsampling in time is performed.
     dilation : int
         Dilation factor of the convolutional filters.
-    padding : int
-        controls the amount of implicit zero padding on both sides for
-        dilation * (kernel_size - 1) - padding number of points.
+    padding : str or int
+        if "valid", no padding is applied
+        if "same", padding amount is inferred so that the output is closest to possible to input
+        if an integer value is entered, a custom padding is used
+    output_padding : int,
+        Additional size added to one side of the output shape
+    groups: int
+        Number of blocked connections from input channels to output channels. Default: 1
+    bias: bool
+        If True, adds a learnable bias to the output
+    skip_transpose : bool
+        If True, uses batch x time x channel convention of speechbrain
 
     Example
     -------
@@ -697,6 +708,25 @@ class ConvTranspose1d(nn.Module):
     >>> signal_rec = conv_t(conv_out, output_size=[100])
     >>> signal_rec.shape
     torch.Size([1, 100])
+
+    >>> signal = torch.rand([1,115]) #[batch, time]
+    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2, padding='same')
+    >>> signal_rec = conv_t(signal)
+    >>> signal_rec.shape
+    torch.Size([1, 115])
+
+    >>> signal = torch.rand([1,115]) #[batch, time]
+    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2, padding='valid')
+    >>> signal_rec = conv_t(signal)
+    >>> signal_rec.shape
+    torch.Size([1, 231])
+
+    >>> signal = torch.rand([1,115]) #[batch, time]
+    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2, padding=10)
+    >>> signal_rec = conv_t(signal)
+    >>> signal_rec.shape
+    torch.Size([1, 211])
+
     """
 
     def __init__(
@@ -708,6 +738,7 @@ class ConvTranspose1d(nn.Module):
         stride=1,
         dilation=1,
         padding=0,
+        output_padding=0,
         groups=1,
         bias=True,
         skip_transpose=False,
@@ -726,13 +757,30 @@ class ConvTranspose1d(nn.Module):
         if in_channels is None:
             in_channels = self._check_input_shape(input_shape)
 
+        if self.padding == "same":
+            L_in = input_shape[-1] if skip_transpose else input_shape[1]
+            padding_value = get_padding_elem_transposed(
+                L_in,
+                L_in,
+                stride=stride,
+                kernel_size=kernel_size,
+                dilation=dilation,
+                output_padding=output_padding,
+            )
+        elif self.padding == "valid":
+            padding_value = 0
+        elif type(self.padding) is int:
+            padding_value = padding
+        else:
+            raise ValueError("Not supported padding type")
+
         self.conv = nn.ConvTranspose1d(
             in_channels,
             out_channels,
             self.kernel_size,
             stride=self.stride,
             dilation=self.dilation,
-            padding=padding,
+            padding=padding_value,
             groups=groups,
             bias=bias,
         )
@@ -778,12 +826,6 @@ class ConvTranspose1d(nn.Module):
                 "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
             )
 
-        # Kernel size must be odd
-        # if self.kernel_size % 2 == 0:
-        #    raise ValueError(
-        #        "The field kernel size must be an odd number. Got %s."
-        #        % (self.kernel_size)
-        #    )
         return in_channels
 
 
@@ -983,3 +1025,33 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
 
         padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
     return padding
+
+
+def get_padding_elem_transposed(
+    L_out: int,
+    L_in: int,
+    stride: int,
+    kernel_size: int,
+    dilation: int,
+    output_padding: int,
+):
+    """This function computes the required padding size for transposed convolution
+
+    Arguments
+    ---------
+    L_out : int
+    L_in : int
+    stride: int
+    kernel_size : int
+    dilation : int
+    output_padding : int
+    """
+
+    padding = -0.5 * (
+        L_out
+        - (L_in - 1) * stride
+        - dilation * (kernel_size - 1)
+        - output_padding
+        - 1
+    )
+    return int(padding)
