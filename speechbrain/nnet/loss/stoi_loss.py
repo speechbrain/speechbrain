@@ -7,8 +7,10 @@
 import torch
 import torchaudio
 import numpy as np
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-torchaudio.set_audio_backend("sox_io")
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 smallVal = np.finfo("float").eps  # To avoid divide by zero
 
 

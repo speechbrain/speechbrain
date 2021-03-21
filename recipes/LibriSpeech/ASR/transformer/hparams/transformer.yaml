@@ -96,7 +96,7 @@ valid_search_interval: 10
 valid_beam_size: 10
 test_beam_size: 66
 lm_weight: 0.60
-ctc_weight_decode: 0.52
+ctc_weight_decode: 0.40
 
 ############################## models ################################
 
