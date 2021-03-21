@@ -145,17 +145,9 @@ def prepare_GSC(
         "start": [],
         "stop": [],
         "wav": [],
-        "wav_format": [],
-        "wav_opts": [],
         "spk_id": [],
-        "spk_id_format": [],
-        "spk_id_opts": [],
         "command": [],
-        "command_format": [],
-        "command_opts": [],
         "transcript": [],
-        "transcript_format": [],
-        "transcript_opts": [],
     }
 
     splits = {
@@ -216,27 +208,17 @@ def prepare_GSC(
             splits[split]["wav"].append(
                 os.path.join(data_folder, command, filename)
             )
-            splits[split]["wav_format"].append("wav")
-            splits[split]["wav_opts"].append(None)
 
             splits[split]["spk_id"].append(re.sub(r"_.*", "", filename))
-            splits[split]["spk_id_format"].append("string")
-            splits[split]["spk_id_opts"].append(None)
 
             if command in words_wanted:
                 splits[split]["command"].append(command)
-                splits[split]["command_format"].append("string")
-                splits[split]["command_opts"].append(None)
 
                 num_known_samples_per_split[split] += 1
             else:
                 splits[split]["command"].append("unknown")
-                splits[split]["command_format"].append("string")
-                splits[split]["command_opts"].append(None)
 
             splits[split]["transcript"].append(command)
-            splits[split]["transcript_format"].append("string")
-            splits[split]["transcript_opts"].append(None)
 
     if percentage_silence > 0:
         generate_silence_data(
@@ -364,19 +346,7 @@ def generate_silence_data(
                 splits[split]["duration"].append(1.0)
                 splits[split]["start"].append(random_start)
                 splits[split]["stop"].append(random_start + 16000)
-
                 splits[split]["wav"].append(silence_path)
-                splits[split]["wav_format"].append("wav")
-                splits[split]["wav_opts"].append(None)
-
                 splits[split]["spk_id"].append(None)
-                splits[split]["spk_id_format"].append(None)
-                splits[split]["spk_id_opts"].append(None)
-
                 splits[split]["command"].append("silence")
-                splits[split]["command_format"].append("string")
-                splits[split]["command_opts"].append(None)
-
                 splits[split]["transcript"].append(None)
-                splits[split]["transcript_format"].append(None)
-                splits[split]["transcript_opts"].append(None)

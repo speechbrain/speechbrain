@@ -1,5 +1,5 @@
 # ################################
-# Model: Classification with ECAPA
+# Model: Classification with xvector
 # Authors: Hwidong Na & Mirco Ravanelli
 #          Script adapted by David Raby-Pepin 2021
 # ################################
@@ -10,7 +10,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Use 12 for V2 12 task and 35 for V2 35 task
 number_of_commands: 12
-output_folder: !ref results/ecapa_v<number_of_commands>/<seed>
+output_folder: !ref results/xvect_v<number_of_commands>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -38,18 +38,17 @@ skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 40
+number_of_epochs: 100
 batch_size: 32
 lr: 0.001
-base_lr: 0.00000001
-max_lr: !ref <lr>
-step_size: 65000
+lr_final: 0.0001
+
 sample_rate: 16000
 shuffle: True
 
 
 # Feature parameters
-n_mels: 80
+n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
@@ -69,16 +68,20 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-    input_size: !ref <n_mels>
-    channels: [1024, 1024, 1024, 1024, 3072]
-    kernel_sizes: [5, 3, 3, 3, 1]
-    dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
-    lin_neurons: 192
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: 512
 
-classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 192
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    input_shape: [null, null, 512]
+    activation: !name:torch.nn.LeakyReLU
+    lin_blocks: 1
+    lin_neurons: 512
     out_neurons: !ref <out_n_neurons>
 
 softmax: !new:speechbrain.nnet.activations.Softmax
@@ -162,10 +165,10 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
 
-lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

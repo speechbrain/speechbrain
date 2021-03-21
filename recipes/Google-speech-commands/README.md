@@ -3,7 +3,7 @@ This folder contains recipes for command recognition with [Google Speech Command
 The recipes supports 12 or 35 commands.  To run it, please type:
 
 ```
-python train.py hparams/train_ecapa_tdnn.yaml
+python train.py hparams/xvect.yaml
 ```
 
 # Performance summary
@@ -11,8 +11,8 @@ python train.py hparams/train_ecapa_tdnn.yaml
 [Command accuracy on Google Speech Commands]
 | System | Accuracy |
 |----------------- | ------------ |
-| ECAPA-TDNN v12 | 98.7% |
-| ECAPA-TDNN v35 | 96.9% |
+| xvector + augment v12 | 98.14% |
+| xvector + augment v35 | 97.43% |
 
 You can find the output folder (model, logs, etc) here:
-add_link
+https://drive.google.com/drive/folders/1yPcXVHtrnNM0RhA_IGo8iAdezYZfoViQ?usp=sharing

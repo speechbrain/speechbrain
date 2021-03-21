@@ -6,7 +6,7 @@ To run this recipe, use the following command:
 > python train.py {hyperparameter_file}
 
 Using your own hyperparameter file or one of the following:
-    hyperparams/train_ecapa_tdnn.yaml (ecapa+tdnn system)
+    hyperparams/xvect.yaml (xvector system)
 
 Author
     * Mirco Ravanelli 2020
