@@ -213,8 +213,16 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
 
+    # If we are testing on all the real data, including dev-real,
+    # we shouldn't use dev-real as the validation set.
+    print(hparams["test_on_all_real"])
+    sys.exit()
+    if hparams["test_on_all_real"]:
+        valid_path = hparams["csv_dev_synth"]
+    else:
+        valid_path = hparams["csv_dev_real"]
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
+        csv_path=valid_path, replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -358,7 +366,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["dataloader_opts"],
     )
 
-    # Test (real data)
+    # Test (ALL real data)
     if slu_brain.hparams.test_on_all_real:
         slu_brain.hparams.wer_file = (
             hparams["output_folder"] + "/wer_all_real.txt"
@@ -369,15 +377,13 @@ if __name__ == "__main__":
             min_key="SER",
         )
 
-    else:
-        slu_brain.hparams.wer_file = (
-            hparams["output_folder"] + "/wer_test_real.txt"
-        )
-        slu_brain.evaluate(
-            test_real_set,
-            test_loader_kwargs=hparams["dataloader_opts"],
-            min_key="SER",
-        )
+    # Test (real data)
+    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+    slu_brain.evaluate(
+        test_real_set,
+        test_loader_kwargs=hparams["dataloader_opts"],
+        min_key="SER",
+    )
 
     # Test (synth data)
     slu_brain.hparams.wer_file = (
