@@ -14,10 +14,19 @@ import speechbrain as sb
 class CRDNN(sb.nnet.containers.Sequential):
     """This model is a combination of CNNs, RNNs, and DNNs.
 
+    This model expects 3-dimensional input [batch, time, feats] and
+    by default produces output of the size [batch, time, dnn_neurons].
+
+    One exception is if ``using_2d_pooling`` or ``time_pooling`` is True.
+    In this case, the time dimension will be downsampled.
+
     Arguments
     ---------
+    input_size : int
+        The length of the expected input at the third dimension.
     input_shape : tuple
-        The shape of an example expected input.
+        While input_size will suffice, this option can allow putting
+        CRDNN into a sequential with other classes.
     activation : torch class
         A class used for constructing the activation layers for CNN and DNN.
     dropout : float
@@ -71,7 +80,8 @@ class CRDNN(sb.nnet.containers.Sequential):
 
     def __init__(
         self,
-        input_shape,
+        input_size=None,
+        input_shape=None,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -92,6 +102,11 @@ class CRDNN(sb.nnet.containers.Sequential):
         projection_dim=-1,
         use_rnnp=False,
     ):
+        if input_size is None and input_shape is None:
+            raise ValueError("Must specify one of input_size or input_shape")
+
+        if input_shape is None:
+            input_shape = [None, None, input_size]
         super().__init__(input_shape=input_shape)
 
         if cnn_blocks > 0:
