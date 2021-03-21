@@ -236,7 +236,13 @@ def dataio_prepare(hparams):
     )
     all_real_data = all_real_data.filtered_sorted(sort_key="duration")
 
-    datasets = [train_data, valid_data, test_real_data, test_synth_data, all_real_data]
+    datasets = [
+        train_data,
+        valid_data,
+        test_real_data,
+        test_synth_data,
+        all_real_data,
+    ]
 
     tokenizer = hparams["tokenizer"]
 
@@ -272,7 +278,14 @@ def dataio_prepare(hparams):
         datasets,
         ["id", "sig", "semantics", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_real_data, test_synth_data, all_real_data, tokenizer
+    return (
+        train_data,
+        valid_data,
+        test_real_data,
+        test_synth_data,
+        all_real_data,
+        tokenizer,
+    )
 
 
 if __name__ == "__main__":
@@ -345,22 +358,33 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["dataloader_opts"],
     )
 
-    # Test
+    # Test (real data)
     if slu_brain.hparams.test_on_all_real:
-        slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_all_real.txt"
+        slu_brain.hparams.wer_file = (
+            hparams["output_folder"] + "/wer_all_real.txt"
+        )
         slu_brain.evaluate(
-            all_real_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
+            all_real_set,
+            test_loader_kwargs=hparams["dataloader_opts"],
+            min_key="SER",
         )
 
     else:
-        slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+        slu_brain.hparams.wer_file = (
+            hparams["output_folder"] + "/wer_test_real.txt"
+        )
         slu_brain.evaluate(
-            test_real_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
+            test_real_set,
+            test_loader_kwargs=hparams["dataloader_opts"],
+            min_key="SER",
         )
 
+    # Test (synth data)
     slu_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_synth.txt"
     )
     slu_brain.evaluate(
-        test_synth_set, test_loader_kwargs=hparams["dataloader_opts"], min_key="SER"
+        test_synth_set,
+        test_loader_kwargs=hparams["dataloader_opts"],
+        min_key="SER",
     )
