@@ -182,5 +182,8 @@ def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
     merge_csvs(save_folder, train_splits, "train-type=%s.csv" % type)
 
     # Create "all-real" split
-    real_splits = [split + "-type=%s.csv" % type for split in ["train-real", "dev-real", "test-real"]]
+    real_splits = [
+        split + "-type=%s.csv" % type
+        for split in ["train-real", "dev-real", "test-real"]
+    ]
     merge_csvs(save_folder, real_splits, "all-real-type=%s.csv" % type)
