@@ -23,5 +23,5 @@ done
 # Test set: all-real, test-synth
 for i in {1..5}
 do
-	python train.py hparams/train.yaml --seed=$i --data_folder=/localscratch/timers-and-such/ --number_of_epochs=2 --train_splits=["train-synth"] --experiment=test-all-real
+	python train.py hparams/train.yaml --seed=$i --data_folder=/localscratch/timers-and-such/ --number_of_epochs=2 --train_splits=["train-synth"] --experiment=test-all-real --test_on_all_real=True
 done
