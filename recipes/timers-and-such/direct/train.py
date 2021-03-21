@@ -215,8 +215,6 @@ def dataio_prepare(hparams):
 
     # If we are testing on all the real data, including dev-real,
     # we shouldn't use dev-real as the validation set.
-    print(hparams["test_on_all_real"])
-    sys.exit()
     if hparams["test_on_all_real"]:
         valid_path = hparams["csv_dev_synth"]
     else:

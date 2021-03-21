@@ -21,7 +21,8 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <output_folder>/train-type=direct.csv
-csv_valid: !ref <output_folder>/dev-real-type=direct.csv
+csv_dev_real: !ref <output_folder>/dev-real-type=direct.csv
+csv_dev_synth: !ref <output_folder>/dev-synth-type=direct.csv
 csv_test_real: !ref <output_folder>/test-real-type=direct.csv
 csv_test_synth: !ref <output_folder>/test-synth-type=direct.csv
 csv_all_real: !ref <output_folder>/all-real-type=direct.csv
