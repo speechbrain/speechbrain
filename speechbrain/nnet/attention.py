@@ -372,13 +372,13 @@ class MultiheadAttention(nn.Module):
         Arguments
         ----------
         query : tensor
-            (L, N, E) where L is the target sequence length,
+            (N, L, E) where L is the target sequence length,
             N is the batch size, E is the embedding dimension.
         key : tensor
-            (S, N, E) where S is the source sequence length,
+            (N, S, E) where S is the source sequence length,
             N is the batch size, E is the embedding dimension.
         value : tensor
-            (S, N, E) where S is the source sequence length,
+            (N, S, E) where S is the source sequence length,
             N is the batch size, E is the embedding dimension.
         key_padding_mask : tensor
             (N, S) where N is the batch size, S is the source sequence
