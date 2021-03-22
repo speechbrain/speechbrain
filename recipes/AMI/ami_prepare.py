@@ -447,6 +447,7 @@ def prepare_csv(
 
         subsegment_ID = rec_id + "_" + strt + "_" + end
         dur = row[4]
+        """
         wav_file_path = (
             data_dir
             + "/"
@@ -454,6 +455,18 @@ def prepare_csv(
             + "/audio/"
             + rec_id
             + ".Mix-"
+            + mic_type
+            + ".wav"
+        )
+        """
+
+        wav_file_path = (
+            data_dir
+            + "/"
+            + rec_id
+            + "/audio/"
+            + rec_id
+            + "."
             + mic_type
             + ".wav"
         )
