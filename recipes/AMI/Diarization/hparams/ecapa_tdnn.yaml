@@ -47,7 +47,7 @@ batch_size: 512
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'Lapel'
+mic_type: 'Array1-01' #'Lapel' #'Array1'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
