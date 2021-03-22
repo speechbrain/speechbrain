@@ -63,7 +63,7 @@ encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Encoder
       padding: same
       dropout: !ref <dropout>
       std_mul: !ref <encoder_in_std_mul>
-    - !new:torch.nn.ReLU
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3.ReLU
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock &encoder_conv
       in_channels: !ref <encoder_conv_channels>
       out_channels: !ref <encoder_conv_channels>
@@ -133,7 +133,7 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
       padding: valid
       std_mul: !ref <preattention_in_std_mul>
       dropout: !ref <dropout>
-    - !new:torch.nn.ReLU
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3.ReLU
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock &preattention_conv
       in_channels: !ref <preattention_conv_channels>
       out_channels: !ref <preattention_conv_channels>
@@ -266,7 +266,7 @@ converter: !new:speechbrain.lobes.models.synthesis.deepvoice3.Converter
       padding: valid
       dilation: 1
       dropout: !ref <dropout>
-    - !new:torch.nn.ReLU
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3.ReLU
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
       <<: *converter_conv
       in_channels: !ref 2 * <converter_conv_channels>

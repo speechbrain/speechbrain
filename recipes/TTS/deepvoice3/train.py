@@ -1,3 +1,4 @@
+import librosa # Temporary
 import torch
 import sys
 import speechbrain as sb
@@ -64,14 +65,13 @@ class DeepVoice3Brain(sb.core.Brain):
         target_linear = batch.linear.data
         target_lengths = batch.target_lengths.data
 
-
         if stage == sb.Stage.VALID:
             output_mel = pad_to_length(
                 output_mel, self.hparams.max_mel_len)
             output_linear = pad_to_length(
                 output_linear, self.hparams.decoder_max_positions)
             output_done = pad_to_length(
-                output_done, self.hparams.max_mel_len, 1.)
+                output_done.transpose(1, 2), self.hparams.max_mel_len, 1.).transpose(1, 2)
 
         outputs = target_mel, target_linear, target_done, target_lengths
         targets = output_mel, output_linear, output_done, output_lengths
@@ -224,6 +224,15 @@ def pad(takes, provides, length):
         return F.pad(x, (0, length - x.size(-1)))
     return f
 
+#TODO: Remove the librosa dependency
+def trim(takes, provides, top_db=15):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)    
+    def f(wav):
+        x, _ = librosa.effects.trim(wav, top_db=top_db)
+        x = torch.tensor(x).to(wav.device)
+        return x
+    return f
 
 def done(max_output_len=1024, outputs_per_step=1, downsample_step=4):
     @sb.utils.data_pipeline.takes("target_lengths")
@@ -329,8 +338,9 @@ def data_prep(dataset: DynamicItemDataset, max_input_len: int=128,
     pipeline = [
         audio_pipeline,
         resample(new_freq=sample_rate),
+        trim(takes="sig_resampled", provides="sig_trimmed"),
         mel_spectrogram(
-            takes="sig_resampled",
+            takes="sig_trimmed",
             provides="mel_raw",
             n_mels=mel_dim,
             n_fft=n_fft),
@@ -350,7 +360,7 @@ def data_prep(dataset: DynamicItemDataset, max_input_len: int=128,
         spectrogram(
             n_fft=n_fft,
             hop_length=hop_length,
-            takes="sig",
+            takes="sig_trimmed",
             provides="linear_raw"),
         normalize_spectrogram(
             takes="linear_raw",

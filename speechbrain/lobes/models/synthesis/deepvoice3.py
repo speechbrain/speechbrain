@@ -55,7 +55,6 @@ class IncrementalConv1d(CNN.Conv1d):
         self.register_backward_hook(self._clear_linearized_weight)
 
     def incremental_forward(self, input):
-        input = input.transpose(1, 2).contiguous()
         if self.training:
             raise RuntimeError('incremental_forward only supports eval mode')
 
@@ -85,7 +84,7 @@ class IncrementalConv1d(CNN.Conv1d):
         output = F.linear(input.view(bsz, -1), weight, self.conv.bias)
 
         output = output.unsqueeze(-1)
-        return output
+        return output.reshape(bsz, 1, -1)
 
     def clear_buffer(self):
         self.input_buffer = None
@@ -179,17 +178,23 @@ class ConvBlock(nn.Module):
         residual = x
         x = F.dropout(x, p=self.dropout, training=self.training)
         if is_incremental:
+            splitdim = -1
             x = self.conv.inner.incremental_forward(x)
         else:
+            splitdim = 1            
             x = self.conv(x)
             # remove future time steps
             x = x[:, :, :residual.size(-1)] if self.causal else x
 
-        # TODO: There is too much transposing going on, 
-        a, b = x.split(x.size(1) // 2, dim=1)
+        a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
         x = a * torch.sigmoid(b)
         x = (x + residual) * math.sqrt(0.5) if self.residual else x
         return x
+
+
+class ReLU(nn.ReLU):
+    def incremental_forward(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
         
 
 class EdgeConvBlock(nn.Module):
@@ -213,8 +218,11 @@ class EdgeConvBlock(nn.Module):
     def forward(self, *args, **kwargs):
         return self.conv(*args, **kwargs)
 
-    def incremental_forward(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+    def incremental_forward(self, x, *args, **kwargs):
+        x = x.transpose(1, 2)
+        x = self.forward(x, *args, **kwargs)
+        x = x.transpose(1,2)
+        return x
 
 
 class TransposeConvBlock(nn.Module):
@@ -396,7 +404,7 @@ class Decoder(nn.Module):
         self.fc = nn.Linear(in_dim * outputs_per_step, 1)
 
         self.max_decoder_steps = 200
-        self.min_decoder_steps = 10
+        self.min_decoder_steps = 50
 
     def forward(self, encoder_out: Tensor, inputs: Tensor=None,
                 text_positions: Tensor=None, frame_positions: Tensor=None,
@@ -468,14 +476,14 @@ class Decoder(nn.Module):
     
         return outputs, torch.stack(alignments), done, decoder_states
 
-    # TODO: Improve this method
-    def incremental_forward(self, encoder_out, text_positions, speaker_embed=None,
+    def incremental_forward(self, encoder_out, text_positions,
                             initial_input=None, test_inputs=None):
         keys, values = encoder_out
         B = keys.size(0)
 
         # position encodings
         w = self.key_position_rate
+        # TODO: may be useful to have projection per attention layer
         text_pos_embed = self.embed_keys_positions(text_positions, w)
         keys = keys + text_pos_embed
 
@@ -492,13 +500,13 @@ class Decoder(nn.Module):
         num_attention_layers = sum([layer is not None for layer in self.attention])
         t = 0
         if initial_input is None:
-            initial_input = keys.data.new(B, self.in_dim * self.outputs_per_step, 1).zero_()
+            initial_input = keys.data.new(B, 1, self.in_dim * self.outputs_per_step).zero_()
         current_input = initial_input
         while True:
             # frame pos start with 1.
             frame_pos = keys.data.new(B, 1).fill_(t + 1).long()
             w = self.query_position_rate
-            frame_pos_embed = self.embed_query_positions(frame_pos, w).transpose(1, 2)
+            frame_pos_embed = self.embed_query_positions(frame_pos, w)
 
             if test_inputs is not None:
                 if t >= test_inputs.size(1):
@@ -506,13 +514,13 @@ class Decoder(nn.Module):
                 current_input = test_inputs[:, t, :].unsqueeze(1)
             else:
                 if t > 0:
-                    current_input = outputs[-1].transpose(1, 2)
+                    current_input = outputs[-1]
             x = current_input
             x = F.dropout(x, p=self.dropout, training=self.training)
 
             # Prenet
             for f in self.preattention:
-                x = f(x)
+                x = f.incremental_forward(x)
 
             # Casual convolutions + Multi-hop attentions
             ave_alignment = None
@@ -520,27 +528,27 @@ class Decoder(nn.Module):
                                                      self.attention)):
                 residual = x
                 x = f.incremental_forward(x)
+
                 # attention
                 if attention is not None:
+                    assert isinstance(f, ConvBlock)
                     x = x + frame_pos_embed
-                    x, alignment = attention(x.transpose(1, 2), (keys, values),
+                    x, alignment = attention(x, (keys, values),
                                              last_attended=last_attended[idx])
-                    x = x.transpose(1, 2)
                     if ave_alignment is None:
                         ave_alignment = alignment
                     else:
                         ave_alignment = ave_alignment + ave_alignment
 
-                # TODO: REVIEW THIS
+                # residual
                 if isinstance(f, ConvBlock):
                     x = (x + residual) * math.sqrt(0.5)
 
             decoder_state = x
-            x = self.output(x)
+            x = self.output.incremental_forward(x)
             ave_alignment = ave_alignment.div_(num_attention_layers)
 
-            x = x.transpose(1, 2)
-            # Output & done flag predictions
+            # Ooutput & done flag predictions
             output = torch.sigmoid(x)
             done = torch.sigmoid(self.fc(x))
 
@@ -556,14 +564,18 @@ class Decoder(nn.Module):
                 elif t > self.max_decoder_steps:
                     break
 
+        # Remove 1-element time axis
+        alignments = list(map(lambda x: x.squeeze(1), alignments))
+        decoder_states = list(map(lambda x: x.squeeze(1), decoder_states))
+        outputs = list(map(lambda x: x.squeeze(1), outputs))
 
         # Combine outputs for all time steps
-        alignments = torch.stack(alignments).transpose(0, 1).squeeze(2)
-        decoder_states = torch.cat(decoder_states, dim=2).transpose(1, 2).squeeze(2).contiguous()
-        outputs = torch.stack(outputs).transpose(0, 1).squeeze(2)
-        dones = torch.cat(dones, dim=1).transpose(1, 2)
-        return outputs, alignments, dones, decoder_states
+        alignments = torch.stack(alignments).transpose(0, 1)
+        decoder_states = torch.stack(decoder_states).transpose(0, 1).contiguous()
+        outputs = torch.stack(outputs).transpose(0, 1).contiguous()
+        dones = torch.cat(dones, dim=1)
 
+        return outputs, alignments, dones, decoder_states
 
     
     def start_fresh_sequence(self):
