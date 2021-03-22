@@ -12,7 +12,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # data: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: /network/datasets/ami/amicorpus
 manual_annot_folder: /miniscratch/nauman/ami_public_manual/
-output_folder: results/ami/sd_xvector/
+#output_folder: results/ami/sd_xvector_Array1_Beam_DelaySum/
+output_folder: results/ami/sd_xvector_Array1_SimpleMEAN/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -47,7 +48,7 @@ batch_size: 512
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'Lapel'
+mic_type: 'Array1' #'Lapel'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
