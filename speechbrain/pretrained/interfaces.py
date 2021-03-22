@@ -705,8 +705,15 @@ class SepformerSeparation(Pretrained):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
+        batch, fs = torchaudio.load(path)
 
-        batch, _ = torchaudio.load(path)
+        # resample the data if needed
+        data_folder = self.hparams.data_folder
+        if ("wsj" in data_folder or "wham" in data_folder) and fs != 8000:
+            print("Downsampling the audio from {} Hz to 8000 Hz".format(fs))
+            tf = torchaudio.transforms.Resample(orig_freq=fs, new_freq=8000)
+            batch = tf(batch)
+
         est_sources = self.separate_batch(batch)
         est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
         return est_sources
