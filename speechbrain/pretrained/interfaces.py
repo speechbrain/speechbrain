@@ -712,6 +712,7 @@ class SepformerSeparation(Pretrained):
         if ("wsj" in data_folder or "wham" in data_folder) and fs != 8000:
             print("Downsampling the audio from {} Hz to 8000 Hz".format(fs))
             tf = torchaudio.transforms.Resample(orig_freq=fs, new_freq=8000)
+            batch = batch.mean(dim=0, keepdim=True)
             batch = tf(batch)
 
         est_sources = self.separate_batch(batch)
