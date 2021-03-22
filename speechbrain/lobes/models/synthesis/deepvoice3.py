@@ -10,8 +10,9 @@ import torch
 import numpy as np
 from torch.nn import functional as F
 from torch import nn, Tensor
+from torch.nn.modules.module import Module
 from speechbrain.nnet import CNN
-from typing import List, Tuple
+from typing import Collection, List, Tuple
 
 
 class WeightNorm(nn.Module):
@@ -39,28 +40,7 @@ class WeightNorm(nn.Module):
         self.inner.conv.bias.data.zero_()
     
     def forward(self, *args, **kwargs):
-        return self.inner.forward(*args, **kwargs)
-
-
-class EdgeConvBlock(nn.Module):
-    """
-    A convolution block found at the "edge" of multi-layer
-    stacks within DeepVoice3, typically, the first or last
-    layer consisting of a "regular" convolutional layer
-
-    """
-    def __init__(self, dropout: float, std_mul: float, *args, **kwargs):
-        super().__init__()
-        self.conv = WeightNorm(
-            inner=IncrementalConv1d(*args, **kwargs),
-            std_mul=std_mul,
-            dropout=dropout)
-
-    def forward(self, *args, **kwargs):
-        return self.conv(*args, **kwargs)
-
-    def incremental_forward(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+        return self.inner.forward(*args, **kwargs)        
 
 
 class IncrementalConv1d(CNN.Conv1d):
@@ -129,6 +109,8 @@ class ConvBlock(nn.Module):
     """
     def __init__(
         self,
+        in_channels: int,
+        out_channels: int,
         padding: str=None,
         kernel_size: int=None,
         dilation: int=None,
@@ -145,6 +127,10 @@ class ConvBlock(nn.Module):
 
         Arguments
         ----------
+        in_channels
+            the number of input channels
+        out_channels
+            the number of output channels
         padding
             the type of padding used (e.g. "same", "valid)
         kernel_size
@@ -168,6 +154,8 @@ class ConvBlock(nn.Module):
         self.conv = WeightNorm(
             inner=IncrementalConv1d(
                 *args, skip_transpose=True,
+                in_channels=in_channels,
+                out_channels=out_channels * 2,
                 kernel_size=kernel_size, padding=padding, dilation=dilation,
                 **kwargs),
             dropout=dropout,
@@ -180,14 +168,6 @@ class ConvBlock(nn.Module):
             (self.std_mul * (1.0 - self.dropout)) / (self.conv.kernel_size[0] * self.conv.in_channels))
         self.conv.weight.data.normal_(mean=0, std=std)
         self.conv.bias.data.zero_()
-    #TODO: Remove this
-    # def forward(self, x: Tensor, *args, **kwargs):
-    #     residual = x
-    #     x = self.conv(x)
-    #     x = self.glu(x)
-    #     if self.causal:
-    #         x = x[:, :, :residual.size(-1)]
-    #     return (x + residual) * self.multiplier if self.residual else x
 
     def forward(self, x, speaker_embed=None):
         return self._forward(x, speaker_embed, False)    
@@ -211,6 +191,52 @@ class ConvBlock(nn.Module):
         x = (x + residual) * math.sqrt(0.5) if self.residual else x
         return x
         
+
+class EdgeConvBlock(nn.Module):
+    """
+    A convolution block found at the "edge" of multi-layer
+    stacks within DeepVoice3, typically, the first or last
+    layer consisting of a "regular" convolutional layer
+
+    """
+    def __init__(
+            self,
+            dropout: float=0.,
+            std_mul: float=1., *args, **kwargs):
+        super().__init__()
+        self.conv = WeightNorm(
+            inner=IncrementalConv1d(
+                skip_transpose=True, *args, **kwargs),
+            std_mul=std_mul,
+            dropout=dropout)
+
+    def forward(self, *args, **kwargs):
+        return self.conv(*args, **kwargs)
+
+    def incremental_forward(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+
+class TransposeConvBlock(nn.Module):
+    """
+    A transposed convolution block
+    """
+    def __init__(
+            self, 
+            dropout: float=0.,
+            std_mul: float=1., *args, **kwargs):
+        super().__init__()
+        self.conv = WeightNorm(
+            inner=CNN.TransposeConv1d(
+                skip_transpose=True, *args, **kwargs),
+            std_mul=std_mul,
+            dropout=dropout)        
+
+    def forward(self, *args, **kwargs):
+        return self.conv(*args, **kwargs)
+
+    def incremental_forward(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
 
 class Encoder(nn.Module):
@@ -290,7 +316,7 @@ class AttentionLayer(nn.Module):
 
         # attention
         x = self.query_projection(query)
-        x = torch.bmm(x, keys)
+        x = torch.bmm(x, keys.transpose(1, 2))
 
         mask_value = -float("inf")
         if mask is not None:
@@ -468,11 +494,7 @@ class Decoder(nn.Module):
         if initial_input is None:
             initial_input = keys.data.new(B, self.in_dim * self.outputs_per_step, 1).zero_()
         current_input = initial_input
-        n = 0
         while True:
-            n += 1
-            if n > 10:
-                break
             # frame pos start with 1.
             frame_pos = keys.data.new(B, 1).fill_(t + 1).long()
             w = self.query_position_rate
@@ -510,9 +532,8 @@ class Decoder(nn.Module):
                         ave_alignment = ave_alignment + ave_alignment
 
                 # TODO: REVIEW THIS
-                # if isinstance(f, Conv1dGLU):
-                #    x = (x + residual) * math.sqrt(0.5)
-                x = (x + residual) * math.sqrt(0.5)
+                if isinstance(f, ConvBlock):
+                    x = (x + residual) * math.sqrt(0.5)
 
             decoder_state = x
             x = self.output(x)
@@ -615,7 +636,22 @@ def sinusoidal_encode(x: Tensor, w: Tensor):
     return y
 
 class Converter(nn.Module):
-    def __init__(self, in_dim, out_dim, convolutions):
+    """
+    The converter module
+    """
+    def __init__(self, in_dim: int, out_dim: int, convolutions: Collection[nn.Module]):
+        """
+        Class constructor
+
+        Arguments
+        ---------
+        in_dim
+            The number of input dimensions
+        out_dim
+            The number of output dimensions
+        convolutions
+            A collection of convolutional blocks
+        """
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
@@ -655,7 +691,7 @@ class AttentionSeq2Seq(nn.Module):
             encoder_outputs, mel_targets,
             text_positions=text_positions, frame_positions=frame_positions,
             lengths=input_lengths)
-
+        
         return mel_outputs, alignments, done, decoder_states
 
 
@@ -722,8 +758,6 @@ class TTSModel(nn.Module):
         # Reshape
         # (B, T, mel_dim)
         
-        #mel_outputs = mel_outputs.view(B, -1, self.mel_dim)
-
         # Prepare postnet inputs
         postnet_inputs = decoder_states.view(B, mel_outputs.size(1), -1)
         
@@ -748,15 +782,18 @@ def masked_mean(y, mask):
     return (y * mask_).sum() / mask_.sum()
 
 
-def sequence_mask(sequence_length, max_len=None):
+def sequence_mask(sequence_length, max_len=None, device=None):
     if max_len is None:
         max_len = sequence_length.data.max()
     batch_size = sequence_length.size(0)
-    seq_range = torch.arange(0, max_len).long()
+    seq_range = torch.arange(0, max_len, device=device).long()
     seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
     seq_length_expand = sequence_length.unsqueeze(1) \
         .expand_as(seq_range_expand)
-    return (seq_range_expand < seq_length_expand).float()
+    result = (seq_range_expand < seq_length_expand).float()
+    if device is not None:
+        result.to(device)
+    return result
 
 
 class MaskedL1Loss(nn.Module):
@@ -770,7 +807,7 @@ class MaskedL1Loss(nn.Module):
 
         # (B, T, 1)
         if mask is None:
-            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+            mask = sequence_mask(lengths, max_len, device=input.device).unsqueeze(-1)
 
         # (B, T, D)
         mask_ = mask.expand_as(input)
@@ -867,23 +904,27 @@ class Loss(nn.Module):
     def forward(self, input: LOSS_INPUT_TYPE, target: LOSS_INPUT_TYPE) -> Tensor:
         input_mel, input_linear, input_done, _ = input
         target_mel, target_linear, target_done, target_lengths = target
+        
         decoder_target_mask = sequence_mask(
             target_lengths // (self.outputs_per_step * self.downsample_step),
-            max_len=target_mel.size(1)).unsqueeze(-1)
+            max_len=target_mel.size(1),
+            device=input_mel.device).unsqueeze(-1)
         mel_l1_loss, mel_binary_div = spec_loss(
             input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask)
         mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
         done_loss = self.binary_criterion(target_done.squeeze(), input_done)
 
         target_mask = sequence_mask(
-            target_lengths, max_len=target_linear.size(1)).unsqueeze(-1)
+            target_lengths, max_len=target_linear.size(1),
+            device=target_linear.device).unsqueeze(-1)
 
         n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim)
+
         linear_l1_loss, linear_binary_div = spec_loss(
             input_linear[:, :-self.outputs_per_step, :], target_linear[:, self.outputs_per_step:, :], target_mask,
             priority_bin=n_priority_freq,
             priority_w=self.priority_freq_weight)
-        linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div
+        linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div    
 
         # Combine losses
         loss = mel_loss + linear_loss + done_loss

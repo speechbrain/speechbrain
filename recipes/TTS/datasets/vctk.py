@@ -22,7 +22,12 @@ class VCTK:
     def __init__(self, file_path: str):
         """
         Class constructor
-        :param file_path: The path to the unzipped dataset
+
+        
+        Arguments
+        ----------
+        file_path
+            the path to the unzipped dataset
         """
         self.file_path = file_path
         self._speakers = None
@@ -77,7 +82,10 @@ class VCTK:
         Returns a list of (text_file, wav_file) tuples for the specified
         speaker ID
 
-        :param speaker_id: the speaker ID
+        Arguments
+        ----------
+        speaker_id
+            the speaker ID
         """
         txt_path, wav_path = self.get_speaker_paths(speaker_id)
         txt_file_pattern = os.path.join(txt_path, self.PATTERN_TXT)
@@ -99,7 +107,10 @@ class VCTK:
     def get_all_speakers_data(self) -> Iterable[Dict]:
         """
         Returns data for all available speakers in the dataset
-        :return: a generator of dictionaries with speaker data
+
+        Returns
+        -------
+        a generator of dictionaries with speaker data
         """
         # NOTE: The text is quick to read - it will be included in the CSV
         return (
@@ -118,8 +129,14 @@ class VCTK:
         for the specified speaker. This is used primarily to run
         experiments on subsets of the original dataset
 
-        :param speaker_id: the speaker ID to check
-        :return: True if data for the speaker is available, False otherwise
+        Arguments
+        ----------
+        speaker_id 
+            the speaker ID to check
+
+        Returns
+        -------
+        True if data for the speaker is available, False otherwise
         """
         txt_path, wav_path = self.get_speaker_paths(speaker_id)
         return os.path.isdir(txt_path) and os.path.isdir(wav_path)
@@ -127,7 +144,11 @@ class VCTK:
     def to_csv(self, target):
         """
         Creates a CSV representation of the dataset
-        :param target: a file name or a file-like object
+
+        Arguments
+        ---------
+        target
+            a file name or a file-like object
         """
         if isinstance(target, str):
             with open(target, 'w') as csv_file:

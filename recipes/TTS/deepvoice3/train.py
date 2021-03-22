@@ -1,6 +1,7 @@
 import torch
 import sys
 import speechbrain as sb
+import math
 from typing import Collection
 from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
@@ -13,7 +14,7 @@ from common.dataio import audio_pipeline, mel_spectrogram, spectrogram, resample
 
 
 class DeepVoice3Brain(sb.core.Brain):
-    def compute_forward(self, batch, stage):
+    def compute_forward(self, batch, stage, use_targets=True):
         """Predicts the next word given the previous ones.
         Arguments
         ---------
@@ -29,12 +30,14 @@ class DeepVoice3Brain(sb.core.Brain):
         batch = batch.to(self.device)
         pred = self.hparams.model(
             text_sequences=batch.text_sequences.data, 
-            mel_targets=batch.mel.data if stage == sb.Stage.TRAIN else None, 
+            mel_targets=batch.mel.data
+                if stage == sb.Stage.TRAIN else None, 
             text_positions=batch.text_positions.data,
             frame_positions=batch.frame_positions.data
-                if stage == sb.Stage.TRAIN else None,
+                if use_targets else None,
             input_lengths=batch.input_lengths.data,
-            target_lengths=batch.target_lengths.data                 
+            target_lengths=batch.target_lengths.data
+                if use_targets else None
         )
         return pred
 
@@ -61,10 +64,15 @@ class DeepVoice3Brain(sb.core.Brain):
         target_linear = batch.linear.data
         target_lengths = batch.target_lengths.data
 
+
         if stage == sb.Stage.VALID:
-            output_mel = self._pad_output(output_mel)
-            output_linear = self._pad_output(output_linear)
-            output_done = self._pad_output(output_done, 1.)
+            output_mel = pad_to_length(
+                output_mel, self.hparams.max_mel_len)
+            output_linear = pad_to_length(
+                output_linear, self.hparams.decoder_max_positions)
+            output_done = pad_to_length(
+                output_done, self.hparams.max_mel_len, 1.)
+
         outputs = target_mel, target_linear, target_done, target_lengths
         targets = output_mel, output_linear, output_done, output_lengths
         loss = self.hparams.compute_cost(
@@ -127,7 +135,7 @@ class DeepVoice3Brain(sb.core.Brain):
             )
 
 #TODO: This is temporary. Add support for different characters for different languages
-ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,!-'
+ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-'
 
 def padded_positions(item_len, max_len):
     """
@@ -167,7 +175,7 @@ def text_encoder(max_input_len=128, tokens=None):
     @sb.utils.data_pipeline.takes("label")
     @sb.utils.data_pipeline.provides("text_sequences", "input_lengths", "text_positions")
     def f(label):
-        text_sequence = encoder.encode_sequence_torch(label)
+        text_sequence = encoder.encode_sequence_torch(label.upper())
         text_sequence_eos = encoder.append_eos_index(text_sequence)
         input_length = len(label)
         padded_text_sequence_eos = F.pad(
@@ -243,10 +251,47 @@ def frame_positions(max_output_len=1024):
     return f
 
 
+LOG_10 = math.log(10)
+DB_REF = 20
+
+def normalize_spectrogram(takes, provides, min_level_db):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(linear):
+        min_level = torch.tensor(math.exp(min_level_db / DB_REF * LOG_10)).to(linear.device)
+        linear_db = DB_REF * torch.log10(torch.maximum(min_level, linear))
+        normalized = torch.clip(
+            (linear_db - min_level_db) / -min_level_db,
+            min=0.,
+            max=1.
+        )
+        return normalized
+
+    return f
+
+
 @sb.utils.data_pipeline.takes("mel_downsampled")
 @sb.utils.data_pipeline.provides("target_lengths")
 def target_lengths(mel):
     return len(mel)
+
+
+def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
+    """
+    Pads the last dimension of a tensor to the specified length,
+    at the end
+    
+    Arguments
+    ---------
+    tensor
+        the tensor
+    length
+        the target length along the last dimension
+    value
+        the value to pad it with
+    """
+    padding = length - tensor.size(-1)
+    return F.pad(tensor, (0, padding), value=value)
 
 
 OUTPUT_KEYS = [
@@ -254,10 +299,11 @@ OUTPUT_KEYS = [
     "frame_positions", "target_lengths", "done", "linear"]
 
 
-def data_prep(dataset: DynamicItemDataset, max_input_len=128,
-              max_output_len=1024, tokens=None, mel_dim: int=80,
-              n_fft:int=1024, sample_rate=22050, mel_downsample_step=4,
-              hop_length=256, outputs_per_step=1):
+def data_prep(dataset: DynamicItemDataset, max_input_len: int=128,
+              max_output_len: int=512, max_mel_len: int=128,
+              tokens=None, mel_dim: int=80,
+              n_fft:int=1024, sample_rate: int=22050, mel_downsample_step: int=4, min_level_db=-100.,
+              hop_length: int=256, outputs_per_step: int=1):
     """
     Prepares one or more datasets for use with deepvoice.
 
@@ -292,24 +338,29 @@ def data_prep(dataset: DynamicItemDataset, max_input_len=128,
             takes="mel_raw",
             provides="mel_downsampled",
             downsample_step=mel_downsample_step),
-        pad(takes="mel_downsampled", provides="mel", length=max_output_len),
+        normalize_spectrogram(
+            takes="mel_downsampled",
+            provides="mel_norm",
+            min_level_db=min_level_db),
+        pad(
+            takes="mel_norm", provides="mel",            length=max_mel_len),
         text_encoder(max_input_len=max_input_len, tokens=tokens),
         frame_positions(
-            max_output_len=max_output_len),
+            max_output_len=max_mel_len),
         spectrogram(
             n_fft=n_fft,
             hop_length=hop_length,
             takes="sig",
             provides="linear_raw"),
-        downsample_spectrogram(
+        normalize_spectrogram(
             takes="linear_raw",
-            provides="linear_downsampled",
-            downsample_step=mel_downsample_step),
+            provides="linear_norm",
+            min_level_db=min_level_db),
         pad(
-            takes="linear_downsampled",
+            takes="linear_norm",
             provides="linear",
             length=max_output_len),
-        done(max_output_len=max_output_len,
+        done(max_output_len=max_mel_len,
              downsample_step=mel_downsample_step,
              outputs_per_step=outputs_per_step),
         target_lengths
