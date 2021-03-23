@@ -845,8 +845,7 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
         padding = [kernel_size // 2, kernel_size // 2]
 
     else:
-        L_out = (L_in - dilation * (kernel_size - 1) - 1) / stride + 1
-        L_out = int(L_out)
+        L_out = (L_in - dilation * (kernel_size - 1) - 1) // stride + 1
 
         padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
     return padding
