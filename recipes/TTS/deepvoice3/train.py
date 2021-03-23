@@ -69,7 +69,7 @@ class DeepVoice3Brain(sb.core.Brain):
             output_mel = pad_to_length(
                 output_mel, self.hparams.max_mel_len)
             output_linear = pad_to_length(
-                output_linear, self.hparams.decoder_max_positions)
+                output_linear, self.hparams.max_output_len)
             output_done = pad_to_length(
                 output_done.transpose(1, 2), self.hparams.max_mel_len, 1.).transpose(1, 2)
 
@@ -125,7 +125,8 @@ class DeepVoice3Brain(sb.core.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints.
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+            if self.hparams.checkpoint_every_epoch or epoch == self.hparams.number_of_epochs:
+                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -261,14 +262,13 @@ def frame_positions(max_output_len=1024):
 
 
 LOG_10 = math.log(10)
-DB_REF = 20
 
-def normalize_spectrogram(takes, provides, min_level_db):
+def normalize_spectrogram(takes, provides, min_level_db, ref_level_db):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(linear):
-        min_level = torch.tensor(math.exp(min_level_db / DB_REF * LOG_10)).to(linear.device)
-        linear_db = DB_REF * torch.log10(torch.maximum(min_level, linear))
+        min_level = torch.tensor(math.exp(min_level_db / ref_level_db * LOG_10)).to(linear.device)
+        linear_db = ref_level_db * torch.log10(torch.maximum(min_level, linear)) - ref_level_db
         normalized = torch.clip(
             (linear_db - min_level_db) / -min_level_db,
             min=0.,
@@ -282,7 +282,7 @@ def normalize_spectrogram(takes, provides, min_level_db):
 @sb.utils.data_pipeline.takes("mel_downsampled")
 @sb.utils.data_pipeline.provides("target_lengths")
 def target_lengths(mel):
-    return len(mel)
+    return mel.size(-1)
 
 
 def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
@@ -305,14 +305,10 @@ def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
 
 OUTPUT_KEYS = [
     "text_sequences", "mel", "input_lengths", "text_positions",
-    "frame_positions", "target_lengths", "done", "linear"]
+    "frame_positions", "target_lengths", "done", "linear", "linear_raw", "wav"]
 
 
-def data_prep(dataset: DynamicItemDataset, max_input_len: int=128,
-              max_output_len: int=512, max_mel_len: int=128,
-              tokens=None, mel_dim: int=80,
-              n_fft:int=1024, sample_rate: int=22050, mel_downsample_step: int=4, min_level_db=-100.,
-              hop_length: int=256, outputs_per_step: int=1):
+def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     """
     Prepares one or more datasets for use with deepvoice.
 
@@ -334,45 +330,50 @@ def data_prep(dataset: DynamicItemDataset, max_input_len: int=128,
 
     if not tokens:
         tokens = ALPHABET
-    
+
     pipeline = [
         audio_pipeline,
-        resample(new_freq=sample_rate),
+        resample(
+            orig_freq=hparams['source_sample_rate'],
+            new_freq=hparams['sample_rate']),
         trim(takes="sig_resampled", provides="sig_trimmed"),
         mel_spectrogram(
             takes="sig_trimmed",
             provides="mel_raw",
-            n_mels=mel_dim,
-            n_fft=n_fft),
+            n_mels=hparams['mel_dim'],
+            n_fft=hparams['n_fft']),
         downsample_spectrogram(
             takes="mel_raw",
             provides="mel_downsampled",
-            downsample_step=mel_downsample_step),
+            downsample_step=hparams['mel_downsample_step']),
         normalize_spectrogram(
             takes="mel_downsampled",
             provides="mel_norm",
-            min_level_db=min_level_db),
+            min_level_db=hparams['min_level_db'],
+            ref_level_db=hparams['ref_level_db']),
         pad(
-            takes="mel_norm", provides="mel",            length=max_mel_len),
-        text_encoder(max_input_len=max_input_len, tokens=tokens),
+            takes="mel_norm", provides="mel", length=hparams['max_mel_len']),
+        text_encoder(max_input_len=hparams['max_input_len'], tokens=tokens),
         frame_positions(
-            max_output_len=max_mel_len),
+            max_output_len=hparams['max_mel_len']),
         spectrogram(
-            n_fft=n_fft,
-            hop_length=hop_length,
+            n_fft=hparams['n_fft'],
+            hop_length=hparams['hop_length'],
             takes="sig_trimmed",
-            provides="linear_raw"),
+            provides="linear_raw",
+            power=1),
         normalize_spectrogram(
             takes="linear_raw",
             provides="linear_norm",
-            min_level_db=min_level_db),
+            min_level_db=hparams['min_level_db'],
+            ref_level_db=hparams['ref_level_db']),
         pad(
             takes="linear_norm",
             provides="linear",
-            length=max_output_len),
-        done(max_output_len=max_mel_len,
-             downsample_step=mel_downsample_step,
-             outputs_per_step=outputs_per_step),
+            length=hparams['max_output_len']),
+        done(max_output_len=hparams['max_mel_len'],
+             downsample_step=hparams['mel_downsample_step'],
+             outputs_per_step=hparams['outputs_per_step']),
         target_lengths
     ]
 
@@ -387,7 +388,7 @@ def dataio_prep(hparams):
     for name, dataset_params in hparams['datasets'].items():
         # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
         vctk = VCTK(dataset_params['path']).to_dataset()
-        result[name] = data_prep(vctk)
+        result[name] = dataset_prep(vctk, hparams)
     return result
 
 
