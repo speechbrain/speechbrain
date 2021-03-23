@@ -13,7 +13,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: /network/datasets/ami/amicorpus
 manual_annot_folder: /miniscratch/nauman/ami_public_manual
 #output_folder: results/ami/sd_ecapa_tdnn/
-output_folder: results/ami/sd_ecapa_tdnn_DISTANT_Array1-02/
+output_folder: results/ami/sd_ecapa_tdnn_DISTANT_Array1-08/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -48,7 +48,7 @@ batch_size: 512
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'Array1-02' #'Mix-Lapel' 'Mix-Headset' #'Array1'
+mic_type: 'Array1-08' #'Mix-Lapel' 'Mix-Headset' #'Array1'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
