@@ -1,6 +1,11 @@
 seed: 42
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
+
+sample_rate: 22050
+
+
+
 # 1. raw [-1, 1]
 # 2. mulaw [-1, 1]
 # 3. mulaw-quantize [0, mu]

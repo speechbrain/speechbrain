@@ -1,0 +1,434 @@
+# Generated 2021-03-23 from:
+# /home/alexr/speechbrain_tts/recipes/TTS/models/deepvoice3/hparams.yaml
+# yamllint disable
+seed: 42
+__set_seed: !!python/object/apply:torch.manual_seed [42]
+
+embed_dim: 128
+batch_size: 32
+encoder_conv_channels: 256
+n_vocab: 26
+dropout: 0.1
+mel_dim: 80
+outputs_per_step: 5
+downsample_step: 4
+masked_loss_weight: 0.5
+binary_divergence_weight: 0.1
+priority_freq: 3000
+sample_rate: 22050
+encoder_in_std_mul: 1.0
+encoder_mid_std_mul: 2.0
+encoder_out_std_mul: 4.0
+encoder_conv_kernel_size: 5
+encoder_conv_dilation: 1
+encoder_out_kernel_size: 1
+preattention_out_channels: 256
+preattention_conv_channels: 256
+preattention_in_std_mul: 1.0
+preattention_conv_std_mul: 2.0
+decoder_in_dim: 80
+decoder_conv_std_mul: 1.0
+decoder_conv_channels: 256
+decoder_query_position_rate: 1.0
+decoder_key_position_rate: 1.29
+decoder_max_positions: 512
+converter_conv_channels: 256
+converter_conv_kernel_size: 5
+converter_out_kernel_size: 1
+converter_in_std_mul: 1.0
+converter_mid_std_mul: 4.0
+converter_out_std_mul: 4.0
+converter_in_dim: 256
+linear_dim: 513
+
+lr: 0.0005
+lr_warmup_steps: 4000
+number_of_epochs: 2
+
+output_folder: ./results/tts/deepvoice/42
+save_folder: ./results/tts/deepvoice/42/save
+train_log: ./results/tts/deepvoice/42/train_log.txt
+
+encoder: &id005 !new:models.deepvoice3.model.Encoder
+  embed_dim: 128
+  n_vocab: 26
+  dropout: 0.1
+
+  convolutions:
+  - !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 128
+      out_channels: 256
+      kernel_size: 5
+      dilation: 1
+      padding: same
+      skip_transpose: true
+    dropout: 0.1
+    std_mul: 1.0
+  - !new:torch.nn.ReLU
+  - &encoder_conv !new:models.deepvoice3.model.ConvBlock
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    dilation: 1
+    padding: same
+    dropout: 0.1
+    std_mul: 2.0
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 1
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 3
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 9
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 27
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 1
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 3
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 9
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 27
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 1
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *encoder_conv
+    dilation: 3
+    std_mul: 4.0
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    padding: same
+    dropout: 0.1
+  - !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 256
+      out_channels: 128
+      kernel_size: 1
+      padding: valid
+      dilation: 1
+      skip_transpose: true
+    std_mul: 4.0
+    dropout: 0.1
+
+decoder: &id006 !new:models.deepvoice3.model.Decoder
+
+  embed_dim: 128
+  preattention:
+  - !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 80
+      out_channels: 256
+      kernel_size: 5
+      dilation: 1
+      skip_transpose: true
+    std_mul: 1.0
+    dropout: 0.1
+  - !new:torch.nn.ReLU
+  - &preattention_conv !new:models.deepvoice3.model.ConvBlock
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: valid
+    dilation: 1
+    causal: true
+    residual: true
+    std_mul: 2.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *preattention_conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: valid
+    dilation: 1
+    causal: true
+    residual: true
+    std_mul: 2.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *preattention_conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: valid
+    dilation: 1
+    causal: true
+    residual: true
+    std_mul: 2.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *preattention_conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: valid
+    dilation: 1
+    causal: true
+    residual: true
+    std_mul: 2.0
+    dropout: 0.1
+  convolutions:
+  - !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 256
+      out_channels: 256
+      kernel_size: 5
+      dilation: 1
+      skip_transpose: true
+    std_mul: 1.0
+    dropout: 0.1
+  - &decoder_conv !new:models.deepvoice3.model.ConvBlock
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: same
+    dilation: 1
+    std_mul: 1.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *decoder_conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: same
+    dilation: 1
+    std_mul: 1.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *decoder_conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: same
+    dilation: 1
+    std_mul: 1.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *decoder_conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 1
+    padding: same
+    dilation: 1
+    std_mul: 1.0
+    dropout: 0.1
+  attention:
+  - &decoder_attention !new:models.deepvoice3.model.AttentionLayer
+    conv_channels: 256
+    embed_dim: 128
+    query_projection: &id001 !new:torch.nn.Linear
+      in_features: 256
+      out_features: 128
+    key_projection: &id002 !new:torch.nn.Identity
+    value_projection: &id003 !new:torch.nn.Linear
+      in_features: 128
+      out_features: 128
+    out_projection: &id004 !new:torch.nn.Linear
+      in_features: 128
+      out_features: 256
+  - !new:models.deepvoice3.model.AttentionLayer
+    <<: *decoder_attention
+    conv_channels: 256
+    embed_dim: 128
+    query_projection: *id001
+    key_projection: *id002
+    value_projection: *id003
+    out_projection: *id004
+  - !new:models.deepvoice3.model.AttentionLayer
+    <<: *decoder_attention
+    conv_channels: 256
+    embed_dim: 128
+    query_projection: *id001
+    key_projection: *id002
+    value_projection: *id003
+    out_projection: *id004
+  - !new:models.deepvoice3.model.AttentionLayer
+    <<: *decoder_attention
+    conv_channels: 256
+    embed_dim: 128
+    query_projection: *id001
+    key_projection: *id002
+    value_projection: *id003
+    out_projection: *id004
+
+  output: !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 256
+      out_channels: 400
+      kernel_size: 5
+      dilation: 1
+      skip_transpose: true
+    std_mul: 1.0
+    dropout: 0.1
+
+  max_positions: 512
+  in_dim: 80
+  outputs_per_step: 5
+  dropout: 0.1
+  query_position_rate: 1.0
+  key_position_rate: 1.29
+
+
+converter: &id008 !new:models.deepvoice3.model.Converter
+
+  in_dim: 80
+  out_dim: 513
+  convolutions:
+  - !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 256
+      out_channels: 256
+      kernel_size: 5
+      dilation: 1
+      skip_transpose: true
+    std_mul: 1.0
+    dropout: 0.1
+  - !new:torch.nn.ReLU
+  - &converter_conv !new:models.deepvoice3.model.ConvBlock
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    std_mul: 4.0
+    dilation: 1
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *converter_conv
+    dilation: 3
+    dropout: 0.1
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 5
+    std_mul: 4.0
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *converter_conv
+    out_channels: 512
+    dilation: 1
+    in_channels: 256
+    kernel_size: 5
+    std_mul: 4.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.ConvBlock
+    <<: *converter_conv
+    in_channels: 256
+    out_channels: 512
+    dilation: 3
+    kernel_size: 5
+    std_mul: 4.0
+    dropout: 0.1
+  - !new:models.deepvoice3.model.WeightNorm
+    inner: !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: 256
+      out_channels: 513
+      kernel_size: 1
+      dilation: 1
+      skip_transpose: true
+    std_mul: 4.0
+    dropout: 0.1
+
+seq2seq: &id007 !new:models.deepvoice3.model.AttentionSeq2Seq
+  encoder: *id005
+  decoder: *id006
+model: &id009 !new:models.deepvoice3.model.TTSModel
+
+  seq2seq: *id007
+  mel_dim: 80
+  linear_dim: 513
+  postnet: *id008
+compute_cost: !new:models.deepvoice3.model.Loss
+  linear_dim: 513
+  downsample_step: 4
+  outputs_per_step: 5
+  masked_loss_weight: 0.5
+  binary_divergence_weight: 0.1
+  priority_freq: 3000
+  sample_rate: 22050
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+  lr_initial: 0.0005
+  n_warmup_steps: 4000
+
+epoch_counter: &id010 !new:speechbrain.utils.epoch_loop.EpochCounter
+
+  limit: 2
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: ./results/tts/deepvoice/42/save
+  recoverables:
+    model: *id009
+    counter: *id010
+modules:
+  model: *id009
+datasets:
+  train:
+    path: datasets/testdata/fake_vctk
+
+opt_class: !name:torch.optim.Adam
+  lr: 0.0005
+
+dataloader_options:
+  batch_size: 32

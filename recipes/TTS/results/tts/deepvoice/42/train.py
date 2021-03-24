@@ -1,20 +1,13 @@
 import torch
 import sys
 import speechbrain as sb
-import math
-from typing import Collection
-from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.encoder import TextEncoder
-
-sys.path.append("..")
 from datasets.vctk import VCTK
-from common.dataio import audio_pipeline, mel_spectrogram, spectrogram, resample
+from models.deepvoice3.data import data_prep
 
 
-class WavenetBrain(sb.core.Brain):
-    def compute_forward(self, batch, stage, use_targets=True):
+class TTSBrain(sb.core.Brain):
+    def compute_forward(self, batch, stage):
         """Predicts the next word given the previous ones.
         Arguments
         ---------
@@ -28,15 +21,11 @@ class WavenetBrain(sb.core.Brain):
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
-        pred = self.hparams.model(
-            mel_targets=batch.mel.data
-                if stage == sb.Stage.TRAIN else None,
-            frame_positions=batch.frame_positions.data
-                if use_targets else None,
-            input_lengths=batch.input_lengths.data,
-            target_lengths=batch.target_lengths.data
-                if use_targets else None
-        )
+        print("HELLO")
+        print(batch)
+        print("HELLO")
+        tokens_bos, _ = batch.tokens_bos
+        pred = self.hparams.model(tokens_bos)
         return pred
 
     def compute_objectives(self, predictions, batch, stage):
@@ -61,31 +50,7 @@ class WavenetBrain(sb.core.Brain):
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
 
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-    '''
-    Can store class variables if needed at the start of a stage (start of training or start of validating for each epoch)
-    def on_stage_start(self, stage, epoch):
-        "Gets called when a stage (either training, validation, test) starts."
-        self.ctc_metrics = self.hparams.ctc_stats()
-        self.seq_metrics = self.hparams.seq_stats()
-
-        if stage != sb.Stage.TRAIN:
-            self.per_metrics = self.hparams.per_stats()
-    '''
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
         Arguments
@@ -110,7 +75,7 @@ class WavenetBrain(sb.core.Brain):
                 "loss": stage_loss,
             }
 
-        # At the end of validation, we can write
+        # At the end of validation, we can wrote
         if stage == sb.Stage.VALID:
 
             # Update learning rate
@@ -134,90 +99,18 @@ class WavenetBrain(sb.core.Brain):
                 test_stats=stats,
             )
 
-def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
-    """
-    Prepares one or more datasets for use with wavenet.
-    In order to be usable with the Wavenet model, a dataset needs to contain
-    the following keys
-    'wav': a file path to a .wav file containing the utterance
-
-    Arguments
-    ---------
-    datasets
-        a collection or datasets
-    
-    Returns
-    -------
-    the original dataset enhanced
-    """
-
-    pipeline = [
-        audio_pipeline,
-        # resampling from source sample rate to new sample rate
-        resample( 
-            orig_freq=hparams['source_sample_rate'],
-            new_freq=hparams['sample_rate']),
-        trim(takes="sig_resampled", provides="sig_trimmed"),
-        mel_spectrogram(
-            takes="sig_trimmed",
-            provides="mel_raw",
-            n_mels=hparams['mel_dim'],
-            n_fft=hparams['n_fft']),
-        downsample_spectrogram(
-            takes="mel_raw",
-            provides="mel_downsampled",
-            downsample_step=hparams['mel_downsample_step']),
-        normalize_spectrogram(
-            takes="mel_downsampled",
-            provides="mel_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad(
-            takes="mel_norm", provides="mel", length=hparams['max_mel_len']),
-        frame_positions(
-            max_output_len=hparams['max_mel_len']),
-        spectrogram(
-            n_fft=hparams['n_fft'],
-            hop_length=hparams['hop_length'],
-            takes="sig_trimmed",
-            provides="linear_raw",
-            power=1),
-        normalize_spectrogram(
-            takes="linear_raw",
-            provides="linear_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad(
-            takes="linear_norm",
-            provides="linear",
-            length=hparams['max_output_len']),
-        done(max_output_len=hparams['max_mel_len'],
-             downsample_step=hparams['mel_downsample_step'],
-             outputs_per_step=hparams['outputs_per_step']),
-        target_lengths
-    ]
-
-    for element in pipeline:
-        dataset.add_dynamic_item(element)
-
-    dataset.set_output_keys(OUTPUT_KEYS)
-    return dataset
 
 def dataio_prep(hparams):
     result = {}
     for name, dataset_params in hparams['datasets'].items():
         # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
         vctk = VCTK(dataset_params['path']).to_dataset()
-        result[name] = dataset_prep(vctk)
+        result[name] = data_prep(vctk)
     return result
 
 
-if __name__ == "__main__":
-
-    # CLI:
+def main():
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
@@ -231,7 +124,7 @@ if __name__ == "__main__":
     datasets = dataio_prep(hparams)
 
     # Initialize the Brain object to prepare for mask training.
-    wavenet_brain = WavenetBrain(
+    tts_brain = TTSBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
@@ -243,11 +136,26 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    wavenet_brain.fit(
-        epoch_counter=wavenet_brain.hparams.epoch_counter,
+    #print(tts_brain.opt_class())
+
+
+    tts_brain.fit(
+        epoch_counter=tts_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         # TODO: Implement splitting - this is not ready yet
         valid_set=datasets["train"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
+
+# TODO: Add a test set
+    # Load the best checkpoint for evaluation
+#    test_stats = tts_brain.evaluate(
+#        test_set=datasets["test"],
+#        min_key="error",
+#        test_loader_kwargs=hparams["dataloader_options"],
+#    )
+
+
+if __name__ == '__main__':
+    main()

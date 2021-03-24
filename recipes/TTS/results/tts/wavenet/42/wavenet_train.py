@@ -1,21 +1,14 @@
 import torch
 import sys
 import speechbrain as sb
-import math
-from typing import Collection
-from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.encoder import TextEncoder
-
-sys.path.append("..")
 from datasets.vctk import VCTK
-from common.dataio import audio_pipeline, mel_spectrogram, spectrogram, resample
+from models.deepvoice3.data import data_prep
 
 
 class WavenetBrain(sb.core.Brain):
-    def compute_forward(self, batch, stage, use_targets=True):
-        """Predicts the next word given the previous ones.
+    def compute_forward(self, batch, stage):
+        """Predicts the next audio generation given the previous samples.
         Arguments
         ---------
         batch : PaddedBatch
@@ -28,15 +21,12 @@ class WavenetBrain(sb.core.Brain):
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
-        pred = self.hparams.model(
-            mel_targets=batch.mel.data
-                if stage == sb.Stage.TRAIN else None,
-            frame_positions=batch.frame_positions.data
-                if use_targets else None,
-            input_lengths=batch.input_lengths.data,
-            target_lengths=batch.target_lengths.data
-                if use_targets else None
-        )
+        print(batch)
+        for b in batch:
+            print(b)
+            print("HELLO")
+        tokens_bos, _ = batch.tokens_bos
+        pred = self.hparams.model(tokens_bos)
         return pred
 
     def compute_objectives(self, predictions, batch, stage):
@@ -134,81 +124,13 @@ class WavenetBrain(sb.core.Brain):
                 test_stats=stats,
             )
 
-def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
-    """
-    Prepares one or more datasets for use with wavenet.
-    In order to be usable with the Wavenet model, a dataset needs to contain
-    the following keys
-    'wav': a file path to a .wav file containing the utterance
-
-    Arguments
-    ---------
-    datasets
-        a collection or datasets
-    
-    Returns
-    -------
-    the original dataset enhanced
-    """
-
-    pipeline = [
-        audio_pipeline,
-        # resampling from source sample rate to new sample rate
-        resample( 
-            orig_freq=hparams['source_sample_rate'],
-            new_freq=hparams['sample_rate']),
-        trim(takes="sig_resampled", provides="sig_trimmed"),
-        mel_spectrogram(
-            takes="sig_trimmed",
-            provides="mel_raw",
-            n_mels=hparams['mel_dim'],
-            n_fft=hparams['n_fft']),
-        downsample_spectrogram(
-            takes="mel_raw",
-            provides="mel_downsampled",
-            downsample_step=hparams['mel_downsample_step']),
-        normalize_spectrogram(
-            takes="mel_downsampled",
-            provides="mel_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad(
-            takes="mel_norm", provides="mel", length=hparams['max_mel_len']),
-        frame_positions(
-            max_output_len=hparams['max_mel_len']),
-        spectrogram(
-            n_fft=hparams['n_fft'],
-            hop_length=hparams['hop_length'],
-            takes="sig_trimmed",
-            provides="linear_raw",
-            power=1),
-        normalize_spectrogram(
-            takes="linear_raw",
-            provides="linear_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad(
-            takes="linear_norm",
-            provides="linear",
-            length=hparams['max_output_len']),
-        done(max_output_len=hparams['max_mel_len'],
-             downsample_step=hparams['mel_downsample_step'],
-             outputs_per_step=hparams['outputs_per_step']),
-        target_lengths
-    ]
-
-    for element in pipeline:
-        dataset.add_dynamic_item(element)
-
-    dataset.set_output_keys(OUTPUT_KEYS)
-    return dataset
 
 def dataio_prep(hparams):
     result = {}
     for name, dataset_params in hparams['datasets'].items():
         # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
         vctk = VCTK(dataset_params['path']).to_dataset()
-        result[name] = dataset_prep(vctk)
+        result[name] = data_prep(vctk)
     return result
 
 
@@ -227,9 +149,19 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)
-
+    # text sequences
+    # mel
+    # input_lengths
+    # text_positions
+    # frame_positions
+    # target_lengths
+    #for d in datasets["train"][0]:
+    #    print(d)
+    #print(len(datasets["train"]))
+    
     # Initialize the Brain object to prepare for mask training.
     wavenet_brain = WavenetBrain(
         modules=hparams["modules"],
@@ -243,6 +175,11 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
+    
+    #print(datasets["train"][0])
+    #print(datasets["train"][1])
+  #  print(wavenet_brain.opt_class(wavenet_brain.modules.parameters()))
+
     wavenet_brain.fit(
         epoch_counter=wavenet_brain.hparams.epoch_counter,
         train_set=datasets["train"],
