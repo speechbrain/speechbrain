@@ -50,7 +50,7 @@ number_of_epochs: 2
 model: !new:models.wavenet.model.WavenetModel
 # TO ADD
 
-output_folder: !ref ./results/tts/deepvoice/<seed>
+output_folder: !ref ./results/tts/wavenet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -64,3 +64,79 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 causal: True
+{
+  "name": "wavenet_vocoder",
+  "input_type": "mulaw-quantize",
+  "quantize_channels": 256,
+  "preprocess": "",
+  "postprocess": "",
+  "global_gain_scale": 1.0,
+  "sample_rate": 22050,
+  "silence_threshold": 2,
+  "num_mels": 80,
+  "fmin": 125,
+  "fmax": 7600,
+  "fft_size": 1024,
+  "hop_size": 256,
+  "frame_shift_ms": null,
+  "win_length": 1024,
+  "win_length_ms": -1.0,
+  "window": "hann",
+  "highpass_cutoff": 70.0,
+  "output_distribution": "Logistic",
+  "log_scale_min": -9.0,
+  "out_channels": 256,
+  "layers": 2,
+  "stacks": 1,
+  "residual_channels": 4,
+  "gate_channels": 4,
+  "skip_out_channels": 4,
+  "dropout": 0.0,
+  "kernel_size": 3,
+  "cin_channels": 80,
+  "cin_pad": 2,
+  "upsample_conditional_features": true,
+  "upsample_net": "ConvInUpsampleNetwork",
+  "upsample_params": {
+    "upsample_scales": [
+      4,
+      4,
+      4,
+      4
+    ]
+  },
+  "gin_channels": -1,
+  "n_speakers": 7,
+  "pin_memory": true,
+  "num_workers": 0,
+  "batch_size": 1,
+  "optimizer": "Adam",
+  "optimizer_params": {
+    "lr": 0.001,
+    "eps": 1e-08,
+    "weight_decay": 0.0
+  },
+  "lr_schedule": "step_learning_rate_decay",
+  "lr_schedule_kwargs": {
+    "anneal_rate": 0.5,
+    "anneal_interval": 200000
+  },
+  "max_train_steps": 100,
+  "nepochs": 2000,
+  "clip_thresh": -1,
+  "max_time_sec": null,
+  "max_time_steps": 2560,
+  "exponential_moving_average": true,
+  "ema_decay": 0.9999,
+  "checkpoint_interval": 50,
+  "train_eval_interval": 50,
+  "test_eval_epoch_interval": 1,
+  "save_optimizer_state": true
+}
+
+datasets:
+  train:
+    path: datasets/testdata/fake_vctk_single_speaker
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>

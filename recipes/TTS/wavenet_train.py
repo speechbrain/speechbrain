@@ -14,8 +14,8 @@ from common.dataio import audio_pipeline, mel_spectrogram, spectrogram, resample
 
 
 class WavenetBrain(sb.core.Brain):
-    def compute_forward(self, batch, stage):
-        """Predicts the next audio generation given the previous samples.
+    def compute_forward(self, batch, stage, use_targets=True):
+        """Predicts the next word given the previous ones.
         Arguments
         ---------
         batch : PaddedBatch
@@ -28,8 +28,17 @@ class WavenetBrain(sb.core.Brain):
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
-        tokens_bos, _ = batch.tokens_bos
-        pred = self.hparams.model(tokens_bos)
+        pred = self.hparams.model(
+            text_sequences=batch.text_sequences.data, 
+            mel_targets=batch.mel.data
+                if stage == sb.Stage.TRAIN else None, 
+            text_positions=batch.text_positions.data,
+            frame_positions=batch.frame_positions.data
+                if use_targets else None,
+            input_lengths=batch.input_lengths.data,
+            target_lengths=batch.target_lengths.data
+                if use_targets else None
+        )
         return pred
 
     def compute_objectives(self, predictions, batch, stage):

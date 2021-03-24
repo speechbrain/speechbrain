@@ -73,9 +73,9 @@ class Conv1d(nn.Conv1d):
         self.input_buffer = None
 
     def _get_linearized_weight(self): 
-    """
-    linearized weights output shape = [out channels, in channels*kernel size]
-    """
+        """
+        linearized weights output shape = [out channels, in channels*kernel size]
+        """
         if self._linearized_weight is None:
             kw = self.kernel_size[0]
             # nn.Conv1d
