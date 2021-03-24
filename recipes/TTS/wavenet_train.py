@@ -1,3 +1,4 @@
+import librosa
 import torch
 import sys
 import speechbrain as sb
@@ -134,6 +135,170 @@ class WavenetBrain(sb.core.Brain):
                 test_stats=stats,
             )
 
+
+def padded_positions(item_len, max_len):
+    """
+    Returns a padded tensor of positions
+    Arguments
+    ---------
+    max_len
+        the maximum length of a sequence
+    item_len
+        the total length pof the sequence
+    """
+    positions = torch.zeros(max_len, dtype=torch.long)
+    positions[:item_len] = torch.arange(1, item_len+1, dtype=torch.long)
+    return positions
+
+
+def text_encoder(max_input_len=128, tokens=None):
+    """
+    Configures and returns a text encoder function for use with the deepvoice3 model
+    wrapped in a SpeechBrain pipeline function
+    Arguments
+    ---------
+    max_input_len
+        the maximum allowed length of an input sequence
+    tokens
+        a collection of tokens
+    """
+
+    encoder = TextEncoder()
+    encoder.update_from_iterable(tokens)
+    encoder.add_unk()
+    encoder.add_bos_eos()
+
+    @sb.utils.data_pipeline.takes("label")
+    @sb.utils.data_pipeline.provides("text_sequences", "input_lengths", "text_positions")
+    def f(label):
+        text_sequence = encoder.encode_sequence_torch(label.upper())
+        text_sequence_eos = encoder.append_eos_index(text_sequence)
+        input_length = len(label)
+        padded_text_sequence_eos = F.pad(
+            text_sequence_eos, (0, max_input_len - input_length - 1))
+        yield padded_text_sequence_eos.long()
+        yield input_length
+        yield padded_positions(item_len=input_length, max_len=max_input_len)
+        
+    return f
+
+
+def downsample_spectrogram(takes, provides, downsample_step=4):
+    """
+    A pipeline function that downsamples a spectrogram
+    Arguments
+    ---------
+    downsample_step
+        the number of steps by which to downsample the target spectrograms
+    """
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(mel):
+        mel = mel[:, 0::downsample_step].contiguous()
+        return mel
+    return f
+
+
+def pad(takes, provides, length):
+    """
+    A pipeline function that pads an arbitrary
+    tensor to the specified length
+    Arguments
+    ---------
+    takes
+        the source pipeline element
+    provides
+        the pipeline element to output
+    length
+        the length to which the tensor will be padded
+    """
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(x):
+        return F.pad(x, (0, length - x.size(-1)))
+    return f
+
+#TODO: Remove the librosa dependency
+def trim(takes, provides, top_db=15):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)    
+    def f(wav):
+        x, _ = librosa.effects.trim(wav, top_db=top_db)
+        x = torch.tensor(x).to(wav.device)
+        return x
+    return f
+
+def done(max_output_len=1024, outputs_per_step=1, downsample_step=4):
+    @sb.utils.data_pipeline.takes("target_lengths")
+    @sb.utils.data_pipeline.provides("done")
+    def f(target_length):
+        done = torch.ones(max_output_len)
+        done[:target_length // outputs_per_step // downsample_step - 1] = 0.
+        return done
+    
+    return f
+
+def frame_positions(max_output_len=1024):
+    """
+    Returns a pipeline element that outputs frame positions within the spectrogram
+    Arguments
+    ---------
+    max_output_len
+        the maximum length of the spectrogram
+    """
+    range_tensor = torch.arange(1, max_output_len+1)
+    @sb.utils.data_pipeline.provides("frame_positions")
+    def f():
+        return range_tensor
+    return f
+
+
+LOG_10 = math.log(10)
+
+def normalize_spectrogram(takes, provides, min_level_db, ref_level_db):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(linear):
+        min_level = torch.tensor(math.exp(min_level_db / ref_level_db * LOG_10)).to(linear.device)
+        linear_db = ref_level_db * torch.log10(torch.maximum(min_level, linear)) - ref_level_db
+        normalized = torch.clip(
+            (linear_db - min_level_db) / -min_level_db,
+            min=0.,
+            max=1.
+        )
+        return normalized
+
+    return f
+
+
+@sb.utils.data_pipeline.takes("mel_downsampled")
+@sb.utils.data_pipeline.provides("target_lengths")
+def target_lengths(mel):
+    return mel.size(-1)
+
+
+def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
+    """
+    Pads the last dimension of a tensor to the specified length,
+    at the end
+    
+    Arguments
+    ---------
+    tensor
+        the tensor
+    length
+        the target length along the last dimension
+    value
+        the value to pad it with
+    """
+    padding = length - tensor.size(-1)
+    return F.pad(tensor, (0, padding), value=value)
+
+
+OUTPUT_KEYS = [
+    "text_sequences", "mel", "input_lengths", "text_positions",
+    "frame_positions", "target_lengths", "done", "linear", "linear_raw", "wav"]
+
 def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     """
     Prepares one or more datasets for use with wavenet.
@@ -157,6 +322,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         resample( 
             orig_freq=hparams['source_sample_rate'],
             new_freq=hparams['sample_rate']),
+        # remove leading and trailing silence
         trim(takes="sig_resampled", provides="sig_trimmed"),
         mel_spectrogram(
             takes="sig_trimmed",
