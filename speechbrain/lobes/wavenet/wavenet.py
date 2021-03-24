@@ -1,221 +1,68 @@
-"""
-WaveNet - Building Blocks
-
-Elements of the architecture are inspired by
-https://github.com/r9y9/wavenet_vocoder
+"""The SpeechBrain implementation of WaveNet by
+https://arxiv.org/pdf/1609.03499.pdf
+Inspired by:
+https://github.com/r9y9/wavenet_vocoder 
 """
 
 from __future__ import with_statement, print_function, absolute_import
-from speechbrain.nnet import CNN
+
+import math
+import numpy as np
+
+import torch
 from torch import nn
 from torch.nn import functional as F
 
+from .modules import Embedding
 
-# verify input type
-def _assert_valid_input_type(s):
-    assert s == "mulaw-quantize" or s == "mulaw" or s == "raw"
-def is_mulaw_quantize(s):
-    _assert_valid_input_type(s)
-    return s == "mulaw-quantize" 
-def is_mulaw(s):
-    _assert_valid_input_type(s)
-    return s == "mulaw"
-def is_raw(s):
-    _assert_valid_input_type(s)
-    return s == "raw"
-def is_scalar_input(s):
-    return is_raw(s) or is_mulaw(s)
-
-class Conv1d(nn.Conv1d):
-    """Extended nn.Conv1d for incremental dilated convolutions
-    """ 
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.clear_buffer()
-        self._linearized_weight = None
-        self.register_backward_hook(self._clear_linearized_weight)
-
-    def incremental_forward(self, input):
-        # input: (B, T, C)
-        if self.training: # incremental forward used only for auto-regressive samples generation during inference time
-            raise RuntimeError('incremental_forward only supports eval mode')
-
-        # run forward pre hooks (e.g., weight norm)
-        for hook in self._forward_pre_hooks.values():
-            hook(self, input)
-
-        # reshape weight
-        weight = self._get_linearized_weight()
-        kw = self.kernel_size[0]
-        dilation = self.dilation[0]
-
-        bsz = input.size(0)  # input: bsz x len x dim = batch size x time length x channels
-        if kw > 1:
-            input = input.data
-            if self.input_buffer is None:
-                # apply dilation
-                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
-                # reset entries to zero
-                self.input_buffer.zero_()
-            else:
-                # shift buffer
-                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
-            # append next input
-            self.input_buffer[:, -1, :] = input[:, -1, :]
-            input = self.input_buffer
-            if dilation > 1:
-                input = input[:, 0::dilation, :].contiguous()
-        output = F.linear(input.view(bsz, -1), weight, self.bias)
-        return output.view(bsz, 1, -1)
-
-    def clear_buffer(self):
-        self.input_buffer = None
-
-    def _get_linearized_weight(self): 
-        """
-        linearized weights output shape = [out channels, in channels*kernel size]
-        """
-        if self._linearized_weight is None:
-            kw = self.kernel_size[0]
-            # nn.Conv1d
-            if self.weight.size() == (self.out_channels, self.in_channels, kw):
-                weight = self.weight.transpose(1, 2).contiguous()
-            else:
-                # fairseq.modules.conv_tbc.ConvTBC
-                weight = self.weight.transpose(2, 1).transpose(1, 0).contiguous()
-            assert weight.size() == (self.out_channels, kw, self.in_channels)
-            self._linearized_weight = weight.view(self.out_channels, -1)
-        return self._linearized_weight
-
-    def _clear_linearized_weight(self, *args):
-        self._linearized_weight = None
+from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
+from .mixture import sample_from_discretized_mix_logistic
+from .mixture import sample_from_mix_gaussian
+from wavenet_vocoder import upsample
 
 
-def Conv1d1x1(in_channels, out_channels, bias=True):
-    """1-by-1 convolution layer
-    """
-    return CNN.Conv1d(in_channels = in_channels, out_channels = out_channels, kernel_size=1, padding=0,
-                  dilation=1, bias=bias)
-
-class ResidualConv1dGLU(nn.Module):
-    """Residual dilated conv1d + Gated linear unit
+def _expand_global_features(B, T, g, bct=True):
+    """Expand global conditioning features to all time steps
 
     Args:
-        residual_channels (int): Residual input / output channels
-        gate_channels (int): Gated activation channels.
-        kernel_size (int): Kernel size of convolution layers.
-        skip_out_channels (int): Skip connection channels. If None, set to same
-          as ``residual_channels``.
-        cin_channels (int): Local conditioning channels. If negative value is
-          set, local conditioning is disabled.
-        gin_channels (int): Global conditioning channels. If negative value is
-          set, global conditioning is disabled.
-        dropout (float): Dropout probability.
-        padding (int): Padding for convolution layers. If None, proper padding
-          is computed depends on dilation and kernel_size.
-        dilation (int): Dilation factor.
+        B (int): Batch size.
+        T (int): Time length.
+        g (Tensor): Global features, (B x C) or (B x C x 1).
+        bct (bool) : returns (B x C x T) if True, otherwise (B x T x C)
+
+    Returns:
+        Tensor: B x C x T or B x T x C or None
     """
+    if g is None:
+        return None
+    g = g.unsqueeze(-1) if g.dim() == 2 else g
+    if bct:
+        g_bct = g.expand(B, -1, T)
+        return g_bct.contiguous()
+    else:
+        g_btc = g.expand(B, -1, T).transpose(1, 2)
+        return g_btc.contiguous()
 
-    def __init__(self, residual_channels, gate_channels, kernel_size,
-                 skip_out_channels=None,
-                 cin_channels=-1, gin_channels=-1,
-                 dropout=1 - 0.95, dilation=1, causal=True,
-                 bias=True, *args, **kwargs):
-        super(ResidualConv1dGLU, self).__init__()
-        self.dropout = dropout
-        if skip_out_channels is None:
-            skip_out_channels = residual_channels
 
-        self.causal = causal
-        
-        if self.causal:
-            self.conv = CNN.Conv1d(in_channels=residual_channels, out_channels=gate_channels, kernel_size=kernel_size,
-                           padding="causal", dilation=dilation, bias=bias)
-        else: # no causal convolutions, padding ="same" and stride=1 return output shape same as input shape
-            self.conv = CNN.Conv1d(in_channels=residual_channels, out_channels=gate_channels, kernel_size=kernel_size,
-                           padding="same", dilation=dilation, bias=bias)
+def receptive_field_size(total_layers, num_cycles, kernel_size,
+                         dilation=lambda x: 2**x):
+    """Compute receptive field size
 
-        # local conditioning
-        if cin_channels > 0:
-            self.conv1x1c = Conv1d1x1(cin_channels, gate_channels, bias=False)
-        else:
-            self.conv1x1c = None
+    Args:
+        total_layers (int): total layers
+        num_cycles (int): cycles
+        kernel_size (int): kernel size
+        dilation (lambda): lambda to compute dilation factor. ``lambda x : 1``
+          to disable dilated convolution.
 
-        # global conditioning
-        if gin_channels > 0:
-            self.conv1x1c = Conv1d1x1(gin_channels, gate_channels, bias=False)
-        else:
-            self.conv1x1g = None
+    Returns:
+        int: receptive field size in sample
 
-        # conv output is split into two groups
-        gate_out_channels = gate_channels // 2
-        self.conv1x1_out = Conv1d1x1(gate_out_channels, residual_channels, bias=bias)
-        self.conv1x1_skip = Conv1d1x1(gate_out_channels, skip_out_channels, bias=bias)
-
-    def forward(self, x, c=None, g=None):
-        return self._forward(x, c, g, False)
-
-    def incremental_forward(self, x, c=None, g=None):
-        return self._forward(x, c, g, True)
-
-    def _forward(self, x, c, g, is_incremental):
-        """Forward
-
-        Args:
-            x (Tensor): B x C x T
-            c (Tensor): B x C x T, Local conditioning features
-            g (Tensor): B x C x T, Expanded global conditioning features
-            is_incremental (Bool) : Whether incremental mode or not
-
-        Returns:
-            Tensor: output
-        """
-        residual = x
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        ## NEED TO FIGURE OUT INCREMENTAL S TUFF
-        if is_incremental:
-            splitdim = -1
-            x = self.conv.incremental_forward(x)
-        else:
-            splitdim = 1
-            x = self.conv(x)
-            # remove future time steps
-            x = x[:, :, :residual.size(-1)] if self.causal else x
-
-        a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
-
-        # local conditioning
-        if c is not None:
-            assert self.conv1x1c is not None
-            c = _conv1x1_forward(self.conv1x1c, c, is_incremental)
-            ca, cb = c.split(c.size(splitdim) // 2, dim=splitdim)
-            a, b = a + ca, b + cb
-
-        # global conditioning
-        if g is not None:
-            assert self.conv1x1g is not None
-            g = _conv1x1_forward(self.conv1x1g, g, is_incremental)
-            ga, gb = g.split(g.size(splitdim) // 2, dim=splitdim)
-            a, b = a + ga, b + gb
-
-        x = torch.tanh(a) * torch.sigmoid(b)
-
-        # For skip connection
-        s = _conv1x1_forward(self.conv1x1_skip, x, is_incremental)
-
-        # For residual connection
-        x = _conv1x1_forward(self.conv1x1_out, x, is_incremental)
-
-        x = (x + residual) * math.sqrt(0.5)
-        return x, s
-
-    def clear_buffer(self):
-        for c in [self.conv, self.conv1x1_out, self.conv1x1_skip,
-                  self.conv1x1c, self.conv1x1g]:
-            if c is not None:
-                c.clear_buffer()
- 
+    """
+    assert total_layers % num_cycles == 0
+    layers_per_cycle = total_layers // num_cycles
+    dilations = [dilation(i % layers_per_cycle) for i in range(total_layers)]
+    return (kernel_size - 1) * sum(dilations) + 1
 
 
 class WaveNet(nn.Module):
@@ -223,7 +70,7 @@ class WaveNet(nn.Module):
 
     Args:
         out_channels (int): Output channels. If input_type is mu-law quantized
-          one-hot vector. this must equal to the quantize channels. Other wise
+          one-hot vecror. this must equal to the quantize channels. Other wise
           num_mixtures x 3 (pi, mu, log_scale).
         layers (int): Number of total layers
         stacks (int): Number of dilation cycles
@@ -274,14 +121,11 @@ class WaveNet(nn.Module):
         self.output_distribution = output_distribution
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-
-        # 1-by-1 convolution layer
         if scalar_input:
-            self.first_conv = CNN.Conv1d(1, residual_channels, bias=True, kernel_size=1, padding=0, dilation=1, dropout=0)
+            self.first_conv = Conv1d1x1(1, residual_channels)
         else:
-            self.first_conv = CNN.Conv1d(out_channels, residual_channels, bias=True, kernel_size=1, padding=0, dilation=1, dropout=0)
+            self.first_conv = Conv1d1x1(out_channels, residual_channels)
 
-        # building convolutional layers for a residual block
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)

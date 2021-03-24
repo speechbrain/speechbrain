@@ -1,11 +1,12 @@
+# coding: utf-8
 import torch
-import speechbrain as sb
 from torch import nn
 from torch.nn import functional as F
 
-class Conv1d_increment(nn.Conv1d):
+
+class Conv1d(nn.Conv1d):
     """Extended nn.Conv1d for incremental dilated convolutions
-    """ 
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -15,7 +16,7 @@ class Conv1d_increment(nn.Conv1d):
 
     def incremental_forward(self, input):
         # input: (B, T, C)
-        if self.training: # incremental forward used only for auto-regressive samples generation during inference time
+        if self.training:
             raise RuntimeError('incremental_forward only supports eval mode')
 
         # run forward pre hooks (e.g., weight norm)
@@ -27,13 +28,11 @@ class Conv1d_increment(nn.Conv1d):
         kw = self.kernel_size[0]
         dilation = self.dilation[0]
 
-        bsz = input.size(0)  # input: bsz x len x dim = batch size x time length x channels
+        bsz = input.size(0)  # input: bsz x len x dim
         if kw > 1:
             input = input.data
             if self.input_buffer is None:
-                # apply dilation
                 self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
-                # reset entries to zero
                 self.input_buffer.zero_()
             else:
                 # shift buffer
@@ -43,18 +42,13 @@ class Conv1d_increment(nn.Conv1d):
             input = self.input_buffer
             if dilation > 1:
                 input = input[:, 0::dilation, :].contiguous()
-
-	# look into SB-fying this later?
         output = F.linear(input.view(bsz, -1), weight, self.bias)
         return output.view(bsz, 1, -1)
 
     def clear_buffer(self):
         self.input_buffer = None
 
-    def _get_linearized_weight(self): 
-    """
-    linearized weights output shape = [out channels, in channels*kernel size]
-    """
+    def _get_linearized_weight(self):
         if self._linearized_weight is None:
             kw = self.kernel_size[0]
             # nn.Conv1d
