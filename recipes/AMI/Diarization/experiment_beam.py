@@ -258,15 +258,22 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 # Will be estimated using max eigen gap for cos based affinity
                 num_spkrs = None
 
-        diar.do_spec_clustering(
-            diary_obj,
-            out_rttm_file,
-            rec_id,
-            num_spkrs,
-            pval,
-            params["affinity"],
-            n_neighbors,
-        )
+        if params["backend"] == "kmeans":
+            print("Doing Kmeans...")
+            diar.do_kmeans_clustering(
+                diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
+            )
+        else:
+            # Go for SC
+            diar.do_spec_clustering(
+                diary_obj,
+                out_rttm_file,
+                rec_id,
+                num_spkrs,
+                pval,
+                params["affinity"],
+                n_neighbors,
+            )
 
     # Concatenate individual RTTM files
     # This is not needed but just staying with the standards
