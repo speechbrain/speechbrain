@@ -321,7 +321,8 @@ class Conv1d(nn.Module):
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
     skip_transpose : bool
-        If True, uses batch x time x channel convention of speechbrain
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
 
     Example
     -------
@@ -658,7 +659,7 @@ class Conv2d(nn.Module):
 
 
 class ConvTranspose1d(nn.Module):
-    """This class implements 1d transposed convolution with speechbrain dimension convention.
+    """This class implements 1d transposed convolution with speechbrain.
     Transpose convolution is normally used to perform upsampling.
 
     Arguments
@@ -677,23 +678,34 @@ class ConvTranspose1d(nn.Module):
     dilation : int
         Dilation factor of the convolutional filters.
     padding : str or int
+        To have in output the target dimension, we suggest tuning the kernel
+        size and the padding properly. We also support the following function
+        to have some control over the padding and the corresponding ouput
+        dimensionality.
         if "valid", no padding is applied
-        if "same", padding amount is inferred so that the output size is closest to possible to input size
-            Note that for some kernel_size / stride combinations it is not possible to obtain the exact same size, but we return the closest possible size.
-        if "factor", padding amount is inferred so that the output size is closest to inputsize*stride
-            Note that for some kernel_size / stride combinations it is not possible to obtain the exact size, but we return the closest possible size.
-        if an integer value is entered, a custom padding is used
+        if "same", padding amount is inferred so that the output size is closest
+        to possible to input size. Note that for some kernel_size / stride combinations
+        it is not possible to obtain the exact same size, but we return the closest
+        possible size.
+        if "factor", padding amount is inferred so that the output size is closest
+        to inputsize*stride. Note that for some kernel_size / stride combinations
+        it is not possible to obtain the exact size, but we return the closest
+        possible size.
+        if an integer value is entered, a custom padding is used.
     output_padding : int,
         Additional size added to one side of the output shape
     groups: int
-        Number of blocked connections from input channels to output channels. Default: 1
+        Number of blocked connections from input channels to output channels.
+        Default: 1
     bias: bool
         If True, adds a learnable bias to the output
     skip_transpose : bool
-        If True, uses batch x time x channel convention of speechbrain
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
 
     Example
     -------
+    >>> from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d
     >>> inp_tensor = torch.rand([10, 12, 40]) #[batch, time, fea]
     >>> convtranspose_1d = ConvTranspose1d(
     ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=3, stride=2
