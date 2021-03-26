@@ -3,7 +3,8 @@ This folder contains recipes for command recognition with [Google Speech Command
 The recipes supports 12 or 35 commands.  To run it, please type:
 
 ```
-python train.py hparams/xvect.yaml
+python train.py hparams/xvect.yaml --data_folder=/path_to_/GSC (V12 task)
+python train.py hparams/xvect.yaml --data_folder=/path_to_/GSC --seed=1234  --number_of_commands=35 --percentage_unknown=0 --percentage_silence=0 (v35 task)
 ```
 
 # Performance summary
