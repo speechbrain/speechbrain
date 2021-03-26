@@ -678,7 +678,10 @@ class ConvTranspose1d(nn.Module):
         Dilation factor of the convolutional filters.
     padding : str or int
         if "valid", no padding is applied
-        if "same", padding amount is inferred so that the output is closest to possible to input
+        if "same", padding amount is inferred so that the output size is closest to possible to input size
+            Note that for some kernel_size / stride combinations it is not possible to obtain the exact same size, but we return the closest possible size.
+        if "factor", padding amount is inferred so that the output size is closest to inputsize*stride
+            Note that for some kernel_size / stride combinations it is not possible to obtain the exact size, but we return the closest possible size.
         if an integer value is entered, a custom padding is used
     output_padding : int,
         Additional size added to one side of the output shape
@@ -717,7 +720,13 @@ class ConvTranspose1d(nn.Module):
     torch.Size([1, 115])
 
     >>> signal = torch.rand([1,115]) #[batch, time]
-    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2, padding='valid')
+    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=7, stride=2, padding='valid')
+    >>> signal_rec = conv_t(signal)
+    >>> signal_rec.shape
+    torch.Size([1, 235])
+
+    >>> signal = torch.rand([1,115]) #[batch, time]
+    >>> conv_t = ConvTranspose1d(input_shape=signal.shape, out_channels=1, kernel_size=7, stride=2, padding='factor')
     >>> signal_rec = conv_t(signal)
     >>> signal_rec.shape
     torch.Size([1, 231])
@@ -762,6 +771,16 @@ class ConvTranspose1d(nn.Module):
             L_in = input_shape[-1] if skip_transpose else input_shape[1]
             padding_value = get_padding_elem_transposed(
                 L_in,
+                L_in,
+                stride=stride,
+                kernel_size=kernel_size,
+                dilation=dilation,
+                output_padding=output_padding,
+            )
+        elif self.padding == "factor":
+            L_in = input_shape[-1] if skip_transpose else input_shape[1]
+            padding_value = get_padding_elem_transposed(
+                L_in * stride,
                 L_in,
                 stride=stride,
                 kernel_size=kernel_size,
