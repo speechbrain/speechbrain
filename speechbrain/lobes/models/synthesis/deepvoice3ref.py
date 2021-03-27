@@ -926,7 +926,6 @@ def deepvoice3(n_vocab, embed_dim=256, mel_dim=80, linear_dim=513, r=4,
                ):
     """Build deepvoice3
     """
-
     time_upsampling = max(downsample_step // r, 1)
 
     # Seq2seq
@@ -1169,7 +1168,8 @@ class Loss(nn.Module):
         if self.downsample_step > 1:
             # spectrogram-domain mask
             target_mask = sequence_mask(
-                target_lengths, max_len=target_linear.size(1)).unsqueeze(-1)
+                target_lengths, max_len=target_linear.size(1),
+                device=target_lengths.device).unsqueeze(-1)
         else:
             target_mask = decoder_target_mask
         
@@ -1181,7 +1181,7 @@ class Loss(nn.Module):
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
         mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
-        done_loss = self.binary_criterion(target_done.squeeze(-1), input_done)
+        done_loss = self.binary_criterion(target_done, input_done)
 
         n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim)
 
@@ -1193,6 +1193,8 @@ class Loss(nn.Module):
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
         linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div    
+
+        print("||>LOSS mel", mel_loss, " LIN ", linear_loss, " done ", done_loss)
         loss = mel_loss + linear_loss + done_loss
         return loss
 

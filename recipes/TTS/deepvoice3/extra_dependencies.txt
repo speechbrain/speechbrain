@@ -1,0 +1,2 @@
+torchvision==0.8.2
+librosa==0.8.0
