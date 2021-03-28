@@ -715,7 +715,7 @@ class GccPhat(torch.nn.Module):
         """
 
         # Get useful dimensions
-        n_samples = int((XXs.shape[2] - 1) * 2)
+        n_samples = (XXs.shape[2] - 1) * 2
 
         # Extracting the tensors needed
         XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=4)
