@@ -74,3 +74,10 @@ def test_input_normalization():
     inputs = torch.randn([10, 101, 20])
     inp_len = torch.ones([10])
     assert torch.jit.trace(norm, (inputs, inp_len))
+
+    norm = InputNormalization()
+    inputs = torch.FloatTensor([1, 2, 3, 0, 0, 0]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([0.5])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([-1, 0, 1, -2, -2, -2])
+    assert torch.equal(out_norm, target)

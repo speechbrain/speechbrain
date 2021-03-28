@@ -193,7 +193,7 @@ class ISTFT(torch.nn.Module):
 
     This class computes the Inverse Short-Term Fourier Transform of
     an audio signal. It supports multi-channel audio inputs
-    (batch, time_step, n_fft, 2, n_channels [optional]).
+    (batch, time_step, n_fft, n_channels [optional], 2).
 
     Arguments
     ---------
@@ -301,6 +301,9 @@ class ISTFT(torch.nn.Module):
             x = x.reshape(-1, x.shape[2], x.shape[3], x.shape[4])
         elif len(or_shape) == 4:
             x = x.permute(0, 2, 1, 3)
+
+        # isft ask complex input
+        x = torch.complex(x[...,0], x[...,1])
 
         istft = torch.istft(
             input=x,

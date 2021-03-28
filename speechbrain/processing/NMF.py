@@ -175,8 +175,10 @@ def reconstruct_results(
                 dim=-1,
             )
         )
-        shat1 = ISTFT(X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
-        shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
+        X1hat_stft = X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3)
+        X2hat_stft = X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3)
+        shat1 = ISTFT(X1hat_stft)
+        shat2 = ISTFT(X2hat_stft)
 
         div_factor = 10
         x1 = shat1 / (div_factor * shat1.std())
