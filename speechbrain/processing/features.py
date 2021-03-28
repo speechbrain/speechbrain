@@ -303,7 +303,7 @@ class ISTFT(torch.nn.Module):
             x = x.permute(0, 2, 1, 3)
 
         # isft ask complex input
-        x = torch.complex(x[...,0], x[...,1])
+        x = torch.complex(x[..., 0], x[..., 1])
 
         istft = torch.istft(
             input=x,
