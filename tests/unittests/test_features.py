@@ -11,6 +11,8 @@ def test_deltas():
     out = torch.zeros(size)
     assert torch.sum(compute_deltas(inp) == out) == out.numel()
 
+    assert torch.jit.trace(compute_deltas, inp)
+
 
 def test_context_window():
 
@@ -24,6 +26,8 @@ def test_context_window():
     inp = torch.rand([2, 10, 5])
     compute_cw = ContextWindow(left_frames=0, right_frames=0)
     assert torch.sum(compute_cw(inp) == inp) == inp.numel()
+
+    assert torch.jit.trace(compute_cw, inp)
 
 
 def test_istft():
@@ -39,3 +43,41 @@ def test_istft():
     out = compute_istft(compute_stft(inp), sig_length=16000)
 
     assert torch.sum(torch.abs(inp - out) < 1e-6) >= inp.numel() - 5
+
+    assert torch.jit.trace(compute_stft, inp)
+    assert torch.jit.trace(compute_istft, compute_stft(inp))
+
+
+def test_filterbank():
+
+    from speechbrain.processing.features import Filterbank
+
+    compute_fbanks = Filterbank()
+    inputs = torch.ones([10, 101, 201])
+    assert torch.jit.trace(compute_fbanks, inputs)
+
+
+def test_dtc():
+
+    from speechbrain.processing.features import DCT
+
+    compute_dct = DCT(input_size=40)
+    inputs = torch.randn([10, 101, 40])
+    assert torch.jit.trace(compute_dct, inputs)
+
+
+def test_input_normalization():
+
+    from speechbrain.processing.features import InputNormalization
+
+    norm = InputNormalization()
+    inputs = torch.randn([10, 101, 20])
+    inp_len = torch.ones([10])
+    assert torch.jit.trace(norm, (inputs, inp_len))
+
+    norm = InputNormalization()
+    inputs = torch.FloatTensor([1, 2, 3, 0, 0, 0]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([0.5])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([-1, 0, 1, -2, -2, -2])
+    assert torch.equal(out_norm, target)
