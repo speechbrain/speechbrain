@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 sys.path.append("..")
 from datasets.vctk import VCTK
-from common.dataio import audio_pipeline, spectrogram, resample
+from common.dataio import audio_pipeline, spectrogram, resample, mel_spectrogram
 from torchaudio import transforms
 
 
@@ -68,7 +68,7 @@ class DeepVoice3Brain(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = BatchWrapper(batch).to(self.device)
-        output_mel, output_linear, _, output_done = predictions
+        output_mel, output_linear, attention, output_done = predictions
         target_mel = batch.mel.data.transpose(1, 2)
         target_done = batch.done.data
         target_linear = batch.linear.data.transpose(1, 2)
@@ -83,13 +83,22 @@ class DeepVoice3Brain(sb.core.Brain):
                 output_done.transpose(1, 2), target_done.size(1), 1.).transpose(1, 2)
 
         output_linear = output_linear[:, :target_linear.size(1), :]
-        outputs = target_mel, target_linear, target_done, target_lengths
-        targets = output_mel, output_linear, output_done, target_lengths
+        targets = target_mel, target_linear,  target_done, target_lengths
+        outputs = output_mel, output_linear, attention, output_done, target_lengths
         loss = self.hparams.compute_cost(
-            outputs, targets
+            outputs, targets,
+            input_lengths=batch.input_lengths
         )
-        self.last_output_linear = output_linear.detach().cpu()
-        self.last_target_linear = target_linear.detach().cpu()
+        (self.last_output_linear, 
+         self.last_target_linear, 
+         self.last_output_mel, 
+         self.last_target_mel) = [
+            tensor.detach().cpu()
+            for tensor in (
+                output_linear, target_linear,
+                output_mel, target_mel
+            )]
+        
         return loss
     
     def on_fit_start(self):
@@ -100,9 +109,13 @@ class DeepVoice3Brain(sb.core.Brain):
 
     def _save_progress_sample(self):
         self._save_sample_image(
-            'target.png', self.last_target_linear)
+            'target_linear.png', self.last_target_linear)
         self._save_sample_image(
-            'output.png', self.last_output_linear)
+            'output_linear.png', self.last_output_linear)
+        self._save_sample_image(
+            'target_mel.png', self.last_target_mel)
+        self._save_sample_image(
+            'output_mel.png', self.last_output_mel)
 
     def _save_sample_image(self, file_name, data):
         effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
@@ -143,9 +156,6 @@ class DeepVoice3Brain(sb.core.Brain):
 
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
-            #old_lr = self.optimizer.param_groups[0]["lr"]
-            #TODO: This should not be merged with the main code - it is temporary
-#            new_lr = noam_learning_rate_decay(self.hparams.lr, self.n_steps)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
@@ -171,30 +181,31 @@ class DeepVoice3Brain(sb.core.Brain):
                 test_stats=stats,
             )
 
+
 #TODO: This is temporary. Add support for different characters for different languages
 ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-'
 
 
-def mel_spectrogram(
-    takes, provides,
-    n_fft, win_length, hop_length, sample_rate, n_mels):
-    spectrogram = transforms.Spectrogram(
-        n_fft=n_fft,
-        win_length=win_length,
-        hop_length=hop_length,
-        power=None)
-    mel = transforms.MelScale(
-        n_mels=n_mels,
-        n_stft=n_fft // 2 + 1,
-        sample_rate=sample_rate)
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)
-    def f(raw_signal):
-        x = spectrogram(raw_signal)
-        x = torch.abs(x[:, :, 0] + x[:, :, 1] * 1j)
-        x = mel(x)
-        return x
-    return f
+# def mel_spectrogram(
+#     takes, provides,
+#     n_fft, win_length, hop_length, sample_rate, n_mels):
+#     spectrogram = transforms.Spectrogram(
+#         n_fft=n_fft,
+#         win_length=win_length,
+#         hop_length=hop_length,
+#         power=None)
+#     mel = transforms.MelScale(
+#         n_mels=n_mels,
+#         n_stft=n_fft // 2 + 1,
+#         sample_rate=sample_rate)
+#     @sb.utils.data_pipeline.takes(takes)
+#     @sb.utils.data_pipeline.provides(provides)
+#     def f(raw_signal):
+#         x = spectrogram(raw_signal)
+#         x = torch.abs(x[:, :, 0] + x[:, :, 1] * 1j)
+#         x = mel(x)
+#         return x
+#     return f
 
 def text_encoder(max_input_len=128, tokens=None):
     """
@@ -221,7 +232,7 @@ def text_encoder(max_input_len=128, tokens=None):
         text_sequence_eos = encoder.append_eos_index(text_sequence)
         input_length = len(label)
         yield text_sequence_eos.long()
-        yield input_length
+        yield input_length + 1
         yield torch.arange(1, input_length + 2, dtype=torch.long)
         
     return f
@@ -278,7 +289,7 @@ def done(outputs_per_step=1, downsample_step=4):
     @sb.utils.data_pipeline.takes("target_lengths")
     @sb.utils.data_pipeline.provides("done")
     def f(target_length):
-        done_length = target_length // outputs_per_step // downsample_step + 1
+        done_length = target_length // outputs_per_step // downsample_step + 2
         done = torch.zeros(done_length)
         done[-2:] = 1.
         return done.unsqueeze(-1)
@@ -362,6 +373,18 @@ def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
     return F.pad(tensor, (0, padding), value=value)
 
 
+def pad_spectrogram(takes: str, provides: str, outputs_per_step: int, downsample_step: int):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(tensor: torch.Tensor):
+        padding = (
+            outputs_per_step,
+            downsample_step * outputs_per_step,
+            0, 0)
+        return F.pad(tensor, padding)        
+    return f
+        
+
 OUTPUT_KEYS = [
     "text_sequences", "mel", "mel_norm", "input_lengths", "text_positions",
     "frame_positions", "target_lengths", "done", "linear", "linear_raw", "wav"]
@@ -400,17 +423,22 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             takes="sig_trimmed",
             provides="mel_raw",
             hop_length=hparams['hop_length'],
-            win_length=hparams['hop_length'],
             n_mels=hparams['mel_dim'],
             n_fft=hparams['n_fft'],
+            power=1,
             sample_rate=hparams['sample_rate']),
         normalize_spectrogram(
             takes="mel_raw",
             provides="mel_norm",
             min_level_db=hparams['min_level_db'],
             ref_level_db=hparams['ref_level_db']),
-        downsample_spectrogram(
+        pad_spectrogram(
             takes="mel_norm",
+            provides="mel_pad",
+            outputs_per_step=hparams["outputs_per_step"],
+            downsample_step=hparams['mel_downsample_step']),
+        downsample_spectrogram(
+            takes="mel_pad",
             provides="mel",
             downsample_step=hparams['mel_downsample_step']),
         text_encoder(max_input_len=hparams['max_input_len'], tokens=tokens),
@@ -419,16 +447,19 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         spectrogram(
             n_fft=hparams['n_fft'],
             hop_length=hparams['hop_length'],
-            win_length=hparams['hop_length'],
-            power=None,
+            power=1,
             takes="sig_trimmed",
             provides="linear_raw"),
         normalize_spectrogram(
             takes="linear_raw",
-            provides="linear",
+            provides="linear_norm",
             min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db'],
-            absolute=True),
+            ref_level_db=hparams['ref_level_db']),
+        pad_spectrogram(
+            takes="linear_norm",
+            provides="linear",
+            outputs_per_step=hparams["outputs_per_step"],
+            downsample_step=hparams['mel_downsample_step']),
         done(downsample_step=hparams['mel_downsample_step'],
              outputs_per_step=hparams['outputs_per_step']),
         target_lengths
@@ -440,6 +471,15 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     dataset.set_output_keys(OUTPUT_KEYS)
     return SaveableDataLoader(dataset)
 
+
+class SingleBatchLoader(DataLoader):
+    def __init__(self, batch):
+        super()
+        self.batch = batch
+
+    def __iter__(self):
+        yield self.batch
+        
 
 class SingleBatchWrapper(DataLoader):
     """
@@ -486,13 +526,24 @@ def main():
         overrides=overrides,
     )
     # Create dataset objects "train", "valid", and "test".
-    datasets = dataio_prep(hparams)
-    if hparams.get('overfit_test'):
+    frozen_batch = hparams.get('test_frozen_batch')
+    if frozen_batch:
+        batch = torch.load(frozen_batch)
+        for key in ['mel', 'linear']:
+            batch[key] = batch[key].transpose(1, 2)
+        loader = SingleBatchLoader(batch)
         datasets = {
-            key: SingleBatchWrapper(
-                dataset,
-                num_iterations=hparams.get('overfit_test_iterations', 1)) 
-            for key, dataset in datasets.items()}
+            key: loader for key in ['train', 'test']}
+    else:
+        datasets = dataio_prep(hparams)
+        if hparams.get('overfit_test'):
+            datasets = {
+                key: SingleBatchWrapper(
+                    dataset,
+                    num_iterations=hparams.get('overfit_test_iterations', 1)) 
+                for key, dataset in datasets.items()}
+    
+
 
     # Initialize the Brain object to prepare for mask training.
     tts_brain = DeepVoice3Brain(

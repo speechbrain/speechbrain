@@ -901,6 +901,24 @@ class Converter(nn.Module):
         return torch.sigmoid(x)
 
 
+def guided_attention(N, max_N, T, max_T, g):
+    W = np.zeros((max_N, max_T), dtype=np.float32)
+    # TODO: Vectorize
+    for n in range(N):
+        for t in range(T):
+            W[n, t] = 1 - np.exp(-(n / N - t / T)**2 / (2 * g * g))
+    return W
+
+
+def guided_attentions(input_lengths, target_lengths, max_target_len, g=0.2):
+    B = len(input_lengths)
+    max_input_len = input_lengths.max()
+    W = np.zeros((B, max_target_len, max_input_len), dtype=np.float32)
+    for b in range(B):
+        W[b] = guided_attention(input_lengths[b], max_input_len,
+                                target_lengths[b], max_target_len, g).T
+    return W
+
 def deepvoice3(n_vocab, embed_dim=256, mel_dim=80, linear_dim=513, r=4,
                downsample_step=1,
                n_speakers=1, speaker_embed_dim=16, padding_idx=0,
@@ -990,6 +1008,7 @@ def deepvoice3(n_vocab, embed_dim=256, mel_dim=80, linear_dim=513, r=4,
 
 class MultiSpeakerTTSModel(nn.Module):
     """Attention seq2seq model + post processing network
+
     """
 
     def __init__(self, seq2seq, postnet,
@@ -1120,7 +1139,8 @@ class Loss(nn.Module):
         binary_divergence_weight: float,
         priority_freq_weight: float,
         priority_freq: float,
-        sample_rate: float):
+        sample_rate: float,
+        guided_attention_sigma: float):
         """
         Class constructor
 
@@ -1153,10 +1173,14 @@ class Loss(nn.Module):
         self.priority_freq_weight = priority_freq_weight
         self.priority_freq = priority_freq
         self.sample_rate = sample_rate
+        self.guided_attention_sigma = guided_attention_sigma
         self.binary_criterion = nn.BCELoss()
+        self.masked_l1 = MaskedL1Loss()
+        self.l1 = nn.L1Loss()
 
-    def forward(self, input, target):
-        input_mel, input_linear, input_done, _ = input
+
+    def forward(self, input, target, input_lengths):
+        input_mel, input_linear, attention, input_done, _ = input
         target_mel, target_linear, target_done, target_lengths = target
         r = self.outputs_per_step
                 
@@ -1176,27 +1200,68 @@ class Loss(nn.Module):
         decoder_target_mask = decoder_target_mask[:, r:, :]
         target_mask = target_mask[:, r:, :]
 
-        mel_l1_loss, mel_binary_div = spec_loss(
+        mel_l1_loss, mel_binary_div = self.spec_loss(
             input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask,
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
         mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
-        done_loss = self.binary_criterion(target_done, input_done)
+        done_loss = self.binary_criterion(input_done, target_done)
 
         n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim)
 
 
-        linear_l1_loss, linear_binary_div = spec_loss(
+        linear_l1_loss, linear_binary_div = self.spec_loss(
             input_linear[:, :-self.outputs_per_step, :], target_linear[:, self.outputs_per_step:, :], target_mask,
             priority_bin=n_priority_freq,
             priority_w=self.priority_freq_weight,
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
-        linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div    
+        linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div  
+        
+        decoder_lengths = target_lengths.cpu().long().numpy() // r // self.downsample_step
+        soft_mask = guided_attentions(
+            input_lengths, decoder_lengths,
+            attention.size(-2), self.guided_attention_sigma)
+        soft_mask = torch.from_numpy(soft_mask).to(input_mel.device)
+        attn_loss = (attention * soft_mask).mean()
 
-        print("||>LOSS mel", mel_loss, " LIN ", linear_loss, " done ", done_loss)
-        loss = mel_loss + linear_loss + done_loss
+        loss = mel_loss + linear_loss + done_loss + attn_loss
         return loss
+
+    def spec_loss(self, y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
+
+        w = masked_loss_weight
+        # L1 loss
+        if w > 0:
+            assert mask is not None
+            l1_loss = w * self.masked_l1(y_hat, y, mask=mask) + (1 - w) * self.l1(y_hat, y)
+        else:
+            assert mask is None
+            l1_loss = self.l1(y_hat, y)
+
+        # Priority L1 loss
+        if priority_bin is not None and priority_w > 0:
+            if w > 0:
+                priority_loss = w * self.masked_l1(
+                    y_hat[:, :, :priority_bin], y[:, :, :priority_bin], mask=mask) \
+                    + (1 - w) * self.l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+            else:
+                priority_loss = self.l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+            l1_loss = (1 - priority_w) * l1_loss + priority_w * priority_loss
+
+        # Binary divergence loss
+        if binary_divergence_weight <= 0:
+            binary_div = y.data.new(1).zero_()
+        else:
+            y_hat_logits = logit(y_hat)
+            z = -y * y_hat_logits + torch.log1p(torch.exp(y_hat_logits))
+            if w > 0:
+                binary_div = w * masked_mean(z, mask) + (1 - w) * z.mean()
+            else:
+                binary_div = z.mean()
+
+        return l1_loss, binary_div
+
 
 
 def sequence_mask(sequence_length, max_len=None, device=None):
@@ -1213,41 +1278,6 @@ def sequence_mask(sequence_length, max_len=None, device=None):
     return result
 
 
-def spec_loss(y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
-    masked_l1 = MaskedL1Loss()
-    l1 = nn.L1Loss()
-
-    w = masked_loss_weight
-    # L1 loss
-    if w > 0:
-        assert mask is not None
-        l1_loss = w * masked_l1(y_hat, y, mask=mask) + (1 - w) * l1(y_hat, y)
-    else:
-        assert mask is None
-        l1_loss = l1(y_hat, y)
-
-    # Priority L1 loss
-    if priority_bin is not None and priority_w > 0:
-        if w > 0:
-            priority_loss = w * masked_l1(
-                y_hat[:, :, :priority_bin], y[:, :, :priority_bin], mask=mask) \
-                + (1 - w) * l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
-        else:
-            priority_loss = l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
-        l1_loss = (1 - priority_w) * l1_loss + priority_w * priority_loss
-
-    # Binary divergence loss
-    if binary_divergence_weight <= 0:
-        binary_div = y.data.new(1).zero_()
-    else:
-        y_hat_logits = logit(y_hat)
-        z = -y * y_hat_logits + torch.log1p(torch.exp(y_hat_logits))
-        if w > 0:
-            binary_div = w * masked_mean(z, mask) + (1 - w) * z.mean()
-        else:
-            binary_div = z.mean()
-
-    return l1_loss, binary_div
 
 
 def logit(x, eps=1e-8):
