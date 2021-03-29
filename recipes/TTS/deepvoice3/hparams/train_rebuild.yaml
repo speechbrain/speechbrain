@@ -1,0 +1,202 @@
+seed: 64
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+embed_dim: 256
+speaker_embed_dim: 16
+batch_size: 32
+n_speakers: 1
+n_vocab: 128
+dropout: 0.05
+mel_dim: 80
+speaker_embedding_weight_std: 0.01
+outputs_per_step: 1
+downsample_step: 4
+time_upsampling: !ref <downsample_step> // <outputs_per_step>
+max_target_len: 1024
+masked_loss_weight: 0.5
+binary_divergence_weight: 0.1
+priority_freq: 3000
+priority_freq_weight: 0.0
+source_sample_rate: 48000
+sample_rate: 22050
+window_ahead: 3
+window_backward: 1
+encoder_in_std_mul: 1.0
+encoder_mid_std_mul: 2.0
+encoder_out_std_mul: 4.0
+encoder_conv_kernel_size: 5
+encoder_conv_channels: 256
+encoder_conv_dilation: 1
+encoder_out_kernel_size: 1
+preattention_out_channels: 256
+preattention_conv_channels: 256
+preattention_in_std_mul: 1.0
+preattention_conv_std_mul: 2.0
+decoder_in_dim: !ref <mel_dim>
+decoder_conv_std_mul: 1.0
+decoder_conv_channels: 256
+decoder_conv_kernel_size: 5
+decoder_query_position_rate: 1.0
+decoder_key_position_rate: 1.29
+decoder_max_positions: 512
+decoder_key_projection: false
+decoder_value_projection: false
+converter_conv_channels: 256
+converter_conv_channels_bottom: !ref 2 * <converter_conv_channels>
+converter_conv_kernel_size: 5
+converter_out_kernel_size: 1
+converter_in_std_mul: 1.0
+converter_mid_std_mul: 4.0
+converter_out_std_mul: 4.0
+converter_in_dim: !ref <decoder_conv_channels>
+linear_dim: 513
+n_fft: 1024
+max_mel_len: !ref <decoder_max_positions> // <downsample_step>
+max_input_len: 128
+max_output_len: 512
+hop_length: 256
+mel_downsample_step: 4
+min_level_db: -100
+ref_level_db: 20
+pad_linear: !ref <max_output_len>
+pad_mel: !ref <max_mel_len>
+guided_attention_sigma: 0.2
+padding_idx: 0
+embedding_weight_std: 0.1
+force_monotonic_attention: true
+trainable_positional_encodings: false
+use_decoder_state_for_postnet_input: true
+freeze_embedding: false
+lr: 0.0005
+lr_warmup_steps: 4000
+number_of_epochs: 50
+checkpoint_every_epoch: false
+progress_samples: true
+progress_sample_path: samples
+progress_samples_interval: 1
+overfit_test: true
+overfit_test_iterations: 5
+
+
+output_folder: !ref ./results/tts/deepvoice/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.Encoder
+  n_vocab: !ref <n_vocab>
+  embed_dim: !ref <embed_dim>
+  padding_idx: !ref <padding_idx>
+  n_speakers: !ref <n_speakers>
+  speaker_embed_dim: !ref <speaker_embed_dim>
+  dropout: !ref <dropout>
+  max_positions: !ref <decoder_max_positions>
+  embedding_weight_std: !ref <embedding_weight_std>
+  convolutions:
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 1)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 3)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 9)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 27)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 1)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 3)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 9)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 27)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 1)
+  - !ref (<encoder_conv_channels>, <encoder_conv_kernel_size>, 3)
+
+decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.Decoder
+    embed_dim: !ref <embed_dim>
+    in_dim: !ref <mel_dim>
+    r: !ref <outputs_per_step>
+    padding_idx: !ref <padding_idx>
+    n_speakers: !ref <n_speakers>
+    speaker_embed_dim: !ref <speaker_embed_dim>
+    dropout: !ref <dropout>
+    max_positions: !ref <decoder_max_positions>
+    attention: [True, False, False, False, True]
+    force_monotonic_attention: !ref <force_monotonic_attention>
+    query_position_rate: !ref <decoder_query_position_rate>
+    key_position_rate: !ref <decoder_key_position_rate>
+    window_ahead: !ref <window_ahead>
+    window_backward: !ref <window_backward>
+    key_projection: !ref <decoder_key_projection>
+    value_projection: !ref <decoder_value_projection>
+    preattention:
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 1)
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 3)   
+    convolutions:
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 1)
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 3)
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 9)
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 27)
+    - !ref (<decoder_conv_channels>, <decoder_conv_kernel_size>, 1)
+
+converter: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.Converter
+  n_speakers: !ref <n_speakers>
+  speaker_embed_dim: !ref <speaker_embed_dim>
+  in_dim: !ref <converter_in_dim>
+  out_dim: !ref <linear_dim>
+  dropout: !ref <dropout>
+  time_upsampling: !ref <time_upsampling>
+  convolutions:  
+  - !ref (<converter_conv_channels>, <converter_conv_kernel_size>, 1)
+  - !ref (<converter_conv_channels>, <converter_conv_kernel_size>, 3)
+  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 9)
+  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 27)
+
+seq2seq: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.AttentionSeq2Seq
+  encoder: !ref <encoder>
+  decoder: !ref <decoder>
+
+model: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.TTSModel
+  seq2seq: !ref <seq2seq>
+  postnet: !ref <converter>
+  mel_dim: !ref <mel_dim>
+  linear_dim: !ref <linear_dim>
+  n_speakers: !ref <n_speakers>
+  speaker_embed_dim: !ref <speaker_embed_dim>
+  trainable_positional_encodings: !ref <trainable_positional_encodings>
+  use_decoder_state_for_postnet_input: !ref <use_decoder_state_for_postnet_input>
+  speaker_embedding_weight_std: !ref <speaker_embedding_weight_std>
+  freeze_embedding: !ref <freeze_embedding>
+
+compute_cost: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.Loss
+  linear_dim: !ref <linear_dim>
+  downsample_step: !ref <downsample_step>
+  outputs_per_step: !ref <outputs_per_step>
+  masked_loss_weight: !ref <masked_loss_weight>
+  binary_divergence_weight: !ref <binary_divergence_weight>
+  priority_freq: !ref <priority_freq>
+  priority_freq_weight: !ref <priority_freq_weight>
+  sample_rate: !ref <sample_rate>
+  guided_attention_sigma: !ref <guided_attention_sigma>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+  lr_initial: !ref <lr>
+  n_warmup_steps: !ref <lr_warmup_steps>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    counter: !ref <epoch_counter>
+
+modules:
+  model: !ref <model>
+
+datasets:
+  train:
+    path: ../datasets/testdata/fake_vctk_1ex
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+
+dataloader_options:
+  batch_size: !ref <batch_size>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+test_frozen_batch: false

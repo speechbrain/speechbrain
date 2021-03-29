@@ -4,7 +4,8 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 embed_dim: 256
 batch_size: 32
 encoder_conv_channels: 256
-n_vocab: 33
+#n_vocab: 33
+n_vocab: 128
 dropout: 0.05
 mel_dim: 80
 outputs_per_step: 1
@@ -52,9 +53,13 @@ pad_linear: !ref <max_output_len>
 pad_mel: !ref <max_mel_len>
 progress_samples: true
 progress_sample_path: samples
+progress_samples_interval: 1
+overfit_test: true
+overfit_test_iterations: 5
+guided_attention_sigma: 0.2
 
 
-lr: 0.002
+lr: 0.0005
 lr_warmup_steps: 4000
 number_of_epochs: 50
 checkpoint_every_epoch: false
@@ -102,6 +107,7 @@ compute_cost: !new:speechbrain.lobes.models.synthesis.deepvoice3ref.Loss
   priority_freq: !ref <priority_freq>
   priority_freq_weight: !ref <priority_freq_weight>
   sample_rate: !ref <sample_rate>
+  guided_attention_sigma: !ref <guided_attention_sigma>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
   lr_initial: !ref <lr>
@@ -131,3 +137,5 @@ dataloader_options:
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
+
+test_frozen_batch: false
