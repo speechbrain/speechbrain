@@ -214,6 +214,35 @@ def create_whamr_csv(datapath, savepath):
                 writer.writerow(row)
 
 
+def create_whamr_rir_csv(datapath, savepath):
+    """
+    This function creates the csv files to get the data loaders for the whamr  dataset.
+
+    Arguments:
+        datapath (str) : path for the whamr rirs.
+        savepath (str) : path where we save the csv file
+    """
+
+    csv_columns = ["ID", "duration", "wav", "wav_format", "wav_opts"]
+
+    files = os.listdir(datapath)
+    all_paths = [os.path.join(datapath, fl) for fl in files]
+
+    with open(savepath + "/whamr_rirs.csv", "w") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+        writer.writeheader()
+        for i, wav_path in enumerate(all_paths):
+
+            row = {
+                "ID": i,
+                "duration": 2.0,
+                "wav": wav_path,
+                "wav_format": "wav",
+                "wav_opts": None,
+            }
+            writer.writerow(row)
+
+
 def create_wsj_csv(datapath, savepath):
     """
     This function creates the csv files to get the speechbrain data loaders for the wsj0-2mix dataset.
