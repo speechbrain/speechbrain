@@ -263,8 +263,10 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             diar.do_kmeans_clustering(
                 diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
             )
-        else:
+
+        if params["backend"] == "SC":
             # Go for SC
+            print("Doing SC...")
             diar.do_spec_clustering(
                 diary_obj,
                 out_rttm_file,
@@ -274,6 +276,11 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 params["affinity"],
                 n_neighbors,
             )
+        if params["backend"] == "AHC":
+            # call AHC
+            threshold = pval
+            print("Doing AHC...")
+            diar.do_AHC(diary_obj, out_rttm_file, rec_id, num_spkrs, threshold)
 
     # Concatenate individual RTTM files
     # This is not needed but just staying with the standards
