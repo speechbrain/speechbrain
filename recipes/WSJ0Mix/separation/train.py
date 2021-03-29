@@ -59,19 +59,27 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if "whamr" in self.hparams.data_folder:
-                        from speechbrain.processing.signal_processing import (
-                            reverberate,
-                        )
+                        if self.hparams.reverb_style == "random":
+                            targets = [
+                                self.hparams.reverb(targets[:, :, i], None)
+                                for i in range(self.hparams.num_spks)
+                            ]
+                            targets = torch.stack(targets, dim=-1)
+                            mix = targets.sum(-1)
+                        else:
+                            from speechbrain.processing.signal_processing import (
+                                reverberate,
+                            )
 
-                        random_channel = torch.randint(2, (1,)).item()
-                        rirs = rirs[random_channel]
+                            random_channel = torch.randint(2, (1,)).item()
+                            rirs = rirs[random_channel]
 
-                        mix = 0
-                        for n, rir in enumerate(rirs):
-                            rir = rir.to(self.device)
+                            mix = 0
+                            for n, rir in enumerate(rirs):
+                                rir = rir.to(self.device)
 
-                            mix = mix + reverberate(targets[0, :, n], rir)
-                        mix = mix.unsqueeze(0)
+                                mix = mix + reverberate(targets[0, :, n], rir)
+                            mix = mix.unsqueeze(0)
                     else:
                         mix = targets.sum(-1)
 
@@ -623,6 +631,20 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+
+    # if whamr, and we do speedaugment with random reverb style, we need to prepare the csv file
+    if (
+        "whamr" in hparams["data_folder"]
+        and hparams["use_speedperturb"]
+        and hparams["reverb_style"] == "random"
+    ):
+        from recipes.WSJ0Mix.prepare_data import create_whamr_rir_csv
+
+        create_whamr_rir_csv(hparams["rir_path"], hparams["save_folder"])
+
+        hparams["reverb"] = sb.processing.speech_augmentation.AddReverb(
+            os.path.join(hparams["save_folder"], "whamr_rirs.csv")
+        )
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:

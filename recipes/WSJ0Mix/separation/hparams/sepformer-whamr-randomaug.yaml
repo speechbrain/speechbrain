@@ -21,7 +21,7 @@ data_folder: !PLACEHOLDER
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepformer-whamr
+experiment_name: sepformer-whamr-randomreverb
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -77,8 +77,9 @@ wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     drop_chunk_prob: 1.0
     sample_rate: !ref <sample_rate>
 
-
-reverb_style: sorted
+reverb_style: random
+rir_path: !ref /miniscratch/subakany/rir_wavs
+# reverb: !new:speechbrain.processing.speech_augmentation
 
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
