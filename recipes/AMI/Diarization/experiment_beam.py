@@ -278,7 +278,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             )
         if params["backend"] == "AHC":
             # call AHC
-            threshold = pval
+            threshold = pval  # TODO: have to update the calling function
             print("Doing AHC...")
             diar.do_AHC(diary_obj, out_rttm_file, rec_id, num_spkrs, threshold)
 
@@ -311,6 +311,38 @@ def dev_p_tuner(full_csv, split_type):
     prange = np.arange(0.002, 0.015, 0.001)
 
     n_lambdas = None
+    for p_v in prange:
+        # Process whole dataset for value of p_v
+        concate_rttm_file = diarize_dataset(
+            full_csv, split_type, n_lambdas, p_v
+        )
+
+        ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
+        sys_rttm = concate_rttm_file
+        [MS, FA, SER, DER_] = DER(
+            ref_rttm,
+            sys_rttm,
+            params["ignore_overlap"],
+            params["forgiveness_collar"],
+        )
+
+        DER_list.append(DER_)
+
+    # Take p_val that gave minmum DER on Dev dataset
+    tuned_p_val = prange[DER_list.index(min(DER_list))]
+
+    return tuned_p_val
+
+
+def dev_threshold_tuner(full_csv, split_type):
+    """Tuning p_value affinity matrix
+    """
+
+    DER_list = []
+    prange = np.arange(0.0, 1.0, 0.1)
+
+    n_lambdas = None
+    # TODO: Update variable name  p_val --> theshold_val .
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
@@ -560,16 +592,32 @@ if __name__ == "__main__":  # noqa: C901
 
     n_lambdas = None
     best_pval = None
-    if params["affinity"] == "cos":  # oracle num_spkrs or not doesn't matter
-        # cos: Tune for best pval
-        logger.info("Tuning for p-value (Multiple iterations over AMI Dev set)")
+
+    if params["affinity"] == "cos" and (
+        params["backend"] == "SC" or params["backend"] == "kmeans"
+    ):
+        # oracle num_spkrs or not doesn't matter
+        # for kmeans and SC backends
+        # cos: Tune for best pval for SC (known) /kmeans (for unknown num of spkrs)
+        # TODO: have to update kmeans loop. Its looping on dev set even when oracle num of speakers.
+        logger.info(
+            "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
+        )
         best_pval = dev_p_tuner(full_csv, "dev")
+    elif params["backend"] == "AHC":
+        # cos: Tune for best COSINE threshold for AHC
+        logger.info(
+            "Tuning for threshold-value for AHC (Multiple iterations over AMI Dev set)"
+        )
+        best_threshold = dev_threshold_tuner(full_csv, "dev")
+        best_pval = best_threshold
     else:
         if params["oracle_n_spkrs"] is False:
             # nn: Tune num of number of components (to be updated later)
             logger.info(
-                "Tuning for number of eigen components (Multiple iterations over AMI Dev set)"
+                "Tuning for number of eigen components for NN (Multiple iterations over AMI Dev set)"
             )
+            # dev_tuner is WIP (used for tuning num of components in NN)
             n_lambdas = dev_tuner(full_csv, "dev")
 
     # Running once more of dev set (optional)
