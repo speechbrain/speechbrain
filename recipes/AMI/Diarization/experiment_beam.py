@@ -524,6 +524,26 @@ def dataio_prep(hparams, csv_file):
     return dataloader
 
 
+def check_dirs():
+    # Only these 3 directories are important
+    if os.path.isdir(params["data_folder"]) is False:
+        msg = "Can not find data_folder:  %s \n" % (params["data_folder"])
+        logger.error(msg)
+        sys.exit()
+
+    if os.path.isdir(params["manual_annot_folder"]) is False:
+        msg = "Can not find manual_annot_folder:  %s \n" % (
+            params["manual_annot_folder"]
+        )
+        logger.error(msg)
+        sys.exit()
+
+    if os.path.isdir(params["output_folder"]) is False:
+        msg = "Can not find output_folder:  %s \n" % (params["output_folder"])
+        logger.error(msg)
+        sys.exit()
+
+
 # Begin!
 if __name__ == "__main__":  # noqa: C901
 
@@ -570,6 +590,9 @@ if __name__ == "__main__":  # noqa: C901
         if not os.path.exists(dir_):
             os.makedirs(dir_)
 
+    # checks for 3 directories
+    check_dirs()
+
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(params["pretrainer"].collect_files)
@@ -595,7 +618,7 @@ if __name__ == "__main__":  # noqa: C901
     if params["affinity"] == "cos" and (
         params["backend"] == "SC" or params["backend"] == "kmeans"
     ):
-        # oracle num_spkrs or not doesn't matter
+        # oracle num_spkrs or not, doesn't matter
         # for kmeans and SC backends
         # cos: Tune for best pval for SC (known) /kmeans (for unknown num of spkrs)
         logger.info(
