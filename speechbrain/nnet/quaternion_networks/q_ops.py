@@ -696,7 +696,7 @@ def unitary_init(in_features, out_features, kernel_size=None, criterion="he"):
         else:
             kernel_shape = (out_features, in_features) + (*kernel_size,)
 
-    number_of_weights = torch.prod(kernel_shape)
+    number_of_weights = np.prod(kernel_shape)
     v_r = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_i = torch.FloatTensor(number_of_weights).uniform_(-1, 1)
     v_j = torch.FloatTensor(number_of_weights).uniform_(-1, 1)

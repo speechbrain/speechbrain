@@ -20,27 +20,28 @@ import time
 import torchaudio
 import json
 import re
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-torchaudio.set_audio_backend("sox_io")  # switch backend
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 logger = logging.getLogger(__name__)
 
 
 def load_data_json(json_path, replacements={}):
-    """Loads JSON and recursively formats string values
+    """Loads JSON and recursively formats string values.
 
     Arguments
     ----------
     json_path : str
-        Path to CSV file
+        Path to CSV file.
     replacements : dict
-        Optional dict:
-        e.g. {"data_folder": "/home/speechbrain/data"}
-        This is used to recursively format all string values in the data
+        (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}.
+        This is used to recursively format all string values in the data.
 
     Returns
     -------
     dict
-        JSON data with replacements applied
+        JSON data with replacements applied.
 
     Example
     -------
@@ -87,7 +88,7 @@ def _recursive_format(data, replacements):
 
 
 def load_data_csv(csv_path, replacements={}):
-    """Loads CSV and formats string values
+    """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
     'ID' field.
@@ -100,16 +101,15 @@ def load_data_csv(csv_path, replacements={}):
     Arguments
     ----------
     csv_path : str
-        Path to CSV file
+        Path to CSV file.
     replacements : dict
-        Optional dict:
-        e.g. {"data_folder": "/home/speechbrain/data"}
-        This is used to recursively format all string values in the data
+        (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}
+        This is used to recursively format all string values in the data.
 
     Returns
     -------
     dict
-        CSV data with replacements applied
+        CSV data with replacements applied.
 
     Example
     -------
@@ -123,7 +123,6 @@ def load_data_csv(csv_path, replacements={}):
     >>> data = load_data_csv(tmpfile, {"data_folder": "/home"})
     >>> data["utt1"]["wav_path"]
     '/home/utt1.wav'
-
     """
 
     with open(csv_path, newline="") as csvfile:
@@ -161,7 +160,7 @@ def load_data_csv(csv_path, replacements={}):
 
 
 def read_audio(waveforms_obj):
-    """General audio loading, based on a custom notation
+    """General audio loading, based on a custom notation.
 
     Expected use case is in conjunction with Datasets
     specified by JSON.
@@ -180,12 +179,12 @@ def read_audio(waveforms_obj):
     Arguments
     ----------
     waveforms_obj : str, dict
-        Audio reading annotation, see above for format
+        Audio reading annotation, see above for format.
 
     Returns
     -------
     torch.Tensor
-        audio tensor with shape: (samples, )
+        Audio tensor with shape: (samples, ).
 
     Example
     -------
@@ -214,7 +213,7 @@ def read_audio(waveforms_obj):
 
 
 def read_audio_multichannel(waveforms_obj):
-    """General audio loading, based on a custom notation
+    """General audio loading, based on a custom notation.
 
     Expected use case is in conjunction with Datasets
     specified by JSON.
@@ -248,12 +247,12 @@ def read_audio_multichannel(waveforms_obj):
     Arguments
     ----------
     waveforms_obj : str, dict
-        Audio reading annotation, see above for format
+        Audio reading annotation, see above for format.
 
     Returns
     -------
     torch.Tensor
-        audio tensor with shape: (samples, )
+        Audio tensor with shape: (samples, ).
 
     Example
     -------
@@ -291,17 +290,17 @@ def read_audio_multichannel(waveforms_obj):
 
 
 def write_audio(filepath, audio, samplerate):
-    """write audio on disk. It is basically a wrapper to support saving
+    """Write audio on disk. It is basically a wrapper to support saving
     audio signals in the speechbrain format (audio, channels).
 
     Arguments
-    ----------
+    ---------
     filepath: path
-        Path where to save the audio file
+        Path where to save the audio file.
     audio : torch.Tensor
-        Audio file in the expected speechbrain format (signal, channels)
+        Audio file in the expected speechbrain format (signal, channels).
     samplerate: int
-        Sample rate (e.g, 16000)
+        Sample rate (e.g., 16000).
 
 
     Example
@@ -323,18 +322,17 @@ def write_audio(filepath, audio, samplerate):
 
 
 def load_pickle(pickle_path):
-    """
-    Utility function for loading .pkl pickle files.
+    """Utility function for loading .pkl pickle files.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     pickle_path : str
-        path to pickle file
+        Path to pickle file.
 
     Returns
     -------
     out : object
-        python object loaded from pickle
+        Python object loaded from pickle.
     """
     with open(pickle_path, "rb") as f:
         out = pickle.load(f)
@@ -343,15 +341,15 @@ def load_pickle(pickle_path):
 
 def to_floatTensor(x: (list, tuple, np.ndarray)):
     """
-    Parameters
-    ----------
+    Arguments
+    ---------
     x : (list, tuple, np.ndarray)
-        input data to be converted to torch float.
+        Input data to be converted to torch float.
 
     Returns
     -------
     tensor : torch.tensor
-        data now in torch.tensor float datatype.
+        Data now in torch.tensor float datatype.
     """
     if isinstance(x, torch.Tensor):
         return x.float()
@@ -363,15 +361,15 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
 
 def to_doubleTensor(x: (list, tuple, np.ndarray)):
     """
-    Parameters
-    ----------
+    Arguments
+    ---------
     x : (list, tuple, np.ndarray)
-        input data to be converted to torch double.
+        Input data to be converted to torch double.
 
     Returns
     -------
     tensor : torch.tensor
-        data now in torch.tensor double datatype.
+        Data now in torch.tensor double datatype.
     """
     if isinstance(x, torch.Tensor):
         return x.double()
@@ -383,15 +381,15 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
 
 def to_longTensor(x: (list, tuple, np.ndarray)):
     """
-    Parameters
-    ----------
+    Arguments
+    ---------
     x : (list, tuple, np.ndarray)
-        input data to be converted to torch long.
+        Input data to be converted to torch long.
 
     Returns
     -------
     tensor : torch.tensor
-        data now in torch.tensor long datatype.
+        Data now in torch.tensor long datatype.
     """
     if isinstance(x, torch.Tensor):
         return x.long()
@@ -402,20 +400,19 @@ def to_longTensor(x: (list, tuple, np.ndarray)):
 
 
 def convert_index_to_lab(batch, ind2lab):
-    """
-    Convert a batch of integer IDs to string labels
+    """Convert a batch of integer IDs to string labels.
 
     Arguments
     ---------
     batch : list
-        List of lists, a batch of sequences
+        List of lists, a batch of sequences.
     ind2lab : dict
-        Mapping from integer IDs to labels
+        Mapping from integer IDs to labels.
 
     Returns
     -------
     list
-        List of lists, same size as batch, with labels from ind2lab
+        List of lists, same size as batch, with labels from ind2lab.
 
     Example
     -------
@@ -430,8 +427,7 @@ def convert_index_to_lab(batch, ind2lab):
 
 
 def relative_time_to_absolute(batch, relative_lens, rate):
-    """
-    Converts SpeechBrain style relative length to the absolute duration
+    """Converts SpeechBrain style relative length to the absolute duration.
 
     Operates on batch level.
 
@@ -474,7 +470,7 @@ class IterativeCSVWriter:
         A writeable stream
     data_fields : list
         List of the optional keys to write. Each key will be expanded to the
-        SpeechBrain format, producing three fields: key, key_format, key_opts
+        SpeechBrain format, producing three fields: key, key_format, key_opts.
 
     Example
     -------
@@ -509,28 +505,26 @@ class IterativeCSVWriter:
         self._outstream.write(",".join(self.fields))
 
     def set_default(self, field, value):
-        """
-        Sets a default value for the given CSV field.
+        """Sets a default value for the given CSV field.
 
         Arguments
         ---------
         field : str
-            A field in the CSV
+            A field in the CSV.
         value
-            The default value
+            The default value.
         """
         if field not in self.fields:
             raise ValueError(f"{field} is not a field in this CSV!")
         self.defaults[field] = value
 
     def write(self, *args, **kwargs):
-        """
-        Writes one data line into the CSV.
+        """Writes one data line into the CSV.
 
         Arguments
         ---------
         *args
-            Supply every field with a value in positional form OR
+            Supply every field with a value in positional form OR.
         **kwargs
             Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
@@ -553,15 +547,14 @@ class IterativeCSVWriter:
         self._outstream.write(",".join(to_write))
 
     def write_batch(self, *args, **kwargs):
-        """
-        Writes a batch of lines into the CSV
+        """Writes a batch of lines into the CSV.
 
         Here each argument should be a list with the same length.
 
         Arguments
         ---------
         *args
-            Supply every field with a value in positional form OR
+            Supply every field with a value in positional form OR.
         **kwargs
             Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
@@ -594,17 +587,16 @@ class IterativeCSVWriter:
 
 
 def write_txt_file(data, filename, sampling_rate=None):
-    """
-    Write data in text format
+    """Write data in text format.
 
     Arguments
     ---------
     data : str, list, torch.tensor, numpy.ndarray
-        The data to write in the text file
+        The data to write in the text file.
     filename : str
-        Path to file where to write the data
+        Path to file where to write the data.
     sampling_rate : None
-        Not used, just here for interface compatibility
+        Not used, just here for interface compatibility.
 
     Returns
     -------
@@ -632,22 +624,20 @@ def write_txt_file(data, filename, sampling_rate=None):
 
 
 def write_stdout(data, filename=None, sampling_rate=None):
-    """
-    Write data to standard output
+    """Write data to standard output.
 
     Arguments
     ---------
     data : str, list, torch.tensor, numpy.ndarray
-        The data to write in the text file
+        The data to write in the text file.
     filename : None
-        Not used, just here for compatibility
+        Not used, just here for compatibility.
     sampling_rate : None
-        Not used, just here for compatibility
+        Not used, just here for compatibility.
 
     Returns
     -------
     None
-
 
     Example
     -------
@@ -670,8 +660,8 @@ def write_stdout(data, filename=None, sampling_rate=None):
 
 
 def length_to_mask(length, max_len=None, dtype=None, device=None):
-    """
-    Creates a binary mask for each sequence.
+    """Creates a binary mask for each sequence.
+
     Reference: https://discuss.pytorch.org/t/how-to-generate-variable-length-mask/23397/3
 
     Arguments
@@ -687,9 +677,10 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
 
     Returns
     -------
-    mask : The binary mask
+    mask : tensor
+        The binary mask.
 
-    Example:
+    Example
     -------
     >>> length=torch.Tensor([1,2,3])
     >>> mask=length_to_mask(length)
@@ -717,9 +708,9 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
 
 
 def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
-    """Read labels in kaldi format
+    """Read labels in kaldi format.
 
-    Uses kaldi IO
+    Uses kaldi IO.
 
     Arguments
     ---------
@@ -730,8 +721,8 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
 
     Returns
     -------
-    dict
-        A dictionary contaning the labels
+    lab : dict
+        A dictionary contaning the labels.
 
     Note
     ----
@@ -740,7 +731,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
 
     Example
     -------
-    This example requires kaldi files
+    This example requires kaldi files.
     ```
     lab_folder = '/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali'
     read_kaldi_lab(lab_folder, 'ali-to-pdf')
@@ -768,18 +759,17 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
 
 
 def get_md5(file):
-    """
-    Get the md5 checksum of an input file
+    """Get the md5 checksum of an input file.
 
     Arguments
     ---------
     file : str
-        Path to file for which compute the checksum
+        Path to file for which compute the checksum.
 
     Returns
     -------
     md5
-        Checksum for the given filepath
+        Checksum for the given filepath.
 
     Example
     -------
@@ -800,8 +790,7 @@ def get_md5(file):
 
 
 def save_md5(files, out_file):
-    """
-    Saves the md5 of a list of input files as a pickled dict into a file.
+    """Saves the md5 of a list of input files as a pickled dict into a file.
 
     Arguments
     ---------
@@ -829,8 +818,7 @@ def save_md5(files, out_file):
 
 
 def save_pkl(obj, file):
-    """
-    Save an object in pkl format.
+    """Save an object in pkl format.
 
     Arguments
     ---------
@@ -841,7 +829,8 @@ def save_pkl(obj, file):
     sampling_rate : int
         Sampling rate of the audio file, TODO: this is not used?
 
-    Example:
+    Example
+    -------
     >>> tmpfile = os.path.join(getfixture('tmpdir'), "example.pkl")
     >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
     >>> load_pkl(tmpfile)
@@ -852,10 +841,9 @@ def save_pkl(obj, file):
 
 
 def load_pkl(file):
-    """
-    Loads a pkl file
+    """Loads a pkl file.
 
-    For an example, see `save_pkl`
+    For an example, see `save_pkl`.
 
     Arguments
     ---------
@@ -864,7 +852,7 @@ def load_pkl(file):
 
     Returns
     -------
-    The loaded object
+    The loaded object.
     """
 
     # Deals with the situation where two processes are trying
@@ -892,15 +880,17 @@ def prepend_bos_token(label, bos_index):
     Arguments
     ---------
     label : torch.IntTensor
-        Containing the original labels. Must be of size: [batch_size, max_length]
+        Containing the original labels. Must be of size: [batch_size, max_length].
     bos_index : int
         The index for <bos> token.
 
     Returns
     -------
-    new_label : The new label with <bos> at the beginning.
+    new_label : tensor
+        The new label with <bos> at the beginning.
 
-    Example:
+    Example
+    -------
     >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
     >>> new_label=prepend_bos_token(label, bos_index=7)
     >>> new_label
@@ -930,9 +920,11 @@ def append_eos_token(label, length, eos_index):
 
     Returns
     -------
-    new_label : The new label with <eos> appended.
+    new_label : tensor
+        The new label with <eos> appended.
 
-    Example:
+    Example
+    -------
     >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
     >>> length=torch.LongTensor([1,2,3])
     >>> new_label=append_eos_token(label, length, eos_index=7)
@@ -964,7 +956,8 @@ def merge_char(sequences, space="_"):
     -------
     The list contains word sequences for each sentence.
 
-    Example:
+    Example
+    -------
     >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
     >>> results = merge_char(sequences)
     >>> results
@@ -985,12 +978,12 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     data_folder : string
         The folder to store csv files to be merged and after merging.
     csv_lst : list
-        filenames of csv file to be merged.
+        Filenames of csv file to be merged.
     merged_csv : string
         The filename to write the merged csv file.
 
-
-    Example:
+    Example
+    -------
     >>> merge_csvs("samples/audio_samples/",
     ... ["csv_example.csv", "csv_example2.csv"],
     ... "test_csv_merge.csv")
@@ -998,7 +991,6 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-
     with open(os.path.join(data_folder, csv_lst[0])) as f:
         header = f.readline()
     lines = []
@@ -1034,7 +1026,8 @@ def split_word(sequences, space="_"):
     -------
     The list contains word sequences for each sentence.
 
-    Example:
+    Example
+    -------
     >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
     >>> results = split_word(sequences)
     >>> results

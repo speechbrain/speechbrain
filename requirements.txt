@@ -2,9 +2,12 @@
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
 numpy>=1.17.0
+packaging
 pre-commit>=2.3.0
 scipy>=1.4.1
 sentencepiece>=0.1.91
-torch==1.7.1
-torchaudio==0.7.2
+torch>=1.7.1
+torchaudio>=0.7.2
 tqdm>=4.42.0
+huggingface_hub>=0.0.6
+SoundFile; sys_platform == 'win32'

@@ -21,13 +21,13 @@ from pathlib import Path
 from tqdm import tqdm
 
 # Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
     params = load_hyperpyyaml(fin, overrides)
 
 # setting seeds for reproducible code.
-np.random.seed(params.seed)
-random.seed(params.seed)
+np.random.seed(params["seed"])
+random.seed(params["seed"])
 # we parse the yaml, and create mixtures for every train, dev and eval split.
 
 
@@ -74,36 +74,36 @@ def parse_libri_folder(libri_folders):
 
 
 # split
-split_f = params.split_factors
+split_f = params["split_factors"]
 # we get all noises and rirs
 noises = []
-for f in params.noises_folders:
+for f in params["noises_folders"]:
     noises.extend(get_all_files(f, match_and=[".wav"]))
 rirs = []
-for f in params.rirs_folders:
+for f in params["rirs_folders"]:
     rirs.extend(get_all_files(f, match_and=[".wav"]))
 # we split them in training, dev and eval
 noises = split_list(noises, split_f)
 rirs = split_list(rirs, split_f)
 # do the same for background noises
-if params.backgrounds_root:
-    backgrounds = get_all_files(params.backgrounds_root, match_and=[".wav"])
+if params["backgrounds_root"]:
+    backgrounds = get_all_files(params["backgrounds_root"], match_and=[".wav"])
     backgrounds = split_list(backgrounds, split_f)
 else:
     backgrounds = [None] * 3
 
-os.makedirs(os.path.join(params.out_folder, "metadata"), exist_ok=True)
+os.makedirs(os.path.join(params["out_folder"], "metadata"), exist_ok=True)
 
 # we generate metadata for each split
 for indx, split in enumerate(["train", "dev", "eval"]):
     print("Generating metadata for {} set".format(split))
     # we parse librispeech utterances for current split
-    c_libri_folder = params.librispeech_folders[split]
+    c_libri_folder = params["librispeech_folders"][split]
     c_utterances, c_words = parse_libri_folder(c_libri_folder)
 
     create_metadata(
-        os.path.join(params.out_folder, "metadata", split),
-        params.n_sessions[split],
+        os.path.join(params["out_folder"], "metadata", split),
+        params["n_sessions"][split],
         params,
         c_utterances,
         c_words,
@@ -117,11 +117,11 @@ for indx, split in enumerate(["train", "dev", "eval"]):
 for indx, split in enumerate(["train", "dev", "eval"]):
     # load metadata
     with open(
-        os.path.join(params.out_folder, "metadata", split + ".json")
+        os.path.join(params["out_folder"], "metadata", split + ".json")
     ) as f:
         c_meta = json.load(f)
     print("Creating {} set".format(split))
     for sess in tqdm(c_meta.keys()):
-        c_folder = os.path.join(params.out_folder, split)
+        c_folder = os.path.join(params["out_folder"], split)
         os.makedirs(c_folder, exist_ok=True)
         create_mixture(sess, c_folder, params, c_meta[sess])

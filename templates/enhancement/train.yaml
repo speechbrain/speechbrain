@@ -1,0 +1,113 @@
+# #################################
+# Basic training parameters for enhancement.
+#
+# Authors:
+#  * Szu-Wei Fu 2020
+#  * Chien-Feng Liao 2020
+#  * Peter Plantinga 2020, 2021
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 4234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Set up folders for reading from and writing to
+# Dataset will be downloaded to the `data_folder`
+# If you plan to train a system on an HPC cluster with a big dataset,
+# we strongly suggest doing the following:
+# 1- Compress the dataset in a single tar or zip file.
+# 2- Copy your dataset locally (i.e., the local disk of the computing node).
+# 3- Uncompress the dataset in the local folder.
+# 4- Set data_folder with the local path.
+# Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
+# It allows you to read the data much faster without slowing down the shared filesystem.
+data_folder: ./data
+output_folder: !ref ./results/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Path where data manifest files will be stored
+# The data manifest files are created by the data preparation script.
+train_annotation: train.json
+valid_annotation: valid.json
+test_annotation: test.json
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# FFT parameters
+sample_rate: 16000
+win_length: 32
+hop_length: 16
+n_fft: 512
+window_fn: !name:torch.hamming_window
+
+# Training Parameters
+number_of_epochs: 20
+batch_size: 8
+learning_rate: 0.0001
+dataloader_options:
+    batch_size: !ref <batch_size>
+
+# The mask operates on log-spectral features, computed using these
+# STFT parameters, as well as computing magnitude and log1p.
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+    n_fft: !ref <n_fft>
+    window_fn: !ref <window_fn>
+compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+    window_fn: !ref <window_fn>
+
+# Resynthesize combines noisy phase with enhanced magnitudes.
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+    stft: !ref <compute_STFT>
+    istft: !ref <compute_ISTFT>
+
+# Added noise and reverb come from OpenRIR dataset, automatically
+# downloaded and prepared with this Environmental Corruption class.
+# The babble is generated from other utterances in each batch.
+env_corruption: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    openrir_max_noise_len: 10
+    noise_snr_low: 0
+    noise_snr_high: 15
+    babble_speaker_count: !ref <batch_size> - 1
+    babble_snr_low: 0
+    babble_snr_high: 15
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+model: !new:custom_model.CustomModel
+    input_size: !ref <n_fft> // 2 + 1
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    model: !ref <model>
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.Adam
+    lr: !ref <learning_rate>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <epoch_counter>

@@ -1,15 +1,19 @@
 """ Comprehensive speech processing toolkit
 """
+import os
 from .core import Stage, Brain, create_experiment_directory, parse_arguments
-import speechbrain.alignment
-import speechbrain.dataio
-import speechbrain.decoders
-import speechbrain.lobes
-import speechbrain.lm
-import speechbrain.nnet
-import speechbrain.processing
-import speechbrain.tokenizers
-import speechbrain.utils  # noqa
+from . import alignment  # noqa
+from . import dataio  # noqa
+from . import decoders  # noqa
+from . import lobes  # noqa
+from . import lm  # noqa
+from . import nnet  # noqa
+from . import processing  # noqa
+from . import tokenizers  # noqa
+from . import utils  # noqa
+
+with open(os.path.join(os.path.dirname(__file__), "version.txt")) as f:
+    version = f.read().strip()
 
 __all__ = [
     "Stage",
@@ -17,3 +21,5 @@ __all__ = [
     "create_experiment_directory",
     "parse_arguments",
 ]
+
+__version__ = version

@@ -52,15 +52,15 @@ logger = logging.getLogger(__name__)
 
 
 def make_dataloader(dataset, **loader_kwargs):
-    """Makes a basic DataLoader with SpeechBrain defaults
+    """Makes a basic DataLoader with SpeechBrain defaults.
 
     For DynamicItemDatasets (which return dicts), use
-    PaddedBatch as the default collate_fn
+    PaddedBatch as the default collate_fn.
 
-    Shuffling gets implemented by ReproducibleRandomSampler
+    Shuffling gets implemented by ReproducibleRandomSampler.
 
     If the Dataset is not an IterableDataset, the DataLoader
-    is a SaveableDataLoader
+    is a SaveableDataLoader.
 
     Arguments
     ---------
@@ -199,7 +199,7 @@ class SaveableDataLoader(DataLoader):
             fo.write(str(to_save))
 
     @mark_as_loader
-    def _speechbrain_load(self, path, end_of_epoch, device):
+    def _speechbrain_load(self, path, end_of_epoch, device=None):
         del device  # Unused here
         if self._speechbrain_iterator is not None:
             logging.warning(
