@@ -1151,7 +1151,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
         print("ORACLE SPKRs...")
         num_of_spk = k_oracle
         clustering = AgglomerativeClustering(
-            n_clusters=num_of_spk, affinity="cosine", linkage="ward"
+            n_clusters=num_of_spk, linkage="ward"
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
         print("labels.shape (Oracle) = ", labels.shape)
@@ -1160,10 +1160,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
         # Estimate num of using max eigen gap with `cos` affinity matrix.
         # This is just for experimentation.
         clustering = AgglomerativeClustering(
-            n_clusters=None,
-            affinity="cosine",
-            linkage="ward",
-            distance_threshold=p_val,
+            n_clusters=None, linkage="ward", distance_threshold=p_val,
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
         print("labels.shape (Estima) = ", labels.shape)
