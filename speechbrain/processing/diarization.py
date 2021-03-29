@@ -1145,14 +1145,16 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
 
     from sklearn.cluster import AgglomerativeClustering
 
+    # p_val --> threshold_val (for AHC)
+
     if k_oracle is not None:
-        print("ORACLE SPKRs")
+        print("ORACLE SPKRs...")
         num_of_spk = k_oracle
         clustering = AgglomerativeClustering(
             n_clusters=num_of_spk, affinity="cosine", linkage="ward"
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
-        print("labels.shape (Ora.) = ", labels.shape)
+        print("labels.shape (Oracle) = ", labels.shape)
     else:
         print("Using AHC threshold pval = ", p_val)
         # Estimate num of using max eigen gap with `cos` affinity matrix.
@@ -1164,7 +1166,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
             distance_threshold=p_val,
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
-        print("labels.shape (Est.) = ", labels.shape)
+        print("labels.shape (Estima) = ", labels.shape)
 
     # Convert labels to speaker boundaries
     subseg_ids = diary_obj.segset
