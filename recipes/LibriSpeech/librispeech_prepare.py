@@ -190,7 +190,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
             lexicon_pronunciations.append(pronunciation)
 
     # Create lexicon.csv
-    header = "ID,duration,char,char_format, char_opts,phn,phn_format,phn_opts\n"
+    header = "ID,duration,char,phn\n"
     lexicon_csv_path = os.path.join(save_folder, "lexicon.csv")
     with open(lexicon_csv_path, "w") as f:
         f.write(header)
@@ -203,19 +203,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
             ]
             phonemes = " ".join(pronunciation_no_numbers)
             line = (
-                ",".join(
-                    [
-                        str(idx),
-                        str(duration),
-                        graphemes,
-                        "string",
-                        "",
-                        phonemes,
-                        "string",
-                        "",
-                    ]
-                )
-                + "\n"
+                ",".join([str(idx), str(duration), graphemes, phonemes]) + "\n"
             )
             f.write(line)
     logger.info("Lexicon written to %s." % lexicon_csv_path)
@@ -252,7 +240,7 @@ def split_lexicon(data_folder, split_ratio):
     random.shuffle(lexicon_lines)
 
     # Selecting lines
-    header = "ID,duration,char,char_format,char_opts,phn,phn_format,phn_opts\n"
+    header = "ID,duration,char,phn\n"
 
     tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
     train_lines = [header] + lexicon_lines[0:tr_snts]
@@ -299,24 +287,7 @@ def create_csv(
     msg = "Creating csv lists in  %s..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-            "wrd",
-            "wrd_format",
-            "wrd_opts",
-            "char",
-            "char_format",
-            "char_opts",
-        ]
-    ]
+    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     snt_cnt = 0
     # Processing all the wav files in wav_lst
@@ -330,25 +301,12 @@ def create_csv(
         signal = signal.squeeze(0)
         duration = signal.shape[0] / SAMPLERATE
 
-        # replace space to <space> token
-        chars_lst = [c for c in wrds]
-        chars = " ".join(chars_lst)
-
         csv_line = [
             snt_id,
             str(duration),
             wav_file,
-            "flac",
-            "",
             spk_id,
-            "string",
-            "",
             str(" ".join(wrds.split("_"))),
-            "string",
-            "",
-            str(chars),
-            "string",
-            "",
         ]
 
         #  Appending current file to the csv_lines list

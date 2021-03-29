@@ -16,12 +16,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
+def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
     """
     This function prepares the Timers and Such dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
 
     data_folder : path to Timers and Such dataset.
+    save_folder: path there to save the csv manifest files.
     type : one of the following:
 
       "direct":{input=audio, output=semantics}
@@ -69,7 +70,7 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
     ]
     ID_start = 0  # needed to have a unique ID for each audio
     for split in splits:
-        new_filename = os.path.join(data_folder, split) + "-type=%s.csv" % type
+        new_filename = os.path.join(save_folder, split) + "-type=%s.csv" % type
         if os.path.exists(new_filename):
             continue
         logger.info("Preparing %s..." % new_filename)
@@ -173,17 +174,9 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
                 "ID": ID,
                 "duration": duration,
                 "wav": wav,
-                "wav_format": wav_format,
-                "wav_opts": wav_opts,
                 "spk_id": spk_id,
-                "spk_id_format": spk_id_format,
-                "spk_id_opts": spk_id_opts,
                 "semantics": semantics,
-                "semantics_format": semantics_format,
-                "semantics_opts": semantics_opts,
                 "transcript": transcript,
-                "transcript_format": transcript_format,
-                "transcript_opts": transcript_opts,
             }
         )
         new_df.to_csv(new_filename, index=False)
@@ -191,4 +184,4 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
 
     # Merge train splits
     train_splits = [split + "-type=%s.csv" % type for split in train_splits]
-    merge_csvs(data_folder, train_splits, "train-type=%s.csv" % type)
+    merge_csvs(save_folder, train_splits, "train-type=%s.csv" % type)

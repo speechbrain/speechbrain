@@ -40,6 +40,7 @@ from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
+    mark_as_transfer,
     register_checkpoint_hooks,
 )
 
@@ -192,7 +193,7 @@ class ISTFT(torch.nn.Module):
 
     This class computes the Inverse Short-Term Fourier Transform of
     an audio signal. It supports multi-channel audio inputs
-    (batch, time_step, n_fft, 2, n_channels [optional]).
+    (batch, time_step, n_fft, n_channels [optional], 2).
 
     Arguments
     ---------
@@ -300,6 +301,9 @@ class ISTFT(torch.nn.Module):
             x = x.reshape(-1, x.shape[2], x.shape[3], x.shape[4])
         elif len(or_shape) == 4:
             x = x.permute(0, 2, 1, 3)
+
+        # isft ask complex input
+        x = torch.complex(x[..., 0], x[..., 1])
 
         istft = torch.istft(
             input=x,
@@ -695,9 +699,7 @@ class Filterbank(torch.nn.Module):
         x_db -= self.multiplier * self.db_multiplier
 
         # Setting up dB max
-        new_x_db_max = torch.tensor(
-            float(x_db.max()) - self.top_db, dtype=x_db.dtype, device=x.device,
-        )
+        new_x_db_max = x_db.max() - self.top_db
         # Clipping to dB max
         x_db = torch.max(x_db, new_x_db_max)
 
@@ -1012,7 +1014,7 @@ class InputNormalization(torch.nn.Module):
         for snt_id in range(N_batches):
 
             # Avoiding padded time steps
-            actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
+            actual_size = torch.round(lengths[snt_id] * x.shape[1]).int()
 
             # computing statistics
             current_mean, current_std = self._compute_current_stats(
@@ -1183,16 +1185,17 @@ class InputNormalization(torch.nn.Module):
         stats = self._statistics_dict()
         torch.save(stats, path)
 
+    @mark_as_transfer
     @mark_as_loader
-    def _load(self, path, end_of_epoch, device):
+    def _load(self, path, end_of_epoch=False, device=None):
         """Load statistic dictionary.
 
         Arguments
         ---------
         path : str
             The path of the statistic dictionary
-        end_of_epoch: bool
-            If True, the training has completed a full epoch.
+        device : str, None
+            Passed to torch.load(..., map_location=device)
         """
         del end_of_epoch  # Unused here.
         stats = torch.load(path, map_location=device)

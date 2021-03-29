@@ -1,5 +1,4 @@
-"""
-Implements a checkpointable epoch counter (loop)
+"""Implements a checkpointable epoch counter (loop).
 
 Authors
  * Aku Rouhe 2020
@@ -32,7 +31,6 @@ class EpochCounter:
     >>> for epoch in epoch_counter:
     ...     # Run training...
     ...     ckpt = recoverer.save_checkpoint()
-
     """
 
     def __init__(self, limit):
@@ -55,7 +53,11 @@ class EpochCounter:
             fo.write(str(self.current))
 
     @mark_as_loader
-    def _recover(self, path, end_of_epoch, device):
+    def _recover(self, path, end_of_epoch=True, device=None):
+        # NOTE: end_of_epoch = True by default so that when
+        #  loaded in parameter transfer, this starts a new epoch.
+        #  However, parameter transfer to EpochCounter should
+        #  probably never be used really.
         del device  # Not used.
         with open(path) as fi:
             saved_value = int(fi.read())

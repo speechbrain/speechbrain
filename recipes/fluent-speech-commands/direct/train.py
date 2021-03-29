@@ -1,6 +1,5 @@
 #!/usr/bin/env/python3
 """
-
 Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
 
 We encode input waveforms into features using a model trained on LibriSpeech,
@@ -48,7 +47,7 @@ class SLU(sb.Brain):
 
         # ASR encoder forward pass
         with torch.no_grad():
-            ASR_encoder_out = self.modules.asr_model.encode(
+            ASR_encoder_out = self.hparams.asr_model.encode_batch(
                 wavs.detach(), wav_lens
             )
 
@@ -225,7 +224,7 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    tokenizer = hparams["tokenizer"].spm
+    tokenizer = hparams["tokenizer"]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -290,12 +289,17 @@ if __name__ == "__main__":
         prepare_FSC,
         kwargs={
             "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "skip_prep": hparams["skip_prep"],
         },
     )
 
     # here we create the datasets objects as well as tokenization and encoding
     (train_set, valid_set, test_set, tokenizer,) = dataio_prepare(hparams)
+
+    # We download and pretrain the tokenizer
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Brain class initialization
     slu_brain = SLU(

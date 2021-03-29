@@ -76,6 +76,7 @@ Authors:
 """
 
 import torch
+from packaging import version
 import speechbrain.processing.decomposition as eig
 
 
@@ -696,7 +697,6 @@ class GccPhat(torch.nn.Module):
         xxs = GccPhat._gcc_phat(XXs=XXs, eps=self.eps)
         delays = GccPhat._extract_delays(xxs=xxs, tdoa_max=self.tdoa_max)
         tdoas = GccPhat._interpolate(xxs=xxs, delays=delays)
-
         return tdoas
 
     @staticmethod
@@ -715,7 +715,7 @@ class GccPhat(torch.nn.Module):
         """
 
         # Get useful dimensions
-        n_samples = int((XXs.shape[2] - 1) * 2)
+        n_samples = (XXs.shape[2] - 1) * 2
 
         # Extracting the tensors needed
         XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=4)
@@ -731,7 +731,13 @@ class GccPhat(torch.nn.Module):
 
         # Returning in the temporal domain
         XXs_phat = XXs_phat.transpose(2, 3)
-        xxs = torch.irfft(XXs_phat, signal_ndim=1, signal_sizes=[n_samples])
+
+        if version.parse(torch.__version__) >= version.parse("1.8.0"):
+            XXs_phat = torch.complex(XXs_phat[..., 0], XXs_phat[..., 1])
+            xxs = torch.fft.irfft(XXs_phat, n=n_samples)
+        else:
+            xxs = torch.irfft(XXs_phat, signal_ndim=1, signal_sizes=[n_samples])
+
         xxs = xxs[..., XXs_idx, :]
 
         # Formatting the output

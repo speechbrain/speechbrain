@@ -1,4 +1,4 @@
-"""PyTorch compatible samplers
+"""PyTorch compatible samplers.
 
 These determine the order of iteration through a dataset.
 
@@ -10,7 +10,12 @@ Authors:
 import torch
 import logging
 from operator import itemgetter
-from torch.utils.data import RandomSampler, DistributedSampler, Sampler
+from torch.utils.data import (
+    RandomSampler,
+    WeightedRandomSampler,
+    DistributedSampler,
+    Sampler,
+)
 import numpy as np
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
@@ -19,8 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class ReproducibleRandomSampler(RandomSampler):
-    """
-    A modification of RandomSampler which always returns the same values.
+    """A modification of RandomSampler which always returns the same values.
 
     Also look at `torch.utils.data.RandomSampler`. This has mostly
     the same behaviour and arguments, except for adding 'seed' and 'epoch' and
@@ -33,6 +37,8 @@ class ReproducibleRandomSampler(RandomSampler):
 
     Arguments
     ---------
+    data_source : Dataset
+        The data source to sample indices for.
     seed : int
         The base seed to use for the random number generator. It is recommended
         to use a value which has a good mix of 0 and 1 bits.
@@ -99,9 +105,85 @@ class ReproducibleRandomSampler(RandomSampler):
         return super().__iter__()
 
 
-class ConcatDatasetBatchSampler(Sampler):
+class ReproducibleWeightedRandomSampler(WeightedRandomSampler):
+    """A reproducible modification of WeightedRandomSampler.
+
+    Also look at `torch.utils.data.WeightedRandomSampler`. This has the
+    the same behaviour and arguments, except for adding 'seed' and 'epoch' and
+    not supporting 'generator'.
+
+    Note
+    ----
+    Call `set_epoch` before every epoch. Otherwise, the sampler will produce the
+    same sequence of indices every epoch.
+
+    Arguments
+    ---------
+    weights : sequence of float
+        Weights for each index. Doesn't need to sum to one.
+    num_samples : int
+        Number of samples to draw
+    replacement : bool
+        To draw with replacement or not (within an epoch of num_samples).
+    seed : int
+        The base seed to use for the random number generator. It is recommended
+        to use a value which has a good mix of 0 and 1 bits.
+    epoch : int
+        The epoch to start at.
+
+    Example
+    -------
+    >>> a = ReproducibleWeightedRandomSampler([0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True)
+    >>> b = ReproducibleWeightedRandomSampler([0.1, 0.9, 0.4, 0.7, 3.0, 0.6], 5, replacement=True)
+    >>> list(a)
+    [3, 1, 4, 4, 4]
+    >>> list(b)
+    [3, 1, 4, 4, 4]
+    >>> a.set_epoch(1)
+    >>> list(a)
+    [4, 5, 4, 4, 3]
+    >>> b.set_epoch(1)
+    >>> list(b)
+    [4, 5, 4, 4, 3]
+
+
     """
-    This sampler is built to work with a standard Pytorch ConcatDataset.
+
+    def __init__(
+        self,
+        weights,
+        num_samples,
+        replacement,
+        seed=129491412,
+        epoch=0,
+        **kwargs,
+    ):
+        if "generator" in kwargs:
+            MSG = (
+                "Cannot give a separate generator when using "
+                + "ReproducibleRandomSampler"
+            )
+            raise ValueError(MSG)
+        super().__init__(weights, num_samples, replacement, **kwargs)
+        self.seed = int(seed)
+        self.epoch = epoch
+        self.generator = torch.Generator()
+
+    def set_epoch(self, epoch):
+        """
+        You can also just access self.epoch, but we maintain this interface
+        to mirror torch.utils.data.distributed.DistributedSampler
+        """
+        self.epoch = epoch
+
+    def __iter__(self):
+        self.generator.manual_seed(self.seed + self.epoch)
+        return super().__iter__()
+
+
+class ConcatDatasetBatchSampler(Sampler):
+    """This sampler is built to work with a standard Pytorch ConcatDataset.
+
     It is used to retrieve elements from the different concatenated datasets placing them in the same batch
     with proportion specified by batch_sizes, e.g 8, 16 means each batch will
     be of 24 elements with the first 8 belonging to the first dataset in ConcatDataset
@@ -122,7 +204,7 @@ class ConcatDatasetBatchSampler(Sampler):
         The base seed to use for the random number generator. It is recommended
         to use a value which has a good mix of 0 and 1 bits.
     batch_sizes: list
-
+        Batch sizes.
     epoch : int
         The epoch to start at.
 
@@ -185,9 +267,8 @@ class ConcatDatasetBatchSampler(Sampler):
                 yield batch
 
     def set_epoch(self, epoch):
-        """
-        You can also just access self.epoch, but we maintain this interface
-        to mirror torch.utils.data.distributed.DistributedSampler
+        """You can also just access self.epoch, but we maintain this interface
+        to mirror ``torch.utils.data.distributed.DistributedSampler``.
         """
         if hasattr(self.samplers[0], "epoch"):
             for s in self.samplers:
@@ -213,17 +294,15 @@ class ConcatDatasetBatchSampler(Sampler):
 
         min_len = float("inf")
         for idx, sampler in enumerate(self.samplers):
-            c_len = (
-                len(sampler) + self.batch_sizes[idx] - 1
-            ) // self.batch_sizes[idx]
-
+            c_len = len(sampler) // self.batch_sizes[idx]
             min_len = min(c_len, min_len)
+
         return min_len
 
 
 class DynamicBatchSampler(Sampler):
-    """
-    This BatchSampler batches examples together by grouping them by their length.
+    """This BatchSampler batches examples together by grouping them by their length.
+
     Every example in the batch have approximatively the same length and
     thus padding is minimized.
     This enables faster training on datasets
@@ -232,7 +311,7 @@ class DynamicBatchSampler(Sampler):
 
     Dynamic batching is performed by specifying a max_batch_length which is the
     upper limit for the sum of the length of examples in a batch:
-    e.g. if ex1 has length 4, ex2 length 5 andn if max_batch_length is set to 6
+    e.g., if ex1 has length 4, ex2 length 5 andn if max_batch_length is set to 6
     ex1 and ex2 will be placed, alone, in two distinct batches.
 
     Length for each example can be obtained in two manners.
@@ -245,7 +324,7 @@ class DynamicBatchSampler(Sampler):
     Examples are grouped together by defining a set of possible discrete intervals
     (buckets) multiple of a left_bucket_length.
     A bucket_length_multiplier is used to specify the number of possible buckets.
-    E.g. if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
+    E.g., if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
     there will be 3 buckets: [0, 10), [10, 20), [20, 40).
     A common choice would be setting left_bucket_length to approximatively the length
     of your shortest example in the dataset.
@@ -259,7 +338,6 @@ class DynamicBatchSampler(Sampler):
 
     The buckets can also be specified by passing a list to the bucket_boundaries
     argument instead of specifying a left_bucket_length and a bucket_length_multiplier.
-
 
     Example
     -------
@@ -514,12 +592,16 @@ class DynamicBatchSampler(Sampler):
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
     """This wrapper allows using any sampler with Distributed Data Parallel (DDP) correctly.
-        Passing blindly the sampler to each DDP process will cause to have access
-        within each process to all the data in the dataset instead of only a
-        subset of it which is unique to each process.
-        This wrapper prevents this and allows to use only a subset of the original
-        data for each process.
-        It is automatically applied to any sampler in the Brain class when DDP training is used.
+
+    Passing blindly the sampler to each DDP process will cause to have access
+    within each process to all the data in the dataset instead of only a subset
+    of it which is unique to each process.  This wrapper prevents this and
+    allows to use only a subset of the original data for each process.
+
+    NOTE
+    ----
+    This is is automatically applied to any sampler in the Brain class when DDP
+    training is used.
     """
 
     def __init__(self, sampler, *args, **kwargs):

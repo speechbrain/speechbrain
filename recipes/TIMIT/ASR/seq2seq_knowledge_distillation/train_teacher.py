@@ -11,6 +11,7 @@ Authors
  * Yan Gao 2021
  * Titouan Parcollet 2021
 """
+import os
 import sys
 import torch
 import speechbrain as sb
@@ -155,8 +156,8 @@ def data_io_prep(hparams):
     "Creates the datasets and their data processing pipelines."
     data_folder = hparams["data_folder"]
     # 1. Declarations:
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_annotation"],
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
     if hparams["sorting"] == "ascending":
@@ -180,14 +181,14 @@ def data_io_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_annotation"],
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_annotation"],
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
@@ -232,27 +233,35 @@ def data_io_prep(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 3. Fit encoder:
-    # NOTE: In this minimal example, also update from valid data
-
-    label_encoder.update_from_didataset(train_data, output_key="phn_list")
-    if (
-        hparams["blank_index"] != hparams["bos_index"]
-        or hparams["blank_index"] != hparams["eos_index"]
-    ):
-        label_encoder.insert_blank(index=hparams["blank_index"])
-
-    if hparams["bos_index"] == hparams["eos_index"]:
-        label_encoder.insert_bos_eos(
-            bos_label="<eos-bos>",
-            eos_label="<eos-bos>",
-            bos_index=hparams["bos_index"],
-        )
+    # Load or compute the label encoder
+    label_encoder_file = os.path.join(
+        hparams["save_folder"], "label_encoder.txt"
+    )
+    if os.path.exists(label_encoder_file):
+        label_encoder.load(label_encoder_file)
     else:
-        label_encoder.insert_bos_eos(
-            bos_label="<bos>",
-            eos_label="<eos>",
-            bos_index=hparams["bos_index"],
-            eos_index=hparams["eos_index"],
+        label_encoder.update_from_didataset(train_data, output_key="phn_list")
+        if (
+            hparams["blank_index"] != hparams["bos_index"]
+            or hparams["blank_index"] != hparams["eos_index"]
+        ):
+            label_encoder.insert_blank(index=hparams["blank_index"])
+
+        if hparams["bos_index"] == hparams["eos_index"]:
+            label_encoder.insert_bos_eos(
+                bos_label="<eos-bos>",
+                eos_label="<eos-bos>",
+                bos_index=hparams["bos_index"],
+            )
+        else:
+            label_encoder.insert_bos_eos(
+                bos_label="<bos>",
+                eos_label="<eos>",
+                bos_index=hparams["bos_index"],
+                eos_index=hparams["eos_index"],
+            )
+        label_encoder.save(
+            os.path.join(hparams["save_folder"], "label_encoder.txt")
         )
 
     # 4. Set output:
@@ -283,8 +292,9 @@ if __name__ == "__main__":
         prepare_timit,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "splits": ["train", "dev", "test"],
-            "save_folder": hparams["data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
         },
     )
 
