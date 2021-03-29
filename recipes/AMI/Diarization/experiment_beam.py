@@ -330,7 +330,7 @@ def dev_p_tuner(full_csv, split_type):
 
         if params["oracle_n_spkrs"] is True and params["backend"] == "kmeans":
             # no need of p_val search. Note p_val is needed for SC for both oracle and est num of speakers.
-            # p_val is also needed in est. when using kmeans backend
+            # p_val is needed in oracle_n_spkr=False when using kmeans backend
             break
 
     # Take p_val that gave minmum DER on Dev dataset
@@ -401,6 +401,9 @@ def dev_nn_tuner(full_csv, split_type):
         )
 
         DER_list.append([nn, DER_])
+
+        if params["oracle_n_spkrs"] is True and params["backend"] == "kmeans":
+            break
 
     DER_list.sort(key=lambda x: x[1])
     tunned_nn = DER_list[0]
