@@ -28,16 +28,16 @@ device: 'cuda:0'
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
 
-# Will automatically download ECAPA-TDNN model (best)
+# Will automatically download ECAPA-TDNN model (best).
 pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
-# ECAPA-TDNN with standard data augmentation.
+# ECAPA-TDNN model with standard data augmentation.
 # pretrain_path: /miniscratch/ravanelm/ecapa_augment_standard/1986/save/CKPT+2021-03-28+17-31-13+00/
 
 # ECAPA-TDNN model without any data augmentation.
 # pretrain_path: /miniscratch/ravanelm/ecapa_augment_noaug/1986/save/CKPT+2021-03-26+16-48-51+00/
 
-# Some more exp folders (for cleaner structure)
+# Some more exp folders (for cleaner structure).
 embedding_dir: !ref <save_folder>/emb
 csv_dir: !ref <save_folder>/csv
 ref_rttm_dir: !ref <save_folder>/ref_rttms
@@ -54,7 +54,7 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
-# Xvector model
+# ECAPA-TDNN model
 emb_dim: 192
 batch_size: 512
 
