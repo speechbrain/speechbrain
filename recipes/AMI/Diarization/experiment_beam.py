@@ -328,6 +328,11 @@ def dev_p_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
+        if params["oracle_n_spkrs"] is True and params["backend"] == "kmeans":
+            # no need of p_val search. Note p_val is needed for SC for both oracle and est num of speakers.
+            # p_val is also needed in est. when using kmeans backend
+            break
+
     # Take p_val that gave minmum DER on Dev dataset
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
@@ -359,6 +364,9 @@ def dev_threshold_tuner(full_csv, split_type):
         )
 
         DER_list.append(DER_)
+
+        if params["oracle_n_spkrs"] is True:
+            break  # no need of threshold search
 
     # Take p_val that gave minmum DER on Dev dataset
     tuned_p_val = prange[DER_list.index(min(DER_list))]
@@ -446,16 +454,10 @@ def dataio_prep_multi_mic(hparams, json_file):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        # start = int(start)
-        # stop = int(stop)
-        # num_frames = stop - start
 
         mics_signals = read_audio_multichannel(wav).unsqueeze(0)
-        # mics_signals = mics_signals.transpose(0,1) # each row as one channel
 
-        # sig = torch.mean(mics_signals, 0) # add beamformer later here
-
-        fs = 16000
+        fs = 16000  # see if this can be automatically adjusted
         stft = STFT(sample_rate=fs)
         cov = Covariance()
         gccphat = GccPhat()
@@ -468,12 +470,6 @@ def dataio_prep_multi_mic(hparams, json_file):
         Ys_ds = delaysum(Xs, tdoas)
         sig = istft(Ys_ds)
 
-        # sig, fs = torchaudio.load(
-        #    wav, num_frames=num_frames, frame_offset=start
-        # )
-
-        # See if actually needed!!!!! else operation can be avoided..
-        # sig = sig.transpose(0, 1).squeeze(1)
         sig = sig.squeeze()
         return sig
 
@@ -599,19 +595,12 @@ if __name__ == "__main__":  # noqa: C901
         # oracle num_spkrs or not doesn't matter
         # for kmeans and SC backends
         # cos: Tune for best pval for SC (known) /kmeans (for unknown num of spkrs)
-        # TODO: have to update kmeans loop. Its looping on dev set even when oracle num of speakers.
         logger.info(
             "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
         )
         best_pval = dev_p_tuner(full_csv, "dev")
-    elif params["backend"] == "AHC":
-        # cos: Tune for best COSINE threshold for AHC
-        logger.info(
-            "Tuning for threshold-value for AHC (Multiple iterations over AMI Dev set)"
-        )
-        best_threshold = dev_threshold_tuner(full_csv, "dev")
-        best_pval = best_threshold
     else:
+        # This part (NN for unknown num of speakers) is WIP
         if params["oracle_n_spkrs"] is False:
             # nn: Tune num of number of components (to be updated later)
             logger.info(
