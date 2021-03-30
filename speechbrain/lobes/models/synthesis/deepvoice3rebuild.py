@@ -5,10 +5,228 @@
 #from the r9y9 original
 
 import torch
-from torch import nn
-from torch.nn import functional as F
 import math
 import numpy as np
+from torch import nn
+from torch.nn import functional as F
+from speechbrain.nnet import CNN
+
+class WeightNorm(nn.Module):
+    """
+    A weight normalization wrapper for convolutional layers
+    """
+    def __init__(self, inner: CNN.Conv1d, dropout: float=0.1, std_mul: float=4.0):
+        """
+        Class constructor
+
+        :param inner: A convolutional layer
+        :param dropout: The drop-out rate (0.0 to 1.0)
+        :param std_mul: The standard deviation multiplier
+        """
+        super().__init__()
+        self.inner = inner
+        self.dropout = dropout
+        self.std_mul = std_mul
+        self._apply_weight_norm()
+
+    def _apply_weight_norm(self):
+        std = math.sqrt(
+            (self.std_mul * (1.0 - self.dropout)) / (self.inner.conv.kernel_size[0] * self.inner.conv.in_channels))
+        self.inner.conv.weight.data.normal_(mean=0, std=std)
+        self.inner.conv.bias.data.zero_()
+    
+    def forward(self, *args, **kwargs):
+        return self.inner.forward(*args, **kwargs)        
+
+
+class IncrementalConv1d(CNN.Conv1d):
+    """
+    An extension of the standard SpeechBrain Conv1d that
+    supports "Incremental Forward" mode.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clear_buffer()
+        self._linearized_weight = None
+        self.register_backward_hook(self._clear_linearized_weight)
+
+    def incremental_forward(self, input):
+        """
+        Performs the incremental forward step
+        """
+        if self.training:
+            raise RuntimeError('incremental_forward only supports eval mode')
+
+        # run forward pre hooks (e.g., weight norm)
+        for hook in self._forward_pre_hooks.values():
+            hook(self, input)
+
+        # reshape weight
+        weight = self._get_linearized_weight()
+        kw = self.conv.kernel_size[0]
+        dilation = self.conv.dilation[0]
+
+        bsz = input.size(0)  # input: bsz x len x dim
+        if kw > 1:
+            input = input.data
+            if self.input_buffer is None:
+                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                self.input_buffer.zero_()
+            else:
+                # shift buffer
+                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
+            # append next input
+            self.input_buffer[:, -1, :] = input[:, -1, :]
+            input = self.input_buffer
+            if dilation > 1:
+                input = input[:, 0::dilation, :].contiguous()
+        output = F.linear(input.view(bsz, -1), weight, self.conv.bias)
+
+        output = output.unsqueeze(-1)
+        return output.reshape(bsz, 1, -1)
+
+    def clear_buffer(self):
+        self.input_buffer = None
+
+    def _get_linearized_weight(self):
+        if self._linearized_weight is None:
+            kw = self.conv.kernel_size[0]
+            weight = self.conv.weight.transpose(1, 2).contiguous()
+            assert weight.size() == (self.conv.out_channels, kw, self.conv.in_channels)
+            self._linearized_weight = weight.view(self.conv.out_channels, -1)
+        return self._linearized_weight
+
+    def _clear_linearized_weight(self, *args):
+        self._linearized_weight = None        
+
+
+
+class ReLU(nn.ReLU):
+    """
+    A ReLU equivalent with a pass-through incremental_forward
+    implementation
+    """
+    def incremental_forward(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+
+class EdgeConvBlock(nn.Module):
+    """
+    A convolution block found at the "edge" of multi-layer
+    stacks within DeepVoice3, typically, the first or last
+    layer consisting of a "regular" convolutional layer
+
+    """
+    def __init__(
+            self,
+            dropout: float=0.,
+            std_mul: float=1., *args, **kwargs):
+        super().__init__()
+        self.conv = WeightNorm(
+            inner=IncrementalConv1d(
+                skip_transpose=True, *args, **kwargs),
+            std_mul=std_mul,
+            dropout=dropout)
+
+    def forward(self, *args, **kwargs):
+        return self.conv(*args, **kwargs)
+
+    def incremental_forward(self, x, *args, **kwargs):
+        x = x.transpose(1, 2)
+        x = self.forward(x, *args, **kwargs)
+        x = x.transpose(1,2)
+        return x
+
+
+class ConvBlock(nn.Module):
+    """
+    A wrapper for the standard SpeechBrain convolution applying the weight normalization
+    described in the paper
+    """
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        padding: str=None,
+        kernel_size: int=None,
+        dilation: int=None,
+        dropout: float=0.,
+        std_mul: float=4.0,
+        causal: bool=False,
+        residual: bool=False,
+        *args,
+        **kwargs):
+        """
+        Class constructor. Any arguments not explicitly specified
+        will be passed through to the Conv1d instance
+
+
+        Arguments
+        ----------
+        in_channels
+            the number of input channels
+        out_channels
+            the number of output channels
+        padding
+            the type of padding used (e.g. "same", "valid)
+        kernel_size
+            the convolution kernel size (i.e. the area covered by a single "step" in the convolution)
+        dilation
+            the convolution dilation
+        dropout
+            the amount of dropout used
+        causal
+            whether or not this is a causal convolution
+        residual
+            whether or not to use a residual connection
+        """
+        super().__init__()
+        self.dropout = dropout
+        self.std_mul = std_mul
+        self.causal = causal
+        self.residual = residual
+        if padding is None:
+            padding = 'causal' if self.causal else 'same'
+        self.conv = WeightNorm(
+            inner=IncrementalConv1d(
+                *args, skip_transpose=True,
+                in_channels=in_channels,
+                out_channels=out_channels * 2,
+                kernel_size=kernel_size, padding=padding, dilation=dilation,
+                **kwargs),
+            dropout=dropout,
+            std_mul=std_mul)
+        self.glu = nn.GLU(dim=-2)
+        self.multiplier = math.sqrt(0.5)
+
+    def _apply_weight_norm(self):
+        std = math.sqrt(
+            (self.std_mul * (1.0 - self.dropout)) / (self.conv.kernel_size[0] * self.conv.in_channels))
+        self.conv.weight.data.normal_(mean=0, std=std)
+        self.conv.bias.data.zero_()
+
+    def forward(self, x, speaker_embed=None):
+        return self._forward(x, speaker_embed, False)    
+
+    def incremental_forward(self, x, speaker_embed=None):
+        return self._forward(x, speaker_embed, True)
+
+    def _forward(self, x, speaker_embed, is_incremental):
+        residual = x
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        if is_incremental:
+            splitdim = -1
+            x = self.conv.inner.incremental_forward(x)
+        else:
+            splitdim = 1            
+            x = self.conv(x)
+            # remove future time steps
+            x = x[:, :, :residual.size(-1)] if self.causal else x
+
+        a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
+        x = a * torch.sigmoid(b)
+        x = (x + residual) * math.sqrt(0.5) if self.residual else x
+        return x
 
 
 
@@ -173,7 +391,7 @@ def ConvTranspose1d(in_channels, out_channels, kernel_size, dropout=0,
     m.bias.data.zero_()
     return nn.utils.weight_norm(m)
 
-
+#TODO: Remove it
 class Conv1dGLU(nn.Module):
     """(Dilated) Conv1d + Gated linear unit + (optionally) speaker embedding
     """
@@ -182,7 +400,7 @@ class Conv1dGLU(nn.Module):
                  in_channels, out_channels, kernel_size,
                  dropout, padding=None, dilation=1, causal=False, residual=False,
                  *args, **kwargs):
-        super(Conv1dGLU, self).__init__()
+        super().__init__()
         self.dropout = dropout
         self.residual = residual
         if padding is None:
@@ -238,7 +456,7 @@ class HighwayConv1d(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=1, padding=None,
                  dilation=1, causal=False, dropout=0, std_mul=None, glu=False):
-        super(HighwayConv1d, self).__init__()
+        super().__init__()
         if std_mul is None:
             std_mul = 4.0 if glu else 1.0
         if padding is None:
@@ -321,7 +539,7 @@ class Encoder(nn.Module):
                  padding_idx=None, embedding_weight_std=0.1,
                  convolutions=((64, 5, .1),) * 7,
                  max_positions=512, dropout=0.1, apply_grad_scaling=False):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.dropout = dropout
         self.num_attention_layers = None
         self.apply_grad_scaling = apply_grad_scaling
@@ -404,7 +622,7 @@ class AttentionLayer(nn.Module):
     def __init__(self, conv_channels, embed_dim, dropout=0.1,
                  window_ahead=3, window_backward=1,
                  key_projection=True, value_projection=True):
-        super(AttentionLayer, self).__init__()
+        super().__init__()
         self.query_projection = Linear(conv_channels, embed_dim)
         if key_projection:
             self.key_projection = Linear(embed_dim, embed_dim)
@@ -796,7 +1014,7 @@ def _clear_modules(modules):
 
 class Converter(nn.Module):
     def __init__(self, n_speakers, speaker_embed_dim,
-                 in_dim, out_dim, convolutions=((256, 5, 1),) * 4,
+                 in_dim, in_channels, out_dim, convolutions,
                  time_upsampling=1,
                  dropout=0.1):
         super().__init__()
@@ -806,8 +1024,7 @@ class Converter(nn.Module):
         self.n_speakers = n_speakers
 
         # Non causual convolution blocks
-        in_channels = convolutions[0][0]
-        # Idea from nyanko
+        self.convolutions = nn.ModuleList(convolutions)
         if time_upsampling == 4:
             self.convolutions = nn.ModuleList([
                 Conv1d(in_dim, in_channels, kernel_size=1, padding=0, dilation=1,
@@ -854,26 +1071,25 @@ class Converter(nn.Module):
         else:
             raise ValueError("Not supported")
 
-        std_mul = 4.0
-        for (out_channels, kernel_size, dilation) in convolutions:
-            if in_channels != out_channels:
-                self.convolutions.append(
-                    Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                           dilation=1, std_mul=std_mul))
-                self.convolutions.append(nn.ReLU(inplace=True))
-                in_channels = out_channels
-                std_mul = 2.0
-            self.convolutions.append(
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, out_channels, kernel_size, causal=False,
-                          dilation=dilation, dropout=dropout, std_mul=std_mul,
-                          residual=True))
-            in_channels = out_channels
-            std_mul = 4.0
+        for convolution in convolutions:
+            self.convolutions.append(convolution)
+        # std_mul = 4.0
+        # for (out_channels, kernel_size, dilation) in convolutions:
+        #     if in_channels != out_channels:
+        #         self.convolutions.append(
+        #             Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+        #                    dilation=1, std_mul=std_mul))
+        #         self.convolutions.append(nn.ReLU(inplace=True))
+        #         in_channels = out_channels
+        #         std_mul = 2.0
+        #     self.convolutions.append(
+        #         Conv1dGLU(n_speakers, speaker_embed_dim,
+        #                   in_channels, out_channels, kernel_size, causal=False,
+        #                   dilation=dilation, dropout=dropout, std_mul=std_mul,
+        #                   residual=True))
+        #     in_channels = out_channels
+        #     std_mul = 4.0
         # Last 1x1 convolution
-        self.convolutions.append(Conv1d(in_channels, out_dim, kernel_size=1,
-                                        padding=0, dilation=1, std_mul=std_mul,
-                                        dropout=dropout))
 
     def forward(self, x, speaker_embed=None):
         assert self.n_speakers == 1 or speaker_embed is not None
@@ -885,7 +1101,6 @@ class Converter(nn.Module):
 
         # Generic case: B x T x C -> B x C x T
         x = x.transpose(1, 2)
-
         for f in self.convolutions:
             # Case for upsampling
             if speaker_embed_btc is not None and speaker_embed_btc.size(1) != x.size(-1):
