@@ -900,9 +900,10 @@ class Converter(nn.Module):
         return torch.sigmoid(x)
 
 
+# TODO: Vectorize
 def guided_attention(N, max_N, T, max_T, g):
+    N = N.cpu()
     W = np.zeros((max_N, max_T), dtype=np.float32)
-    # TODO: Vectorize
     for n in range(N):
         for t in range(T):
             W[n, t] = 1 - np.exp(-(n / N - t / T)**2 / (2 * g * g))

@@ -25,7 +25,7 @@ encoder_in_std_mul: 1.0
 encoder_mid_std_mul: 2.0
 encoder_out_std_mul: 4.0
 encoder_conv_kernel_size: 5
-encoder_conv_channels: 256
+encoder_conv_channels: 128
 encoder_conv_dilation: 1
 encoder_out_kernel_size: 1
 preattention_out_channels: 256
@@ -140,8 +140,8 @@ converter: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.Converter
   convolutions:  
   - !ref (<converter_conv_channels>, <converter_conv_kernel_size>, 1)
   - !ref (<converter_conv_channels>, <converter_conv_kernel_size>, 3)
-  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 9)
-  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 27)
+  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 1)
+  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 3)
 
 seq2seq: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.AttentionSeq2Seq
   encoder: !ref <encoder>
