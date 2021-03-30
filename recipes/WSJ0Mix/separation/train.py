@@ -60,12 +60,12 @@ class Separation(sb.Brain):
 
                     if "whamr" in self.hparams.data_folder:
                         if self.hparams.reverb_style == "random":
-                            targets = [
+                            targets_rev = [
                                 self.hparams.reverb(targets[:, :, i], None)
                                 for i in range(self.hparams.num_spks)
                             ]
-                            targets = torch.stack(targets, dim=-1)
-                            mix = targets.sum(-1)
+                            targets_rev = torch.stack(targets_rev, dim=-1)
+                            mix = targets_rev.sum(-1)
                         else:
                             from speechbrain.processing.signal_processing import (
                                 reverberate,
