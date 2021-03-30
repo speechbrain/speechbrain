@@ -13,15 +13,13 @@ masked_loss_weight: 0.5
 binary_divergence_weight: 0.1
 priority_freq: 3000
 priority_freq_weight: 0.0
+source_sample_rate: 48000
 sample_rate: 22050
-
-# DC removal
-highpass_cutoff: 70.0
-
-silence_threshold: 2
-is_mulaw_quantized: True
+n_fft: 400
 hop_length: 256
-n_fft: 1024
+mel_downsample_step: 4
+max_positions: 512
+max_mel_len: !ref <max_positions> // <downsample_step>
 
 lr: 0.002
 lr_warmup_steps: 4000
@@ -32,7 +30,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 #model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
-model: !new:models.wavenet.model.WaveNet
+model: !new:model.WaveNet
 
 modules:
     model: !ref <model>
