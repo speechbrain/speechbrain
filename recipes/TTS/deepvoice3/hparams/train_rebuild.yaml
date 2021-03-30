@@ -134,14 +134,54 @@ converter: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.Converter
   n_speakers: !ref <n_speakers>
   speaker_embed_dim: !ref <speaker_embed_dim>
   in_dim: !ref <converter_in_dim>
+  in_channels: !ref <converter_conv_channels>
   out_dim: !ref <linear_dim>
   dropout: !ref <dropout>
   time_upsampling: !ref <time_upsampling>
-  convolutions:  
-  - !ref (<converter_conv_channels>, <converter_conv_kernel_size>, 1)
-  - !ref (<converter_conv_channels>, <converter_conv_kernel_size>, 3)
-  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 1)
-  - !ref (<converter_conv_channels_bottom>, <converter_conv_kernel_size>, 3)
+  convolutions:
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.ConvBlock &converter_conv
+      in_channels: !ref <converter_conv_channels>
+      out_channels: !ref <converter_conv_channels>
+      kernel_size: 3
+      dropout: !ref <dropout>
+      causal: false
+      residual: true
+      dilation: 1
+      std_mul: !ref <converter_mid_std_mul>
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.ConvBlock
+      <<: *converter_conv
+      dilation: 3
+      std_mul: !ref <converter_mid_std_mul>
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.EdgeConvBlock    
+      in_channels: !ref <converter_conv_channels>
+      out_channels: !ref 2 * <converter_conv_channels>
+      kernel_size: 1
+      padding: valid
+      dilation: 1
+      dropout: !ref <dropout>
+      std_mul: !ref <converter_mid_std_mul>
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.ReLU
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.ConvBlock
+      <<: *converter_conv
+      in_channels: !ref  <converter_conv_channels_bottom>
+      out_channels: !ref <converter_conv_channels_bottom>
+      dilation: 1
+      std_mul: !ref <converter_mid_std_mul> // 2
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.ConvBlock
+      <<: *converter_conv
+      in_channels: !ref <converter_conv_channels_bottom>
+      out_channels: !ref <converter_conv_channels_bottom>
+      dilation: 3
+      std_mul: !ref <converter_mid_std_mul>  
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.EdgeConvBlock    
+      in_channels: !ref <converter_conv_channels_bottom>
+      out_channels: !ref <linear_dim>
+      kernel_size: 1
+      padding: valid
+      dilation: 1
+      dropout: !ref <dropout>
+      std_mul: !ref <converter_out_std_mul>
+
 
 seq2seq: !new:speechbrain.lobes.models.synthesis.deepvoice3rebuild.AttentionSeq2Seq
   encoder: !ref <encoder>
