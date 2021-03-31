@@ -127,7 +127,7 @@ model: !new:torch.nn.ModuleList
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>/LAS_tokenizer
+    collect_in: !ref <save_folder>/TAS_tokenizer
     loadables:
         tokenizer: !ref <tokenizer>
     paths:
