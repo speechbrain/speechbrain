@@ -146,9 +146,9 @@ class TensorboardLogger(TrainLogger):
                 tag = f"{stat}/{dataset}"
 				
                 # Both single value (per Epoch) and list (Per batch) logging is supported
-				# TODO: Remove list (Per batch) logging since it won't be very useful nor 
-				# readable (lots of values) and because the steps won't represent the real training
-				# epoch number.
+                # TODO: Remove list (Per batch) logging since it won't be very useful nor 
+                # readable (lots of values) and because the steps won't represent the real training
+                # epoch number.
                 if isinstance(value_list, list):
                     for value in value_list:
                         new_global_step = self.global_step[dataset][stat] + 1
