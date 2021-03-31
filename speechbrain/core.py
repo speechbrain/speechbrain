@@ -825,8 +825,8 @@ class Brain:
         if self.auto_mix_prec:
             self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
-                predictions = self.compute_forward(batch, Stage.TRAIN)
-                loss = self.compute_objectives(predictions, batch, Stage.TRAIN)
+                outputs = self.compute_forward(batch, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             self.scaler.scale(loss).backward()
             self.scaler.unscale_(self.optimizer)
             if self.check_gradients(loss):
