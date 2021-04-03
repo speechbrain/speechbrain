@@ -5,13 +5,76 @@ import math
 import numpy as np
 
 import torch
-import conv
 from torch import nn
 from torch.nn import functional as F
 
+class Conv1d(nn.Conv1d):
+    """Extended nn.Conv1d for incremental dilated convolutions
+    """
 
-def Conv1d(in_channels, out_channels, kernel_size, dropout=0, **kwargs):
-    m = conv.Conv1d(in_channels, out_channels, kernel_size, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clear_buffer()
+        self._linearized_weight = None
+        self.register_backward_hook(self._clear_linearized_weight)
+
+    def incremental_forward(self, input):
+
+        # input: (B, T, C)
+        if self.training:
+            raise RuntimeError('incremental_forward only supports eval mode')
+
+        # run forward pre hooks (e.g., weight norm)
+        for hook in self._forward_pre_hooks.values():
+            hook(self, input)
+
+        # reshape weight - flattens input_channels and kernel dimension into one
+        weight = self._get_linearized_weight()
+        kw = self.kernel_size[0]
+        dilation = self.dilation[0]
+
+        bsz = input.size(0)  # input: bsz x len x dim
+ 
+        if kw > 1:
+            input = input.data
+            if self.input_buffer is None:
+                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                self.input_buffer.zero_()
+            else:
+                # shift buffer
+                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
+            # append next input
+            self.input_buffer[:, -1, :] = input[:, -1, :]
+            input = self.input_buffer
+            if dilation > 1:
+                input = input[:, 0::dilation, :].contiguous()
+        output = F.linear(input.view(bsz, -1), weight, self.bias)
+
+        return output.view(bsz, 1, -1)
+
+    def clear_buffer(self):
+        self.input_buffer = None
+
+    def _get_linearized_weight(self):
+        if self._linearized_weight is None:
+            kw = self.kernel_size[0]
+            # nn.Conv1d
+            if self.weight.size() == (self.out_channels, self.in_channels, kw):
+                weight = self.weight.transpose(1, 2).contiguous()
+            else:
+                # fairseq.modules.conv_tbc.ConvTBC
+                weight = self.weight.transpose(2, 1).transpose(1, 0).contiguous()
+            assert weight.size() == (self.out_channels, kw, self.in_channels)
+            self._linearized_weight = weight.view(self.out_channels, -1)
+        return self._linearized_weight
+
+    def _clear_linearized_weight(self, *args):
+        self._linearized_weight = None
+
+
+
+def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, **kwargs):
+    m = Conv1d(in_channels, out_channels, kernel_size, **kwargs)
     nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
     if m.bias is not None:
         nn.init.constant_(m.bias, 0)
@@ -85,7 +148,7 @@ class ResidualConv1dGLU(nn.Module):
                 padding = (kernel_size - 1) // 2 * dilation
         self.causal = causal
 
-        self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
+        self.conv = Conv1dkxk(residual_channels, gate_channels, kernel_size,
                            padding=padding, dilation=dilation,
                            bias=bias, *args, **kwargs)
 
@@ -116,9 +179,9 @@ class ResidualConv1dGLU(nn.Module):
         """Forward
 
         Args:
-            x (Tensor): B x C x T
-            c (Tensor): B x C x T, Local conditioning features
-            g (Tensor): B x C x T, Expanded global conditioning features
+            x (Tensor): B x T x C
+            c (Tensor): B x T x C, Local conditioning features
+            g (Tensor): B x T x C, Expanded global conditioning features
             is_incremental (Bool) : Whether incremental mode or not
 
         Returns:
@@ -126,15 +189,15 @@ class ResidualConv1dGLU(nn.Module):
         """
         residual = x
         x = F.dropout(x, p=self.dropout, training=self.training)
+
         if is_incremental:
-            splitdim = -1
             x = self.conv.incremental_forward(x)
         else:
-            splitdim = 1
             x = self.conv(x)
             # remove future time steps
-            x = x[:, :, :residual.size(-1)] if self.causal else x
-
+            x = x[:,:residual.size(-1),:] if self.causal else x
+        
+        splitdim = -1
         a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
 
         # local conditioning
