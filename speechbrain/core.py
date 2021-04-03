@@ -823,14 +823,15 @@ class Brain:
         """
         # Managing automatic mixed precision
         if self.auto_mix_prec:
+            self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-                self.scaler.scale(loss).backward()
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.optimizer.zero_grad()
-                self.scaler.update()
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+            if self.check_gradients(loss):
+                self.scaler.step(self.optimizer)
+            self.scaler.update()
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
