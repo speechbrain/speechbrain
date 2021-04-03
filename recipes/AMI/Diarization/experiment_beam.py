@@ -276,6 +276,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 params["affinity"],
                 n_neighbors,
             )
+        # Maybe used for AHC
         if params["backend"] == "AHC":
             # call AHC
             threshold = pval  # TODO: have to update the calling function
@@ -625,6 +626,11 @@ if __name__ == "__main__":  # noqa: C901
             "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
         )
         best_pval = dev_p_tuner(full_csv, "dev")
+
+    elif params["backend"] == "AHC":
+        logger.info("Tuning for threshold-value for AHC")
+        best_threshold = dev_threshold_tuner(full_csv, "dev")
+        best_pval = best_threshold
     else:
         # This part (NN for unknown num of speakers) is WIP
         if params["oracle_n_spkrs"] is False:
