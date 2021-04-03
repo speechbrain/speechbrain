@@ -648,7 +648,6 @@ if __name__ == "__main__":
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-
         if hparams["num_spks"] == 2:
             from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
@@ -665,6 +664,11 @@ if __name__ == "__main__":
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
 
+    # Load pretrained model if pretrained_separator is present in the yaml
+    if "pretrained_separator" in hparams:
+        run_on_main(hparams["pretrained_separator"].collect_files)
+        hparams["pretrained_separator"].load_collected()
+
     # Brain class initialization
     separator = Separation(
         modules=hparams["modules"],
@@ -674,9 +678,10 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # re-initialize the parameters
-    for module in separator.modules.values():
-        separator.reset_layer_recursively(module)
+    # re-initialize the parameters if we don't use a pretrained model
+    if "pretrained_separator" not in hparams:
+        for module in separator.modules.values():
+            separator.reset_layer_recursively(module)
 
     if not hparams["test_only"]:
         # Training
