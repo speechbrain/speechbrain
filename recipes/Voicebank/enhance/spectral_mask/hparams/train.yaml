@@ -20,7 +20,7 @@ train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced_wavs
 
 # Basic parameters
-use_tensorboard: False
+use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 
 # FFT paremeters
@@ -91,3 +91,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
+
+# Tensorboard logger (optional)
+tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+    save_dir: !ref <tensorboard_logs>
