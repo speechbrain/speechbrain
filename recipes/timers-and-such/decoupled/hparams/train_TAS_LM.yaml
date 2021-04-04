@@ -26,7 +26,7 @@ csv_dev_synth: !ref <output_folder>/dev-synth-type=decoupled.csv
 csv_test_real: !ref <output_folder>/test-real-type=decoupled.csv
 csv_test_synth: !ref <output_folder>/test-synth-type=decoupled.csv
 csv_all_real: !ref <output_folder>/all-real-type=decoupled.csv
-tokenizer_file: /home/mila/l/lugoschl/code/speechbrain/recipes/timers-and-such/Tokenizer/results/tokenizer_bpe51/51_unigram.model
+tokenizer_file: https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr/resolve/main/tokenizer.ckpt
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 test_on_all_real: False
