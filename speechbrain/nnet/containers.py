@@ -50,6 +50,10 @@ class Sequential(torch.nn.ModuleDict):
     def __init__(self, *layers, input_shape=None, **named_layers):
         super().__init__()
 
+        # Make sure either layers or input_shape is passed
+        if not layers and input_shape is None and not named_layers:
+            raise ValueError("Must pass either layers or input shape")
+
         # Keep track of what layers need "lengths" passed
         self.length_layers = []
 
@@ -107,8 +111,15 @@ class Sequential(torch.nn.ModuleDict):
                 input_shape = self.get_output_shape()
                 layer = layer(*args, input_shape=input_shape, **kwargs)
 
-        # Finally, append the layer
-        self.add_module(layer_name, layer)
+        # Finally, append the layer.
+        try:
+            self.add_module(layer_name, layer)
+        except TypeError:
+            raise ValueError(
+                "Must pass `input_shape` at initialization and use "
+                "modules that take `input_shape` to infer shape when "
+                "using `append()`."
+            )
 
     def get_output_shape(self):
         """Returns expected shape of the output.
@@ -116,8 +127,9 @@ class Sequential(torch.nn.ModuleDict):
         Computed by passing dummy input constructed with the
         ``self.input_shape`` attribute.
         """
-        dummy_input = torch.zeros(self.input_shape)
-        dummy_output = self(dummy_input)
+        with torch.no_grad():
+            dummy_input = torch.zeros(self.input_shape)
+            dummy_output = self(dummy_input)
         return dummy_output.shape
 
     def forward(self, x):
