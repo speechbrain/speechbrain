@@ -706,7 +706,22 @@ class SepformerSeparation(Pretrained):
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
 
-        batch, _ = torchaudio.load(path)
+        batch, fs_file = torchaudio.load(path)
+        fs_model = self.hparams.sample_rate
+
+        # resample the data if needed
+        if fs_file != fs_model:
+            print(
+                "Resampling the audio from {} Hz to {} Hz".format(
+                    fs_file, fs_model
+                )
+            )
+            tf = torchaudio.transforms.Resample(
+                orig_freq=fs_file, new_freq=fs_model
+            )
+            batch = batch.mean(dim=0, keepdim=True)
+            batch = tf(batch)
+
         est_sources = self.separate_batch(batch)
         est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
         return est_sources
