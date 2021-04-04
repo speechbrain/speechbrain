@@ -253,7 +253,7 @@ class EndToEndSLU(Pretrained):
     ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
     ...     savedir=tmpdir,
     ... )
-    >>> slu_model.decode_file("math.wav")
+    >>> slu_model.decode_file("samples/audio_samples/example6.wav")
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
