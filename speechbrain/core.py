@@ -203,13 +203,14 @@ def parse_arguments(arg_list):
         "--data_parallel_backend",
         default=False,
         action="store_true",
-        help="If True, data_parallel is used.",
+        help="This flag enables training with data_parallel.",
     )
     parser.add_argument(
         "--distributed_launch",
         default=False,
         action="store_true",
-        help="if True, use DDP",
+        help="This flag enables training with DDP. Assumes script run with "
+        "`torch.distributed.launch`",
     )
     parser.add_argument(
         "--distributed_backend",
@@ -227,7 +228,7 @@ def parse_arguments(arg_list):
         "--auto_mix_prec",
         default=False,
         action="store_true",
-        help="If True, automatic mixed-precision is used.",
+        help="This flag enables training with automatic mixed-precision.",
     )
     parser.add_argument(
         "--max_grad_norm",
@@ -244,7 +245,7 @@ def parse_arguments(arg_list):
         "--noprogressbar",
         default=False,
         action="store_true",
-        help="If True, displays a progressbar indicating dataset progress.",
+        help="This flag disables the data loop progressbars.",
     )
     parser.add_argument(
         "--ckpt_interval_minutes",
