@@ -75,6 +75,7 @@ class Fbank(torch.nn.Module):
         requires_grad=False,
         sample_rate=16000,
         f_min=0,
+        f_max=None,
         n_fft=400,
         n_mels=40,
         filter_shape="triangular",
@@ -82,18 +83,28 @@ class Fbank(torch.nn.Module):
         param_rand_factor=0.0,
         left_frames=5,
         right_frames=5,
+        win_length=25,
+        hop_length=10,
     ):
         super().__init__()
         self.deltas = deltas
         self.context = context
         self.requires_grad = requires_grad
 
-        self.compute_STFT = STFT(sample_rate=sample_rate, n_fft=n_fft)
+        if f_max is None:
+            f_max = sample_rate / 2
+
+        self.compute_STFT = STFT(
+            sample_rate=sample_rate,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+        )
         self.compute_fbanks = Filterbank(
             n_fft=n_fft,
             n_mels=n_mels,
             f_min=f_min,
-            f_max=sample_rate / 2,
+            f_max=f_max,
             freeze=not requires_grad,
             filter_shape=filter_shape,
             param_change_factor=param_change_factor,
