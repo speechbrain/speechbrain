@@ -354,11 +354,13 @@ class RelPosMultiHeadAttention(nn.Module):
         bias=False,
         rr_bias=None,
         rw_bias=None,
+        mask_future_pos=False,
     ):
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.dropout = nn.Dropout(dropout)
+        self.mask_future_pos = mask_future_pos
 
         if head_dim is None:
             self.head_dim = embed_dim // num_heads
@@ -426,6 +428,7 @@ class RelPosMultiHeadAttention(nn.Module):
             x.size(0) - 1, -1, -1.0, device=x.device, dtype=x.dtype
         )
         pos_enc = self.pos_enc(pos_seq)
+
         return pos_enc
 
     def _rel_shift(self, x):
@@ -437,14 +440,14 @@ class RelPosMultiHeadAttention(nn.Module):
         x_padded = x_padded.view(*x_padded_shape)
         x = x_padded[1:].view_as(x)
 
+        if self.mask_future_pos:
+            ones = torch.ones((x.size(0), x.size(1)), device=x.device)
+            ones = torch.tril(ones, x.size(1) - x.size(0))[:, :, None, None]
+            x = x.masked_fill(ones, 0.0)
+
         return x
 
     def forward(self, query, key, value, key_padding_mask=None, attn_mask=None):
-
-        # give tensors of shape (time, batch, fea)
-        query = query.permute(1, 0, 2)
-        key = key.permute(1, 0, 2)
-        value = value.permute(1, 0, 2)
 
         qlen, bsz, embed_dim = query.size()
         klen = key.size(0)
