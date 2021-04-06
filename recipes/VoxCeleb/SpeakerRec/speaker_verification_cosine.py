@@ -133,9 +133,9 @@ def get_verification_scores(veri_test):
             elif params["score_norm"] == "t-norm":
                 score = (score - mean_t_c) / std_t_c
             elif params["score_norm"] == "s-norm":
-                score = (score - mean_e_c) / std_e_c
-                score += (score - mean_t_c) / std_t_c
-                score = 0.5 * score
+                score_e = (score - mean_e_c) / std_e_c
+                score_t = (score - mean_t_c) / std_t_c
+                score = 0.5 * (score_e + score_t)
 
         # write score file
         s_file.write("%s %s %i %f\n" % (enrol_id, test_id, lab_pair, score))
