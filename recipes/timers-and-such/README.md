@@ -1,5 +1,5 @@
 # SLU recipes for Timers and Such v1.0
-This folder contains recipes for spoken language understanding (SLU) with [Timers and Such v0.1](https://zenodo.org/record/4623772#.YGeMMHVKg5k), an SLU dataset with a (train/dev/test) set of synthetic speech and a (train/dev/test) set of real speech.
+This folder contains recipes for spoken language understanding (SLU) with [Timers and Such v1.0](https://zenodo.org/record/4623772#.YGeMMHVKg5k), an SLU dataset with a (train/dev/test) set of synthetic speech and a (train/dev/test) set of real speech.
 
 ### LM recipe
 This recipe trains a language model (LM) on Timers and Such transcripts. (It is not necessary to run this before running the other recipes, as they download a trained checkpoint.)
@@ -47,3 +47,18 @@ dev-real, and test-real (we train on train-synth only).
 
 You can find the output folder (model, logs, etc) here:
 https://drive.google.com/drive/folders/1kSwdBT8kDhnmTLzrOPDL77LX_Eq-3Tzl?usp=sharing
+
+# The paper
+
+[Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers](https://arxiv.org/abs/2104.01604)
+
+```
+@misc{lugosch2021timers,
+      title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers}, 
+      author={Lugosch, Loren and Papreja, Piyush and Ravanelli, Mirco and Heba, Abdelwahab and Parcollet, Titouan},
+      year={2021},
+      eprint={2104.01604},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
