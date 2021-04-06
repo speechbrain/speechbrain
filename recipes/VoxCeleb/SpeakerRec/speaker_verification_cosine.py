@@ -175,7 +175,7 @@ def dataio_prep(params):
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["test_data"], replacements={"data_root": data_folder},
     )
-    test_data = enrol_data.filtered_sorted(sort_key="duration")
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, enrol_data, test_data]
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
+    train_dataloader, enrol_dataloader, test_dataloader = dataio_prep(params)
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
