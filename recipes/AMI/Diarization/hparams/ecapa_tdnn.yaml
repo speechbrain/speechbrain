@@ -23,7 +23,10 @@ manual_annot_folder: /miniscratch/nauman/ami_public_manual
 #output_folder: results/ami/sd_ecapa_tdnn_KMEANS_headsetMix/
 #output_folder: results/ami/sd_ecapa_tdnn_KMEANS_BEAMFORMIT_KALDI_Array1/
 
-output_folder: results/ami/ecapa_DISTANT_Array1-01/
+#output_folder: results/ami/ecapa_DISTANT_Array1-01/
+
+# For AHC
+output_folder: results/ami/ecapa_AHC_BEAMFORMIT_withAug
 
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
@@ -59,17 +62,17 @@ batch_size: 512
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'BeamformIt' #'BeamformIt'  #'Array1-08' #'Mix-Lapel' 'Mix-Headset' #'Array1'
+mic_type: 'BeamformIt' #'Array1-08' #'Mix-Lapel' 'Mix-Headset' #'Array1'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 
-backend: 'kmeans' # Just for experimentation. Goes only with cos
+backend: 'AHC' #'kmeans' # Note: kmeans goes only with cos
 
 # Spectral Clustering parameters
 affinity: 'cos'  # use 'cos' for cosine affinity
 max_num_spkrs: 10
-oracle_n_spkrs: False
+oracle_n_spkrs: True
 
 # DER evaluation parameters
 ignore_overlap: True

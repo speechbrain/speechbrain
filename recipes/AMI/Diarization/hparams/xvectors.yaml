@@ -12,8 +12,12 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # data: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: /network/datasets/ami/amicorpus
 manual_annot_folder: /miniscratch/nauman/ami_public_manual/
+
 #output_folder: results/ami/sd_xvector_Array1_Beam_DelaySum/
-output_folder: results/ami/sd_xvector_Array1_SimpleMEAN/
+#output_folder: results/ami/sd_xvector_Array1_SimpleMEAN/
+#output_folder: results/ami/xvect_SC_BeamformIt_OurAUG_Huggingface/
+output_folder: results/ami/xvect_SC_BeamformIt_StandardAUG_Dropbox/
+
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -22,7 +26,12 @@ device: 'cuda:0'
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-pretrain_path: speechbrain/spkrec-xvect-voxceleb
+#pretrain_path: speechbrain/spkrec-xvect-voxceleb
+# Standard Augmentation
+#pretrain_path: https://www.dropbox.com/sh/e00wna66l1xhefc/AAAaVP9l5tzTs9YM_wapvW5Na?dl=0
+# Dropbox download not working so I downloaded from dropbox and kept in following path
+pretrain_path: /home/mila/d/dawalatn/nauman/sb/speechbrain/recipes/AMI/Diarization/xvector_standardAUG_Model_Dropbox/xvector/save/CKPT+2020-06-26+20-37-04+00/
+
 
 # Some more exp folders (for cleaner structure)
 embedding_dir: !ref <save_folder>/emb
@@ -48,13 +57,15 @@ batch_size: 512
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'Array1' #'Lapel'
+mic_type: 'BeamformIt' #'Array1' #'Lapel'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 
+backend: 'SC'
+
 # Spectral Clustering parameters
-affinity: 'nn' # use 'cos' for cosine affinity
+affinity: 'cos' # use 'cos' for cosine affinity
 max_num_spkrs: 10
 oracle_n_spkrs: True
 
