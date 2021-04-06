@@ -40,6 +40,10 @@ test_csv:
     - !ref <data_folder>/test-other.csv
 
 # Training parameters
+# To make Transformers converge, the global bath size should be large enough.
+# The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
+# Empirically, we found that this value should be >= 128.
+# Please, set your parameters accordingly.
 number_of_epochs: 110
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
