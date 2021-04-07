@@ -224,7 +224,7 @@ class SentencePiece:
                 )
                 break
             row_idx += 1
-            if(len(row) > index_label):
+            if len(row) > index_label:
                 sent = row[index_label]
                 if self.char_format_input:
                     (sent,) = merge_char([sent.split()])
