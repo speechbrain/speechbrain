@@ -117,7 +117,7 @@ class FairseqWav2Vec1(nn.Module):
     Arguments
     ---------
     pretrained_path : str
-        Path of the pretrained wav2vec2 model. It can be a url or a local path.
+        Path of the pretrained wav2vec1 model. It can be a url or a local path.
     save_path : str
         Path and filename of the downloaded model.
     output_norm : bool (default: True)
@@ -132,7 +132,7 @@ class FairseqWav2Vec1(nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_url = ""
     >>> save_path = "models_checkpoints/wav2vec.pt"
-    >>> model = FairseqWav2Vec2(model_url, save_path)
+    >>> model = FairseqWav2Vec1(model_url, save_path)
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 100, 512])
@@ -142,6 +142,8 @@ class FairseqWav2Vec1(nn.Module):
         self, pretrained_path, save_path, output_norm=True, freeze=True
     ):
         super().__init__()
+        self.freeze = freeze
+        self.output_norm = output_norm
 
         # Download the pretrained wav2vec1 model. It can be local or online.
         download_file(pretrained_path, save_path)
@@ -153,8 +155,11 @@ class FairseqWav2Vec1(nn.Module):
         ) = fairseq.checkpoint_utils.load_model_ensemble_and_task(
             [pretrained_path]
         )
+
         self.model = model
         self.model = self.model[0]
+        if self.freeze:
+            model.eval()
 
     def forward(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.
@@ -164,8 +169,22 @@ class FairseqWav2Vec1(nn.Module):
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         """
+
+        # If we freeze, we simply remove all grads and features from the graph.
+        if self.freeze:
+            with torch.no_grad():
+                return self.extract_features(wav).detach()
+
+        return self.extract_features(wav)
+
+    def extract_features(self, wav):
+
         out = self.model.feature_extractor(wav)
         out = self.model.feature_aggregator(out).squeeze(0)
         out = out.transpose(2, 1)
+
+        # We normalize the output if required
+        if self.output_norm:
+            out = F.layer_norm(out, out.shape)
 
         return out
