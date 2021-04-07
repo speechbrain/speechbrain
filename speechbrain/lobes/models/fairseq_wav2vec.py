@@ -9,7 +9,6 @@ Authors
  * Salima Mdhaffar 2021
 """
 
-import fairseq
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -55,10 +54,11 @@ class FairseqWav2Vec2(nn.Module):
     ):
         super().__init__()
 
+        # We check if fairseq is installed.
         try:
-            import os
+            import fairseq
         except ImportError:
-            print("Impossible, there is no python without os module!")
+            print("Please install Fairseq to use pretrained wav2vec!")
 
         # Download the pretrained wav2vec2 model. It can be local or online.
         download_file(pretrained_path, save_path)
@@ -142,6 +142,13 @@ class FairseqWav2Vec1(nn.Module):
         self, pretrained_path, save_path, output_norm=True, freeze=True
     ):
         super().__init__()
+
+        # We check if fairseq is installed.
+        try:
+            import fairseq
+        except ImportError:
+            print("Please install Fairseq to use pretrained wav2vec!")
+
         self.freeze = freeze
         self.output_norm = output_norm
 
