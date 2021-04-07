@@ -55,6 +55,11 @@ class FairseqWav2Vec2(nn.Module):
     ):
         super().__init__()
 
+        try:
+            import os
+        except ImportError:
+            print("Impossible, there is no python without os module!")
+
         # Download the pretrained wav2vec2 model. It can be local or online.
         download_file(pretrained_path, save_path)
 
@@ -65,7 +70,7 @@ class FairseqWav2Vec2(nn.Module):
         ) = fairseq.checkpoint_utils.load_model_ensemble_and_task([save_path])
 
         # wav2vec pretrained models may need the input waveform to be normalized
-        # Hence, we check of the model has be trained with or without it.
+        # Hence, we check if the model has be trained with or without it.
         self.normalize = cfg.normalize
         model = model[0]
         self.model = model
@@ -126,7 +131,7 @@ class FairseqWav2Vec1(nn.Module):
     -------
     >>> inputs = torch.rand([10, 600])
     >>> model_url = ""
-    >>> save_path = "models_checkpoints/wav2vec2.pt"
+    >>> save_path = "models_checkpoints/wav2vec.pt"
     >>> model = FairseqWav2Vec2(model_url, save_path)
     >>> outputs = model(inputs)
     >>> outputs.shape
