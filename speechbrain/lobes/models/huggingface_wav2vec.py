@@ -33,10 +33,10 @@ class HuggingFaceWav2Vec2(nn.Module):
 
     Arguments
     ---------
-    pretrained_path : str
-        Path of the pretrained wav2vec2 model. It can be a url or a local path.
+    source : str
+        HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
     save_path : str
-        Path and filename of the downloaded model.
+        Path (dir) of the downloaded model.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
