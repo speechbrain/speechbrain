@@ -16,6 +16,7 @@ from torch import nn
 # We check if transformers is installed.
 try:
     from transformers import Wav2Vec2Model
+    from transformers import Wav2Vec2Processor
 except ImportError:
     print("Please install transformer from HuggingFace to use wav2vec2!")
 
@@ -59,7 +60,15 @@ class HuggingFaceWav2Vec2(nn.Module):
         super().__init__()
 
         # Download the model from HuggingFace and load it.
+        # The Processor is only used to retrieve the normalisation
+        self.proc = Wav2Vec2Processor.from_pretrained(
+            source, cache_dir=save_path
+        )
         self.model = Wav2Vec2Model.from_pretrained(source, cache_dir=save_path)
+
+        # We check if inputs need to be normalized w.r.t pretrained wav2vec2
+        self.normalize_wav = self.proc.feature_extractor.do_normalize
+
         self.freeze = freeze
         self.output_norm = output_norm
         if self.freeze:
@@ -84,6 +93,9 @@ class HuggingFaceWav2Vec2(nn.Module):
         return self.extract_features(wav)
 
     def extract_features(self, wav):
+
+        if self.normalize_wav:
+            wav = F.layer_norm(wav, wav.shape)
 
         # Extract wav2vec output
         out = self.model(wav)[0]
