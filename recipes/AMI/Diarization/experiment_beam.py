@@ -53,7 +53,7 @@ try:
     import sklearn  # noqa F401
 except ImportError:
     err_msg = (
-        "Cannot import optional dependency `sklearn` used in this module\n"
+        "Cannot import optional dependency `sklearn` used in this module.\n"
     )
     err_msg += "Please follow the below instructions\n"
     err_msg += "=============================\n"
@@ -66,7 +66,7 @@ except ImportError:
 
 
 def compute_embeddings(wavs, lens):
-    """Definition of the steps for computation of embeddings from the waveforms
+    """Definition of the steps for computation of embeddings from the waveforms.
     """
     with torch.no_grad():
         wavs = wavs.to(params["device"])
@@ -81,7 +81,7 @@ def compute_embeddings(wavs, lens):
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
-    """Extracts embeddings for a given dataset loader
+    """Extracts embeddings for a given dataset loader.
     """
 
     # Extract embeddings (skip if already done)
@@ -142,7 +142,9 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
 
 def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
-    # "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+    """ Converts csv to json for multi-mic processing.
+    Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+    """
     json_dict = {}
     with open(in_csv_file, mode="r") as csv_file:
         csv_reader = csv.DictReader(csv_file)
@@ -168,7 +170,7 @@ def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
 
 
 def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
-    """Diarizes all the recordings in a given dataset
+    """Diarizes all the recordings in a given dataset.
     """
 
     # Prepare `spkr_info` only once when Oracle num of speakers is selected
@@ -348,7 +350,7 @@ def dev_threshold_tuner(full_csv, split_type):
     prange = np.arange(0.0, 1.0, 0.1)
 
     n_lambdas = None
-    # TODO: Update variable name  p_val --> theshold_val .
+    # TODO: Update variable name p_val --> theshold_val .
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
