@@ -125,7 +125,7 @@ def load_data_csv(csv_path, replacements={}):
     '/home/utt1.wav'
     """
 
-    with open(csv_path, newline="") as csvfile:
+    with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")
