@@ -87,7 +87,6 @@ class HuggingFaceWav2Vec2(nn.Module):
 
         # Extract wav2vec output
         out = self.model(wav)[0]
-        print(out.shape)
 
         # We normalize the output if required
         if self.output_norm:
