@@ -186,27 +186,6 @@ class DeepVoice3Brain(sb.core.Brain):
 ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-'
 
 
-# def mel_spectrogram(
-#     takes, provides,
-#     n_fft, win_length, hop_length, sample_rate, n_mels):
-#     spectrogram = transforms.Spectrogram(
-#         n_fft=n_fft,
-#         win_length=win_length,
-#         hop_length=hop_length,
-#         power=None)
-#     mel = transforms.MelScale(
-#         n_mels=n_mels,
-#         n_stft=n_fft // 2 + 1,
-#         sample_rate=sample_rate)
-#     @sb.utils.data_pipeline.takes(takes)
-#     @sb.utils.data_pipeline.provides(provides)
-#     def f(raw_signal):
-#         x = spectrogram(raw_signal)
-#         x = torch.abs(x[:, :, 0] + x[:, :, 1] * 1j)
-#         x = mel(x)
-#         return x
-#     return f
-
 def text_encoder(max_input_len=128, tokens=None):
     """
     Configures and returns a text encoder function for use with the deepvoice3 model
@@ -562,7 +541,7 @@ def main():
         epoch_counter=tts_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         # TODO: Implement splitting - this is not ready yet
-        valid_set=datasets["train"],
+        valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )

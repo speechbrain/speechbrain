@@ -1,8 +1,6 @@
 # coding: utf-8
 
-#TODO: Reference implementation - remove this.
-#It was added for comparison purposes - minimal modifications
-#from the r9y9 original
+# Adopted and modified from https://github.com/r9y9/deepvoice3_pytorch
 
 import torch
 import math
@@ -10,6 +8,7 @@ import numpy as np
 from torch import nn
 from torch.nn import functional as F
 from speechbrain.nnet import CNN
+
 
 class WeightNorm(nn.Module):
     """
@@ -19,9 +18,14 @@ class WeightNorm(nn.Module):
         """
         Class constructor
 
-        :param inner: A convolutional layer
-        :param dropout: The drop-out rate (0.0 to 1.0)
-        :param std_mul: The standard deviation multiplier
+        Arguments
+        ---------
+        inner
+            A convolutional layer
+        dropout 
+            The drop-out rate (0.0 to 1.0)
+        std_mul 
+            The standard deviation multiplier
         """
         super().__init__()
         self.inner = inner
@@ -38,6 +42,9 @@ class WeightNorm(nn.Module):
     def forward(self, *args, **kwargs):
         return self.inner.forward(*args, **kwargs)        
 
+    def incremental_forward(self, *args, **kwargs):
+        return self.inner.incremental_forward(*args, **kwargs)        
+
 
 class IncrementalConv1d(CNN.Conv1d):
     """
@@ -45,7 +52,7 @@ class IncrementalConv1d(CNN.Conv1d):
     supports "Incremental Forward" mode.
     """
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, padding_mode='constant', **kwargs)
         self.clear_buffer()
         self._linearized_weight = None
         self.register_backward_hook(self._clear_linearized_weight)
@@ -83,7 +90,7 @@ class IncrementalConv1d(CNN.Conv1d):
         output = F.linear(input.view(bsz, -1), weight, self.conv.bias)
 
         output = output.unsqueeze(-1)
-        return output.reshape(bsz, 1, -1)
+        return output.view(bsz, 1, -1)
 
     def clear_buffer(self):
         self.input_buffer = None
@@ -134,9 +141,41 @@ class EdgeConvBlock(nn.Module):
     def incremental_forward(self, x, *args, **kwargs):
         x = x.transpose(1, 2)
         x = self.forward(x, *args, **kwargs)
-        x = x.transpose(1,2)
+        x = x.transpose(1, 2)
         return x
 
+    def clear_buffer(self):
+        self.conv.inner.clear_buffer()
+
+
+class TransposeConvBlock(nn.Module):
+    """
+    A transposed convolution block
+    """
+    def __init__(
+            self, 
+            dropout: float=0.,
+            std_mul: float=1., *args, **kwargs):
+        super().__init__()
+        self.conv = WeightNorm(
+            inner=CNN.TransposeConv1d(
+                skip_transpose=True, *args, **kwargs),
+            std_mul=std_mul,
+            dropout=dropout)        
+
+    def forward(self, *args, **kwargs):
+        return self.conv(*args, **kwargs)
+
+    def incremental_forward(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+
+def get_padding(causal, kernel_size, dilation):
+    padding = (kernel_size - 1)
+    if not causal:
+        padding //= 2
+    padding *= dilation
+    return padding
 
 class ConvBlock(nn.Module):
     """
@@ -145,11 +184,13 @@ class ConvBlock(nn.Module):
     """
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
+        n_speakers: int=1,
+        speaker_embed_dim: int=16,
+        in_channels: int=256,
+        out_channels: int=256,
+        kernel_size: int=5,
         padding: str=None,
-        kernel_size: int=None,
-        dilation: int=None,
+        dilation: int=1,
         dropout: float=0.,
         std_mul: float=4.0,
         causal: bool=False,
@@ -185,19 +226,28 @@ class ConvBlock(nn.Module):
         self.std_mul = std_mul
         self.causal = causal
         self.residual = residual
+        padding_raw = None
         if padding is None:
-            padding = 'causal' if self.causal else 'same'
-        self.conv = WeightNorm(
+            padding_raw = get_padding(causal, kernel_size, dilation)
+
+        self.conv = WeightNorm(            
             inner=IncrementalConv1d(
-                *args, skip_transpose=True,
+                skip_transpose=True,
                 in_channels=in_channels,
                 out_channels=out_channels * 2,
-                kernel_size=kernel_size, padding=padding, dilation=dilation,
+                kernel_size=kernel_size,
+                padding=padding,
+                dilation=dilation,
+                padding_raw=padding_raw,
                 **kwargs),
             dropout=dropout,
             std_mul=std_mul)
-        self.glu = nn.GLU(dim=-2)
         self.multiplier = math.sqrt(0.5)
+        if n_speakers > 1:
+            self.speaker_proj = Linear(speaker_embed_dim, out_channels)
+        else:
+            self.speaker_proj = None
+
 
     def _apply_weight_norm(self):
         std = math.sqrt(
@@ -216,80 +266,21 @@ class ConvBlock(nn.Module):
         x = F.dropout(x, p=self.dropout, training=self.training)
         if is_incremental:
             splitdim = -1
-            x = self.conv.inner.incremental_forward(x)
+            x = self.conv.incremental_forward(x)
         else:
-            splitdim = 1            
+            splitdim = 1
             x = self.conv(x)
             # remove future time steps
             x = x[:, :, :residual.size(-1)] if self.causal else x
 
         a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
+        if self.speaker_proj is not None:
+            softsign = F.softsign(self.speaker_proj(speaker_embed))
+            # Since conv layer assumes BCT, we need to transpose
+            softsign = softsign if is_incremental else softsign.transpose(1, 2)
+            a = a + softsign
         x = a * torch.sigmoid(b)
-        x = (x + residual) * math.sqrt(0.5) if self.residual else x
-        return x
-
-
-
-class Conv1dModule(nn.Conv1d):
-    """Extended nn.Conv1d for incremental dilated convolutions
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.clear_buffer()
-        self._linearized_weight = None
-        self.register_backward_hook(self._clear_linearized_weight)
-
-    def incremental_forward(self, input):
-        # input: (B, T, C)
-        if self.training:
-            raise RuntimeError('incremental_forward only supports eval mode')
-
-        # run forward pre hooks (e.g., weight norm)
-        for hook in self._forward_pre_hooks.values():
-            hook(self, input)
-
-        # reshape weight
-        weight = self._get_linearized_weight()
-        kw = self.kernel_size[0]
-        dilation = self.dilation[0]
-
-        bsz = input.size(0)  # input: bsz x len x dim
-        if kw > 1:
-            input = input.data
-            if self.input_buffer is None:
-                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
-                self.input_buffer.zero_()
-            else:
-                # shift buffer
-                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
-            # append next input
-            self.input_buffer[:, -1, :] = input[:, -1, :]
-            input = self.input_buffer
-            if dilation > 1:
-                input = input[:, 0::dilation, :].contiguous()
-        output = F.linear(input.view(bsz, -1), weight, self.bias)
-        return output.view(bsz, 1, -1)
-
-    def clear_buffer(self):
-        self.input_buffer = None
-
-    def _get_linearized_weight(self):
-        if self._linearized_weight is None:
-            kw = self.kernel_size[0]
-            # nn.Conv1d
-            if self.weight.size() == (self.out_channels, self.in_channels, kw):
-                weight = self.weight.transpose(1, 2).contiguous()
-            else:
-                # fairseq.modules.conv_tbc.ConvTBC
-                weight = self.weight.transpose(2, 1).transpose(1, 0).contiguous()
-            assert weight.size() == (self.out_channels, kw, self.in_channels)
-            self._linearized_weight = weight.view(self.out_channels, -1)
-        return self._linearized_weight
-
-    def _clear_linearized_weight(self, *args):
-        self._linearized_weight = None
-
+        return (x + residual) * math.sqrt(0.5) if self.residual else x
 
 
 def position_encoding_init(n_position, d_pos_vec, position_rate=1.0,
@@ -391,126 +382,6 @@ def ConvTranspose1d(in_channels, out_channels, kernel_size, dropout=0,
     m.bias.data.zero_()
     return nn.utils.weight_norm(m)
 
-#TODO: Remove it
-class Conv1dGLU(nn.Module):
-    """(Dilated) Conv1d + Gated linear unit + (optionally) speaker embedding
-    """
-
-    def __init__(self, n_speakers, speaker_embed_dim,
-                 in_channels, out_channels, kernel_size,
-                 dropout, padding=None, dilation=1, causal=False, residual=False,
-                 *args, **kwargs):
-        super().__init__()
-        self.dropout = dropout
-        self.residual = residual
-        if padding is None:
-            # no future time stamps available
-            if causal:
-                padding = (kernel_size - 1) * dilation
-            else:
-                padding = (kernel_size - 1) // 2 * dilation
-        self.causal = causal
-
-        self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
-                           dropout=dropout, padding=padding, dilation=dilation,
-                           *args, **kwargs)
-        if n_speakers > 1:
-            self.speaker_proj = Linear(speaker_embed_dim, out_channels)
-        else:
-            self.speaker_proj = None
-
-    def forward(self, x, speaker_embed=None):
-        return self._forward(x, speaker_embed, False)
-
-    def incremental_forward(self, x, speaker_embed=None):
-        return self._forward(x, speaker_embed, True)
-
-    def _forward(self, x, speaker_embed, is_incremental):
-        residual = x
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        if is_incremental:
-            splitdim = -1
-            x = self.conv.incremental_forward(x)
-        else:
-            splitdim = 1
-            x = self.conv(x)
-            # remove future time steps
-            x = x[:, :, :residual.size(-1)] if self.causal else x
-
-        a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
-        if self.speaker_proj is not None:
-            softsign = F.softsign(self.speaker_proj(speaker_embed))
-            # Since conv layer assumes BCT, we need to transpose
-            softsign = softsign if is_incremental else softsign.transpose(1, 2)
-            a = a + softsign
-        x = a * torch.sigmoid(b)
-        return (x + residual) * math.sqrt(0.5) if self.residual else x
-
-    def clear_buffer(self):
-        self.conv.clear_buffer()
-
-
-class HighwayConv1d(nn.Module):
-    """Weight normzlized Conv1d + Highway network (support incremental forward)
-    """
-
-    def __init__(self, in_channels, out_channels, kernel_size=1, padding=None,
-                 dilation=1, causal=False, dropout=0, std_mul=None, glu=False):
-        super().__init__()
-        if std_mul is None:
-            std_mul = 4.0 if glu else 1.0
-        if padding is None:
-            # no future time stamps available
-            if causal:
-                padding = (kernel_size - 1) * dilation
-            else:
-                padding = (kernel_size - 1) // 2 * dilation
-        self.causal = causal
-        self.dropout = dropout
-        self.glu = glu
-
-        self.conv = Conv1d(in_channels, 2 * out_channels,
-                           kernel_size=kernel_size, padding=padding,
-                           dilation=dilation, dropout=dropout,
-                           std_mul=std_mul)
-
-    def forward(self, x):
-        return self._forward(x, False)
-
-    def incremental_forward(self, x):
-        return self._forward(x, True)
-
-    def _forward(self, x, is_incremental):
-        """Forward
-
-        Args:
-            x: (B, in_channels, T)
-        returns:
-            (B, out_channels, T)
-        """
-
-        residual = x
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        if is_incremental:
-            splitdim = -1
-            x = self.conv.incremental_forward(x)
-        else:
-            splitdim = 1
-            x = self.conv(x)
-            # remove future time steps
-            x = x[:, :, :residual.size(-1)] if self.causal else x
-
-        if self.glu:
-            x = F.glu(x, dim=splitdim)
-            return (x + residual) * math.sqrt(0.5)
-        else:
-            a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
-            T = torch.sigmoid(b)
-            return (T * a + (1 - T) * residual)
-
-    def clear_buffer(self):
-        self.conv.clear_buffer()
-
 
 def get_mask_from_lengths(memory, memory_lengths):
     """Get mask tensor from list of length
@@ -555,29 +426,8 @@ class Encoder(nn.Module):
         self.n_speakers = n_speakers
 
         # Non causual convolution blocks
-        in_channels = embed_dim
-        self.convolutions = nn.ModuleList()
-        std_mul = 1.0
-        for (out_channels, kernel_size, dilation) in convolutions:
-            if in_channels != out_channels:
-                # Conv1d + ReLU
-                self.convolutions.append(
-                    Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                           dilation=1, std_mul=std_mul))
-                self.convolutions.append(nn.ReLU(inplace=True))
-                in_channels = out_channels
-                std_mul = 2.0
-            self.convolutions.append(
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, out_channels, kernel_size, causal=False,
-                          dilation=dilation, dropout=dropout, std_mul=std_mul,
-                          residual=True))
-            in_channels = out_channels
-            std_mul = 4.0
-        # Last 1x1 convolution
-        self.convolutions.append(Conv1d(in_channels, embed_dim, kernel_size=1,
-                                        padding=0, dilation=1, std_mul=std_mul,
-                                        dropout=dropout))
+        self.convolutions = nn.ModuleList(convolutions)
+
 
     def forward(self, text_sequences, text_positions=None, lengths=None,
                 speaker_embed=None):
@@ -599,8 +449,9 @@ class Encoder(nn.Module):
         x = x.transpose(1, 2)
 
         # １D conv blocks
+        i = 1
         for f in self.convolutions:
-            x = f(x, speaker_embed_btc) if isinstance(f, Conv1dGLU) else f(x)
+            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
 
         # Back to B x T x C
         keys = x.transpose(1, 2)
@@ -616,7 +467,6 @@ class Encoder(nn.Module):
         values = (keys + input_embedding) * math.sqrt(0.5)
 
         return keys, values
-
 
 class AttentionLayer(nn.Module):
     def __init__(self, conv_channels, embed_dim, dropout=0.1,
@@ -689,21 +539,23 @@ class AttentionLayer(nn.Module):
         return x, attn_scores
 
 
+
+
 class Decoder(nn.Module):
     def __init__(self, embed_dim, n_speakers, speaker_embed_dim,
+                 in_channels=256,
                  in_dim=80, r=5,
-                 max_positions=512, padding_idx=None,
-                 preattention=((128, 5, 1),) * 4,
-                 convolutions=((128, 5, 1),) * 4,
-                 attention=True, dropout=0.1,
+                 max_positions=512,
+                 padding_idx=None,
+                 preattention=[],
+                 convolutions=[],
+                 output=None,
+                 attention=True,
+                 dropout=0.1,
                  use_memory_mask=False,
                  force_monotonic_attention=False,
                  query_position_rate=1.0,
                  key_position_rate=1.29,
-                 window_ahead=3,
-                 window_backward=1,
-                 key_projection=True,
-                 value_projection=True,
                  ):
         super().__init__()
         self.dropout = dropout
@@ -712,14 +564,13 @@ class Decoder(nn.Module):
         self.query_position_rate = query_position_rate
         self.key_position_rate = key_position_rate
 
-        in_channels = in_dim * r
         if isinstance(attention, bool):
             # expand True into [True, True, ...] and do the same with False
             attention = [attention] * len(convolutions)
 
         # Position encodings for query (decoder states) and keys (encoder states)
         self.embed_query_positions = SinusoidalEncoding(
-            max_positions, convolutions[0][0])
+            max_positions, in_channels)
         self.embed_keys_positions = SinusoidalEncoding(
             max_positions, embed_dim)
         # Used for compute multiplier for positional encodings
@@ -730,58 +581,20 @@ class Decoder(nn.Module):
             self.speaker_proj1, self.speaker_proj2 = None, None
 
         # Prenet: causal convolution blocks
-        self.preattention = nn.ModuleList()
-        in_channels = in_dim * r
-        std_mul = 1.0
-        for out_channels, kernel_size, dilation in preattention:
-            if in_channels != out_channels:
-                # Conv1d + ReLU
-                self.preattention.append(
-                    Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                           dilation=1, std_mul=std_mul))
-                self.preattention.append(nn.ReLU(inplace=True))
-                in_channels = out_channels
-                std_mul = 2.0
-            self.preattention.append(
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, out_channels, kernel_size, causal=True,
-                          dilation=dilation, dropout=dropout, std_mul=std_mul,
-                          residual=True))
-            in_channels = out_channels
-            std_mul = 4.0
+        self.preattention = nn.ModuleList(preattention)
+        self.convolutions = nn.ModuleList(convolutions)
+        self.attention = nn.ModuleList(attention)
+        #self.output = output
+        self.output = output
 
-        # Causal convolution blocks + attention layers
-        self.convolutions = nn.ModuleList()
-        self.attention = nn.ModuleList()
-
-        for i, (out_channels, kernel_size, dilation) in enumerate(convolutions):
-            assert in_channels == out_channels
-            self.convolutions.append(
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, out_channels, kernel_size, causal=True,
-                          dilation=dilation, dropout=dropout, std_mul=std_mul,
-                          residual=False))
-            self.attention.append(
-                AttentionLayer(out_channels, embed_dim,
-                               dropout=dropout,
-                               window_ahead=window_ahead,
-                               window_backward=window_backward,
-                               key_projection=key_projection,
-                               value_projection=value_projection)
-                if attention[i] else None)
-            in_channels = out_channels
-            std_mul = 4.0
-        # Last 1x1 convolution
-        self.last_conv = Conv1d(in_channels, in_dim * r, kernel_size=1,
-                                padding=0, dilation=1, std_mul=std_mul,
-                                dropout=dropout)
 
         # Mel-spectrogram (before sigmoid) -> Done binary flag
         self.fc = Linear(in_dim * r, 1)
 
         self.max_decoder_steps = 200
-        self.min_decoder_steps = 10
+        self.min_decoder_steps = 20
         self.use_memory_mask = use_memory_mask
+        
         if isinstance(force_monotonic_attention, bool):
             self.force_monotonic_attention = [force_monotonic_attention] * len(convolutions)
         else:
@@ -838,33 +651,32 @@ class Decoder(nn.Module):
 
         # Prenet
         for f in self.preattention:
-            x = f(x, speaker_embed_btc) if isinstance(f, Conv1dGLU) else f(x)
-
+            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
         # Casual convolutions + Multi-hop attentions
         alignments = []
         for f, attention in zip(self.convolutions, self.attention):
             residual = x
 
-            x = f(x, speaker_embed_btc) if isinstance(f, Conv1dGLU) else f(x)
+            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
 
             # Feed conv output to attention layer as query
             if attention is not None:
-                assert isinstance(f, Conv1dGLU)
+                assert isinstance(f, ConvBlock)
                 # (B x T x C)
                 x = x.transpose(1, 2)
                 x = x if frame_positions is None else x + frame_pos_embed
                 x, alignment = attention(x, (keys, values), mask=mask)
                 # (T x B x C)
-                x = x.transpose(1, 2)
+                x = x.transpose(1, 2)                
                 alignments += [alignment]
 
-            if isinstance(f, Conv1dGLU):
-                x = (x + residual) * math.sqrt(0.5)
+            if isinstance(f, ConvBlock):
+                x = (x + residual) * math.sqrt(0.5)            
 
         # decoder state (B x T x C):
         # internal representation before compressed to output dimention
         decoder_states = x.transpose(1, 2).contiguous()
-        x = self.last_conv(x)
+        x = self.output(x)
 
         # Back to B x T x C
         x = x.transpose(1, 2)
@@ -927,7 +739,7 @@ class Decoder(nn.Module):
 
             # Prenet
             for f in self.preattention:
-                if isinstance(f, Conv1dGLU):
+                if isinstance(f, ConvBlock):
                     x = f.incremental_forward(x, speaker_embed)
                 else:
                     try:
@@ -940,7 +752,7 @@ class Decoder(nn.Module):
             for idx, (f, attention) in enumerate(zip(self.convolutions,
                                                      self.attention)):
                 residual = x
-                if isinstance(f, Conv1dGLU):
+                if isinstance(f, ConvBlock):
                     x = f.incremental_forward(x, speaker_embed)
                 else:
                     try:
@@ -950,7 +762,7 @@ class Decoder(nn.Module):
 
                 # attention
                 if attention is not None:
-                    assert isinstance(f, Conv1dGLU)
+                    assert isinstance(f, ConvBlock)
                     x = x + frame_pos_embed
                     x, alignment = attention(x, (keys, values),
                                              last_attended=last_attended[idx])
@@ -962,11 +774,11 @@ class Decoder(nn.Module):
                         ave_alignment = ave_alignment + ave_alignment
 
                 # residual
-                if isinstance(f, Conv1dGLU):
+                if isinstance(f, ConvBlock):
                     x = (x + residual) * math.sqrt(0.5)
 
             decoder_state = x
-            x = self.last_conv.incremental_forward(x)
+            x = self.output.incremental_forward(x)
             ave_alignment = ave_alignment.div_(num_attention_layers)
 
             # Ooutput & done flag predictions
@@ -1001,7 +813,9 @@ class Decoder(nn.Module):
     def start_fresh_sequence(self):
         _clear_modules(self.preattention)
         _clear_modules(self.convolutions)
-        self.last_conv.clear_buffer()
+        self.output.clear_buffer()
+
+
 
 
 def _clear_modules(modules):
@@ -1025,71 +839,6 @@ class Converter(nn.Module):
 
         # Non causual convolution blocks
         self.convolutions = nn.ModuleList(convolutions)
-        if time_upsampling == 4:
-            self.convolutions = nn.ModuleList([
-                Conv1d(in_dim, in_channels, kernel_size=1, padding=0, dilation=1,
-                       std_mul=1.0),
-                ConvTranspose1d(in_channels, in_channels, kernel_size=2,
-                                padding=0, stride=2, std_mul=1.0),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=1, dropout=dropout, std_mul=1.0, residual=True),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=3, dropout=dropout, std_mul=4.0, residual=True),
-                ConvTranspose1d(in_channels, in_channels, kernel_size=2,
-                                padding=0, stride=2, std_mul=4.0),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=1, dropout=dropout, std_mul=1.0, residual=True),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=3, dropout=dropout, std_mul=4.0, residual=True),
-            ])
-        elif time_upsampling == 2:
-            self.convolutions = nn.ModuleList([
-                Conv1d(in_dim, in_channels, kernel_size=1, padding=0, dilation=1,
-                       std_mul=1.0),
-                ConvTranspose1d(in_channels, in_channels, kernel_size=2,
-                                padding=0, stride=2, std_mul=1.0),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=1, dropout=dropout, std_mul=1.0, residual=True),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=3, dropout=dropout, std_mul=4.0, residual=True),
-            ])
-        elif time_upsampling == 1:
-            self.convolutions = nn.ModuleList([
-                # 1x1 convolution first
-                Conv1d(in_dim, in_channels, kernel_size=1, padding=0, dilation=1,
-                       std_mul=1.0),
-                Conv1dGLU(n_speakers, speaker_embed_dim,
-                          in_channels, in_channels, kernel_size=3, causal=False,
-                          dilation=3, dropout=dropout, std_mul=4.0, residual=True),
-            ])
-        else:
-            raise ValueError("Not supported")
-
-        for convolution in convolutions:
-            self.convolutions.append(convolution)
-        # std_mul = 4.0
-        # for (out_channels, kernel_size, dilation) in convolutions:
-        #     if in_channels != out_channels:
-        #         self.convolutions.append(
-        #             Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-        #                    dilation=1, std_mul=std_mul))
-        #         self.convolutions.append(nn.ReLU(inplace=True))
-        #         in_channels = out_channels
-        #         std_mul = 2.0
-        #     self.convolutions.append(
-        #         Conv1dGLU(n_speakers, speaker_embed_dim,
-        #                   in_channels, out_channels, kernel_size, causal=False,
-        #                   dilation=dilation, dropout=dropout, std_mul=std_mul,
-        #                   residual=True))
-        #     in_channels = out_channels
-        #     std_mul = 4.0
-        # Last 1x1 convolution
 
     def forward(self, x, speaker_embed=None):
         assert self.n_speakers == 1 or speaker_embed is not None
@@ -1107,7 +856,7 @@ class Converter(nn.Module):
                 speaker_embed_btc = expand_speaker_embed(x, speaker_embed, tdim=-1)
                 speaker_embed_btc = F.dropout(
                     speaker_embed_btc, p=self.dropout, training=self.training)
-            x = f(x, speaker_embed_btc) if isinstance(f, Conv1dGLU) else f(x)
+            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
 
         # Back to B x T x C
         x = x.transpose(1, 2)
@@ -1115,7 +864,9 @@ class Converter(nn.Module):
         return torch.sigmoid(x)
 
 
-# TODO: Vectorize
+
+
+# TODO: Vectorize and use pytorch
 def guided_attention(N, max_N, T, max_T, g):
     N = N.cpu()
     W = np.zeros((max_N, max_T), dtype=np.float32)

@@ -487,6 +487,10 @@ class Conv1d(nn.Module):
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
+    padding_raw : int
+        The raw padding value (i.e. the number of pixels by which inputs should be
+        padded), passed directly to torch.nn. padding and padding_raw are mutually
+        exclusive
 
     Example
     -------
@@ -512,6 +516,7 @@ class Conv1d(nn.Module):
         bias=True,
         padding_mode="reflect",
         skip_transpose=False,
+        padding_raw=None
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -528,15 +533,19 @@ class Conv1d(nn.Module):
         if in_channels is None:
             in_channels = self._check_input_shape(input_shape)
 
+        if padding_raw is None:
+            padding_raw = 0
+        else:        
+            self.padding = None
         self.conv = nn.Conv1d(
             in_channels,
             out_channels,
             self.kernel_size,
             stride=self.stride,
             dilation=self.dilation,
-            padding=0,
+            padding=padding_raw,
             groups=groups,
-            bias=bias,
+            bias=bias
         )
 
     def forward(self, x):
@@ -563,7 +572,7 @@ class Conv1d(nn.Module):
             num_pad = (self.kernel_size - 1) * self.dilation
             x = F.pad(x, (num_pad, 0))
 
-        elif self.padding == "valid":
+        elif self.padding is None or self.padding == "valid":
             pass
 
         else:

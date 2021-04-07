@@ -186,27 +186,6 @@ class DeepVoice3Brain(sb.core.Brain):
 ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-'
 
 
-# def mel_spectrogram(
-#     takes, provides,
-#     n_fft, win_length, hop_length, sample_rate, n_mels):
-#     spectrogram = transforms.Spectrogram(
-#         n_fft=n_fft,
-#         win_length=win_length,
-#         hop_length=hop_length,
-#         power=None)
-#     mel = transforms.MelScale(
-#         n_mels=n_mels,
-#         n_stft=n_fft // 2 + 1,
-#         sample_rate=sample_rate)
-#     @sb.utils.data_pipeline.takes(takes)
-#     @sb.utils.data_pipeline.provides(provides)
-#     def f(raw_signal):
-#         x = spectrogram(raw_signal)
-#         x = torch.abs(x[:, :, 0] + x[:, :, 1] * 1j)
-#         x = mel(x)
-#         return x
-#     return f
-
 def text_encoder(max_input_len=128, tokens=None):
     """
     Configures and returns a text encoder function for use with the deepvoice3 model
@@ -275,6 +254,7 @@ def pad(takes, provides, length):
         return F.pad(x, (0, length - x.size(-1)))
     return f
 
+
 #TODO: Remove the librosa dependency
 def trim(takes, provides, top_db=15):
     @sb.utils.data_pipeline.takes(takes)
@@ -284,6 +264,7 @@ def trim(takes, provides, top_db=15):
         x = torch.tensor(x).to(wav.device)
         return x
     return f
+
 
 def done(outputs_per_step=1, downsample_step=4):
     @sb.utils.data_pipeline.takes("target_lengths")
@@ -340,9 +321,12 @@ class BatchWrapper:
         self.batch = batch
 
     def to(self, device):
-        for key, value in self.batch.items():
-            if hasattr(value, 'to'):
-                self.batch[key] = value.to(device)
+        if hasattr(self.batch, 'to'):
+            self.batch = self.batch.to(device)
+        else:
+            for key, value in self.batch.items():
+                if hasattr(value, 'to'):
+                    self.batch[key] = value.to(device)
         return self
     
     def __getattr__(self, name):

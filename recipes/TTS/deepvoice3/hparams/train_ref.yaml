@@ -57,6 +57,8 @@ progress_samples_interval: 1
 overfit_test: true
 overfit_test_iterations: 5
 guided_attention_sigma: 0.2
+train_data_path: ../datasets/testdata/fake_vctk_1ex
+valid_data_path: ../datasets/testdata/fake_vctk_1ex
 
 
 lr: 0.0005
@@ -127,7 +129,9 @@ modules:
 
 datasets:
   train:
-    path: ../datasets/testdata/fake_vctk_1ex
+    path: !ref <train_data_path>
+  valid:
+    path: !ref <valid_data_path>
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
