@@ -15,6 +15,16 @@ priority_freq: 3000
 priority_freq_weight: 0.0
 sample_rate: 22050
 
+min_level_db: -100
+ref_level_db: 20
+
+max_time_steps: 40
+
+#local conditioning, -1 for OFF
+c: -1
+# global conditioning, -1 for OFF
+g: -1
+
 # DC removal
 highpass_cutoff: 70.0
 
@@ -31,19 +41,27 @@ output_folder: !ref ./results/tts/wavenet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-#model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
-model: !new:models.wavenet.model.WaveNet
+overfit_test: true
+overfit_test_iterations: 5
+
+model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
 
 modules:
     model: !ref <model>
 
-# 1. raw [-1, 1]
-# 2. mulaw [-1, 1]
-# 3. mulaw-quantize [0, mu]
-# If input_type is raw or mulaw, network assumes scalar input and discretized mixture 
-# of logistic distributions output, otherwise one-hot input and softmax output are assumed.
-input_type: "raw"
-quantize_channels: 65536  # 65536 or 256
+compute_cost: !new:speechbrain.lobes.models.wavenet.model.Loss
+
+lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
+  initial_value: !ref <lr>
+  decay_factor: 0.98
+  decay_drop: 30000
+
+progress_samples: true
+progress_sample_path: samples
+progress_samples_interval: 1
+
+input_type: "mulaw_quantize"
+quantize_channels: 256
 
 # Model:
 # This should equal to `quantize_channels` if mu-law quantize enabled

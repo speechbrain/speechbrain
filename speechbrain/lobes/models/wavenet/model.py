@@ -474,6 +474,8 @@ class WaveNet(nn.Module):
         Returns:
             Tensor: output, shape B x T x out_channels
         """
+        print("\n HELOOOO")
+        print(x.size())
         B, T, _ = x.size()
 
         if g is not None:
@@ -617,3 +619,36 @@ class WaveNet(nn.Module):
             except ValueError:  # this module didn't have weight norm
                 return
         self.apply(remove_weight_norm)
+
+class Loss(nn.Module):
+    """
+    The loss for the WaveNet model
+    """
+    def __init__(self):
+        super().__init__()
+        self.criterion = nn.CrossEntropyLoss(reduction='none')
+
+    def forward(self, predictions, target, lengths, max_len):
+
+        # (B, 1, T)
+        mask = sequence_mask(lengths, max_len).unsqueeze(1)
+        mask = mask[:,:,1:]
+
+        # (B, D, T)
+        mask_ = mask.expand_as(target)
+        losses = self.criterion(predictions, target)
+        return ((losses * mask_).sum()) / mask_.sum()
+    
+    def sequence_mask(self, sequence_length):
+
+        max_len = sequence_length.data.max()
+
+        batch_size = sequence_length.size(0)
+        seq_range = torch.arange(0, max_len).long()
+        seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
+        if sequence_length.is_cuda:
+            seq_range_expand = seq_range_expand.cuda()
+        seq_length_expand = sequence_length.unsqueeze(1) \
+            .expand_as(seq_range_expand)
+
+        return (seq_range_expand < seq_length_expand).float()

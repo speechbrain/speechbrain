@@ -7,8 +7,10 @@ from typing import Collection
 from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.encoder import TextEncoder
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from torch.utils.data import DataLoader
 import numpy as np
+import os
 
 sys.path.append("..")
 from datasets.vctk import VCTK
@@ -26,7 +28,7 @@ class WavenetBrain(sb.core.Brain):
         batch = BatchWrapper(batch).to(self.device)
         
         pred = self.hparams.model(
-            mel_targets=batch.mel.data
+            x=batch.sig_quantized.data
                 if stage == sb.Stage.TRAIN else None
         )
         return pred
@@ -47,38 +49,20 @@ class WavenetBrain(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = BatchWrapper(batch).to(self.device)
-        tokens_eos, tokens_len = batch.tokens_eos
+        y_hat = predictions
+        target = batch.target.data
+        lengths = batch.target_lengths
         loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
+            predictions, target
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
+    def on_fit_start(self):
+        super().on_fit_start()
+        if self.hparams.progress_samples:
+            if not os.path.exists(self.hparams.progress_sample_path):
+                os.makedirs(self.hparams.progress_sample_path)
 
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-    '''
-    Can store class variables if needed at the start of a stage (start of training or start of validating for each epoch)
-    def on_stage_start(self, stage, epoch):
-        "Gets called when a stage (either training, validation, test) starts."
-        self.ctc_metrics = self.hparams.ctc_stats()
-        self.seq_metrics = self.hparams.seq_stats()
-
-        if stage != sb.Stage.TRAIN:
-            self.per_metrics = self.hparams.per_stats()
-    '''
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
         Arguments
@@ -140,6 +124,28 @@ class BatchWrapper:
     def __getattr__(self, name):
         return self.batch[name]
 
+class SingleBatchWrapper(DataLoader):
+    """
+    A wrapper that retrieves one batch from a DataLoader
+    and keeps iterating - useful for overfit tests
+    """
+    def __init__(self, loader: DataLoader, num_iterations=1):
+        """
+        Class constructor
+        
+        Arguments
+        ---------
+        loader
+            the inner data loader
+        """
+        self.loader = loader
+        self.num_iterations = num_iterations
+
+    def __iter__(self):
+        batch = next(iter(self.loader))
+        for _ in range(self.num_iterations):
+            yield batch
+
 #TODO: Remove the librosa dependency
 def trim(takes, provides, top_db=15):
     @sb.utils.data_pipeline.takes(takes)
@@ -150,11 +156,11 @@ def trim(takes, provides, top_db=15):
         return x
     return f
 
-def low_cut_filter(takes,provides,cutoff):
+def low_cut_filter(takes,provides,fs,cutoff):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
 
-    def f(wav, fs, cutoff):
+    def f(x):
         """APPLY LOW CUT FILTER.
         https://github.com/kan-bayashi/PytorchWaveNetVocoder
 
@@ -173,9 +179,9 @@ def low_cut_filter(takes,provides,cutoff):
             fil = firwin(255, norm_cutoff, pass_zero=False)
             lcf_x = lfilter(fil, 1, x)
 
-            return lcf_x
+            return torch.from_numpy(lcf_x)
         else:
-            return wav
+            return x
 
     return f
 
@@ -216,10 +222,11 @@ def mulaw_quantize(x, mu=256):
     return ((y + 1) / 2 * mu).long()
 
 def start_and_end_indices(quantized, silence_threshold=2):
-    for start in range(quantized.size):
+
+    for start in range(quantized.size(0)):
         if abs(quantized[start] - 127) > silence_threshold:
             break
-    for end in range(quantized.size - 1, 1, -1):
+    for end in range(quantized.size(0) - 1, 1, -1):
         if abs(quantized[end] - 127) > silence_threshold:
             break
 
@@ -240,8 +247,7 @@ def mulaw_trim(takes,provides,silence_threshold,is_quantized):
                 out = mulaw_quantize(wav, 255)
                 start, end = start_and_end_indices(out, silence_threshold)
                 wav = wav[start:end]
-
-        return wav
+        return wav.float()
 
     return f
 
@@ -288,7 +294,87 @@ def zero_pad(takes, provides,n_fft, is_quantized):
 
     return f
 
-OUTPUT_KEYS = ["mel", "sig_padded"]
+LOG_10 = math.log(10)
+
+def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=False):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(linear):
+        if absolute:
+            linear = (linear**2).sum(dim=-1).sqrt()
+        min_level = torch.tensor(math.exp(min_level_db / ref_level_db * LOG_10)).to(linear.device)
+        linear_db = ref_level_db * torch.log10(torch.maximum(min_level, linear)) - ref_level_db
+        normalized = torch.clip(
+            (linear_db - min_level_db) / -min_level_db,
+            min=0.,
+            max=1.
+        )
+        return normalized
+
+    return f
+
+
+def ensure_divisible(length, divisible_by=256, lower=True):
+    if length % divisible_by == 0:
+        return length
+    if lower:
+        return length - length % divisible_by
+    else:
+        return length + (divisible_by - length % divisible_by)
+
+def time_resolution(takes, provides, max_time_steps, hop_length):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(sig_padded):
+        x = sig_padded # ADD LOCAL AND GLOBAL CONDITIONS
+        '''
+        print("\n HELOO")
+        print(x.size())
+        print("MAX TIME STEPS:")
+        print(max_time_steps)
+        if max_time_steps is not None and len(x) > max_time_steps:
+            max_steps = ensure_divisible(x.size(0), hop_length, True)
+            max_time_frames = max_steps // hop_length
+            print(hop_length,max_steps,max_time_frames)
+            s = np.random.randint(0, len(x) - max_time_steps)
+            ts = s*hop_length
+            x = x[ts:ts + hop_length * max_time_frames]
+        print("\n HELOO")
+        print(x.size())
+        '''
+        return x
+    return f
+
+'''
+@sb.utils.data_pipeline.provides("local")
+def local_conditioning(c):
+    if c==-1:
+        return None
+
+
+@sb.utils.data_pipeline.provides("global")
+def global_conditioning(g):
+    if g==-1:
+        return None
+'''
+
+@sb.utils.data_pipeline.takes("sig")
+@sb.utils.data_pipeline.provides("input_lengths")
+def target_lengths(sig):
+    return sig.size(0)
+
+
+def to_categorical(takes, provides, num_classes=None, dtype='float32'):
+    @sb.utils.data_pipeline.takes("sig")
+    @sb.utils.data_pipeline.provides("sig_quantized")
+    def f(sig):
+        """
+        Converts a class vector (integers) to 1-hot encodes a tensor
+        """ 
+        return torch.from_numpy(np.asarray(np.eye(num_classes, dtype='uint8')[sig]))
+    return f
+
+OUTPUT_KEYS = ["wav","sig","sig_quantized","mel_raw","mel_norm","target","input_lengths"]
 
 def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     """
@@ -311,11 +397,12 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         audio_pipeline,
         # remove leading and trailing silence
         trim(
-            takes="sig_resampled", 
+            takes="sig", 
             provides="sig_trimmed"),
         low_cut_filter(
             takes = "sig_trimmed", 
             provides="sig_cut", 
+            fs = hparams["sample_rate"],
             cutoff=hparams["highpass_cutoff"]),
         mulaw_trim(
             takes = "sig_cut",
@@ -324,7 +411,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             is_quantized = hparams["is_mulaw_quantized"]),
         mel_spectrogram(
             takes="sig_silence_trim",
-            provides="mel",
+            provides="mel_raw",
             hop_length=hparams['hop_length'],
             n_mels=hparams['mel_dim'],
             n_fft=hparams['n_fft'],
@@ -332,17 +419,45 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             sample_rate=hparams['sample_rate']),
         wav_clip(
             takes = "sig_silence_trim",
-            provides = "sig_clipped"),
+            provides = "target"),
         mulaw_target(
-            takes= "sig_clipped", 
+            takes= "target", 
             provides="sig_mulaw", 
             is_quantized = hparams["is_mulaw_quantized"]),
         zero_pad(
             takes = "sig_mulaw",
             provides = "sig_padded",
             n_fft = hparams["n_fft"],
-            is_quantized = hparams["is_mulaw_quantized"])
+            is_quantized = hparams["is_mulaw_quantized"]),
+        normalize_spectrogram(
+            takes="mel_raw",
+            provides="mel_norm",
+            min_level_db=hparams['min_level_db'],
+            ref_level_db=hparams['ref_level_db']),
+        time_resolution(
+            takes = "sig_padded",
+            provides = "sig",
+            max_time_steps= hparams["max_time_steps"],
+            hop_length= hparams["hop_length"]
+        ),
+        to_categorical(
+            takes = "sig",
+            provides = "sig_quantized",
+            num_classes = hparams["quantize_channels"]
+        ),
+        target_lengths
     ]
+    '''
+        local_conditioning(
+            provides="local",
+            c = hparams["c"]
+        ),
+        global_conditioning(
+            provides="global",
+            g = hparams["g"]
+        )
+    '''
+    
 
     for element in pipeline:
         dataset.add_dynamic_item(element)
@@ -359,12 +474,9 @@ def dataio_prep(hparams):
     return result
 
 
-if __name__ == "__main__":
+def main():
 
-    # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
@@ -375,8 +487,18 @@ if __name__ == "__main__":
         overrides=overrides,
     )
     # Create dataset objects "train", "valid", and "test".
+
     datasets = dataio_prep(hparams)
-    
+  
+    if hparams.get('overfit_test'):
+        datasets = {
+            key: SingleBatchWrapper(
+                dataset,
+                num_iterations=hparams.get('overfit_test_iterations', 1)) 
+            for key, dataset in datasets.items()}
+    print("\nHELLO")
+    print(datasets["train"])
+
     # Initialize the Brain object to prepare for mask training.
     wavenet_brain = WavenetBrain(
         modules=hparams["modules"],
@@ -398,3 +520,6 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
+
+if __name__ == '__main__':
+    main()
