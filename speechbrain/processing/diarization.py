@@ -1147,38 +1147,17 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
 
     # p_val --> threshold_val (for AHC)
 
-    # Mean centering and normalizing the embeddings
-    # mu = diary_obj.get_mean_stat1()
-    # print ("mu = " , mu)
-    # print ("\n\n\n\n")
-    # print("stat0: ", diary_obj.stat0)
-    # diary_obj.center_stat1(mu)
     diary_obj.norm_stat1()
-
-    import fastcluster
-    from scipy.cluster.hierarchy import fcluster
-
-    linkage_matrix = fastcluster.linkage(
-        diary_obj.stat1, method="ward", metric="cosine"
-    )
 
     # processing
     if k_oracle is not None:
         print("ORACLE SPKRs...")
         num_of_spk = k_oracle
 
-        predicted_label = (
-            fcluster(linkage_matrix, num_of_spk, criterion="maxclust") - 1
-        )
-
-        # clustering = AgglomerativeClustering(
-        #    n_clusters=num_of_spk,
-        #    affinity="cosine",
-        #    linkage="ward",
-        # ).fit(diary_obj.stat1)
-        # labels = clustering.labels_
-
-        labels = predicted_label
+        clustering = AgglomerativeClustering(
+            n_clusters=num_of_spk, affinity="cosine", linkage="ward",
+        ).fit(diary_obj.stat1)
+        labels = clustering.labels_
 
         print("labels.shape (Oracle) = ", labels.shape)
     else:
