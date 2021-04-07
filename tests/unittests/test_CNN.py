@@ -13,6 +13,8 @@ def test_SincConv():
     output = convolve(input)
     assert output.shape[-1] == 8
 
+    assert torch.jit.trace(convolve, input)
+
 
 def test_Conv1d():
 
@@ -31,6 +33,8 @@ def test_Conv1d():
     convolve.conv.bias = torch.nn.Parameter(torch.tensor([0]).float())
     output = convolve(input)
     assert torch.all(torch.eq(torch.ones(input.shape), output))
+
+    assert torch.jit.trace(convolve, input)
 
 
 def test_Conv2d():
@@ -60,3 +64,5 @@ def test_Conv2d():
     convolve.conv.bias = torch.nn.Parameter(torch.tensor([0]).float())
     output = convolve(input)
     assert torch.all(torch.eq(input, output))
+
+    assert torch.jit.trace(convolve, input)

@@ -4,6 +4,11 @@ This folder contains recipes for spoken language understanding (SLU) with [SLURP
 ### Direct recipe
 The "direct" maps the input speech directly to semantics using a seq2seq model.
 
+```
+cd direct
+python train.py hparams/train.yaml
+```
+
 ### Tokenizer recipe
 (You don't need to run this because the direct recipe downloads a tokenizer, but you can if you'd like to train a new tokenizer for SLURP.)
 
