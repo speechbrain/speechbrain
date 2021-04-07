@@ -305,7 +305,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
 
 
 def dev_p_tuner(full_csv, split_type):
-    """Tuning p_value affinity matrix
+    """Tuning p_value affinity matrix.
     """
 
     DER_list = []
@@ -341,7 +341,7 @@ def dev_p_tuner(full_csv, split_type):
 
 
 def dev_threshold_tuner(full_csv, split_type):
-    """Tuning p_value affinity matrix
+    """Tuning threshold for affinity matrix. This function is called when AHC is used as backend.
     """
 
     DER_list = []
@@ -526,21 +526,22 @@ def dataio_prep(hparams, csv_file):
 
 
 def check_dirs():
+    """Check if directories are present"""
     # Only these 3 directories are important
     if os.path.isdir(params["data_folder"]) is False:
-        msg = "Can not find data_folder:  %s \n" % (params["data_folder"])
+        msg = "Can't find data_folder:  %s \n" % (params["data_folder"])
         logger.error(msg)
         sys.exit()
 
     if os.path.isdir(params["manual_annot_folder"]) is False:
-        msg = "Can not find manual_annot_folder:  %s \n" % (
+        msg = "Can't find manual_annot_folder:  %s \n" % (
             params["manual_annot_folder"]
         )
         logger.error(msg)
         sys.exit()
 
     if os.path.isdir(params["output_folder"]) is False:
-        msg = "Can not find output_folder:  %s \n" % (params["output_folder"])
+        msg = "Can't find output_folder:  %s \n" % (params["output_folder"])
         logger.error(msg)
         sys.exit()
 
@@ -591,7 +592,7 @@ if __name__ == "__main__":  # noqa: C901
         if not os.path.exists(dir_):
             os.makedirs(dir_)
 
-    # checks for 3 directories
+    # checks for 3 important directories
     check_dirs()
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
