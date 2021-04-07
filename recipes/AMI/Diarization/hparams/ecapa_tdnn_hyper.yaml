@@ -10,13 +10,10 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/
-data_folder: /network/datasets/ami/amicorpus
-
-# Beamformed Array1 data using BeamformIt
-#data_folder: /miniscratch/nauman/ami_BeamformIT_Array1/
+data_folder: !PLACEHOLDER # e.g., /network/datasets/ami/amicorpus
 
 # Download manual annotations from: http://groups.inf.ed.ac.uk/ami/download/
-manual_annot_folder: /miniscratch/nauman/ami_public_manual
+manual_annot_folder: !PLACEHOLDER # e.g., /miniscratch/nauman/ami_public_manual
 
 output_folder: results/ami/sd_ecapa_tdnn/
 save_folder: !ref <output_folder>/save
@@ -30,12 +27,6 @@ device: 'cuda:0'
 
 # Will automatically download ECAPA-TDNN model (best).
 pretrain_path: speechbrain/spkrec-ecapa-voxceleb
-
-# ECAPA-TDNN model with standard data augmentation.
-# pretrain_path: /miniscratch/ravanelm/ecapa_augment_standard/1986/save/CKPT+2021-03-28+17-31-13+00/
-
-# ECAPA-TDNN model without any data augmentation.
-# pretrain_path: /miniscratch/ravanelm/ecapa_augment_noaug/1986/save/CKPT+2021-03-26+16-48-51+00/
 
 # Some more exp folders (for cleaner structure).
 embedding_dir: !ref <save_folder>/emb
@@ -61,12 +52,13 @@ batch_size: 512
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'BeamformIt' # other options: 'Array1-08', 'Mix-Lapel', 'Mix-Headset', 'Array1'
+# Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
+mic_type: 'Mix-Headset'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 
-backend: 'SC' # options: 'kmeans' # Note: kmeans goes only with cos
+backend: 'SC' # options: 'kmeans' # Note: kmeans goes only with cos affinity
 
 # Spectral Clustering parameters
 affinity: 'cos'  # options: cos, nn
