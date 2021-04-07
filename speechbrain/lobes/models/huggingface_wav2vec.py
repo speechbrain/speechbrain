@@ -49,7 +49,7 @@ class HuggingFaceWav2Vec2(nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "savedir"
-    >>> model = HuggingFaceWav2Vec2(model_hub, )
+    >>> model = HuggingFaceWav2Vec2(model_hub, save_path)
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 1,  768])
