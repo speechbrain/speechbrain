@@ -14,6 +14,12 @@ import torch.nn.functional as F
 from torch import nn
 from speechbrain.utils.data_utils import download_file
 
+# We check if fairseq is installed.
+try:
+    import fairseq
+except ImportError:
+    print("Please install Fairseq to use pretrained wav2vec!")
+
 
 class FairseqWav2Vec2(nn.Module):
     """This lobes enables the integration of fairseq pretrained wav2vec2.0 models.
@@ -53,12 +59,6 @@ class FairseqWav2Vec2(nn.Module):
         self, pretrained_path, save_path, output_norm=True, freeze=True
     ):
         super().__init__()
-
-        # We check if fairseq is installed.
-        try:
-            import fairseq
-        except ImportError:
-            print("Please install Fairseq to use pretrained wav2vec!")
 
         # Download the pretrained wav2vec2 model. It can be local or online.
         download_file(pretrained_path, save_path)
@@ -142,13 +142,6 @@ class FairseqWav2Vec1(nn.Module):
         self, pretrained_path, save_path, output_norm=True, freeze=True
     ):
         super().__init__()
-
-        # We check if fairseq is installed.
-        try:
-            import fairseq
-        except ImportError:
-            print("Please install Fairseq to use pretrained wav2vec!")
-
         self.freeze = freeze
         self.output_norm = output_norm
 
