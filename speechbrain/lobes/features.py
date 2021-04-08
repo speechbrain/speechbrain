@@ -108,6 +108,7 @@ class Fbank(torch.nn.Module):
             hop_length=hop_length,
         )
         self.compute_fbanks = Filterbank(
+            sample_rate=sample_rate,
             n_fft=n_fft,
             n_mels=n_mels,
             f_min=f_min,
