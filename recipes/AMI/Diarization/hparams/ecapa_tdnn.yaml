@@ -9,25 +9,13 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders
-# data: http://groups.inf.ed.ac.uk/ami/download/
-#data_folder: /network/datasets/ami/amicorpus
-#data_folder: /miniscratch/nauman/ami_beamformIt_kaldi/
-#data_folder: /miniscratch/nauman/ami_BeamformIT_Array1/
-data_folder: abc  #$SLURM_TMPDIR/ami_BeamformIT_Array1/
+# Download data from: http://groups.inf.ed.ac.uk/ami/download/
+data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus
 
-manual_annot_folder: /miniscratch/nauman/ami_public_manual
+# Download manual annotations from: http://groups.inf.ed.ac.uk/ami/download/
+manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_annotations
 
-#output_folder: results/ami/sd_ecapa_tdnn/
-#output_folder: results/ami/sd_ecapa_tdnn_DISTANT_Array1-08/
-#output_folder: results/ami/sd_ecapa_tdnn_BEAMFORMIT_KALDI_Array1/
-#output_folder: results/ami/sd_ecapa_tdnn_KMEANS_headsetMix/
-#output_folder: results/ami/sd_ecapa_tdnn_KMEANS_BEAMFORMIT_KALDI_Array1/
-
-#output_folder: results/ami/ecapa_DISTANT_Array1-01/
-
-# For AHC
-output_folder: results/ami/ecapa_AHC_BEAMFORMIT_withAug
-
+output_folder: results/ami/sd_ecapa_tdnn/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -36,9 +24,11 @@ device: 'cuda:0'
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
+
+# Will automatically download ECAPA-TDNN model (best).
 pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
-# Some more exp folders (for cleaner structure)
+# Some more exp folders (for cleaner structure).
 embedding_dir: !ref <save_folder>/emb
 csv_dir: !ref <save_folder>/csv
 ref_rttm_dir: !ref <save_folder>/ref_rttms
@@ -55,22 +45,23 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
-# Xvector model
+# ECAPA-TDNN model
 emb_dim: 192
 batch_size: 512
 
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'BeamformIt' #'Array1-08' #'Mix-Lapel' 'Mix-Headset' #'Array1'
+# Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
+mic_type: 'Mix-Headset'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 
-backend: 'AHC' #'kmeans' # Note: kmeans goes only with cos
+backend: 'SC' # options: 'kmeans' # Note: kmeans goes only with cos affinity
 
 # Spectral Clustering parameters
-affinity: 'cos'  # use 'cos' for cosine affinity
+affinity: 'cos'  # options: cos, nn
 max_num_spkrs: 10
 oracle_n_spkrs: True
 
