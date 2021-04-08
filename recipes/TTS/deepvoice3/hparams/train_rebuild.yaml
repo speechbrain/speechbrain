@@ -409,7 +409,10 @@ modules:
 
 datasets:
   train:
-    path: ../datasets/testdata/fake_vctk_1ex
+    path: !ref <train_data_path>
+  valid:
+    path: !ref <train_data_path>
+
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>

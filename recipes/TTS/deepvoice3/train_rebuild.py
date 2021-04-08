@@ -12,6 +12,7 @@ from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.encoder import TextEncoder
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from torch.utils.data import DataLoader
+from speechbrain.dataio.batch import PaddedBatch
 
 
 sys.path.append("..")
@@ -453,7 +454,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         dataset.add_dynamic_item(element)
 
     dataset.set_output_keys(OUTPUT_KEYS)
-    return SaveableDataLoader(dataset)
+    return SaveableDataLoader(dataset, collate_fn=collate_fn, **hparams["dataloader_options"])
 
 
 class SingleBatchLoader(DataLoader):
@@ -486,6 +487,14 @@ class SingleBatchWrapper(DataLoader):
         batch = next(iter(self.loader))
         for _ in range(self.num_iterations):
             yield batch
+
+
+def collate_fn(examples, *args, **kwargs):
+    max_done = max(example['done'].shape[0] for example in examples)
+    for example in examples:    
+        padding_size = max_done - example['done'].shape[0]
+        example['done'] = F.pad(example['done'], [0, 0, 0, padding_size], value=1)
+    return PaddedBatch(examples, *args, **kwargs)
 
 
 def dataio_prep(hparams):
@@ -546,7 +555,7 @@ def main():
         epoch_counter=tts_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         # TODO: Implement splitting - this is not ready yet
-        valid_set=datasets["train"],
+        valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
