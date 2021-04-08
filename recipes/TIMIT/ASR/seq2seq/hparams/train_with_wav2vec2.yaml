@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 3107
+seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -13,7 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english wav2vec2 model.
-wav2vec2_url: https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_vox_new.pt
+wav2vec2_hub: "facebook/wav2vec2-large-lv60"
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
@@ -27,14 +27,13 @@ number_of_epochs: 20
 batch_size: 8
 lr: 0.0003
 lr_sgd: 0.0001
-ctc_weight: 0.3
+ctc_weight: 0.2
 sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
 dnn_layers: 2
 dnn_neurons: 1024
 emb_size: 128
@@ -79,11 +78,24 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.fairseq_wav2vec.FairseqWav2Vec2
-    pretrained_path: !ref <wav2vec2_url>
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint/model.pt
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+#####
+# Uncomment this block if you prefer to use a Fairseq pretrained model instead
+# of a HuggingFace one. Here, we provide an URL that is obtained from the
+# Fairseq github for an equivalent model compared to HuggingFace.
+#
+#wav2vec2_url: https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_vox_new.pt
+#wav2vec2: !new:speechbrain.lobes.models.fairseq_wav2vec.FairseqWav2Vec2
+#    pretrained_path: !ref <wav2vec2_url>
+#    output_norm: True
+#    freeze: False
+#    save_path: !ref <save_folder>/wav2vec2_checkpoint/model.pt
+#####
 
 emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
