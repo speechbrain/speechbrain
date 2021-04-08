@@ -2,8 +2,11 @@
 """This recipe implements diarization baseline
 using deep embedding extraction followed by spectral clustering.
 
+Reference: This recipe is based on the following paper,
+"ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
+
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+> python experiment.py hparams/your_hyperparams_file.yaml
 
 Condition: Oracle VAD
 
