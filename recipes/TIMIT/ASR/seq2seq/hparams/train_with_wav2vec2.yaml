@@ -26,7 +26,7 @@ skip_prep: False # Skip data preparation
 number_of_epochs: 20
 batch_size: 8
 lr: 0.0003
-lr_sgd: 0.0001
+lr_wav2vec: 0.0001
 ctc_weight: 0.2
 sorting: ascending
 auto_mix_prec: False
@@ -160,7 +160,7 @@ adam_opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 wav2vec_opt_class: !name:torch.optim.Adam
-    lr: !ref <lr_sgd>
+    lr: !ref <lr_wav2vec>
 
 lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
@@ -168,8 +168,8 @@ lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.8
     patient: 0
 
-lr_annealing_sgd: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_sgd>
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
     improvement_threshold: 0.0025
     annealing_factor: 0.9
 
@@ -187,7 +187,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         wav2vec2: !ref <wav2vec2>
         lr_annealing_adam: !ref <lr_annealing_adam>
-        lr_annealing_sgd: !ref <lr_annealing_sgd>
+        lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

@@ -110,19 +110,21 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(per)
-            old_lr_sgd, new_lr_sgd = self.hparams.lr_annealing_sgd(per)
+            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+                per
+            )
             sb.nnet.schedulers.update_learning_rate(
                 self.adam_optimizer, new_lr_adam
             )
             sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_sgd
+                self.wav2vec_optimizer, new_lr_wav2vec
             )
 
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
                     "lr_adam": old_lr_adam,
-                    "lr_wav2vec": old_lr_sgd,
+                    "lr_wav2vec": old_lr_wav2vec,
                 },
                 train_stats={"loss": self.train_loss},
                 valid_stats={
