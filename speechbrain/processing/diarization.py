@@ -970,8 +970,7 @@ class Spec_Clust_unorm:
 def do_spec_clustering(
     diary_obj, out_rttm_file, rec_id, k, pval, affinity_type, n_neighbors
 ):
-    """
-    Performs spectral clustering on embeddings. This function calls specific
+    """Performs spectral clustering on embeddings. This function calls specific
     clustering algorithms as per affinity.
 
     Arguments
@@ -1040,9 +1039,7 @@ def do_spec_clustering(
 def do_kmeans_clustering(
     diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3
 ):
-    """
-    Performs spectral clustering on embeddings. This function calls specific
-    clustering algorithms as per affinity.
+    """Performs kmeans clustering on embeddings.
 
     Arguments
     ---------
@@ -1061,10 +1058,8 @@ def do_kmeans_clustering(
     """
 
     if k_oracle is not None:
-        print("ORACLE SPKRs")
         num_of_spk = k_oracle
     else:
-        print("EST. using MAX Eigen gap")
         # Estimate num of using max eigen gap with `cos` affinity matrix.
         # This is just for experimentation.
         # Not doing full spectral clustering. Just re-using the code till
@@ -1123,9 +1118,7 @@ def do_kmeans_clustering(
 
 
 def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
-    """
-    Performs spectral clustering on embeddings. This function calls specific
-    clustering algorithms as per affinity.
+    """Performs Agglomerative Hierarchical Clustering on embeddings.
 
     Arguments
     ---------
@@ -1145,13 +1138,12 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
 
     from sklearn.cluster import AgglomerativeClustering
 
-    # p_val --> threshold_val (for AHC)
+    # p_val is the threshold_val (for AHC)
 
     diary_obj.norm_stat1()
 
     # processing
     if k_oracle is not None:
-        print("ORACLE SPKRs...")
         num_of_spk = k_oracle
 
         clustering = AgglomerativeClustering(
@@ -1159,9 +1151,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
 
-        print("labels.shape (Oracle) = ", labels.shape)
     else:
-        print("Using AHC threshold pval = ", p_val)
         # Estimate num of using max eigen gap with `cos` affinity matrix.
         # This is just for experimentation.
         clustering = AgglomerativeClustering(
@@ -1171,7 +1161,6 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
             distance_threshold=p_val,
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
-        print("labels.shape (Estima) = ", labels.shape)
 
     # Convert labels to speaker boundaries
     subseg_ids = diary_obj.segset
