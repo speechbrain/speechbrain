@@ -1,14 +1,13 @@
 #!/usr/bin/python3
-"""This recipe implements diarization baseline
-using deep embedding extraction followed by spectral clustering.
+"""This recipe implements diarization baseline using deep embedding extraction followed by spectral clustering.
 
 Reference: This recipe is based on the following paper,
-"ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
+- "ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
 
 To run this recipe, do the following:
 > python experiment.py hparams/your_hyperparams_file.yaml
 
-Condition: Oracle VAD
+Condition: Oracle VAD.
 
 Note: There are multiple ways to write this recipe. We chose to iterate over individual files.
 This method is less GPU memory demanding and also makes code easy to understand.
@@ -135,8 +134,8 @@ def embedding_computation_loop(split, set_loader, stat_file):
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.debug("Skipping embedding extraction (as already present)")
-        logger.debug("Loading previously saved embeddings")
+        logger.debug("Skipping embedding extraction (as already present).")
+        logger.debug("Loading previously saved embeddings.")
 
         with open(stat_file, "rb") as in_file:
             stat_obj = pickle.load(in_file)
@@ -145,7 +144,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
 
 def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
-    """ Converts csv to json for multi-mic processing.
+    """ Simple trick to convert csv to json for multi-mic processing.
     Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
     """
     json_dict = {}
@@ -264,14 +263,12 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 num_spkrs = None
 
         if params["backend"] == "kmeans":
-            print("Doing Kmeans...")
             diar.do_kmeans_clustering(
                 diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
             )
 
         if params["backend"] == "SC":
             # Go for SC
-            print("Doing SC...")
             diar.do_spec_clustering(
                 diary_obj,
                 out_rttm_file,
@@ -281,11 +278,11 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 params["affinity"],
                 n_neighbors,
             )
-        # Maybe used for AHC
+
+        # Maybe used for AHC in future
         if params["backend"] == "AHC":
             # call AHC
-            threshold = pval  # TODO: have to update the calling function
-            print("Doing AHC...")
+            threshold = pval  # pval for AHC becomes threshold
             diar.do_AHC(diary_obj, out_rttm_file, rec_id, num_spkrs, threshold)
 
     # Concatenate individual RTTM files
@@ -353,7 +350,7 @@ def dev_threshold_tuner(full_csv, split_type):
     prange = np.arange(0.0, 1.0, 0.1)
 
     n_lambdas = None
-    # TODO: Update variable name p_val --> theshold_val .
+    # Note: p_val is theshold.
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
@@ -381,8 +378,7 @@ def dev_threshold_tuner(full_csv, split_type):
 
 
 def dev_nn_tuner(full_csv, split_type):
-    """Tuning n_neighbors on dev set.
-    Assuming oracle num of speakers.
+    """Tuning n_neighbors on dev set. Assuming oracle num of speakers.
     """
 
     DER_list = []
