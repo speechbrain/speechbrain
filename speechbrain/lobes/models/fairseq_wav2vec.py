@@ -59,7 +59,12 @@ class FairseqWav2Vec2(nn.Module):
     """
 
     def __init__(
-        self, pretrained_path, save_path, output_norm=True, freeze=True, pretrain=True
+        self,
+        pretrained_path,
+        save_path,
+        output_norm=True,
+        freeze=True,
+        pretrain=True,
     ):
         super().__init__()
 
@@ -83,7 +88,7 @@ class FairseqWav2Vec2(nn.Module):
             model.eval()
 
         # Randomly initialized layers if pretrain is False
-        if not(pretrain):   
+        if not (pretrain):
             self.reset_layer(self.model)
 
     def forward(self, wav):
@@ -125,6 +130,7 @@ class FairseqWav2Vec2(nn.Module):
             if model != child_layer:
                 self.reset_layer(child_layer)
 
+
 class FairseqWav2Vec1(nn.Module):
     """This lobes enables the integration of fairseq pretrained wav2vec1.0 models.
 
@@ -156,7 +162,12 @@ class FairseqWav2Vec1(nn.Module):
     """
 
     def __init__(
-        self, pretrained_path, save_path, output_norm=True, freeze=True, pretrain=True
+        self,
+        pretrained_path,
+        save_path,
+        output_norm=True,
+        freeze=True,
+        pretrain=True,
     ):
         super().__init__()
         self.freeze = freeze
@@ -177,11 +188,10 @@ class FairseqWav2Vec1(nn.Module):
         self.model = self.model[0]
         if self.freeze:
             model.eval()
-        
-	# Randomly initialized layers if pretrain is False
-        if not(pretrain):
-            self.reset_layer(self.model)
 
+        # Randomly initialized layers if pretrain is False
+        if not (pretrain):
+            self.reset_layer(self.model)
 
     def forward(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.
@@ -219,4 +229,3 @@ class FairseqWav2Vec1(nn.Module):
         for child_layer in model.children():
             if model != child_layer:
                 self.reset_layer(child_layer)
-
