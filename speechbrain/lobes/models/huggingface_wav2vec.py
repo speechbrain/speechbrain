@@ -1,4 +1,4 @@
-"""This lobes enables the integration of huggingface pretrained wav2vec2 models.
+"""This lobe enables the integration of huggingface pretrained wav2vec2 models.
 
 Reference: https://arxiv.org/abs/2006.11477
 Reference: https://arxiv.org/abs/1904.05862
@@ -22,14 +22,14 @@ except ImportError:
 
 
 class HuggingFaceWav2Vec2(nn.Module):
-    """This lobes enables the integration of HuggingFace
+    """This lobe enables the integration of HuggingFace
     pretrained wav2vec2.0 models.
 
     Source paper: https://arxiv.org/abs/2006.11477
     Transformer from HuggingFace needs to be installed:
     https://huggingface.co/transformers/installation.html
 
-    The model can be used as a fixed features extractor or can be finetuned. It
+    The model can be used as a fixed feature extractor or can be finetuned. It
     will download automatically the model from HuggingFace.
 
     Arguments
@@ -44,6 +44,9 @@ class HuggingFaceWav2Vec2(nn.Module):
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    pretrain : bool (default: True)
+        If True, the model is pretrained with the specified source.
+        If False, the randomly-initialized model is instantiated.
 
     Example
     -------
@@ -56,7 +59,7 @@ class HuggingFaceWav2Vec2(nn.Module):
     torch.Size([10, 1,  768])
     """
 
-    def __init__(self, source, save_path, output_norm=True, freeze=True):
+    def __init__(self, source, save_path, output_norm=True, freeze=True, pretrain=True):
         super().__init__()
 
         # Download the model from HuggingFace and load it.
@@ -65,6 +68,10 @@ class HuggingFaceWav2Vec2(nn.Module):
             source, cache_dir=save_path
         )
         self.model = Wav2Vec2Model.from_pretrained(source, cache_dir=save_path)
+
+        # Randomly initialized layers if pretrain is False
+        if not(pretrain):
+            self.reset_layer(self.model)
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
         self.normalize_wav = self.proc.feature_extractor.do_normalize
@@ -93,6 +100,13 @@ class HuggingFaceWav2Vec2(nn.Module):
         return self.extract_features(wav)
 
     def extract_features(self, wav):
+        """Takes an input waveform and return its corresponding wav2vec encoding.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        """
 
         if self.normalize_wav:
             wav = F.layer_norm(wav, wav.shape)
@@ -105,3 +119,11 @@ class HuggingFaceWav2Vec2(nn.Module):
             out = F.layer_norm(out, out.shape)
 
         return out
+
+    def reset_layer(self, model):
+        """Reinitializes the parameters of the network"""
+        if hasattr(model, "reset_parameters"):
+            model.reset_parameters()
+        for child_layer in model.children():
+            if model != child_layer:
+                self.reset_layer(child_layer)
