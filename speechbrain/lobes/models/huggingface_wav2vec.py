@@ -59,7 +59,9 @@ class HuggingFaceWav2Vec2(nn.Module):
     torch.Size([10, 1,  768])
     """
 
-    def __init__(self, source, save_path, output_norm=True, freeze=True, pretrain=True):
+    def __init__(
+        self, source, save_path, output_norm=True, freeze=True, pretrain=True
+    ):
         super().__init__()
 
         # Download the model from HuggingFace and load it.
@@ -70,7 +72,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         self.model = Wav2Vec2Model.from_pretrained(source, cache_dir=save_path)
 
         # Randomly initialized layers if pretrain is False
-        if not(pretrain):
+        if not (pretrain):
             self.reset_layer(self.model)
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
