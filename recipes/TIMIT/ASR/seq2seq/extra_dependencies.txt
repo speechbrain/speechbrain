@@ -1,0 +1,4 @@
+# For wav2vect recipe (HuggingFace)
+transformers==4.4.0
+# For wav2vect recipe (Fairsec)
+#fairseq
