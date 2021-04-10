@@ -5,11 +5,16 @@ A few sklearn functions are modified in this script as per requirement.
 
 Reference
 ---------
+This code is written using the following:
+
 - Von Luxburg, U. A tutorial on spectral clustering. Stat Comput 17, 395–416 (2007).
   https://doi.org/10.1007/s11222-007-9033-z
 
 - sklearn:
   https://github.com/scikit-learn/scikit-learn/blob/0fb307bf3/sklearn/cluster/_spectral.py
+
+- Auto-Tuning: Some part of this code is also adapted from the following repo.
+  https://github.com/tango4j/Auto-Tuning-Spectral-Clustering/blob/master/spectral_opt.py
 
 Authors
  * Nauman Dawalatabad 2020
@@ -1139,7 +1144,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
     from sklearn.cluster import AgglomerativeClustering
 
     # p_val is the threshold_val (for AHC)
-
+    # Normalizing embeddings.
     diary_obj.norm_stat1()
 
     # processing
