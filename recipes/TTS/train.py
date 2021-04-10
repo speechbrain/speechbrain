@@ -25,10 +25,12 @@ class WavenetBrain(sb.core.Brain):
 
     def compute_forward(self, batch, stage, use_targets=True):
         # NEED TO FIGURE OUT THE COMPUTE FORWARD STEP
-        batch = BatchWrapper(batch).to(self.device)
+        batch = batch.to(self.device)#BatchWrapper(batch).to(self.device)
         
         pred = self.hparams.model(
             x=batch.sig_quantized.data
+            #x=batch.sig_quantized.data
+
                 if stage == sb.Stage.TRAIN else None
         )
         return pred
@@ -48,7 +50,7 @@ class WavenetBrain(sb.core.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        batch = BatchWrapper(batch).to(self.device)
+        #batch = BatchWrapper(batch).to(self.device)
         y_hat = predictions
         target = batch.target.data
         lengths = batch.target_lengths
@@ -110,7 +112,7 @@ class WavenetBrain(sb.core.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
-
+'''
 class BatchWrapper:
     def __init__(self, batch):
         self.batch = batch
@@ -123,7 +125,7 @@ class BatchWrapper:
     
     def __getattr__(self, name):
         return self.batch[name]
-
+'''
 class SingleBatchWrapper(DataLoader):
     """
     A wrapper that retrieves one batch from a DataLoader
@@ -327,21 +329,20 @@ def time_resolution(takes, provides, max_time_steps, hop_length):
     @sb.utils.data_pipeline.provides(provides)
     def f(sig_padded):
         x = sig_padded # ADD LOCAL AND GLOBAL CONDITIONS
-        '''
-        print("\n HELOO")
-        print(x.size())
-        print("MAX TIME STEPS:")
-        print(max_time_steps)
+        
+
         if max_time_steps is not None and len(x) > max_time_steps:
+            x = x[0:max_time_steps]
+            '''
             max_steps = ensure_divisible(x.size(0), hop_length, True)
             max_time_frames = max_steps // hop_length
             print(hop_length,max_steps,max_time_frames)
             s = np.random.randint(0, len(x) - max_time_steps)
             ts = s*hop_length
             x = x[ts:ts + hop_length * max_time_frames]
-        print("\n HELOO")
-        print(x.size())
-        '''
+            '''
+
+        
         return x
     return f
 
@@ -371,8 +372,21 @@ def to_categorical(takes, provides, num_classes=None, dtype='float32'):
         """
         Converts a class vector (integers) to 1-hot encodes a tensor
         """ 
-        return torch.from_numpy(np.asarray(np.eye(num_classes, dtype='uint8')[sig]))
+        return torch.from_numpy(np.asarray(np.eye(num_classes, dtype='float32')[sig]))
     return f
+
+# find minimum timescale to scale uniformly audio to
+def min_time(files_path):
+    wav_files=[]
+    for path, subdirs, files in os.walk(files_path):
+        for name in files:
+            if name.endswith("wav"):
+                wav_files.append(os.path.join(path,name))
+    time_scales=[]
+    for w in wav_files:
+        audio = sb.dataio.dataio.read_audio(w)
+        time_scales.append
+
 
 OUTPUT_KEYS = ["wav","sig","sig_quantized","mel_raw","mel_norm","target","input_lengths"]
 
@@ -447,6 +461,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         ),
         target_lengths
     ]
+
     '''
         local_conditioning(
             provides="local",
@@ -457,7 +472,6 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             g = hparams["g"]
         )
     '''
-    
 
     for element in pipeline:
         dataset.add_dynamic_item(element)
@@ -488,16 +502,16 @@ def main():
     )
     # Create dataset objects "train", "valid", and "test".
 
+    #min_time(hparams["datasets"]["train"]["path"])
     datasets = dataio_prep(hparams)
-  
+    '''
     if hparams.get('overfit_test'):
         datasets = {
             key: SingleBatchWrapper(
                 dataset,
                 num_iterations=hparams.get('overfit_test_iterations', 1)) 
             for key, dataset in datasets.items()}
-    print("\nHELLO")
-    print(datasets["train"])
+    '''
 
     # Initialize the Brain object to prepare for mask training.
     wavenet_brain = WavenetBrain(
@@ -522,4 +536,5 @@ def main():
     )
 
 if __name__ == '__main__':
+    torch.cuda.empty_cache()
     main()

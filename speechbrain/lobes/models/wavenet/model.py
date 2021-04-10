@@ -9,6 +9,7 @@ from __future__ import with_statement, print_function, absolute_import
 import math
 import numpy as np
 
+import speechbrain.nnet.CNN as CNN
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -93,33 +94,32 @@ class ConvInUpsampleNetwork(nn.Module):
         c_up = self.upsample(self.conv_in(c))
         return c_up
 
-class Conv1d(nn.Conv1d):
-    """Extended nn.Conv1d for incremental dilated convolutions
+class IncrementalConv1d(CNN.Conv1d):
     """
-
+    An extension of the standard SpeechBrain Conv1d that
+    supports "Incremental Forward" mode.
+    """
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args,**kwargs)
         self.clear_buffer()
         self._linearized_weight = None
         self.register_backward_hook(self._clear_linearized_weight)
 
     def incremental_forward(self, input):
+        """
+        Performs the incremental forward step
+        """
 
-        # input: (B, T, C)
         if self.training:
             raise RuntimeError('incremental_forward only supports eval mode')
-
         # run forward pre hooks (e.g., weight norm)
         for hook in self._forward_pre_hooks.values():
             hook(self, input)
-
-        # reshape weight - flattens input_channels and kernel dimension into one
+        # reshape weight
         weight = self._get_linearized_weight()
-        kw = self.kernel_size[0]
-        dilation = self.dilation[0]
-
+        kw = self.conv.kernel_size[0]
+        dilation = self.conv.dilation[0]
         bsz = input.size(0)  # input: bsz x len x dim
- 
         if kw > 1:
             input = input.data
             if self.input_buffer is None:
@@ -133,57 +133,40 @@ class Conv1d(nn.Conv1d):
             input = self.input_buffer
             if dilation > 1:
                 input = input[:, 0::dilation, :].contiguous()
-        output = F.linear(input.view(bsz, -1), weight, self.bias)
-
+        output = F.linear(input.view(bsz, -1), weight, self.conv.bias)
+        output = output.unsqueeze(-1)
         return output.view(bsz, 1, -1)
-
     def clear_buffer(self):
         self.input_buffer = None
-
     def _get_linearized_weight(self):
         if self._linearized_weight is None:
-            kw = self.kernel_size[0]
-            # nn.Conv1d
-            if self.weight.size() == (self.out_channels, self.in_channels, kw):
-                weight = self.weight.transpose(1, 2).contiguous()
-            else:
-                # fairseq.modules.conv_tbc.ConvTBC
-                weight = self.weight.transpose(2, 1).transpose(1, 0).contiguous()
-            assert weight.size() == (self.out_channels, kw, self.in_channels)
-            self._linearized_weight = weight.view(self.out_channels, -1)
+            kw = self.conv.kernel_size[0]
+            weight = self.conv.weight.transpose(1, 2).contiguous()
+            assert weight.size() == (self.conv.out_channels, kw, self.conv.in_channels)
+            self._linearized_weight = weight.view(self.conv.out_channels, -1)
         return self._linearized_weight
-
     def _clear_linearized_weight(self, *args):
-        self._linearized_weight = None
+        self._linearized_weight = None        
 
 
+def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, padding="causal", **kwargs):
 
-def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, **kwargs):
-    m = Conv1d(in_channels, out_channels, kernel_size, **kwargs)
-    nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
-    if m.bias is not None:
-        nn.init.constant_(m.bias, 0)
-    return nn.utils.weight_norm(m)
-
+    m = IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=padding, **kwargs)
+    nn.init.kaiming_normal_(m.conv.weight, nonlinearity="relu")
+    if m.conv.bias is not None:
+        nn.init.constant_(m.conv.bias, 0)
+    nn.utils.weight_norm(m.conv)
+    return m
 
 def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     m.weight.data.normal_(0, std)
     return m
 
-
-def ConvTranspose2d(in_channels, out_channels, kernel_size, **kwargs):
-    freq_axis_kernel_size = kernel_size[0]
-    m = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, **kwargs)
-    m.weight.data.fill_(1.0 / freq_axis_kernel_size)
-    m.bias.data.zero_()
-    return nn.utils.weight_norm(m)
-
-
-def Conv1d1x1(in_channels, out_channels, bias=True):
+def Conv1d1x1(in_channels, out_channels, padding="causal", bias=True):
     """1-by-1 convolution layer
     """
-    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+    return IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, padding=padding,
                   dilation=1, bias=bias)
 
 
@@ -219,12 +202,13 @@ class ResidualConv1dGLU(nn.Module):
     def __init__(self, residual_channels, gate_channels, kernel_size,
                  skip_out_channels=None,
                  cin_channels=-1, gin_channels=-1,
-                 dropout=1 - 0.95, padding=None, dilation=1, causal=True,
+                 dropout=1 - 0.95, padding="causal", dilation=1, causal=True,
                  bias=True, *args, **kwargs):
         super(ResidualConv1dGLU, self).__init__()
         self.dropout = dropout
         if skip_out_channels is None:
             skip_out_channels = residual_channels
+        '''
         if padding is None:
             # no future time stamps available
             if causal:
@@ -232,6 +216,7 @@ class ResidualConv1dGLU(nn.Module):
             else:
                 padding = (kernel_size - 1) // 2 * dilation
         self.causal = causal
+        '''
 
         self.conv = Conv1dkxk(residual_channels, gate_channels, kernel_size,
                            padding=padding, dilation=dilation,
@@ -279,9 +264,11 @@ class ResidualConv1dGLU(nn.Module):
             x = self.conv.incremental_forward(x)
         else:
             x = self.conv(x)
+            '''
             # remove future time steps
             x = x[:,:residual.size(-1),:] if self.causal else x
-        
+            '''
+
         splitdim = -1
         a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
 
@@ -412,8 +399,8 @@ class WaveNet(nn.Module):
         self.output_distribution = output_distribution
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
- 
-        self.first_conv = Conv1d1x1(out_channels, residual_channels)
+
+        self.first_conv = Conv1d1x1(in_channels=out_channels, out_channels=residual_channels)
 
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
@@ -474,8 +461,6 @@ class WaveNet(nn.Module):
         Returns:
             Tensor: output, shape B x T x out_channels
         """
-        print("\n HELOOOO")
-        print(x.size())
         B, T, _ = x.size()
 
         if g is not None:
@@ -491,6 +476,7 @@ class WaveNet(nn.Module):
             assert c.size(1) == x.size(1)
 
         # Feed data to network
+
         x = self.first_conv(x)
         skips = 0
         for f in self.conv_layers:
