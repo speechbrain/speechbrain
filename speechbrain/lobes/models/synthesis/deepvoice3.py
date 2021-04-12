@@ -2,12 +2,14 @@
 
 # Adopted and modified from https://github.com/r9y9/deepvoice3_pytorch
 
+import dataclasses
 import torch
 import math
 import numpy as np
 from torch import nn
 from torch.nn import functional as F
 from speechbrain.nnet import CNN
+from dataclasses import dataclass
 
 
 class WeightNorm(nn.Module):
@@ -1232,6 +1234,29 @@ class AttentionSeq2Seq(nn.Module):
         return mel_outputs, alignments, done, decoder_states
 
 
+@dataclass
+class LossStats:
+    """
+    Represents the different losses available in DeepVoice3,
+    including the total loss
+    """
+    loss: torch.Tensor
+    mel_loss: torch.Tensor
+    mel_l1_loss: torch.Tensor
+    mel_binary_div: torch.Tensor
+    linear_loss: torch.Tensor
+    linear_l1_loss: torch.Tensor
+    linear_binary_div: torch.Tensor
+    done_loss: torch.Tensor
+    attn_loss: torch.Tensor = None
+    
+    def as_scalar(self):
+        fields = dataclasses.fields(self)
+        return {field.name: getattr(self, field.name).item()
+                for field in fields}
+
+
+
 class Loss(nn.Module):
     """
     The loss for the DeepVoice3 model
@@ -1315,7 +1340,7 @@ class Loss(nn.Module):
             input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask,
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
-        mel_loss = (1 - self.masked_loss_weight) * mel_l1_loss + self.masked_loss_weight * mel_binary_div
+        mel_loss = (1 - self.binary_divergence_weight) * mel_l1_loss + self.binary_divergence_weight * mel_binary_div
         done_loss = self.binary_criterion(input_done, target_done)
 
         n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim)
@@ -1327,7 +1352,7 @@ class Loss(nn.Module):
             priority_w=self.priority_freq_weight,
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
-        linear_loss = (1 - self.masked_loss_weight) * linear_l1_loss + self.masked_loss_weight * linear_binary_div  
+        linear_loss = (1 - self.binary_divergence_weight) * linear_l1_loss + self.binary_divergence_weight * linear_binary_div  
         
         decoder_lengths = target_lengths.cpu().long().numpy() // r // self.downsample_step
         soft_mask = guided_attentions(
@@ -1337,7 +1362,18 @@ class Loss(nn.Module):
         attn_loss = (attention * soft_mask).mean()
 
         loss = mel_loss + linear_loss + done_loss + attn_loss
-        return loss
+        loss_stats = LossStats(
+            loss=loss,
+            mel_loss=mel_loss,
+            mel_l1_loss=mel_l1_loss,
+            mel_binary_div=mel_binary_div,
+            linear_loss=linear_loss,
+            linear_l1_loss=linear_l1_loss,
+            linear_binary_div=linear_binary_div,
+            done_loss=done_loss,
+            attn_loss=attn_loss   
+        )
+        return loss_stats
 
     def spec_loss(self, y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
 

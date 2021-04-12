@@ -90,6 +90,8 @@ output_folder: !ref ./results/tts/deepvoice/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+tokens: ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-
+
 
 encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Encoder
   n_vocab: !ref <n_vocab>

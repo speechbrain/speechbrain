@@ -87,10 +87,12 @@ class DeepVoice3Brain(sb.core.Brain):
         output_linear = output_linear[:, :target_linear.size(1), :]
         targets = target_mel, target_linear,  target_done, target_lengths
         outputs = output_mel, output_linear, attention, output_done, target_lengths
-        loss = self.hparams.compute_cost(
+        loss_stats = self.hparams.compute_cost(
             outputs, targets,
             input_lengths=batch.input_lengths
         )
+
+        self.last_loss_stats[stage] = loss_stats.as_scalar()
         (self.last_output_linear, 
          self.last_target_linear, 
          self.last_output_mel, 
@@ -101,13 +103,14 @@ class DeepVoice3Brain(sb.core.Brain):
                 output_mel, target_mel
             )]
         
-        return loss
+        return loss_stats.loss
     
     def on_fit_start(self):
         super().on_fit_start()
         if self.hparams.progress_samples:
             if not os.path.exists(self.hparams.progress_sample_path):
                 os.makedirs(self.hparams.progress_sample_path)
+        self.last_loss_stats = {}
 
     def _save_progress_sample(self):
         self._save_sample_image(
@@ -128,7 +131,6 @@ class DeepVoice3Brain(sb.core.Brain):
         padding = self.hparams.decoder_max_positions - tensor.size(2)
         return F.pad(tensor, (0, padding), value=value)
 
-
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
         Arguments
@@ -142,13 +144,8 @@ class DeepVoice3Brain(sb.core.Brain):
             `None` during the test stage.
         """
 
-
         # Store the train loss until the validation stage.
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-
-        # Summarize the statistics from the stage for record-keeping.
-        else:
+        if stage != sb.Stage.TRAIN:
             stats = {
                 "loss": stage_loss,
             }
@@ -161,9 +158,12 @@ class DeepVoice3Brain(sb.core.Brain):
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
+            train_stats = dict(
+                lr=old_lr, **self.last_loss_stats[sb.Stage.TRAIN])
+            train_stats = {key: [value] for key, value in train_stats.items()}
             self.hparams.train_logger.log_stats(
                 {"Epoch": epoch},
-                train_stats={"loss": self.train_loss},
+                train_stats=train_stats,
                 valid_stats=stats,
             )
 

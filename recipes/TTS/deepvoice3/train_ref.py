@@ -12,6 +12,7 @@ from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.encoder import TextEncoder
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from torch.utils.data import DataLoader
+from speechbrain.dataio.batch import PaddedBatch
 
 
 sys.path.append("..")
@@ -38,7 +39,7 @@ class DeepVoice3Brain(sb.core.Brain):
         predictions : torch.Tensor
             A tensor containing the posterior probabilities (predictions).
         """
-        batch = BatchWrapper(batch).to(self.device)
+        batch = batch.to(self.device)
         pred = self.hparams.model(
             text_sequences=batch.text_sequences.data, 
             mel_targets=batch.mel.data.transpose(1, 2)
@@ -49,7 +50,6 @@ class DeepVoice3Brain(sb.core.Brain):
             input_lengths=batch.input_lengths.data            
         )
         return pred
-
 
 
     def compute_objectives(self, predictions, batch, stage):
@@ -67,7 +67,7 @@ class DeepVoice3Brain(sb.core.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        batch = BatchWrapper(batch).to(self.device)
+        batch = batch.to(self.device)
         output_mel, output_linear, attention, output_done = predictions
         target_mel = batch.mel.data.transpose(1, 2)
         target_done = batch.done.data
@@ -85,27 +85,30 @@ class DeepVoice3Brain(sb.core.Brain):
         output_linear = output_linear[:, :target_linear.size(1), :]
         targets = target_mel, target_linear,  target_done, target_lengths
         outputs = output_mel, output_linear, attention, output_done, target_lengths
-        loss = self.hparams.compute_cost(
+        loss_stats = self.hparams.compute_cost(
             outputs, targets,
             input_lengths=batch.input_lengths
         )
+        
+        self.last_loss_stats[stage] = loss_stats.as_scalar()
         (self.last_output_linear, 
          self.last_target_linear, 
          self.last_output_mel, 
          self.last_target_mel) = [
-            tensor.detach().cpu()
+            tensor.detach().cpu()[0]
             for tensor in (
                 output_linear, target_linear,
                 output_mel, target_mel
             )]
         
-        return loss
+        return loss_stats.loss
     
     def on_fit_start(self):
         super().on_fit_start()
         if self.hparams.progress_samples:
             if not os.path.exists(self.hparams.progress_sample_path):
                 os.makedirs(self.hparams.progress_sample_path)
+        self.last_loss_stats = {}
 
     def _save_progress_sample(self):
         self._save_sample_image(
@@ -126,6 +129,9 @@ class DeepVoice3Brain(sb.core.Brain):
         padding = self.hparams.decoder_max_positions - tensor.size(2)
         return F.pad(tensor, (0, padding), value=value)
 
+    def log_stats(self, *args, **kwargs):
+        for logger in self.hparams.loggers:
+            logger.log_stats(*args, **kwargs)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -142,13 +148,9 @@ class DeepVoice3Brain(sb.core.Brain):
 
 
         # Store the train loss until the validation stage.
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-
-        # Summarize the statistics from the stage for record-keeping.
-        else:
+        if stage != sb.Stage.TRAIN:
             stats = {
-                "loss": stage_loss,
+                "loss": [stage_loss],
             }
 
         # At the end of validation, we can wrote
@@ -159,15 +161,19 @@ class DeepVoice3Brain(sb.core.Brain):
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
+            train_stats = dict(
+                lr=old_lr, **self.last_loss_stats[sb.Stage.TRAIN])
+            train_stats = {key: [value] for key, value in train_stats.items()}
+            self.log_stats(
                 {"Epoch": epoch},
-                train_stats={"loss": self.train_loss},
+                train_stats=train_stats,
                 valid_stats=stats,
             )
 
             # Save the current checkpoint and delete previous checkpoints.
             if self.hparams.checkpoint_every_epoch or epoch == self.hparams.number_of_epochs:
-                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+                meta_stats = {key: value[0] for key, value in stats.items()}
+                self.checkpointer.save_and_keep_only(meta=meta_stats, min_keys=["loss"])
             output_progress_sample =(
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
@@ -176,7 +182,7 @@ class DeepVoice3Brain(sb.core.Brain):
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
+            self.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
@@ -268,7 +274,7 @@ def done(outputs_per_step=1, downsample_step=4):
     @sb.utils.data_pipeline.takes("target_lengths")
     @sb.utils.data_pipeline.provides("done")
     def f(target_length):
-        done_length = target_length // outputs_per_step // downsample_step + 2
+        done_length = target_length // outputs_per_step // downsample_step
         done = torch.zeros(done_length)
         done[-2:] = 1.
         return done.unsqueeze(-1)
@@ -328,10 +334,12 @@ class BatchWrapper:
         return self.batch[name]
 
 
-@sb.utils.data_pipeline.takes("mel_raw")
-@sb.utils.data_pipeline.provides("target_lengths")
-def target_lengths(mel):
-    return mel.size(-1)
+def target_lengths(outputs_per_step, downsample_step):
+    @sb.utils.data_pipeline.takes("mel_raw")
+    @sb.utils.data_pipeline.provides("target_lengths")
+    def f(mel):
+        return mel.size(-1) + outputs_per_step * (1 + downsample_step)
+    return f
 
 
 def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
@@ -441,14 +449,17 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             downsample_step=hparams['mel_downsample_step']),
         done(downsample_step=hparams['mel_downsample_step'],
              outputs_per_step=hparams['outputs_per_step']),
-        target_lengths
+        target_lengths(downsample_step=hparams['mel_downsample_step'],
+             outputs_per_step=hparams['outputs_per_step']            
+        )
     ]
 
     for element in pipeline:
         dataset.add_dynamic_item(element)
 
     dataset.set_output_keys(OUTPUT_KEYS)
-    return SaveableDataLoader(dataset)
+    return SaveableDataLoader(dataset, collate_fn=collate_fn,
+                              **hparams["dataloader_options"])
 
 
 class SingleBatchLoader(DataLoader):
@@ -481,6 +492,14 @@ class SingleBatchWrapper(DataLoader):
         batch = next(iter(self.loader))
         for _ in range(self.num_iterations):
             yield batch
+
+
+def collate_fn(examples, *args, **kwargs):
+    max_done = max(example['done'].shape[0] for example in examples)
+    for example in examples:    
+        padding_size = max_done - example['done'].shape[0]
+        example['done'] = F.pad(example['done'], [0, 0, 0, padding_size], value=1)
+    return PaddedBatch(examples, *args, **kwargs)
 
 
 def dataio_prep(hparams):
