@@ -20,3 +20,16 @@ Xvectors : Dev = 4.34 % | Eval = 4.45 %
 ECAPA   :  Dev = 2.19 % | Eval = 2.74 %
 ECAPA_big: Dev = 2.16 % | Eval = 2.72 %
 
+# Citation
+If you find the code useful in your research, please cite:
+`
+@misc{dawalatabad2021ecapatdnn,
+      title={ECAPA-TDNN Embeddings for Speaker Diarization},
+      author={Nauman Dawalatabad and Mirco Ravanelli and François Grondin and Jenthe Thienpondt and Brecht Desplanques and Hwidong Na},
+      year={2021},
+      eprint={2104.01466},
+      archivePrefix={arXiv},
+      primaryClass={eess.AS},
+      note={arXiv:2104.01466}
+}
+`
