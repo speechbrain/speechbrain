@@ -1,3 +1,5 @@
+# Training a Speech Recognizer
+
 This template implements a simple speech recognizer trained on mini-librispeech.  In particular,  it implements an offline end-to-end attention-based speech recognizer.  A tokenizer is used to detect the word token to estimate. Search replies on beam search coupled with an RNN language model. 
 
 Training such a system requires the following steps:
