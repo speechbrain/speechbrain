@@ -1,8 +1,13 @@
-# SLU recipes for SLURM
-This folder contains recipes for spoken language understanding (SLU) with [SLURM](https://zenodo.org/record/4274930#.YEFCYHVKg5k).
+# SLU recipes for SLURP
+This folder contains recipes for spoken language understanding (SLU) with [SLURP](https://zenodo.org/record/4274930#.YEFCYHVKg5k).
 
 ### Direct recipe
 The "direct" maps the input speech directly to semantics using a seq2seq model.
+
+```
+cd direct
+python train.py hparams/train.yaml
+```
 
 ### Tokenizer recipe
 (You don't need to run this because the direct recipe downloads a tokenizer, but you can if you'd like to train a new tokenizer for SLURP.)

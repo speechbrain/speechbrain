@@ -201,15 +201,16 @@ def parse_arguments(arg_list):
     )
     parser.add_argument(
         "--data_parallel_backend",
-        type=bool,
         default=False,
-        help="If True, data_parallel is used.",
+        action="store_true",
+        help="This flag enables training with data_parallel.",
     )
     parser.add_argument(
         "--distributed_launch",
-        type=bool,
         default=False,
-        help="if True, use DDP",
+        action="store_true",
+        help="This flag enables training with DDP. Assumes script run with "
+        "`torch.distributed.launch`",
     )
     parser.add_argument(
         "--distributed_backend",
@@ -225,8 +226,9 @@ def parse_arguments(arg_list):
     )
     parser.add_argument(
         "--auto_mix_prec",
-        type=bool,
-        help="If True, automatic mixed-precision is used.",
+        default=False,
+        action="store_true",
+        help="This flag enables training with automatic mixed-precision.",
     )
     parser.add_argument(
         "--max_grad_norm",
@@ -240,9 +242,10 @@ def parse_arguments(arg_list):
         help="Max number of batches per epoch to skip if loss is nonfinite.",
     )
     parser.add_argument(
-        "--progressbar",
-        type=bool,
-        help="If True, displays a progressbar indicating dataset progress.",
+        "--noprogressbar",
+        default=False,
+        action="store_true",
+        help="This flag disables the data loop progressbars.",
     )
     parser.add_argument(
         "--ckpt_interval_minutes",
@@ -386,8 +389,8 @@ class Brain:
         nonfinite_patience (int)
             Number of times to ignore non-finite losses before stopping.
             Default: ``3``.
-        progressbar (bool)
-            Whether to display a progressbar when training. Default: ``True``.
+        noprogressbar (bool)
+            Whether to turn off progressbar when training. Default: ``False``.
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
@@ -433,7 +436,7 @@ class Brain:
             "auto_mix_prec": False,
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
-            "progressbar": True,
+            "noprogressbar": False,
             "ckpt_interval_minutes": 0,
         }
         for arg, default in run_opt_defaults.items():
@@ -823,14 +826,15 @@ class Brain:
         """
         # Managing automatic mixed precision
         if self.auto_mix_prec:
+            self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-                self.scaler.scale(loss).backward()
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.optimizer.zero_grad()
-                self.scaler.update()
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+            if self.check_gradients(loss):
+                self.scaler.step(self.optimizer)
+            self.scaler.update()
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
@@ -976,7 +980,7 @@ class Brain:
         self.on_fit_start()
 
         if progressbar is None:
-            progressbar = self.progressbar
+            progressbar = not self.noprogressbar
 
         # Iterate epochs
         for epoch in epoch_counter:
@@ -1144,7 +1148,7 @@ class Brain:
         average test loss
         """
         if progressbar is None:
-            progressbar = self.progressbar
+            progressbar = not self.noprogressbar
 
         if not isinstance(test_set, DataLoader):
             test_loader_kwargs["ckpt_prefix"] = None
