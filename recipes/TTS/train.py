@@ -33,6 +33,7 @@ class WavenetBrain(sb.core.Brain):
 
                 if stage == sb.Stage.TRAIN else None
         )
+
         return pred
 
     def compute_objectives(self, predictions, batch, stage):
@@ -51,11 +52,15 @@ class WavenetBrain(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         #batch = BatchWrapper(batch).to(self.device)
-        y_hat = predictions
-        target = batch.target.data
-        lengths = batch.target_lengths
+        
+        # wee need 4d inputs for spatial cross entropy loss
+        # (B, T, C, 1)
+        y_hat = predictions.unsqueeze(-1)
+        target = batch.target.data.unsqueeze(-1)
+        lengths = batch.input_lengths
+
         loss = self.hparams.compute_cost(
-            predictions, target
+            y_hat[:,:-1,:,:], target[:,1:,:], lengths=lengths
         )
         return loss
 
@@ -154,7 +159,9 @@ def trim(takes, provides, top_db=15):
     @sb.utils.data_pipeline.provides(provides)    
     def f(wav):
         x, _ = librosa.effects.trim(wav, top_db=top_db)
-        x = torch.tensor(x).to(wav.device)
+        #print("CONSTRUCT ERROR")
+        #print(type(x))
+        #x = torch.tensor(x).to(wav.device)
         return x
     return f
 
@@ -433,9 +440,9 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             sample_rate=hparams['sample_rate']),
         wav_clip(
             takes = "sig_silence_trim",
-            provides = "target"),
+            provides = "target_full"),
         mulaw_target(
-            takes= "target", 
+            takes= "target_full", 
             provides="sig_mulaw", 
             is_quantized = hparams["is_mulaw_quantized"]),
         zero_pad(
@@ -451,6 +458,12 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         time_resolution(
             takes = "sig_padded",
             provides = "sig",
+            max_time_steps= hparams["max_time_steps"],
+            hop_length= hparams["hop_length"]
+        ),
+        time_resolution(
+            takes = "target_full",
+            provides = "target",
             max_time_steps= hparams["max_time_steps"],
             hop_length= hparams["hop_length"]
         ),

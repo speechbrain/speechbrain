@@ -461,6 +461,9 @@ class WaveNet(nn.Module):
         Returns:
             Tensor: output, shape B x T x out_channels
         """
+        print("\nHELLO")
+        print(x)
+        print(x.size())
         B, T, _ = x.size()
 
         if g is not None:
@@ -476,8 +479,8 @@ class WaveNet(nn.Module):
             assert c.size(1) == x.size(1)
 
         # Feed data to network
-
         x = self.first_conv(x)
+
         skips = 0
         for f in self.conv_layers:
             x, h = f(x, c, g_bct)
@@ -485,6 +488,7 @@ class WaveNet(nn.Module):
         skips *= math.sqrt(1.0 / len(self.conv_layers))
 
         x = skips
+
         for f in self.last_conv_layers:
             x = f(x)
 
@@ -614,15 +618,23 @@ class Loss(nn.Module):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss(reduction='none')
 
-    def forward(self, predictions, target, lengths, max_len):
+    def forward(self, predictions, target, lengths):
 
-        # (B, 1, T)
-        mask = sequence_mask(lengths, max_len).unsqueeze(1)
-        mask = mask[:,:,1:]
+        # (B,1,T)
+        mask = self.sequence_mask(lengths).unsqueeze(1)        
+        # (B,T,1)
+        mask = mask.transpose(1,2).contiguous()
+        mask = mask[:,1:,:]
 
         # (B, D, T)
         mask_ = mask.expand_as(target)
-        losses = self.criterion(predictions, target)
+
+        # cross entropy loss expects LongTensor target
+        # cross entropy loss requires input to be of (N,Classes,...)
+        # classes in our case are the quantized channels
+        # B,T,C,1 -> B,C,T,1
+        predictions = predictions.transpose(1,2).contiguous()
+        losses = self.criterion(predictions, target.long())
         return ((losses * mask_).sum()) / mask_.sum()
     
     def sequence_mask(self, sequence_length):
