@@ -28,3 +28,6 @@ def test_gccphat():
 
     n_valid_tdoas = torch.sum(torch.abs(tdoas[..., 1] - delay) < 1e-3)
     assert n_valid_tdoas == Xs.shape[0] * Xs.shape[1]
+    assert torch.jit.trace(stft, xs)
+    assert torch.jit.trace(cov, Xs)
+    assert torch.jit.trace(gccphat, XXs)

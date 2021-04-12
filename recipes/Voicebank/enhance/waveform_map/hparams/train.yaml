@@ -18,7 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced
 
 # Basic parameters
-use_tensorboard: False
+use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 
 # FFT paremeters
@@ -29,9 +29,9 @@ N_fft: 512
 window_fn: !name:torch.hamming_window
 
 # Data files
-train_annotation: !ref <data_folder>/train.json
-valid_annotation: !ref <data_folder>/valid.json
-test_annotation: !ref <data_folder>/test.json
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/valid.json
+test_annotation: !ref <output_folder>/test.json
 skip_prep: False
 
 # Training Parameters
@@ -80,3 +80,7 @@ compute_ISTFT: !new:speechbrain.processing.features.ISTFT
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
+
+# Tensorboard logger (optional)
+tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+    save_dir: !ref <tensorboard_logs>

@@ -19,12 +19,12 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/aishell
 # noise/ris dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
+data_folder_rirs: !ref <data_folder> # Change this is needed
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-train_data: !ref <data_folder>/train.csv
-valid_data: !ref <data_folder>/dev.csv
-test_data: !ref <data_folder>/test.csv
+train_data: !ref <output_folder>/train.csv
+valid_data: !ref <output_folder>/dev.csv
+test_data: !ref <output_folder>/test.csv
 tokenizer_file: https://drive.google.com/uc?export=download&id=1VHcphRLJITHFkF6NbnSy_6s5gelYKW07
 
 # Training parameters

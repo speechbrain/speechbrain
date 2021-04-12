@@ -1088,6 +1088,7 @@ def average_checkpoints(
     recoverable_name,
     parameter_loader=torch.load,
     averager=average_state_dicts,
+    device=None,
 ):
     """Average parameters from multiple checkpoints.
 
@@ -1149,8 +1150,17 @@ def average_checkpoints(
     tensor([8.])
     """
 
-    parameter_iterator = (
-        parameter_loader(ckpt.paramfiles[recoverable_name])
-        for ckpt in checkpoint_list
-    )
+    try:
+        # try to map the ckps to the correct device
+        parameter_iterator = (
+            parameter_loader(
+                ckpt.paramfiles[recoverable_name], map_location=device
+            )
+            for ckpt in checkpoint_list
+        )
+    except TypeError:
+        parameter_iterator = (
+            parameter_loader(ckpt.paramfiles[recoverable_name])
+            for ckpt in checkpoint_list
+        )
     return averager(parameter_iterator)
