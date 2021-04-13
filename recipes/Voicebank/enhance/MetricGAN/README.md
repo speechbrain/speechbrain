@@ -14,12 +14,13 @@ python train.py hparams/train.yaml --data_folder /path/to/data_folder
 ## Results
 
 Experiment Date | PESQ | CSIG | CBAK | COVL
--|-|-
+-|-|-|-|-
 2021-03-06 | 3.15 | 4.14 | 3.16 | 3.64
 
 ## Citation
 
 If you find the code useful in your research, please cite:
+
 	@article{fu2021metricgan+,
 	  title={MetricGAN+: An Improved Version of MetricGAN for Speech Enhancement},
       author={Fu, Szu-Wei and Yu, Cheng and Hsieh, Tsun-An and Plantinga, Peter and Ravanelli, Mirco and Lu, Xugang and Tsao, Yu},
