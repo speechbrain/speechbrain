@@ -4,13 +4,9 @@ Authors:
 * Szu-Wei Fu 2020
 """
 import torch
+import speechbrain as sb
 from torch import nn
 from torch.nn.utils import spectral_norm
-import speechbrain as sb
-
-
-def shifted_sigmoid(x):
-    return 1.2 / (1 + torch.exp(-(1 / 1.6) * x))
 
 
 def xavier_init_layer(
@@ -29,6 +25,23 @@ def xavier_init_layer(
     nn.init.zeros_(layer.bias)
 
     return layer
+
+
+def shifted_sigmoid(x):
+    return 1.2 / (1 + torch.exp(-(1 / 1.6) * x))
+
+
+class Learnable_sigmoid(nn.Module):
+    def __init__(self, in_features=257):
+        super().__init__()
+        self.slope = nn.Parameter(torch.ones(in_features))
+        self.slope.requiresGrad = True  # set requiresGrad to true!
+
+        # self.scale = nn.Parameter(torch.ones(1))
+        # self.scale.requiresGrad = True # set requiresGrad to true!
+
+    def forward(self, x):
+        return 1.2 / (1 + torch.exp(-(self.slope) * x))
 
 
 class EnhancementGenerator(nn.Module):
@@ -60,14 +73,12 @@ class EnhancementGenerator(nn.Module):
             bidirectional=True,
         )
         """
-        Use orthogonal init for recurrent layers,
-        xavier uniform for input layers
-        Bias is 0 except for forget gate bias
+        Use orthogonal init for recurrent layers, xavier uniform for input layers
+        Bias is 0
         """
         for name, param in self.blstm.named_parameters():
             if "bias" in name:
                 nn.init.zeros_(param)
-                # param.data[hidden_size:2 *hidden_size] = 1
             elif "weight_ih" in name:
                 nn.init.xavier_uniform_(param)
             elif "weight_hh" in name:
@@ -76,6 +87,9 @@ class EnhancementGenerator(nn.Module):
         self.linear1 = xavier_init_layer(400, 300, spec_norm=False)
         self.linear2 = xavier_init_layer(300, 257, spec_norm=False)
 
+        self.Learnable_sigmoid = Learnable_sigmoid()
+        self.sigmoid = nn.Sigmoid()
+
     def forward(self, x, lengths):
         out, _ = self.blstm(x, lengths=lengths)
 
@@ -83,13 +97,13 @@ class EnhancementGenerator(nn.Module):
         out = self.activation(out)
 
         out = self.linear2(out)
-        out = shifted_sigmoid(out)
+        out = self.Learnable_sigmoid(out)
 
         return out
 
 
 class MetricDiscriminator(nn.Module):
-    """Metric estimator for improved enhancement training.
+    """Metric estimator for enhancement training.
 
     Consists of:
      * four 2d conv layers
