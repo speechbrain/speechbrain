@@ -965,7 +965,7 @@ def merge_char(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        words = "".join(seq).split("_")
+        words = "".join(seq).split(space)
         results.append(words)
     return results
 
@@ -1035,6 +1035,6 @@ def split_word(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        chars = list("_".join(seq))
+        chars = list(space.join(seq))
         results.append(chars)
     return results
