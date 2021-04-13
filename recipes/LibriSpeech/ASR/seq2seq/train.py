@@ -59,6 +59,7 @@ class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
+        print(batch.id)
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
@@ -292,7 +293,26 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_datasets
+
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.batch import PaddedBatch  # noqa
+
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        hop_size = dynamic_hparams["feats_hop_size"]
+
+        batch_sampler = DynamicBatchSampler(
+            train_data,
+            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["left_bucket_len"],
+            bucket_length_multiplier=dynamic_hparams["multiplier"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),
+            shuffle_examples=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+    return train_data, valid_data, test_datasets, batch_sampler
 
 
 if __name__ == "__main__":
@@ -333,7 +353,9 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets = dataio_prepare(hparams)
+    train_data, valid_data, test_datasets, train_sampler = dataio_prepare(
+        hparams
+    )
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
@@ -353,12 +375,18 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
 
+    if hparams["dynamic_batching"]:
+        train_dataloader_opts = {"batch_sampler": train_sampler}
+
+    else:
+        train_dataloader_opts = hparams["train_dataloader_opts"]
+
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
