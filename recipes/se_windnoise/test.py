@@ -57,7 +57,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    wav = 'wav/pytorch_wakeup_src_10dB_meetingroom1.wav'
+    wav = 'wav/MIC1_000.wav'
 
     noisy_wavs = sb.dataio.dataio.read_audio(wav)
     noisy_wavs = noisy_wavs.reshape(1, -1)
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     print(noisy_feats.shape)
 
-    se_brain.on_evaluate_start(max_key="stoi")
+    se_brain.on_evaluate_start(max_key="pesq")
     se_brain.on_stage_start(sb.Stage.TEST, epoch=None)
 
     se_brain.modules.eval()
@@ -93,6 +93,6 @@ if __name__ == "__main__":
     )
 
     print(predict_wav.shape)
-    sb.dataio.dataio.write_audio("wav/output/pytorch_wakeup_src_10dB_meetingroom1_enh5.wav", torch.squeeze(predict_wav.to('cpu')), 16000)
+    sb.dataio.dataio.write_audio("wav/output/MIC1_000_enh.wav", torch.squeeze(predict_wav.to('cpu')), 16000)
 
 

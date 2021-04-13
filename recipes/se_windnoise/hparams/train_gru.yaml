@@ -8,7 +8,7 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 4240
+seed: 4242
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
@@ -25,6 +25,9 @@ data_folder: ./data
 output_folder: !ref ./results/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+tensorboard_logs: !ref <output_folder>/logs
+
+noise_csv: /home/wangwei/work/speechbrain/recipes/se_windnoise/noise.csv
 
 # Path where data manifest files will be stored
 # The data manifest files are created by the data preparation script.
@@ -36,13 +39,18 @@ test_annotation: test.json
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+# Tensorboard logger (optional)
+tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+    save_dir: !ref <tensorboard_logs>
+
 # FFT parameters
 sample_rate: 16000
 win_length: 32
 hop_length: 16
 n_fft: 512
 window_fn: !name:torch.hamming_window
-contex: 3
+contex: 1
+use_tensorboard: True
 
 # Training Parameters
 number_of_epochs: 100
@@ -80,20 +88,23 @@ rir_folder: !ref <rir_folder> # Change it if needed
 env_corruption: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 10
-    noise_snr_low: -5
-    noise_snr_high: 15
-    babble_speaker_count: !ref <batch_size> - 1
-    babble_snr_low: -5
-    babble_snr_high: 15
+    noise_snr_low: -15
+    noise_snr_high: 5
+    babble_speaker_count: 0      # no bable
     noise_num_workers : 48
+    noise_csv: !ref <noise_csv>
+    reverb_prob:  0              # no reverb
 
-
+bidir: True
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
-model: !new:custom_model_gru.CustomModel
+model: !new:model.custom_model_gru.CustomModel
     input_size: !ref <n_fft> // 2 + 1
     contex: !ref <contex>
+    bidir: !ref <bidir>
+    rnn_size: 256
+    projection: 128
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed

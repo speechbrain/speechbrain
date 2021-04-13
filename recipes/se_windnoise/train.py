@@ -23,6 +23,7 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+from pesq import pesq
 
 
 # Brain class for speech enhancement training
@@ -110,6 +111,9 @@ class SEBrain(sb.Brain):
         # Directly compare the masked spectrograms with the clean targets
         loss = sb.nnet.losses.mse_loss(predictions["spec"], clean_spec, lens)
 
+        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+            self.hparams.lr_annealing.on_batch_end(self.optimizer)
+
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
             batch.id, predictions["spec"], clean_spec, lens, reduction="batch"
@@ -126,6 +130,10 @@ class SEBrain(sb.Brain):
                 clean_wavs,
                 lens,
                 reduction="batch",
+            )
+
+            self.pesq_metric.append(
+                batch.id, predict=predictions["wav"], target=clean_wavs, lengths=lens
             )
 
         return loss
@@ -147,11 +155,22 @@ class SEBrain(sb.Brain):
             metric=sb.nnet.losses.mse_loss
         )
 
+        # Define function taking (prediction, target) for parallel eval
+        def pesq_eval(pred_wav, target_wav):
+            """Computes the PESQ evaluation metric"""
+            return pesq(
+                fs=16000,
+                ref=target_wav.numpy(),
+                deg=pred_wav.numpy(),
+                mode="wb",
+            )
+
         # Set up evaluation-only statistics trackers
         if stage != sb.Stage.TRAIN:
             self.stoi_metric = sb.utils.metric_stats.MetricStats(
                 metric=sb.nnet.loss.stoi_loss.stoi_loss
             )
+            self.pesq_metric = sb.utils.metric_stats.MetricStats(metric=pesq_eval, n_jobs=48)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -175,21 +194,37 @@ class SEBrain(sb.Brain):
         else:
             stats = {
                 "loss": stage_loss,
+                "pesq": self.pesq_metric.summarize("average"),
                 "stoi": -self.stoi_metric.summarize("average"),
             }
 
         # At the end of validation, we can write stats and checkpoints
         if stage == sb.Stage.VALID:
+
+            old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            train_stats={"loss": self.train_loss}
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
-                {"Epoch": epoch},
-                train_stats={"loss": self.train_loss},
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats=train_stats,
                 valid_stats=stats,
             )
 
+            if self.hparams.use_tensorboard:
+                valid_stats = {
+                    "loss": self.loss_metric.summarize("average"),
+                    "stoi": stats['stoi'],
+                    "pesq": stats['pesq'],
+                }
+                self.hparams.tensorboard_train_logger.log_stats(
+                    train_stats, valid_stats
+                )
+
             # Save the current checkpoint and delete previous checkpoints,
             # unless they have the current best STOI score.
-            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["stoi"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -288,7 +323,12 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"]
     )
 
-    print(se_brain.hparams.contex)
+    if hparams["use_tensorboard"]:
+        from speechbrain.utils.train_logger import TensorboardLogger
+
+        hparams["tensorboard_train_logger"] = TensorboardLogger(
+            hparams["tensorboard_logs"]
+        )
 
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects

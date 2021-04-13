@@ -83,7 +83,7 @@ def prepare_csv(filelist, csv_file, max_length=None):
     finally:
         sb.utils.distributed.ddp_barrier()
 
-def preapre_noise(folder: str, noise_list_name='noise_list'):
+def preapre_noise(folder: str, noise_list_name='wind_noise_list'):
 
     all_wavs = find_wavs(folder)
     print("find wavs:{}".format(len(all_wavs)))
@@ -92,9 +92,10 @@ def preapre_noise(folder: str, noise_list_name='noise_list'):
         for wav_name in all_wavs:
             w.writelines(wav_name + '\n')
 
-    prepare_csv(noise_list_name,'noise.csv', max_length=1.0)
+    prepare_csv(noise_list_name,'noise.csv', max_length=3.0)
 
 if __name__ == "__main__":
     import argparse
 
-    preapre_noise('/home/wangwei/work/corpus/kws/noise/output')   
+    # preapre_noise('/home/wangwei/work/corpus/dcunet/multi-dcunet-uss-test-data/sr_16k/s4')   
+    preapre_noise('/home/wangwei/work/corpus/windnoise/dataset/244807')      
