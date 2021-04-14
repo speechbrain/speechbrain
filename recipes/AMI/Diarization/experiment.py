@@ -176,7 +176,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     """Diarizes all the recordings in a given dataset.
     """
 
-    # Prepare `spkr_info` only once when Oracle num of speakers is selected
+    # Prepare `spkr_info` only once when Oracle num of speakers is selected.
     if params["oracle_n_spkrs"] is True:
         full_ref_rttm_file = (
             params["ref_rttm_dir"] + "/fullref_ami_" + split_type + ".rttm"
@@ -188,7 +188,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             filter(lambda x: x.startswith("SPKR-INFO"), rttm)
         )
 
-    # Get all recording IDs in this dataset
+    # Get all recording IDs in this dataset.
     A = [row[0].rstrip().split("_")[0] for row in full_csv]
     all_rec_ids = list(set(A[1:]))
     all_rec_ids.sort()
@@ -197,7 +197,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     split = "AMI_" + split_type
     i = 1
 
-    # Setting eval modality
+    # Setting eval modality.
     params["embedding_model"].eval()
     msg = "Diarizing " + split_type + " set"
     logger.info(msg)
@@ -222,7 +222,8 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
         )
         diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
-        # IF mic_array then convert into json
+        # If mic_array then convert into json.
+        # It's easier to handle multi-mics in json.
         if params["mic_type"] == "Array1":
             new_json_file = os.path.join(
                 params["embedding_dir"], split, rec_id + ".json"
@@ -232,21 +233,22 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             diary_set_loader = dataio_prep_multi_mic(params, new_json_file)
 
         else:
-            # Setup a dataloader for above one recording (above csv)
+            # For rest of audio streams.
+            # Setup a dataloader for above one recording (above csv).
             diary_set_loader = dataio_prep(params, new_csv_file)
 
-        # Putting modules on the device
+        # Putting modules on the device.
         params["compute_features"].to(params["device"])
         params["mean_var_norm"].to(params["device"])
         params["embedding_model"].to(params["device"])
         params["mean_var_norm_emb"].to(params["device"])
 
-        # Compute Embeddings
+        # Compute Embeddings.
         diary_obj = embedding_computation_loop(
             "diary", diary_set_loader, diary_stat_file
         )
 
-        # Perform spectral clustering
+        # Perform spectral clustering.
         out_rttm_dir = os.path.join(params["sys_rttm_dir"], split)
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
@@ -257,10 +259,10 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             if params["affinity"] == "nn":
-                # Num of speakers tunned on dev set
+                # Num of speakers tunned on dev set (only for nn affinity).
                 num_spkrs = n_lambdas
             else:
-                # Will be estimated using max eigen gap for cos based affinity
+                # Will be estimated using max eigen gap for cos based affinity.
                 num_spkrs = None
 
         if params["backend"] == "kmeans":
@@ -269,7 +271,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             )
 
         if params["backend"] == "SC":
-            # Go for SC
+            # Go for SC.
             diar.do_spec_clustering(
                 diary_obj,
                 out_rttm_file,
@@ -280,14 +282,14 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 n_neighbors,
             )
 
-        # Maybe used for AHC in future
+        # Maybe used for AHC later.
         if params["backend"] == "AHC":
             # call AHC
-            threshold = pval  # pval for AHC becomes threshold
+            threshold = pval  # pval for AHC is nothing but threshold.
             diar.do_AHC(diary_obj, out_rttm_file, rec_id, num_spkrs, threshold)
 
-    # Concatenate individual RTTM files
-    # This is not needed but just staying with the standards
+    # Concatenate individual RTTM files.
+    # This is not needed but just staying with the standards.
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
 
     logger.debug("Concatenating individual RTTM files...")
@@ -314,7 +316,7 @@ def dev_p_tuner(full_csv, split_type):
     DER_list = []
     prange = np.arange(0.002, 0.015, 0.001)
 
-    n_lambdas = None
+    n_lambdas = None # using it as flag later.
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
@@ -350,7 +352,8 @@ def dev_threshold_tuner(full_csv, split_type):
     DER_list = []
     prange = np.arange(0.0, 1.0, 0.1)
 
-    n_lambdas = None
+    n_lambdas = None # using it as flag later.
+
     # Note: p_val is theshold.
     for p_v in prange:
         # Process whole dataset for value of p_v
