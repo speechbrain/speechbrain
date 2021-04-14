@@ -321,7 +321,7 @@ def dev_p_tuner(full_csv, split_type):
     DER_list = []
     prange = np.arange(0.002, 0.015, 0.001)
 
-    n_lambdas = None # using it as flag later.
+    n_lambdas = None  # using it as flag later.
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
@@ -357,7 +357,7 @@ def dev_threshold_tuner(full_csv, split_type):
     DER_list = []
     prange = np.arange(0.0, 1.0, 0.1)
 
-    n_lambdas = None # using it as flag later.
+    n_lambdas = None  # using it as flag later.
 
     # Note: p_val is theshold.
     for p_v in prange:
