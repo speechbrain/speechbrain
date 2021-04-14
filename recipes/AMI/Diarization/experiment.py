@@ -493,7 +493,7 @@ def dataio_prep_multi_mic(hparams, json_file):
     # 3. Set output:
     sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
 
-    # 4. create dataloader:
+    # 4. Create dataloader:
     dataloader = sb.dataio.dataloader.make_dataloader(
         dataset, **params["dataloader_opts"]
     )
@@ -528,7 +528,7 @@ def dataio_prep(hparams, csv_file):
     # 3. Set output:
     sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
 
-    # 4. create dataloader:
+    # 4. Create dataloader:
     dataloader = sb.dataio.dataloader.make_dataloader(
         dataset, **params["dataloader_opts"]
     )
