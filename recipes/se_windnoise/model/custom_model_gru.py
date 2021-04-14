@@ -26,7 +26,7 @@ class CustomModel(torch.nn.Module):
         Number of RNN layers to use.
     """
 
-    def __init__(self, input_size, contex=0, rnn_size=128, projection=64, layers=2):
+    def __init__(self, input_size, contex=0, bidir=False, rnn_size=128, projection=64, layers=2):
         super().__init__()
         self.layers = torch.nn.ModuleList()
 
@@ -38,16 +38,21 @@ class CustomModel(torch.nn.Module):
                 torch.nn.GRU(
                     input_size=contex_size if i == 0 else projection,
                     hidden_size=rnn_size,
-                    bidirectional=False,
+                    bidirectional=bidir,
                 )
             )
+
+            if bidir:
+                linear_in_feat = rnn_size * 2
+            else:
+                linear_in_feat = rnn_size
 
             # Projection layer reduces size, except last layer, which
             # goes back to input size to create the mask
             linear_size = input_size if i == layers - 1 else projection
             self.layers.append(
                 torch.nn.Linear(
-                    in_features=rnn_size, out_features=linear_size,
+                    in_features=linear_in_feat, out_features=linear_size,
                 )
             )
 

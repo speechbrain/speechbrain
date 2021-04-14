@@ -53,7 +53,7 @@ contex: 1
 use_tensorboard: True
 
 # Training Parameters
-number_of_epochs: 100
+number_of_epochs: 200
 batch_size: 16
 learning_rate: 0.001
 lr_final: 0.0001

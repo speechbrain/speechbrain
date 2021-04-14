@@ -219,7 +219,7 @@ class SEBrain(sb.Brain):
                     "pesq": stats['pesq'],
                 }
                 self.hparams.tensorboard_train_logger.log_stats(
-                    train_stats, valid_stats
+                    {"Epoch": epoch}, train_stats, valid_stats
                 )
 
             # Save the current checkpoint and delete previous checkpoints,

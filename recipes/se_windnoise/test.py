@@ -24,6 +24,9 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 from train import SEBrain
+from train import dataio_prep
+import torchaudio
+import os
 
 
 # Recipe begins!
@@ -57,7 +60,27 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    wav = 'wav/MIC1_000.wav'
+    datasets = dataio_prep(hparams)
+    valid_set=datasets["valid"]
+
+    valid_set_0 = valid_set[1]
+    print("len(valid_set_0['noisy_sig']):{}".format(valid_set_0['noisy_sig'].shape))
+    noisy_wavs = valid_set_0['noisy_sig']
+    clean_wavs = valid_set_0['clean_sig']
+    print(noisy_wavs.shape)
+    torchaudio.save('wav/noisy_wavs.wav',noisy_wavs.view(1,-1),16000)
+    torchaudio.save('wav/clean_wavs.wav',clean_wavs.view(1,-1),16000)
+
+    # for data in valid_set:
+    #     for key in data.keys():
+    #         print(key)
+    #     print()
+    #     noisy_wavs, lens = data['noisy_sig']
+    #     clean_wavs, lens = data['clean_sig']
+    #     # print(len(noisy_wavs))
+
+    wav = 'wav/MIC1_000_3.wav'
+    # wav = 'wav/noisy_wavs.wav'
 
     noisy_wavs = sb.dataio.dataio.read_audio(wav)
     noisy_wavs = noisy_wavs.reshape(1, -1)
@@ -68,7 +91,7 @@ if __name__ == "__main__":
     print(noisy_feats.shape)
 
     se_brain.on_evaluate_start(max_key="pesq")
-    se_brain.on_stage_start(sb.Stage.TEST, epoch=None)
+    se_brain.on_stage_start(sb.Stage.VALID, epoch=None)
 
     se_brain.modules.eval()
 
@@ -79,6 +102,7 @@ if __name__ == "__main__":
     # Masking is done here with the "signal approximation (SA)" algorithm.
     # The masked input is compared directly with clean speech targets.
     mask = se_brain.modules.model(noisy_feats_contex)
+    print("noisy_feats_contex.shape:{}".format(noisy_feats_contex.shape))
     predict_spec = torch.mul(mask, noisy_feats)
     # predict_spec = mask
     print("predict_spec:{}".format(predict_spec.shape))
@@ -93,6 +117,9 @@ if __name__ == "__main__":
     )
 
     print(predict_wav.shape)
-    sb.dataio.dataio.write_audio("wav/output/MIC1_000_enh.wav", torch.squeeze(predict_wav.to('cpu')), 16000)
+    filename = os.path.split(wav)[-1].split('.')[0]
+    save_name = os.path.join('wav/output',filename+'_enh2.wav')
+    print('save enh to {}'.format(save_name))
+    sb.dataio.dataio.write_audio(save_name, torch.squeeze(predict_wav.to('cpu')), 16000)
 
 
