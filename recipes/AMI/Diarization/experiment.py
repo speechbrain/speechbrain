@@ -622,8 +622,7 @@ if __name__ == "__main__":  # noqa: C901
     if params["affinity"] == "cos" and (
         params["backend"] == "SC" or params["backend"] == "kmeans"
     ):
-        # oracle num_spkrs or not, doesn't matter
-        # for kmeans and SC backends
+        # oracle num_spkrs or not, doesn't matter for kmeans and SC backends
         # cos: Tune for best pval for SC (known) /kmeans (for unknown num of spkrs)
         logger.info(
             "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
