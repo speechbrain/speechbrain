@@ -384,12 +384,13 @@ def dev_nn_tuner(full_csv, split_type):
 
     DER_list = []
     pval = None
+
+    # Now assumming oracle num of speakers.
+    n_lambdas = 4
+
     for nn in range(5, 15):
 
-        # Fix this later. Now assumming oracle num of speakers
-        n_lambdas = 4
-
-        # Process whole dataset for value of n_lambdas
+        # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_csv, split_type, n_lambdas, pval, nn
         )
@@ -424,7 +425,7 @@ def dev_tuner(full_csv, split_type):
     pval = None
     for n_lambdas in range(1, params["max_num_spkrs"] + 1):
 
-        # Process whole dataset for value of n_lambdas
+        # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_csv, split_type, n_lambdas, pval
         )
@@ -440,14 +441,14 @@ def dev_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER
+    # Take n_lambdas with minmum DER.
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas
 
 
 def dataio_prep_multi_mic(hparams, json_file):
-    "Creates the datasets and their data processing pipelines."
+    """Creates the datasets and their data processing pipelines."""
 
     # 1. Datasets
     data_folder = hparams["data_folder"]
@@ -463,7 +464,7 @@ def dataio_prep_multi_mic(hparams, json_file):
 
         mics_signals = read_audio_multichannel(wav).unsqueeze(0)
 
-        fs = 16000  # see if this can be automatically adjusted
+        fs = 16000  # see if this can be automatically adjusted.
         stft = STFT(sample_rate=fs)
         cov = Covariance()
         gccphat = GccPhat()
@@ -493,7 +494,7 @@ def dataio_prep_multi_mic(hparams, json_file):
 
 
 def dataio_prep(hparams, csv_file):
-    "Creates the datasets and their data processing pipelines."
+    """Creates the datasets and their data processing pipelines."""
 
     # 1. Datasets
     data_folder = hparams["data_folder"]
@@ -529,6 +530,7 @@ def dataio_prep(hparams, csv_file):
 
 def check_dirs():
     """Check if directories are present"""
+
     # Only these 3 directories are important
     if os.path.isdir(params["data_folder"]) is False:
         msg = "Can't find data_folder:  %s \n" % (params["data_folder"])
