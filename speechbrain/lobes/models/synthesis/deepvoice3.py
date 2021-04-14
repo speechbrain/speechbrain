@@ -1053,23 +1053,56 @@ class Converter(nn.Module):
 
 
 
-# TODO: Vectorize and use pytorch
 def guided_attention(N, max_N, T, max_T, g):
-    N = N.cpu()
-    W = np.zeros((max_N, max_T), dtype=np.float32)
-    for n in range(N):
-        for t in range(T):
-            W[n, t] = 1 - np.exp(-(n / N - t / T)**2 / (2 * g * g))
-    return W
+    """
+    Computes a single guided attention matrix for a sample
+    
+    Arguments
+    ---------
+    N
+        the input length
+    max_N
+        the maximum input length
+    T
+        the target length
+    max_T
+        the maximum target length
+    g
+        the guided attention weight
+    """
+    W = torch.zeros((max_N, max_T)).float()
+    n, t = torch.meshgrid(
+        torch.arange(N).to(N.device), 
+        torch.arange(T).to(N.device))
+    value = 1. - torch.exp(-(n / N - t / T) ** 2 / (2 * g * g))
+    return value
 
 
 def guided_attentions(input_lengths, target_lengths, max_target_len, g=0.2):
+    """
+    Computes guided attention matrices
+
+    Arguments
+    ---------
+    input_lengths
+        a tensor of input lengths
+    target_lengths
+        a tensor of target (spectrogram) length
+    max_target_len
+        the maximum target length
+    g
+        the attention weight
+    """
     B = len(input_lengths)
     max_input_len = input_lengths.max()
-    W = np.zeros((B, max_target_len, max_input_len), dtype=np.float32)
+    W = (torch.zeros((B, max_target_len, max_input_len.item()))
+         .float()
+         .to(input_lengths.device))
+    #TODO: Attempt to vectorize here as well
     for b in range(B):
-        W[b] = guided_attention(input_lengths[b], max_input_len,
-                                target_lengths[b], max_target_len, g).T
+        attention = guided_attention(input_lengths[b], max_input_len,
+                                     target_lengths[b], max_target_len, g).T
+        W[b, :attention.size(0), :attention.size(1)] = attention
     return W
 
 
@@ -1358,7 +1391,6 @@ class Loss(nn.Module):
         soft_mask = guided_attentions(
             input_lengths, decoder_lengths,
             attention.size(-2), self.guided_attention_sigma)
-        soft_mask = torch.from_numpy(soft_mask).to(input_mel.device)
         attn_loss = (attention * soft_mask).mean()
 
         loss = mel_loss + linear_loss + done_loss + attn_loss

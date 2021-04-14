@@ -26,7 +26,7 @@ class DeepVoice3Brain(sb.core.Brain):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def compute_forward(self, batch, stage, use_targets=True):
+    def compute_forward(self, batch, stage, incremental=False):
         """Predicts the next word given the previous ones.
         Arguments
         ---------
@@ -42,17 +42,17 @@ class DeepVoice3Brain(sb.core.Brain):
         batch = batch.to(self.device)
         pred = self.hparams.model(
             text_sequences=batch.text_sequences.data, 
-            mel_targets=batch.mel.data.transpose(1, 2)
-                if stage == sb.Stage.TRAIN else None, 
+            mel_targets=
+                None if incremental else batch.mel.data.transpose(1, 2), 
             text_positions=batch.text_positions.data,
-            frame_positions=batch.frame_positions.data
-                if use_targets else None,
+            frame_positions=
+                None if incremental else batch.frame_positions.data,
             input_lengths=batch.input_lengths.data            
         )
         return pred
 
 
-    def compute_objectives(self, predictions, batch, stage):
+    def compute_objectives(self, predictions, batch, stage, incremental=False):
         """Computes the loss given the predicted and targeted outputs.
         Arguments
         ---------
@@ -74,7 +74,7 @@ class DeepVoice3Brain(sb.core.Brain):
         target_linear = batch.linear.data.transpose(1, 2)
         target_lengths = batch.target_lengths.data
         # TODO: Too much transposing going on - optimize
-        if stage == sb.Stage.VALID:        
+        if incremental:        
             output_mel = pad_to_length(
                 output_mel.transpose(1, 2), target_mel.size(1)).transpose(1, 2)
             output_linear = pad_to_length(
@@ -110,18 +110,23 @@ class DeepVoice3Brain(sb.core.Brain):
                 os.makedirs(self.hparams.progress_sample_path)
         self.last_loss_stats = {}
 
-    def _save_progress_sample(self):
-        self._save_sample_image(
-            'target_linear.png', self.last_target_linear)
-        self._save_sample_image(
-            'output_linear.png', self.last_output_linear)
-        self._save_sample_image(
-            'target_mel.png', self.last_target_mel)
-        self._save_sample_image(
-            'output_mel.png', self.last_output_mel)
+    def _save_progress_sample(self, epoch):
+        entries = [
+            ('target_linear.png', self.last_target_linear),
+            ('output_linear.png', self.last_output_linear),
+            ('target_mel.png', self.last_target_mel),
+            ('output_mel.png', self.last_output_mel)
+        ]
+        for file_name, data in entries:
+            self._save_sample_image(file_name, data, epoch)
 
-    def _save_sample_image(self, file_name, data):
-        effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
+    def _save_sample_image(self, file_name, data, epoch):
+        target_path = os.path.join(
+            self.hparams.progress_sample_path,
+            str(epoch))
+        if not os.path.exists(target_path):
+            os.makedirs(target_path)
+        effective_file_name = os.path.join(target_path, file_name)
         sample = data.squeeze()
         torchvision.utils.save_image(sample, effective_file_name)
 
@@ -145,7 +150,6 @@ class DeepVoice3Brain(sb.core.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
 
         # Store the train loss until the validation stage.
         if stage != sb.Stage.TRAIN:
@@ -178,7 +182,7 @@ class DeepVoice3Brain(sb.core.Brain):
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
             if output_progress_sample:
-                self._save_progress_sample()                
+                self._save_progress_sample(epoch)                
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:

@@ -26,7 +26,7 @@ class DeepVoice3Brain(sb.core.Brain):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def compute_forward(self, batch, stage, use_targets=True):
+    def compute_forward(self, batch, stage, incremental=False):
         """Predicts the next word given the previous ones.
         Arguments
         ---------
@@ -34,6 +34,9 @@ class DeepVoice3Brain(sb.core.Brain):
             This batch object contains all the relevant tensors for computation.
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        incremental: Boolean
+            Whether to compute the forward pass incrementally, 
+            step by step, without a time (used for generation)
         Returns
         -------
         predictions : torch.Tensor
@@ -43,18 +46,19 @@ class DeepVoice3Brain(sb.core.Brain):
 
         pred = self.hparams.model(
             text_sequences=batch.text_sequences.data, 
-            mel_targets=batch.mel.data.transpose(1, 2)
-                if stage == sb.Stage.TRAIN else None, 
+            mel_targets=
+                None if incremental else batch.mel.data.transpose(1, 2), 
             text_positions=batch.text_positions.data,
-            frame_positions=batch.frame_positions.data
-                if use_targets else None,
+            frame_positions=
+                None if incremental else batch.frame_positions.data,
             input_lengths=batch.input_lengths.data            
         )
+
         return pred
 
 
 
-    def compute_objectives(self, predictions, batch, stage):
+    def compute_objectives(self, predictions, batch, stage, incremental=False):
         """Computes the loss given the predicted and targeted outputs.
         Arguments
         ---------
@@ -64,19 +68,22 @@ class DeepVoice3Brain(sb.core.Brain):
             This batch object contains all the relevant tensors for computation.
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        incremental
+            whether or not to compute the model pass incrementally (optional, defaults to False)
+
         Returns
         -------
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        batch = BatchWrapper(batch).to(self.device)
+        batch = batch.to(self.device)
         output_mel, output_linear, attention, output_done = predictions
         target_mel = batch.mel.data.transpose(1, 2)
         target_done = batch.done.data
         target_linear = batch.linear.data.transpose(1, 2)
         target_lengths = batch.target_lengths.data
         # TODO: Too much transposing going on - optimize
-        if stage == sb.Stage.VALID:        
+        if incremental:        
             output_mel = pad_to_length(
                 output_mel.transpose(1, 2), target_mel.size(1)).transpose(1, 2)
             output_linear = pad_to_length(
@@ -91,7 +98,7 @@ class DeepVoice3Brain(sb.core.Brain):
             outputs, targets,
             input_lengths=batch.input_lengths
         )
-
+        
         self.last_loss_stats[stage] = loss_stats.as_scalar()
         (self.last_output_linear, 
          self.last_target_linear, 
@@ -104,6 +111,7 @@ class DeepVoice3Brain(sb.core.Brain):
             )]
         
         return loss_stats.loss
+
     
     def on_fit_start(self):
         super().on_fit_start()
@@ -112,24 +120,37 @@ class DeepVoice3Brain(sb.core.Brain):
                 os.makedirs(self.hparams.progress_sample_path)
         self.last_loss_stats = {}
 
-    def _save_progress_sample(self):
-        self._save_sample_image(
-            'target_linear.png', self.last_target_linear)
-        self._save_sample_image(
-            'output_linear.png', self.last_output_linear)
-        self._save_sample_image(
-            'target_mel.png', self.last_target_mel)
-        self._save_sample_image(
-            'output_mel.png', self.last_output_mel)
+    def _save_progress_sample(self, epoch):
+        entries = [
+            ('target_linear.png', self.last_target_linear),
+            ('output_linear.png', self.last_output_linear),
+            ('target_mel.png', self.last_target_mel),
+            ('output_mel.png', self.last_output_mel)
+        ]
+        for file_name, data in entries:
+            self._save_sample_image(file_name, data, epoch)
 
-    def _save_sample_image(self, file_name, data):
-        effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
+    def _save_sample_image(self, file_name, data, epoch):
+        target_path = os.path.join(
+            self.hparams.progress_sample_path,
+            str(epoch))
+        if not os.path.exists(target_path):
+            os.makedirs(target_path)
+        effective_file_name = os.path.join(target_path, file_name)
         sample = data.squeeze()
         torchvision.utils.save_image(sample, effective_file_name)
 
     def _pad_output(self, tensor, value=0.):
         padding = self.hparams.decoder_max_positions - tensor.size(2)
         return F.pad(tensor, (0, padding), value=value)
+
+    def log_stats(self, *args, **kwargs):
+        """
+        Logs statistics to all registered logger.
+        All arguments get passed on to the underlying loggers
+        """
+        for logger in self.hparams.loggers:
+            logger.log_stats(*args, **kwargs)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -147,7 +168,7 @@ class DeepVoice3Brain(sb.core.Brain):
         # Store the train loss until the validation stage.
         if stage != sb.Stage.TRAIN:
             stats = {
-                "loss": stage_loss,
+                "loss": [stage_loss],
             }
 
         # At the end of validation, we can wrote
@@ -161,7 +182,7 @@ class DeepVoice3Brain(sb.core.Brain):
             train_stats = dict(
                 lr=old_lr, **self.last_loss_stats[sb.Stage.TRAIN])
             train_stats = {key: [value] for key, value in train_stats.items()}
-            self.hparams.train_logger.log_stats(
+            self.log_stats(
                 {"Epoch": epoch},
                 train_stats=train_stats,
                 valid_stats=stats,
@@ -169,16 +190,17 @@ class DeepVoice3Brain(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             if self.hparams.checkpoint_every_epoch or epoch == self.hparams.number_of_epochs:
-                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+                meta_stats = {key: value[0] for key, value in stats.items()}
+                self.checkpointer.save_and_keep_only(meta=meta_stats, min_keys=["loss"])
             output_progress_sample =(
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
             if output_progress_sample:
-                self._save_progress_sample()                
+                self._save_progress_sample(epoch)                
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
+            self.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
@@ -426,7 +448,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             downsample_step=hparams['mel_downsample_step']),
         text_encoder(max_input_len=hparams['max_input_len'], tokens=tokens),
         frame_positions(
-            max_output_len=hparams['max_mel_len']),
+            max_output_len=hparams['max_mel_len'] * hparams['mel_downsample_step']),
         spectrogram(
             n_fft=hparams['n_fft'],
             hop_length=hparams['hop_length'],
