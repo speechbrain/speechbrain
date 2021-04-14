@@ -27,12 +27,12 @@ logger = logging.getLogger(__name__)
 def transducer_loss(
     log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
 ):
-    """Transducer loss, see `speechbrain/nnet/transducer/transducer_loss.py`.
+    """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, chars].
+        Predicted tensor, of shape [batch, maxT, maxU, num_labels].
     targets : torch.Tensor
         Target tensor, without any blanks, of shape [batch, target_len].
     input_lens : torch.Tensor
@@ -40,7 +40,7 @@ def transducer_loss(
     target_lens : torch.Tensor
         Length of each target sequence.
     blank_index : int
-        The location of the blank symbol among the character indexes.
+        The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
     """
