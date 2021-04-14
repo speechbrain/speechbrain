@@ -87,17 +87,19 @@ def embedding_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given dataset loader.
     """
 
-    # Extract embeddings (skip if already done)
+    # Note: We use usespeechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
+
+    # Extract embeddings (skip if already done).
     if not os.path.isfile(stat_file):
         logger.debug("Extracting deep embeddings and diarizing")
         embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
 
-        # Different data may have different statistics
+        # Different data may have different statistics.
         params["mean_var_norm_emb"].count = 0
 
-        for batch in set_loader:  # t:
+        for batch in set_loader:
             ids = batch.id
             wavs, lens = batch.sig
 
@@ -106,7 +108,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
             modelset = modelset + mod
             segset = segset + seg
 
-            # Embedding computation
+            # Embedding computation.
             emb = (
                 compute_embeddings(wavs, lens)
                 .contiguous()
@@ -119,7 +121,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
         modelset = np.array(modelset, dtype="|O")
         segset = np.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0
+        # Intialize variables for start, stop and stat0.
         s = np.array([None] * embeddings.shape[0])
         b = np.array([[1.0]] * embeddings.shape[0])
 
@@ -145,9 +147,12 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
 
 def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
-    """ Simple trick to convert csv to json for multi-mic processing.
-    Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+    """Simple trick to convert csv to json for multi-mic processing.
+    Process multiple mics is easier in json.
     """
+
+    # Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+
     json_dict = {}
     with open(in_csv_file, mode="r") as csv_file:
         csv_reader = csv.DictReader(csv_file)
