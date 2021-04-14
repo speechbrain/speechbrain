@@ -2,17 +2,17 @@
 """This recipe implements diarization system using deep embedding extraction followed by spectral clustering.
 
 Reference: This recipe is based on the following paper,
-N. Dawalatabad, M. Ravanelli, F. Grondin, J. Thienpondt, B. Desplanques, H. Na,
-"ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
+ N. Dawalatabad, M. Ravanelli, F. Grondin, J. Thienpondt, B. Desplanques, H. Na,
+ "ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
 
 To run this recipe:
 > python experiment.py hparams/<your_hyperparams_file.yaml>
  e.g., python experiment.py hparams/ecapa_tdnn.yaml
 
-Condition: Oracle VAD (speech regions taken from goundtruth).
+Condition: Oracle VAD (speech regions taken from the goundtruth).
 
-Note: There are multiple ways to write this recipe. We chose to iterate over individual files.
-This method is less GPU memory demanding and also makes code easy to understand.
+Note: There are multiple ways to write this recipe. We iterate over individual recordings.
+ This approach is less GPU memory demanding and also makes code easy to understand.
 
 Authors
  * Nauman Dawalatabad 2020
@@ -548,16 +548,16 @@ def check_dirs():
         sys.exit()
 
 
-# Begin!
+# Begin experiment!
 if __name__ == "__main__":  # noqa: C901
 
-    # Load hyperparameters file with command-line overrides
+    # Load hyperparameters file with command-line overrides.
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Dataset prep (parsing VoxCeleb and annotation into csv files)
+    # Dataset prep (parsing AMI and annotation into csv files).
     from ami_prepare import prepare_ami  # noqa
 
     run_on_main(
@@ -575,14 +575,14 @@ if __name__ == "__main__":  # noqa: C901
         },
     )
 
-    # Create experiment directory
+    # Create experiment directory.
     sb.core.create_experiment_directory(
         experiment_directory=params["output_folder"],
         hyperparams_to_save=params_file,
         overrides=overrides,
     )
 
-    # Few more experiment directories (to have cleaner structure)
+    # Few more experiment directories inside results/ (to have cleaner structure).
     exp_dirs = [
         params["embedding_dir"],
         params["csv_dir"],
@@ -594,11 +594,11 @@ if __name__ == "__main__":  # noqa: C901
         if not os.path.exists(dir_):
             os.makedirs(dir_)
 
-    # checks for 3 important directories
+    # Checking for 3 important directories.
     check_dirs()
 
-    # We download the pretrained LM from HuggingFace (or elsewhere depending on
-    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    # We download the pretrained Model from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file).
     run_on_main(params["pretrainer"].collect_files)
     params["pretrainer"].load_collected()
     params["embedding_model"].eval()
