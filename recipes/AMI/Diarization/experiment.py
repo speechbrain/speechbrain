@@ -623,7 +623,7 @@ if __name__ == "__main__":  # noqa: C901
         params["backend"] == "SC" or params["backend"] == "kmeans"
     ):
         # oracle num_spkrs or not, doesn't matter for kmeans and SC backends
-        # cos: Tune for best pval for SC (known) /kmeans (for unknown num of spkrs)
+        # cos: Tune for the best pval for SC /kmeans (for unknown num of spkrs)
         logger.info(
             "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
         )
@@ -643,7 +643,7 @@ if __name__ == "__main__":  # noqa: C901
             # dev_tuner is WIP (used for tuning num of components in NN)
             n_lambdas = dev_tuner(full_csv, "dev")
 
-    # Running once more of dev set (optional)
+    # Running once more of dev set (optional).
     out_boundaries = diarize_dataset(
         full_csv,
         "dev",
@@ -652,7 +652,7 @@ if __name__ == "__main__":  # noqa: C901
         n_neighbors=best_nn,
     )
 
-    # Evaluating on DEV set
+    # Evaluating on DEV set.
     logger.info("Evaluating for AMI Dev. set")
     ref_rttm_dev = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
     sys_rttm_dev = out_boundaries
@@ -668,7 +668,7 @@ if __name__ == "__main__":  # noqa: C901
     )
     logger.info(msg)
 
-    # AMI Eval Set
+    # AMI Eval Set.
     full_csv = []
     with open(params["csv_diary_eval"], "r") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
@@ -683,7 +683,7 @@ if __name__ == "__main__":  # noqa: C901
         n_neighbors=best_nn,
     )
 
-    # Evaluating on EVAL set
+    # Evaluating AMI EVAL set.
     logger.info("Evaluating for AMI Eval. set")
     ref_rttm_eval = os.path.join(
         params["ref_rttm_dir"], "fullref_ami_eval.rttm"
@@ -707,7 +707,7 @@ if __name__ == "__main__":  # noqa: C901
     )
     logger.info(msg)
 
-    # Writing der for individual files
+    # Writing DER for individual files.
     t0 = "oracle" if params["oracle_n_spkrs"] else "est"
     tag = t0 + "_" + str(params["affinity"]) + ".txt"
 
