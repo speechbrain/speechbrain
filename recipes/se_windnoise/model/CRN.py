@@ -70,6 +70,7 @@ class RNN_Block(torch.nn.Module):
             raise Exception('Unknown rnn_type. Valid options: "gru", "lstm"')
 
     def forward(self, x):
+        self.rnn.flatten_parameters()
         x, _ = self.rnn(x)
 
         return x
