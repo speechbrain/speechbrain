@@ -127,9 +127,11 @@ class ASR_Brain(sb.Brain):
             )
 
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, 
-                            "lr_adam": old_lr_adam,
-                            "lr_wav2vec": old_lr_wav2vec},
+                stats_meta={
+                    "epoch": epoch,
+                    "lr_adam": old_lr_adam,
+                    "lr_wav2vec": old_lr_wav2vec,
+                },
                 train_stats={"loss": self.train_loss},
                 valid_stats={"loss": stage_loss, "PER": per},
             )
