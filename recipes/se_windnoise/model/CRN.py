@@ -164,10 +164,13 @@ class crn(torch.nn.Module):
         super().__init__()
         self.layers = torch.nn.ModuleList()
 
-        contex_size = input_size * (2 * contex + 1)
+        if input_size == 257:
+            rnn_size = 1792
+        elif input_size == 161:
+            rnn_size = 1024
 
         self.encoder = Encoder()
-        self.rnn = RNN_Block()
+        self.rnn = RNN_Block(input_size=rnn_size, hidden_size=rnn_size)
         self.decoder = Decoder()
 
     def forward(self, x: torch.Tensor):
@@ -201,7 +204,7 @@ class crn(torch.nn.Module):
 
 if __name__ == "__main__":
     N, C, T, F = 10, 1, 100, 257
-    data = torch.rand((N,C, T,F))
+    data = torch.rand((N, T,F))
     print(data.shape)
     model = crn()
     output = model(data)
