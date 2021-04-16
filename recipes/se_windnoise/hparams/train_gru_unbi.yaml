@@ -8,7 +8,7 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 4243
+seed: 4246
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
@@ -40,6 +40,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 # Tensorboard logger (optional)
+use_tensorboard: True
 tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
     save_dir: !ref <tensorboard_logs>
 
@@ -50,7 +51,6 @@ hop_length: 16
 n_fft: 512
 window_fn: !name:torch.hamming_window
 contex: 1
-use_tensorboard: True
 
 # Training Parameters
 number_of_epochs: 200
@@ -73,6 +73,8 @@ compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
     window_fn: !ref <window_fn>
+
+use_log1p: Ture
 
 # Resynthesize combines noisy phase with enhanced magnitudes.
 resynth: !name:speechbrain.processing.signal_processing.resynthesize

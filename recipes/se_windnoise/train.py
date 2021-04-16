@@ -57,9 +57,14 @@ class SEBrain(sb.Brain):
 
         # Also return predicted wav, for evaluation. Note that this could
         # also be used for a time-domain loss term.
-        predict_wav = self.hparams.resynth(
-            torch.expm1(predict_spec), noisy_wavs
-        )
+        if self.hparams.use_log1p:
+            predict_wav = self.hparams.resynth(
+                torch.expm1(predict_spec), noisy_wavs
+            )
+        else:
+            predict_wav = self.hparams.resynth(
+                predict_spec, noisy_wavs
+            )
 
         # Return a dictionary so we don't have to remember the order
         return {"spec": predict_spec, "wav": predict_wav}
@@ -80,9 +85,10 @@ class SEBrain(sb.Brain):
         feats_contex = compute_cw(feats)
 
 
-        # Log1p reduces the emphasis on small differences
-        feats = torch.log1p(feats)
-        feats_contex = torch.log1p(feats_contex)
+        if self.hparams.use_log1p:
+            # Log1p reduces the emphasis on small differences
+            feats = torch.log1p(feats)
+            feats_contex = torch.log1p(feats_contex)
 
         return feats, feats_contex
 
