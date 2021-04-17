@@ -56,8 +56,6 @@ class DeepVoice3Brain(sb.core.Brain):
 
         return pred
 
-
-
     def compute_objectives(self, predictions, batch, stage, incremental=False):
         """Computes the loss given the predicted and targeted outputs.
         Arguments
@@ -92,11 +90,10 @@ class DeepVoice3Brain(sb.core.Brain):
                 output_done.transpose(1, 2), target_done.size(1), 1.).transpose(1, 2)
 
         output_linear = output_linear[:, :target_linear.size(1), :]
-        targets = target_mel, target_linear,  target_done, target_lengths
-        outputs = output_mel, output_linear, attention, output_done, target_lengths
+        targets = target_mel, target_linear, target_done, target_lengths
+        outputs = output_mel, output_linear, attention, output_done, batch.input_lengths
         loss_stats = self.hparams.compute_cost(
-            outputs, targets,
-            input_lengths=batch.input_lengths
+            outputs, targets
         )
         
         self.last_loss_stats[stage] = loss_stats.as_scalar()

@@ -42,9 +42,17 @@ class WeightNorm(nn.Module):
         self.inner.conv.bias.data.zero_()
     
     def forward(self, *args, **kwargs):
+        """
+        Computes the forward pass. The arguments are the same
+        as those to CNN.Conv1d
+        """
         return self.inner.forward(*args, **kwargs)        
 
     def incremental_forward(self, *args, **kwargs):
+        """
+        Computes the forward pass as part of an incremental
+        pass
+        """
         return self.inner.incremental_forward(*args, **kwargs)        
 
 
@@ -95,6 +103,10 @@ class IncrementalConv1d(CNN.Conv1d):
         return output.view(bsz, 1, -1)
 
     def clear_buffer(self):
+        """
+        Clears the input buffers, which are used during
+        incremental passes
+        """
         self.input_buffer = None
 
     def _get_linearized_weight(self):
@@ -138,9 +150,17 @@ class EdgeConvBlock(nn.Module):
             dropout=dropout)
 
     def forward(self, *args, **kwargs):
+        """
+        Computes the forward pass. The arguments are the same
+        as those to CNN.Conv1d
+        """
         return self.conv(*args, **kwargs)
 
     def incremental_forward(self, x, *args, **kwargs):
+        """
+        Computes the forward pass. The arguments are the same
+        as those to CNN.Conv1d
+        """
         x = x.transpose(1, 2)
         x = self.forward(x, *args, **kwargs)
         x = x.transpose(1, 2)
@@ -340,6 +360,17 @@ def sinusoidal_encode(x, w):
 
 
 class SinusoidalEncoding(nn.Embedding):
+    """
+    A sinusoidal encoding implementation for DeepVoice3
+
+    Arguments
+    ---------
+    num_embeddings: int
+        the number of embeddings to be used
+    embedding_dim: int
+        the embedding dimension (i.e. the dimension of
+        each embedding vector)
+    """
     def __init__(self, num_embeddings, embedding_dim,
                  *args, **kwargs):
         super().__init__(
@@ -350,10 +381,20 @@ class SinusoidalEncoding(nn.Embedding):
             sinusoidal=False)
 
     def forward(self, x, w=1.0):
-        isscaler = np.isscalar(w)
+        """
+        Computes the forward pass
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the inputs
+        w: float
+            the weight/multiplier
+        """
+        isscalar = np.isscalar(w)
         assert self.padding_idx is not None
 
-        if isscaler or w.size(0) == 1:
+        if isscalar or w.size(0) == 1:
             weight = sinusoidal_encode(self.weight, w)
             return F.embedding(
                 x, weight, self.padding_idx, self.max_norm,
@@ -372,15 +413,36 @@ class SinusoidalEncoding(nn.Embedding):
 
 
 class GradMultiply(torch.autograd.Function):
+    """
+    The gradient multiplier implementation
+    """
     @staticmethod
     def forward(ctx, x, scale):
+        """
+        Computes the forward pass
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input
+        scale: float
+            the scaling factor
+        """
         ctx.scale = scale
         res = x.new(x)
         ctx.mark_shared_storage((x, res))
         return res
 
-    @staticmethod
+    @staticmethod    
     def backward(ctx, grad):
+        """
+        Computes the forward pass
+
+        Arguments
+        ---------
+        grad: torch.Tensor
+            the gradient
+        """        
         return grad * ctx.scale, None
 
 
@@ -393,24 +455,33 @@ def Linear(in_features, out_features, dropout=0):
 
 
 def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
+    """
+    Creates a new embedding
+
+    Arguments
+    ---------
+    num_embeddings: int
+        the number of embeddings
+    embedding_dim: int
+        the embedding dimension
+    padding_idx: int
+        the padding index
+    """
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     m.weight.data.normal_(0, std)
     return m
 
-def ConvTranspose1d(in_channels, out_channels, kernel_size, dropout=0,
-                    std_mul=1.0, **kwargs):
-    m = nn.ConvTranspose1d(in_channels, out_channels, kernel_size, **kwargs)
-    std = math.sqrt((std_mul * (1.0 - dropout)) / (m.kernel_size[0] * in_channels))
-    m.weight.data.normal_(mean=0, std=std)
-    m.bias.data.zero_()
-    return nn.utils.weight_norm(m)
-
 
 def get_mask_from_lengths(memory, memory_lengths):
     """Get mask tensor from list of length
-    Args:
-        memory: (batch, max_time, dim)
-        memory_lengths: array like
+    
+    Arguments
+    ---------
+    memory: tuple
+        (batch, max_time, dim)
+    
+    memory_lengths: array-like
+        the length of the memory cell
     """
     max_len = max(memory_lengths)
     mask = torch.arange(max_len).expand(memory.size(0), max_len) < torch.tensor(memory_lengths).unsqueeze(-1)
@@ -431,36 +502,34 @@ def expand_speaker_embed(inputs_btc, speaker_embed=None, tdim=1):
 class Encoder(nn.Module):
     """
     The encoder block
+
+    Arguments
+    ---------
+
+    n_vocab: int
+        the number of possible values of input sequences
+    embed_dim: int
+        the embedding dimension
+    n_speakers: int
+        the number of speakers
+    speaker_embed_dim: int
+        the dimension of speaker embeddings to be used
+    padding_idx: int
+        the padding index
+    embedding_weight_std: float
+        the standard deviation of embedding weights
+    convolutions: list
+        convolutional layers (a list of nn.Module instances)
+    dropout: float
+        the dropout rate
+    apply_grad_scaling: bool
+        whether to apply gradient scaling
+
     """
     def __init__(self, n_vocab, embed_dim, n_speakers, speaker_embed_dim,
                  padding_idx=None, embedding_weight_std=0.1,
                  convolutions=[],
                  dropout=0.1, apply_grad_scaling=False):
-        """
-        Class constructor
-        
-        Arguments
-        ---------
-
-        n_vocab
-            the number of possible values of input sequences
-        embed_dim
-            the embedding dimension
-        n_speakers
-            the number of speakers
-        speaker_embed_dim
-            the dimension of speaker embeddings to be used
-        padding_idx
-            the padding index
-        embedding_weight_std
-            the standard deviation of embedding weights
-        convolutions
-            convolutional layers
-        dropout
-            the dropout rate
-        apply_grad_scaling
-            whether to apply gradient scaling
-        """
         super().__init__()
         self.dropout = dropout
         self.num_attention_layers = None
@@ -480,8 +549,17 @@ class Encoder(nn.Module):
         self.convolutions = nn.ModuleList(convolutions)
 
 
-    def forward(self, text_sequences, text_positions=None, lengths=None,
-                speaker_embed=None):
+    def forward(self, text_sequences, speaker_embed=None):
+        """
+        Computes the forward pass
+
+        Arguments
+        ---------
+        text_sequences: torch.Tensor
+            the text sequences
+        speaker_embed: torch.Tensor
+            speaker embeddings
+        """
         assert self.n_speakers == 1 or speaker_embed is not None
 
         # embed text_sequences
@@ -899,10 +977,7 @@ class Decoder(nn.Module):
                 if isinstance(f, ConvBlock):
                     x = f.incremental_forward(x, speaker_embed)
                 else:
-                    try:
-                        x = f.incremental_forward(x)
-                    except AttributeError as e:
-                        x = f(x)
+                    x = f.incremental_forward(x)
 
             # Casual convolutions + Multi-hop attentions
             ave_alignment = None
@@ -912,10 +987,7 @@ class Decoder(nn.Module):
                 if isinstance(f, ConvBlock):
                     x = f.incremental_forward(x, speaker_embed)
                 else:
-                    try:
-                        x = f.incremental_forward(x)
-                    except AttributeError as e:
-                        x = f(x)
+                    x = f.incremental_forward(x)
 
                 # attention
                 if attention is not None:
@@ -1053,59 +1125,6 @@ class Converter(nn.Module):
 
 
 
-def guided_attention(N, max_N, T, max_T, g):
-    """
-    Computes a single guided attention matrix for a sample
-    
-    Arguments
-    ---------
-    N
-        the input length
-    max_N
-        the maximum input length
-    T
-        the target length
-    max_T
-        the maximum target length
-    g
-        the guided attention weight
-    """
-    W = torch.zeros((max_N, max_T)).float()
-    n, t = torch.meshgrid(
-        torch.arange(N).to(N.device), 
-        torch.arange(T).to(N.device))
-    value = 1. - torch.exp(-(n / N - t / T) ** 2 / (2 * g * g))
-    return value
-
-
-def guided_attentions(input_lengths, target_lengths, max_target_len, g=0.2):
-    """
-    Computes guided attention matrices
-
-    Arguments
-    ---------
-    input_lengths
-        a tensor of input lengths
-    target_lengths
-        a tensor of target (spectrogram) length
-    max_target_len
-        the maximum target length
-    g
-        the attention weight
-    """
-    B = len(input_lengths)
-    max_input_len = input_lengths.max()
-    W = (torch.zeros((B, max_target_len, max_input_len.item()))
-         .float()
-         .to(input_lengths.device))
-    #TODO: Attempt to vectorize here as well
-    for b in range(B):
-        attention = guided_attention(input_lengths[b], max_input_len,
-                                     target_lengths[b], max_target_len, g).T
-        W[b, :attention.size(0), :attention.size(1)] = attention
-    return W
-
-
 class TTSModel(nn.Module):
     """
     The complete Deepvoice3 text-to-speech model
@@ -1240,6 +1259,13 @@ class TTSModel(nn.Module):
 
 class AttentionSeq2Seq(nn.Module):
     """Encoder + Decoder with attention
+    
+    Arguments
+    ---------
+    encoder: Encoder
+        the encoder model
+    decoder: Decoder
+        the decoder model
     """
 
     def __init__(self, encoder, decoder):
@@ -1252,9 +1278,38 @@ class AttentionSeq2Seq(nn.Module):
 
     def forward(self, text_sequences, mel_targets=None, speaker_embed=None,
                 text_positions=None, frame_positions=None, input_lengths=None):
+
+        """
+        Computes the forward pass
+
+        Arguments
+        ---------
+        text_sequences: torch.Tensor
+            the original text sequences with each character, word or phoneme
+            encoded as an integer
+        
+        mel_targets: torch.Tensor
+            the MEL spectrogram targets - optional (provided during training only)
+        
+        speaker_embed: torch.Tensor
+            the speaker embeddings (optional)
+
+        text_positions: torch.Tensor
+            a (batch size X max text length) tensor in which every element value
+            corresponds to the position of that particular element within the
+            sequence.
+
+        frame_positions: torch.Tensor
+            similar to text_positions but for spectrogram frames
+        
+        input_lengths: torch.Tensor
+            a single-dimensional tensor in which each position indicates
+            the length of the sample
+
+        """
         # (B, T, text_embed_dim)
         encoder_outputs = self.encoder(
-            text_sequences, lengths=input_lengths, speaker_embed=speaker_embed)
+            text_sequences, speaker_embed=speaker_embed)
 
         # Mel: (B, T//r, mel_dim*r)
         # Alignments: (N, B, T_target, T_input)
@@ -1340,55 +1395,40 @@ class Loss(nn.Module):
 
 
     #TODO: Make this more friendly
-    def forward(self, input, target, input_lengths):
+    def forward(self, input, target):
         """
         Computes the losses
+        
+        inputs : tuple
+            a tuple of (MEL input, linear input, attention, done, target lengths)
+            The *input* to the loss is the *output* of the model
+        targets: tuple
+            a tuple of (MEL targets, linear targets, done, target lengths)
 
         Returns
         -------
-        loss : torch.Tensor
-            A one-element tensor used for backpropagating the gradient
+        loss : LossStats
+            the diferent losses from DeepVoice3, collected into
+            a single object
         """
-        input_mel, input_linear, attention, input_done, _ = input
+        input_mel, input_linear, attention, input_done, input_lengths = input
         target_mel, target_linear, target_done, target_lengths = target
-        r = self.outputs_per_step
-                
-        decoder_target_mask = sequence_mask(
-            target_lengths // (self.outputs_per_step * self.downsample_step),
-            max_len=target_mel.size(1),
-            device=input_mel.device).unsqueeze(-1)
-        
-        if self.downsample_step > 1:
-            # spectrogram-domain mask
-            target_mask = sequence_mask(
-                target_lengths, max_len=target_linear.size(1),
-                device=target_lengths.device).unsqueeze(-1)
-        else:
-            target_mask = decoder_target_mask
-        
-        decoder_target_mask = decoder_target_mask[:, r:, :]
-        target_mask = target_mask[:, r:, :]
 
-        mel_l1_loss, mel_binary_div = self.spec_loss(
-            input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask,
-            masked_loss_weight=self.masked_loss_weight,
-            binary_divergence_weight=self.binary_divergence_weight)
-        mel_loss = (1 - self.binary_divergence_weight) * mel_l1_loss + self.binary_divergence_weight * mel_binary_div
+        decoder_target_mask, target_mask = self.compute_masks(
+            target_linear, target_mel, target_lengths)               
+
+        mel_loss, mel_l1_loss, mel_binary_div = self.mel_loss(
+            input_mel, target_mel, decoder_target_mask)
         done_loss = self.binary_criterion(input_done, target_done)
 
-        n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim)
-
-
-        linear_l1_loss, linear_binary_div = self.spec_loss(
-            input_linear[:, :-self.outputs_per_step, :], target_linear[:, self.outputs_per_step:, :], target_mask,
-            priority_bin=n_priority_freq,
-            priority_w=self.priority_freq_weight,
-            masked_loss_weight=self.masked_loss_weight,
-            binary_divergence_weight=self.binary_divergence_weight)
-        linear_loss = (1 - self.binary_divergence_weight) * linear_l1_loss + self.binary_divergence_weight * linear_binary_div  
+        linear_loss, linear_l1_loss, linear_binary_div = self.linear_loss(
+            input_linear, target_linear, target_mask)
         
-        decoder_lengths = target_lengths.cpu().long().numpy() // r // self.downsample_step
-        soft_mask = guided_attentions(
+        decoder_lengths = (
+            target_lengths.long()
+            // self.outputs_per_step
+            // self.downsample_step)
+        soft_mask = self.guided_attentions(
             input_lengths, decoder_lengths,
             attention.size(-2), self.guided_attention_sigma)
         attn_loss = (attention * soft_mask).mean()
@@ -1407,8 +1447,120 @@ class Loss(nn.Module):
         )
         return loss_stats
 
-    def spec_loss(self, y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
+    def compute_masks(self, target_linear, target_mel, target_lengths):
+        """
+        Computes the masks to be used for the calculation of the losses
 
+        Arguments:
+        ----------
+        target_linear: torch.Tensor
+            the linear spectrogram targets
+        target_mel: torch.Tensor
+            the MEL spectrogram targets
+        target_lengths
+            the target lengths
+
+        Returns
+        -------
+        masks: tuple
+            a tuple of (decoder_target_mask, target_mask)
+        """
+        decoder_target_mask = self.sequence_mask(
+            target_lengths // (self.outputs_per_step * self.downsample_step),
+            max_len=target_mel.size(1),
+            device=target_mel.device).unsqueeze(-1)
+        
+        if self.downsample_step > 1:
+            # spectrogram-domain mask
+            target_mask = self.sequence_mask(
+                target_lengths, max_len=target_linear.size(1),
+                device=target_lengths.device).unsqueeze(-1)
+        else:
+            target_mask = decoder_target_mask
+        
+        decoder_target_mask = decoder_target_mask[:, self.outputs_per_step:, :]
+        target_mask = target_mask[:, self.outputs_per_step:, :]
+        return decoder_target_mask, target_mask
+
+
+    def mel_loss(self, input_mel, target_mel, decoder_target_mask):
+        """
+        Computes the MEL scale spectrogram loss
+
+        Arguments
+        ---------
+        input_linear: torch.Tensor
+            the linear inputs (i.e. the output of the model)
+        target_linear: torch.Tensor
+            the linear target (the linear spectrogram of the original audio)
+        target_mask: torch.Tensor
+            the target mask to be applied
+
+        Returns
+        -------
+        losses: tuple
+            a tuple of (mel_loss, mel_l1_loss, mel_binary_div) - weighted MEL loss,
+            MEL L1 loss, MEL binary divergence
+        """
+
+        mel_l1_loss, mel_binary_div = self.spec_loss(
+            input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask,
+            masked_loss_weight=self.masked_loss_weight,
+            binary_divergence_weight=self.binary_divergence_weight)
+        mel_loss = (1 - self.binary_divergence_weight) * mel_l1_loss + self.binary_divergence_weight * mel_binary_div
+        return mel_loss, mel_l1_loss, mel_binary_div
+
+    def linear_loss(self, input_linear, target_linear, target_mask):
+        """
+        Computes the linear spectrogram loss
+
+        Arguments
+        ---------
+        input_linear: torch.Tensor
+            the linear inputs (i.e. the output of the model)
+        target_linear: torch.Tensor
+            the linear target (the linear spectrogram of the original audio)
+        target_mask: torch.Tensor
+            the target mask to be applied
+
+        Returns
+        -------
+        losses: tuple
+            a tuple of (linear_loss, linear_l1_loss,
+            linear_binary_div) - linear MEL loss, linear L1 loss, 
+            linear binary divergence
+
+        """
+        n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) 
+                              * self.linear_dim)
+
+        linear_l1_loss, linear_binary_div = self.spec_loss(
+            input_linear[:, :-self.outputs_per_step, :], 
+            target_linear[:, self.outputs_per_step:, :], 
+            target_mask,
+            priority_bin=n_priority_freq,
+            priority_w=self.priority_freq_weight,
+            masked_loss_weight=self.masked_loss_weight,
+            binary_divergence_weight=self.binary_divergence_weight)
+        linear_loss = (
+            (1 - self.binary_divergence_weight) * linear_l1_loss 
+             + self.binary_divergence_weight * linear_binary_div)
+        return linear_loss, linear_l1_loss, linear_binary_div
+        
+
+    def spec_loss(self, y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
+        """
+        Computes the DeepVoice3 mask spectrogram loss
+        
+        y_hat: torch.Tensor
+            the predicted spectrogram
+        y: torch.Tensor
+            the target spectrogram
+        mask: torch.Tensor
+            the masked to be applied
+        priority_w: torch.Tensor
+            the weight of the priority loss
+        """
         w = masked_loss_weight
         # L1 loss
         if w > 0:
@@ -1441,28 +1593,110 @@ class Loss(nn.Module):
 
         return l1_loss, binary_div
 
+    def sequence_mask(self, sequence_length, max_len=None, device=None):
+        """
+        Computes a sequence mask
+
+        Arguments
+        ---------
+        sequence_length: int
+            the length of the sequence
+        max_len: int
+            the maximum length of the sequence
+        """
+        if max_len is None:
+            max_len = sequence_length.data.max()
+        batch_size = sequence_length.size(0)
+        seq_range = torch.arange(0, max_len, device=device).long()
+        seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
+        seq_length_expand = sequence_length.unsqueeze(1) \
+            .expand_as(seq_range_expand)
+        result = (seq_range_expand < seq_length_expand.to(seq_range_expand.device)).float()
+        if device is not None:
+            result.to(device)
+        return result
+
+    def guided_attention(self, N, max_N, T, max_T, g):
+        """
+        Computes a single guided attention matrix for a sample
+        
+        Arguments
+        ---------
+        N
+            the input length
+        max_N
+            the maximum input length
+        T
+            the target length
+        max_T
+            the maximum target length
+        g
+            the guided attention weight
+        """
+        W = torch.zeros((max_N, max_T)).float()
+        n, t = torch.meshgrid(
+            torch.arange(N).to(N.device), 
+            torch.arange(T).to(N.device))
+        value = 1. - torch.exp(-(n / N - t / T) ** 2 / (2 * g * g))
+        return value
 
 
-def sequence_mask(sequence_length, max_len=None, device=None):
-    if max_len is None:
-        max_len = sequence_length.data.max()
-    batch_size = sequence_length.size(0)
-    seq_range = torch.arange(0, max_len, device=device).long()
-    seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
-    seq_length_expand = sequence_length.unsqueeze(1) \
-        .expand_as(seq_range_expand)
-    result = (seq_range_expand < seq_length_expand.to(seq_range_expand.device)).float()
-    if device is not None:
-        result.to(device)
-    return result
+    def guided_attentions(self, input_lengths, target_lengths, max_target_len, g=0.2):
+        """
+        Computes guided attention matrices
 
+        Arguments
+        ---------
+        input_lengths
+            a tensor of input lengths
+        target_lengths
+            a tensor of target (spectrogram) length
+        max_target_len
+            the maximum target length
+        g
+            the attention weight
+        """
+        B = len(input_lengths)
+        max_input_len = input_lengths.max()
+        W = (torch.zeros((B, max_target_len, max_input_len.item()))
+            .float()
+            .to(input_lengths.device))
+        #TODO: Attempt to vectorize here as well
+        for b in range(B):
+            attention = self.guided_attention(
+                input_lengths[b],
+                max_input_len,
+                target_lengths[b],
+                max_target_len,
+                g).T
+            W[b, :attention.size(0), :attention.size(1)] = attention
+        return W
 
 
 def logit(x, eps=1e-8):
+    """
+    Computes the logit value: log(x + eps) - log (1 - x + eps)
+
+    Arguments
+    ---------
+    x: torch.Tensor
+        the input
+    eps: float
+        the epsilon value
+    """
     return torch.log(x + eps) - torch.log(1 - x + eps)
 
 
 def masked_mean(y, mask):
+    """
+    Multiplies the provided tensor by the provided mask and
+    then computes the mean
+
+    y : torch.Tensor
+        the tensor whose mean is being computed
+    mask: torch.Tensor
+        the mask to be applied
+    """
     # (B, T, D)
     mask_ = mask.expand_as(y)
     return (y * mask_).sum() / mask_.sum()
@@ -1499,7 +1733,7 @@ class MaskedL1Loss(nn.Module):
 
         # (B, T, 1)
         if mask is None:
-            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+            mask = self.sequence_mask(lengths, max_len).unsqueeze(-1)
 
         # (B, T, D)
         mask_ = mask.expand_as(input)
