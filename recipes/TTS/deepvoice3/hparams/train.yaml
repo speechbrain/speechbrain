@@ -77,7 +77,7 @@ lr_warmup_steps: 4000
 number_of_epochs: 50
 ckpt_every_epoch: false
 progress_samples: true
-progress_sample_path: samples
+progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 100
 overfit_test: true
 overfit_test_iterations: 5
@@ -401,6 +401,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   recoverables:
     model: !ref <model>
     counter: !ref <epoch_counter>
+    lr_annealing: !ref <lr_annealing>
 
 modules:
   model: !ref <model>

@@ -17,7 +17,7 @@ from speechbrain.dataio.batch import PaddedBatch
 
 sys.path.append("..")
 from datasets.vctk import VCTK
-from common.dataio import audio_pipeline, spectrogram, resample, mel_spectrogram
+from speechbrain.lobes.models.synthesis.deepvoice3.dataio import build_encoder_pipeline
 from torchaudio import transforms
 
 
@@ -42,7 +42,7 @@ class DeepVoice3Brain(sb.core.Brain):
         predictions : torch.Tensor
             A tensor containing the posterior probabilities (predictions).
         """
-        batch = BatchWrapper(batch).to(self.device)
+        batch = batch.to(self.device)
 
         pred = self.hparams.model(
             text_sequences=batch.text_sequences.data, 
@@ -186,7 +186,7 @@ class DeepVoice3Brain(sb.core.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints.
-            if self.hparams.checkpoint_every_epoch or epoch == self.hparams.number_of_epochs:
+            if self.hparams.ckpt_every_epoch or epoch == self.hparams.number_of_epochs:
                 meta_stats = {key: value[0] for key, value in stats.items()}
                 self.checkpointer.save_and_keep_only(meta=meta_stats, min_keys=["loss"])
             output_progress_sample =(
@@ -201,190 +201,6 @@ class DeepVoice3Brain(sb.core.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
-
-
-
-def text_encoder(max_input_len=128, tokens=None):
-    """
-    Configures and returns a text encoder function for use with the deepvoice3 model
-    wrapped in a SpeechBrain pipeline function
-
-    Arguments
-    ---------
-    max_input_len
-        the maximum allowed length of an input sequence
-    tokens
-        a collection of tokens
-    """
-
-    encoder = TextEncoder()
-    encoder.update_from_iterable(tokens)
-    encoder.add_unk()
-    encoder.add_bos_eos()
-
-    @sb.utils.data_pipeline.takes("label")
-    @sb.utils.data_pipeline.provides("text_sequences", "input_lengths", "text_positions")
-    def f(label):
-        text_sequence = encoder.encode_sequence_torch(label.upper())
-        text_sequence_eos = encoder.append_eos_index(text_sequence)
-        input_length = len(label)
-        yield text_sequence_eos.long()
-        yield input_length + 1
-        yield torch.arange(1, input_length + 2, dtype=torch.long)
-        
-    return f
-
-
-def downsample_spectrogram(takes, provides, downsample_step=4):
-    """
-    A pipeline function that downsamples a spectrogram
-
-    Arguments
-    ---------
-    downsample_step
-        the number of steps by which to downsample the target spectrograms
-    """
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)
-    def f(spectrogram):
-        spectrogram = spectrogram[:, 0::downsample_step].contiguous()
-        return spectrogram
-    return f
-
-
-def pad(takes, provides, length):
-    """
-    A pipeline function that pads an arbitrary
-    tensor to the specified length
-
-    Arguments
-    ---------
-    takes
-        the source pipeline element
-    provides
-        the pipeline element to output
-    length
-        the length to which the tensor will be padded
-    """
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)
-    def f(x):
-        return F.pad(x, (0, length - x.size(-1)))
-    return f
-
-
-#TODO: Remove the librosa dependency
-def trim(takes, provides, top_db=15):
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)    
-    def f(wav):
-        x, _ = librosa.effects.trim(wav, top_db=top_db)
-        x = torch.tensor(x).to(wav.device)
-        return x
-    return f
-
-
-def done(outputs_per_step=1, downsample_step=4):
-    @sb.utils.data_pipeline.takes("target_lengths")
-    @sb.utils.data_pipeline.provides("done")
-    def f(target_length):
-        done_length = target_length // outputs_per_step // downsample_step + 2
-        done = torch.zeros(done_length)
-        done[-2:] = 1.
-        return done.unsqueeze(-1)
-    
-    return f
-
-
-def frame_positions(max_output_len=1024):
-    """
-    Returns a pipeline element that outputs frame positions within the spectrogram
-
-    Arguments
-    ---------
-    max_output_len
-        the maximum length of the spectrogram
-    """
-    range_tensor = torch.arange(1, max_output_len+1)
-    @sb.utils.data_pipeline.takes("mel")
-    @sb.utils.data_pipeline.provides("frame_positions")
-    def f(mel):
-        return range_tensor[:mel.size(-1)]
-    return f
-
-
-LOG_10 = math.log(10)
-
-def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=False):
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)
-    def f(linear):
-        if absolute:
-            linear = (linear**2).sum(dim=-1).sqrt()
-        min_level = torch.tensor(math.exp(min_level_db / ref_level_db * LOG_10)).to(linear.device)
-        linear_db = ref_level_db * torch.log10(torch.maximum(min_level, linear)) - ref_level_db
-        normalized = torch.clip(
-            (linear_db - min_level_db) / -min_level_db,
-            min=0.,
-            max=1.
-        )
-        return normalized
-
-    return f
-
-
-#TODO: Move this elswewhere
-class BatchWrapper:
-    def __init__(self, batch):
-        self.batch = batch
-
-    def to(self, device):
-        if hasattr(self.batch, 'to'):
-            self.batch = self.batch.to(device)
-        else:
-            for key, value in self.batch.items():
-                if hasattr(value, 'to'):
-                    self.batch[key] = value.to(device)
-        return self
-    
-    def __getattr__(self, name):
-        return self.batch[name]
-
-
-@sb.utils.data_pipeline.takes("mel_raw")
-@sb.utils.data_pipeline.provides("target_lengths")
-def target_lengths(mel):
-    return mel.size(-1)
-
-
-def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
-    """
-    Pads the last dimension of a tensor to the specified length,
-    at the end
-    
-    Arguments
-    ---------
-    tensor
-        the tensor
-    length
-        the target length along the last dimension
-    value
-        the value to pad it with
-    """
-    padding = length - tensor.size(-1)
-    return F.pad(tensor, (0, padding), value=value)
-
-
-def pad_spectrogram(takes: str, provides: str, outputs_per_step: int, downsample_step: int):
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)
-    def f(tensor: torch.Tensor):
-        padding = (
-            outputs_per_step,
-            downsample_step * outputs_per_step,
-            0, 0)
-        return F.pad(tensor, padding)        
-    return f
         
 
 OUTPUT_KEYS = [
@@ -415,57 +231,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     if not tokens:
         tokens = hparams['tokens']
 
-    pipeline = [
-        audio_pipeline,
-        resample(
-            orig_freq=hparams['source_sample_rate'],
-            new_freq=hparams['sample_rate']),
-        trim(takes="sig_resampled", provides="sig_trimmed"),
-        mel_spectrogram(
-            takes="sig_trimmed",
-            provides="mel_raw",
-            hop_length=hparams['hop_length'],
-            n_mels=hparams['mel_dim'],
-            n_fft=hparams['n_fft'],
-            power=1,
-            sample_rate=hparams['sample_rate']),
-        normalize_spectrogram(
-            takes="mel_raw",
-            provides="mel_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad_spectrogram(
-            takes="mel_norm",
-            provides="mel_pad",
-            outputs_per_step=hparams["outputs_per_step"],
-            downsample_step=hparams['mel_downsample_step']),
-        downsample_spectrogram(
-            takes="mel_pad",
-            provides="mel",
-            downsample_step=hparams['mel_downsample_step']),
-        text_encoder(max_input_len=hparams['max_input_len'], tokens=tokens),
-        frame_positions(
-            max_output_len=hparams['max_mel_len'] * hparams['mel_downsample_step']),
-        spectrogram(
-            n_fft=hparams['n_fft'],
-            hop_length=hparams['hop_length'],
-            power=1,
-            takes="sig_trimmed",
-            provides="linear_raw"),
-        normalize_spectrogram(
-            takes="linear_raw",
-            provides="linear_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad_spectrogram(
-            takes="linear_norm",
-            provides="linear",
-            outputs_per_step=hparams["outputs_per_step"],
-            downsample_step=hparams['mel_downsample_step']),
-        done(downsample_step=hparams['mel_downsample_step'],
-             outputs_per_step=hparams['outputs_per_step']),
-        target_lengths
-    ]
+    pipeline = build_encoder_pipeline(hparams)
 
     for element in pipeline:
         dataset.add_dynamic_item(element)
