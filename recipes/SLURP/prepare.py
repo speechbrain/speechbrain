@@ -14,12 +14,15 @@ except ImportError:
     raise ImportError(err_msg)
 
 
-def prepare_SLURP(data_folder, slu_type, train_splits, skip_prep=False):
+def prepare_SLURP(
+    data_folder, save_folder, slu_type, train_splits, skip_prep=False
+):
     """
     This function prepares the SLURP dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
 
     data_folder : path to SLURP dataset.
+    save_folder: path where to save the csv manifest files.
     slu_type : one of the following:
 
       "direct":{input=audio, output=semantics}
@@ -61,7 +64,7 @@ def prepare_SLURP(data_folder, slu_type, train_splits, skip_prep=False):
     id = 0
     for split in splits:
         new_filename = (
-            os.path.join(data_folder, split) + "-type=%s.csv" % slu_type
+            os.path.join(save_folder, split) + "-type=%s.csv" % slu_type
         )
         if os.path.exists(new_filename):
             continue
@@ -157,18 +160,12 @@ def prepare_SLURP(data_folder, slu_type, train_splits, skip_prep=False):
                 "ID": IDs,
                 "duration": duration,
                 "wav": wav,
-                "wav_format": wav_format,
-                "wav_opts": wav_opts,
                 "semantics": semantics,
-                "semantics_format": semantics_format,
-                "semantics_opts": semantics_opts,
                 "transcript": transcript,
-                "transcript_format": transcript_format,
-                "transcript_opts": transcript_opts,
             }
         )
         df.to_csv(new_filename, index=False)
 
     # Merge train splits
     train_splits = [split + "-type=%s.csv" % slu_type for split in train_splits]
-    merge_csvs(data_folder, train_splits, "train-type=%s.csv" % slu_type)
+    merge_csvs(save_folder, train_splits, "train-type=%s.csv" % slu_type)

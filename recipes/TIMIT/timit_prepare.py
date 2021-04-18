@@ -9,61 +9,37 @@ Authors
 """
 
 import os
-import csv
+import json
 import logging
 from speechbrain.utils.data_utils import get_all_files
-
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-    read_kaldi_lab,
-    read_audio,
-)
+from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
-OPT_FILE = "opt_timit_prepare.pkl"
-TRAIN_CSV = "train.csv"
-DEV_CSV = "dev.csv"
-TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
 def prepare_timit(
     data_folder,
-    splits,
-    save_folder,
-    kaldi_ali_tr=None,
-    kaldi_ali_dev=None,
-    kaldi_ali_test=None,
-    kaldi_lab_opts=None,
+    save_json_train,
+    save_json_valid,
+    save_json_test,
     phn_set=39,
     uppercase=False,
     skip_prep=False,
 ):
     """
-    repares the csv files for the TIMIT dataset.
+    repares the json files for the TIMIT dataset.
 
     Arguments
     ---------
     data_folder : str
         Path to the folder where the original TIMIT dataset is stored.
-    splits : list
-        List of splits to prepare from ['train', 'dev', 'test']
-    save_folder : str
-        The directory where to store the csv files.
-    kaldi_ali_tr : dict, optional
-        Default: 'None'
-        When set, this is the directiory where the kaldi
-        training alignments are stored.  They will be automatically converted
-        into pkl for an easier use within speechbrain.
-    kaldi_ali_dev : str, optional
-        Default: 'None'
-        When set, this is the path to directory where the
-        kaldi dev alignments are stored.
-    kaldi_ali_te : str, optional
-        Default: 'None'
-        When set, this is the path to the directory where the
-        kaldi test alignments are stored.
+    save_json_train : str
+        The path where to store the training json file.
+    save_json_valid : str
+        The path where to store the valid json file.
+    save_json_test : str
+        The path where to store the test json file.
     phn_set : {60, 48, 39}, optional,
         Default: 39
         The phoneme set to use in the phn label.
@@ -80,21 +56,8 @@ def prepare_timit(
     -------
     >>> from recipes.TIMIT.timit_prepare import prepare_timit
     >>> data_folder = 'datasets/TIMIT'
-    >>> splits = ['train', 'dev', 'test']
-    >>> save_folder = 'TIMIT_prepared'
-    >>> prepare_timit(data_folder, splits, save_folder)
+    >>> prepare_timit(data_folder, 'train.json', 'valid.json', 'test.json')
     """
-    conf = {
-        "data_folder": data_folder,
-        "splits": splits,
-        "kaldi_ali_tr": kaldi_ali_tr,
-        "kaldi_ali_dev": kaldi_ali_dev,
-        "kaldi_ali_test": kaldi_ali_test,
-        "save_folder": save_folder,
-        "phn_set": phn_set,
-        "uppercase": uppercase,
-        "skip_prep": skip_prep,
-    }
 
     # Skip if needed
     if skip_prep:
@@ -102,11 +65,7 @@ def prepare_timit(
 
     # Getting speaker dictionary
     dev_spk, test_spk = _get_speaker()
-
-    # Avoid calibration sentences
     avoid_sentences = ["sa1", "sa2"]
-
-    # Setting file extension.
     extension = [".wav"]
 
     # Checking TIMIT_uppercase
@@ -116,104 +75,40 @@ def prepare_timit(
         dev_spk = [item.upper() for item in dev_spk]
         test_spk = [item.upper() for item in test_spk]
 
-    # Setting the save folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-
-    # Setting ouput files
-    save_opt = os.path.join(save_folder, OPT_FILE)
-    save_csv_train = os.path.join(save_folder, TRAIN_CSV)
-    save_csv_dev = os.path.join(save_folder, DEV_CSV)
-    save_csv_test = os.path.join(save_folder, TEST_CSV)
-
     # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder, conf):
+    if skip([save_json_train, save_json_valid, save_json_test]):
         logger.info("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains TIMIT
     _check_timit_folders(uppercase, data_folder)
 
-    msg = "Creating csv file for the TIMIT Dataset.."
+    msg = "Creating json files for the TIMIT Dataset.."
     logger.info(msg)
 
-    # Creating csv file for training data
-    if "train" in splits:
+    # Creating json files
+    splits = ["train", "test", "test"]
+    annotations = [save_json_train, save_json_valid, save_json_test]
+    match_or = [None, dev_spk, test_spk]
 
-        # Checking TIMIT_uppercase
+    for split, save_file, match in zip(splits, annotations, match_or):
         if uppercase:
-            match_lst = extension + ["TRAIN"]
+            match_lst = extension + [split.upper()]
         else:
-            match_lst = extension + ["train"]
+            match_lst = extension + [split]
 
-        wav_lst_train = get_all_files(
-            data_folder, match_and=match_lst, exclude_or=avoid_sentences,
-        )
-
-        create_csv(
-            wav_lst_train,
-            save_csv_train,
-            uppercase,
-            data_folder,
-            phn_set,
-            kaldi_lab=kaldi_ali_tr,
-            kaldi_lab_opts=kaldi_lab_opts,
-        )
-
-    # Creating csv file for dev data
-    if "dev" in splits:
-
-        # Checking TIMIT_uppercase
-        if uppercase:
-            match_lst = extension + ["TEST"]
-        else:
-            match_lst = extension + ["test"]
-
-        wav_lst_dev = get_all_files(
+        # List of the wav files
+        wav_lst = get_all_files(
             data_folder,
             match_and=match_lst,
-            match_or=dev_spk,
+            match_or=match,
             exclude_or=avoid_sentences,
         )
+        if split == "dev":
+            print(wav_lst)
 
-        create_csv(
-            wav_lst_dev,
-            save_csv_dev,
-            uppercase,
-            data_folder,
-            phn_set,
-            kaldi_lab=kaldi_ali_dev,
-            kaldi_lab_opts=kaldi_lab_opts,
-        )
-
-    # Creating csv file for test data
-    if "test" in splits:
-
-        # Checking TIMIT_uppercase
-        if uppercase:
-            match_lst = extension + ["TEST"]
-        else:
-            match_lst = extension + ["test"]
-
-        wav_lst_test = get_all_files(
-            data_folder,
-            match_and=match_lst,
-            match_or=test_spk,
-            exclude_or=avoid_sentences,
-        )
-
-        create_csv(
-            wav_lst_test,
-            save_csv_test,
-            uppercase,
-            data_folder,
-            phn_set,
-            kaldi_lab=kaldi_ali_test,
-            kaldi_lab_opts=kaldi_lab_opts,
-        )
-
-    # saving options
-    save_pkl(conf, save_opt)
+        # Json creation
+        create_json(wav_lst, save_file, uppercase, phn_set)
 
 
 def _get_phonemes():
@@ -439,7 +334,7 @@ def _get_speaker():
     return dev_spk, test_spk
 
 
-def skip(splits, save_folder, conf):
+def skip(annotations):
     """
     Detects if the timit data_preparation has been already done.
     If the preparation has been done, we can skip it.
@@ -450,143 +345,46 @@ def skip(splits, save_folder, conf):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    # Checking csv files
     skip = True
 
-    split_files = {
-        "train": TRAIN_CSV,
-        "dev": DEV_CSV,
-        "test": TEST_CSV,
-    }
-    for split in splits:
-        if not os.path.isfile(os.path.join(save_folder, split_files[split])):
+    for annotation in annotations:
+        if not os.path.isfile(annotation):
             skip = False
-
-    #  Checking saved options
-    save_opt = os.path.join(save_folder, OPT_FILE)
-    if skip is True:
-        if os.path.isfile(save_opt):
-            opts_old = load_pkl(save_opt)
-            if opts_old == conf:
-                skip = True
-            else:
-                skip = False
-        else:
-            skip = False
+            break
 
     return skip
 
 
-def create_csv(
-    wav_lst,
-    csv_file,
-    uppercase,
-    data_folder,
-    phn_set,
-    kaldi_lab=None,
-    kaldi_lab_opts=None,
-    kaldi_lab_dir=None,
+def create_json(
+    wav_lst, json_file, uppercase, phn_set,
 ):
     """
-    Creates the csv file given a list of wav files.
+    Creates the json file given a list of wav files.
 
     Arguments
     ---------
     wav_lst : list
         The list of wav files of a given data split.
-    csv_file : str
-        The path of the output csv file
+    json_file : str
+            The path of the output json file.
     uppercase : bool
         Whether this is the uppercase version of timit.
-    data_folder : str
-        The location of the data.
-    kaldi_lab : str, optional
-        Default: None
-        The path of the kaldi labels (optional).
-    kaldi_lab_opts : str, optional
-        Default: None
-        A string containing the options used to compute the labels.
-
-    Returns
-    -------
-    None
+    phn_set : {60, 48, 39}, optional,
+        Default: 39
+        The phoneme set to use in the phn label.
     """
 
     # Adding some Prints
-    msg = "Creating csv lists in  %s..." % (csv_file)
+    msg = "Creating %s..." % (json_file)
     logger.info(msg)
+    json_dict = {}
 
-    # Reading kaldi labels if needed:
-    snt_no_lab = 0
-    missing_lab = False
-
-    if kaldi_lab is not None:
-
-        lab = read_kaldi_lab(kaldi_lab, kaldi_lab_opts,)
-
-        if not os.path.exists(kaldi_lab_dir):
-            os.makedirs(kaldi_lab_dir)
-
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-            "phn",
-            "phn_format",
-            "phn_opts",
-            "wrd",
-            "wrd_format",
-            "wrd_opts",
-            "ground_truth_phn_ends",
-            "ground_truth_phn_ends_format",
-            "ground_truth_phn_ends_opts",
-        ]
-    ]
-
-    if kaldi_lab is not None:
-        csv_lines[0].append("kaldi_lab")
-        csv_lines[0].append("kaldi_lab_format")
-        csv_lines[0].append("kaldi_lab_opts")
-
-    # Processing all the wav files in the list
     for wav_file in wav_lst:
 
         # Getting sentence and speaker ids
         spk_id = wav_file.split("/")[-2]
         snt_id = wav_file.split("/")[-1].replace(".wav", "")
         snt_id = spk_id + "_" + snt_id
-
-        if kaldi_lab is not None:
-            if snt_id not in lab.keys():
-                missing_lab = False
-                msg = (
-                    "The sentence %s does not have a corresponding "
-                    "kaldi label" % (snt_id)
-                )
-
-                logger.info(msg)
-                snt_no_lab = snt_no_lab + 1
-            else:
-                snt_lab_path = os.path.join(kaldi_lab_dir, snt_id + ".pkl")
-                save_pkl(lab[snt_id], snt_lab_path)
-
-            # If too many kaldi labels are missing rise an error
-            if snt_no_lab / len(wav_lst) > 0.05:
-                err_msg = (
-                    "Too many sentences do not have the "
-                    "corresponding kaldi label. Please check data and "
-                    "kaldi labels (check %s and %s)." % (data_folder, kaldi_lab)
-                )
-                logger.debutg(err_msg)
-
-        if missing_lab:
-            continue
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
@@ -597,6 +395,7 @@ def create_csv(
             wrd_file = wav_file.replace(".WAV", ".WRD")
         else:
             wrd_file = wav_file.replace(".wav", ".wrd")
+
         if not os.path.exists(os.path.dirname(wrd_file)):
             err_msg = "the wrd file %s does not exists!" % (wrd_file)
             raise FileNotFoundError(err_msg)
@@ -617,39 +416,20 @@ def create_csv(
         # Getting the phoneme and ground truth ends lists from the phn files
         phonemes, ends = get_phoneme_lists(phn_file, phn_set)
 
-        # Composition of the csv_line
-        csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            "wav",
-            "",
-            spk_id,
-            "string",
-            "",
-            str(phonemes),
-            "string",
-            "",
-            str(words),
-            "string",
-            "label:False",
-            str(ends),
-            "string",
-            "label:False",
-        ]
+        json_dict[snt_id] = {
+            "wav": wav_file,
+            "duration": duration,
+            "spk_id": spk_id,
+            "phn": phonemes,
+            "wrd": words,
+            "ground_truth_phn_ends": ends,
+        }
 
-        if kaldi_lab is not None:
-            csv_line.append(snt_lab_path)
-            csv_line.append("pkl")
-            csv_line.append("")
+    # Writing the dictionary to the json file
+    with open(json_file, mode="w") as json_f:
+        json.dump(json_dict, json_f, indent=2)
 
-        # Adding this line to the csv_lines list
-        csv_lines.append(csv_line)
-
-    # Writing the csv lines
-    _write_csv(csv_lines, csv_file)
-    msg = "%s sucessfully created!" % (csv_file)
-    logger.info(msg)
+    logger.info(f"{json_file} successfully created!")
 
 
 def get_phoneme_lists(phn_file, phn_set):
@@ -716,19 +496,6 @@ def get_phoneme_lists(phn_file, phn_set):
     ends = " ".join(ends)
 
     return phonemes, ends
-
-
-def _write_csv(csv_lines, csv_file):
-    """
-    Writes on the specified csv_file the given csv_files.
-    """
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-
-        for line in csv_lines:
-            csv_writer.writerow(line)
 
 
 def _check_timit_folders(uppercase, data_folder):

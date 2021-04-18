@@ -64,7 +64,7 @@ def prepare_common_voice(
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
     >>> data_folder = '/datasets/CommonVoice/en'
     >>> save_folder = 'exp/CommonVoice_exp'
-    >>> train_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
+    >>> train_tsv_file = '/datasets/CommonVoice/en/train.tsv'
     >>> dev_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
     >>> test_tsv_file = '/datasets/CommonVoice/en/test.tsv'
     >>> accented_letters = False
@@ -220,24 +220,7 @@ def create_csv(
     msg = "Creating csv lists in %s ..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-            "wrd",
-            "wrd_format",
-            "wrd_opts",
-            "char",
-            "char_format",
-            "char_opts",
-        ]
-    ]
+    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     # Start processing lines
     total_duration = 0.0
@@ -307,22 +290,7 @@ def create_csv(
             continue
 
         # Composition of the csv_line
-        csv_line = [
-            snt_id,
-            str(duration),
-            mp3_path,
-            "wav",
-            "",
-            spk_id,
-            "string",
-            "",
-            str(words),
-            "string",
-            "",
-            str(chars),
-            "string",
-            "",
-        ]
+        csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)

@@ -51,6 +51,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +213,7 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Converted predicted tokens from indexes to words
             predicted_words = [
-                self.hparams.tokenizer.spm.decode_ids(prediction).split(" ")
+                self.hparams.tokenizer.decode_ids(prediction).split(" ")
                 for prediction in predictions["tokens"]
             ]
             target_words = [words.split(" ") for words in batch.words]
@@ -332,7 +333,7 @@ def dataio_prepare(hparams):
     def text_pipeline(words):
         """Processes the transcriptions to generate proper labels"""
         yield words
-        tokens_list = hparams["tokenizer"].spm.encode_as_ids(words)
+        tokens_list = hparams["tokenizer"].encode_as_ids(words)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
@@ -440,7 +441,10 @@ if __name__ == "__main__":
     # In this case, pre-training is essential because mini-librispeech is not
     # big enough to train an end-to-end model from scratch. With bigger dataset
     # you can train from scratch and avoid this step.
-    load_pretrained(hparams)
+    # We download the pretrained LM from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Trainer initialization
     asr_brain = ASR(
@@ -463,7 +467,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    # Load best checkpoint (highest STOI) for evaluation
+    # Load best checkpoint for evaluation
     test_stats = asr_brain.evaluate(
         test_set=datasets["test"],
         min_key="WER",

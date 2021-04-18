@@ -294,11 +294,9 @@ class ConcatDatasetBatchSampler(Sampler):
 
         min_len = float("inf")
         for idx, sampler in enumerate(self.samplers):
-            c_len = (
-                len(sampler) + self.batch_sizes[idx] - 1
-            ) // self.batch_sizes[idx]
-
+            c_len = len(sampler) // self.batch_sizes[idx]
             min_len = min(c_len, min_len)
+
         return min_len
 
 

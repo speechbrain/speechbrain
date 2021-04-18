@@ -5,7 +5,7 @@
 # from the environment for the first two.
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = source
+SOURCEDIR     = .
 BUILDDIR      = build
 
 # Put it first so that "make" without argument is like "make help".
@@ -16,6 +16,7 @@ help:
 
 clean:
 	rm -rf build
+	rm -rf API
 	@echo "You may also want to remove files not under version control."
 	@echo "First run"
 	@echo "	git clean -n -d source"

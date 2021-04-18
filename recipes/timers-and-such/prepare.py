@@ -16,18 +16,17 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
+def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
     """
     This function prepares the Timers and Such dataset.
     If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
 
     data_folder : path to Timers and Such dataset.
+    save_folder: path there to save the csv manifest files.
     type : one of the following:
 
       "direct":{input=audio, output=semantics}
       "multistage":{input=audio, output=semantics} (using ASR transcripts in the middle)
-      "joint-transcript-semantics":{input=audio, output=transcript+semantics}
-      "joint-semantics-transcript":{input=audio, output=semantics+transcript}
       "decoupled":{input=transcript, output=semantics} (using ground-truth transcripts)
 
     train_splits : list of splits to be joined to form train .csv
@@ -53,7 +52,7 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
         # Check for zip file and download if it doesn't exist
         zip_location = os.path.join(data_folder, "timers-and-such.zip")
         if not os.path.exists(zip_location):
-            url = "https://zenodo.org/record/4110812/files/timers-and-such.zip?download=1"
+            url = "https://zenodo.org/record/4623772/files/timers-and-such-v1.0.zip?download=1"
             download_file(url, zip_location, unpack=True)
         else:
             logger.info("Extracting timers-and-such.zip...")
@@ -69,7 +68,7 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
     ]
     ID_start = 0  # needed to have a unique ID for each audio
     for split in splits:
-        new_filename = os.path.join(data_folder, split) + "-type=%s.csv" % type
+        new_filename = os.path.join(save_folder, split) + "-type=%s.csv" % type
         if os.path.exists(new_filename):
             continue
         logger.info("Preparing %s..." % new_filename)
@@ -150,9 +149,6 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
             transcript_opts.append(None)
 
             semantics_ = df.semantics[i].replace(
-                ",", "|"
-            )  # Commas in dict will make using csv files tricky; replace with pipe.
-            semantics_ = semantics_.replace(
                 ".3333333333333333", ".33"
             )  # Fix formatting error in some labels
             if type == "direct" or type == "multistage" or type == "decoupled":
@@ -173,17 +169,9 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
                 "ID": ID,
                 "duration": duration,
                 "wav": wav,
-                "wav_format": wav_format,
-                "wav_opts": wav_opts,
                 "spk_id": spk_id,
-                "spk_id_format": spk_id_format,
-                "spk_id_opts": spk_id_opts,
                 "semantics": semantics,
-                "semantics_format": semantics_format,
-                "semantics_opts": semantics_opts,
                 "transcript": transcript,
-                "transcript_format": transcript_format,
-                "transcript_opts": transcript_opts,
             }
         )
         new_df.to_csv(new_filename, index=False)
@@ -191,4 +179,11 @@ def prepare_TAS(data_folder, type, train_splits, skip_prep=False):
 
     # Merge train splits
     train_splits = [split + "-type=%s.csv" % type for split in train_splits]
-    merge_csvs(data_folder, train_splits, "train-type=%s.csv" % type)
+    merge_csvs(save_folder, train_splits, "train-type=%s.csv" % type)
+
+    # Create "all-real" split
+    real_splits = [
+        split + "-type=%s.csv" % type
+        for split in ["train-real", "dev-real", "test-real"]
+    ]
+    merge_csvs(save_folder, real_splits, "all-real-type=%s.csv" % type)

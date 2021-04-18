@@ -1,0 +1,13 @@
+# .readthedocs.yaml
+
+build:
+  image: latest
+
+python:
+  version: 3.8
+  pip_install: True
+
+# Don't build any extra formats
+formats: []
+
+requirements_file: docs/docs-requirements.txt
