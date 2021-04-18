@@ -75,10 +75,10 @@ freeze_embedding: false
 lr: 0.0005
 lr_warmup_steps: 4000
 number_of_epochs: 50
-checkpoint_every_epoch: false
+ckpt_every_epoch: false
 progress_samples: true
 progress_sample_path: samples
-progress_samples_interval: 1
+progress_samples_interval: 100
 overfit_test: true
 overfit_test_iterations: 5
 train_data_path: ../datasets/testdata/fake_vctk_1ex
@@ -89,6 +89,7 @@ valid_data_path: ../datasets/testdata/fake_vctk_1ex
 output_folder: !ref ./results/tts/deepvoice/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+tensorboard_logs: !ref <output_folder>/logs
 
 tokens: ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-
 
@@ -420,5 +421,11 @@ dataloader_options:
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
+tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+  save_dir: !ref <tensorboard_logs>
+
+loggers:
+  - !ref <train_logger>
+  - !ref <tensorboard_train_logger>
 
 test_frozen_batch: false

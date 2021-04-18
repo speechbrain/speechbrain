@@ -127,8 +127,11 @@ class ReLU(nn.ReLU):
     A ReLU equivalent with a pass-through incremental_forward
     implementation
     """
-    def incremental_forward(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+    def forward(self, x, speaker_embed=None):
+        return super().forward(x)
+
+    def incremental_forward(self, x, speaker_embed=None):
+        return self.forward(x)
 
 
 class EdgeConvBlock(nn.Module):
@@ -149,20 +152,47 @@ class EdgeConvBlock(nn.Module):
             std_mul=std_mul,
             dropout=dropout)
 
-    def forward(self, *args, **kwargs):
+    def forward(self, x, speaker_embed=None):
         """
         Computes the forward pass. The arguments are the same
         as those to CNN.Conv1d
-        """
-        return self.conv(*args, **kwargs)
 
-    def incremental_forward(self, x, *args, **kwargs):
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+        speaker_embed: torch.Tensor
+            speaker embedding - not used, provided mainly to 
+            make various convolutional blocks interchangeable
+
+        Returns
+        -------
+        result: torch.Tensor
+            the output of the convolutional layer
+        """
+        return self.conv(x)
+
+    def incremental_forward(self, x, speaker_embed=None):
         """
         Computes the forward pass. The arguments are the same
         as those to CNN.Conv1d
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+        speaker_embed: torch.Tensor
+            speaker embedding - not used, provided mainly to 
+            make various convolutional blocks interchangeable
+
+        Returns
+        -------
+        result: torch.Tensor
+            the output of the convolutional layer
+
         """
         x = x.transpose(1, 2)
-        x = self.forward(x, *args, **kwargs)
+        x = self.forward(x)
         x = x.transpose(1, 2)
         return x
 
@@ -195,18 +225,45 @@ class TransposeConvBlock(nn.Module):
             std_mul=std_mul,
             dropout=dropout)        
 
-    def forward(self, *args, **kwargs):
+    def forward(self, x, speaker_embed=None):
         """
         Computes a forward pass.
-        """
-        return self.conv(*args, **kwargs)
 
-    def incremental_forward(self, *args, **kwargs):
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+        speaker_embed: torch.Tensor
+            speaker embedding - not used, provided mainly to 
+            make various convolutional blocks interchangeable
+
+        Returns
+        -------
+        result: torch.Tensor
+            the output of the convolutional layer
+
+        """
+        return self.conv(x)
+
+    def incremental_forward(self, x, speaker_embed=None):
         """
         Computes a forward pass incrementally (used when generating a sample
         from a train model)
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+        speaker_embed: torch.Tensor
+            speaker embedding - not used, provided mainly to 
+            make various convolutional blocks interchangeable
+
+        Returns
+        -------
+        result: torch.Tensor
+            the output of the convolutional layer
         """
-        return self.forward(*args, **kwargs)
+        return self.forward(x)
 
 
 def get_padding(causal, kernel_size, dilation):
@@ -580,7 +637,7 @@ class Encoder(nn.Module):
         # １D conv blocks
         i = 1
         for f in self.convolutions:
-            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
+            x = f(x, speaker_embed_btc)
 
         # Back to B x T x C
         keys = x.transpose(1, 2)
@@ -604,19 +661,19 @@ class AttentionLayer(nn.Module):
 
     Arguments
     ---------
-    conv_channels
+    conv_channels: int
         the number of channels in the convolutional layers
-    embed_dim
+    embed_dim: int
         the embedding imension
-    dropout
+    dropout: float
         the dropout rate
-    window_ahead
+    window_ahead: int
         the size of the window to look ahead in the sequence
-    window_backward
+    window_backward: int 
         the size of the window to look behind
-    key_projection
+    key_projection: bool
         whether to use key projections
-    value_projection
+    value_projection: bool
         whether to use value projections
     """
     def __init__(self, conv_channels, embed_dim, dropout=0.1,
@@ -760,10 +817,6 @@ class Decoder(nn.Module):
         self.query_position_rate = query_position_rate
         self.key_position_rate = key_position_rate
 
-        if isinstance(attention, bool):
-            # expand True into [True, True, ...] and do the same with False
-            attention = [attention] * len(convolutions)
-
         # Position encodings for query (decoder states) and keys (encoder states)
         self.embed_query_positions = SinusoidalEncoding(
             max_positions, in_channels)
@@ -780,7 +833,6 @@ class Decoder(nn.Module):
         self.preattention = nn.ModuleList(preattention)
         self.convolutions = nn.ModuleList(convolutions)
         self.attention = nn.ModuleList(attention)
-        #self.output = output
         self.output = output
 
 
@@ -867,17 +919,16 @@ class Decoder(nn.Module):
 
         # Prenet
         for f in self.preattention:
-            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
+            x = f(x, speaker_embed_btc) 
         # Casual convolutions + Multi-hop attentions
         alignments = []
         for f, attention in zip(self.convolutions, self.attention):
             residual = x
 
-            x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
+            x = f(x, speaker_embed_btc)
 
             # Feed conv output to attention layer as query
             if attention is not None:
-                assert isinstance(f, ConvBlock)
                 # (B x T x C)
                 x = x.transpose(1, 2)
                 x = x if frame_positions is None else x + frame_pos_embed
@@ -974,24 +1025,17 @@ class Decoder(nn.Module):
 
             # Prenet
             for f in self.preattention:
-                if isinstance(f, ConvBlock):
-                    x = f.incremental_forward(x, speaker_embed)
-                else:
-                    x = f.incremental_forward(x)
+                x = f.incremental_forward(x, speaker_embed)
 
             # Casual convolutions + Multi-hop attentions
             ave_alignment = None
             for idx, (f, attention) in enumerate(zip(self.convolutions,
                                                      self.attention)):
                 residual = x
-                if isinstance(f, ConvBlock):
-                    x = f.incremental_forward(x, speaker_embed)
-                else:
-                    x = f.incremental_forward(x)
+                x = f.incremental_forward(x, speaker_embed)
 
                 # attention
                 if attention is not None:
-                    assert isinstance(f, ConvBlock)
                     x = x + frame_pos_embed
                     x, alignment = attention(x, (keys, values),
                                              last_attended=last_attended[idx])
@@ -1548,10 +1592,14 @@ class Loss(nn.Module):
         return linear_loss, linear_l1_loss, linear_binary_div
         
 
-    def spec_loss(self, y_hat, y, mask, priority_bin=None, priority_w=0, masked_loss_weight=0., binary_divergence_weight=0.):
+    def spec_loss(self, y_hat, y, mask, priority_bin=None,
+                  priority_w=0, masked_loss_weight=0.,
+                  binary_divergence_weight=0.):
         """
         Computes the DeepVoice3 mask spectrogram loss
         
+        Arguments
+        ---------
         y_hat: torch.Tensor
             the predicted spectrogram
         y: torch.Tensor
@@ -1560,6 +1608,12 @@ class Loss(nn.Module):
             the masked to be applied
         priority_w: torch.Tensor
             the weight of the priority loss
+
+        Returns
+        -------
+        losses: tuple
+            A (l1_loss, binary_div) tuple with the L1 loss and binary divergence,
+            respectively
         """
         w = masked_loss_weight
         # L1 loss
@@ -1618,20 +1672,26 @@ class Loss(nn.Module):
 
     def guided_attention(self, N, max_N, T, max_T, g):
         """
-        Computes a single guided attention matrix for a sample
+        Computes a single guided attention matrix for a single sample
         
         Arguments
         ---------
-        N
+        N: int
             the input length
-        max_N
+        max_N: int
             the maximum input length
-        T
+        T: int
             the target length
-        max_T
+        max_T: int
             the maximum target length
-        g
+        g: float
             the guided attention weight
+
+
+        Returns
+        -------
+        value: torch.Tensor
+            the guided attention tensor for a single example
         """
         W = torch.zeros((max_N, max_T)).float()
         n, t = torch.meshgrid(
@@ -1647,14 +1707,19 @@ class Loss(nn.Module):
 
         Arguments
         ---------
-        input_lengths
+        input_lengths: torch.Tensor
             a tensor of input lengths
-        target_lengths
+        target_lengths: torch.Tensor
             a tensor of target (spectrogram) length
-        max_target_len
+        max_target_len: int
             the maximum target length
-        g
+        g: float
             the attention weight
+        
+        Returns
+        -------
+        W: torch.Tensor
+            the guided attention tensor
         """
         B = len(input_lengths)
         max_input_len = input_lengths.max()

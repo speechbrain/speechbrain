@@ -507,6 +507,22 @@ class SingleBatchWrapper(DataLoader):
 
 
 def collate_fn(examples, *args, **kwargs):
+    """
+    The collation function, producing padded batches. An exceptional
+    behaviour is implemented for 'done' where it will be padded with
+    1s instead of 0s. Any additional arguments will be passed on to
+    PaddedBatch
+
+    Arguments
+    ---------
+    examples: list
+        the list of examples
+
+    Returns
+    -------
+    batch: PaddedBatch
+        a batch of examples
+    """    
     max_done = max(example['done'].shape[0] for example in examples)
     for example in examples:    
         padding_size = max_done - example['done'].shape[0]
@@ -515,6 +531,19 @@ def collate_fn(examples, *args, **kwargs):
 
 
 def dataio_prep(hparams):
+    """
+    Prepares the datasets using the pipeline
+
+    Arguments
+    ---------
+    hparams: dict
+        pre-parsed HyperPyYAML hyperparameters
+
+    Returns
+    -------
+    datsets: dict
+        
+    """
     result = {}
     for name, dataset_params in hparams['datasets'].items():
         # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
