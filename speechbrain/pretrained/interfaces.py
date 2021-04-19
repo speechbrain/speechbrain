@@ -588,33 +588,37 @@ class TransformerASR(Pretrained):
         return predicted_words, predicted_tokens
 
 
-class SpeakerRecognition(Pretrained):
-    """A ready-to-use model for speaker recognition. It can be used to
-    compute the speaker embeddings as well.
+class EncoderClassifier(Pretrained):
+    """A ready-to-use class for utterance-level classification (e.g, speaker-id,
+    language-id, emotion recognition, keyword spotting, etc).
+
+    The class assumes that an encoder called "embedding_model" and a model
+    called "classifier" are defined in the yaml file. If you want to
+    convert the predicted index into a corresponding text label, please
+    provide the path of the label_encoder in a variable called 'lab_encoder_file'
+    within the yaml.
 
     The class can be used either to run only the encoder (encode_batch()) to
-    extract embeddings or to run the entire verification system
-    (verify_batch()) to check speaker identifies.
+    extract embeddings or to run a classification step (classify_batch()).
     ```
 
     Example
     -------
     >>> import torchaudio
-    >>> from speechbrain.pretrained import SpeakerRecognition
+    >>> from speechbrain.pretrained import EncoderClassifier
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
-    >>> verification = SpeakerRecognition.from_hparams(
+    >>> classifier = EncoderClassifier.from_hparams(
     ...     source="speechbrain/spkrec-ecapa-voxceleb",
     ...     savedir=tmpdir,
     ... )
 
     >>> # Compute embeddings
     >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
-    >>> embeddings = verification.encode_batch(signal)
+    >>> embeddings =  classifier.encode_batch(signal)
 
-    >>> # Speaker Verification
-    >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
-    >>> score, prediction = verification.verify_batch(signal, signal2)
+    >>> # Classification
+    >>> prediction =  classifier .classify_batch(signal)
     """
 
     MODULES_NEEDED = [
@@ -622,11 +626,11 @@ class SpeakerRecognition(Pretrained):
         "mean_var_norm",
         "embedding_model",
         "mean_var_norm_emb",
+        "classifier",
     ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
     def encode_batch(self, wavs, wav_lens=None, normalize=False):
         """Encodes the input audio into a single vector embedding.
@@ -667,6 +671,7 @@ class SpeakerRecognition(Pretrained):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         wavs = wavs.float()
 
+        # Computing features and embeddings
         feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, wav_lens)
         embeddings = self.modules.embedding_model(feats, wav_lens)
@@ -675,6 +680,76 @@ class SpeakerRecognition(Pretrained):
                 embeddings, torch.ones(embeddings.shape[0], device=self.device)
             )
         return embeddings
+
+    def classify_batch(self, wavs, wav_lens=None):
+        """Performs classification on the top of the encoded features.
+
+        It returns the posterior probabilities, the index and, if the label
+        encoder is specified it also the text label.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model. Make sure the sample rate is fs=16000 Hz.
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        emb = self.encode_batch(wavs, wav_lens)
+        out_prob = self.modules.classifier(emb).squeeze(1)
+        score, index = torch.max(out_prob, dim=-1)
+        text_lab = self.hparams.label_encoder.decode_torch(index)
+
+        return out_prob, score, index, text_lab
+
+
+class SpeakerRecognition(EncoderClassifier):
+    """A ready-to-use model for speaker recognition. It can be used to
+    perform speaker verification with verify_batch().
+
+    ```
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import SpeakerRecognition
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> tmpdir = getfixture("tmpdir")
+    >>> verification = SpeakerRecognition.from_hparams(
+    ...     source="speechbrain/spkrec-ecapa-voxceleb",
+    ...     savedir=tmpdir,
+    ... )
+
+    >>> # Perform verification
+    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
+    >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
+    >>> score, prediction = verification.verify_batch(signal, signal2)
+    """
+
+    MODULES_NEEDED = [
+        "compute_features",
+        "mean_var_norm",
+        "embedding_model",
+        "mean_var_norm_emb",
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
     def verify_batch(
         self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.25
