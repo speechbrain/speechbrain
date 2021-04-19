@@ -988,7 +988,10 @@ class SpectralMaskEnhancement(Pretrained):
             If provided, writes enhanced data to this file.
         """
         noisy = self.load_audio(filename)
-        enhanced = self.enhance_batch(noisy)
+
+        # Fake a batch:
+        batch = noisy.unsqueeze(0)
+        enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
             torchaudio.save(output_filename, enhanced, channels_first=False)
