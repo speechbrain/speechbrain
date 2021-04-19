@@ -59,27 +59,12 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if "whamr" in self.hparams.data_folder:
-                        if self.hparams.reverb_style == "random":
-                            targets_rev = [
-                                self.hparams.reverb(targets[:, :, i], None)
-                                for i in range(self.hparams.num_spks)
-                            ]
-                            targets_rev = torch.stack(targets_rev, dim=-1)
-                            mix = targets_rev.sum(-1)
-                        else:
-                            from speechbrain.processing.signal_processing import (
-                                reverberate,
-                            )
-
-                            random_channel = torch.randint(2, (1,)).item()
-                            rirs = rirs[random_channel]
-
-                            mix = 0
-                            for n, rir in enumerate(rirs):
-                                rir = rir.to(self.device)
-
-                                mix = mix + reverberate(targets[0, :, n], rir)
-                            mix = mix.unsqueeze(0)
+                        targets_rev = [
+                            self.hparams.reverb(targets[:, :, i], None)
+                            for i in range(self.hparams.num_spks)
+                        ]
+                        targets_rev = torch.stack(targets_rev, dim=-1)
+                        mix = targets_rev.sum(-1)
                     else:
                         mix = targets.sum(-1)
 
@@ -632,12 +617,8 @@ if __name__ == "__main__":
         },
     )
 
-    # if whamr, and we do speedaugment with random reverb style, we need to prepare the csv file
-    if (
-        "whamr" in hparams["data_folder"]
-        and hparams["use_speedperturb"]
-        and hparams["reverb_style"] == "random"
-    ):
+    # if whamr, and we do speedaugment we need to prepare the csv file
+    if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
         from recipes.WSJ0Mix.prepare_data import create_whamr_rir_csv
 
         create_whamr_rir_csv(hparams["rir_path"], hparams["save_folder"])

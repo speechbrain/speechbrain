@@ -57,6 +57,12 @@ training_signal_len: 32000000
 dynamic_mixing: False
 
 # Parameters for data augmentation
+
+# you need to run the script ../meta/create_whamr_rirs.py
+# to be able to use speed augment
+# rir_path variable points to the directory of the room impulse responses
+rir_path: !ref /miniscratch/subakany/rir_wavs
+
 use_wavedrop: False
 use_speedperturb: True
 use_speedperturb_sameforeachsource: False
@@ -77,9 +83,6 @@ wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     drop_chunk_prob: 1.0
     sample_rate: !ref <sample_rate>
 
-reverb_style: random
-rir_path: !ref /miniscratch/subakany/rir_wavs
-# reverb: !new:speechbrain.processing.speech_augmentation
 
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
