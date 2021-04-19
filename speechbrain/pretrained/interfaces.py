@@ -625,7 +625,6 @@ class EncoderClassifier(Pretrained):
         "compute_features",
         "mean_var_norm",
         "embedding_model",
-        "mean_var_norm_emb",
         "classifier",
     ]
 
@@ -676,7 +675,7 @@ class EncoderClassifier(Pretrained):
         feats = self.modules.mean_var_norm(feats, wav_lens)
         embeddings = self.modules.embedding_model(feats, wav_lens)
         if normalize:
-            embeddings = self.modules.mean_var_norm_emb(
+            embeddings = self.hparams.mean_var_norm_emb(
                 embeddings, torch.ones(embeddings.shape[0], device=self.device)
             )
         return embeddings
