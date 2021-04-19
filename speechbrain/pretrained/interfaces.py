@@ -608,7 +608,7 @@ class EncoderClassifier(Pretrained):
     >>> from speechbrain.pretrained import EncoderClassifier
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
-    >>>  classifier = EncoderClassifier.from_hparams(
+    >>> classifier = EncoderClassifier.from_hparams(
     ...     source="speechbrain/spkrec-ecapa-voxceleb",
     ...     savedir=tmpdir,
     ... )
