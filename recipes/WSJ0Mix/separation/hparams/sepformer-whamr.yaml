@@ -21,7 +21,7 @@ data_folder: !PLACEHOLDER
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepformer-whamr
+experiment_name: sepformer-whamr-randomreverb
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -40,7 +40,6 @@ num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
-n_audio_to_save: 20
 
 # Training parameters
 N_epochs: 200
@@ -58,6 +57,13 @@ training_signal_len: 32000000
 dynamic_mixing: False
 
 # Parameters for data augmentation
+
+# you need to run the script ../meta/create_whamr_rirs.py
+# to be able to use speed augment
+# rir_path variable points to the directory of the room impulse responses
+# e.g. /miniscratch/subakany/rir_wavs
+rir_path: !PLACEHOLDER
+
 use_wavedrop: False
 use_speedperturb: True
 use_speedperturb_sameforeachsource: False
@@ -78,7 +84,6 @@ wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     drop_chunk_prob: 1.0
     sample_rate: !ref <sample_rate>
 
-reverb_style: sorted
 
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
