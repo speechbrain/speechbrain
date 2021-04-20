@@ -57,7 +57,7 @@ def test_bce_loss():
 
     # Can't pass lengths in 1D case
     with pytest.raises(ValueError):
-        bce_loss(predictions, targets, length=torch.ones(5))
+        bce_loss(predictions, targets, lengths=torch.ones(5))
 
 
 def test_classification_error():

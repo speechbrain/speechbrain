@@ -195,7 +195,7 @@ class ASR(sb.Brain):
         loss = sb.nnet.losses.nll_loss(
             log_probabilities=predictions["seq_logprobs"],
             targets=tokens_eos,
-            length=tokens_eos_lens,
+            lengths=tokens_eos_lens,
             label_smoothing=self.hparams.label_smoothing,
         )
 

@@ -70,7 +70,7 @@ class SLU(sb.Brain):
         semantics_tokens, semantics_tokens_lens = batch.semantics_tokens
 
         loss_seq = self.hparams.seq_cost(
-            p_seq, semantics_tokens_eos, length=semantics_tokens_eos_lens
+            p_seq, semantics_tokens_eos, lengths=semantics_tokens_eos_lens
         )
 
         # (No ctc loss)

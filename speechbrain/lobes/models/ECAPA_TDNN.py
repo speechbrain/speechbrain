@@ -8,7 +8,7 @@ Authors
 import torch  # noqa: F401
 import torch.nn as nn
 import torch.nn.functional as F
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import lengths_to_mask
 from speechbrain.nnet.CNN import Conv1d as _Conv1d
 from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
@@ -164,7 +164,7 @@ class SEBlock(nn.Module):
     def forward(self, x, lengths=None):
         L = x.shape[-1]
         if lengths is not None:
-            mask = length_to_mask(lengths * L, max_len=L, device=x.device)
+            mask = lengths_to_mask(lengths * L, max_len=L, device=x.device)
             mask = mask.unsqueeze(1)
             total = mask.sum(dim=2, keepdim=True)
             s = (x * mask).sum(dim=2, keepdim=True) / total
@@ -233,7 +233,7 @@ class AttentiveStatisticsPooling(nn.Module):
             lengths = torch.ones(x.shape[0], device=x.device)
 
         # Make binary mask of shape [N, 1, L]
-        mask = length_to_mask(lengths * L, max_len=L, device=x.device)
+        mask = lengths_to_mask(lengths * L, max_len=L, device=x.device)
         mask = mask.unsqueeze(1)
 
         # Expand the temporal context of the pooling layer by allowing the

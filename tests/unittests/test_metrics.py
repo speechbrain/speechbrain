@@ -12,7 +12,7 @@ def test_metric_stats():
         ids=["utterance1", "utterance2"],
         predictions=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
         targets=torch.tensor([[0.1, 0.3], [0.2, 0.3]]),
-        length=torch.ones(2),
+        lengths=torch.ones(2),
         reduction="batch",
     )
     summary = l1_stats.summarize()

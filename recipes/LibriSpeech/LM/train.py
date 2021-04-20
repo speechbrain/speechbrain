@@ -38,7 +38,7 @@ class LM(sb.core.Brain):
         batch = batch.to(self.device)
         tokens_eos, tokens_len = batch.tokens_eos
         loss = self.hparams.compute_cost(
-            predictions, tokens_eos, length=tokens_len
+            predictions, tokens_eos, lengths=tokens_len
         )
         return loss
 

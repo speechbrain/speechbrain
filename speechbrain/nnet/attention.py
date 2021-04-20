@@ -11,7 +11,7 @@ import logging
 import torch.nn as nn
 import numpy as np
 from typing import Optional
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import lengths_to_mask
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class ContentBasedAttention(nn.Module):
         if self.precomputed_enc_h is None:
 
             self.precomputed_enc_h = self.mlp_enc(enc_states)
-            self.mask = length_to_mask(
+            self.mask = lengths_to_mask(
                 enc_len, max_len=enc_states.size(1), device=enc_states.device
             )
 
@@ -197,7 +197,7 @@ class LocationAwareAttention(nn.Module):
         if self.precomputed_enc_h is None:
 
             self.precomputed_enc_h = self.mlp_enc(enc_states)
-            self.mask = length_to_mask(
+            self.mask = lengths_to_mask(
                 enc_len, max_len=enc_states.size(1), device=enc_states.device
             )
 
@@ -293,7 +293,7 @@ class KeyValueAttention(nn.Module):
 
             self.keys = self.key_linear(enc_states)
             self.values = self.value_linear(enc_states)
-            self.mask = length_to_mask(
+            self.mask = lengths_to_mask(
                 enc_len, max_len=enc_states.size(1), device=enc_states.device
             ).unsqueeze(2)
 

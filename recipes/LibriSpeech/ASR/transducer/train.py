@@ -146,7 +146,7 @@ class ASR(sb.Brain):
                     p_ctc, tokens, wav_lens, token_lens
                 )
                 CE_loss = self.hparams.ce_cost(
-                    p_ce, tokens_eos, length=token_eos_lens
+                    p_ce, tokens_eos, lengths=token_eos_lens
                 )
                 tokens = tokens.long()
                 loss_transducer = self.hparams.transducer_cost(
@@ -178,7 +178,7 @@ class ASR(sb.Brain):
                 else:
                     p_ce, p_transducer, wav_lens = predictions
                     CE_loss = self.hparams.ce_cost(
-                        p_ce, tokens_eos, length=token_eos_lens
+                        p_ce, tokens_eos, lengths=token_eos_lens
                     )
                     tokens = tokens.long()
                     loss_transducer = self.hparams.transducer_cost(
