@@ -86,11 +86,15 @@ class ASR(sb.core.Brain):
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat([tokens_eos_lens, tokens_eos_lens], dim=0)
+            tokens_eos_lens = torch.cat(
+                [tokens_eos_lens, tokens_eos_lens], dim=0
+            )
             tokens = torch.cat([tokens, tokens], dim=0)
             tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
 
-        loss_seq = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
+        loss_seq = self.hparams.seq_cost(
+            p_seq, tokens_eos, length=tokens_eos_lens
+        )
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = (
             self.hparams.ctc_weight * loss_ctc
@@ -101,7 +105,9 @@ class ASR(sb.core.Brain):
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
 
-            if current_epoch % valid_search_interval == 0 or (stage == sb.Stage.TEST):
+            if current_epoch % valid_search_interval == 0 or (
+                stage == sb.Stage.TEST
+            ):
                 # Decode token terms to words
                 predicted_words = [
                     tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
@@ -163,7 +169,10 @@ class ASR(sb.core.Brain):
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
+            if (
+                current_epoch % valid_search_interval == 0
+                or stage == sb.Stage.TEST
+            ):
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
@@ -252,13 +261,17 @@ class ASR(sb.core.Brain):
                 if "momentum" not in group:
                     return
 
-                self.checkpointer.recover_if_possible(device=torch.device(self.device))
+                self.checkpointer.recover_if_possible(
+                    device=torch.device(self.device)
+                )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
         super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(max_key=max_key, min_key=min_key)
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
         ckpt = sb.utils.checkpoints.average_checkpoints(
             ckpts, recoverable_name="model", device=self.device
         )
@@ -284,7 +297,9 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -292,7 +307,9 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_data"],
@@ -406,4 +423,6 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.evaluate(test_data, test_loader_kwargs=hparams["test_dataloader_opts"])
+    asr_brain.evaluate(
+        test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
+    )
