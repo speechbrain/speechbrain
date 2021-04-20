@@ -1,8 +1,9 @@
 # ################################
-# Model: Conformer within the dualpath processing pipeline for source separation
-#
+# Model: SepFormer for source separation
+# https://arxiv.org/abs/2010.13154
 # Dataset : WSJ0-2mix and WSJ0-3mix
 # ################################
+#
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
@@ -17,15 +18,17 @@ data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepconformer
+experiment_name: sepformer-libri2mix
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-train_data: !ref <save_folder>/wsj_tr.csv
-valid_data: !ref <save_folder>/wsj_cv.csv
-test_data: !ref <save_folder>/wsj_tt.csv
+train_data: !ref <save_folder>/libri2mix_train-360.csv
+valid_data: !ref <save_folder>/libri2mix_dev.csv
+test_data: !ref <save_folder>/libri2mix_test.csv
 skip_prep: False
 
 
@@ -44,10 +47,10 @@ lr: 0.00015
 clip_grad_norm: 5
 loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
 # if True, the training sequences are cut to a specified length
-limit_training_signal_len: True
+limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
-training_signal_len: 32000
+training_signal_len: 32000000
 
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
@@ -95,23 +98,23 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     out_channels: !ref <N_encoder_out>
 
 
-intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
-    num_layers: 6
+SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
-    kernel_size: 8
+    norm_before: True
 
-inter: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
-    num_layers: 6
+SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
-    kernel_size: 8
+    norm_before: True
 
 MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     num_spks: !ref <num_spks>
@@ -119,8 +122,8 @@ MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     out_channels: !ref <out_channels>
     num_layers: 2
     K: 250
-    intra_model: !ref <intra>
-    inter_model: !ref <inter>
+    intra_model: !ref <SBtfintra>
+    inter_model: !ref <SBtfinter>
     norm: ln
     linear_layer_after_inter_intra: False
     skip_around_intra: True
@@ -141,7 +144,7 @@ loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
     patience: 2
-    dont_halve_until_epoch: 85
+    dont_halve_until_epoch: 5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
@@ -158,7 +161,19 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         decoder: !ref <Decoder>
         masknet: !ref <MaskNet>
         counter: !ref <epoch_counter>
-        lr_scheduler: !ref <lr_scheduler>
+        # lr_scheduler: !ref <lr_scheduler>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
+
+# For Librimix
+pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        masknet: !ref <MaskNet>
+    paths:
+        encoder: speechbrain/sepformer-wsj02mix/encoder.ckpt
+        decoder: speechbrain/sepformer-wsj02mix/decoder.ckpt
+        masknet: speechbrain/sepformer-wsj02mix/masknet.ckpt
