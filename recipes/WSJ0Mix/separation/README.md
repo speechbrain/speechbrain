@@ -40,7 +40,7 @@ This is in essence a warning and does not affect the results of this script.
 
 # Results
 
-Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix datasets with SepFormer:
+Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix, WHAM!, WHAMR! datasets with SepFormer:
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
@@ -61,3 +61,4 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix dataset
 | | SepFormer. WHAMR! |
 | --- | --- |
 |NoAugment | 11.4 |
+|SpeedAugment | 13.7|
