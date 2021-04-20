@@ -13,7 +13,7 @@ SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commerc
 
 - **Modular:** Write your code such that it is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other.
 
-- **Well documented:**  Given the goals of SpeechBrain, writing rich and good documentation is a crucial step. 
+- **Well documented:**  Given the goals of SpeechBrain, writing rich and good documentation is a crucial step.
 
 ## How to get your code in SpeechBrain
 
@@ -90,7 +90,7 @@ and where the implemented algorithm needs clarification.
 
 -  **Website documentation**.  On the SpeechBrain website, you can find detailed documentation for each of the functionalities currently implemented in the toolkit.
 
--  **Tutorials**:  Tutorials are a good way to familiarize yourself with SpeechBrain with interactive codes and explanations. 
+-  **Tutorials**:  Tutorials are a good way to familiarize yourself with SpeechBrain with interactive codes and explanations.
 
 ## Development tools
 

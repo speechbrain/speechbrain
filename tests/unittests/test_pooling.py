@@ -15,6 +15,8 @@ def test_pooling1d():
     output = pool(input)
     assert output == 2
 
+    assert torch.jit.trace(pool, input)
+
 
 def test_pooling2d():
 
@@ -41,3 +43,5 @@ def test_pooling2d():
     output = pool(input)
     assert output[0][0] == 2
     assert output[0][1] == 5
+
+    assert torch.jit.trace(pool, input)

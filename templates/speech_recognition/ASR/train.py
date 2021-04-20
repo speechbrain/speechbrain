@@ -467,7 +467,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    # Load best checkpoint (highest STOI) for evaluation
+    # Load best checkpoint for evaluation
     test_stats = asr_brain.evaluate(
         test_set=datasets["test"],
         min_key="WER",

@@ -10,7 +10,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
-| **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html)** | **[Website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/)** | **[Documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html)** | **[Contributing](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
+| **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
 # Key features
 
@@ -37,7 +37,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 ### Feature extraction and augmentation
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk). 
+- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk).
 - On-the-fly feature normalization (global, sentence, batch, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
@@ -64,8 +64,10 @@ The recipes released with speechbrain implement speech processing systems with c
 
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
-| LibriSpeech      | Speech Recognition | ContextNet + Transformer | WER=2.55% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
+| TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
+| CommonVoice (French) | Speech Recognition | CRDNN | WER=17.7% (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.13% (lapel-mix)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
@@ -81,7 +83,7 @@ SpeechBrain is designed to speed-up research and development of speech technolog
 - **Educational-level:** we provide various Google Colab (i.e. interactive) tutorials describing all the building-blocks of SpeechBrain ranging from the core of the toolkit to a specific model designed for a particular task. The number of available tutorials is expected to increase over time.
 
 ### Under development
-We currently are working towards integrating DNN-HMM for speech recognition and machine translation.
+We are currently working towards integrating DNN-HMM for speech recognition and machine translation.
 
 # Quick installation
 
@@ -142,10 +144,9 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 # Learning SpeechBrain
 
 Instead of a long and boring README, we prefer to provide you with different resources that can be used to learn how to customize SpeechBrain to adapt it to your needs:
-
-- General information can be found on the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
-- Many [tutorials](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/tutorial_basics.html) about the basics of SpeechBrain. More of them on different functionalities (e.g SpeechBrain advanced, signal processing ...) are given with the drop down menu of the [website](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/).
-- Details on the SpeechBrain API, how to contribute, and the code are given in the [documentation](http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/documentation/index.html).
+- General information can be found on the [website](https://speechbrain.github.io).
+- We offer many tutorials, you can start out from the [basic ones](https://speechbrain.github.io/tutorial_basics.html) about SpeechBrain basic functionalities and building blocks. We provide also more advanced tutorials (e.g SpeechBrain advanced, signal processing ...). You can browse them via the Tutorials drop down menu on [SpeechBrain website](https://speechbrain.github.io) in the upper right.
+- Details on the SpeechBrain API, how to contribute, and the code are given in the [documentation](https://speechbrain.readthedocs.io/en/latest/index.html).
 
 # License
 SpeechBrain is released under the Apache License, version 2.0. The Apache license is a popular BSD-like license. SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances, you may have to distribute a license document). Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.

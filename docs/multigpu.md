@@ -7,7 +7,7 @@ The common pattern for using multi-GPU training over a single machine with Data 
 
 ```
 > cd recipes/<dataset>/<task>/
-> python experiment.py params.yaml --data_parallel_backend=True --data_parallel_count=2
+> python experiment.py params.yaml --data_parallel_backend --data_parallel_count=2
 ```
 
 Important: the batch size for each GPU process will be: `batch_size / data_parallel_count`. So you should consider changing the batch_size value according to you need.
@@ -20,7 +20,7 @@ more prone to exhibit unexpected bugs. Indeed, DDP is quite server dependent and
 The common pattern for using multi-GPU training with DDP (on a single machine with 4 GPUs):
 ```
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 ```
 Try to switch the DDP backend if you have issues with `nccl`.
 
@@ -30,11 +30,11 @@ To using DDP, you should consider using `torch.distributed.launch` for setting t
 ```
 # Machine 1
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=0 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=0 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 
 # Machine 2
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 ```
 Machine 1 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=0`, and subprocess2: with `local_rank=1`, `rank=1`).
 Machine 2 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=2`, and subprocess2: with `local_rank=1`, `rank=3`).
