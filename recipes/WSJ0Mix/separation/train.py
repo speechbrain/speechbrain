@@ -534,7 +534,7 @@ def dataio_prep(hparams):
         )
     else:
         if "wham" in hparams["data_folder"]:
-            print("Using the WHAM! dataset")
+            print("Using the WHAM! noise in the data pipeline")
             sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
 
             sb.dataio.dataset.set_output_keys(
