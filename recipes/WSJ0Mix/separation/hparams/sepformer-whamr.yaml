@@ -32,7 +32,6 @@ valid_data: !ref <save_folder>/whamr_cv.csv
 test_data: !ref <save_folder>/whamr_tt.csv
 skip_prep: False
 
-
 # Experiment params
 auto_mix_prec: False # Set it to True for mixed precision
 test_only: False
@@ -84,7 +83,6 @@ wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     drop_chunk_prob: 1.0
     sample_rate: !ref <sample_rate>
 
-
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
 threshold: -30
@@ -99,7 +97,6 @@ kernel_stride: 8
 dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 3
-
 
 # Specifying the network
 Encoder: !new:speechbrain.lobes.models.dual_path.Encoder

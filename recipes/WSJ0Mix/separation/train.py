@@ -620,6 +620,12 @@ if __name__ == "__main__":
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
         from recipes.WSJ0Mix.prepare_data import create_whamr_rir_csv
+        from recipes.WSJ0Mix.meta.create_whamr_rirs import create_rirs
+
+        # If the Room Impulse Responses do not exist, we create them
+        if not os.path.exists(hparams["rir_path"]):
+            print("Creating Room Impulse Responses...")
+            create_rirs(hparams["rir_path"])
 
         create_whamr_rir_csv(hparams["rir_path"], hparams["save_folder"])
 
