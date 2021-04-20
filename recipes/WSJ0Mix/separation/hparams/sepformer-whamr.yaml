@@ -13,12 +13,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Data params
 
 # the data folder for the wham dataset
-# needs to end with wham_original for the wham dataset
-# needs to end with wham_reverb for the whamr dataset
+# data_folder needs to follow the format:  /yourpath/whamr.
+# make sure to use the name whamr at your top folder for the dataset!
 data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: sepformer-whamr-randomreverb
@@ -57,10 +59,9 @@ dynamic_mixing: False
 
 # Parameters for data augmentation
 
-# you need to run the script ../meta/create_whamr_rirs.py
-# to be able to use speed augment
 # rir_path variable points to the directory of the room impulse responses
 # e.g. /miniscratch/subakany/rir_wavs
+# If the path does not exist, it is created automatically.
 rir_path: !PLACEHOLDER
 
 use_wavedrop: False

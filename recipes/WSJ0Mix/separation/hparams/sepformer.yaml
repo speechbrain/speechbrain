@@ -18,6 +18,8 @@ data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: sepformer
