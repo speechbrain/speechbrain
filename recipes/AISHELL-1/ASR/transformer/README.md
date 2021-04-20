@@ -25,6 +25,6 @@ Results are reported in terms of Character Error Rate (CER).
 | train_ASR_transformer.yaml | No | 6.04 | 5.60 | 1xRTX 2080 Ti 11GB |
 
 You can checkout our results (models, training logs, etc,) here:
-https://drive.google.com/drive/folders/1f91J6JKK-3nkP0ni2PpUsuORdnhLkShP?usp=sharing
+https://drive.google.com/drive/folders/1CCNbl5iHPIANYtuH5eF9uYKZG-Pc-EUy?usp=sharing
 
 
