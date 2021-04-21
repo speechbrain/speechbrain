@@ -9,7 +9,7 @@ import math
 import torch
 from torch.nn import functional as F
 
-def text_encoder(max_input_len=128, tokens=None):
+def text_encoder(max_input_len=128, tokens=None, takes="label"):
     """
     Configures and returns a text encoder function for use with the deepvoice3 model
     wrapped in a SpeechBrain pipeline function
@@ -32,7 +32,7 @@ def text_encoder(max_input_len=128, tokens=None):
     encoder.add_unk()
     encoder.add_bos_eos()
 
-    @sb.utils.data_pipeline.takes("label")
+    @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides("text_sequences", "input_lengths", "text_positions")
     def f(label):
         text_sequence = encoder.encode_sequence_torch(label.upper())
@@ -239,56 +239,32 @@ def pad_spectrogram(takes: str, provides: str, outputs_per_step: int, downsample
         return F.pad(tensor, padding)        
     return f
 
-def build_encoder_pipeline(hparams):
-    pipeline = [
-        audio_pipeline,
-        resample(
-            orig_freq=hparams['source_sample_rate'],
-            new_freq=hparams['sample_rate']),
-        trim(takes="sig_resampled", provides="sig_trimmed"),
-        mel_spectrogram(
-            takes="sig_trimmed",
-            provides="mel_raw",
-            hop_length=hparams['hop_length'],
-            n_mels=hparams['mel_dim'],
-            n_fft=hparams['n_fft'],
-            power=1,
-            sample_rate=hparams['sample_rate']),
-        normalize_spectrogram(
-            takes="mel_raw",
-            provides="mel_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad_spectrogram(
-            takes="mel_norm",
-            provides="mel_pad",
-            outputs_per_step=hparams["outputs_per_step"],
-            downsample_step=hparams['mel_downsample_step']),
-        downsample_spectrogram(
-            takes="mel_pad",
-            provides="mel",
-            downsample_step=hparams['mel_downsample_step']),
-        text_encoder(max_input_len=hparams['max_input_len'], tokens=hparams['tokens']),
-        frame_positions(
-            max_output_len=hparams['max_mel_len'] * hparams['mel_downsample_step']),
-        spectrogram(
-            n_fft=hparams['n_fft'],
-            hop_length=hparams['hop_length'],
-            power=1,
-            takes="sig_trimmed",
-            provides="linear_raw"),
-        normalize_spectrogram(
-            takes="linear_raw",
-            provides="linear_norm",
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db']),
-        pad_spectrogram(
-            takes="linear_norm",
-            provides="linear",
-            outputs_per_step=hparams["outputs_per_step"],
-            downsample_step=hparams['mel_downsample_step']),
-        done(downsample_step=hparams['mel_downsample_step'],
-                outputs_per_step=hparams['outputs_per_step']),
-        target_lengths
-    ]
-    return pipeline
+
+DENORM_BASE = 10.
+DENORM_MULTIPLIER = 0.05
+
+def denormalize_spectrogram(min_level_db, ref_level_db, takes="linear", provides="linear_denorm"):
+    """
+    Reverses spectrogram normalization and converts it
+    to 
+
+    Arguments
+    ---------
+    min_db_level: float
+        the minimum decibel level
+    ref_db_level: float
+        the reference decibel level
+
+    Returns
+    -------
+    item: DynamicItem
+        A wrapped transformation function    
+    """
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(spectrogram):
+        x = torch.clip(spectrogram, 0., 1.) * -min_level_db + min_level_db
+        x += ref_level_db
+        x = torch.pow(DENORM_BASE, x * DENORM_MULTIPLIER)
+        return x
+    return f

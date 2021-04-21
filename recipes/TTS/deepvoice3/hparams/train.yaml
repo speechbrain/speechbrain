@@ -91,6 +91,8 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 tensorboard_logs: !ref <output_folder>/logs
 
+inverse_spectrogram_n_iter: 1024
+
 tokens: ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-
 
 
@@ -377,6 +379,13 @@ model: !new:speechbrain.lobes.models.synthesis.deepvoice3.TTSModel
   speaker_embedding_weight_std: !ref <speaker_embedding_weight_std>
   freeze_embedding: !ref <freeze_embedding>
 
+model_output_keys:
+  - mel
+  - linear
+  - attention
+  - done
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 compute_cost: !new:speechbrain.lobes.models.synthesis.deepvoice3.Loss
   linear_dim: !ref <linear_dim>
@@ -430,3 +439,101 @@ loggers:
   - !ref <tensorboard_train_logger>
 
 test_frozen_batch: false
+
+train_pipeline:
+  output_keys:
+      - text_sequences
+      - mel
+      - input_lengths
+      - text_positions
+      - frame_positions
+      - target_lengths
+      - done
+      - linear
+  steps:
+    - !name:speechbrain.lobes.models.synthesis.dataio.audio_pipeline
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.resample
+      orig_freq: !ref <source_sample_rate>
+      new_freq: !ref <sample_rate>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.trim
+      takes: sig_resampled
+      provides: sig_trimmed
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.mel_spectrogram
+      takes: sig_trimmed
+      provides: mel_raw
+      hop_length: !ref <hop_length>
+      n_mels: !ref <mel_dim>
+      n_fft: !ref <n_fft>
+      power: 1
+      sample_rate: !ref <sample_rate>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.normalize_spectrogram
+      takes: mel_raw
+      provides: mel_norm
+      min_level_db: !ref <min_level_db>
+      ref_level_db: !ref <ref_level_db>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.pad_spectrogram
+      takes: mel_norm
+      provides: mel_pad
+      outputs_per_step: !ref <outputs_per_step>
+      downsample_step: !ref <mel_downsample_step>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.downsample_spectrogram
+      takes: mel_pad
+      provides: mel
+      downsample_step: !ref <mel_downsample_step>    
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
+      max_input_len: !ref <max_input_len>
+      tokens: !ref <tokens>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.frame_positions
+      max_output_len: !ref <max_mel_len> * <mel_downsample_step>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.spectrogram
+      takes: sig_trimmed
+      provides: linear_raw
+      n_fft: !ref <n_fft>
+      hop_length: !ref <hop_length>
+      power: 1
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.normalize_spectrogram
+      takes: linear_raw
+      provides: linear_norm
+      min_level_db: !ref <min_level_db>
+      ref_level_db: !ref <ref_level_db>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.pad_spectrogram
+      takes: linear_norm
+      provides: linear
+      outputs_per_step: !ref <outputs_per_step>
+      downsample_step: !ref <mel_downsample_step>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.done
+      downsample_step: !ref <mel_downsample_step>
+    - !name:speechbrain.lobes.models.synthesis.deepvoice3.target_lengths
+
+
+encode_pipeline:
+  batch: false
+  output_keys:
+  - text_sequences
+  - text_positions
+  - input_lengths
+  steps:
+  - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
+    takes: txt
+    max_input_len: !ref <max_input_len>
+    tokens: !ref <tokens>
+
+
+decode_pipeline:
+  steps:
+  - !apply:speechbrain.lobes.models.synthesis.deepvoice3.denormalize_spectrogram
+    takes: linear
+    provides: linear_denorm
+    min_level_db: !ref <min_level_db>
+    ref_level_db: !ref <ref_level_db>
+  - !apply:speechbrain.lobes.models.synthesis.dataio.transpose_spectrogram 
+    takes: linear_denorm
+    provides: linear_denorm_flip
+  - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
+    takes: linear_denorm_flip
+    provides: wav
+    n_fft: !ref <n_fft>
+    n_iter: !ref <inverse_spectrogram_n_iter>
+    hop_length: !ref <hop_length>
+    power: 1
+

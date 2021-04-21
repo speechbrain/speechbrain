@@ -17,7 +17,7 @@ from speechbrain.dataio.batch import PaddedBatch
 
 sys.path.append("..")
 from datasets.vctk import VCTK
-from speechbrain.lobes.models.synthesis.deepvoice3.dataio import build_encoder_pipeline
+from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
 from torchaudio import transforms
 
 
@@ -55,6 +55,12 @@ class DeepVoice3Brain(sb.core.Brain):
         )
 
         return pred
+
+    def fit_batch(self, *args, **kwargs):
+        loss = super().fit_batch(*args, **kwargs)
+        old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
+        sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+        return loss
 
     def compute_objectives(self, predictions, batch, stage, incremental=False):
         """Computes the loss given the predicted and targeted outputs.
@@ -203,10 +209,6 @@ class DeepVoice3Brain(sb.core.Brain):
             )
         
 
-OUTPUT_KEYS = [
-    "text_sequences", "mel", "mel_norm", "input_lengths", "text_positions",
-    "frame_positions", "target_lengths", "done", "linear", "linear_raw", "wav"]
-
 
 def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     """
@@ -231,12 +233,13 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     if not tokens:
         tokens = hparams['tokens']
 
-    pipeline = build_encoder_pipeline(hparams)
+    encoder_pipeline = hparams['train_pipeline']
+    pipeline = encoder_pipeline['steps']
 
     for element in pipeline:
         dataset.add_dynamic_item(element)
 
-    dataset.set_output_keys(OUTPUT_KEYS)
+    dataset.set_output_keys(encoder_pipeline['output_keys'])
     return SaveableDataLoader(dataset, collate_fn=collate_fn, **hparams["dataloader_options"])
 
 

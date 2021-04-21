@@ -6,6 +6,26 @@ def wrap_transform(transform_type, takes=None, provides=None):
     """
     Wraps a Torch transform for the pipeline, returning a
     decorator
+
+    Arguments
+    ---------
+    transform_type: torch.nn.Module
+        a Torch transform (from torchaudio.Transforms) to be wrapped
+    takes: str
+        the name of the pipeline input
+    provides: str
+        the name of the pipeline output
+
+    Arguments
+    ---------
+    takes: str
+        the name of the pipeline input
+    provides: str
+        the name of the pipeline output
+
+    Returns
+    -------
+    result: DymamicItem
     """
     default_takes = takes
     default_provides = provides
@@ -28,6 +48,29 @@ def audio_pipeline(file_name: str):
     audio from it into a tensor
     """
     return sb.dataio.dataio.read_audio(file_name)
+
+
+def transpose_spectrogram(takes, provides):
+    """
+    A pipeline function that transposes a spectrogram along the
+    last two axes
+
+    Arguments
+    ---------
+    takes: str
+        the name of the pipeline input
+    provides: str
+        the name of the pipeline output
+
+    Returns
+    -------
+    result: DymamicItem    
+    """
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(spectrogram):
+        return spectrogram.transpose(-1, -2)
+    return f
 
 
 resample = wrap_transform(transforms.Resample, takes="sig", provides="sig_resampled")
