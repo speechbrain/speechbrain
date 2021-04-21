@@ -82,7 +82,13 @@ class FairseqWav2Vec2(nn.Module):
         if hasattr(cfg, "normalize"):
             self.normalize = cfg.normalize
         else:
-            self.normalize = False
+            msg = "The normalize flag is not set in the loaded fairseq checkpoint "
+            msg += "Please set it to True or False. True = waveform will be "
+            msg += (
+                "normalized. False, it won't. This is dependent on the model."
+            )
+            msg += " !!! it has to match the pretraining of the wav2vec 2.0 !!!"
+            raise ValueError(msg)
 
         model = model[0]
         self.model = model
