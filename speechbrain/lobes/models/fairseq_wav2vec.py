@@ -79,7 +79,11 @@ class FairseqWav2Vec2(nn.Module):
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
-        self.normalize = cfg.normalize
+        if hasattr(cfg, "normalize"):
+            self.normalize = cfg.normalize
+        else:
+            self.normalize = False
+
         model = model[0]
         self.model = model
         self.freeze = freeze
