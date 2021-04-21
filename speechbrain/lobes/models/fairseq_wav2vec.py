@@ -2,7 +2,7 @@
 
 Reference: https://arxiv.org/abs/2006.11477
 Reference: https://arxiv.org/abs/1904.05862
-FairSeq needs to be installed: https://fairseq.readthedocs.io/en/latest/
+FairSeq >= 1.0.0 needs to be installed: https://fairseq.readthedocs.io/en/latest/
 
 Authors
  * Titouan Parcollet 2021
@@ -25,7 +25,8 @@ class FairseqWav2Vec2(nn.Module):
     """This lobe enables the integration of fairseq pretrained wav2vec2.0 models.
 
     Source paper: https://arxiv.org/abs/2006.11477
-    FairSeq needs to be installed: https://fairseq.readthedocs.io/en/latest/
+    FairSeq >= 1.0.0 needs to be installed:
+    https://fairseq.readthedocs.io/en/latest/
 
     The model can be used as a fixed features extractor or can be finetuned. It
     will download automatically the model if a url is given (e.g FairSeq
@@ -91,7 +92,7 @@ class FairseqWav2Vec2(nn.Module):
             if hasattr(cfg, "normalize"):
                 self.normalize = cfg.normalize
             else:
-                msg = "The normalize flag is not set in the loaded fairseq checkpoint "
+                msg = "The normalize flag is not set in the loaded fairseq checkpoint. "
                 msg += (
                     "Please set it to True or False. True = waveform will be "
                 )
