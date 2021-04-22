@@ -13,7 +13,7 @@ masked_loss_weight: 0.5
 binary_divergence_weight: 0.1
 priority_freq: 3000
 priority_freq_weight: 0.0
-sample_rate: 22050
+sample_rate: 48000 #22050
 
 min_level_db: -100
 ref_level_db: 20
@@ -30,18 +30,15 @@ silence_threshold: 2
 is_mulaw_quantized: True
 hop_length: 256
 n_fft: 1024
-max_time_steps: 2560 #!ref <hop_length> * 179
+max_time_steps: !ref <hop_length> * 40 #2560
 
 lr: 0.002
 lr_warmup_steps: 4000
-number_of_epochs: 30
-
-output_folder: !ref ./results/tts/wavenet/<seed>
-save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
+number_of_epochs: 200
+checkpoint_every_epoch: True
 
 overfit_test: true
-overfit_test_iterations: 5
+overfit_test_iterations: 3 #5
 
 model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
 
@@ -82,6 +79,10 @@ cin_pad: 2
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+output_folder: !ref ./results/tts/wavenet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
@@ -89,9 +90,14 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 causal: True
+train_data_path: datasets/testdata/fake_vctk_1ex
+valid_data_path: datasets/testdata/fake_vctk_1ex
 datasets:
   train:
-    path: datasets/testdata/fake_vctk_single_speaker
+    path: !ref <train_data_path>
+  valid:
+    path: !ref <valid_data_path>
+
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>

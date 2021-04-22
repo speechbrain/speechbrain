@@ -12,6 +12,9 @@ from torch.utils.data import DataLoader
 import numpy as np
 import os
 
+import torchvision
+import torchaudio
+
 sys.path.append("..")
 from datasets.vctk import VCTK
 from common.dataio import audio_pipeline, mel_spectrogram, spectrogram, resample
@@ -24,14 +27,11 @@ class WavenetBrain(sb.core.Brain):
         super().__init__(*args, **kwargs)
 
     def compute_forward(self, batch, stage, use_targets=True):
-        # NEED TO FIGURE OUT THE COMPUTE FORWARD STEP
+
         batch = batch.to(self.device)#BatchWrapper(batch).to(self.device)
         
         pred = self.hparams.model(
             x=batch.sig_quantized.data
-            #x=batch.sig_quantized.data
-
-                if stage == sb.Stage.TRAIN else None
         )
 
         return pred
@@ -62,7 +62,46 @@ class WavenetBrain(sb.core.Brain):
         loss = self.hparams.compute_cost(
             y_hat[:,:-1,:,:], target[:,1:,:], lengths=lengths
         )
+        # (B, T)
+
+        y_hat = F.softmax(y_hat.squeeze(), dim=1).max(1)[1]
+
+        predicted_audio = inv_mulaw_quantize(y_hat)
+        target_audio = inv_mulaw_quantize(target.squeeze())
+
+        predicted_mel = torchaudio.transforms.MelSpectrogram(self.hparams.sample_rate)(predicted_audio)
+        target_mel = torchaudio.transforms.MelSpectrogram(self.hparams.sample_rate)(target_audio)
+
+        (self.last_predicted_audio, 
+         self.last_target_audio, 
+         self.last_predicted_mel, 
+         self.last_target_mel) = [
+            tensor.detach().cpu()
+            for tensor in (
+                predicted_audio, target_audio,
+                predicted_mel, target_mel
+            )]
+
         return loss
+
+    def _save_progress_sample(self):
+        self._save_sample_audio(
+            'target_audio.wav', self.last_target_audio.unsqueeze(0))
+        self._save_sample_audio(
+            'predicted_audio.wav', self.last_predicted_audio.unsqueeze(0))
+        self._save_sample_image(
+            'target_mel.png', self.last_target_mel)
+        print(self.last_predicted_mel.size())
+        self._save_sample_image(
+            'output_mel.png', self.last_predicted_mel)
+
+    def _save_sample_image(self, file_name, data):
+        effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
+        torchvision.utils.save_image(data, effective_file_name)
+
+    def _save_sample_audio(self, file_name, data):
+        effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
+        torchaudio.save(effective_file_name,data, sample_rate=self.hparams.sample_rate)
 
     def on_fit_start(self):
         super().on_fit_start()
@@ -87,7 +126,6 @@ class WavenetBrain(sb.core.Brain):
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-
         # Summarize the statistics from the stage for record-keeping.
         else:
             stats = {
@@ -96,7 +134,6 @@ class WavenetBrain(sb.core.Brain):
 
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
-
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -110,6 +147,11 @@ class WavenetBrain(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+            output_progress_sample =(
+                self.hparams.progress_samples
+                and epoch % self.hparams.progress_samples_interval == 0)
+            if output_progress_sample:
+                self._save_progress_sample() 
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -117,7 +159,7 @@ class WavenetBrain(sb.core.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
-'''
+
 class BatchWrapper:
     def __init__(self, batch):
         self.batch = batch
@@ -130,7 +172,7 @@ class BatchWrapper:
     
     def __getattr__(self, name):
         return self.batch[name]
-'''
+
 class SingleBatchWrapper(DataLoader):
     """
     A wrapper that retrieves one batch from a DataLoader
@@ -229,6 +271,13 @@ def mulaw_quantize(x, mu=256):
     y = mulaw(x, mu)
     # scale [-1, 1] to [0, mu]
     return ((y + 1) / 2 * mu).long()
+
+def inv_mulaw(y, mu=256):
+    return y.sign() * (1.0 / mu) * ((1.0 + mu)**y.abs() - 1.0)
+
+def inv_mulaw_quantize(y,mu=256):
+    y = 2*y.type(torch.FloatTensor)/mu -1
+    return inv_mulaw(y,mu)
 
 def start_and_end_indices(quantized, silence_threshold=2):
 
@@ -462,7 +511,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
             hop_length= hparams["hop_length"]
         ),
         time_resolution(
-            takes = "target_full",
+            takes = "sig_mulaw",
             provides = "target",
             max_time_steps= hparams["max_time_steps"],
             hop_length= hparams["hop_length"]
@@ -490,6 +539,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         dataset.add_dynamic_item(element)
 
     dataset.set_output_keys(OUTPUT_KEYS)
+
     return dataset
 
 def dataio_prep(hparams):
@@ -518,14 +568,18 @@ def main():
     #min_time(hparams["datasets"]["train"]["path"])
     datasets = dataio_prep(hparams)
     '''
+    print(type(datasets))
     if hparams.get('overfit_test'):
         datasets = {
             key: SingleBatchWrapper(
                 dataset,
                 num_iterations=hparams.get('overfit_test_iterations', 1)) 
             for key, dataset in datasets.items()}
+    
+    print("DATASETS:")
+    print(datasets["train"])
+    print(datasets["valid"])
     '''
-
     # Initialize the Brain object to prepare for mask training.
     wavenet_brain = WavenetBrain(
         modules=hparams["modules"],
@@ -543,7 +597,7 @@ def main():
         epoch_counter=wavenet_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         # TODO: Implement splitting - this is not ready yet
-        valid_set=datasets["train"],
+        valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )

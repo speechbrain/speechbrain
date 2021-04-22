@@ -461,9 +461,6 @@ class WaveNet(nn.Module):
         Returns:
             Tensor: output, shape B x T x out_channels
         """
-        print("\nHELLO")
-        print(x)
-        print(x.size())
         B, T, _ = x.size()
 
         if g is not None:
@@ -521,9 +518,7 @@ class WaveNet(nn.Module):
         """
         self.clear_buffer()
         B = 1
-
-        # REMOVED TEST CASES FROM ORIGINAL
-
+        print("INCREMENTAL")
         # cast to int in case of numpy.int64...
         T = int(T)
 
