@@ -26,6 +26,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 ### Speech recognition
 
 SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
+- Support of wav2vec 2.0 pretrained model with finetuning.
 - State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models including RNNLM and TransformerLM. We also propose few pre-trained models to save you computations (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
