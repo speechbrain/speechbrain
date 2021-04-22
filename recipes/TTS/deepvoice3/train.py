@@ -1,4 +1,3 @@
-import librosa # Temporary
 import torch
 import torchvision
 import sys
@@ -268,11 +267,13 @@ class SingleBatchWrapper(DataLoader):
         """
         self.loader = loader
         self.num_iterations = num_iterations
+        self.batch = None
 
     def __iter__(self):
-        batch = next(iter(self.loader))
+        if self.batch is None:
+            self.batch = next(iter(self.loader))
         for _ in range(self.num_iterations):
-            yield batch
+            yield self.batch
 
 
 def collate_fn(examples, *args, **kwargs):

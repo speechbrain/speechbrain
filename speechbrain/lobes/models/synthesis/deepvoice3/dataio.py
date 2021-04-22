@@ -93,10 +93,13 @@ def pad(takes, provides, length):
     return f
 
 
-def trim(takes, provides, sample_rate=22050, trigger_level=9.,
+def trim(takes, provides, sample_rate=22050, trigger_level=10.,
          *args, **kwargs):
     vad = transforms.Vad(
-        sample_rate=48000, trigger_level=10.)
+        sample_rate=sample_rate,
+        trigger_level=trigger_level,
+        *args,
+        **kwargs)
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)    
     def f(wav):

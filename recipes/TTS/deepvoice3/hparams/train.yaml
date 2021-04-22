@@ -19,6 +19,7 @@ priority_freq: 3000
 priority_freq_weight: 0.0
 source_sample_rate: 48000
 sample_rate: 22050
+trim_trigger_level: 10.
 window_ahead: 3
 window_backward: 1
 encoder_in_std_mul: 1.0
@@ -458,6 +459,8 @@ train_pipeline:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.trim
       takes: sig_resampled
       provides: sig_trimmed
+      sample_rate: !ref <sample_rate>
+      trigger_level: !ref <trim_trigger_level>
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.mel_spectrogram
       takes: sig_trimmed
       provides: mel_raw
