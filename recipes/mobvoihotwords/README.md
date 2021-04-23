@@ -11,9 +11,9 @@ python train.py hparams/xvect.yaml --data_folder=/path_to_/GSC --seed=1234  --nu
 # Performance summary
 
 [Command accuracy on Google Speech Commands]
-| System | Accuracy |
+| System | ErrorRate |
 |----------------- | ------------ |
-| xvector + augment v12 | 98.14% |
+| BIGRU | 1.95e-3 |
 | xvector + augment v35 | 97.43% |
 
 You can find the output folder (model, logs, etc) here:
