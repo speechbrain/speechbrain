@@ -9,6 +9,11 @@ import math
 import torch
 from torch.nn import functional as F
 
+
+DB_BASE = 10.
+DB_MULTIPLIER = 0.05
+
+
 def text_encoder(max_input_len=128, tokens=None, takes="label"):
     """
     Configures and returns a text encoder function for use with the deepvoice3 model
@@ -62,7 +67,7 @@ def downsample_spectrogram(takes, provides, downsample_step=4):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(spectrogram):
-        spectrogram = spectrogram[:, 0::downsample_step].contiguous()
+        spectrogram = spectrogram[:, :, 0::downsample_step].contiguous()
         return spectrogram
     return f
 
@@ -93,23 +98,35 @@ def pad(takes, provides, length):
     return f
 
 
-def trim(takes, provides, sample_rate=22050, trigger_level=10.,
-         *args, **kwargs):
-    vad = transforms.Vad(
-        sample_rate=sample_rate,
-        trigger_level=trigger_level,
-        *args,
-        **kwargs)
+def trim(takes, provides, threshold=-30.):
+    """
+    Returns a pipeline element that removes silence from the beginning and
+    the end of the threshold
+
+    Arguments
+    ---------
+    threshold: float
+        the threshold, in decibels, below which samples will be considered
+        as silence
+    
+    Returns
+    -------
+    item: DynamicItem
+        A wrapped transformation function
+    """
+
     @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)    
+    @sb.utils.data_pipeline.provides(provides)
     def f(wav):
-        x = vad(wav.squeeze())
-        x = vad(x.flip(0)).flip(0)
-        return x
+        threshold_amp = math.pow(DB_BASE, threshold * DB_MULTIPLIER)
+        sound_pos = (wav > threshold_amp).nonzero()
+        first, last = sound_pos[0], sound_pos[-1]
+        return wav[first:last]
     return f
 
 
-def done(outputs_per_step=1, downsample_step=4):
+def done(outputs_per_step=1, downsample_step=4,
+         takes="target_lengths", provides="done"):
     """
     Returns a generator of "done" tensors where 0 indicates
     that decoding is still in progress, 1 indicates that decoding
@@ -127,12 +144,20 @@ def done(outputs_per_step=1, downsample_step=4):
     item: DynamicItem
         A wrapped transformation function
     """
-    @sb.utils.data_pipeline.takes("target_lengths")
-    @sb.utils.data_pipeline.provides("done")
-    def f(target_length):
-        done_length = target_length // outputs_per_step // downsample_step + 2
-        done = torch.zeros(done_length)
-        done[-2:] = 1.
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(target_lengths, padding=2):
+        batch_size = target_lengths.size(0)
+        done_lengths = target_lengths // outputs_per_step // downsample_step 
+        done = torch.zeros(
+            batch_size, done_lengths.max() + padding,
+            device=target_lengths.device)
+        ranges = torch.cat(
+            batch_size 
+            * [torch.arange(done.size(-1), device=target_lengths.device)
+               .unsqueeze(0)])
+        offsets = target_lengths.unsqueeze(-1)
+        done[ranges >= offsets] = 1.
         return done.unsqueeze(-1)
     
     return f
@@ -201,11 +226,20 @@ def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=
     return f
 
 
-
-@sb.utils.data_pipeline.takes("mel_raw")
-@sb.utils.data_pipeline.provides("target_lengths")
-def target_lengths(mel):
-    return mel.size(-1)
+def target_lengths(takes='mel_raw', provides='target_lengths'):
+    """
+    Returns a transformation function that computes the target lengths
+    """
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(mel):
+        """
+        Determines the 
+        """
+        nonzero = mel[:, 0, :].nonzero()    
+        _, counts = nonzero[:, 0].unique(return_counts=True)
+        return counts
+    return f
 
 
 def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
@@ -243,9 +277,6 @@ def pad_spectrogram(takes: str, provides: str, outputs_per_step: int, downsample
     return f
 
 
-DENORM_BASE = 10.
-DENORM_MULTIPLIER = 0.05
-
 def denormalize_spectrogram(min_level_db, ref_level_db, takes="linear", provides="linear_denorm"):
     """
     Reverses spectrogram normalization and converts it
@@ -268,6 +299,8 @@ def denormalize_spectrogram(min_level_db, ref_level_db, takes="linear", provides
     def f(spectrogram):
         x = torch.clip(spectrogram, 0., 1.) * -min_level_db + min_level_db
         x += ref_level_db
-        x = torch.pow(DENORM_BASE, x * DENORM_MULTIPLIER)
+        x = torch.pow(DB_BASE, x * DB_MULTIPLIER)
         return x
     return f
+
+

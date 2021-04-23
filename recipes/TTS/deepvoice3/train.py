@@ -1,3 +1,4 @@
+from speechbrain.utils.data_pipeline import DataPipeline
 import torch
 import torchvision
 import sys
@@ -24,6 +25,11 @@ from torchaudio import transforms
 class DeepVoice3Brain(sb.core.Brain):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.features_pipeline = DataPipeline(
+            static_data_keys=self.hparams.train_pipeline['output_keys'],
+            dynamic_items=self.hparams.features_pipeline['steps'],
+            output_keys=self.hparams.features_pipeline['output_keys'],
+        )
 
     def compute_forward(self, batch, stage, incremental=False):
         """Predicts the next word given the previous ones.
@@ -42,20 +48,25 @@ class DeepVoice3Brain(sb.core.Brain):
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
+        features = self.compute_features(batch)
 
         pred = self.hparams.model(
-            text_sequences=batch.text_sequences.data, 
+            text_sequences=features['text_sequences'], 
             mel_targets=
-                None if incremental else batch.mel.data.transpose(1, 2), 
-            text_positions=batch.text_positions.data,
+                None if incremental else features['mel'].transpose(1, 2), 
+            text_positions=features['text_positions'],
             frame_positions=
-                None if incremental else batch.frame_positions.data,
-            input_lengths=batch.input_lengths.data            
+                None if incremental else features['frame_positions'],
+            input_lengths=features['input_lengths'] 
         )
 
         return pred
 
     def fit_batch(self, *args, **kwargs):
+        """
+        Overrides fit_batch to run the NOAM scheduler on each update. See
+        the base class for details
+        """
         loss = super().fit_batch(*args, **kwargs)
         old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
         sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -80,11 +91,13 @@ class DeepVoice3Brain(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = batch.to(self.device)
+        # TODO: Avoid doing this twice
+        features = self.compute_features(batch)
         output_mel, output_linear, attention, output_done = predictions
-        target_mel = batch.mel.data.transpose(1, 2)
-        target_done = batch.done.data
-        target_linear = batch.linear.data.transpose(1, 2)
-        target_lengths = batch.target_lengths.data
+        target_mel = features['mel'].transpose(1, 2)
+        target_done = features['done']
+        target_linear = features['linear'].transpose(1, 2)
+        target_lengths = features['target_lengths']
         # TODO: Too much transposing going on - optimize
         if incremental:        
             output_mel = pad_to_length(
@@ -114,6 +127,26 @@ class DeepVoice3Brain(sb.core.Brain):
         
         return loss_stats.loss
 
+    def compute_features(self, batch):
+        """
+        Computes features by running a secondary pipeline - on
+        the GPU, if available
+
+        Arguments
+        ---------
+        batch: PaddedBatch
+            a padded batch instance
+        
+        Returns
+        -------
+        features: dict
+            computed features (see features_pipeline in the YAML
+            definition)
+        """
+        features = self.features_pipeline(batch.as_dict())
+        features = {key: value.to(self.device)
+                    for key, value in features.items()}
+        return features
     
     def on_fit_start(self):
         super().on_fit_start()
@@ -123,6 +156,9 @@ class DeepVoice3Brain(sb.core.Brain):
         self.last_loss_stats = {}
 
     def _save_progress_sample(self, epoch):
+        """
+        Saves a set of spectrogram samples 
+        """
         entries = [
             ('target_linear.png', self.last_target_linear),
             ('output_linear.png', self.last_output_linear),
@@ -133,13 +169,25 @@ class DeepVoice3Brain(sb.core.Brain):
             self._save_sample_image(file_name, data, epoch)
 
     def _save_sample_image(self, file_name, data, epoch):
+        """
+        Saves a single sample image
+        
+        Arguments
+        ---------
+        file_name: str
+            the target file name
+        data: torch.Tensor
+            the image data
+        epoch: int
+            the epoch number (used in file path calculations)
+        """
         target_path = os.path.join(
             self.hparams.progress_sample_path,
             str(epoch))
         if not os.path.exists(target_path):
             os.makedirs(target_path)
         effective_file_name = os.path.join(target_path, file_name)
-        sample = data.squeeze()
+        sample = data.transpose(-1, -2).squeeze()
         torchvision.utils.save_image(sample, effective_file_name)
 
     def _pad_output(self, tensor, value=0.):
@@ -239,7 +287,8 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         dataset.add_dynamic_item(element)
 
     dataset.set_output_keys(encoder_pipeline['output_keys'])
-    return SaveableDataLoader(dataset, collate_fn=collate_fn, **hparams["dataloader_options"])
+    return SaveableDataLoader(dataset, collate_fn=PaddedBatch, 
+                              **hparams["dataloader_options"])
 
 
 class SingleBatchLoader(DataLoader):
@@ -274,30 +323,6 @@ class SingleBatchWrapper(DataLoader):
             self.batch = next(iter(self.loader))
         for _ in range(self.num_iterations):
             yield self.batch
-
-
-def collate_fn(examples, *args, **kwargs):
-    """
-    The collation function, producing padded batches. An exceptional
-    behaviour is implemented for 'done' where it will be padded with
-    1s instead of 0s. Any additional arguments will be passed on to
-    PaddedBatch
-
-    Arguments
-    ---------
-    examples: list
-        the list of examples
-
-    Returns
-    -------
-    batch: PaddedBatch
-        a batch of examples
-    """    
-    max_done = max(example['done'].shape[0] for example in examples)
-    for example in examples:    
-        padding_size = max_done - example['done'].shape[0]
-        example['done'] = F.pad(example['done'], [0, 0, 0, padding_size], value=1)
-    return PaddedBatch(examples, *args, **kwargs)
 
 
 def dataio_prep(hparams):

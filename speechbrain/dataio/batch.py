@@ -181,3 +181,7 @@ class PaddedBatch:
         """Fetch an item by its position in the batch."""
         key = self.__keys[pos]
         return getattr(self, key)
+
+    def as_dict(self):
+        """Converts this padded batch to a dictioanry"""
+        return {key: getattr(self, key).data for key in self.__keys}

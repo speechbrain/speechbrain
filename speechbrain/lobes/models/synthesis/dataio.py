@@ -33,8 +33,8 @@ def wrap_transform(transform_type, takes=None, provides=None):
         transform = transform_type(*args, **kwargs)
         @sb.utils.data_pipeline.takes(takes or default_takes)
         @sb.utils.data_pipeline.provides(provides or default_provides)
-        def f(*args, **kwargs):
-            return transform(*args, **kwargs)
+        def f(*args, **kwargs):            
+            return transform.to(args[0].device)(*args, **kwargs)
         return f
 
     return decorator
