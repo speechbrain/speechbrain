@@ -17,7 +17,7 @@ outputs =  [
 ]
 
 title = "Speech Seperation"
-description = "demo for Speech Seperation. To use it, simply upload your audio, or click one of the examples to load them. Read more at the links below."
+description = "demo for Speech Seperation by SpeechBrain. To use it, simply upload your audio, or click one of the examples to load them. Read more at the links below."
 article = "<p style='text-align: center'><a href='https://arxiv.org/abs/2010.13154'>Attention is All You Need in Speech Separation</a> | <a href='https://github.com/speechbrain/speechbrain/tree/develop/recipes/WSJ0Mix/separation'>Github Repo</a></p>"
 examples = [
     ['samples/audio_samples/test_mixture.wav']
