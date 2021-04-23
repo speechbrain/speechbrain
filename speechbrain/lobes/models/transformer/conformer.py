@@ -6,10 +6,10 @@ Authors
 
 import torch
 import torch.nn as nn
-import speechbrain as sb
 from typing import Optional
 
 from speechbrain.nnet.attention import (
+    RelPosMHAXL,
     MultiheadAttention,
     PositionalwiseFeedForward,
 )
@@ -46,7 +46,7 @@ class ConvolutionModule(nn.Module):
     ):
         super().__init__()
 
-        self.norm = nn.LayerNorm(input_size)
+        self.layer_norm = nn.LayerNorm(input_size)
         self.convolution_module = nn.Sequential(
             # pointwise
             nn.Conv1d(
@@ -73,11 +73,11 @@ class ConvolutionModule(nn.Module):
         )
 
     def forward(self, x):
-        x = self.norm(x)
-        x = x.transpose(1, 2)
-        x = self.convolution_module(x)
-        x = x.transpose(1, 2)
-        return x
+        out = self.layer_norm(x)
+        out = out.transpose(1, 2)
+        out = self.convolution_module(out)
+        out = out.transpose(1, 2)
+        return out
 
 
 class ConformerEncoderLayer(nn.Module):
@@ -125,29 +125,44 @@ class ConformerEncoderLayer(nn.Module):
         activation=Swish,
         bias=True,
         dropout=0.1,
-        attention_type="regularMHA",
+        positional_encoding_type="absolute",
     ):
         super().__init__()
 
-        self.attention_type = attention_type
-        if attention_type == "regularMHA":
-            self.Multihead_attn = MultiheadAttention(
+        self.positional_encoding_type = positional_encoding_type
+        if (
+            positional_encoding_type == "absolute"
+        ):  # positional encoding should be added to the embedding in the input.
+            self.mha_layer = MultiheadAttention(
                 nhead=nhead,
                 d_model=d_model,
                 dropout=dropout,
                 kdim=kdim,
                 vdim=vdim,
             )
-        else:
-            self.Multihead_attn = sb.nnet.attention.RelPosMultiHeadAttention(
+        elif positional_encoding_type == "relativeXL":
+            self.mha_layer = RelPosMHAXL(
                 num_heads=nhead, embed_dim=d_model, dropout=dropout,
             )
+        else:
+            raise NotImplementedError
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout
         )
 
-        self.ffn_module = nn.Sequential(
+        self.ffn_module1 = nn.Sequential(
+            nn.LayerNorm(d_model),
+            PositionalwiseFeedForward(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            ),
+            nn.Dropout(dropout),
+        )
+
+        self.ffn_module2 = nn.Sequential(
             nn.LayerNorm(d_model),
             PositionalwiseFeedForward(
                 d_ffn=d_ffn,
@@ -169,22 +184,20 @@ class ConformerEncoderLayer(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
     ):
         # ffn module
-        x = x + 0.5 * self.ffn_module(x)
-
+        x = x + 0.5 * self.ffn_module1(x)
         # muti-head attention module
+        skip = x
         x = self.norm1(x)
-        output, self_attn = self.Multihead_attn(
+        x, self_attn = self.mha_layer(
             x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask,
         )
-
-        x = x + output
-
+        x = x + skip
         # convolution module
         x = x + self.convolution_module(x)
 
-        # ffb module
-        y = self.norm2(x + 0.5 * self.ffn_module(x))
-        return y, self_attn
+        # ffn module
+        x = self.norm2(x + 0.5 * self.ffn_module2(x))
+        return x, self_attn
 
 
 class ConformerEncoder(nn.Module):
@@ -235,7 +248,7 @@ class ConformerEncoder(nn.Module):
         activation=Swish,
         kernel_size=31,
         bias=True,
-        attention_type="regularMHA",
+        attention_type="absolute",
     ):
         super().__init__()
 
