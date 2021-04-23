@@ -355,7 +355,8 @@ class EncoderDecoderASR(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech.
+    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    specified in the *_NEEDED[] lists.
 
     Example
     -------
@@ -371,10 +372,8 @@ class EncoderDecoderASR(Pretrained):
 
     HPARAMS_NEEDED = ["tokenizer"]
     MODULES_NEEDED = [
-        "compute_features",
-        "normalize",
-        "asr_encoder",
-        "beam_searcher",
+        "encoder",
+        "decoder",
     ]
 
     def __init__(self, *args, **kwargs):
@@ -429,9 +428,7 @@ class EncoderDecoderASR(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
-        encoder_out = self.modules.asr_encoder(feats)
+        encoder_out = self.modules.encoder(wavs, wav_lens)
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
@@ -463,7 +460,7 @@ class EncoderDecoderASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.modules.beam_searcher(
+            predicted_tokens, scores = self.modules.decoder(
                 encoder_out, wav_lens
             )
             predicted_words = [
