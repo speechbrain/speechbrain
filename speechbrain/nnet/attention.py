@@ -398,25 +398,29 @@ class RelPosMHAXL(nn.Module):
         self.num_heads = num_heads
         self.dropout = dropout
         self.head_dim = embed_dim // num_heads
+        self.vhead_dim = self.vdim // num_heads
+
         assert (
             self.head_dim * num_heads == self.embed_dim
         ), "embed_dim must be divisible by num_heads"
+        assert (
+            self.vhead_dim * num_heads == self.vdim
+        ), "vdim must be divisible by num_heads"
 
         if self._qkv_same_embed_dim is False:
             self.qk_proj_weight = nn.Parameter(
-                torch.Tensor(embed_dim, embed_dim * 2)
+                torch.Tensor(2 * embed_dim, embed_dim)
             )
             self.v_proj_weight = nn.Parameter(
-                torch.Tensor(embed_dim, self.vdim)
+                torch.Tensor(self.vdim, embed_dim)
             )
         else:
             self.in_proj_weight = nn.Parameter(
                 torch.empty(3 * embed_dim, embed_dim)
             )
-            # self.register_buffer("in_proj_weight", self.in_proj_weight)
 
         if vbias:
-            self.value_bias_weight = nn.Parameter(torch.empty(embed_dim))
+            self.value_bias_weight = nn.Parameter(torch.empty(self.vdim))
 
         self.dropout_att = nn.Dropout(dropout)
         self.out_proj = nn.Linear(self.vdim, embed_dim)
@@ -432,9 +436,9 @@ class RelPosMHAXL(nn.Module):
         )
 
         if next(self.parameters()).dtype == torch.float16:
-            self.mask_fill_value = -65000
+            self.attn_fill_value = -65000
         else:
-            self.mask_fill_value = -1e30
+            self.attn_fill_value = -1e30
 
         self._reset_parameters()
         self.scale = math.sqrt(self.embed_dim)
@@ -530,6 +534,7 @@ class RelPosMHAXL(nn.Module):
         # query, key and value are of shape batch, time, embed_dim
         bsz = query.shape[0]
         klen = key.shape[1]
+        qlen = query.shape[1]
 
         if self._qkv_same_embed_dim:
             if (query is key or torch.equal(query, key)) and (
@@ -547,13 +552,13 @@ class RelPosMHAXL(nn.Module):
                 .view(bsz, -1, self.num_heads, self.head_dim * 2)
                 .chunk(2, dim=-1)
             )
-            value = self.v_proj(value).view(
-                bsz, -1, self.vhead_dim, self.num_heads
+            value = nn.functional.linear(value, self.v_proj_weight).view(
+                bsz, -1, self.num_heads, self.vhead_dim
             )
 
         if self.vbias:
             value += self.value_bias_weight.view(
-                1, 1, self.vhead_dim, self.num_heads
+                1, 1, self.num_heads, self.vhead_dim
             )
 
         p = self.linear_pos(pos_emb).view(1, -1, self.num_heads, self.head_dim)
@@ -578,21 +583,13 @@ class RelPosMHAXL(nn.Module):
 
         # compute attention probability
         if attn_mask is not None:
-            if attn_mask.dim() == 2:
-                attn_score = attn_score.masked_fill(
-                    attn_mask[:, :, None, None], self.attn_fill_value
-                )
-            elif attn_mask.dim() == 3:
-                attn_score = attn_score.masked_fill(
-                    attn_mask[:, :, :, None], self.attn_fill_value
-                )
+            attn_score = attn_score.masked_fill(
+                attn_mask.view(1, 1, qlen, klen), self.attn_fill_value
+            )
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
-                key_padding_mask.transpose(0, 1)
-                .unsqueeze(0)
-                .reshape(1, klen, bsz, 1),
-                self.attn_fill_value,
+                key_padding_mask.unsqueeze(1), self.attn_fill_value,
             )
 
         attn_score = F.softmax(attn_score, dim=1)
