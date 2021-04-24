@@ -141,6 +141,7 @@ class ConformerEncoderLayer(nn.Module):
                 vdim=vdim,
             )
         elif positional_encoding_type == "relativeXL":
+            # transformerXL style positional encoding
             self.mha_layer = RelPosMHAXL(
                 num_heads=nhead, embed_dim=d_model, dropout=dropout,
             )

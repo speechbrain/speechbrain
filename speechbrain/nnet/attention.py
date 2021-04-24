@@ -14,6 +14,7 @@ import numpy as np
 from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
 import torch.nn.functional as F
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -307,29 +308,61 @@ class KeyValueAttention(nn.Module):
         return out, normalized_scores
 
 
-class RelPosMHAPositional(nn.Module):
-    def __init__(self, demb):
+class RelPosEncXL(nn.Module):
+    """
+
+    """
+
+    def __init__(self, emb_dim):
         super().__init__()
-        self.demb = demb
-        inv_freq = 1 / (10000 ** (torch.arange(0.0, demb, 2.0) / demb))
+        self.emb_dim = emb_dim
+
+        inv_freq = torch.exp(
+            torch.arange(0, self.emb_dim, 2, dtype=torch.float32)
+            * -(math.log(10000.0) / self.emb_dim)
+        )
         self.register_buffer("inv_freq", inv_freq)
 
-    def forward(self, pos_seq, bsz=None):
-        sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
-        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
-        if bsz is not None:
-            return pos_emb[:, None, :].expand(-1, bsz, -1)
-        else:
-            return pos_emb[:, None, :]
+    def forward(self, x: torch.Tensor):
+        """
+        Parameters
+        ----------
+        x : torch.Tensor
+        input tensor with shape seq_len, batch_size, embed_dim
+        Returns
+        -------
+        pos_emb : torch.Tensor
+        """
+        seq_len = x.size(1)
+        with torch.no_grad():
+            tot_pe = torch.zeros((2, seq_len, self.emb_dim), dtype=x.dtype).to(
+                x
+            )
+            pe_past = tot_pe[0]
+            pe_future = tot_pe[1]
+            positions = (
+                torch.arange(0, seq_len, dtype=x.dtype).to(x).unsqueeze(-1)
+            )
+            sinusoids = torch.sin(positions * self.inv_freq)
+            pe_past[:, 0::2] = sinusoids
+            pe_past[:, 1::2] = torch.cos(positions * self.inv_freq)
+            pe_future[:, 0::2] = sinusoids  # same for past and future
+            pe_future[:, 1::2] = torch.cos(-positions * self.inv_freq)
+
+            pe_past = torch.flip(pe_past, (0,)).unsqueeze(0)
+            pe_future = pe_future[1:].unsqueeze(0)
+            pe = torch.cat([pe_past, pe_future], dim=1)
+            # pe is now 1, 2*seq_len, embed_dim
+            return pe
 
 
-class RelPosMultiHeadAttention(nn.Module):
+class RelPosMHAXL(nn.Module):
     """ This class implements the relative multihead implementation similar to that in Transformer XL
     https://arxiv.org/pdf/1901.02860.pdf
 
     Arguments
     ---------
-    enbed_dim : int
+    embed_dim : int
         Size of the encoder feature vectors from which keys and values are computed.
     num_heads: int
         Number of parallel attention heads
@@ -349,145 +382,202 @@ class RelPosMultiHeadAttention(nn.Module):
         self,
         embed_dim,
         num_heads,
-        head_dim=None,
         dropout=0.0,
-        bias=False,
-        rr_bias=None,
-        rw_bias=None,
-        mask_future_pos=False,
+        vbias=None,
+        add_zero_attn=False,
+        vdim=None,
+        mask_pos_future=False,
     ):
-        super().__init__()
+        super(RelPosMHAXL, self).__init__()
         self.embed_dim = embed_dim
+        self.vdim = vdim if vdim is not None else embed_dim
+        self._qkv_same_embed_dim = self.vdim == embed_dim
+        self.mask_pos_future = mask_pos_future
+        self.vbias = vbias
+
         self.num_heads = num_heads
-        self.dropout = nn.Dropout(dropout)
-        self.mask_future_pos = mask_future_pos
+        self.dropout = dropout
+        self.head_dim = embed_dim // num_heads
+        assert (
+            self.head_dim * num_heads == self.embed_dim
+        ), "embed_dim must be divisible by num_heads"
 
-        if head_dim is None:
-            self.head_dim = embed_dim // num_heads
-            assert (
-                self.head_dim * num_heads == self.embed_dim
-            ), "embed_dim must be divisible by num_heads"
-        else:
-            self.head_dim = head_dim
-
-        self.pos_enc = RelPosMHAPositional(embed_dim)
-
-        self.q_proj = nn.Linear(
-            embed_dim, self.head_dim * self.num_heads, bias=False
-        )
-        self.k_proj = nn.Linear(
-            embed_dim, self.head_dim * self.num_heads, bias=False
-        )
-        self.v_proj = nn.Linear(
-            embed_dim, self.head_dim * self.num_heads, bias=bias
-        )
-        self.r_proj = nn.Linear(
-            embed_dim, self.head_dim * self.num_heads, bias=False
-        )
-        self.out_proj = nn.Linear(
-            self.head_dim * self.num_heads, embed_dim, bias=bias
-        )
-
-        self.scale = 1 / (self.head_dim ** 0.5)
-
-        if (
-            rr_bias is None or rw_bias is None
-        ):  # Learned position biases are not shared
-            self.r_r_bias = nn.Parameter(
-                torch.FloatTensor(self.num_heads, self.head_dim)
+        if self._qkv_same_embed_dim is False:
+            self.qk_proj_weight = nn.Parameter(
+                torch.Tensor(embed_dim, embed_dim * 2)
             )
-            self.r_w_bias = nn.Parameter(
-                torch.FloatTensor(self.num_heads, self.head_dim)
+            self.v_proj_weight = nn.Parameter(
+                torch.Tensor(embed_dim, self.vdim)
             )
-            self.rel_shared = False
         else:
-            self.r_r_bias = rr_bias
-            self.r_w_bias = rw_bias
-            self.rel_shared = True
+            self.in_proj_weight = nn.Parameter(
+                torch.empty(3 * embed_dim, embed_dim)
+            )
+            # self.register_buffer("in_proj_weight", self.in_proj_weight)
 
-        self._init_params()
+        if vbias:
+            self.value_bias_weight = nn.Parameter(torch.empty(embed_dim))
+
+        self.dropout_att = nn.Dropout(dropout)
+        self.out_proj = nn.Linear(self.vdim, embed_dim)
+
+        self.add_zero_attn = add_zero_attn
+        self.linear_pos = nn.Linear(embed_dim, embed_dim, bias=False)
+
+        self.pos_bias_u = nn.Parameter(
+            torch.Tensor(self.head_dim, self.num_heads)
+        )
+        self.pos_bias_v = nn.Parameter(
+            torch.Tensor(self.head_dim, self.num_heads)
+        )
 
         if next(self.parameters()).dtype == torch.float16:
-            self.attn_fill_value = -65000
+            self.mask_fill_value = -65000
         else:
-            self.attn_fill_value = -1e30
+            self.mask_fill_value = -1e30
 
-    def _init_params(self):
+        self._reset_parameters()
+        self.scale = math.sqrt(self.embed_dim)
+        # self.pos_emb = RelPosEncXL(self.embed_dim)
 
-        torch.nn.init.xavier_uniform_(self.q_proj.weight)
-        torch.nn.init.xavier_uniform_(self.k_proj.weight)
-        torch.nn.init.xavier_uniform_(self.v_proj.weight)
-        torch.nn.init.xavier_uniform_(self.r_proj.weight)
-        if not self.rel_shared:
-            torch.nn.init.xavier_uniform_(self.r_r_bias)
-            torch.nn.init.xavier_uniform_(self.r_w_bias)
+    def _reset_parameters(self):
+        if self._qkv_same_embed_dim:
+            torch.nn.init.xavier_uniform_(self.in_proj_weight)
+        else:
+            torch.nn.init.xavier_uniform_(self.qk_proj_weight)
+            torch.nn.init.xavier_uniform_(self.v_proj_weight)
 
-    def _get_rel_pos_enc(self, x):
+        if self.vbias is not None:
+            torch.nn.init.constant_(self.value_bias_weight, 0.0)
 
-        pos_seq = torch.arange(
-            x.size(0) - 1, -1, -1.0, device=x.device, dtype=x.dtype
+        # positional biases
+        torch.nn.init.xavier_uniform_(self.pos_bias_u)
+        torch.nn.init.xavier_uniform_(self.pos_bias_v)
+
+    def rel_shift(self, x):
+        # batch, head, time1, 2*time1-1.
+
+        zero_pad = torch.zeros(
+            (*x.size()[:3], 1), device=x.device, dtype=x.dtype
         )
-        pos_enc = self.pos_enc(pos_seq)
+        x_padded = torch.cat([zero_pad, x], dim=-1)
 
-        return pos_enc
+        x_padded = x_padded.view(*x.size()[:2], x.size(3) + 1, x.size(2))
+        x = x_padded[:, :, 1:].view_as(x)[
+            :, :, :, : x.size(-1) // 2 + 1
+        ]  # only keep the positions from 0 to time2
 
-    def _rel_shift(self, x):
-
-        zero_pad_shape = (x.size(0), 1) + x.size()[2:]
-        zero_pad = torch.zeros(zero_pad_shape, device=x.device, dtype=x.dtype)
-        x_padded = torch.cat([zero_pad, x], dim=1)
-        x_padded_shape = (x.size(1) + 1, x.size(0)) + x.size()[2:]
-        x_padded = x_padded.view(*x_padded_shape)
-        x = x_padded[1:].view_as(x)
-
-        if self.mask_future_pos:
-            ones = torch.ones((x.size(0), x.size(1)), device=x.device)
-            ones = torch.tril(ones, x.size(1) - x.size(0))[:, :, None, None]
-            x = x.masked_fill(ones, 0.0)
+        if self.mask_pos_future:
+            ones = torch.ones((x.size(2), x.size(3)), device=x.device)
+            x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :]
 
         return x
 
-    def forward(self, query, key, value, key_padding_mask=None, attn_mask=None):
+    def forward(
+        self,
+        query,
+        key,
+        value,
+        pos_emb,
+        key_padding_mask=None,
+        attn_mask=None,
+        return_attn_weights=True,
+    ):
+        """
+        Arguments
+        ----------
+        query : tensor
+            (B, L, E) where L is the target sequence length,
+            B is the batch size, E is the embedding dimension.
+        key : tensor
+            (B, S, E) where S is the source sequence length,
+            B is the batch size, E is the embedding dimension.
+        value : tensor
+            (B, S, E) where S is the source sequence length,
+            B is the batch size, E is the embedding dimension.
+        pos_emb : tensor
+            bidirectional sinusoidal positional embedding tensor (1, 2*S-1, E) where S is the max length between source and target sequence lengths,
+            and E is the embedding dimension.
+        key_padding_mask : tensor
+            (B, S) where B is the batch size, S is the source sequence
+            length. If a ByteTensor is provided, the non-zero positions will
+            be ignored while the position with the zero positions will be
+            unchanged. If a BoolTensor is provided, the positions with the
+            value of True will be ignored while the position with the value
+            of False will be unchanged.
+        attn_mask : tensor
+            2D mask (L, S) where L is the target sequence length, S is
+            the source sequence length.
+            3D mask (N*num_heads, L, S) where N is the batch
+            size, L is the target sequence length, S is the source sequence
+            length. attn_mask ensure that position i is allowed to attend the
+            unmasked positions. If a ByteTensor is provided, the non-zero
+            positions are not allowed to attend while the zero positions will
+            be unchanged. If a BoolTensor is provided, positions with True is
+            not allowed to attend while False values will be unchanged. If a
+            FloatTensor is provided, it will be added to the attention weight.
 
-        qlen, bsz, embed_dim = query.size()
-        klen = key.size(0)
-        assert bsz == value.size(1) == query.size(1)
-        assert klen == value.size(0)
+        Outputs
+        -------
+        out : tensor
+            (B, L, E) where L is the target sequence length, B is the
+            batch size, E is the embedding dimension.
+        attn_score : tensor
+            (B, L, S) where B is the batch size, L is the target
+            sequence length, S is the source sequence length.
+        """
 
-        r = self._get_rel_pos_enc(key)
-        assert r.size(0) == klen
+        # query, key and value are of shape batch, time, embed_dim
+        bsz = query.shape[0]
+        klen = key.shape[1]
 
-        if key_padding_mask is not None:
-            assert key_padding_mask.size(0) == bsz
-            assert key_padding_mask.size(1) == klen
+        if self._qkv_same_embed_dim:
+            if (query is key or torch.equal(query, key)) and (
+                key is value or torch.equal(key, value)
+            ):
+                # self-attention
+                query, key, value = (
+                    nn.functional.linear(query, self.in_proj_weight)
+                    .view(bsz, -1, self.num_heads, self.head_dim * 3)
+                    .chunk(3, dim=-1)
+                )
+        else:
+            query, key = (
+                nn.functional.linear(query, self.qk_proj_weight)
+                .view(bsz, -1, self.num_heads, self.head_dim * 2)
+                .chunk(2, dim=-1)
+            )
+            value = self.v_proj(value).view(
+                bsz, -1, self.vhead_dim, self.num_heads
+            )
 
-        k = self.k_proj(key).view(klen, bsz, self.num_heads, self.head_dim)
-        v = self.v_proj(value).view(klen, bsz, self.num_heads, self.head_dim)
-        q = self.q_proj(query).view(qlen, bsz, self.num_heads, self.head_dim)
+        if self.vbias:
+            value += self.value_bias_weight.view(
+                1, 1, self.vhead_dim, self.num_heads
+            )
 
-        r = self.r_proj(r).view(
-            klen, self.num_heads, self.head_dim
-        )  # for rel_pos
-        # qlen x num_heads x d_head
+        p = self.linear_pos(pos_emb).view(1, -1, self.num_heads, self.head_dim)
 
-        # compute attention score
-        r_w_q = q + self.r_w_bias  # qlen x bsz x num_heads x d_head
-        AC = torch.einsum(
-            "ibnd,jbnd->ijbn", (r_w_q, k)
-        )  # qlen x klen x bsz x num_heads
+        # (batch, head, time1, d_k)
+        q_with_bias_u = (
+            query + self.pos_bias_u.reshape(1, 1, self.num_heads, self.head_dim)
+        ).transpose(1, 2)
+        # (batch, head, time1, d_k)
+        q_with_bias_v = (
+            query + self.pos_bias_v.reshape(1, 1, self.num_heads, self.head_dim)
+        ).transpose(1, 2)
 
-        r_r_q = q + self.r_r_bias
-        BD = torch.einsum(
-            "ibnd,jnd->ijbn", (r_r_q, r)
-        )  # qlen x klen x bsz x num_heads
-        BD = self._rel_shift(BD)
+        # (batch, head, time1, time2)
+        matrix_ac = torch.matmul(q_with_bias_u, key.permute(0, 2, 3, 1))
 
-        # [qlen x klen x bsz x num_heads]
-        attn_score = AC + BD
-        attn_score.mul_(self.scale)
+        # (batch, num_heads, qlen, 2*qlen-1)
+        matrix_bd = torch.matmul(q_with_bias_v, p.permute(0, 2, 3, 1))
+        matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
+
+        attn_score = (matrix_ac + matrix_bd) * self.scale
 
         # compute attention probability
-        if attn_mask is not None and torch.sum(attn_mask).item():
+        if attn_mask is not None:
             if attn_mask.dim() == 2:
                 attn_score = attn_score.masked_fill(
                     attn_mask[:, :, None, None], self.attn_fill_value
@@ -505,25 +595,21 @@ class RelPosMultiHeadAttention(nn.Module):
                 self.attn_fill_value,
             )
 
-        # [qlen x klen x bsz x num_heads]
-        attn_prob = F.softmax(attn_score / (embed_dim ** 0.5), dim=1)
-        attn_prob = self.dropout(attn_prob)
+        attn_score = F.softmax(attn_score, dim=1)
+        attn_score = self.dropout_att(attn_score)
+        x = torch.matmul(
+            attn_score, value.transpose(1, 2)
+        )  # (batch, head, time1, d_k)
+        x = (
+            x.transpose(1, 2)
+            .contiguous()
+            .view(bsz, -1, self.vhead_dim * self.num_heads)
+        )  # (batch, time1, d_model)
 
-        # compute attended vector
-        attn_vec = torch.einsum("ijbn,jbnd->ibnd", (attn_prob, v))
-
-        # [qlen x bsz x num_heads x d_head]
-        attn_vec = attn_vec.contiguous().view(
-            attn_vec.size(0), attn_vec.size(1), self.num_heads * self.head_dim
-        )
-
-        # linear projection
-        attn_out = self.out_proj(attn_vec)
-
-        # reshape the output back to (batch, time, fea)
-        attn_out = attn_out.permute(1, 0, 2)
-
-        return attn_out, attn_prob
+        out = self.out_proj(x)
+        if return_attn_weights:
+            return out, attn_score
+        return out
 
 
 class MultiheadAttention(nn.Module):
@@ -588,21 +674,22 @@ class MultiheadAttention(nn.Module):
         value,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
+        return_attn_weights: Optional[torch.Tensor] = True,
     ):
         """
         Arguments
         ----------
         query : tensor
-            (L, N, E) where L is the target sequence length,
-            N is the batch size, E is the embedding dimension.
+            (B, L, E) where L is the target sequence length,
+            B is the batch size, E is the embedding dimension.
         key : tensor
-            (S, N, E) where S is the source sequence length,
-            N is the batch size, E is the embedding dimension.
+            (B, S, E) where S is the source sequence length,
+            B is the batch size, E is the embedding dimension.
         value : tensor
-            (S, N, E) where S is the source sequence length,
-            N is the batch size, E is the embedding dimension.
+            (B, S, E) where S is the source sequence length,
+            B is the batch size, E is the embedding dimension.
         key_padding_mask : tensor
-            (N, S) where N is the batch size, S is the source sequence
+            (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
             be ignored while the position with the zero positions will be
             unchanged. If a BoolTensor is provided, the positions with the
@@ -623,10 +710,10 @@ class MultiheadAttention(nn.Module):
         Outputs
         -------
         attn_output : tensor
-            (L, N, E) where L is the target sequence length, N is the
+            (B, L, E) where L is the target sequence length, B is the
             batch size, E is the embedding dimension.
         attn_output_weights : tensor
-            (N, L, S) where N is the batch size, L is the target
+            (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
         # give tensors of shape (time, batch, fea)
@@ -634,18 +721,23 @@ class MultiheadAttention(nn.Module):
         key = key.permute(1, 0, 2)
         value = value.permute(1, 0, 2)
 
-        output, attention = self.att(
+        output = self.att(
             query,
             key,
             value,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
+            need_weights=return_attn_weights,
         )
 
-        # reshape the output back to (batch, time, fea)
-        output = output.permute(1, 0, 2)
-
-        return output, attention
+        if return_attn_weights:
+            output, attention_weights = output
+            # reshape the output back to (batch, time, fea)
+            output = output.permute(1, 0, 2)
+            return output, attention_weights
+        else:
+            output = output.permute(1, 0, 2)
+            return output
 
 
 class PositionalwiseFeedForward(nn.Module):
