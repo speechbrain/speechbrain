@@ -69,12 +69,12 @@ class CNNTransformerSE(TransformerInterface):
             d_ffn=d_ffn,
             dropout=dropout,
             activation=activation,
-            positional_encoding=False,
+            positional_encoding=None,
             normalize_before=normalize_before,
+            causal=causal,
         )
 
         self.custom_emb_module = custom_emb_module
-        self.causal = causal
         self.output_layer = Linear(output_size, input_size=d_model, bias=False)
         self.output_activation = output_activation()
 
