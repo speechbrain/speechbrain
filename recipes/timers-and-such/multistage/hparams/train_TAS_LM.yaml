@@ -11,7 +11,8 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/TAS_LM/<seed>
+experiment: train-real-and-synth
+output_folder: !ref results/TAS_LM/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -20,12 +21,15 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <output_folder>/train-type=multistage.csv
-csv_valid: !ref <output_folder>/dev-real-type=multistage.csv
+csv_dev_real: !ref <output_folder>/dev-real-type=multistage.csv
+csv_dev_synth: !ref <output_folder>/dev-synth-type=multistage.csv
 csv_test_real: !ref <output_folder>/test-real-type=multistage.csv
 csv_test_synth: !ref <output_folder>/test-synth-type=multistage.csv
-tokenizer_file: https://www.dropbox.com/s/56nv6nmaz5ov1q8/51_unigram.model?dl=1
+csv_all_real: !ref <output_folder>/all-real-type=multistage.csv
+tokenizer_file: https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr/resolve/main/tokenizer.ckpt
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
+test_on_all_real: False
 
 # Training parameters
 number_of_epochs: 1
@@ -65,7 +69,7 @@ asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
     run_opts: {"device":"cuda:0"}
     overrides:
         beam_size: !ref <asr_beam_size>
-        lm_model: #!new:speechbrain.lobes.models.RNNLM.RNNLM
+        lm_model:
             output_neurons: !ref <num_asr_tokens>
             embedding_dim: 128
             dropout: 0.

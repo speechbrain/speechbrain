@@ -6,7 +6,7 @@
 SpeechBrain
 =======================================
 
-.. image:: ../images/logo_noname_rounded_big.png
+.. image:: images/logo_noname_rounded_big.png
   :width: 400
   :align: center
 
@@ -59,8 +59,8 @@ API Documentation
    :hidden:
    :maxdepth: 3
 
-   Core library (speechbrain) <speechbrain>
-   Runnable Tools (tools) <tools>
+   Core library (speechbrain) <API/speechbrain>
+   HyperPyYAML (hyperpyyaml) <API/hyperpyyaml>
 
 .. autosummary::
 
