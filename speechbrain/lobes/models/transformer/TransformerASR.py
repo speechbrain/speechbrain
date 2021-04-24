@@ -71,13 +71,15 @@ class TransformerASR(TransformerInterface):
         d_ffn=2048,
         dropout=0.1,
         activation=nn.ReLU,
-        positional_encoding=True,
+        positional_encoding="fixed_abs_sine",
         normalize_before=False,
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
         attention_type: Optional[str] = "regularMHA",
+        max_length: Optional[int] = 5000,
+        causal: Optional[bool] = True,
     ):
         super().__init__(
             d_model=d_model,
@@ -94,6 +96,8 @@ class TransformerASR(TransformerInterface):
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
             attention_type=attention_type,
+            max_length=max_length,
+            causal=causal,
         )
 
         self.custom_src_module = ModuleList(
@@ -139,22 +143,37 @@ class TransformerASR(TransformerInterface):
         ) = self.make_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         src = self.custom_src_module(src)
-        if hasattr(self, "positional_encoding"):
-            src = src + self.positional_encoding(src)
+        # add pos encoding to queries if are sinusoidal ones else
+        if self.attention_type == "RelPosMHAXL":
+            pos_embs_encoder = self.positional_encoding(src)
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            src = src + self.positional_encoding(src)  # add the encodings here
+            pos_embs_encoder = None
+
         encoder_out, _ = self.encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs_encoder,
         )
 
         tgt = self.custom_tgt_module(tgt)
+
+        if self.attention_type == "RelPosMHAXL":
+            pos_embs_decoder = self.positional_encoding(src)
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+            pos_embs_decoder = None
+
         if hasattr(self, "positional_encoding"):
             tgt = tgt + self.positional_encoding(tgt)
+
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            pos_embs=pos_embs_decoder,
         )
 
         return encoder_out, decoder_out
