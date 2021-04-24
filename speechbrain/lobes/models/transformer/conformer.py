@@ -108,8 +108,9 @@ class ConformerEncoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
+    >>> pos_embs = torch.rand((1, 2*60-1, 512))
     >>> net = ConformerEncoderLayer(d_ffn=512, nhead=8, d_model=512, kernel_size=3)
-    >>> output = net(x)
+    >>> output = net(x, pos_embs=pos_embs)
     >>> output[0].shape
     torch.Size([8, 60, 512])
     """
@@ -126,7 +127,7 @@ class ConformerEncoderLayer(nn.Module):
         bias=True,
         dropout=0.1,
         causal=False,
-        attention_type="RelPosMHA",
+        attention_type="RelPosMHAXL",
     ):
         super().__init__()
 
@@ -138,10 +139,13 @@ class ConformerEncoderLayer(nn.Module):
                 kdim=kdim,
                 vdim=vdim,
             )
-        elif attention_type == "RelPosMHA":
+        elif attention_type == "RelPosMHAXL":
             # transformerXL style positional encoding
             self.mha_layer = RelPosMHAXL(
-                num_heads=nhead, embed_dim=d_model, dropout=dropout,
+                num_heads=nhead,
+                embed_dim=d_model,
+                dropout=dropout,
+                mask_pos_future=causal,
             )
 
         self.convolution_module = ConvolutionModule(
@@ -197,7 +201,6 @@ class ConformerEncoderLayer(nn.Module):
         x = x + skip
         # convolution module
         x = x + self.convolution_module(x)
-
         # ffn module
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn
@@ -232,8 +235,9 @@ class ConformerEncoder(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
+    >>> pos_emb = torch.rand((1, 2*60-1, 512))
     >>> net = ConformerEncoder(1, 8, 512, d_model=512)
-    >>> output, _ = net(x)
+    >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
     """

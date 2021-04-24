@@ -64,7 +64,7 @@ class TransformerInterface(nn.Module):
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
         attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 5000,
+        max_length: Optional[int] = 2500,
         causal: Optional[bool] = False,
     ):
         super().__init__()
@@ -633,7 +633,7 @@ class TransformerDecoder(nn.Module):
         activation=nn.ReLU,
         normalize_before=False,
         causal=False,
-        attention_type="regular_MHA",
+        attention_type="regularMHA",
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
