@@ -70,6 +70,7 @@ class TransformerInterface(nn.Module):
         super().__init__()
         self.causal = causal
         self.attention_type = attention_type
+        self.positional_encoding_type = positional_encoding
 
         assert attention_type in ["regularMHA", "RelPosMHAXL"]
         assert positional_encoding in ["fixed_abs_sine"]
