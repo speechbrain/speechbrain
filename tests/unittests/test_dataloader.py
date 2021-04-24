@@ -28,7 +28,7 @@ def test_saveable_dataloader_multiprocess(tmpdir):
 
     save_file = tmpdir + "/dataloader.ckpt"
     dataset = torch.randn(10, 1)
-    for num_parallel in [1, 2, 10, 12]:
+    for num_parallel in [1, 2, 3, 4]:
         dataloader = SaveableDataLoader(
             dataset, num_workers=num_parallel, collate_fn=None
         )  # Note num_workers

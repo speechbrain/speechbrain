@@ -26,6 +26,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 ### Speech recognition
 
 SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
+- Support of wav2vec 2.0 pretrained model with finetuning.
 - State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models including RNNLM and TransformerLM. We also propose few pre-trained models to save you computations (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
@@ -37,7 +38,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 ### Feature extraction and augmentation
 
 SpeechBrain provides efficient and GPU-friendly speech augmentation pipelines and acoustic feature extraction:
-- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk). 
+- On-the-fly and fully-differentiable acoustic feature extraction: filter banks can be learned. This simplifies the training pipeline (you don't have to dump features on disk).
 - On-the-fly feature normalization (global, sentence, batch, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment.
@@ -66,6 +67,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
+| TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (French) | Speech Recognition | CRDNN | WER=17.7% (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.13% (lapel-mix)|
@@ -139,6 +141,10 @@ In SpeechBrain, you can run experiments in this way:
 ```
 
 The results will be saved in the `output_folder` specified in the yaml file. The folder is created by calling `sb.core.create_experiment_directory()` in `experiment.py`. Both detailed logs and experiment outputs are saved there. Furthermore, less verbose logs are output to stdout.
+
+# SpeechBrain Roadmap
+
+As a community-based and open source project, SpeechBrain needs the help of its community to grow in the right direction. Opening the roadmap to our users enable the toolkit to benefit from new ideas, new research axes or even new technologies. The roadmap, available on our [Discourse](https://speechbrain.discourse.group/t/speechbrain-a-community-roadmap/179) lists all the changes and updates that need to be done in the current version of SpeechBrain. Users are more than welcome to propose new items via new Discourse topics!
 
 # Learning SpeechBrain
 

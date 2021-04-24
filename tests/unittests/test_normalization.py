@@ -50,6 +50,8 @@ def test_BatchNorm1d():
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
 
+    assert torch.jit.trace(norm, input)
+
 
 def test_BatchNorm2d():
 
@@ -65,6 +67,8 @@ def test_BatchNorm2d():
 
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
+
+    assert torch.jit.trace(norm, input)
 
 
 def test_LayerNorm():
@@ -93,6 +97,8 @@ def test_LayerNorm():
     current_std = output.std(dim=[2, 3]).mean()
     assert torch.abs(1.0 - current_std) < 0.01
 
+    assert torch.jit.trace(norm, input)
+
 
 def test_InstanceNorm1d():
 
@@ -109,6 +115,8 @@ def test_InstanceNorm1d():
     current_std = output.std(dim=2).mean()
     assert torch.abs(1.0 - current_std) < 0.01
 
+    assert torch.jit.trace(norm, input)
+
 
 def test_InstanceNorm2d():
 
@@ -124,3 +132,5 @@ def test_InstanceNorm2d():
 
     current_std = output.std(dim=[2, 3]).mean()
     assert torch.abs(1.0 - current_std) < 0.01
+
+    assert torch.jit.trace(norm, input)

@@ -27,8 +27,6 @@ def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
 
       "direct":{input=audio, output=semantics}
       "multistage":{input=audio, output=semantics} (using ASR transcripts in the middle)
-      "joint-transcript-semantics":{input=audio, output=transcript+semantics}
-      "joint-semantics-transcript":{input=audio, output=semantics+transcript}
       "decoupled":{input=transcript, output=semantics} (using ground-truth transcripts)
 
     train_splits : list of splits to be joined to form train .csv
@@ -54,7 +52,7 @@ def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
         # Check for zip file and download if it doesn't exist
         zip_location = os.path.join(data_folder, "timers-and-such.zip")
         if not os.path.exists(zip_location):
-            url = "https://zenodo.org/record/4110812/files/timers-and-such.zip?download=1"
+            url = "https://zenodo.org/record/4623772/files/timers-and-such-v1.0.zip?download=1"
             download_file(url, zip_location, unpack=True)
         else:
             logger.info("Extracting timers-and-such.zip...")
@@ -151,9 +149,6 @@ def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
             transcript_opts.append(None)
 
             semantics_ = df.semantics[i].replace(
-                ",", "|"
-            )  # Commas in dict will make using csv files tricky; replace with pipe.
-            semantics_ = semantics_.replace(
                 ".3333333333333333", ".33"
             )  # Fix formatting error in some labels
             if type == "direct" or type == "multistage" or type == "decoupled":
@@ -185,3 +180,10 @@ def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):
     # Merge train splits
     train_splits = [split + "-type=%s.csv" % type for split in train_splits]
     merge_csvs(save_folder, train_splits, "train-type=%s.csv" % type)
+
+    # Create "all-real" split
+    real_splits = [
+        split + "-type=%s.csv" % type
+        for split in ["train-real", "dev-real", "test-real"]
+    ]
+    merge_csvs(save_folder, real_splits, "all-real-type=%s.csv" % type)
