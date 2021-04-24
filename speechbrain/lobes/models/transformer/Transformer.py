@@ -86,7 +86,7 @@ class TransformerInterface(nn.Module):
 
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
-            self.positional_encoding = RelPosEncXL(self.d_model)
+            self.positional_encoding = RelPosEncXL(d_model)
 
         # initialize the encoder
         if num_encoder_layers > 0:
