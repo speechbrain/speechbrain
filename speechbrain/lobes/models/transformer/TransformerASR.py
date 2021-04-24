@@ -165,9 +165,6 @@ class TransformerASR(TransformerInterface):
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
             pos_embs_decoder = None
 
-        if hasattr(self, "positional_encoding"):
-            tgt = tgt + self.positional_encoding(tgt)
-
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
