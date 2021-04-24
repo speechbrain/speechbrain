@@ -1,7 +1,7 @@
 # Speech separation with WSJ0MIX
 This folder contains some popular recipes for the WSJ0MIX task (2/3 sources).
 
-* This recipe supports train with several source separation models on WSJ2 - Mix, including[Sepformer](https: // arxiv.org / abs / 2010.13154), [DPRNN](https: // arxiv.org / abs / 1910.06379), [ConvTasnet](https: // arxiv.org / abs / 1809.07454), [DPTNet](https: // arxiv.org / abs / 2007.13975)
+* This recipe supports train with several source separation models on WSJ2 - Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
 Additional dependency:
 ```
@@ -63,3 +63,12 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix, WHAM!,
 | --- | --- |
 |NoAugment | 11.4 |
 |SpeedAugment | 13.7|
+
+# Pretrained Models:
+Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can be found through huggingface:
+* https://huggingface.co/speechbrain/sepformer-wsj02mix
+* https://huggingface.co/speechbrain/sepformer-wsj03mix
+* https://huggingface.co/speechbrain/sepformer-wham
+* https://huggingface.co/speechbrain/sepformer-whamr
+
+

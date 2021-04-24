@@ -8,7 +8,7 @@ To run this recipe, do the following:
 > python train.py hparams/transformer.yaml
 > python train.py hparams/conformer.yaml
 
-With the default hyperparameters, the system employs a convolutional frontend (ContextNet) and a transformer.
+With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
 language model is used  on the top of decoder probabilities.
 
@@ -16,6 +16,8 @@ The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
+
+The best model is the avergage of the checkpoints from last 5 epochs.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -223,6 +225,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
+                num_to_keep=5,
             )
 
         elif stage == sb.Stage.TEST:
@@ -232,6 +235,15 @@ class ASR(sb.core.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
+
+            # save the averaged checkpoint at the end of the evalation stage
+            # delete the rest of the intermediate checkpoints
+            # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
+            self.checkpointer.save_and_keep_only(
+                meta={"ACC": 1.1, "epoch": epoch},
+                max_keys=["ACC"],
+                num_to_keep=1,
+            )
 
     def check_and_reset_optimizer(self):
         """reset the optimizer if training enters stage 2"""
@@ -253,6 +265,7 @@ class ASR(sb.core.Brain):
             self.switched = True
 
     def on_fit_start(self):
+        """Initilaize the right optimizer on the training start"""
         super().on_fit_start()
 
         # if the model is resumed from stage two, reinitilaize the optimizer
@@ -273,6 +286,20 @@ class ASR(sb.core.Brain):
                 self.checkpointer.recover_if_possible(
                     device=torch.device(self.device)
                 )
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint averge if needed"""
+        super().on_evaluate_start()
+
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model", device=self.device
+        )
+
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):

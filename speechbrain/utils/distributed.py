@@ -121,7 +121,7 @@ def ddp_init_group(run_opts):
         if "local_rank" not in run_opts:
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n\t"
+                "python -m torch.distributed.launch [args]\n\t"
                 "experiment.py hyperparams.yaml --distributed_launch=True "
                 "--distributed_backend=nccl"
             )
@@ -130,14 +130,14 @@ def ddp_init_group(run_opts):
                 raise ValueError(
                     "Killing process " + str() + "\n"
                     "To use DDP backend, start your script with:\n\t"
-                    "python -m torch.distributed.lunch [args]\n\t"
+                    "python -m torch.distributed.launch [args]\n\t"
                     "experiment.py hyperparams.yaml --distributed_launch=True "
                     "--distributed_backend=nccl"
                 )
         if "RANK" in os.environ is None or os.environ["RANK"] == "":
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n\t"
+                "python -m torch.distributed.launch [args]\n\t"
                 "experiment.py hyperparams.yaml --distributed_launch=True "
                 "--distributed_backend=nccl"
             )
