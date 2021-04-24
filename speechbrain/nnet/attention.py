@@ -672,6 +672,7 @@ class MultiheadAttention(nn.Module):
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
         return_attn_weights: Optional[torch.Tensor] = True,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
@@ -717,6 +718,14 @@ class MultiheadAttention(nn.Module):
         query = query.permute(1, 0, 2)
         key = key.permute(1, 0, 2)
         value = value.permute(1, 0, 2)
+
+        # this will be legit because of https://github.com/pytorch/pytorch/blob/5288d05cfdda85c46c4df84617fa7f37c21b10b3/torch/nn/functional.py#L4946
+        # we can inject relative learnable pos embeddings directly in MHA via the attn_mask
+        if pos_embs is not None:
+            if attn_mask is not None:
+                attn_mask += pos_embs
+            else:
+                attn_mask = pos_embs
 
         output = self.att(
             query,
