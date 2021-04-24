@@ -133,9 +133,9 @@ def get_verification_scores(veri_test):
             elif params["score_norm"] == "t-norm":
                 score = (score - mean_t_c) / std_t_c
             elif params["score_norm"] == "s-norm":
-                score = (score - mean_e_c) / std_e_c
-                score += (score - mean_t_c) / std_t_c
-                score = 0.5 * score
+                score_e = (score - mean_e_c) / std_e_c
+                score_t = (score - mean_t_c) / std_t_c
+                score = 0.5 * (score_e + score_t)
 
         # write score file
         s_file.write("%s %s %i %f\n" % (enrol_id, test_id, lab_pair, score))
@@ -175,7 +175,7 @@ def dataio_prep(params):
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["test_data"], replacements={"data_root": data_folder},
     )
-    test_data = enrol_data.filtered_sorted(sort_key="duration")
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, enrol_data, test_data]
 
@@ -252,12 +252,12 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
+    train_dataloader, enrol_dataloader, test_dataloader = dataio_prep(params)
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(params["pretrainer"].collect_files)
-    params["pretrainer"].load_collected()
+    params["pretrainer"].load_collected(params["device"])
     params["embedding_model"].eval()
     params["embedding_model"].to(params["device"])
 

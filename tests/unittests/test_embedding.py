@@ -22,3 +22,5 @@ def test_embedding():
     inputs = torch.randint(0, 40, (5, 10))
     output = emb(inputs)
     assert output.shape == (5, 10, 128)
+
+    assert torch.jit.trace(emb, inputs)

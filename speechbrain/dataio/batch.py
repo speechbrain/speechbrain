@@ -108,6 +108,7 @@ class PaddedBatch:
         apply_default_convert=True,
         nonpadded_stack=True,
     ):
+        self.__length = len(examples)
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
@@ -133,6 +134,9 @@ class PaddedBatch:
                 device_prep_keys is None and isinstance(values[0], torch.Tensor)
             ):
                 self.__device_prep_keys.append(key)
+
+    def __len__(self):
+        return self.__length
 
     def __getitem__(self, key):
         if key in self.__keys:

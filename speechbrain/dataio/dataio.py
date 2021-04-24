@@ -20,10 +20,10 @@ import time
 import torchaudio
 import json
 import re
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-torchaudio.set_audio_backend(
-    "sox_io"
-)  # switch to 'soundfile' for windows machines.
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 logger = logging.getLogger(__name__)
 
 
@@ -965,7 +965,7 @@ def merge_char(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        words = "".join(seq).split("_")
+        words = "".join(seq).split(space)
         results.append(words)
     return results
 
@@ -1035,6 +1035,6 @@ def split_word(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        chars = list("_".join(seq))
+        chars = list(space.join(seq))
         results.append(chars)
     return results
