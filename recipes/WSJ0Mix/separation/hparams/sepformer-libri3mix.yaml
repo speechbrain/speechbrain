@@ -31,6 +31,8 @@ valid_data: !ref <save_folder>/libri3mix_dev.csv
 test_data: !ref <save_folder>/libri3mix_test.csv
 skip_prep: False
 
+ckpt_interval_minutes: 60
+
 # Experiment params
 auto_mix_prec: False # Set it to True for mixed precision
 test_only: False
