@@ -293,17 +293,17 @@ class ConvBlock(nn.Module):
     """
     def __init__(
         self,
-        n_speakers: int=1,
-        speaker_embed_dim: int=16,
-        in_channels: int=256,
-        out_channels: int=256,
-        kernel_size: int=5,
-        padding: str=None,
-        dilation: int=1,
-        dropout: float=0.,
-        std_mul: float=4.0,
-        causal: bool=False,
-        residual: bool=False,
+        use_speaker_embed=False,
+        speaker_embed_dim=16,
+        in_channels=256,
+        out_channels=256,
+        kernel_size=5,
+        padding=None,
+        dilation=1,
+        dropout=0.,
+        std_mul=4.0,
+        causal=False,
+        residual=False,
         *args,
         **kwargs):
         """
@@ -352,7 +352,7 @@ class ConvBlock(nn.Module):
             dropout=dropout,
             std_mul=std_mul)
         self.multiplier = math.sqrt(0.5)
-        if n_speakers > 1:
+        if use_speaker_embed:
             self.speaker_proj = Linear(speaker_embed_dim, out_channels)
         else:
             self.speaker_proj = None
@@ -567,8 +567,8 @@ class Encoder(nn.Module):
         the number of possible values of input sequences
     embed_dim: int
         the embedding dimension
-    n_speakers: int
-        the number of speakers
+    use_speaker_embed: bool
+        whether speaker embeddings are to be used
     speaker_embed_dim: int
         the dimension of speaker embeddings to be used
     padding_idx: int
@@ -583,7 +583,9 @@ class Encoder(nn.Module):
         whether to apply gradient scaling
 
     """
-    def __init__(self, n_vocab, embed_dim, n_speakers, speaker_embed_dim,
+    def __init__(self, n_vocab, embed_dim,
+                 use_speaker_embed=False,
+                 speaker_embed_dim=16,
                  padding_idx=None, embedding_weight_std=0.1,
                  convolutions=[],
                  dropout=0.1, apply_grad_scaling=False):
@@ -597,10 +599,10 @@ class Encoder(nn.Module):
             n_vocab, embed_dim, padding_idx, embedding_weight_std)
 
         # Speaker embedding
-        if n_speakers > 1:
+        if use_speaker_embed > 1:
             self.speaker_fc1 = Linear(speaker_embed_dim, embed_dim, dropout=dropout)
             self.speaker_fc2 = Linear(speaker_embed_dim, embed_dim, dropout=dropout)
-        self.n_speakers = n_speakers
+        self.use_speaker_embed = use_speaker_embed
 
         # Non causual convolution blocks
         self.convolutions = nn.ModuleList(convolutions)
@@ -617,7 +619,7 @@ class Encoder(nn.Module):
         speaker_embed: torch.Tensor
             speaker embeddings
         """
-        assert self.n_speakers == 1 or speaker_embed is not None
+        assert not self.use_speaker_embed or speaker_embed is not None
 
         # embed text_sequences
         x = self.embed_tokens(text_sequences.long())
@@ -765,38 +767,40 @@ class Decoder(nn.Module):
     """
     The decoder block
     
-    embed_dim
+    embed_dim: int
         the embedding dimension
-    n_speaker
+    use_speaker_embed: bool
         the number of speakers
-    speaker_embed_dim
+    speaker_embed_dim: int
         the dimension of the speaker embedding
-    in_channels
+    in_channels: int
         the number of channels in the first input convolution
-    in_dim
+    in_dim: int
         the input dimension
-    max_positions
+    max_positions: int
         the the maximum number of positions in the decoded sequence
-    preattention
+    preattention: list
         the pre-attention layers (a list of Torch modules)
-    convolutions
+    convolutions: list
         the convolution layers (a list of Torch modules)
-    output
+    output: nn.Module
         the output layer
-    attention
+    attention: bool
         whether or not to use attention
-    dropout
+    dropout: float
         the dropout rate
-    use_memory_mask
+    use_memory_mask: bool
         whether or not to use a memory mask
-    force_monotonic_attention
+    force_monotonic_attention: bool
         whether or not to force monotonic attention
-    query_position_rate
+    query_position_rate: float
         the query position rate
-    key_position_rate
+    key_position_rate: float
         the key position rate
     """
-    def __init__(self, embed_dim, n_speakers, speaker_embed_dim,
+    def __init__(self, embed_dim,
+                 use_speaker_embed,
+                 speaker_embed_dim=None,
                  in_channels=256,
                  in_dim=80, r=5,
                  max_positions=512,
@@ -823,7 +827,7 @@ class Decoder(nn.Module):
         self.embed_keys_positions = SinusoidalEncoding(
             max_positions, embed_dim)
         # Used for compute multiplier for positional encodings
-        if n_speakers > 1:
+        if use_speaker_embed:
             self.speaker_proj1 = Linear(speaker_embed_dim, 1, dropout=dropout)
             self.speaker_proj2 = Linear(speaker_embed_dim, 1, dropout=dropout)
         else:
@@ -1111,24 +1115,24 @@ class Converter(nn.Module):
 
     Arguments
     ---------
-    n_speakers
-        the number of speakers
-    in_dim
+    use_speaker_embed: bool
+        whether to use speaker embeddings
+    in_dim: int
         the number of output dimensions
-    out_dim
+    out_dim: int
         the number of output dimensions
-    convolutions
+    convolutions: list
         a list of convolution layers
-    dropout
+    dropout: float
         the dropout rate (0.0 - 1.0)
     """
-    def __init__(self, n_speakers, in_dim, out_dim, convolutions,
+    def __init__(self, use_speaker_embed, in_dim, out_dim, convolutions,
                  dropout=0.1):
         super().__init__()
         self.dropout = dropout
         self.in_dim = in_dim
         self.out_dim = out_dim
-        self.n_speakers = n_speakers
+        self.use_speaker_embed = use_speaker_embed
 
         # Non causual convolution blocks
         self.convolutions = nn.ModuleList(convolutions)
@@ -1144,7 +1148,7 @@ class Converter(nn.Module):
         speaker_embed
             the speaker embedding (if applicable)
         """
-        assert self.n_speakers == 1 or speaker_embed is not None
+        assert not self.use_speaker_embed or speaker_embed is not None
 
         # expand speaker embedding for all time steps
         speaker_embed_btc = expand_speaker_embed(x, speaker_embed)
@@ -1175,30 +1179,33 @@ class TTSModel(nn.Module):
 
     Arguments
     ---------
-    seq2seq
+    seq2seq : AttentionSeq2Seq
         the sequence-to-sequence model
-    mel_dim
+    mel_dim: int
         the MEL spectrogram dimension
-    linear-dim
+    linear_dim: int
         the linear spectrogram dimension
-    n_speakers
-        the number of speakers
-    speaker_embed_dim
+    use_speaker_embed: bool
+        whether to use epeaker embeddings
+    speaker_embed_dim: int
         the dimension of speaker embeddings
-    trainable_positional_encodings
+    trainable_positional_encodings: bool
         whether positional encodings should be trainable
-    speaker_embedding_weight_std
+    speaker_embedding_weight_std: float
         the standard deviations
+    embed_speakers: nn.Module
+        the module used to learn speaker embeddings
+        together with the model.
     freeze_embedding
         whether speaker embeddings should be frozen
     """
 
     def __init__(self, seq2seq, postnet,
                  mel_dim=80, linear_dim=513,
-                 n_speakers=1, speaker_embed_dim=16,
+                 use_speaker_embed=False, speaker_embed_dim=16,
                  trainable_positional_encodings=False,
                  use_decoder_state_for_postnet_input=False,
-                 speaker_embedding_weight_std=0.01,
+                 embed_speakers=None,
                  freeze_embedding=False):
         super().__init__()
         self.seq2seq = seq2seq
@@ -1210,11 +1217,8 @@ class TTSModel(nn.Module):
         self.freeze_embedding = freeze_embedding
 
         # Speaker embedding
-        if n_speakers > 1:
-            self.embed_speakers = Embedding(
-                n_speakers, speaker_embed_dim, padding_idx=None,
-                std=speaker_embedding_weight_std)
-        self.n_speakers = n_speakers
+        self.embed_speakers = embed_speakers
+        self.use_speaker_embed = use_speaker_embed
         self.speaker_embed_dim = speaker_embed_dim
 
     def make_generation_fast_(self):
@@ -1246,35 +1250,40 @@ class TTSModel(nn.Module):
         return (p for p in self.parameters() if id(p) not in frozen_param_ids)
 
     def forward(self, text_sequences, mel_targets=None, speaker_ids=None,
-                text_positions=None, frame_positions=None, input_lengths=None):
+                text_positions=None, frame_positions=None, input_lengths=None,
+                speaker_embed=None):
         """
         Computes the forward pass
 
         Arguments
         ---------
-        text_sequences
+        text_sequences: torch.Tensor
             the original sequences of characters or phonemes (with each symbol encoded as an integer)
-        mel_targets
+        mel_targets: torch.Tensor
             the target MEL-scale diagrams
-        speaker_ids
-            speaker identifiers
-        text_positions
+        speaker_ids: torch.Tensor
+            speaker identifiers (required for multispeaker models if )
+        text_positions: torch.Tensor
             a tensor encoding the position of each character
             (shape = same as text_sequences)
-        frame_positions
+        frame_positions: torch.Tensor
             a tensor indicating the position of each frame in the spectrogram
             (shape = Batch x MEL dimension)
-        input_lengths
+        input_lengths: torch.Tensor
             the lengths of the input sequences
+        speaker_embed: torch.Tensor
+            pre-computed speaker embeddings (if available)
         """
 
         B = text_sequences.size(0)
 
-        if speaker_ids is not None:
-            assert self.n_speakers > 1
-            speaker_embed = self.embed_speakers(speaker_ids)
-        else:
-            speaker_embed = None
+        if speaker_embed is None:
+            if speaker_ids is not None:
+                speaker_embed = self.embed_speakers(speaker_ids)
+            else:
+                speaker_embed = None
+        
+        assert not self.use_speaker_embed or speaker_embed is not None
 
         # Apply seq2seq
         # (B, T//r, mel_dim*r)
@@ -1501,7 +1510,7 @@ class Loss(nn.Module):
             the linear spectrogram targets
         target_mel: torch.Tensor
             the MEL spectrogram targets
-        target_lengths
+        target_lengths: torch.Tensor
             the target lengths
 
         Returns
