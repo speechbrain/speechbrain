@@ -635,8 +635,9 @@ class SBConformerEncoderBlock(nn.Module):
     Example
     ---------
     >>> x = torch.randn(10, 100, 64)
+    >>> pos_embs = torch.randn(1, 2*100-1, 64)
     >>> block = SBConformerEncoderBlock(1, 64, 8)
-    >>> x = block(x)
+    >>> x = block(x, pos_embs=pos_embs)
     >>> x.shape
     torch.Size([10, 100, 64])
     """
@@ -654,10 +655,8 @@ class SBConformerEncoderBlock(nn.Module):
         activation="swish",
         kernel_size=31,
         bias=True,
-        use_positional_encoding=False,
     ):
         super(SBConformerEncoderBlock, self).__init__()
-        self.use_positional_encoding = use_positional_encoding
 
         if activation == "relu":
             activation = nn.ReLU
@@ -682,10 +681,7 @@ class SBConformerEncoderBlock(nn.Module):
             bias=bias,
         )
 
-        if use_positional_encoding:
-            self.pos_enc = PositionalEncoding(input_size=d_model)
-
-    def forward(self, x):
+    def forward(self, x, pos_embs):
         """Returns the transformed output.
 
         Arguments
@@ -697,11 +693,8 @@ class SBConformerEncoderBlock(nn.Module):
                    N = number of filters
 
         """
-        if self.use_positional_encoding:
-            pos_enc = self.pos_enc(x)
-            return self.mdl(x + pos_enc)[0]
-        else:
-            return self.mdl(x)[0]
+
+        return self.mdl(x, pos_embs=pos_embs)[0]
 
 
 class SBRNNBlock(nn.Module):

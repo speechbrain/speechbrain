@@ -372,8 +372,9 @@ class RelPosMHAXL(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([6, 60, 512])
-    >>> net = RelPosMultiHeadAttention(num_heads=8, embed_dim=inputs.shape[-1])
-    >>> outputs, attn = net(inputs, inputs, inputs)
+    >>> pos_emb = torch.rand([1, 2*60-1, 512])
+    >>> net = RelPosMHAXL(num_heads=8, embed_dim=inputs.shape[-1])
+    >>> outputs, attn = net(inputs, inputs, inputs, pos_emb)
     >>> outputs.shape
     torch.Size([6, 60, 512])
     """
@@ -482,7 +483,7 @@ class RelPosMHAXL(nn.Module):
         query,
         key,
         value,
-        pos_emb,
+        pos_embs,
         key_padding_mask=None,
         attn_mask=None,
         return_attn_weights=True,
@@ -561,7 +562,7 @@ class RelPosMHAXL(nn.Module):
                 1, 1, self.num_heads, self.vhead_dim
             )
 
-        p = self.linear_pos(pos_emb).view(1, -1, self.num_heads, self.head_dim)
+        p = self.linear_pos(pos_embs).view(1, -1, self.num_heads, self.head_dim)
 
         # (batch, head, time1, d_k)
         q_with_bias_u = (
