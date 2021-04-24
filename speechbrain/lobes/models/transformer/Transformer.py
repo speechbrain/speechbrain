@@ -73,16 +73,16 @@ class TransformerInterface(nn.Module):
         self.positional_encoding_type = positional_encoding
 
         assert attention_type in ["regularMHA", "RelPosMHAXL"]
-        assert positional_encoding in ["fixed_abs_sine"]
+        assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
             num_encoder_layers + num_decoder_layers > 0
         ), "number of encoder layers and number of decoder layers cannot both be 0!"
 
         if positional_encoding == "fixed_abs_sine":
-            self.positional_encoding = PositionalEncoding(
-                self.d_model, max_length
-            )
+            self.positional_encoding = PositionalEncoding(d_model, max_length)
+        elif positional_encoding is None:
+            pass
 
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
