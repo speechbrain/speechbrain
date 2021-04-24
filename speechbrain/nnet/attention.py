@@ -589,7 +589,7 @@ class RelPosMHAXL(nn.Module):
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
-                key_padding_mask.unsqueeze(1), self.attn_fill_value,
+                key_padding_mask.reshape(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
         attn_score = F.softmax(attn_score, dim=1)
