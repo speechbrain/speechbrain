@@ -125,14 +125,12 @@ class ConformerEncoderLayer(nn.Module):
         activation=Swish,
         bias=True,
         dropout=0.1,
-        positional_encoding_type="absolute",
+        causal=False,
+        attention_type="RelPosMHA",
     ):
         super().__init__()
 
-        self.positional_encoding_type = positional_encoding_type
-        if (
-            positional_encoding_type == "absolute"
-        ):  # positional encoding should be added to the embedding in the input.
+        if attention_type == "regularMHA":
             self.mha_layer = MultiheadAttention(
                 nhead=nhead,
                 d_model=d_model,
@@ -140,13 +138,11 @@ class ConformerEncoderLayer(nn.Module):
                 kdim=kdim,
                 vdim=vdim,
             )
-        elif positional_encoding_type == "relativeXL":
+        elif attention_type == "RelPosMHA":
             # transformerXL style positional encoding
             self.mha_layer = RelPosMHAXL(
                 num_heads=nhead, embed_dim=d_model, dropout=dropout,
             )
-        else:
-            raise NotImplementedError
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout
@@ -183,6 +179,7 @@ class ConformerEncoderLayer(nn.Module):
         x,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
@@ -190,7 +187,12 @@ class ConformerEncoderLayer(nn.Module):
         skip = x
         x = self.norm1(x)
         x, self_attn = self.mha_layer(
-            x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask,
+            x,
+            x,
+            x,
+            attn_mask=src_mask,
+            key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs,
         )
         x = x + skip
         # convolution module
@@ -249,7 +251,8 @@ class ConformerEncoder(nn.Module):
         activation=Swish,
         kernel_size=31,
         bias=True,
-        attention_type="absolute",
+        causal=False,
+        attention_type="RelPosMHAXL",
     ):
         super().__init__()
 
@@ -274,6 +277,7 @@ class ConformerEncoder(nn.Module):
                     activation=activation,
                     kernel_size=kernel_size,
                     bias=bias,
+                    causal=causal,
                     attention_type=attention_type,
                 )
                 for i in range(num_layers)
@@ -286,6 +290,7 @@ class ConformerEncoder(nn.Module):
         src,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
@@ -304,6 +309,7 @@ class ConformerEncoder(nn.Module):
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
+                pos_embs=pos_embs,
             )
             attention_lst.append(attention)
         output = self.norm(output)
