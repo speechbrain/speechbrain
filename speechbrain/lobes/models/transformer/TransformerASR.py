@@ -160,17 +160,18 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":
-            pos_embs_decoder = self.positional_encoding(src)
+            pos_embs_target = self.positional_encoding(tgt)
         elif self.positional_encoding_type == "fixed_abs_sine":
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
-            pos_embs_decoder = None
+            pos_embs_target = None
 
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
-            pos_embs=pos_embs_decoder,
+            pos_embs_tgt=pos_embs_target,
+            pos_embs_src=pos_embs_encoder,
         )
 
         return encoder_out, decoder_out
