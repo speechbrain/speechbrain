@@ -538,14 +538,25 @@ class RelPosMHAXL(nn.Module):
         qlen = query.shape[1]
 
         if self._qkv_same_embed_dim:
+            # self-attention
             if (query is key or torch.equal(query, key)) and (
                 key is value or torch.equal(key, value)
             ):
-                # self-attention
                 query, key, value = (
                     nn.functional.linear(query, self.in_proj_weight)
                     .view(bsz, -1, self.num_heads, self.head_dim * 3)
                     .chunk(3, dim=-1)
+                )
+            else:
+                qweight, kweight, vweight = self.in_proj_weight.chunk(3, dim=0)
+                query = nn.functional.linear(query, qweight).view(
+                    bsz, -1, self.num_heads, self.head_dim
+                )
+                key = nn.functional.linear(key, kweight).view(
+                    bsz, -1, self.num_heads, self.head_dim
+                )
+                value = nn.functional.linear(value, vweight).view(
+                    bsz, -1, self.num_heads, self.head_dim
                 )
         else:
             query, key = (
@@ -563,7 +574,6 @@ class RelPosMHAXL(nn.Module):
             )
 
         p = self.linear_pos(pos_embs).view(1, -1, self.num_heads, self.head_dim)
-
         # (batch, head, time1, d_k)
         q_with_bias_u = (
             query + self.pos_bias_u.reshape(1, 1, self.num_heads, self.head_dim)
@@ -575,25 +585,27 @@ class RelPosMHAXL(nn.Module):
 
         # (batch, head, time1, time2)
         matrix_ac = torch.matmul(q_with_bias_u, key.permute(0, 2, 3, 1))
-
         # (batch, num_heads, qlen, 2*qlen-1)
         matrix_bd = torch.matmul(q_with_bias_v, p.permute(0, 2, 3, 1))
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
-        attn_score = (matrix_ac + matrix_bd) * self.scale
+        attn_score = (matrix_ac[..., :qlen] + matrix_bd) * self.scale
 
         # compute attention probability
         if attn_mask is not None:
-            attn_score = attn_score.masked_fill(
-                attn_mask.view(1, 1, qlen, klen), self.attn_fill_value
-            )
+            if attn_mask.dtype == torch.bool:
+                attn_score = attn_score.masked_fill(
+                    attn_mask.view(1, 1, qlen, klen), self.attn_fill_value
+                )
+            else:
+                attn_score += attn_mask.reshape(1, 1, qlen, klen)
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
                 key_padding_mask.reshape(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
-        attn_score = F.softmax(attn_score, dim=1)
+        attn_score = F.softmax(attn_score, dim=-1)
         attn_score = self.dropout_att(attn_score)
         x = torch.matmul(
             attn_score, value.transpose(1, 2)
