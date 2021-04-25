@@ -589,7 +589,7 @@ class RelPosMHAXL(nn.Module):
         matrix_bd = torch.matmul(q_with_bias_v, p.permute(0, 2, 3, 1))
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
-        attn_score = (matrix_ac[..., :qlen] + matrix_bd) * self.scale
+        attn_score = (matrix_ac + matrix_bd) * self.scale
 
         # compute attention probability
         if attn_mask is not None:
