@@ -156,7 +156,7 @@ def done(outputs_per_step=1, downsample_step=4,
             batch_size 
             * [torch.arange(done.size(-1), device=target_lengths.device)
                .unsqueeze(0)])
-        offsets = target_lengths.unsqueeze(-1)
+        offsets = done_lengths.unsqueeze(-1)
         done[ranges >= offsets] = 1.
         return done.unsqueeze(-1)
     

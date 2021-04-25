@@ -1,15 +1,21 @@
+"""Recipe for training the DeepVoice3 Text-To-Speech model.
+
+To run this recipe, do the following:
+> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
+
+Authors
+* Artem Ploujnikov 2020
+"""
+
 from speechbrain.utils.data_pipeline import DataPipeline
 import torch
 import torchvision
 import sys
 import speechbrain as sb
-import math
 import os
-from typing import Collection
 from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.encoder import TextEncoder
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from torch.utils.data import DataLoader
 from speechbrain.dataio.batch import PaddedBatch
@@ -18,7 +24,6 @@ from speechbrain.dataio.batch import PaddedBatch
 sys.path.append("..")
 from datasets.vctk import VCTK
 from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
-from torchaudio import transforms
 
 
 
@@ -30,8 +35,10 @@ class DeepVoice3Brain(sb.core.Brain):
             dynamic_items=self.hparams.features_pipeline['steps'],
             output_keys=self.hparams.features_pipeline['output_keys'],
         )
+        self.last_outputs = {}
+        self.last_batch = None
 
-    def compute_forward(self, batch, stage, incremental=False):
+    def compute_forward(self, batch, stage, incremental=False, single=False):
         """Predicts the next word given the previous ones.
         Arguments
         ---------
@@ -39,16 +46,23 @@ class DeepVoice3Brain(sb.core.Brain):
             This batch object contains all the relevant tensors for computation.
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
-        incremental: Boolean
+        incremental: bool
             Whether to compute the forward pass incrementally, 
             step by step, without a time (used for generation)
+        single: bool
+            whether to extract only a single element from the batch. This
+            is useful for the saving of incremental reconstruction samples,
+            which would be impractical to compute on an entire batch during
+            training - but more manageable if only a single example is used            
+        
         Returns
         -------
         predictions : torch.Tensor
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
-        features = self.compute_features(batch)
+        features = self.compute_features(
+            batch, incremental=incremental, single=single)
 
         pred = self.hparams.model(
             text_sequences=features['text_sequences'], 
@@ -62,14 +76,15 @@ class DeepVoice3Brain(sb.core.Brain):
 
         return pred
 
-    def fit_batch(self, *args, **kwargs):
+    def fit_batch(self, batch):
         """
         Overrides fit_batch to run the NOAM scheduler on each update. See
         the base class for details
         """
-        loss = super().fit_batch(*args, **kwargs)
+        loss = super().fit_batch(batch)
         old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
         sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+        self.last_batch = batch
         return loss
 
     def compute_objectives(self, predictions, batch, stage, incremental=False):
@@ -82,7 +97,7 @@ class DeepVoice3Brain(sb.core.Brain):
             This batch object contains all the relevant tensors for computation.
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
-        incremental
+        incremental: bool
             whether or not to compute the model pass incrementally (optional, defaults to False)
 
         Returns
@@ -115,19 +130,16 @@ class DeepVoice3Brain(sb.core.Brain):
         )
         
         self.last_loss_stats[stage] = loss_stats.as_scalar()
-        (self.last_output_linear, 
-         self.last_target_linear, 
-         self.last_output_mel, 
-         self.last_target_mel) = [
-            tensor.detach().cpu()[0]
-            for tensor in (
-                output_linear, target_linear,
-                output_mel, target_mel
-            )]
+        self._update_last_output(
+            output_linear=output_linear,
+            target_linear=target_linear,
+            output_mel=output_mel,
+            target_mel=target_mel
+        )
         
         return loss_stats.loss
 
-    def compute_features(self, batch):
+    def compute_features(self, batch, incremental=False, single=True):
         """
         Computes features by running a secondary pipeline - on
         the GPU, if available
@@ -136,6 +148,16 @@ class DeepVoice3Brain(sb.core.Brain):
         ---------
         batch: PaddedBatch
             a padded batch instance
+        incremental: bool
+            indicates whether an incremental run is being performed. 
+            In an incremental run, the features pipeline will not be run
+            because no spectrograms are necessary - the model will
+            construct one "from scratch"
+        single: bool
+            whether to extract only a single element from the batch. This
+            is useful for the saving of incremental reconstruction samples,
+            which would be impractical to compute on an entire batch during
+            training - but more manageable if only a single example is used
         
         Returns
         -------
@@ -143,9 +165,14 @@ class DeepVoice3Brain(sb.core.Brain):
             computed features (see features_pipeline in the YAML
             definition)
         """
-        features = self.features_pipeline(batch.as_dict())
+        features = batch.as_dict()
+        if not incremental:
+            features = self.features_pipeline(features)
         features = {key: value.to(self.device)
                     for key, value in features.items()}
+        if single:
+            features = {
+                key: value[:1] for key, value in features.items()}
         return features
     
     def on_fit_start(self):
@@ -155,16 +182,30 @@ class DeepVoice3Brain(sb.core.Brain):
                 os.makedirs(self.hparams.progress_sample_path)
         self.last_loss_stats = {}
 
+    def _update_last_output(self, **kwargs):
+        """
+        Updates the internal dictionary of output snapshots
+        """
+        self.last_outputs.update(
+            {key: value[0].detach().cpu()
+            for key, value in kwargs.items()})
+
+    def _compute_incremental_outputs(self, batch):
+        predictions = self.compute_forward(
+            batch, sb.Stage.VALID, incremental=True,
+            single=True)
+        output_mel, output_linear, _, _ = predictions
+        self._update_last_output(
+            output_mel_incremental=output_mel,
+            output_linear_incremental=output_linear)
+
     def _save_progress_sample(self, epoch):
         """
         Saves a set of spectrogram samples 
         """
         entries = [
-            ('target_linear.png', self.last_target_linear),
-            ('output_linear.png', self.last_output_linear),
-            ('target_mel.png', self.last_target_mel),
-            ('output_mel.png', self.last_output_mel)
-        ]
+            (f'{key}.png', value) 
+            for key, value in self.last_outputs.items()]
         for file_name, data in entries:
             self._save_sample_image(file_name, data, epoch)
 
@@ -246,6 +287,8 @@ class DeepVoice3Brain(sb.core.Brain):
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
             if output_progress_sample:
+                if self.hparams.progress_samples_incremental:
+                    self._compute_incremental_outputs(self.last_batch)
                 self._save_progress_sample(epoch)                
 
         # We also write statistics about test data to stdout and to the logfile.
