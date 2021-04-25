@@ -520,7 +520,8 @@ class TransformerDecoderLayer(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
-        pos_embs=None,
+        pos_embs_tgt=None,
+        pos_embs_src=None,
     ):
         """
         Arguements
@@ -550,7 +551,7 @@ class TransformerDecoderLayer(nn.Module):
             value=tgt1,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
-            pos_embs=pos_embs,
+            pos_embs=pos_embs_tgt,
         )
 
         # add & norm
@@ -570,7 +571,7 @@ class TransformerDecoderLayer(nn.Module):
             value=memory,
             attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask,
-            pos_embs=pos_embs,
+            pos_embs=pos_embs_src,
         )
 
         # add & norm
@@ -663,7 +664,8 @@ class TransformerDecoder(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
-        pos_embs=None,
+        pos_embs_tgt=None,
+        pos_embs_src=None,
     ):
         """
         Arguments
@@ -691,7 +693,8 @@ class TransformerDecoder(nn.Module):
                 memory_mask=memory_mask,
                 tgt_key_padding_mask=tgt_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,
-                pos_embs=pos_embs,
+                pos_embs_tgt=pos_embs_tgt,
+                pos_embs_src=pos_embs_src,
             )
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
