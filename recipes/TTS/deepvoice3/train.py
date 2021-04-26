@@ -168,7 +168,7 @@ class DeepVoice3Brain(sb.core.Brain):
         
         return loss_stats.loss
 
-    def compute_features(self, batch, incremental=False, single=True):
+    def compute_features(self, batch, incremental=False, single=False):
         """
         Computes features by running a secondary pipeline - on
         the GPU, if available
@@ -231,7 +231,7 @@ class DeepVoice3Brain(sb.core.Brain):
         """
         predictions = self.compute_forward(
             batch, sb.Stage.VALID, incremental=True,
-            single=True)
+            single=False)
         output_mel, output_linear, _, _ = predictions
         self._update_last_output(
             output_mel_incremental=output_mel,
