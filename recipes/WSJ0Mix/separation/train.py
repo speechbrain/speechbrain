@@ -586,6 +586,7 @@ if __name__ == "__main__":
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
+            "fs": hparams["sample_rate"],
         },
     )
 
@@ -597,7 +598,7 @@ if __name__ == "__main__":
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
             print("Creating Room Impulse Responses...")
-            create_rirs(hparams["rir_path"])
+            create_rirs(hparams["rir_path"], hparams["sample_rate"])
 
         create_whamr_rir_csv(hparams["rir_path"], hparams["save_folder"])
 
