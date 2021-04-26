@@ -9,14 +9,23 @@ import pandas as pd
 import argparse
 import torchaudio
 
-from recipes.WSJ0Mix.meta.rir_constants import SAMPLERATE
 from recipes.WSJ0Mix.meta.wham_room import WhamRoom
 from scipy.signal import resample_poly
 import torch
 from speechbrain.pretrained.fetching import fetch
+from tqdm import tqdm
 
 
-def create_rirs(output_dir):
+def create_rirs(output_dir, sr=8000):
+    """
+    This function creates the room impulse responses
+
+    Arguments:
+    ------
+    output_dir (str) : directory for saving the RIRs
+    sr (int) : sampling rate with which we save
+
+    """
     os.makedirs(output_dir)
 
     metafilesdir = os.path.dirname(os.path.realpath(__file__))
@@ -44,7 +53,6 @@ def create_rirs(output_dir):
     )
 
     SPLITS = ["tr"]
-    SAMPLE_RATES = ["8k"]
 
     reverb_param_stub = os.path.join(
         metafilesdir, "data", "reverb_params_{}.csv"
@@ -60,7 +68,7 @@ def create_rirs(output_dir):
 
         utt_ids = wsjmix_df.output_filename.values
 
-        for i_utt, output_name in enumerate(utt_ids):
+        for output_name in tqdm(utt_ids):
             utt_row = reverb_param_df[
                 reverb_param_df["utterance_id"] == output_name
             ]
@@ -98,31 +106,18 @@ def create_rirs(output_dir):
 
             rir = room.rir_reverberant
 
-            for sr_i, sr_dir in enumerate(SAMPLE_RATES):
-                if sr_dir == "8k":
-                    sr = 8000
-                else:
-                    sr = SAMPLERATE
+            for i, mics in enumerate(rir):
+                for j, source in enumerate(mics):
+                    h = resample_poly(source, sr, 16000)
+                    h_torch = torch.from_numpy(h).float().unsqueeze(0)
 
-                for i, mics in enumerate(rir):
-                    for j, source in enumerate(mics):
-                        h = resample_poly(source, sr, 16000)
-                        h_torch = torch.from_numpy(h).float().unsqueeze(0)
-
-                        torchaudio.save(
-                            os.path.join(
-                                output_dir, "{}_{}_".format(i, j) + output_name,
-                            ),
-                            h_torch,
-                            sr,
-                        )
-
-            if (i_utt + 1) % 500 == 0:
-                print(
-                    "Completed {} of {} RIRs".format(
-                        (i_utt + 1) * 4, 4 * len(wsjmix_df)
+                    torchaudio.save(
+                        os.path.join(
+                            output_dir, "{}_{}_".format(i, j) + output_name,
+                        ),
+                        h_torch,
+                        sr,
                     )
-                )
 
 
 if __name__ == "__main__":

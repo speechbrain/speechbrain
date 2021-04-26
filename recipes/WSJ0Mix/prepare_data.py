@@ -35,7 +35,12 @@ import csv
 
 
 def prepare_wsjmix(
-    datapath, savepath, n_spks=2, skip_prep=False, librimix_addnoise=False
+    datapath,
+    savepath,
+    n_spks=2,
+    skip_prep=False,
+    librimix_addnoise=False,
+    fs=8000,
 ):
     """
     Prepared wsj2mix if n_spks=2 and wsj3mix if n_spks=3.
@@ -54,7 +59,7 @@ def prepare_wsjmix(
         create_wham_csv(datapath, savepath)
     elif "whamr" in datapath:
         # if we want to train a model on the whamr dataset
-        create_whamr_csv(datapath, savepath)
+        create_whamr_csv(datapath, savepath, fs)
     elif "Libri" in datapath:
         # Libri 2/3Mix datasets
         if n_spks == 2:
@@ -298,26 +303,41 @@ def create_wham_csv(datapath, savepath):
                 writer.writerow(row)
 
 
-def create_whamr_csv(datapath, savepath):
+def create_whamr_csv(datapath, savepath, fs):
     """
     This function creates the csv files to get the speechbrain data loaders for the whamr dataset.
 
     Arguments:
         datapath (str) : path for the wsj0-mix dataset.
         savepath (str) : path where we save the csv file
+        fs (int) : the sampling rate
     """
+    if fs == 8000:
+        sample_rate = "8k"
+    elif fs == 16000:
+        sample_rate = "16k"
+    else:
+        raise ValueError("Unsupported sampling rate")
+
     for set_type in ["tr", "cv", "tt"]:
         mix_path = os.path.join(
-            datapath, "wav8k/min/" + set_type + "/mix_both_reverb/"
+            datapath,
+            "wav{}/min/".format(sample_rate) + set_type + "/mix_both_reverb/",
         )
         s1_path = os.path.join(
-            datapath, "wav8k/min/" + set_type + "/s1_anechoic/"
+            datapath,
+            "wav{}/min/".format(sample_rate) + set_type + "/s1_anechoic/",
         )
         s2_path = os.path.join(
-            datapath, "wav8k/min/" + set_type + "/s2_anechoic/"
+            datapath,
+            "wav{}/min/".format(sample_rate) + set_type + "/s2_anechoic/",
         )
-        noise_path = os.path.join(datapath, "wav8k/min/" + set_type + "/noise/")
-        rir_path = os.path.join(datapath, "wav8k/min/" + set_type + "/rirs/")
+        noise_path = os.path.join(
+            datapath, "wav{}/min/".format(sample_rate) + set_type + "/noise/"
+        )
+        rir_path = os.path.join(
+            datapath, "wav{}/min/".format(sample_rate) + set_type + "/rirs/"
+        )
 
         files = os.listdir(mix_path)
 
