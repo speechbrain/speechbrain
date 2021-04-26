@@ -1,5 +1,6 @@
 import speechbrain as sb
 from torchaudio import transforms
+from speechbrain.dataio.encoder import CategoricalEncoder
 
 
 def wrap_transform(transform_type, takes=None, provides=None):
@@ -25,7 +26,8 @@ def wrap_transform(transform_type, takes=None, provides=None):
 
     Returns
     -------
-    result: DymamicItem
+    result: DynamicItem
+      A wrapped transformation function    
     """
     default_takes = takes
     default_provides = provides
@@ -38,6 +40,33 @@ def wrap_transform(transform_type, takes=None, provides=None):
         return f
 
     return decorator
+
+
+def categorical(takes, provides):
+    """
+    A pipeline function that encodes categorical information,
+    such as speaker IDs
+
+    Arguments
+    ---------
+    takes: str
+        the name of the pipeline input
+    provides: str
+        the name of the pipeline output
+
+    Returns
+    -------
+    result: DynamicItem
+      A wrapped transformation function        
+    """
+    encoder = CategoricalEncoder()
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(label):
+        encoder.ensure_label(label)
+        return encoder.ensure_label(label)
+    
+    return f
 
 
 @sb.utils.data_pipeline.takes("wav")

@@ -521,7 +521,7 @@ def Linear(in_features, out_features, dropout=0):
     return nn.utils.weight_norm(m)
 
 
-def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
+def Embedding(num_embeddings, embedding_dim, padding_idx=None, std=0.01):
     """
     Creates a new embedding
 
@@ -533,6 +533,11 @@ def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
         The embedding dimension
     padding_idx: int
         The padding index
+
+    Returns
+    -------
+    embedding: nn.Module
+        a Torch embedding layer
     """
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     m.weight.data.normal_(0, std)
@@ -609,7 +614,7 @@ class Encoder(nn.Module):
             n_vocab, embed_dim, padding_idx, embedding_weight_std)
 
         # Speaker embedding
-        if use_speaker_embed > 1:
+        if use_speaker_embed:
             self.speaker_fc1 = Linear(speaker_embed_dim, embed_dim, dropout=dropout)
             self.speaker_fc2 = Linear(speaker_embed_dim, embed_dim, dropout=dropout)
         self.use_speaker_embed = use_speaker_embed
@@ -1034,7 +1039,8 @@ class Decoder(nn.Module):
         for idx, v in enumerate(self.force_monotonic_attention):
             last_attended[idx] = 0 if v else None
 
-        num_attention_layers = sum([layer is not None for layer in self.attention])
+        num_attention_layers = sum(
+            [layer is not None for layer in self.attention])
         t = 0
         if initial_input is None:
             initial_input = keys.data.new(B, 1, self.in_dim * self.r).zero_()

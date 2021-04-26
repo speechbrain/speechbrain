@@ -88,7 +88,9 @@ class DeepVoice3Brain(sb.core.Brain):
             text_positions=features['text_positions'],
             frame_positions=
                 None if incremental else features['frame_positions'],
-            input_lengths=features['input_lengths'] 
+            input_lengths=features['input_lengths'],
+            speaker_ids=features.get('speaker_id_enc'),
+            speaker_embed=features.get('speaker_embed')
         )
 
         return pred
@@ -195,8 +197,9 @@ class DeepVoice3Brain(sb.core.Brain):
         features = batch.as_dict()
         if not incremental:
             features = self.features_pipeline(features)
-        features = {key: value.to(self.device)
-                    for key, value in features.items()}
+        features = {
+            key: torch.as_tensor(value, device=self.device)
+            for key, value in features.items()}
         if single:
             features = {
                 key: value[:1] for key, value in features.items()}
