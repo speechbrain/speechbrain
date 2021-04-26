@@ -423,9 +423,9 @@ class SinusoidalEncoding(nn.Embedding):
     Arguments
     ---------
     num_embeddings: int
-        the number of embeddings to be used
+        The number of embeddings to be used
     embedding_dim: int
-        the embedding dimension (i.e. the dimension of
+        The embedding dimension (i.e. the dimension of
         each embedding vector)
     """
     def __init__(self, num_embeddings, embedding_dim,
@@ -444,9 +444,9 @@ class SinusoidalEncoding(nn.Embedding):
         Arguments
         ---------
         x: torch.Tensor
-            the inputs
+            The inputs
         w: float
-            the weight/multiplier
+            The weight/multiplier
         """
         isscalar = np.isscalar(w)
         assert self.padding_idx is not None
@@ -481,9 +481,14 @@ class GradMultiply(torch.autograd.Function):
         Arguments
         ---------
         x: torch.Tensor
-            the input
+            The input
         scale: float
-            the scaling factor
+            The scaling factor
+
+        Returns
+        -------
+        res: torch.Tensor
+            A copy of the tensor, with shared storage marked
         """
         ctx.scale = scale
         res = x.new(x)
@@ -498,7 +503,12 @@ class GradMultiply(torch.autograd.Function):
         Arguments
         ---------
         grad: torch.Tensor
-            the gradient
+            The gradient
+
+        Returns
+        -------
+        result: tuple
+            (gradient multipled by the scaling forward, None)
         """        
         return grad * ctx.scale, None
 
@@ -518,11 +528,11 @@ def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
     Arguments
     ---------
     num_embeddings: int
-        the number of embeddings
+        The number of embeddings
     embedding_dim: int
-        the embedding dimension
+        The embedding dimension
     padding_idx: int
-        the padding index
+        The padding index
     """
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     m.weight.data.normal_(0, std)
@@ -538,7 +548,7 @@ def get_mask_from_lengths(memory, memory_lengths):
         (batch, max_time, dim)
     
     memory_lengths: array-like
-        the length of the memory cell
+        The length of the memory cell
     """
     max_len = max(memory_lengths)
     mask = torch.arange(max_len).expand(memory.size(0), max_len) < torch.tensor(memory_lengths).unsqueeze(-1)
@@ -564,23 +574,23 @@ class Encoder(nn.Module):
     ---------
 
     n_vocab: int
-        the number of possible values of input sequences
+        The number of possible values of input sequences
     embed_dim: int
-        the embedding dimension
+        The embedding dimension
     use_speaker_embed: bool
-        whether speaker embeddings are to be used
+        Whether speaker embeddings are to be used
     speaker_embed_dim: int
-        the dimension of speaker embeddings to be used
+        The dimension of speaker embeddings to be used
     padding_idx: int
-        the padding index
+        The padding index
     embedding_weight_std: float
-        the standard deviation of embedding weights
+        The standard deviation of embedding weights
     convolutions: list
-        convolutional layers (a list of nn.Module instances)
+        Convolutional layers (a list of nn.Module instances)
     dropout: float
-        the dropout rate
+        The dropout rate
     apply_grad_scaling: bool
-        whether to apply gradient scaling
+        Whether to apply gradient scaling
 
     """
     def __init__(self, n_vocab, embed_dim,
@@ -706,14 +716,23 @@ class AttentionLayer(nn.Module):
         """
         Performs a forward step
         
-        query
-            the attention queries
-        encoder_out
-            the output of the encoder layer
-        mask
-            the mask tensor to be used
-        last_attended
-            the last attended steps
+        Arguments
+        ---------
+        query: torch.Tensor
+            The attention queries
+        encoder_out: torch.Tensor
+            The output of the encoder layer
+        mask: torch.Tensor
+            The mask tensor to be used
+        last_attended: torch.Tensor
+            The last attended steps
+        
+        Returns
+        -------
+        result: tuple
+            A tuple of (x, attn_scores) where x is the 
+            result of applying attention and attn_scores is the 
+            individual attentions cores
         """
         keys, values = encoder_out
         residual = query
@@ -768,35 +787,35 @@ class Decoder(nn.Module):
     The decoder block
     
     embed_dim: int
-        the embedding dimension
+        The embedding dimension
     use_speaker_embed: bool
-        the number of speakers
+        The number of speakers
     speaker_embed_dim: int
-        the dimension of the speaker embedding
+        The dimension of the speaker embedding
     in_channels: int
-        the number of channels in the first input convolution
+        The number of channels in the first input convolution
     in_dim: int
-        the input dimension
+        The input dimension
     max_positions: int
-        the the maximum number of positions in the decoded sequence
+        The the maximum number of positions in the decoded sequence
     preattention: list
-        the pre-attention layers (a list of Torch modules)
+        The pre-attention layers (a list of Torch modules)
     convolutions: list
-        the convolution layers (a list of Torch modules)
+        The convolution layers (a list of Torch modules)
     output: nn.Module
-        the output layer
+        The output layer
     attention: bool
-        whether or not to use attention
+        Whether or not to use attention
     dropout: float
-        the dropout rate
+        The dropout rate
     use_memory_mask: bool
-        whether or not to use a memory mask
+        Whether or not to use a memory mask
     force_monotonic_attention: bool
-        whether or not to force monotonic attention
+        Whether or not to force monotonic attention
     query_position_rate: float
-        the query position rate
+        The query position rate
     key_position_rate: float
-        the key position rate
+        The key position rate
     """
     def __init__(self, embed_dim,
                  use_speaker_embed,
@@ -874,6 +893,11 @@ class Decoder(nn.Module):
             a tensor of lengths in the original inputs. The tensor passed in the
             `inputs` parameter may be padded - the value in lengths corresponds to the length
             of the original (pre-padding) sequence
+
+        Returns
+        -------
+        result: tuple
+            A tuple of Torch tensors: (outputs, alignments, done, decoder_states)
         """
         if inputs is None:
             assert text_positions is not None
@@ -980,6 +1004,12 @@ class Decoder(nn.Module):
             the initial input
         test_inputs
             test inputs (optional, the last output will be used if not provided)
+
+        Returns
+        -------
+        result: tuple
+            A tuple of Torch tensors: (outputs, alignments, done, decoder_states)
+
         """                            
         keys, values = encoder_out
         B = keys.size(0)
@@ -1014,7 +1044,8 @@ class Decoder(nn.Module):
             frame_pos = keys.data.new(B, 1).fill_(t + 1).long()
             w = self.query_position_rate
             if self.speaker_proj2 is not None:
-                w = w * torch.sigmoid(self.speaker_proj2(speaker_embed)).view(-1)
+                w = w * torch.sigmoid(
+                    self.speaker_proj2(speaker_embed)).view(-1)
             frame_pos_embed = self.embed_query_positions(frame_pos, w)
 
             if test_inputs is not None:
@@ -1044,7 +1075,8 @@ class Decoder(nn.Module):
                     x, alignment = attention(x, (keys, values),
                                              last_attended=last_attended[idx])
                     if self.force_monotonic_attention[idx]:
-                        last_attended[idx] = alignment.max(-1)[1].view(-1).data[0]
+                        last_attended[idx] = (
+                            alignment.max(-1)[1].view(-1).data[0])
                     if ave_alignment is None:
                         ave_alignment = alignment
                     else:
@@ -1101,6 +1133,11 @@ class Decoder(nn.Module):
 def _clear_modules(modules):
     """
     Clears the specified modules' buffers
+
+    Arguments
+    ---------
+    module: list
+        A list of Torch modules
     """
     for m in modules:
         try:
@@ -1153,14 +1190,17 @@ class Converter(nn.Module):
         # expand speaker embedding for all time steps
         speaker_embed_btc = expand_speaker_embed(x, speaker_embed)
         if speaker_embed_btc is not None:
-            speaker_embed_btc = F.dropout(speaker_embed_btc, p=self.dropout, training=self.training)
+            speaker_embed_btc = F.dropout(
+                speaker_embed_btc, p=self.dropout, training=self.training)
 
         # Generic case: B x T x C -> B x C x T
         x = x.transpose(1, 2)
         for f in self.convolutions:
             # Case for upsampling
-            if speaker_embed_btc is not None and speaker_embed_btc.size(1) != x.size(-1):
-                speaker_embed_btc = expand_speaker_embed(x, speaker_embed, tdim=-1)
+            if (speaker_embed_btc is not None 
+                and speaker_embed_btc.size(1) != x.size(-1)):
+                speaker_embed_btc = expand_speaker_embed(
+                    x, speaker_embed, tdim=-1)
                 speaker_embed_btc = F.dropout(
                     speaker_embed_btc, p=self.dropout, training=self.training)
             x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
@@ -1169,8 +1209,6 @@ class Converter(nn.Module):
         x = x.transpose(1, 2)
 
         return torch.sigmoid(x)
-
-
 
 
 class TTSModel(nn.Module):
@@ -1392,6 +1430,15 @@ class LossStats:
     attn_loss: torch.Tensor = None
     
     def as_scalar(self):
+        """
+        Converts the loss tensors to scalars and returns them
+        as a dictionary
+
+        Returns
+        -------
+        result: dict
+            The losses, as a {key: float} dictionary
+        """
         fields = dataclasses.fields(self)
         return {field.name: getattr(self, field.name).item()
                 for field in fields}
@@ -1401,6 +1448,19 @@ class LossStats:
 class Loss(nn.Module):
     """
     The loss for the DeepVoice3 model
+
+    Arguments
+    ----------
+    linear_dim : int
+        The dimension of the linear layer
+    downsample_step : int
+        The number of steps of signal downsampling
+    outputs_per_step: int
+        The number of output steps for each decoder input step
+    masked_loss_weight: float
+        The relative weight of the masked loss
+    binary_divergence_weight: float
+        The relative weight of the binary divergence criterion (comparing linear outputs)
     """
 
     def __init__(
@@ -1414,23 +1474,6 @@ class Loss(nn.Module):
         priority_freq: float,
         sample_rate: float,
         guided_attention_sigma: float):
-        """
-        Class constructor
-
-        Arguments
-        ----------
-        linear_dim : int
-            The dimension of the linear layer
-        downsample_step : int
-            The number of steps of signal downsampling
-        outputs_per_step: int
-            The number of output steps for each decoder input step
-        masked_loss_weight: float
-            The relative weight of the masked loss
-        binary_divergence_weight: float
-            The relative weight of the binary divergence criterion (comparing linear outputs)
-    
-        """
 
         super().__init__()
         self.linear_dim = linear_dim
@@ -1453,7 +1496,7 @@ class Loss(nn.Module):
         Computes the losses
         
         inputs : tuple
-            a tuple of (MEL input, linear input, attention, done, target lengths)
+            A tuple of (MEL input, linear input, attention, done, target lengths)
             The *input* to the loss is the *output* of the model
         targets: tuple
             a tuple of (MEL targets, linear targets, done, target lengths)
@@ -1461,7 +1504,7 @@ class Loss(nn.Module):
         Returns
         -------
         loss : LossStats
-            the diferent losses from DeepVoice3, collected into
+            The diferent losses from DeepVoice3, collected into
             a single object
         """
         input_mel, input_linear, attention, input_done, input_lengths = input
@@ -1507,11 +1550,11 @@ class Loss(nn.Module):
         Arguments:
         ----------
         target_linear: torch.Tensor
-            the linear spectrogram targets
+            The linear spectrogram targets
         target_mel: torch.Tensor
-            the MEL spectrogram targets
+            The MEL spectrogram targets
         target_lengths: torch.Tensor
-            the target lengths
+            The target lengths
 
         Returns
         -------
@@ -1557,10 +1600,14 @@ class Loss(nn.Module):
         """
 
         mel_l1_loss, mel_binary_div = self.spec_loss(
-            input_mel[:, :-self.outputs_per_step, :], target_mel[:, self.outputs_per_step:, :], decoder_target_mask,
+            input_mel[:, :-self.outputs_per_step, :],
+            target_mel[:, self.outputs_per_step:, :],
+            decoder_target_mask,
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
-        mel_loss = (1 - self.binary_divergence_weight) * mel_l1_loss + self.binary_divergence_weight * mel_binary_div
+        mel_loss = (
+            (1 - self.binary_divergence_weight) * mel_l1_loss
+             + self.binary_divergence_weight * mel_binary_div)
         return mel_loss, mel_l1_loss, mel_binary_div
 
     def linear_loss(self, input_linear, target_linear, target_mask):
@@ -1570,16 +1617,16 @@ class Loss(nn.Module):
         Arguments
         ---------
         input_linear: torch.Tensor
-            the linear inputs (i.e. the output of the model)
+            The linear inputs (i.e. the output of the model)
         target_linear: torch.Tensor
-            the linear target (the linear spectrogram of the original audio)
+            The linear target (the linear spectrogram of the original audio)
         target_mask: torch.Tensor
-            the target mask to be applied
+            The target mask to be applied
 
         Returns
         -------
         losses: tuple
-            a tuple of (linear_loss, linear_l1_loss,
+            A tuple of (linear_loss, linear_l1_loss,
             linear_binary_div) - linear MEL loss, linear L1 loss, 
             linear binary divergence
 
@@ -1610,13 +1657,13 @@ class Loss(nn.Module):
         Arguments
         ---------
         y_hat: torch.Tensor
-            the predicted spectrogram
+            The predicted spectrogram
         y: torch.Tensor
-            the target spectrogram
+            The target spectrogram
         mask: torch.Tensor
-            the masked to be applied
+            The masked to be applied
         priority_w: torch.Tensor
-            the weight of the priority loss
+            The weight of the priority loss
 
         Returns
         -------
@@ -1663,9 +1710,14 @@ class Loss(nn.Module):
         Arguments
         ---------
         sequence_length: int
-            the length of the sequence
+            The length of the sequence
         max_len: int
-            the maximum length of the sequence
+            The maximum length of the sequence
+
+        Returns
+        -------
+        mask: torch.Tensor
+            the sequence mask
         """
         if max_len is None:
             max_len = sequence_length.data.max()
@@ -1686,21 +1738,21 @@ class Loss(nn.Module):
         Arguments
         ---------
         N: int
-            the input length
+            The input length
         max_N: int
-            the maximum input length
+            The maximum input length
         T: int
-            the target length
+            The target length
         max_T: int
-            the maximum target length
+            The maximum target length
         g: float
-            the guided attention weight
+            The guided attention weight
 
 
         Returns
         -------
         value: torch.Tensor
-            the guided attention tensor for a single example
+            The guided attention tensor for a single example
         """
         W = torch.zeros((max_N, max_T)).float()
         n, t = torch.meshgrid(
@@ -1717,18 +1769,18 @@ class Loss(nn.Module):
         Arguments
         ---------
         input_lengths: torch.Tensor
-            a tensor of input lengths
+            A tensor of input lengths
         target_lengths: torch.Tensor
-            a tensor of target (spectrogram) length
+            A tensor of target (spectrogram) length
         max_target_len: int
-            the maximum target length
+            The maximum target length
         g: float
-            the attention weight
+            The attention weight
         
         Returns
         -------
         W: torch.Tensor
-            the guided attention tensor
+            The guided attention tensor
         """
         B = len(input_lengths)
         max_input_len = input_lengths.max()
@@ -1754,9 +1806,14 @@ def logit(x, eps=1e-8):
     Arguments
     ---------
     x: torch.Tensor
-        the input
+        The input
     eps: float
-        the epsilon value
+        The epsilon value
+    
+    Returns
+    -------
+    result: torch.Tensor
+        The logit result
     """
     return torch.log(x + eps) - torch.log(1 - x + eps)
 
@@ -1766,10 +1823,17 @@ def masked_mean(y, mask):
     Multiplies the provided tensor by the provided mask and
     then computes the mean
 
-    y : torch.Tensor
+    Arguments
+    ---------
+    y: torch.Tensor
         the tensor whose mean is being computed
     mask: torch.Tensor
         the mask to be applied
+
+    Returns
+    -------
+    result: torch.Tensor
+        The masked mean result
     """
     # (B, T, D)
     mask_ = mask.expand_as(y)
@@ -1790,17 +1854,22 @@ class MaskedL1Loss(nn.Module):
 
         Arguments
         ---------
-        inputs
-            the input tensor
-        target
-            the target tensor
-        lengths
-            the actual lengths (inputs and targets may be padded)
-        mask
-            the mask to be applied (optional - a sequence mask based on
+        inputs: torch.Tensor
+            The input tensor
+        target: torch.Tensor
+            The target tensor
+        lengths: torch.Tensor
+            The actual lengths (inputs and targets may be padded)
+        mask: torch.Tensor
+            The mask to be applied (optional - a sequence mask based on
             the lengths will be computed if omitted)
-        max_len
-            the maximum length        
+        max_len: torch.Tensor
+            The maximum length
+        
+        Returns
+        -------
+        result: torch.Tensor
+            the masked L1 loss                   
         """
         if lengths is None and mask is None:
             raise RuntimeError("Should provide either lengths or mask")
@@ -1813,4 +1882,3 @@ class MaskedL1Loss(nn.Module):
         mask_ = mask.expand_as(input)
         loss = self.criterion(input * mask_, target * mask_)
         return loss / mask_.sum()
-

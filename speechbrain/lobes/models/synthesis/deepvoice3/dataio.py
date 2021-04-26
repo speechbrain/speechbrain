@@ -21,9 +21,9 @@ def text_encoder(max_input_len=128, tokens=None, takes="label"):
 
     Arguments
     ---------
-    max_input_len
-        the maximum allowed length of an input sequence
-    tokens
+    max_input_len: int
+        The maximum allowed length of an input sequence
+    tokens: iterable
         a collection of tokens
     
     Returns
@@ -56,7 +56,7 @@ def downsample_spectrogram(takes, provides, downsample_step=4):
 
     Arguments
     ---------
-    downsample_step
+    downsample_step: int
         the number of steps by which to downsample the target spectrograms
     
     Returns
@@ -79,11 +79,11 @@ def pad(takes, provides, length):
 
     Arguments
     ---------
-    takes
+    takes: str
         the source pipeline element
-    provides
+    provides: str
         the pipeline element to output
-    length
+    length: int
         the length to which the tensor will be padded
 
     Returns
@@ -105,6 +105,10 @@ def trim(takes, provides, threshold=-30.):
 
     Arguments
     ---------
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output    
     threshold: float
         the threshold, in decibels, below which samples will be considered
         as silence
@@ -125,8 +129,8 @@ def trim(takes, provides, threshold=-30.):
     return f
 
 
-def done(outputs_per_step=1, downsample_step=4,
-         takes="target_lengths", provides="done"):
+def done(takes="target_lengths", provides="done", 
+         outputs_per_step=1, downsample_step=4):
     """
     Returns a generator of "done" tensors where 0 indicates
     that decoding is still in progress, 1 indicates that decoding
@@ -134,9 +138,13 @@ def done(outputs_per_step=1, downsample_step=4,
 
     Arguments
     ---------
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output        
     outputs_per_step: int
         the number of outputs per step
-    downsample_step
+    downsample_step: int
         the number of downsampling steps
 
     Returns
@@ -163,23 +171,29 @@ def done(outputs_per_step=1, downsample_step=4,
     return f
 
 
-def frame_positions(max_output_len=1024):
+def frame_positions(takes="mel", provides="frame_positions",
+                    max_output_len=1024):
     """
-    Returns a pipeline element that outputs frame positions within the spectrogram
+    Returns a pipeline element that outputs frame positions within
+    the spectrogram
 
     Arguments
     ---------
-    max_output_len
-        the maximum length of the spectrogram
+    max_output_len: int
+        the maximum length of the spectrogram        
 
     Returns
     -------
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output        
     item: DynamicItem
         A wrapped transformation function
     """
     range_tensor = torch.arange(1, max_output_len+1)
-    @sb.utils.data_pipeline.takes("mel")
-    @sb.utils.data_pipeline.provides("frame_positions")
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
     def f(mel):
         return range_tensor[:mel.size(-1)]
     return f
@@ -229,31 +243,40 @@ def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=
 def target_lengths(takes='mel_raw', provides='target_lengths'):
     """
     Returns a transformation function that computes the target lengths
+
+    Arguments
+    ---------
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output      
+
+    Returns
+    -------
+    item: DynamicItem
+        A wrapped transformation function           
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(mel):
-        """
-        Determines the 
-        """
         nonzero = mel[:, 0, :].nonzero()    
         _, counts = nonzero[:, 0].unique(return_counts=True)
         return counts
     return f
 
 
-def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
+def pad_to_length(tensor, length, value=0.):
     """
     Pads the last dimension of a tensor to the specified length,
     at the end
     
     Arguments
     ---------
-    tensor
+    tensor: torch.Tensor
         the tensor
-    length
+    length: int
         the target length along the last dimension
-    value
+    value: float
         the value to pad it with
 
     Returns
@@ -265,7 +288,30 @@ def pad_to_length(tensor: torch.Tensor, length: int, value: int=0.):
     return F.pad(tensor, (0, padding), value=value)
 
 
-def pad_spectrogram(takes: str, provides: str, outputs_per_step: int, downsample_step: int):
+def pad_spectrogram(takes="linear", provides="linear_pad",
+                    outputs_per_step=1, downsample_step=5):
+    """
+    Pads the last dimension of a tensor to the specified length,
+    at the end
+
+    Arguments
+    ---------
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output
+    outputs_per_step: int
+        the number of outputs per step
+    downsample_step: int
+        the number of downsampling steps
+
+    Returns
+    -------
+    item: DynamicItem
+        A wrapped transformation function        
+    
+    """
+
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(tensor: torch.Tensor):
@@ -277,13 +323,18 @@ def pad_spectrogram(takes: str, provides: str, outputs_per_step: int, downsample
     return f
 
 
-def denormalize_spectrogram(min_level_db, ref_level_db, takes="linear", provides="linear_denorm"):
+def denormalize_spectrogram(takes="linear", provides="linear_denorm",
+                            min_level_db=-100, ref_level_db=20):
     """
     Reverses spectrogram normalization and converts it
-    to 
+    to a waveform
 
     Arguments
     ---------
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output
     min_db_level: float
         the minimum decibel level
     ref_db_level: float

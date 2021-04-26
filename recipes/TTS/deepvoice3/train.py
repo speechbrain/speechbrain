@@ -1,4 +1,7 @@
-"""Recipe for training the DeepVoice3 Text-To-Speech model.
+"""Recipe for training the DeepVoice3 Text-To-Speech model, a fully-convolutional
+attention-based neural text-to-speech (TTS) system
+
+https://arxiv.org/abs/1710.07654
 
 To run this recipe, do the following:
 > python train.py hparams/train.yaml --data_folder /path/to/TIMIT
@@ -28,6 +31,10 @@ from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
 
 
 class DeepVoice3Brain(sb.core.Brain):
+    """
+    A Brain implementation for the DeepVoice3 text-to-speech model
+
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.features_pipeline = DataPipeline(
@@ -39,7 +46,9 @@ class DeepVoice3Brain(sb.core.Brain):
         self.last_batch = None
 
     def compute_forward(self, batch, stage, incremental=False, single=False):
-        """Predicts the next word given the previous ones.
+        """Uses the deepvoice3 model to output the spectrograms of the generated
+        speech
+
         Arguments
         ---------
         batch : PaddedBatch
@@ -58,7 +67,15 @@ class DeepVoice3Brain(sb.core.Brain):
         Returns
         -------
         predictions : torch.Tensor
-            A tensor containing the posterior probabilities (predictions).
+            A tuple of tensors containing the predictions
+            Format: (mel_outputs, linear_outputs, alignments, done)
+            
+            mel_outputs: the MEL-scale diagram produced by the model
+            linear_outputs: the linear problem produced by the model
+            alignments: attention layer alignments
+            done: the done tensor (the probabilities of decoding being finished
+                at a given step)
+
         """
         batch = batch.to(self.device)
         features = self.compute_features(
@@ -80,6 +97,16 @@ class DeepVoice3Brain(sb.core.Brain):
         """
         Overrides fit_batch to run the NOAM scheduler on each update. See
         the base class for details
+
+        Arguments
+        ---------
+        batch: PaddedBatch
+            the batch 
+        
+        Returns
+        -------
+        loss: torch.Tensor
+            the loss
         """
         loss = super().fit_batch(batch)
         old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
@@ -176,6 +203,9 @@ class DeepVoice3Brain(sb.core.Brain):
         return features
     
     def on_fit_start(self):
+        """
+        Executed when training statrs
+        """
         super().on_fit_start()
         if self.hparams.progress_samples:
             if not os.path.exists(self.hparams.progress_sample_path):
@@ -191,6 +221,11 @@ class DeepVoice3Brain(sb.core.Brain):
             for key, value in kwargs.items()})
 
     def _compute_incremental_outputs(self, batch):
+        """
+        Computes incremental outputs for the purpose of producing snapshots.
+        Incremental mode simulates real-life usage where only text inputs
+        are used.
+        """
         predictions = self.compute_forward(
             batch, sb.Stage.VALID, incremental=True,
             single=True)
@@ -202,6 +237,11 @@ class DeepVoice3Brain(sb.core.Brain):
     def _save_progress_sample(self, epoch):
         """
         Saves a set of spectrogram samples 
+
+        Arguments:
+        ----------
+        epoch: int
+            The epoch number
         """
         entries = [
             (f'{key}.png', value) 
@@ -230,10 +270,6 @@ class DeepVoice3Brain(sb.core.Brain):
         effective_file_name = os.path.join(target_path, file_name)
         sample = data.transpose(-1, -2).squeeze()
         torchvision.utils.save_image(sample, effective_file_name)
-
-    def _pad_output(self, tensor, value=0.):
-        padding = self.hparams.decoder_max_positions - tensor.size(2)
-        return F.pad(tensor, (0, padding), value=value)
 
     def log_stats(self, *args, **kwargs):
         """
@@ -335,11 +371,22 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
 
 
 class SingleBatchLoader(DataLoader):
+    """
+    A DataLoader implementation for single batches - used to fit
+    a pre-computed batch from another implementation, for testing
+    purposes
+
+    Arguments
+    ---------
+    batch: dict
+        a batch
+    """
     def __init__(self, batch):
         super()
         self.batch = batch
 
     def __iter__(self):
+        """The iterator method"""
         yield self.batch
         
 
@@ -354,7 +401,7 @@ class SingleBatchWrapper(DataLoader):
         
         Arguments
         ---------
-        loader
+        loader: DataLoader
             the inner data loader
         """
         self.loader = loader
@@ -362,6 +409,7 @@ class SingleBatchWrapper(DataLoader):
         self.batch = None
 
     def __iter__(self):
+        """The iterator method"""
         if self.batch is None:
             self.batch = next(iter(self.loader))
         for _ in range(self.num_iterations):
