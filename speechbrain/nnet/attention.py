@@ -384,7 +384,7 @@ class RelPosMHAXL(nn.Module):
         embed_dim,
         num_heads,
         dropout=0.0,
-        vbias=None,
+        vbias=True,
         add_zero_attn=False,
         vdim=None,
         mask_pos_future=False,
