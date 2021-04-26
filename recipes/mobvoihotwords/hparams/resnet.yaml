@@ -63,6 +63,7 @@ n_mels: 40
 left_frames: 0
 right_frames: 0
 deltas: False
+use_log1p: True
 
 # Number of classes (i.e. different commands)
 out_n_neurons: !ref <number_of_commands>  #includes core commands & auxiliary words

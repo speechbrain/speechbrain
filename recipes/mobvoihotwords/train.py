@@ -62,6 +62,11 @@ class SpeakerBrain(sb.core.Brain):
         # print("lens.size():{}".format(lens.size()))
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
+
+        if self.hparams.use_log1p:
+            # Log1p reduces the emphasis on small differences
+            feats = torch.log1p(feats)
+
         feats = self.modules.mean_var_norm(feats, lens)
         # print("feats.size():{}".format(feats.size()))
 
