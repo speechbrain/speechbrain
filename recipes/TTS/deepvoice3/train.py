@@ -303,14 +303,12 @@ class DeepVoice3Brain(sb.core.Brain):
 
         # At the end of validation, we can wrote
         if stage == sb.Stage.VALID:
-
-            # Update learning rate
-            old_lr, new_lr = self.hparams.lr_annealing(self.optimizer)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            # Recover the learning rate (it is updated in fit_batch)
+            current_lr = self.optimizer.param_groups[-1]['lr']
 
             # The train_logger writes a summary to stdout and to the logfile.
             train_stats = dict(
-                lr=old_lr, **self.last_loss_stats[sb.Stage.TRAIN])
+                lr=current_lr, **self.last_loss_stats[sb.Stage.TRAIN])
             train_stats = {key: [value] for key, value in train_stats.items()}
             self.log_stats(
                 {"Epoch": epoch},
