@@ -139,6 +139,11 @@ class SpeakerBrain(sb.core.Brain):
                 self.result['nihaowenwen']['TP'] += 1
             else:
                 self.result['nihaowenwen']['FN'] += 1
+        if command == 2:
+            if keyword1_count > 0:
+                self.result['hixiaowen']['FP'] += 1
+            if keyword2_count > 0:
+                self.result['nihaowenwen']['FP'] += 1
 
         return None
 
