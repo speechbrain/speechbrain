@@ -1,6 +1,16 @@
+"""Pipeline transofmrtaion functions that can be useful for
+multiple speech synthesis models (wrapped Torchaudio transforms,
+embeddings, etc)
+
+Authors
+* Artem Ploujnikov 2021
+"""
+
+
 import speechbrain as sb
 
 from speechbrain.dataio.encoder import TextEncoder
+# NOTE: These are imported for ease of referencing from HyperPyYAML files
 from torchaudio import transforms
 from speechbrain.lobes.models.synthesis.dataio import audio_pipeline, spectrogram, resample, mel_spectrogram
 
@@ -309,7 +319,6 @@ def pad_spectrogram(takes="linear", provides="linear_pad",
     -------
     item: DynamicItem
         A wrapped transformation function        
-    
     """
 
     @sb.utils.data_pipeline.takes(takes)

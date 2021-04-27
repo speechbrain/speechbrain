@@ -1,6 +1,14 @@
 # coding: utf-8
+"""Deepvoice3 - the model implementation
 
-# Adopted and modified from https://github.com/r9y9/deepvoice3_pytorch
+Adopted and modified from https://github.com/r9y9/deepvoice3_pytorch
+
+Authors
+* Artem Ploujnikov 2021 (adaptation)
+* Ryuichi Yamamoto 2021 (original R9Y9 model)
+"""
+
+
 
 import dataclasses
 import torch
@@ -22,11 +30,11 @@ class WeightNorm(nn.Module):
 
         Arguments
         ---------
-        inner
+        inner: speechbrain.nnet.CNN.Conv1d
             A convolutional layer
-        dropout 
+        dropout: float
             The drop-out rate (0.0 to 1.0)
-        std_mul 
+        std_mul: float
             The standard deviation multiplier
         """
         super().__init__()
@@ -110,6 +118,9 @@ class IncrementalConv1d(CNN.Conv1d):
         self.input_buffer = None
 
     def _get_linearized_weight(self):
+        """
+        Computes linearized weighths
+        """
         if self._linearized_weight is None:
             kw = self.conv.kernel_size[0]
             weight = self.conv.weight.transpose(1, 2).contiguous()
@@ -118,6 +129,9 @@ class IncrementalConv1d(CNN.Conv1d):
         return self._linearized_weight
 
     def _clear_linearized_weight(self, *args):
+        """
+        Clears linearized weights
+        """
         self._linearized_weight = None        
 
 
@@ -1264,14 +1278,6 @@ class TTSModel(nn.Module):
         self.embed_speakers = embed_speakers
         self.use_speaker_embed = use_speaker_embed
         self.speaker_embed_dim = speaker_embed_dim
-
-    def make_generation_fast_(self):
-        def remove_weight_norm(m):
-            try:
-                nn.utils.remove_weight_norm(m)
-            except ValueError:  # this module didn't have weight norm
-                return
-        self.apply(remove_weight_norm)
 
     def get_trainable_parameters(self):
         """

@@ -1,14 +1,15 @@
 # ################################
 # Model: DeepVoice3 - Multispeaker
-# Training
+# Training with pretrained embeddings
 # Authors:
 # * Artem Ploujnikov 2021
 # ################################
-seed: 72
+seed: 16
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 embed_dim: 256
-speaker_embed_dim: 16
+speaker_embed_source: speechbrain/spkrec-ecapa-voxceleb
+speaker_embed_dim: 512
 batch_size: 32
 use_speaker_embed: True
 speaker_embedding_weight_std: 0.01
@@ -103,7 +104,6 @@ tensorboard_logs: !ref <output_folder>/logs
 inverse_spectrogram_n_iter: 1024
 
 tokens: ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-
-
 
 encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Encoder
   n_vocab: !ref <n_vocab>
@@ -451,6 +451,7 @@ train_pipeline:
       - input_lengths
       - text_positions
       - sig_trimmed
+      - sig_lengths
       - speaker_id_enc
   steps:
     - !name:speechbrain.lobes.models.synthesis.dataio.audio_pipeline
@@ -475,7 +476,7 @@ features_pipeline:
       - frame_positions
       - done
       - linear
-      - speaker_id_enc
+      - speaker_embed
   steps:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.resample
       takes: sig_trimmed
@@ -525,6 +526,12 @@ features_pipeline:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.done
       downsample_step: !ref <mel_downsample_step>
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.target_lengths
+    - !apply:speechbrain.lobes.models.synthesis.dataio.pretrained_speaker_embeddings
+      takes:
+      - sig_trimmed
+      - sig_lengths
+      provides: speaker_embed
+
 
 
 encode_pipeline:
