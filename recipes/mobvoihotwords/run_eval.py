@@ -259,7 +259,7 @@ class SpeakerBrain(sb.core.Brain):
 
             # Only run evaluation "on_stage_end" on main process
             run_on_main(
-                self.on_stage_end, args=[sb.Stage.TEST]
+                self.on_stage_end, args=[sb.Stage.TEST, None]
             )
         self.step = 0
 
