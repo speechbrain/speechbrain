@@ -72,6 +72,31 @@ def save_prob_to_wav(audio: np.ndarray, prob_vec: np.ndarray, hop_len: int, pred
 
     save_audio(filename, output_wavdata)
 
+def compute_metrics(result : dict, verbose=True):
+    print("result for hixiaowen")
+
+    TP = result['TP']
+    FN = result['FN']
+    TN = result['TN']
+    FP = result['FP']
+
+    precision = TP / (TP + FP) if TP + FP > 0 else 0.0
+    recall = TP / (TP + FN) if TP + FN > 0 else 0.0
+    false_positive_rate = FP / (FP + TN) if FP + TN > 0 else 0.0
+    false_negative_rate = FN / (FN + TP) if FN + TP > 0 else 0.0
+
+    if verbose:
+        print("True Positive:{}".format(result['TP']))
+        print("False Negative:{}".foramt(result['FN']))
+        print("True Negative:{}".foramt(result['TN']))
+        print("False Positive:{}".foramt(result['FP']))
+        print("precise:{}".format(precision))
+        print("recall:{}".format(recall))
+        print("false_positive_rate:{}".format(false_positive_rate))
+        print("false_negative_rate:{}".format(false_negative_rate))
+
+    return precision, recall, false_positive_rate, false_negative_rate
+
 
 @sb.utils.data_pipeline.takes("wav")
 @sb.utils.data_pipeline.provides("signal")
@@ -260,24 +285,10 @@ if __name__ == "__main__":
         #         result['hixiaowen']['FP'] += 1
 
     print("result for hixiaowen")
-    print("True Positive:{}".format(result['hixiaowen']['TP']))
-    print("False Negative:{}".foramt(result['hixiaowen']['FN']))
-    print("True Negative:{}".foramt(result['hixiaowen']['TN']))
-    print("False Positive:{}".foramt(result['hixiaowen']['FP']))
-    precision = result['hixiaowen']['TP'] / (result['hixiaowen']['TP'] + result['hixiaowen']['FP']) if result['hixiaowen']['TP'] + result['hixiaowen']['FP'] > 0 else 0.0
-    print("precise:{}".format(precision))
-    recall = result['hixiaowen']['TP'] / (result['hixiaowen']['TP'] + result['hixiaowen']['FN']) if result['hixiaowen']['TP'] + result['hixiaowen']['FN'] > 0 else 0.0
-    print("recall:{}".format(recall))
+    compute_metrics(result['hixiaowen'])
 
     print("result for nihaowenwen")
-    print("True Positive:{}".format(result['nihaowenwen']['TP']))
-    print("False Negative:{}".foramt(result['nihaowenwen']['FN']))
-    print("True Negative:{}".foramt(result['nihaowenwen']['TN']))
-    print("False Positive:{}".foramt(result['nihaowenwen']['FP']))
-    precision = result['nihaowenwen']['TP'] / (result['nihaowenwen']['TP'] + result['nihaowenwen']['FP']) if result['nihaowenwen']['TP'] + result['nihaowenwen']['FP'] > 0 else 0.0
-    print("precise:{}".format(precision))
-    recall = result['nihaowenwen']['TP'] / (result['nihaowenwen']['TP'] + result['nihaowenwen']['FN']) if result['nihaowenwen']['TP'] + result['nihaowenwen']['FN'] > 0 else 0.0
-    print("recall:{}".format(recall))
+    compute_metrics(result['nihaowenwen'])
 
 
         #     output_list.append(output[0])
