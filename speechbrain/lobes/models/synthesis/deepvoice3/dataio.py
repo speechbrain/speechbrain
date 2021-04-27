@@ -269,9 +269,13 @@ def target_lengths(takes='mel_raw', provides='target_lengths'):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(mel):
-        nonzero = mel[:, 0, :].nonzero()    
-        _, counts = nonzero[:, 0].unique(return_counts=True)
-        return counts
+        mel_1dim = mel[:, 0, :] > 0.
+        lengths = (
+            torch.arange(mel.size(-1), device=mel_1dim.device)
+            .expand_as(mel_1dim) + 1)
+        lengths[mel_1dim == 0.] = 0
+        result = lengths.max(dim=-1).values
+        return result
     return f
 
 
