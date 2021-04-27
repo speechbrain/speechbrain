@@ -153,37 +153,6 @@ class SpeakerBrain(sb.core.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
-        # Compute/store important stats
-        stage_stats = {"loss": stage_loss}
-        if stage == sb.Stage.TRAIN:
-            self.train_stats = stage_stats
-        else:
-            stage_stats["ErrorRate"] = self.error_metrics.summarize("average")
-
-        # Perform end-of-iteration things, like annealing, logging, etc.
-        if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(epoch)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"ErrorRate": stage_stats["ErrorRate"]},
-                min_keys=["ErrorRate"],
-            )
-
-            if self.hparams.use_tensorboard:
-                valid_stats = {
-                    "loss": stage_stats['loss'],
-                    "ErrorRate": stage_stats["ErrorRate"],
-                }
-                self.hparams.tensorboard_train_logger.log_stats(
-                    {"Epoch": epoch}, self.train_stats, valid_stats
-                )
-
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
             for wake_word in self.wake_words:
