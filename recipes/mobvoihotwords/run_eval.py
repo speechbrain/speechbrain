@@ -56,8 +56,10 @@ class SpeakerBrain(sb.core.Brain):
         feats_contex = compute_cw(feats)
         # print("feats_contex0:{}".format(feats_contex.shape))
         feats_contex = feats_contex.transpose(0, 1)
+        feats_contex = feats_contex.transpose(1, 2)
         # print("feats_contex0:{}".format(feats_contex.shape))
-        feats_contex = torch.reshape(feats_contex, (frame_num, 151, 40))
+        feats_contex = torch.reshape(feats_contex, (frame_num, 40, 151))
+        feats_contex = feats_contex.transpose(1, 2)
         # print("feats_contex1:{}".format(feats_contex.shape))
         feats_contex = feats_contex[75:-75, :, :]
         # print("feats_contex2:{}".format(feats_contex.shape))
@@ -108,7 +110,10 @@ class SpeakerBrain(sb.core.Brain):
         keyword1_count = 0
         keyword2_count = 0
 
+        # print("predictions[:, 0, :].shape:{}".format(predictions[:, 0, :].shape))
+
         output_label = torch.argmax(predictions[:, 0, :], dim=1).cpu().numpy()
+        # print("output_label.shape:{}".format(output_label))
 
         for t in range(predictions.shape[0]):
             if output_label[t] == 0:
