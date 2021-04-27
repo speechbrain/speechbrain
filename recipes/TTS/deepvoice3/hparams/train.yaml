@@ -80,6 +80,7 @@ use_decoder_state_for_postnet_input: true
 freeze_embedding: false
 lr: 0.0005
 lr_warmup_steps: 4000
+max_grad_norm: 0.1
 number_of_epochs: 50
 ckpt_every_epoch: false
 progress_samples: true
