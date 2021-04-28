@@ -23,11 +23,18 @@ python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
 
 ### Direct recipe
 The "direct" maps the input speech to directly to semantics using a seq2seq model.
-The encoder is pre-trained using the LibriSpeech seq2seq recipe.
+The recipes can be used with an pre-trained using the LibriSpeech seq2seq recipe.
 
 ```
 cd direct
 python train.py hparams/train.yaml
+```
+
+The recipe can also be used using a pretrained Wav2Vec as an encoder
+
+```
+cd direct
+python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
 ```
 
 # Performance summary
@@ -40,6 +47,7 @@ python train.py hparams/train.yaml
 | Multistage (LibriSpeech LM) | 67.8% ± 1.4% | 79.4% ± 0.4% | 64.6% ± 0.7% |
 | Multistage (Timers and Such LM) | 72.6% ± 1.6% | 85.4% ± 0.2% | 69.9% ± 6.0% |
 | Direct | 77.5% ± 1.6% | 96.7% ± 0.3% |68.9% ± 5.4% |
+| Direct(Wav2Vec) | 92.19% +- 2.13 | none | none |
 
 The table reports the performance achieved when training with both real and synthetic data (train-real+train-synth).
 The sentence accuracy is reported for the all-real subset as well, a subset obtained by combining all the real data in train-real,
@@ -54,7 +62,7 @@ https://drive.google.com/drive/folders/1kSwdBT8kDhnmTLzrOPDL77LX_Eq-3Tzl?usp=sha
 
 ```
 @misc{lugosch2021timers,
-      title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers}, 
+      title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers},
       author={Lugosch, Loren and Papreja, Piyush and Ravanelli, Mirco and Heba, Abdelwahab and Parcollet, Titouan},
       year={2021},
       eprint={2104.01604},
