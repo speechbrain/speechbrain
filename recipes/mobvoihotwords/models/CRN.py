@@ -161,7 +161,7 @@ class crn(torch.nn.Module):
         Number of RNN layers to use.
     """
 
-    def __init__(self, input_size=161, output_size=3, contex=0, bidir=False, rnn_size=128, projection=64, layers=2):
+    def __init__(self, input_size=161, output_size=3, rnn_type='LSTM', contex=0, bidir=False, rnn_size=128, projection=64, layers=2):
         super().__init__()
         self.layers = torch.nn.ModuleList()
 
@@ -173,7 +173,7 @@ class crn(torch.nn.Module):
             rnn_size = 256
 
         self.encoder = Encoder()
-        self.rnn = RNN_Block(input_size=rnn_size, hidden_size=rnn_size)
+        self.rnn = RNN_Block(input_size=rnn_size, hidden_size=rnn_size, rnn_type=rnn_type)
         self.decoder = Decoder()
 
         self.fc1 = nn.Linear(in_features=151*256, out_features=output_size)
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     N, C, T, F = 10, 1, 151, 40
     data = torch.rand((N, T,F))
     print(data.shape)
-    model = crn(input_size=F)
+    model = crn(input_size=F, rnn_type='GRU')
     output = model(data)
     print(output.shape)
     # input_size = 257

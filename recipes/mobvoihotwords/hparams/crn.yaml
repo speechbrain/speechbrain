@@ -57,6 +57,8 @@ lr_final: 0.0001
 sample_rate: 16000
 shuffle: True
 
+rnn_type: 'GRU'
+
 
 # Feature parameters
 n_mels: 40
@@ -83,6 +85,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 embedding_model: !new:models.CRN.crn
     input_size: !ref <n_mels>
     output_size: !ref <out_n_neurons>
+    rnn_type: !ref <rnn_type>
 
 # classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 #     input_shape: [null, null, 512]
