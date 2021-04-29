@@ -35,7 +35,7 @@ def text_encoder(max_input_len=128, tokens=None, takes="label"):
         The maximum allowed length of an input sequence
     tokens: iterable
         a collection of tokens
-    
+
     Returns
     -------
     item: DynamicItem
@@ -56,7 +56,7 @@ def text_encoder(max_input_len=128, tokens=None, takes="label"):
         yield text_sequence_eos.long()
         yield input_length + 1
         yield torch.arange(1, input_length + 2, dtype=torch.long)
-        
+
     return f
 
 
@@ -68,11 +68,11 @@ def downsample_spectrogram(takes, provides, downsample_step=4):
     ---------
     downsample_step: int
         the number of steps by which to downsample the target spectrograms
-    
+
     Returns
     -------
     item: DynamicItem
-        A wrapped transformation function        
+        A wrapped transformation function
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
@@ -118,11 +118,11 @@ def trim(takes, provides, threshold=-30.):
     takes: str
         the source pipeline element
     provides: str
-        the pipeline element to output    
+        the pipeline element to output
     threshold: float
         the threshold, in decibels, below which samples will be considered
         as silence
-    
+
     Returns
     -------
     item: DynamicItem
@@ -139,7 +139,7 @@ def trim(takes, provides, threshold=-30.):
     return f
 
 
-def done(takes="target_lengths", provides="done", 
+def done(takes="target_lengths", provides="done",
          outputs_per_step=1, downsample_step=4):
     """
     Returns a generator of "done" tensors where 0 indicates
@@ -151,7 +151,7 @@ def done(takes="target_lengths", provides="done",
     takes: str
         the source pipeline element
     provides: str
-        the pipeline element to output        
+        the pipeline element to output
     outputs_per_step: int
         the number of outputs per step
     downsample_step: int
@@ -166,18 +166,18 @@ def done(takes="target_lengths", provides="done",
     @sb.utils.data_pipeline.provides(provides)
     def f(target_lengths, padding=2):
         batch_size = target_lengths.size(0)
-        done_lengths = target_lengths // outputs_per_step // downsample_step 
+        done_lengths = target_lengths // outputs_per_step // downsample_step
         done = torch.zeros(
             batch_size, done_lengths.max() + padding,
             device=target_lengths.device)
         ranges = torch.cat(
-            batch_size 
+            batch_size
             * [torch.arange(done.size(-1), device=target_lengths.device)
                .unsqueeze(0)])
         offsets = done_lengths.unsqueeze(-1)
         done[ranges >= offsets] = 1.
         return done.unsqueeze(-1)
-    
+
     return f
 
 
@@ -190,22 +190,24 @@ def frame_positions(takes="mel", provides="frame_positions",
     Arguments
     ---------
     max_output_len: int
-        the maximum length of the spectrogram        
+        the maximum length of the spectrogram
 
     Returns
     -------
     takes: str
         the source pipeline element
     provides: str
-        the pipeline element to output        
+        the pipeline element to output
     item: DynamicItem
         A wrapped transformation function
     """
-    range_tensor = torch.arange(1, max_output_len+1)
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(mel):
-        return range_tensor[:mel.size(-1)]
+        batch_size, _, mel_len = mel.shape
+        return (
+            torch.arange(1, mel_len+1, device=mel.device)
+                .expand((batch_size, mel_len)))
     return f
 
 
@@ -214,7 +216,7 @@ LOG_10 = math.log(10)
 def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=False):
     """
     Normalizes the spectrogram for DeepVoice3
-    
+
     Arguments
     ---------
     takes: str
@@ -227,7 +229,7 @@ def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=
         the reference decibel level
     absolute: bool
         where to apply the absolute value function
-    
+
     Returns
     -------
     item: DynamicItem
@@ -259,12 +261,12 @@ def target_lengths(takes='mel_raw', provides='target_lengths'):
     takes: str
         the source pipeline element
     provides: str
-        the pipeline element to output      
+        the pipeline element to output
 
     Returns
     -------
     item: DynamicItem
-        A wrapped transformation function           
+        A wrapped transformation function
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
@@ -274,8 +276,7 @@ def target_lengths(takes='mel_raw', provides='target_lengths'):
             torch.arange(mel.size(-1), device=mel_1dim.device)
             .expand_as(mel_1dim) + 1)
         lengths[mel_1dim == 0.] = 0
-        result = lengths.max(dim=-1).values
-        return result
+        return lengths.max(dim=-1).values
     return f
 
 
@@ -283,7 +284,7 @@ def pad_to_length(tensor, length, value=0.):
     """
     Pads the last dimension of a tensor to the specified length,
     at the end
-    
+
     Arguments
     ---------
     tensor: torch.Tensor
@@ -296,7 +297,7 @@ def pad_to_length(tensor, length, value=0.):
     Returns
     -------
     item: DynamicItem
-        A wrapped transformation function        
+        A wrapped transformation function
     """
     padding = length - tensor.size(-1)
     return F.pad(tensor, (0, padding), value=value)
@@ -322,7 +323,7 @@ def pad_spectrogram(takes="linear", provides="linear_pad",
     Returns
     -------
     item: DynamicItem
-        A wrapped transformation function        
+        A wrapped transformation function
     """
 
     @sb.utils.data_pipeline.takes(takes)
@@ -332,7 +333,7 @@ def pad_spectrogram(takes="linear", provides="linear_pad",
             outputs_per_step,
             downsample_step * outputs_per_step,
             0, 0)
-        return F.pad(tensor, padding)        
+        return F.pad(tensor, padding)
     return f
 
 
@@ -356,7 +357,7 @@ def denormalize_spectrogram(takes="linear", provides="linear_denorm",
     Returns
     -------
     item: DynamicItem
-        A wrapped transformation function    
+        A wrapped transformation function
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)

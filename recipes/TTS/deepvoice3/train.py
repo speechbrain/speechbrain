@@ -9,25 +9,22 @@ To run this recipe, do the following:
 Authors
 * Artem Ploujnikov 2020
 """
-
-from speechbrain.utils.data_pipeline import DataPipeline
 import torch
 import torchvision
 import sys
 import speechbrain as sb
 import os
-from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.dataio.dataloader import SaveableDataLoader
-from torch.utils.data import DataLoader
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.checkpoints import torch_save
+from torch.utils.data import DataLoader
 
 
 sys.path.append("..")
 from datasets.vctk import VCTK
 from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
-
 
 
 class DeepVoice3Brain(sb.core.Brain):
@@ -56,20 +53,20 @@ class DeepVoice3Brain(sb.core.Brain):
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
         incremental: bool
-            Whether to compute the forward pass incrementally, 
+            Whether to compute the forward pass incrementally,
             step by step, without a time (used for generation)
         single: bool
             whether to extract only a single element from the batch. This
             is useful for the saving of incremental reconstruction samples,
             which would be impractical to compute on an entire batch during
-            training - but more manageable if only a single example is used            
-        
+            training - but more manageable if only a single example is used
+
         Returns
         -------
         predictions : torch.Tensor
             A tuple of tensors containing the predictions
             Format: (mel_outputs, linear_outputs, alignments, done)
-            
+
             mel_outputs: the MEL-scale diagram produced by the model
             linear_outputs: the linear problem produced by the model
             alignments: attention layer alignments
@@ -82,12 +79,12 @@ class DeepVoice3Brain(sb.core.Brain):
             batch, incremental=incremental, single=single)
 
         pred = self.hparams.model(
-            text_sequences=features['text_sequences'], 
-            mel_targets=
-                None if incremental else features['mel'].transpose(1, 2), 
+            text_sequences=features['text_sequences'],
+            mel_targets=(
+                None if incremental else features['mel'].transpose(1, 2)),
             text_positions=features['text_positions'],
-            frame_positions=
-                None if incremental else features['frame_positions'],
+            frame_positions=(
+                None if incremental else features['frame_positions']),
             input_lengths=features['input_lengths'],
             speaker_ids=features.get('speaker_id_enc'),
             speaker_embed=features.get('speaker_embed')
@@ -103,8 +100,8 @@ class DeepVoice3Brain(sb.core.Brain):
         Arguments
         ---------
         batch: PaddedBatch
-            the batch 
-        
+            the batch
+
         Returns
         -------
         loss: torch.Tensor
@@ -143,11 +140,11 @@ class DeepVoice3Brain(sb.core.Brain):
         target_linear = features['linear'].transpose(1, 2)
         target_lengths = features['target_lengths']
         # TODO: Too much transposing going on - optimize
-        if incremental:        
+        if incremental:
             output_mel = pad_to_length(
                 output_mel.transpose(1, 2), target_mel.size(1)).transpose(1, 2)
             output_linear = pad_to_length(
-                output_linear.transpose(1, 2), target_linear.size(1)).transpose(1, 2)           
+                output_linear.transpose(1, 2), target_linear.size(1)).transpose(1, 2)
             output_done = pad_to_length(
                 output_done.transpose(1, 2), target_done.size(1), 1.).transpose(1, 2)
 
@@ -157,7 +154,7 @@ class DeepVoice3Brain(sb.core.Brain):
         loss_stats = self.hparams.compute_cost(
             outputs, targets
         )
-        
+
         self.last_loss_stats[stage] = loss_stats.as_scalar()
         self._update_last_output(
             output_linear=output_linear,
@@ -165,7 +162,7 @@ class DeepVoice3Brain(sb.core.Brain):
             output_mel=output_mel,
             target_mel=target_mel
         )
-        
+
         return loss_stats.loss
 
     def compute_features(self, batch, incremental=False, single=False):
@@ -178,7 +175,7 @@ class DeepVoice3Brain(sb.core.Brain):
         batch: PaddedBatch
             a padded batch instance
         incremental: bool
-            indicates whether an incremental run is being performed. 
+            indicates whether an incremental run is being performed.
             In an incremental run, the features pipeline will not be run
             because no spectrograms are necessary - the model will
             construct one "from scratch"
@@ -187,7 +184,7 @@ class DeepVoice3Brain(sb.core.Brain):
             is useful for the saving of incremental reconstruction samples,
             which would be impractical to compute on an entire batch during
             training - but more manageable if only a single example is used
-        
+
         Returns
         -------
         features: dict
@@ -204,7 +201,7 @@ class DeepVoice3Brain(sb.core.Brain):
             features = {
                 key: value[:1] for key, value in features.items()}
         return features
-    
+
     def on_fit_start(self):
         """
         Executed when training statrs
@@ -221,7 +218,7 @@ class DeepVoice3Brain(sb.core.Brain):
         """
         self.last_outputs.update(
             {key: value[0].detach().cpu()
-            for key, value in kwargs.items()})
+             for key, value in kwargs.items()})
 
     def _compute_incremental_outputs(self, batch):
         """
@@ -239,7 +236,7 @@ class DeepVoice3Brain(sb.core.Brain):
 
     def _save_progress_sample(self, epoch):
         """
-        Saves a set of spectrogram samples 
+        Saves a set of spectrogram samples
 
         Arguments:
         ----------
@@ -247,7 +244,7 @@ class DeepVoice3Brain(sb.core.Brain):
             The epoch number
         """
         entries = [
-            (f'{key}.png', value) 
+            (f'{key}.png', value)
             for key, value in self.last_outputs.items()]
         for file_name, data in entries:
             self._save_sample_image(file_name, data, epoch)
@@ -255,7 +252,7 @@ class DeepVoice3Brain(sb.core.Brain):
     def _save_sample_image(self, file_name, data, epoch):
         """
         Saves a single sample image
-        
+
         Arguments
         ---------
         file_name: str
@@ -320,13 +317,13 @@ class DeepVoice3Brain(sb.core.Brain):
             if self.hparams.ckpt_every_epoch or epoch == self.hparams.number_of_epochs:
                 meta_stats = {key: value[0] for key, value in stats.items()}
                 self.checkpointer.save_and_keep_only(meta=meta_stats, min_keys=["loss"])
-            output_progress_sample =(
+            output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
             if output_progress_sample:
                 if self.hparams.progress_samples_incremental:
                     self._compute_incremental_outputs(self.last_batch)
-                self._save_progress_sample(epoch)                
+                self._save_progress_sample(epoch)
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -334,10 +331,18 @@ class DeepVoice3Brain(sb.core.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
-        
+
+    def save_for_pretrained(self):
+        """
+        Saves the necessary files for the pretrained model
+        """
+        pretrainer = self.hparams.pretrainer
+        for key, value in pretrainer.loadables.items():
+            path = pretrainer.paths[key]
+            torch_save(value, path)
 
 
-def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
+def dataset_prep(dataset, hparams, tokens=None):
     """
     Prepares one or more datasets for use with deepvoice.
 
@@ -351,7 +356,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
     ---------
     datasets
         a collection or datasets
-    
+
     Returns
     -------
     the original dataset enhanced
@@ -367,7 +372,7 @@ def dataset_prep(dataset:DynamicItemDataset, hparams, tokens=None):
         dataset.add_dynamic_item(element)
 
     dataset.set_output_keys(encoder_pipeline['output_keys'])
-    return SaveableDataLoader(dataset, collate_fn=PaddedBatch, 
+    return SaveableDataLoader(dataset, collate_fn=PaddedBatch,
                               **hparams["dataloader_options"])
 
 
@@ -389,7 +394,7 @@ class SingleBatchLoader(DataLoader):
     def __iter__(self):
         """The iterator method"""
         yield self.batch
-        
+
 
 class SingleBatchWrapper(DataLoader):
     """
@@ -399,7 +404,7 @@ class SingleBatchWrapper(DataLoader):
     def __init__(self, loader: DataLoader, num_iterations=1):
         """
         Class constructor
-        
+
         Arguments
         ---------
         loader: DataLoader
@@ -429,7 +434,7 @@ def dataio_prep(hparams):
     Returns
     -------
     datsets: dict
-        
+
     """
     result = {}
     for name, dataset_params in hparams['datasets'].items():
@@ -466,10 +471,8 @@ def main():
             datasets = {
                 key: SingleBatchWrapper(
                     dataset,
-                    num_iterations=hparams.get('overfit_test_iterations', 1)) 
+                    num_iterations=hparams.get('overfit_test_iterations', 1))
                 for key, dataset in datasets.items()}
-    
-
 
     # Initialize the Brain object to prepare for mask training.
     tts_brain = DeepVoice3Brain(
@@ -492,14 +495,17 @@ def main():
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
+    if hparams.get('save_for_pretrained'):
+        tts_brain.save_for_pretrained()
 
-# TODO: Add a test set
-    # Load the best checkpoint for evaluation
-#    test_stats = tts_brain.evaluate(
-#        test_set=datasets["test"],
-#        min_key="error",
-#        test_loader_kwargs=hparams["dataloader_options"],
-#    )
+    # Implement evaluation (if specified)
+    if 'test' in datasets:
+        test_stats = tts_brain.evaluate(
+            test_set=datasets["test"],
+            test_loader_kwargs=hparams["dataloader_options"],
+        )
+        print("Test statistics:")
+        print(test_stats)
 
 
 if __name__ == '__main__':
