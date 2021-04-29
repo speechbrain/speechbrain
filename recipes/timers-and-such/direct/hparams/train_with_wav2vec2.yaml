@@ -1,6 +1,6 @@
 # ############################################################################
-# Model: Direct SLU with WaV2VEC
-# Encoder: Pre-trained Wav2vec
+# Model: Direct SLU with wav2vec 2.0
+# Encoder: Pre-trained wav2vec 2.0
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
@@ -11,17 +11,16 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-experiment: wave2vec_classification_seq2seq
-output_folder: !ref results_SLU/<experiment>/<seed>
+experiment: wav2vec2-train-real
+output_folder: !ref results/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the wav2vec2 model, you can change to benchmark diffrenet models
+# URL for the wav2vec 2.0 model, you can change to benchmark different models
 wav2vec2_hub: "facebook/wav2vec2-base-960h"
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
-data_folder_rirs: !ref <data_folder>
 train_splits: ["train-real"]
 csv_train: !ref <output_folder>/train-type=direct.csv
 csv_dev_real: !ref <output_folder>/dev-real-type=direct.csv
@@ -39,12 +38,12 @@ test_on_all_real: False
 number_of_epochs: 50
 batch_size: 4
 lr: 0.0004
-lr_wav2vec: 0.00001
+lr_wav2vec2: 0.00001
 
-#freeze all wav2vec
+#freeze all wav2vec2
 freeze_wav2vec: False
 
-#set to true to freeze the CONV part of the wav2vec model
+#set to true to freeze the CONV part of the wav2vec2 model
 freeze_wav2vec_conv: True
 
 token_type: unigram # ["unigram", "bpe", "char"]
@@ -55,7 +54,7 @@ sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 output_neurons: 51 # index(eos/bos) = 0
-Wav2vec_encoder_dim: 768
+wav2vec2_encoder_dim: 768
 encoder_dim: 256
 
 # Decoding parameters
@@ -78,12 +77,13 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
+    freeze_feature_extractor: True
     save_path: !ref <save_folder>/wav2vec2_checkpoint
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <Wav2vec_encoder_dim>]
+    input_shape: [null, null, !ref <wav2vec2_encoder_dim>]
     lstm: !new:speechbrain.nnet.RNN.LSTM
-        input_size: !ref <Wav2vec_encoder_dim>
+        input_size: !ref <wav2vec2_encoder_dim>
         bidirectional: True
         hidden_size: !ref <encoder_dim>
         num_layers: 2
@@ -110,21 +110,12 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
-
 modules:
     wav2vec2: !ref <wav2vec2>
     slu_enc: !ref <slu_enc>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
     - [!ref <slu_enc>, !ref <output_emb>,
@@ -157,8 +148,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-wav2vec_opt_class: !name:torch.optim.Adam
-    lr: !ref <lr_wav2vec>
+wav2vec2_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_wav2vec2>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
@@ -166,8 +157,8 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.9
     patient: 0
 
-lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_wav2vec>
+lr_annealing_wav2vec2: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec2>
     improvement_threshold: 0.0025
     annealing_factor: 0.9
 
@@ -177,7 +168,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         wav2vec2: !ref <wav2vec2>
         scheduler: !ref <lr_annealing>
-        lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
+        lr_annealing_wav2vec2: !ref <lr_annealing_wav2vec2>
         counter: !ref <epoch_counter>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
