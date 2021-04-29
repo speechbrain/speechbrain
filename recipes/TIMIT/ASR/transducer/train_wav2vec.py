@@ -32,14 +32,6 @@ class ASR_Brain(sb.Brain):
 
         # Adding optional augmentation when specified:
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                batch.sig = wavs, wav_lens
-                phns = torch.cat([phns, phns], dim=0)
-                phn_lens = torch.cat([phn_lens, phn_lens])
-                batch.phn_encoded = phns, phn_lens
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
@@ -333,7 +325,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    hparams["wav2vec2"] = hparams["wav2vec2"].cuda()
+    hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
