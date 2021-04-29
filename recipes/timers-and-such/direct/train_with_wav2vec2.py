@@ -1,18 +1,19 @@
 #!/usr/bin/env/python3
 """
-Recipe for "direct" (speech -> semantics) SLU with wav2vec_based transfer learning.
+Recipe for "direct" (speech -> semantics) SLU with wav2vec2.0_based transfer learning.
 
-We encode input waveforms into features using a model trained on Wave2vec model,
+We encode input waveforms into features using a Wave2vec2.0 model pretrained on ASR facebook/wav2vec2-base-960h from HuggingFace,
 then feed the features into a seq2seq model to map them to semantics.
 
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 
 Run using:
-> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 
 Authors
  * Boumadane Abdelmoumene 2021
- * Heba AbdelWahab  2021
+ * Heba Abdelwahab  2021
+ * Lugosch Loren 2020
 """
 
 import sys
@@ -37,20 +38,12 @@ class SLU(sb.Brain):
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-                tokens_bos_lens = torch.cat([tokens_bos_lens, tokens_bos_lens])
-
-        if hasattr(self.hparams, "augmentation"):
-            wavs = self.hparams.augmentation(wavs, wav_lens)
-
-        wav2vec_out = self.modules.wav2vec2(wavs)
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # wav2vec forward pass
+        wav2vec2_out = self.modules.wav2vec2(wavs)
         # SLU forward pass
-
-        encoder_out = self.hparams.slu_enc(wav2vec_out)
+        encoder_out = self.hparams.slu_enc(wav2vec2_out)
         e_in = self.hparams.output_emb(tokens_bos)
         h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
         # Output layer for seq2seq log-probabilities
@@ -82,17 +75,10 @@ class SLU(sb.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
-
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         )
 
-        # (No ctc loss)
         loss = loss_seq
 
         if (stage != sb.Stage.TRAIN) or (
@@ -106,15 +92,10 @@ class SLU(sb.Brain):
 
             target_semantics = [wrd.split(" ") for wrd in batch.semantics]
 
-            print(batch.semantics[0])
-            print(batch.semantics[1])
-
             for i in range(len(target_semantics)):
                 print(" ".join(predicted_semantics[i]))
                 print(" ".join(target_semantics[i]))
                 print("")
-
-            # craeate json lists
 
             if stage != sb.Stage.TRAIN:
                 self.wer_metric.append(
@@ -134,10 +115,10 @@ class SLU(sb.Brain):
 
         loss.backward()
         if self.check_gradients(loss):
-            self.wav2vec_optimizer.step()
+            self.wav2vec2_optimizer.step()
             self.optimizer.step()
 
-        self.wav2vec_optimizer.zero_grad()
+        self.wav2vec2_optimizer.zero_grad()
         self.optimizer.zero_grad()
         self.batch_count += 1
         return loss.detach()
@@ -171,20 +152,21 @@ class SLU(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["SER"])
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
-                stage_stats["SER"]
-            )
+            (
+                old_lr_wav2vec2,
+                new_lr_wav2vec2,
+            ) = self.hparams.lr_annealing_wav2vec2(stage_stats["SER"])
 
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_wav2vec
+                self.wav2vec2_optimizer, new_lr_wav2vec2
             )
 
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
                     "lr": old_lr,
-                    "wave2vec_lr": old_lr_wav2vec,
+                    "wave2vec2_lr": old_lr_wav2vec2,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
@@ -202,14 +184,14 @@ class SLU(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
-        self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+        self.wav2vec2_optimizer = self.hparams.wav2vec2_opt_class(
             self.modules.wav2vec2.parameters()
         )
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
+                "wav2vec2_opt", self.wav2vec2_optimizer
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
@@ -375,11 +357,7 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
-    hparams["wav2vec2"] = hparams["wav2vec2"].to("cuda:0")
-
-    # freeze the feature extractor part when unfreezing
-    if not hparams["freeze_wav2vec"] and hparams["freeze_wav2vec_conv"]:
-        hparams["wav2vec2"].model.feature_extractor._freeze_parameters()
+    hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
 
     # Brain class initialization
     slu_brain = SLU(
