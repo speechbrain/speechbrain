@@ -266,6 +266,12 @@ def create_csv(
                 + ALEF_HAMZA_ABOVE
             )
             words = re.sub("[^" + letters + "]+", " ", words).upper()
+        elif language == "ga-IE":
+            # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
+            def pfxuc(a): return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
+            def galc(w): return w.lower() if not pfxuc(w) else w[0] + '-' + w[1:].lower()
+            words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
+            words = " ".join(map(galc, words.split(" ")))
 
         # Remove accents if specified
         if not accented_letters:
