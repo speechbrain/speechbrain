@@ -58,6 +58,7 @@ sample_rate: 16000
 shuffle: True
 
 rnn_type: 'GRU'
+dropout: 0.25
 
 
 # Feature parameters
@@ -86,6 +87,7 @@ embedding_model: !new:models.CRN_Att.crn_att
     input_size: !ref <n_mels>
     output_size: !ref <out_n_neurons>
     rnn_type: !ref <rnn_type>
+    dropout: !ref <dropout>
 
 # classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 #     input_shape: [null, null, 512]

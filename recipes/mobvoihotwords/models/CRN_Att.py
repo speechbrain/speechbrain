@@ -161,7 +161,7 @@ class crn_att(torch.nn.Module):
         Number of RNN layers to use.
     """
 
-    def __init__(self, input_size=161, output_size=3, rnn_type='LSTM', contex=0, bidir=False, rnn_size=128, projection=64, layers=2):
+    def __init__(self, input_size=161, output_size=3, rnn_type='LSTM', contex=0, bidir=False, rnn_size=128, projection=64, layers=2, dropout=0.25):
         super().__init__()
         self.layers = torch.nn.ModuleList()
 
@@ -182,7 +182,7 @@ class crn_att(torch.nn.Module):
 
         self.fc2 = nn.Linear(in_features=256, out_features=output_size, bias=False)
 
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor):
         """model forward
@@ -222,7 +222,7 @@ class crn_att(torch.nn.Module):
         output = torch.sum(rnn_out * alpha_t, dim=2)
         # print('output:{}'.format(output.shape))
 
-        # output = self.dropout(output)
+        output = self.dropout(output)
 
         output = self.fc2(output)
 
