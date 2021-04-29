@@ -49,6 +49,9 @@ class FairseqWav2Vec2(nn.Module):
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    freeze_feature_extractor : bool (default: False)
+        If freeze is False and freeze_feature_extractor is True the feature_extractor module is frozen. If True, the all the model will be trained
+        alongside with the rest of the pipeline.
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
         If False, the randomly-initialized model is instantiated.
@@ -71,6 +74,7 @@ class FairseqWav2Vec2(nn.Module):
         input_norm=None,
         output_norm=True,
         freeze=True,
+        freeze_feature_extractor=False,
         pretrain=True,
     ):
         super().__init__()
@@ -106,8 +110,13 @@ class FairseqWav2Vec2(nn.Module):
         self.model = model
         self.freeze = freeze
         self.output_norm = output_norm
+        self.freeze_feature_extractor = freeze_feature_extractor
         if self.freeze:
             model.eval()
+        elif self.freeze_feature_extractor:
+            # Freeze the feature extractor module
+            for param in self.model.feature_extractor.parameters():
+                param.requires_grad = False
 
         # Randomly initialized layers if pretrain is False
         if not (pretrain):
