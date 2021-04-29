@@ -34,7 +34,7 @@ The recipe can also be used using a pretrained Wav2Vec as an encoder
 
 ```
 cd direct
-python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
+python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 ```
 
 # Performance summary
