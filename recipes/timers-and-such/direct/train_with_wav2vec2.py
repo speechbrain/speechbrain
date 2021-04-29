@@ -2,7 +2,7 @@
 """
 Recipe for "direct" (speech -> semantics) SLU with wav2vec2.0_based transfer learning.
 
-We encode input waveforms into features using a Wave2vec2.0 model pretrained on ASR facebook/wav2vec2-base-960h from HuggingFace,
+We encode input waveforms into features using a wav2vec2.0 model pretrained on ASR from HuggingFace (facebook/wav2vec2-base-960h),
 then feed the features into a seq2seq model to map them to semantics.
 
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
