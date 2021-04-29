@@ -35,10 +35,10 @@ N_fft: 512
 window_fn: !name:torch.hamming_window
 
 # Data files
-train_annotation: !ref <save_folder>/train.json
-valid_annotation: !ref <save_folder>/valid.json
-test_annotation: !ref <save_folder>/test.json
-skip_prep: False
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: True
 
 # The target metrics that you want to optimize.
 # Right now we only support 'pesq' and 'stoi'.
@@ -47,9 +47,9 @@ target_metric: pesq
 # Training Parameters
 number_of_epochs: 600
 number_of_samples: 100
-min_mask: 0
+min_mask: 0.05
 train_N_batch: 1
-valid_N_batch: 30
+valid_N_batch: 20
 history_portion: 0.2
 G_lr: 0.0005
 D_lr: 0.0005
