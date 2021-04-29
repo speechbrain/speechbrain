@@ -248,7 +248,7 @@ class EncoderWrapper(nn.Module):
     >>> net = TransformerASR(
     ...     720, 512, 512, 8, 1, 1, 1024, activation=torch.nn.GELU
     ... )
-    >>> encoder = TransformerASREncoderWrapper(net)
+    >>> encoder = EncoderWrapper(net)
     >>> enc_out = encoder(src)
     >>> enc_out.shape
     torch.Size([8, 120, 512])
