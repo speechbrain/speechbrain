@@ -22,8 +22,7 @@ python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
 ```
 
 ### Direct recipe
-The "direct" maps the input speech to directly to semantics using a seq2seq model.
-The recipes can be used with an pre-trained using the LibriSpeech seq2seq recipe.
+The "direct" maps the input speech to directly to semantics using a seq2seq model. The encoder is pre-trained using the LibriSpeech seq2seq recipe.
 
 ```
 cd direct
