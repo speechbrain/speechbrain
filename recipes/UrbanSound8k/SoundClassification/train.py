@@ -118,12 +118,16 @@ class UrbanSound8kBrain(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
             confusion_matix = confusion_matrix(
-                y_true, y_pred, labels=sorted(self.hparams.label_encoder.ind2lab.keys())
+                y_true,
+                y_pred,
+                labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
             self.valid_confusion_matrix += confusion_matix
         if stage == sb.Stage.TEST:
             confusion_matix = confusion_matrix(
-                y_true, y_pred, labels=sorted(self.hparams.label_encoder.ind2lab.keys())
+                y_true,
+                y_pred,
+                labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
             self.test_confusion_matrix += confusion_matix
 
@@ -239,7 +243,9 @@ class UrbanSound8kBrain(sb.core.Brain):
                 # Log confusion matrix fig to tensorboard
                 cm_fig = create_cm_fig(
                     self.valid_confusion_matrix,
-                    display_labels=list(self.hparams.label_encoder.ind2lab.values()),
+                    display_labels=list(
+                        self.hparams.label_encoder.ind2lab.values()
+                    ),
                 )
                 self.hparams.tensorboard_train_logger.writer.add_figure(
                     "Validation Confusion Matrix", cm_fig, epoch
@@ -250,7 +256,9 @@ class UrbanSound8kBrain(sb.core.Brain):
                 self.valid_confusion_matrix, axis=1
             )
             per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(self.hparams.label_encoder.decode_ndim(class_id), class_acc)
+                "{:}: {:.3f}".format(
+                    self.hparams.label_encoder.decode_ndim(class_id), class_acc
+                )
                 for class_id, class_acc in enumerate(per_class_acc_arr)
             )
 
@@ -296,7 +304,9 @@ def dataio_prep(hparams):
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
     # TODO  use SB implementation but need to make sure it give the same results as PyTorch
     # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
-    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
+    hparams["resampler"] = torchaudio.transforms.Resample(
+        new_freq=config_sample_rate
+    )
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "fold")
@@ -318,7 +328,9 @@ def dataio_prep(hparams):
         if read_sr != config_sample_rate:
             # Re-initialize sampler if source file sample rate changed compared to last file
             if read_sr != hparams["resampler"].orig_freq:
-                hparams["resampler"] = torchaudio.transforms.Resample(orig_freq=read_sr, new_freq=config_sample_rate)
+                hparams["resampler"] = torchaudio.transforms.Resample(
+                    orig_freq=read_sr, new_freq=config_sample_rate
+                )
             # Resample audio
             sig = hparams["resampler"].forward(sig)
 

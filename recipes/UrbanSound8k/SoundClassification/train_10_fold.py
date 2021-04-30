@@ -44,10 +44,14 @@ if __name__ == "__main__":
 
         train_fold_nums = ALL_FOLDS.copy()
         train_fold_nums.remove(valid_fold)
-        overrides = overrides + " train_fold_nums: " + str(train_fold_nums) + "\n"
+        overrides = (
+            overrides + " train_fold_nums: " + str(train_fold_nums) + "\n"
+        )
 
         valid_fold_nums = [valid_fold]
-        overrides = overrides + " valid_fold_nums: " + str(valid_fold_nums) + "\n"
+        overrides = (
+            overrides + " valid_fold_nums: " + str(valid_fold_nums) + "\n"
+        )
 
         test_fold_nums = [valid_fold]  # test and validation are same, here
         overrides = overrides + " test_fold_nums: " + str(test_fold_nums) + "\n"
