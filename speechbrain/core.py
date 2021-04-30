@@ -1096,7 +1096,11 @@ class Brain:
                 if any(p.requires_grad for p in module.parameters()):
                     # for ddp, all module must run on same GPU
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(module, device_ids=[self.device])
+                    module = DDP(
+                        module,
+                        device_ids=[self.device],
+                        find_unused_parameters=True,
+                    )
                     self.modules[name] = module
         else:
             # data_parallel_backend
