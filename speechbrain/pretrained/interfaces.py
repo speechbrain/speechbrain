@@ -17,8 +17,10 @@ from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.batch import PaddedBatch
 
 
 class Pretrained:
@@ -878,3 +880,181 @@ class SpectralMaskEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+
+class SpeechSynthesizer(Pretrained):
+    HPARAMS_NEEDED = ["model", "encode_pipeline", "decode_pipeline"]
+    INPUT_STATIC_KEYS = ['txt']
+    OUTPUT_KEYS = ['wav']
+
+    """
+    A friendly wrapper for speech synthesis models
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> synthesizer = SpeechSynthesizer.from_hparams('path/to/model')
+    >>> waveform = synthesizer.tts("Mary had a little lamb")
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> waveforms = synthesizer.tts(items)
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.encode_pipeline = DataPipeline(
+            static_data_keys=self.INPUT_STATIC_KEYS,
+            dynamic_items=self.hparams.encode_pipeline['steps'],
+            output_keys=self.hparams.encode_pipeline['output_keys']
+        )
+        self.decode_pipeline = DataPipeline(
+            static_data_keys=self.hparams.model_output_keys,
+            dynamic_items=self.hparams.decode_pipeline['steps'],
+            output_keys=self.OUTPUT_KEYS
+        )
+
+    def tts(self, text):
+        """
+        Computes the waveform for the provided example or batch
+        of examples
+
+        Arguments
+        ---------
+        text: str or List[str]
+            the text to be translated into speech
+        
+        Returns
+        -------
+        a single waveform if a single example is provided - or
+        a list of waveform tensors if multiple examples are provided
+        """
+        # Create a single batch if provided a single example
+        single = isinstance(text, str)
+        if single:
+            text = [text]
+        pipeline_input = self._get_encode_pipeline_input(text)
+        model_input = self._run_pipeline(
+            pipeline=self.encode_pipeline,
+            input=pipeline_input,
+            batch=self.batch_inputs
+        )
+        model_input = self._collate(model_input)
+        model_output = self.compute_forward(model_input)
+        pipeline_input = self._get_decode_pipeline_input(model_output)
+        decoded_output = self._run_pipeline(
+            pipeline=self.decode_pipeline, 
+            input=pipeline_input,
+            batch=self.batch_outputs)
+        waveform = decoded_output.get('wav')
+        if waveform is None:
+            raise ValueError("The output pipeline did not output a waveform")
+        if single:
+            waveform = waveform[0]
+        return waveform
+
+    def _run_pipeline(self, pipeline, input, batch):
+        if batch:
+            output = pipeline(input)
+        else:
+            output = [pipeline(item) for item in input]
+        return output
+
+    def _get_encode_pipeline_input(self, text):
+        pipeline_input = {
+            'txt': text
+        }
+        if not self.batch_inputs:
+            pipeline_input = self._itemize(pipeline_input)            
+        return pipeline_input
+
+    def _get_decode_pipeline_input(self, model_output):
+        model_output_keys = getattr(
+            self.hparams,
+            'model_output_keys',
+            None)
+        pipeline_input = model_output
+        # The input to a pipeline is a dictionary. If model_output_keys
+        # is provided, the output of the model is assumed to be a collection
+        # (e.g. a list or a tuple).
+        if model_output_keys:
+            pipeline_input = dict(zip(model_output_keys, pipeline_input))
+
+        # By default, the pipeline will be applied to in batch mode
+        # to the entire model input
+        if not self.batch_outputs:
+            pipeline_input = self._itemize(pipeline_input)
+
+        return pipeline_input
+
+    def _itemize(self, pipeline_input):
+        first_item = next(iter(pipeline_input.values()))
+        keys, values = pipeline_input.keys(), pipeline_input.values()
+        batch_length = len(first_item)
+        return [dict(zip(keys, [value[idx] for value in values]))
+                for idx in range(batch_length)]
+
+    def _to_dict(self, data):
+        if isinstance(data, PaddedBatch):
+            data = {key: getattr(data, key).data for key in self.hparams.encode_pipeline['output_keys']}
+        return data
+
+    @property
+    def batch_inputs(self):
+        """
+        Determines whether the input pipeline
+        operates on batches or individual examples
+        (true means batched)
+
+        Returns
+        -------
+        batch_intputs: bool
+        """
+        return self.hparams.encode_pipeline.get('batch', True)
+    
+    @property
+    def batch_outputs(self):
+        """
+        Determines whether the output pipeline
+        operates on batches or individual examples
+        (true means batched)
+
+        Returns
+        -------
+        batch_outputs: bool
+        """
+        return self.hparams.decode_pipeline.get('batch', True)        
+
+    def _collate(self, data):
+        if not self.batch_inputs:
+            collate_fn = getattr(self.hparams, 'collate_fn', PaddedBatch)
+            data = collate_fn(data)
+        return data
+
+    def __call__(self, text):
+        """
+        Calls tts(text)
+        """
+        return self.tts(text)
+
+    def compute_forward(self, data):
+        """
+        Computes the forward pass of the model. This method can be overridden
+        in the implementation, if needed
+
+        Arguments
+        ---------
+        data
+            the raw inputs to the model
+        
+        Returns
+        -------
+        The raw output of the model (the exact output
+        depends on the implementation)
+        """
+        return self.hparams.model(**self._to_dict(data))
