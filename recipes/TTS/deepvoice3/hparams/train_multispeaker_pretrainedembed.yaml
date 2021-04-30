@@ -85,7 +85,7 @@ lr: 0.0005
 lr_warmup_steps: 4000
 max_grad_norm: 0.1
 number_of_epochs: 50
-ckpt_every_epoch: false
+ckpt_frequency: 100
 progress_samples: true
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 100

@@ -314,7 +314,10 @@ class DeepVoice3Brain(sb.core.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints.
-            if self.hparams.ckpt_every_epoch or epoch == self.hparams.number_of_epochs:
+            save_checkpoint = (
+                epoch % self.hparams.ckpt_frequency == 0
+                or epoch == self.hparams.number_of_epochs)
+            if save_checkpoint:
                 meta_stats = {key: value[0] for key, value in stats.items()}
                 self.checkpointer.save_and_keep_only(meta=meta_stats, min_keys=["loss"])
             output_progress_sample = (

@@ -82,7 +82,7 @@ lr: 0.0005
 lr_warmup_steps: 4000
 max_grad_norm: 0.1
 number_of_epochs: 50
-ckpt_every_epoch: false
+ckpt_frequency: 100
 progress_samples: true
 progress_samples_incremental: true
 progress_sample_path: !ref <output_folder>/samples
@@ -394,9 +394,6 @@ model_output_keys:
   - attention
   - done
 
-modules:
-  model: !ref <model>
-
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
   loadables:
     model: !ref <model>
@@ -428,12 +425,14 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     counter: !ref <epoch_counter>
     lr_annealing: !ref <lr_annealing>
 
+modules:
+  model: !ref <model>
+
 datasets:
   train:
     path: !ref <train_data_path>
   valid:
     path: !ref <train_data_path>
-
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
