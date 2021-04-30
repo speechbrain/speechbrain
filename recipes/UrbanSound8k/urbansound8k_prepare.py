@@ -152,7 +152,6 @@ def prepare_urban_sound_8k(
         )
         return
 
-
     # If the dataset doesn't exist yet, prompt the user to set or download it
     if not check_folders(audio_data_folder):
         prompt_download_urban_sound_8k(audio_data_folder)
