@@ -1,0 +1,34 @@
+# ############################################################################
+# Tokenizer: subword BPE with unigram 5000
+# Training: AISHELL-1
+# Authors:  Abdel Heba 2021
+# ############################################################################
+
+output_folder: !ref results/transformer_tokenizer_bpe5000/
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /localscratch/aishell
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+
+
+# Training parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+token_output: 5000  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+csv_read: transcript
+bos_index: 1
+eos_index: 2
+
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   character_coverage: !ref <character_coverage>
+   bos_id: !ref <bos_index> # Define bos_id/eos_id if different from blank_id
+   eos_id: !ref <eos_index>
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]

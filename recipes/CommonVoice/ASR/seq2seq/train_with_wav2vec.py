@@ -10,19 +10,27 @@ from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 
 """Recipe for training a sequence-to-sequence ASR system with CommonVoice.
-The system employs an encoder, a decoder, and an attention mechanism
+The system employs a wav2vec2 encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
+
 To run this recipe, do the following:
-> python train.py hparams/train.yaml
-With the default hyperparameters, the system employs a CRDNN encoder.
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
+
+With the default hyperparameters, the system employs a pretrained wav2vec2 encoder.
+The wav2vec2 model is pretrained following the XSLR French HuggingFace model:
+facebook/wav2vec2-large-xlsr-53-french
+
 The decoder is based on a standard GRU and BeamSearch (no LM).
+
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE).
+
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
 training languages (all CommonVoice languages), and many
 other possible variations.
+
 Authors
  * Titouan Parcollet 2020
 """
@@ -40,16 +48,14 @@ class ASR(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Forward pass
-        feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
-
-        ## Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        x = self.modules.enc(feats.detach())
+        # Forward pass
+        feats = self.modules.wav2vec2(wavs)
+        x = self.modules.enc(feats)
+
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
         h, _ = self.modules.dec(e_in, x, wav_lens)
         # Output layer for seq2seq log-probabilities
@@ -120,12 +126,38 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+
+            self.wav2vec_optimizer.zero_grad()
+            self.model_optimizer.zero_grad()
+
+            with torch.cuda.amp.autocast():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.wav2vec_optimizer)
+            self.scaler.unscale_(self.model_optimizer)
+
+            if self.check_gradients(loss):
+                self.scaler.step(self.wav2vec_optimizer)
+                self.scaler.step(self.adam_optimizer)
+
+            self.scaler.update()
+        else:
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            loss.backward()
+
+            if self.check_gradients(loss):
+                self.wav2vec_optimizer.step()
+                self.model_optimizer.step()
+
+            self.wav2vec_optimizer.zero_grad()
+            self.model_optimizer.zero_grad()
+
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -153,10 +185,24 @@ class ASR(sb.core.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["loss"])
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
+                stage_stats["loss"]
+            )
+            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+                stage_stats["loss"]
+            )
+            sb.nnet.schedulers.update_learning_rate(
+                self.model_optimizer, new_lr_model
+            )
+            sb.nnet.schedulers.update_learning_rate(
+                self.wav2vec_optimizer, new_lr_wav2vec
+            )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
+                stats_meta={
+                    "epoch": epoch,
+                    "lr_model": old_lr_model,
+                    "lr_wav2vec": old_lr_wav2vec,
+                },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -170,6 +216,21 @@ class ASR(sb.core.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
+
+    def init_optimizers(self):
+        "Initializes the wav2vec2 optimizer and model optimizer"
+        self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+            self.modules.wav2vec2.parameters()
+        )
+        self.model_optimizer = self.hparams.model_opt_class(
+            self.hparams.model.parameters()
+        )
+
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "wav2vec_opt", self.wav2vec_optimizer
+            )
+            self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
 # Define custom data procedure
@@ -233,6 +294,8 @@ def dataio_prepare(hparams):
         annotation_read="wrd",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
+        bos_id=hparams["bos_index"],
+        eos_id=hparams["eos_index"],
     )
 
     # 2. Define audio pipeline:
@@ -241,8 +304,6 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        if info.num_channels > 1:
-            sig = torch.mean(sig, dim=1)
         resampled = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"],
         )(sig)
@@ -318,7 +379,6 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
-        opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],
     )
 

@@ -15,8 +15,8 @@ from torch import nn
 
 # We check if transformers is installed.
 try:
-    from transformers import Wav2Vec2Model
-    from transformers import Wav2Vec2Processor
+    from transformers import Wav2Vec2Model, Wav2Vec2Config
+    from transformers import Wav2Vec2FeatureExtractor
 except ImportError:
     print("Please install transformer from HuggingFace to use wav2vec2!")
 
@@ -64,19 +64,25 @@ class HuggingFaceWav2Vec2(nn.Module):
     ):
         super().__init__()
 
-        # Download the model from HuggingFace and load it.
-        # The Processor is only used to retrieve the normalisation
-        self.proc = Wav2Vec2Processor.from_pretrained(
+        # Download the extractor from HuggingFace.
+        # The extractor is only used to retrieve the normalisation
+        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
             source, cache_dir=save_path
         )
-        self.model = Wav2Vec2Model.from_pretrained(source, cache_dir=save_path)
 
-        # Randomly initialized layers if pretrain is False
+        # Download the model from HuggingFace.
+        # if pretrain is False, we do not download the pretrained weights
+        # it it is True, we download and load them.
         if not (pretrain):
-            self.reset_layer(self.model)
+            config = Wav2Vec2Config.from_pretrained(source, cache_dir=save_path)
+            self.model = Wav2Vec2Model(config)
+        else:
+            self.model = Wav2Vec2Model.from_pretrained(
+                source, cache_dir=save_path
+            )
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
-        self.normalize_wav = self.proc.feature_extractor.do_normalize
+        self.normalize_wav = self.feature_extractor.do_normalize
 
         self.freeze = freeze
         self.output_norm = output_norm
@@ -121,11 +127,3 @@ class HuggingFaceWav2Vec2(nn.Module):
             out = F.layer_norm(out, out.shape)
 
         return out
-
-    def reset_layer(self, model):
-        """Reinitializes the parameters of the network"""
-        if hasattr(model, "reset_parameters"):
-            model.reset_parameters()
-        for child_layer in model.children():
-            if model != child_layer:
-                self.reset_layer(child_layer)
