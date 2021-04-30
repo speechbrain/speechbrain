@@ -38,7 +38,7 @@ def wrap_transform(transform_type, takes=None, provides=None):
     Returns
     -------
     result: DynamicItem
-      A wrapped transformation function    
+      A wrapped transformation function
     """
     default_takes = takes
     default_provides = provides
@@ -46,7 +46,7 @@ def wrap_transform(transform_type, takes=None, provides=None):
         transform = transform_type(*args, **kwargs)
         @sb.utils.data_pipeline.takes(takes or default_takes)
         @sb.utils.data_pipeline.provides(provides or default_provides)
-        def f(*args, **kwargs):            
+        def f(*args, **kwargs):
             return transform.to(args[0].device)(*args, **kwargs)
         return f
 
@@ -96,7 +96,7 @@ def pretrained_speaker_embeddings(
     Returns
     -------
     result: DynamicItem
-      A wrapped transformation function             
+      A wrapped transformation function
     """
     if not source:
         source = SPEAKER_EMBEDDINGS_DEFAULT_SOURCE
@@ -105,14 +105,14 @@ def pretrained_speaker_embeddings(
 
     verification = SpeakerRecognition.from_hparams(
         source=source, savedir=savedir)
-    
+
     @sb.utils.data_pipeline.takes(*takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(sig, sig_lengths):
         return verification.encode_batch(sig, sig_lengths)
 
     return f
-        
+
 
 
 def categorical(takes, provides):
@@ -130,7 +130,7 @@ def categorical(takes, provides):
     Returns
     -------
     result: DynamicItem
-      A wrapped transformation function        
+      A wrapped transformation function
     """
     encoder = CategoricalEncoder()
     @sb.utils.data_pipeline.takes(takes)
@@ -138,7 +138,7 @@ def categorical(takes, provides):
     def f(label):
         encoder.ensure_label(label)
         return encoder.ensure_label(label)
-    
+
     return f
 
 
@@ -167,7 +167,7 @@ def transpose_spectrogram(takes, provides):
 
     Returns
     -------
-    result: DymamicItem    
+    result: DymamicItem
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
@@ -179,4 +179,15 @@ def transpose_spectrogram(takes, provides):
 resample = wrap_transform(transforms.Resample, takes="sig", provides="sig_resampled")
 mel_spectrogram = wrap_transform(transforms.MelSpectrogram, takes="sig", provides="mel")
 spectrogram = wrap_transform(transforms.Spectrogram, takes="sig", provides="spectrogram")
-inverse_spectrogram = wrap_transform(transforms.GriffinLim, takes="spectrogram", provides="sig")
+#inverse_spectrogram = wrap_transform(transforms.GriffinLim, takes="spectrogram", provides="sig")
+
+def inverse_spectrogram(takes=None, provides=None, *args, **kwargs):
+
+    transform = transforms.GriffinLim(*args, **kwargs)
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(*args, **kwargs):
+        return transform.to(args[0].device)(*args, **kwargs)
+    return f
+
+

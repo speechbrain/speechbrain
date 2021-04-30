@@ -184,4 +184,10 @@ class PaddedBatch:
 
     def as_dict(self):
         """Converts this padded batch to a dictioanry"""
-        return {key: getattr(self, key).data for key in self.__keys}
+        return {key: self._get_raw_data(key) for key in self.__keys}
+
+    def _get_raw_data(self, key):
+        """Returns the raw value (Torch tensor, list, scalar, etc)
+        corresponding to the data element"""
+        value = getattr(self, key)
+        return getattr(value, 'data', value)

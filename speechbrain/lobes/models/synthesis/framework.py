@@ -18,7 +18,7 @@ class SpeechSynthesizer:
     hparams
         Hyperparameters (from HyperPyYAML)
     encode_pipeline: list
-        A pipeline of items to encode the text for the model. It should 
+        A pipeline of items to encode the text for the model. It should
         take a single item called 'txt'
     decode_pipeline: list
 
@@ -45,7 +45,7 @@ class SpeechSynthesizer:
         ---------
         text: str or List[str]
             the text to be translated into speech
-        
+
         Returns
         -------
         a single waveform if a single example is provided - or
@@ -71,7 +71,7 @@ class SpeechSynthesizer:
         Calls tts(text)
         """
         return self.tts(text)
-        
+
     def compute_forward(self, data):
         """
         Computes the forward pass of the model. This method can be overridden
@@ -84,6 +84,3 @@ class SpeechSynthesizer:
         """
         return self.hparams.model(**data)
 
-class TestModel:
-    def __call__(self, input):
-        return {'output': input + 1.}
