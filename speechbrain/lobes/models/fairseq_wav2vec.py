@@ -42,7 +42,7 @@ class FairseqWav2Vec2(nn.Module):
         If True, a layer_norm (affine) will be applied to the input waveform.
         By default, it is extracted from the checkpoint of the downloaded model
         in order to match the pretraining conditions. However, if this information
-        is not given in the checkpoint, it has to be given manually.
+        is not given in the checkpoint, it is set to False.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
@@ -86,19 +86,12 @@ class FairseqWav2Vec2(nn.Module):
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
-        # If the information isn't contained in the checkpoint IT HAS TO BE GIVEN
-        # BY THE USER.
+        # If the information isn't contained in the checkpoint it is set to False.
         if input_norm is None:
-            if hasattr(cfg, "normalize"):
-                self.normalize = cfg.normalize
+            if not hasattr(cfg["task"], "normalize"):
+                self.normalize = cfg["task"].normalize
             else:
-                msg = "The normalize flag is not set in the loaded fairseq checkpoint. "
-                msg += (
-                    "Please set it to True or False. True = waveform will be "
-                )
-                msg += "normalized. False, it won't. This is dependent on the model."
-                msg += " !!! it has to match the pretraining of the wav2vec 2.0 !!!"
-                raise ValueError(msg)
+                self.normalize = False
         else:
             self.normalize = input_norm
 
