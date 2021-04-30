@@ -1,0 +1,119 @@
+seed: 42
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+embed_dim: 256
+batch_size: 32
+encoder_conv_channels: 256
+dropout: 0.1
+num_mels: 80
+outputs_per_step: 1
+downsample_step: 4
+max_target_len: 1024
+masked_loss_weight: 0.5
+binary_divergence_weight: 0.1
+priority_freq: 3000
+priority_freq_weight: 0.0
+#sample_rate: 48000 #22050
+source_sample_rate: 48000 #22050
+sample_rate: 8000
+
+min_level_db: -100
+ref_level_db: 20
+mu: 256
+
+#local conditioning, -1 for OFF
+c: 1
+# global conditioning, -1 for OFF
+g: -1
+
+# DC removal
+highpass_cutoff: 70.0
+
+trim_threshold: -30
+silence_threshold: 2
+is_mulaw_quantized: True
+hop_length: 256
+n_fft: 1024
+max_time_sec: null
+max_time_steps: 2560 #!ref <hop_length> * 40 
+
+lr: 0.002
+lr_warmup_steps: 4000
+number_of_epochs: 2000 #200
+checkpoint_every_epoch: True
+
+overfit_test: true
+overfit_test_iterations: 3 #5
+
+model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
+  dropout: !ref <dropout>
+  cin_channels: !ref <cin_channels>
+  cin_pad: !ref <cin_pad>
+  layers: !ref <layers>
+  stacks: !ref <stacks>
+
+modules:
+    model: !ref <model>
+
+compute_cost: !new:speechbrain.lobes.models.wavenet.model.Loss
+
+lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
+  initial_value: !ref <lr>
+  decay_factor: 0.98
+  decay_drop: 30000
+
+progress_samples: true
+progress_sample_path: samples
+progress_samples_interval: 1
+
+input_type: "mulaw_quantize"
+quantize_channels: 256
+
+# Model:
+# This should equal to `quantize_channels` if mu-law quantize enabled
+# otherwise num_mixture * 3 (pi, mean, log_scale)
+# single mixture case: 2
+num_mixture: 10
+out_channels: !ref <num_mixture> * 3
+layers: 30 #24
+stacks: 3 #4
+residual_channels: 4 #128
+gate_channels: 4 #256  # split into 2 gropus internally for gated activation
+skip_out_channels: 4 #128
+kernel_size: 3
+
+# Local conditioning (set negative value to disable, e.g. -1))
+cin_channels: 80
+cin_pad: 2
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+output_folder: !ref ./results/tts/wavenet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <epoch_counter>
+
+causal: True
+train_data_path: datasets/testdata/fake_vctk_1ex
+valid_data_path: datasets/testdata/fake_vctk_1ex
+datasets:
+  train:
+    path: !ref <train_data_path>
+  valid:
+    path: !ref <valid_data_path>
+
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+
+dataloader_options:
+  batch_size: !ref <batch_size>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
