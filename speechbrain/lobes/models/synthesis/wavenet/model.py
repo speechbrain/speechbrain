@@ -277,11 +277,6 @@ class ResidualConv1dGLU(nn.Module):
             assert self.conv1x1c is not None
             c = _conv1x1_forward(self.conv1x1c, c, is_incremental)
             ca, cb = c.split(c.size(splitdim) // 2, dim=splitdim)
-            from icecream import ic
-            ic(a.shape)
-            ic(b.shape)
-            ic(ca.shape)
-            ic(cb.shape)
             a, b = a + ca, b + cb
 
         # global conditioning
