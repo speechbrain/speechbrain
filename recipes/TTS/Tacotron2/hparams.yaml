@@ -1,0 +1,149 @@
+###################################
+# Experiment Parameters and setup #
+###################################
+seed : 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref ./<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+epochs : 1501
+iters_per_checkpoint : 1000
+dynamic_loss_scaling : True
+
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: ./
+#data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+data_folder_rirs: !ref <data_folder>
+
+json_train: data.json
+json_valid: data.json
+json_test: data.json
+#json_train: !ref <output_folder>/train.json
+#json_valid: !ref <output_folder>/valid.json
+#json_test: !ref <output_folder>/test.json
+text_cleaners : ['english_cleaners'] #only suported one now
+
+################################
+# Audio Parameters             #
+################################
+sampling_rate : 1600 #22050 
+hop_length : null #256
+win_length : null #1024
+n_mel_channels : 128 #80
+n_fft: 400 #1024
+mel_fmin :  0.0
+mel_fmax : null #8000.0
+mel_normalized: False #True
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate : 0.001
+weight_decay : 0.000006
+grad_clip_thresh : 1.0
+batch_size : 5 #minimum 2
+
+mask_padding : False ###or true # set model's padded outputs to padded values
+
+################################
+# Model Parameters and model   #
+################################
+
+###148=len(symbols) the symbols are symbols.py
+n_symbols : 148 
+symbols_embedding_dim : 512
+
+# Encoder parameters
+encoder_kernel_size : 5
+encoder_n_convolutions : 3
+encoder_embedding_dim : 512
+
+# Decoder parameters
+n_frames_per_step : 1  # currently only 1 is supported
+decoder_rnn_dim : 1024
+prenet_dim : 256
+max_decoder_steps : 2000 ### 1664  1000   1000   changes these two 
+gate_threshold : 0.5 ###      0.5   0.5    0.6     together
+p_attention_dropout : 0.1
+p_decoder_dropout : 0.1
+decoder_no_early_stopping : False ###True
+
+# Attention parameters
+attention_rnn_dim : 1024
+attention_dim : 128
+
+# Location Layer parameters
+attention_location_n_filters : 32
+attention_location_kernel_size : 31
+
+# Mel-post processing network parameters
+postnet_embedding_dim : 512
+postnet_kernel_size : 5
+postnet_n_convolutions : 5
+
+#model
+model: !new:model.Tacotron2
+    mask_padding: !ref <mask_padding>
+    n_mel_channels: !ref <n_mel_channels>
+    # symbols
+    n_symbols: !ref <n_symbols>
+    symbols_embedding_dim: !ref <symbols_embedding_dim>
+    # encoder
+    encoder_kernel_size: !ref <encoder_kernel_size>
+    encoder_n_convolutions: !ref <encoder_n_convolutions>
+    encoder_embedding_dim: !ref <encoder_embedding_dim>
+    # attention
+    attention_rnn_dim: !ref <attention_rnn_dim>
+    attention_dim: !ref <attention_dim>
+    # attention location
+    attention_location_n_filters: !ref <attention_location_n_filters>
+    attention_location_kernel_size: !ref <attention_location_kernel_size>
+    # decoder
+    n_frames_per_step: !ref <n_frames_per_step>
+    decoder_rnn_dim: !ref <decoder_rnn_dim>
+    prenet_dim: !ref <prenet_dim>
+    max_decoder_steps: !ref <max_decoder_steps>
+    gate_threshold: !ref <gate_threshold>
+    p_attention_dropout: !ref <p_attention_dropout>
+    p_decoder_dropout: !ref <p_decoder_dropout>
+    # postnet
+    postnet_embedding_dim: !ref <postnet_embedding_dim>
+    postnet_kernel_size: !ref <postnet_kernel_size>
+    postnet_n_convolutions: !ref <postnet_n_convolutions>
+    decoder_no_early_stopping: !ref <decoder_no_early_stopping>
+
+modules:
+    model: !ref <model>
+    
+#optimizer
+opt_class: !name:torch.optim.Adam
+    lr: !ref <learning_rate>
+    weight_decay: !ref <weight_decay>
+    
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <epochs>
+    
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+#annealing_function
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <learning_rate>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    counter: !ref <epoch_counter>
+    scheduler: !ref <lr_annealing>
+    
+    
+
