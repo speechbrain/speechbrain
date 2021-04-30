@@ -51,7 +51,6 @@ class UrbanSound8kBrain(sb.core.Brain):
             for count, augment in enumerate(self.hparams.augment_pipeline):
 
                 # Apply augment
-                #print("Applying Data Augmentation: ", count)
                 wavs_aug = augment(wavs, lens)
 
                 # Managing speed change
@@ -166,7 +165,7 @@ class UrbanSound8kBrain(sb.core.Brain):
 
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=accuracy_value, n_jobs=1
-        )  # TODO n_jobs > 1 -> Error
+        )
 
         # Confusion matrices
         if stage == sb.Stage.VALID:
@@ -275,7 +274,7 @@ class UrbanSound8kBrain(sb.core.Brain):
             per_class_acc_arr_str = "\n" + "\n".join(
                 "{:}: {:.3f}".format(class_id, class_acc)
                 for class_id, class_acc in enumerate(per_class_acc_arr)
-            )  # TODO add class names from LabelEncoder?
+            )
 
             self.hparams.train_logger.log_stats(
                 {
@@ -296,8 +295,8 @@ def dataio_prep(hparams):
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
     # TODO  use SB implementation but need to make sure it give the same results as PyTorch
-    #resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
-    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)  # Initially we use the default orig_freq
+    # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
+    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "fold")

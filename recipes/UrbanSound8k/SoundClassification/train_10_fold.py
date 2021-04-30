@@ -33,24 +33,23 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     # CLI:
-    hparams_file, run_opts, OVERRIDES_BASE  = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, OVERRIDES_BASE = sb.parse_arguments(sys.argv[1:])
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    ALL_FOLDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]     
+    ALL_FOLDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     for valid_fold in ALL_FOLDS:
-        
         overrides = OVERRIDES_BASE
 
         train_fold_nums = ALL_FOLDS.copy()
-        train_fold_nums.remove( valid_fold )
+        train_fold_nums.remove(valid_fold)
         overrides = overrides + " train_fold_nums: " + str(train_fold_nums) + "\n"
 
-        valid_fold_nums = [ valid_fold ]       
+        valid_fold_nums = [valid_fold]
         overrides = overrides + " valid_fold_nums: " + str(valid_fold_nums) + "\n"
 
-        test_fold_nums = [ valid_fold ] # test and validation are same, here
+        test_fold_nums = [valid_fold]  # test and validation are same, here
         overrides = overrides + " test_fold_nums: " + str(test_fold_nums) + "\n"
 
         # Load hyperparameters file with overrides
@@ -58,13 +57,13 @@ if __name__ == "__main__":
             hparams = load_hyperpyyaml(fin, overrides)
 
         OUTPUT_FOLDER_BASE = hparams["output_folder"]
-        output_folder = OUTPUT_FOLDER_BASE+"/valid_fold_" + str(valid_fold)
+        output_folder = OUTPUT_FOLDER_BASE + "/valid_fold_" + str(valid_fold)
         hparams["output_folder"] = output_folder
-        
+
         SAVE_FOLDER_BASE = hparams["save_folder"]
         save_folder = SAVE_FOLDER_BASE + "/fold_" + str(valid_fold)
         overrides = overrides + " save_folder: " + save_folder + "\n"
-        checkpoints_dir = pathlib.Path( os.path.abspath(save_folder)  )
+        checkpoints_dir = pathlib.Path(os.path.abspath(save_folder))
         checkpoints_dir.mkdir(parents=True, exist_ok=True)
         checkpointer_hparams = hparams["checkpointer"]
         checkpointer_hparams.checkpoints_dir = checkpoints_dir
