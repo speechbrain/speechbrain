@@ -1,2 +1,0 @@
-ID  AGE  GENDER  ACCENTS  REGION  
-226  22  M    English    Surrey

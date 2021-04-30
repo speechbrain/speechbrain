@@ -1,15 +1,20 @@
-import librosa
+"""Recipe for training the Wavenet model
+
+https://arxiv.org/abs/1710.07654
+
+To run this recipe, do the following:
+> python train.py hparams/train.yaml --train_data_path /path/to/trainset --valid_data_path /path/to/validset
+
+Authors
+* Aleksandar Rachkov 2020
+"""
+
 import torch
 import sys
 import speechbrain as sb
-import math
-from typing import Collection
 from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.dataloader import SaveableDataLoader
-from torch.utils.data import DataLoader
-import numpy as np
+from speechbrain.lobes.models.synthesis.wavenet.dataio import dataset_prep
 import os
 
 import torchvision
@@ -17,7 +22,6 @@ import torchaudio
 
 sys.path.append("..")
 from datasets.vctk import VCTK
-from common.dataio import dataio_prep, mulaw_quantize
 
 from scipy.signal import firwin, lfilter
 from torchaudio import transforms
@@ -54,7 +58,7 @@ class WavenetBrain(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         #batch = BatchWrapper(batch).to(self.device)
-        
+
         # wee need 4d inputs for spatial cross entropy loss
         # (B, T, C, 1)
         y_hat = predictions.unsqueeze(-1)
@@ -74,9 +78,9 @@ class WavenetBrain(sb.core.Brain):
         predicted_mel = torchaudio.transforms.MelSpectrogram(self.hparams.sample_rate)(predicted_audio)
         target_mel = torchaudio.transforms.MelSpectrogram(self.hparams.sample_rate)(target_audio)
 
-        (self.last_predicted_audio, 
-         self.last_target_audio, 
-         self.last_predicted_mel, 
+        (self.last_predicted_audio,
+         self.last_target_audio,
+         self.last_predicted_mel,
          self.last_target_mel) = [
             tensor.detach().cpu()
             for tensor in (
@@ -152,7 +156,7 @@ class WavenetBrain(sb.core.Brain):
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
             if output_progress_sample:
-                self._save_progress_sample() 
+                self._save_progress_sample()
         # Summarize the statistics from the stage for record-keeping.
         else:
             stats = {
@@ -178,7 +182,7 @@ class WavenetBrain(sb.core.Brain):
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
             if output_progress_sample:
-                self._save_progress_sample() 
+                self._save_progress_sample()
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -193,6 +197,14 @@ def inv_mulaw(y, mu=256):
 def inv_mulaw_quantize(y,mu=256):
     y = 2*y.type(torch.FloatTensor)/mu -1
     return inv_mulaw(y,mu)
+
+def dataio_prep(hparams):
+    result = {}
+    for name, dataset_params in hparams['datasets'].items():
+        # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
+        vctk = VCTK(dataset_params['path']).to_dataset()
+        result[name] = dataset_prep(vctk, hparams)
+    return result
 
 def main():
 
@@ -218,7 +230,7 @@ def main():
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-  
+
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be

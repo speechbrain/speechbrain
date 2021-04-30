@@ -1,7 +1,7 @@
 """The SpeechBrain implementation of WaveNet by
 https://arxiv.org/pdf/1609.03499.pdf
 Inspired by:
-https://github.com/r9y9/wavenet_vocoder 
+https://github.com/r9y9/wavenet_vocoder
 """
 
 from __future__ import with_statement, print_function, absolute_import
@@ -69,7 +69,7 @@ class UpsampleNetwork(nn.Module):
 
         if self.indent > 0:
             c = c[:, :, self.indent:-self.indent]
-        
+
         # convert back to BxTxC
         c = c.transpose(1,2).contiguous()
 
@@ -146,7 +146,7 @@ class IncrementalConv1d(CNN.Conv1d):
             self._linearized_weight = weight.view(self.conv.out_channels, -1)
         return self._linearized_weight
     def _clear_linearized_weight(self, *args):
-        self._linearized_weight = None        
+        self._linearized_weight = None
 
 
 def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, padding="causal", **kwargs):
@@ -277,6 +277,11 @@ class ResidualConv1dGLU(nn.Module):
             assert self.conv1x1c is not None
             c = _conv1x1_forward(self.conv1x1c, c, is_incremental)
             ca, cb = c.split(c.size(splitdim) // 2, dim=splitdim)
+            from icecream import ic
+            ic(a.shape)
+            ic(b.shape)
+            ic(ca.shape)
+            ic(cb.shape)
             a, b = a + ca, b + cb
 
         # global conditioning
@@ -573,7 +578,7 @@ class WaveNet(nn.Module):
                 except AttributeError:
                     x = f(x)
 
-            # Generate next input 
+            # Generate next input
             x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
             if quantize:
                 dist = torch.distributions.OneHotCategorical(x)
@@ -616,7 +621,7 @@ class Loss(nn.Module):
     def forward(self, predictions, target, lengths):
 
         # (B,1,T)
-        mask = self.sequence_mask(lengths).unsqueeze(1)        
+        mask = self.sequence_mask(lengths).unsqueeze(1)
         # (B,T,1)
         mask = mask.transpose(1,2).contiguous()
         mask = mask[:,1:,:]
@@ -631,7 +636,7 @@ class Loss(nn.Module):
         predictions = predictions.transpose(1,2).contiguous()
         losses = self.criterion(predictions, target.long())
         return ((losses * mask_).sum()) / mask_.sum()
-    
+
     def sequence_mask(self, sequence_length):
 
         max_len = sequence_length.data.max()
