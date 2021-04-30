@@ -202,12 +202,12 @@ class SaveableDataLoader(DataLoader):
     def _speechbrain_load(self, path, end_of_epoch, device=None):
         del device  # Unused here
         if self._speechbrain_iterator is not None:
-            logging.warning(
+            logging.debug(
                 "SaveableDataLoader was requested to load a "
-                "checkpoint, but the data loader has already been "
-                "iterated. Cannot load checkpoint here. Assuming that the "
-                "checkpoint was only loaded for e.g. retrieving the best "
-                "model"
+                "checkpoint, but the DataLoader has already been "
+                "iterated. The DataLoader file will be ignored. "
+                "This is normal in evaluation, when a checkpoint is "
+                "loaded just to retrieve the best model."
             )
             return
         if end_of_epoch:
