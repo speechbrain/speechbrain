@@ -133,7 +133,7 @@ and where the implemented algorithm needs clarification.
 - The CI pipeline is triggered by pull requests.
 - Runs in a Ubuntu environment provided by GitHub
 - GitHub offers a limited amount of CI pipeline minutes for free.
-- CD would stand for continuous deployment, though we’re not doing that yet
+- CD stands for continuous deployment, check out the "Releasing a new version" section.
 
 ### Our test suite
 - Code linters are run. This means black and flake8. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
@@ -172,3 +172,43 @@ Fifthly, the code review is a place for professional constructive criticism,
 a nice strategy to show (and validate) that you understand what the PR is really
 doing is to provide some affirmative comments on its strengths.
 
+## Releasing a new version
+
+Here are a few guidelines for when and how to release a new version.
+To begin with, as hinted in the "Continuous Integration" section, we would like to follow a
+pretty tight release schedule, known as "Continuous Deployment". For us, this means a new
+version should be released roughly once a week.
+
+As for how to name the released version, we try to follow semantic versioning for this. More details
+can be found at [semver.org](http://semver.org). As it applies to SpeechBrain, some examples
+of what this would likely mean:
+ * Changes to the Brain class or other core elements often warrant a major version bump (e.g. 1.5.3 -> 2.0.0)
+ * Added classes or features warrant a minor version bump. Most weekly updates should fall into this.
+ * Patch version bumps should happen only for bug fixes.
+
+When releasing a new version, there are only two user-initiated action that need to occur.
+First, the `develop` branch should be merged to the `main` branch. This means that
+the `main` branch now includes the latest changes to the repository. Second,
+the `main` branch should be tagged with the new version. This is done by
+navigating to the `Releases` page, drafting a new release, and publishing it.
+
+The published release should include a summary of changes from the prior
+version. We have created a GitHub action that is run when the `develop`
+branch is merged with the `main` branch that creates a draft release
+titled "Latest". This draft release should include commits since
+the previous release, but will require some editing to summarize or
+highlight important changes.
+
+Publishing a new release kicks off a series of automatic tools, listed below:
+
+ * The file `version.txt` gets updated with the version (excluding "v") named
+   in the release. This update gets pushed to both `main` and `develop` branches.
+ * The `main` branch is checked out and used for building a python package.
+ * The built package is uploaded to PyPI and the release is published there.
+ * Read the Docs uses Webhooks to get notified when a new version is published.
+   Read the Docs then builds the documentation and publishes the new version.
+
+Maintainers of relevant accounts:
+ * Mirco Ravanelli maintains the GitHub and PyPI accounts
+ * Titouan Parcollet maintains the website at [speechbrain.github.io](speechbrain.github.io)
+   as well as accounts at Read the Docs and Discourse

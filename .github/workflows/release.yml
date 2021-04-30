@@ -16,6 +16,8 @@ jobs:
         with:
           ref: main
       - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
       - uses: battila7/get-version-action@v2
       - name: Update version.txt
         run: |
