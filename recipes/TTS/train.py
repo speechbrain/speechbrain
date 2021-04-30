@@ -101,15 +101,18 @@ class WavenetBrain(sb.core.Brain):
         return loss
 
     def _save_progress_sample(self):
-        self._save_sample_audio(
-            'target_audio.wav', self.last_target_audio.unsqueeze(0))
-        self._save_sample_audio(
-            'predicted_audio.wav', self.last_predicted_audio.unsqueeze(0))
-        self._save_sample_image(
-            'target_mel.png', self.last_target_mel)
-        print(self.last_predicted_mel.size())
-        self._save_sample_image(
-            'output_mel.png', self.last_predicted_mel)
+        for i,b in enumerate(self.last_target_audio):
+            self._save_sample_audio(
+            'target_audio_'+str(i)+'.wav', b.unsqueeze(0))
+        for i,b in enumerate(self.last_predicted_audio):
+            self._save_sample_audio(
+            'predicted_audio_'+str(i)+'.wav', b.unsqueeze(0))
+        for i,b in enumerate(self.last_target_mel):
+            self._save_sample_image(
+            'target_mel_'+str(i)+'.png', b)
+        for i,b in enumerate(self.last_predicted_mel):
+            self._save_sample_image(
+            'output_mel_'+str(i)+'.png', b)
 
     def _save_sample_image(self, file_name, data):
         effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
@@ -238,9 +241,9 @@ def main():
         epoch_counter=wavenet_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         # TODO: Implement splitting - this is not ready yet
-        valid_set=datasets["valid"],
+        #valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+        #valid_loader_kwargs=hparams["dataloader_options"],
     )
 
 if __name__ == '__main__':
