@@ -4,7 +4,7 @@ from speechbrain.processing.features import (
     ISTFT,
 )
 
-from speechbrain.processing.multi_mic(
+from speechbrain.processing.multi_mic import (
     Covariance,
     GccPhat,
     DelaySum,
@@ -16,12 +16,13 @@ class DelaySum_Beamformer(torch.nn.Module):
         self,
         sampling_rate=16000,
     ):
+        super().__init__()
         self.fs = sampling_rate
-        self.stft = STFT(sample_rate=fs)
+        self.stft = STFT(sample_rate=self.fs)
         self.cov = Covariance()
         self.gccphat = GccPhat()
         self.delaysum = DelaySum()
-        self.istft = ISTFT(sample_rate=fs)
+        self.istft = ISTFT(sample_rate=self.fs)
 
     def forward(self, mics_signals):
         with torch.no_grad():
