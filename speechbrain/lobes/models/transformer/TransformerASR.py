@@ -151,7 +151,6 @@ class TransformerASR(TransformerInterface):
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
-            memory_key_padding_mask=src_key_padding_mask,
         )
 
         return encoder_out, decoder_out
@@ -196,7 +195,69 @@ class TransformerASR(TransformerInterface):
         )
         return prediction, multihead_attns[-1]
 
+    def encode(
+        self, src, wav_len=None,
+    ):
+        """
+        forward the encoder with source input
+
+        Arguments
+        ----------
+        src : tensor
+            The sequence to the encoder (required).
+        """
+        # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
+        if src.dim() == 4:
+            bz, t, ch1, ch2 = src.shape
+            src = src.reshape(bz, t, ch1 * ch2)
+
+        src_key_padding_mask = None
+        if wav_len is not None and self.training:
+            abs_len = torch.round(wav_len * src.shape[1])
+            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+
+        src = self.custom_src_module(src)
+        src = src + self.positional_encoding(src)
+        encoder_out, _ = self.encoder(
+            src=src, src_key_padding_mask=src_key_padding_mask
+        )
+        return encoder_out
+
     def _init_params(self):
         for p in self.parameters():
             if p.dim() > 1:
                 torch.nn.init.xavier_normal_(p)
+
+
+class EncoderWrapper(nn.Module):
+    """This is a wrapper of any ASR transformer encoder. By default, the
+    TransformerASR .forward() function encodes and decodes. With this wrapper
+    the .forward() function becomes .encode() only.
+
+    Important: The TransformerASR class must contain a .encode() function.
+
+    Arguments
+    ----------
+    transformer : sb.lobes.models.TransformerInterface
+        A Transformer instance that contains a .encode() function.
+
+    Example
+    -------
+    >>> src = torch.rand([8, 120, 512])
+    >>> tgt = torch.randint(0, 720, [8, 120])
+    >>> net = TransformerASR(
+    ...     720, 512, 512, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ... )
+    >>> encoder = EncoderWrapper(net)
+    >>> enc_out = encoder(src)
+    >>> enc_out.shape
+    torch.Size([8, 120, 512])
+    """
+
+    def __init__(self, transformer, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transformer = transformer
+
+    def forward(self, x, wav_lens=None):
+        x = self.transformer.encode(x, wav_lens)
+        return x

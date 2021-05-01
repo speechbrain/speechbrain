@@ -20,8 +20,10 @@ import time
 import torchaudio
 import json
 import re
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-torchaudio.set_audio_backend("sox_io")  # switch backend
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 logger = logging.getLogger(__name__)
 
 
@@ -963,7 +965,7 @@ def merge_char(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        words = "".join(seq).split("_")
+        words = "".join(seq).split(space)
         results.append(words)
     return results
 
@@ -989,7 +991,6 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     write_path = os.path.join(data_folder, merged_csv)
     if os.path.isfile(write_path):
         logger.info("Skipping merging. Completed in previous run.")
-
     with open(os.path.join(data_folder, csv_lst[0])) as f:
         header = f.readline()
     lines = []
@@ -1034,6 +1035,6 @@ def split_word(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        chars = list("_".join(seq))
+        chars = list(space.join(seq))
         results.append(chars)
     return results

@@ -10,6 +10,7 @@ import logging
 import operator
 import functools
 from speechbrain.nnet.linear import Linear
+from speechbrain.utils.callchains import lengths_arg_exists
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,10 @@ class Sequential(torch.nn.ModuleDict):
 
     def __init__(self, *layers, input_shape=None, **named_layers):
         super().__init__()
+
+        # Make sure either layers or input_shape is passed
+        if not layers and input_shape is None and not named_layers:
+            raise ValueError("Must pass either layers or input shape")
 
         # Keep track of what layers need "lengths" passed
         self.length_layers = []
@@ -106,8 +111,15 @@ class Sequential(torch.nn.ModuleDict):
                 input_shape = self.get_output_shape()
                 layer = layer(*args, input_shape=input_shape, **kwargs)
 
-        # Finally, append the layer
-        self.add_module(layer_name, layer)
+        # Finally, append the layer.
+        try:
+            self.add_module(layer_name, layer)
+        except TypeError:
+            raise ValueError(
+                "Must pass `input_shape` at initialization and use "
+                "modules that take `input_shape` to infer shape when "
+                "using `append()`."
+            )
 
     def get_output_shape(self):
         """Returns expected shape of the output.
@@ -115,8 +127,9 @@ class Sequential(torch.nn.ModuleDict):
         Computed by passing dummy input constructed with the
         ``self.input_shape`` attribute.
         """
-        dummy_input = torch.zeros(self.input_shape)
-        dummy_output = self(dummy_input)
+        with torch.no_grad():
+            dummy_input = torch.zeros(self.input_shape)
+            dummy_output = self(dummy_input)
         return dummy_output.shape
 
     def forward(self, x):
@@ -135,7 +148,7 @@ class Sequential(torch.nn.ModuleDict):
         return x
 
 
-class LengthCapableSequential(Sequential):
+class LengthsCapableSequential(Sequential):
     """Sequential model that can take ``lengths`` in the forward method.
 
     This is useful for Sequential models that include RNNs where it is
@@ -145,6 +158,17 @@ class LengthCapableSequential(Sequential):
     know ahead of time if the length will be passed, and some layers don't
     accept the length parameter.
     """
+
+    def __init__(self, *args, **kwargs):
+        # Add takes_lengths list here.
+        self.takes_lengths = []
+        super().__init__(*args, **kwargs)
+
+    def append(self, *args, **kwargs):
+        # Add lengths arg inference here.
+        super().append(*args, **kwargs)
+        latest_forward_method = list(self.values())[-1].forward
+        self.takes_lengths.append(lengths_arg_exists(latest_forward_method))
 
     def forward(self, x, lengths=None):
         """Applies layers in sequence, passing only the first element of tuples.
@@ -159,27 +183,14 @@ class LengthCapableSequential(Sequential):
         lengths : torch.Tensor
             The relative lengths of each signal in the tensor.
         """
-        for layer in self.values():
-            if lengths_arg_exists(layer):
+        for layer, give_lengths in zip(self.values(), self.takes_lengths):
+            if give_lengths:
                 x = layer(x, lengths=lengths)
             else:
                 x = layer(x)
             if isinstance(x, tuple):
                 x = x[0]
-
         return x
-
-
-def lengths_arg_exists(module):
-    """Returns True if module takes ``lengths`` keyword argument.
-
-    Arguments
-    ---------
-    module : torch.nn.Module
-        Torch module to use for determination.
-    """
-    spec = inspect.getfullargspec(module.forward)
-    return "lengths" in spec.args + spec.kwonlyargs
 
 
 class ModuleList(torch.nn.Module):

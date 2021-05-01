@@ -27,12 +27,12 @@ logger = logging.getLogger(__name__)
 def transducer_loss(
     log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
 ):
-    """Transducer loss, see `speechbrain/nnet/transducer/transducer_loss.py`.
+    """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, chars].
+        Predicted tensor, of shape [batch, maxT, maxU, num_labels].
     targets : torch.Tensor
         Target tensor, without any blanks, of shape [batch, target_len].
     input_lens : torch.Tensor
@@ -40,7 +40,7 @@ def transducer_loss(
     target_lens : torch.Tensor
         Length of each target sequence.
     blank_index : int
-        The location of the blank symbol among the character indexes.
+        The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
     """
@@ -419,7 +419,7 @@ def nll_loss(
     )
 
 
-def BCE_loss(
+def bce_loss(
     inputs,
     targets,
     length=None,
@@ -436,7 +436,8 @@ def BCE_loss(
     ---------
     inputs : torch.Tensor
         The output before applying the final softmax
-        Format is [batch, 1] or [batch, frames, 1].
+        Format is [batch[, 1]?] or [batch, frames[, 1]?].
+        (Works with or without a singleton dimension at the end).
     targets : torch.Tensor
         The targets, of shape [batch] or [batch, frames].
     length : torch.Tensor
@@ -458,12 +459,18 @@ def BCE_loss(
     -------
     >>> inputs = torch.tensor([10.0, -6.0])
     >>> targets = torch.tensor([1, 0])
-    >>> BCE_loss(inputs, targets)
+    >>> bce_loss(inputs, targets)
     tensor(0.0013)
     """
-    if len(inputs.shape) == 3:
+    # Squeeze singleton dimension so inputs + targets match
+    if len(inputs.shape) == len(targets.shape) + 1:
+        inputs = inputs.squeeze(-1)
+
+    # Make sure tensor lengths match
+    if len(inputs.shape) >= 2:
         inputs, targets = truncate(inputs, targets, allowed_len_diff)
-        inputs = inputs.transpose(1, -1)
+    elif length is not None:
+        raise ValueError("length can be passed only for >= 2D inputs.")
 
     # Pass the loss function but apply reduction="none" first
     loss = functools.partial(
@@ -1023,7 +1030,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
 
 
 def ce_kd(inp, target):
-    """Simple version of distillation fro cross-entropy loss.
+    """Simple version of distillation for cross-entropy loss.
 
     Arguments
     ---------

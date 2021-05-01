@@ -64,7 +64,7 @@ def prepare_common_voice(
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
     >>> data_folder = '/datasets/CommonVoice/en'
     >>> save_folder = 'exp/CommonVoice_exp'
-    >>> train_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
+    >>> train_tsv_file = '/datasets/CommonVoice/en/train.tsv'
     >>> dev_tsv_file = '/datasets/CommonVoice/en/dev.tsv'
     >>> test_tsv_file = '/datasets/CommonVoice/en/test.tsv'
     >>> accented_letters = False
@@ -220,24 +220,7 @@ def create_csv(
     msg = "Creating csv lists in %s ..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-            "wrd",
-            "wrd_format",
-            "wrd_opts",
-            "char",
-            "char_format",
-            "char_opts",
-        ]
-    ]
+    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     # Start processing lines
     total_duration = 0.0
@@ -283,6 +266,16 @@ def create_csv(
                 + ALEF_HAMZA_ABOVE
             )
             words = re.sub("[^" + letters + "]+", " ", words).upper()
+        elif language == "ga-IE":
+            # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
+            def pfxuc(a):
+                return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
+
+            def galc(w):
+                return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
+
+            words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
+            words = " ".join(map(galc, words.split(" ")))
 
         # Remove accents if specified
         if not accented_letters:
@@ -307,22 +300,7 @@ def create_csv(
             continue
 
         # Composition of the csv_line
-        csv_line = [
-            snt_id,
-            str(duration),
-            mp3_path,
-            "wav",
-            "",
-            spk_id,
-            "string",
-            "",
-            str(words),
-            "string",
-            "",
-            str(chars),
-            "string",
-            "",
-        ]
+        csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)

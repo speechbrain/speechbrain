@@ -1,0 +1,33 @@
+# ############################################################################
+# Tokenizer: subword BPE with unigram 51
+# Training: Timers-and-Such
+# Authors:  Abdel Heba 2021
+# ############################################################################
+
+output_folder: !ref results/tokenizer_bpe51/
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
+train_splits: ["train-synth", "train-real"]
+train_csv: !ref <output_folder>/train-type=direct.csv
+valid_csv: !ref <output_folder>/dev-real-type=direct.csv
+
+
+# Training parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+token_output: 51  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+num_sequences: 10000
+csv_read: semantics
+
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   character_coverage: !ref <character_coverage>
+   num_sequences: !ref <num_sequences>
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
