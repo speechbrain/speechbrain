@@ -159,7 +159,8 @@ def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
 
         for row in csv_reader:
             chunk_id = row["ID"]
-            p = row["wav"].split(".")[0] + "." + array_type + "-"
+            p = row["wav"].rsplit(".", 2)[0] + "." + array_type + "-"
+
             f = []
             for i in range(8):
                 f.append(p + str(i + 1).zfill(2) + ".wav")
@@ -514,6 +515,7 @@ def dataio_prep(hparams, csv_file):
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop):
+
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
