@@ -81,7 +81,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given dataset loader.
     """
 
-    # Note: We use usespeechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
+    # Note: We use speechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
     # Extract embeddings (skip if already done).
     if not os.path.isfile(stat_file):
         logger.debug("Extracting deep embeddings and diarizing")
@@ -270,7 +270,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             )
 
         if params["backend"] == "SC":
-            # Go for SC.
+            # Go for Spectral Clustering (SC).
             diar.do_spec_clustering(
                 diary_obj,
                 out_rttm_file,
@@ -339,7 +339,7 @@ def dev_p_tuner(full_csv, split_type):
             # p_val is needed in oracle_n_spkr=False when using kmeans backend
             break
 
-    # Take p_val that gave minmum DER on Dev dataset
+    # Take p_val that gave minmum DER on Dev dataset.
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -354,9 +354,9 @@ def dev_threshold_tuner(full_csv, split_type):
 
     n_lambdas = None  # using it as flag later.
 
-    # Note: p_val is theshold in case of AHC.
+    # Note: p_val is threshold in case of AHC.
     for p_v in prange:
-        # Process whole dataset for value of p_v
+        # Process whole dataset for value of p_v.
         concate_rttm_file = diarize_dataset(
             full_csv, split_type, n_lambdas, p_v
         )
