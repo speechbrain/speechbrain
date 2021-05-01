@@ -465,13 +465,6 @@ def dataio_prep_multi_mic(hparams, json_file):
         json_path=json_file, replacements={"data_root": data_folder},
     )
 
-    fs = 16000  # see if this can be automatically adjusted.
-    stft = STFT(sample_rate=fs)
-    cov = Covariance()
-    gccphat = GccPhat()
-    delaysum = DelaySum()
-    istft = ISTFT(sample_rate=fs)
-
     # 2. Define audio pipeline:
     # @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.takes("wav")
@@ -480,12 +473,12 @@ def dataio_prep_multi_mic(hparams, json_file):
 
         mics_signals = read_audio_multichannel(wav).unsqueeze(0)
 
-        #fs = 16000  # see if this can be automatically adjusted.
-        #stft = STFT(sample_rate=fs)
-        #cov = Covariance()
-        #gccphat = GccPhat()
-        #delaysum = DelaySum()
-        #istft = ISTFT(sample_rate=fs)
+        fs = 16000  # see if this can be automatically adjusted.
+        stft = STFT(sample_rate=fs)
+        cov = Covariance()
+        gccphat = GccPhat()
+        delaysum = DelaySum()
+        istft = ISTFT(sample_rate=fs)
 
         Xs = stft(mics_signals)
         XXs = cov(Xs)
