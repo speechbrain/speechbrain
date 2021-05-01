@@ -10,11 +10,13 @@ Use the following command to run diarization on AMI corpus.
 `python experiment.py hparams/ecapa_tdnn.yaml` or `python experiment.py hparams/xvectors.yaml` depending upon the model used.
 
 
-## Speake   r Diarization using Deep Embedding and Spectral Clustering
+## Speaker Diarization using Deep Embedding and Spectral Clustering
 The script assumes the pre-trained model. Please refer to speechbrain/recipes/VoxCeleb/SpeakerRec/README.md to know more about the available pre-trained models that can easily be downloaded. You can also train the speaker embedding model from scratch using instructions in the same file. 
 
 
-## Best performance in terms of Diarization Error Rate (DER) with 0.25 sec forgiveness collar and ignoring overlaps.
+## Best performance in terms of Diarization Error Rate (DER).
+The forgiveness collar of 0.25 sec is used and overlaps are ignored while evaluation.
+
 | System | Orcl. (Dev) | Orcl. (Eval) | Est. (Dev) | Est. (Eval)
 |----------- | ------------ | ------|------| ------|
 | ECAPA-TDNN + SC | 2.82% | 2.65% | 3.66% | 3.01% |

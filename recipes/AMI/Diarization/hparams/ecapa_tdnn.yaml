@@ -53,7 +53,7 @@ batch_size: 512
 split_type: 'full_corpus_asr'
 skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
-mic_type: 'Array1' #'Mix-Headset'
+mic_type: 'Mix-Headset'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
