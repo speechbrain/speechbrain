@@ -310,6 +310,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
 
 def dev_p_tuner(full_csv, split_type):
     """Tuning p_value affinity matrix.
+    The p_value used so that only p% of the values in each row is retained.
     """
 
     DER_list = []
@@ -353,7 +354,7 @@ def dev_threshold_tuner(full_csv, split_type):
 
     n_lambdas = None  # using it as flag later.
 
-    # Note: p_val is theshold.
+    # Note: p_val is theshold in case of AHC.
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
@@ -382,6 +383,7 @@ def dev_threshold_tuner(full_csv, split_type):
 
 def dev_nn_tuner(full_csv, split_type):
     """Tuning n_neighbors on dev set. Assuming oracle num of speakers.
+    This is used when nn based affinity is selected.
     """
 
     DER_list = []
@@ -418,7 +420,7 @@ def dev_nn_tuner(full_csv, split_type):
 
 
 def dev_tuner(full_csv, split_type):
-    """Tuning n_components on dev set.
+    """Tuning n_components on dev set. Used for nn based affinity matrix.
     Note: This is a very basic tunning for nn based affinity.
     This is work in progress till we find a better way.
     """
@@ -450,7 +452,9 @@ def dev_tuner(full_csv, split_type):
 
 
 def dataio_prep_multi_mic(hparams, json_file):
-    """Creates the datasets and their data processing pipelines."""
+    """Creates the datasets and their data processing pipelines.
+    This is used for multi-mic processing.
+    """
 
     # 1. Datasets
     data_folder = hparams["data_folder"]
