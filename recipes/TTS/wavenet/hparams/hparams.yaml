@@ -35,7 +35,7 @@ is_mulaw_quantized: True
 hop_length: 256
 n_fft: 1024
 max_time_sec: null
-max_time_steps: 2560 #1560 #!ref <hop_length> * 40 
+max_time_steps: 1560 #!ref <hop_length> * 40 
 
 lr: 0.002
 lr_warmup_steps: 4000
@@ -100,8 +100,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 causal: True
-train_data_path: datasets/testdata/fake_vctk_1ex
-#train_data_path: datasets/testdata/fake_vctk_single_speaker
+#train_data_path: datasets/testdata/fake_vctk_1ex
+train_data_path: datasets/testdata/fake_vctk_single_speaker
 valid_data_path: datasets/validdata/fake_vctk_1ex
 datasets:
   train:
