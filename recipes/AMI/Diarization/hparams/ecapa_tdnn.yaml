@@ -11,11 +11,12 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Folders
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus
+#data_folder: /Tmp/slurm.875443.0/localscratch/ami_dev_eval_subset/amicorpus/
 
 # Download manual annotations from: http://groups.inf.ed.ac.uk/ami/download/
-manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
+manual_annot_folder: /miniscratch/nauman/ami_public_manual/ #!PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
 
-output_folder: results/ami/ecapa_tdnn/
+output_folder: results/ami/ecapa_CODE_REVIEW/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -53,7 +54,7 @@ batch_size: 512
 split_type: 'full_corpus_asr'
 skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
-mic_type: 'Mix-Headset'
+mic_type: 'Array1' #'Mix-Headset'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
@@ -69,11 +70,16 @@ oracle_n_spkrs: True
 ignore_overlap: True
 forgiveness_collar: 0.25
 
+sampling_rate: 16000
+
 dataloader_opts:
     batch_size: !ref <batch_size>
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
+
+multimic_beamformer: !new:speechbrain.lobes.beamform_multimic.DelaySum_Beamformer
+    sampling_rate: !ref <sampling_rate>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
