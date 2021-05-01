@@ -249,6 +249,9 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
         params["embedding_model"].to(params["device"])
         params["mean_var_norm_emb"].to(params["device"])
 
+        # Adding beamformer to device.
+        params["multimic_beamformer"].to(params["device"])
+
         # Compute Embeddings.
         diary_obj = embedding_computation_loop(
             "diary", diary_set_loader, diary_stat_file
@@ -485,8 +488,9 @@ def dataio_prep_multi_mic(hparams, json_file):
         #tdoas = gccphat(XXs)
         #Ys_ds = delaysum(Xs, tdoas)
         #sig = istft(Ys_ds)
-
-        sig = params["multimic_beamformer"](mics_signals)
+        with torch.no_grad():
+            mics_signals = mics_signals.to(params["device"])
+            sig = params["multimic_beamformer"](mics_signals)
 
         sig = sig.squeeze()
         return sig
