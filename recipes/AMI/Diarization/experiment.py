@@ -462,7 +462,6 @@ def dataio_prep_multi_mic(hparams, json_file):
         json_path=json_file, replacements={"data_root": data_folder},
     )
 
-
     # 2. Define audio pipeline:
     # @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.takes("wav")

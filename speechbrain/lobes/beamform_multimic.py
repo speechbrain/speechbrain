@@ -15,6 +15,7 @@ from speechbrain.processing.multi_mic import (
     DelaySum,
 )
 
+
 class DelaySum_Beamformer(torch.nn.Module):
     """Generate features for input to the speech pipeline.
 
@@ -53,4 +54,3 @@ class DelaySum_Beamformer(torch.nn.Module):
             sig = self.istft(Ys_ds)
 
         return sig
-
