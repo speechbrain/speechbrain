@@ -11,10 +11,9 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Folders
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus
-#data_folder: /Tmp/slurm.875443.0/localscratch/ami_dev_eval_subset/amicorpus/
 
 # Download manual annotations from: http://groups.inf.ed.ac.uk/ami/download/
-manual_annot_folder: /miniscratch/nauman/ami_public_manual/ #!PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
+manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
 
 output_folder: results/ami/ecapa_CODE_REVIEW/
 save_folder: !ref <output_folder>/save
@@ -70,6 +69,7 @@ oracle_n_spkrs: True
 ignore_overlap: True
 forgiveness_collar: 0.25
 
+# Used for multi-mic beamformer
 sampling_rate: 16000
 
 dataloader_opts:
