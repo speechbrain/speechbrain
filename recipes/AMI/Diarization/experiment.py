@@ -480,12 +480,13 @@ def dataio_prep_multi_mic(hparams, json_file):
 
         mics_signals = read_audio_multichannel(wav).unsqueeze(0)
 
+        #Xs = stft(mics_signals)
+        #XXs = cov(Xs)
+        #tdoas = gccphat(XXs)
+        #Ys_ds = delaysum(Xs, tdoas)
+        #sig = istft(Ys_ds)
 
-        Xs = stft(mics_signals)
-        XXs = cov(Xs)
-        tdoas = gccphat(XXs)
-        Ys_ds = delaysum(Xs, tdoas)
-        sig = istft(Ys_ds)
+        sig = params["multimic_beamformer"](mics_signals)
 
         sig = sig.squeeze()
         return sig
