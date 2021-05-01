@@ -1,3 +1,8 @@
+"""Beamformer for multi-mic processing.
+
+Authors
+ * Nauman Dawalatabad
+"""
 import torch
 from speechbrain.processing.features import (
     STFT,
@@ -11,6 +16,13 @@ from speechbrain.processing.multi_mic import (
 )
 
 class DelaySum_Beamformer(torch.nn.Module):
+    """Generate features for input to the speech pipeline.
+
+    Arguments
+    ---------
+    sampling_rate : int (default: 16000)
+        Sampling rate of audio signals.
+    """
 
     def __init__(
         self,
@@ -25,7 +37,15 @@ class DelaySum_Beamformer(torch.nn.Module):
         self.istft = ISTFT(sample_rate=self.fs)
 
     def forward(self, mics_signals):
+        """Returns beamformed signal using multi-mic data.
+
+        Arguments
+        ---------
+        mics_sginal : tensor
+            Set of audio signals to be transformed.
+        """
         with torch.no_grad():
+
             Xs = self.stft(mics_signals)
             XXs = self.cov(Xs)
             tdoas = self.gccphat(XXs)
