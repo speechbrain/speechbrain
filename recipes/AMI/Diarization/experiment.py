@@ -36,13 +36,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing import diarization as diar
 from speechbrain.utils.DER import DER
-
 from speechbrain.dataio.dataio import read_audio_multichannel
-from speechbrain.processing.features import STFT, ISTFT
-from speechbrain.processing.multi_mic import Covariance
-from speechbrain.processing.multi_mic import GccPhat
-from speechbrain.processing.multi_mic import DelaySum
-
 
 np.random.seed(1234)
 
@@ -88,7 +82,6 @@ def embedding_computation_loop(split, set_loader, stat_file):
     """
 
     # Note: We use usespeechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
-
     # Extract embeddings (skip if already done).
     if not os.path.isfile(stat_file):
         logger.debug("Extracting deep embeddings and diarizing")
@@ -468,12 +461,6 @@ def dataio_prep_multi_mic(hparams, json_file):
         json_path=json_file, replacements={"data_root": data_folder},
     )
 
-    fs = 16000  # see if this can be automatically adjusted.
-    stft = STFT(sample_rate=fs)
-    cov = Covariance()
-    gccphat = GccPhat()
-    delaysum = DelaySum()
-    istft = ISTFT(sample_rate=fs)
 
     # 2. Define audio pipeline:
     # @sb.utils.data_pipeline.takes("wav", "start", "stop")
@@ -483,11 +470,6 @@ def dataio_prep_multi_mic(hparams, json_file):
 
         mics_signals = read_audio_multichannel(wav).unsqueeze(0)
 
-        #Xs = stft(mics_signals)
-        #XXs = cov(Xs)
-        #tdoas = gccphat(XXs)
-        #Ys_ds = delaysum(Xs, tdoas)
-        #sig = istft(Ys_ds)
         with torch.no_grad():
             mics_signals = mics_signals.to(params["device"])
             sig = params["multimic_beamformer"](mics_signals)
