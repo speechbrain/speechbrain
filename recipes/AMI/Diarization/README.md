@@ -9,20 +9,27 @@ To install it, type: `pip install sklearn`
 Use the following command to run diarization on AMI corpus.
 `python experiment.py hparams/ecapa_tdnn.yaml` or `python experiment.py hparams/xvectors.yaml` depending upon the model used.
 
-## Speaker Diarization using Deep Embedding and Spectral Clustering
-The script assumes the pre-trained model. Please refer to speechbrain/recipes/VoxCeleb/SpeakerRec/README.md to know more about the available pre-trained models that can easily be downloaded. You can also train the speaker embedding model from scratch using instructions in the same file. Use the following command to run diarization on AMI corpus.
 
-## Performance Summary using Xvector model trainined on VoxCeleb1+VoxCeleb2 dataset
-Xvectors : Dev = 4.34 % | Eval = 4.45 %
-ECAPA   :  Dev = 2.19 % | Eval = 2.74 %
-ECAPA_big: Dev = 2.16 % | Eval = 2.72 %
+## Speaker Diarization using Deep Embedding and Spectral Clustering
+The script assumes the pre-trained model. Please refer to speechbrain/recipes/VoxCeleb/SpeakerRec/README.md to know more about the available pre-trained models that can easily be downloaded. You can also train the speaker embedding model from scratch using instructions in the same file. 
+
+
+## Best performance in terms of Diarization Error Rate (DER) with 0.25 sec forgiveness collar and ignoring overlaps.
+| System | Orcl. (Dev) | Orcl. (Eval) | Est. (Dev) | Est. (Eval)
+|----------- | ------------ | ------|------| ------|
+| ECAPA-TDNN + SC | 2.82% | 2.65% | 3.66% | 3.01% |
+
+For complete set of analyses please refer our paper give below.
 
 ## Citation
+
+[ECAPA-TDNN Embeddings for Speaker Diarization](https://arxiv.org/pdf/2104.01466.pdf)
+
 If you find the code useful in your work, please cite:
 
     @misc{dawalatabad2021ecapatdnn,
           title={ECAPA-TDNN Embeddings for Speaker Diarization},
-          author={Nauman Dawalatabad and Mirco Ravanelli and François Grondin and Jenthe Thienpondt and Brecht Desplanques and Hwidong Na},
+          author={Nauman Dawalatabad and Mirco Ravanelli and Francois Grondin and Jenthe Thienpondt and Brecht Desplanques and Hwidong Na},
           year={2021},
           eprint={2104.01466},
           archivePrefix={arXiv},
