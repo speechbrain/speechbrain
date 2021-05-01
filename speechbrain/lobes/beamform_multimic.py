@@ -25,10 +25,7 @@ class DelaySum_Beamformer(torch.nn.Module):
         Sampling rate of audio signals.
     """
 
-    def __init__(
-        self,
-        sampling_rate=16000,
-    ):
+    def __init__(self, sampling_rate=16000):
         super().__init__()
         self.fs = sampling_rate
         self.stft = STFT(sample_rate=self.fs)
