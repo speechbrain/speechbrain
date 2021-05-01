@@ -64,9 +64,7 @@ class UpsampleNetwork(nn.Module):
         c = c.unsqueeze(1)
 
         for f in self.up_layers:
-            print(c.size())
             c = f(c)
-            print(c.size())
 
         # B x C x T
         c = c.squeeze(1)
