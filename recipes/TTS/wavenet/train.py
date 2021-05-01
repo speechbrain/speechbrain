@@ -87,18 +87,24 @@ class WavenetBrain(sb.core.Brain):
         return loss
 
     def _save_progress_sample(self):
-        for i,b in enumerate(self.last_target_audio):
-            self._save_sample_audio(
-            'target_audio_'+str(i)+'.wav', b.unsqueeze(0))
-        for i,b in enumerate(self.last_predicted_audio):
-            self._save_sample_audio(
-            'predicted_audio_'+str(i)+'.wav', b.unsqueeze(0))
-        for i,b in enumerate(self.last_target_mel):
-            self._save_sample_image(
-            'target_mel_'+str(i)+'.png', b)
-        for i,b in enumerate(self.last_predicted_mel):
-            self._save_sample_image(
-            'output_mel_'+str(i)+'.png', b)
+        #for i,b in enumerate(self.last_target_audio):
+        #    print(self.last_target_audio.size())
+        #    print(i,b.size())
+        b = self.last_target_audio
+        self._save_sample_audio(
+            'target_audio.wav', b.unsqueeze(0))
+        #for i,b in enumerate(self.last_predicted_audio):        
+        b = self.last_predicted_audio
+        self._save_sample_audio(
+            'predicted_audio.wav', b.unsqueeze(0))
+        b = self.last_target_mel
+        #for i,b in enumerate(self.last_target_mel):
+        self._save_sample_image(
+            'target_mel.png', b)
+        b = self.last_predicted_mel
+        #for i,b in enumerate(self.last_predicted_mel):
+        self._save_sample_image(
+            'output_mel.png', b)
 
     def _save_sample_image(self, file_name, data):
         effective_file_name = os.path.join(self.hparams.progress_sample_path, file_name)
