@@ -258,7 +258,7 @@ class CLSTM_Layer(torch.nn.Module):
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
-        # Initilizing dropout
+        # Initializing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
         self.drop_mask_te = torch.tensor([1.0]).float()
@@ -636,7 +636,7 @@ class CRNN_Layer(torch.nn.Module):
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
-        # Initilizing dropout
+        # Initializing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
         self.drop_mask_te = torch.tensor([1.0]).float()
@@ -1050,7 +1050,7 @@ class CLiGRU_Layer(torch.nn.Module):
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
-        # Initilizing dropout
+        # Initializing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
         self.drop_mask_te = torch.tensor([1.0]).float()
