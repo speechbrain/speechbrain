@@ -312,7 +312,7 @@ def dev_nn_tuner(full_csv, split_type):
 
 def dev_tuner(full_csv, split_type):
     """Tuning n_components on dev set.
-    Note: This is a very basic tunning for nn based affinity.
+    Note: This is a very basic tuning for nn based affinity.
     This is work in progress till we find a better way.
     """
 
