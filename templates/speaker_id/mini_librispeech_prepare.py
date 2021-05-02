@@ -153,7 +153,7 @@ def split_sets(wav_list, split_ratio):
     same proportion of samples (e.g, spk01 should have 80% of samples in
     training, 10% validation, 10% test, the same for speaker2 etc.). This
     is the approach followed in some recipes such as the Voxceleb one. For
-    simplicity, we here simply split the full list without necessarly respecting
+    simplicity, we here simply split the full list without necessarily respecting
     the split ratio within each class.
 
     Arguments
