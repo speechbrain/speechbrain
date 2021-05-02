@@ -53,7 +53,7 @@ class SentencePiece:
         (e.g., a p p l e _ i s _ g o o d)
     character_coverage : int
         Amount of characters covered by the model, good defaults
-        are: 0.9995 for languages with a rich character set like Japanse or
+        are: 0.9995 for languages with a rich character set like Japanese or
         Chinese and 1.0 for other languages with small character set.
         (default: 1.0)
     user_defined_symbols : string
