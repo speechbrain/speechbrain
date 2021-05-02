@@ -42,7 +42,7 @@ skip_prep: True
 
 # The target metrics that you want to optimize.
 # Right now we only support 'pesq' and 'stoi'.
-# (Of course, it can be any arbitary metric.)
+# (Of course, it can be any arbitrary metric.)
 target_metric: pesq
 # Training Parameters
 number_of_epochs: 600
