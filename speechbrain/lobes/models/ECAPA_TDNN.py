@@ -426,7 +426,7 @@ class ECAPA_TDNN(torch.nn.Module):
             activation,
         )
 
-        # Attentitve Statistical Pooling
+        # Attentive Statistical Pooling
         self.asp = AttentiveStatisticsPooling(
             channels[-1],
             attention_channels=attention_channels,
