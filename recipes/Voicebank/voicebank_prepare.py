@@ -294,7 +294,7 @@ def create_lexicon(lexicon_save_filepath):
         elif clean_word == line[0] and clean_word not in lexicon:
             lexicon[clean_word] = phns
 
-    # Add words with punctuation if they won't overwrite non-puncutated words
+    # Add words with punctuation if they won't overwrite non-punctuated words
     for word, phns in delayed_words.items():
         if word not in lexicon:
             lexicon[word] = phns
