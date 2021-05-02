@@ -285,7 +285,7 @@ def dev_nn_tuner(full_csv, split_type):
     pval = None
     for nn in range(5, 15):
 
-        # Fix this later. Now assumming oracle num of speakers
+        # Fix this later. Now assuming oracle num of speakers
         n_lambdas = 4
 
         # Process whole dataset for value of n_lambdas
