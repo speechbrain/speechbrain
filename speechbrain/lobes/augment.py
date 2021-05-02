@@ -127,7 +127,7 @@ class SpecAugment(torch.nn.Module):
         if time - window <= window:
             return x.view(*original_size)
 
-        # compute center and corepoding window
+        # compute center and corresponding window
         c = torch.randint(window, time - window, (1,))[0]
         w = torch.randint(c - window, c + window, (1,))[0] + 1
 
