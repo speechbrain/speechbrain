@@ -715,7 +715,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     Arguments
     ---------
     kaldi_ali : str
-        Path to directory where kaldi alignents are stored.
+        Path to directory where kaldi alignments are stored.
     kaldi_lab_opts : str
         A string that contains the options for reading the kaldi alignments.
 
