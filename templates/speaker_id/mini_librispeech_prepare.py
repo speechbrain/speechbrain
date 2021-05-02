@@ -2,7 +2,7 @@
 Downloads and creates data manifest files for Mini LibriSpeech (spk-id).
 For speaker-id, different senteces of the same speaker must appear in train,
 validation, and test sets. In this case, these sets are thus derived from
-splitting the orginal training set intothree chunks.
+splitting the original training set intothree chunks.
 
 Authors:
  * Mirco Ravanelli, 2021
