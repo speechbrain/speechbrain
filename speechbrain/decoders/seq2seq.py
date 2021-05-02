@@ -14,7 +14,7 @@ from speechbrain.decoders.ctc import CTCPrefixScorer
 
 class S2SBaseSearcher(torch.nn.Module):
     """S2SBaseSearcher class to be inherited by other
-    decoding approches for seq2seq model.
+    decoding approaches for seq2seq model.
 
     Arguments
     ---------
