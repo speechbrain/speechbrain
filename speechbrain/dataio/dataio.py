@@ -722,7 +722,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     Returns
     -------
     lab : dict
-        A dictionary contaning the labels.
+        A dictionary containing the labels.
 
     Note
     ----

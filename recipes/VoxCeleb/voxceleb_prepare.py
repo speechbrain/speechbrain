@@ -61,7 +61,7 @@ def prepare_voxceleb(
     save_folder : str
         The directory where to store the csv files.
     verification_pairs_file : str
-        txt file contaning the verification split.
+        txt file containing the verification split.
     splits : list
         List of splits to prepare from ['train', 'dev']
     split_ratio : list
