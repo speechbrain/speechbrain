@@ -262,7 +262,7 @@ class ASR(sb.core.Brain):
                 device=torch.device(self.device)
             )
 
-        # if the model is resumed from stage two, reinitilaize the optimizer
+        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         if current_epoch > self.hparams.stage_one_epochs:
             self.optimizer = self.hparams.SGD(self.modules.parameters())
