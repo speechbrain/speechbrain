@@ -241,7 +241,7 @@ class ASR(sb.core.Brain):
         """Initialize the right optimizer on the training start"""
         super().on_fit_start()
 
-        # if the model is resumed from stage two, reinitilaize the optimizer
+        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         current_optimizer = self.optimizer
         if current_epoch > self.hparams.stage_one_epochs:
