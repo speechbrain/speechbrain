@@ -1,4 +1,4 @@
-"""Conformer implementaion in the SpeechBrain sytle.
+"""Conformer implementation in the SpeechBrain sytle.
 
 Authors
 * Jianyuan Zhong 2020
