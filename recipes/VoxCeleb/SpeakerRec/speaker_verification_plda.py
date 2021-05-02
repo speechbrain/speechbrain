@@ -72,7 +72,7 @@ def emb_computation_loop(split, set_loader, stat_file):
                 modelset = modelset + mod
                 segset = segset + seg
 
-                # Enrolment and test embeddings
+                # Enrollment and test embeddings
                 embs = compute_embeddings(wavs, lens)
                 xv = embs.squeeze().cpu().numpy()
                 embeddings = numpy.concatenate((embeddings, xv), axis=0)
