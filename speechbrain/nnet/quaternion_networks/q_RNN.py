@@ -268,7 +268,7 @@ class QLSTM_Layer(torch.nn.Module):
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
-        # Initilizing dropout
+        # Initializing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
         self.drop_mask_te = torch.tensor([1.0]).float()
@@ -676,7 +676,7 @@ class QRNN_Layer(torch.nn.Module):
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
-        # Initilizing dropout
+        # Initializing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
         self.drop_mask_te = torch.tensor([1.0]).float()
@@ -1083,7 +1083,7 @@ class QLiGRU_Layer(torch.nn.Module):
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
-        # Initilizing dropout
+        # Initializing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
         self.drop_mask_te = torch.tensor([1.0]).float()
