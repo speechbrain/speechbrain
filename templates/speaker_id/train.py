@@ -222,7 +222,7 @@ def dataio_prep(hparams):
         to the appropriate DynamicItemDataset object.
     """
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
