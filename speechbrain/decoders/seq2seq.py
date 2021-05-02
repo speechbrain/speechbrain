@@ -300,7 +300,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Compute the ctc scores over the time frames using windowing based on attention peaks.
         If 0, no windowing applied.
     using_max_attn_shift: bool
-        Whether using the max_attn_shift constaint. (default: False)
+        Whether using the max_attn_shift constraint. (default: False)
     max_attn_shift: int
         Beam search will block the beams that attention shift more
         than max_attn_shift.
