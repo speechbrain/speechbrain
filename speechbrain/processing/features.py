@@ -1100,7 +1100,7 @@ class InputNormalization(torch.nn.Module):
         return x
 
     def _compute_current_stats(self, x):
-        """Returns the tensor with the sourrounding context.
+        """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
