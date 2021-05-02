@@ -64,7 +64,7 @@ def prepare_librispeech(
     merge_name: str
         Name of the merged csv file.
     create_lexicon: bool
-        If True, it outputs csv files contaning mapping between graphene
+        If True, it outputs csv files contaning mapping between grapheme
         to phonemes. Use it for training a G2P system.
     skip_prep: bool
         If True, data preparation is skipped.
@@ -149,7 +149,7 @@ def prepare_librispeech(
 def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     """
     Creates lexicon csv files useful for training and testing a
-    graphene-to-phoneme (G2P) model.
+    grapheme-to-phoneme (G2P) model.
 
     Arguments
     ---------
