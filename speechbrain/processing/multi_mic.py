@@ -163,7 +163,7 @@ class Covariance(torch.nn.Module):
         # Get useful dimensions
         n_mics = Xs.shape[4]
 
-        # Formating the real and imaginary parts
+        # Formatting the real and imaginary parts
         Xs_re = Xs[..., 0, :].unsqueeze(4)
         Xs_im = Xs[..., 1, :].unsqueeze(4)
 
@@ -1103,7 +1103,7 @@ class Music(torch.nn.Module):
         # Save epsilon
         self.eps = eps
 
-        # Save number of signalsà
+        # Save number of signals
         self.n_sig = n_sig
 
     def forward(self, XXs):

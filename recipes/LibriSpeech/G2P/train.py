@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a graphene-to-phoneme system with librispeech lexicon.
+"""Recipe for training a grapheme-to-phoneme system with librispeech lexicon.
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
 
@@ -182,7 +182,7 @@ def dataio_prep(hparams):
     phoneme_encoder = sb.dataio.encoder.TextEncoder()
     grapheme_encoder = sb.dataio.encoder.TextEncoder()
 
-    # 2. Define graphene pipeline:
+    # 2. Define grapheme pipeline:
     @sb.utils.data_pipeline.takes("char")
     @sb.utils.data_pipeline.provides(
         "grapheme_list", "grapheme_encoded_list", "grapheme_encoded"

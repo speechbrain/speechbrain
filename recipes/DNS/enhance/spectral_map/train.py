@@ -156,7 +156,7 @@ class SEBrain(sb.core.Brain):
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
-    # Define audio piplines
+    # Define audio pipelines
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def train_pipeline(wav):

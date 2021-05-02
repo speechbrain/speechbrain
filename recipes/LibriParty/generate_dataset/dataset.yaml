@@ -76,11 +76,11 @@ speech_lvl_var: 3 # (dB) variance for speech level.
 imp_lvl_min: -40 # (dB) absolute minimum level for noises.
 imp_lvl_rel_max: 3
 # (dB) absolute maximum for noises relative
-# to minumum speech level in the whole session.
+# to minimum speech level in the whole session.
 imp_lvl_mean: -33 # (dB) mean for speech level
 imp_lvl_var: 2 # (dB) variance for speech level
 
 background_lvl_min: -60 # (dB) absolute minimum level for background.
 background_lvl_rel_max: -12
 # (dB) absolute maximum for background relative
-# to minumum speech level in the whole session.
+# to minimum speech level in the whole session.

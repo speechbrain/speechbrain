@@ -180,7 +180,7 @@ class StatObject_SB:
         # Keep this. may need this in future (Nauman)
         # sts_per_model.start = numpy.empty(
         #    sts_per_model.segset.shape, "|O"
-        # )  # ndf: restruture this
+        # )  # ndf: restructure this
         # sts_per_model.stop = numpy.empty(sts_per_model.segset.shape, "|O")
 
         session_per_model = numpy.zeros(numpy.unique(self.modelset).shape[0])
@@ -212,7 +212,7 @@ class StatObject_SB:
         )
 
     def norm_stat1(self):
-        """Divide all first-order statistics by their euclidian norm.
+        """Divide all first-order statistics by their Euclidean norm.
         """
 
         vect_norm = numpy.clip(
@@ -274,7 +274,7 @@ class StatObject_SB:
 
         elif sigma.ndim == 3:
             # we assume that sigma is a 3D ndarray of size D x n x n
-            # where D is the number of distributions and n is the dimension of a single distibution
+            # where D is the number of distributions and n is the dimension of a single distribution
             n = self.stat1.shape[1] // self.stat0.shape[1]
             sess_nb = self.stat0.shape[0]
             self.center_stat1(mu)
@@ -843,7 +843,7 @@ class PLDA:
     (10, 5)
     >>> print (plda.Sigma.shape)
     (10, 10)
-    >>> # Enrolment (20 utts), Test (30 utts)
+    >>> # Enrollment (20 utts), Test (30 utts)
     >>> en_N = 20
     >>> en_xv = numpy.random.rand(en_N, dim)
     >>> en_sgs = ['en'+str(i) for i in range(en_N)]

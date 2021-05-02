@@ -110,7 +110,7 @@ def ddp_init_group(run_opts):
 
     The ddp group will use distributed_backend arg for setting the
     DDP communication protocol. `RANK` Unix variable will be used for
-    registring the subprocess to the ddp group.
+    registering the subprocess to the ddp group.
 
     Arguments
     ---------

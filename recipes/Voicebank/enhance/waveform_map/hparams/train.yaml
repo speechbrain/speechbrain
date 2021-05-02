@@ -21,7 +21,7 @@ enhanced_folder: !ref <output_folder>/enhanced
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 
-# FFT paremeters
+# FFT parameters
 Sample_rate: 16000
 Win_length: 32
 Hop_length: 16

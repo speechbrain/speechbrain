@@ -34,7 +34,7 @@ def pad_ends(
     left_pad_symbol : any
         The token to use for left side padding. "<s>" by default.
     right_pad_symbol : any
-        The token to use for right side padding. "</s>" by deault.
+        The token to use for right side padding. "</s>" by default.
 
     Returns
     -------

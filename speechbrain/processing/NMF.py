@@ -48,7 +48,7 @@ def NMF_separate_spectra(Whats, Xmix):
     X1hat : Separated spectrum for source1
         Size = [BS x (nfft/2 +1) x T] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
-    X2hat : Seperated Spectrum for source2
+    X2hat : Separated Spectrum for source2
         The size definitions are the same as above.
 
     Example

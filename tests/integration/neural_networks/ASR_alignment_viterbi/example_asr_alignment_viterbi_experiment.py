@@ -24,7 +24,7 @@ class AlignBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the foeward loss."
+        "Given the network predictions and targets computed the forward loss."
         predictions, lens = predictions
         phns, phn_lens = batch.phn_encoded
 

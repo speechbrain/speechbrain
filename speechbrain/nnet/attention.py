@@ -20,7 +20,7 @@ class ContentBasedAttention(nn.Module):
     """ This class implements content-based attention module for seq2seq
     learning.
 
-    Refereance: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
+    Reference: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
     AND TRANSLATE, Bahdanau et.al. https://arxiv.org/pdf/1409.0473.pdf
 
     Arguments
