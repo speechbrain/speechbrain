@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain sytle.
+"""Transformer implementaion in the SpeechBrain style.
 
 Authors
 * Jianyuan Zhong 2020
@@ -11,6 +11,7 @@ from typing import Optional
 
 from .conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
+from speechbrain.nnet.attention import RelPosEncXL
 
 
 class TransformerInterface(nn.Module):
@@ -56,21 +57,36 @@ class TransformerInterface(nn.Module):
         activation=nn.ReLU,
         custom_src_module=None,
         custom_tgt_module=None,
-        positional_encoding=True,
-        normalize_before=False,
+        positional_encoding="fixed_abs_sine",
+        normalize_before=True,
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        attention_type: Optional[str] = "regularMHA",
+        max_length: Optional[int] = 2500,
+        causal: Optional[bool] = False,
     ):
         super().__init__()
+        self.causal = causal
+        self.attention_type = attention_type
+        self.positional_encoding_type = positional_encoding
+
+        assert attention_type in ["regularMHA", "RelPosMHAXL"]
+        assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
             num_encoder_layers + num_decoder_layers > 0
         ), "number of encoder layers and number of decoder layers cannot both be 0!"
 
-        if positional_encoding:
-            self.positional_encoding = PositionalEncoding(d_model)
+        if positional_encoding == "fixed_abs_sine":
+            self.positional_encoding = PositionalEncoding(d_model, max_length)
+        elif positional_encoding is None:
+            pass
+
+        # overrides any other pos_embedding
+        if attention_type == "RelPosMHAXL":
+            self.positional_encoding = RelPosEncXL(d_model)
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -85,6 +101,8 @@ class TransformerInterface(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    causal=self.causal,
+                    attention_type=self.attention_type,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -96,6 +114,8 @@ class TransformerInterface(nn.Module):
                     activation=conformer_activation,
                     kernel_size=kernel_size,
                     bias=bias,
+                    causal=self.causal,
+                    attention_type=self.attention_type,
                 )
                 assert (
                     normalize_before
@@ -118,6 +138,8 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 normalize_before=normalize_before,
+                causal=self.causal,
+                attention_type=self.attention_type,
             )
 
     def forward(self, **kwags):
@@ -211,12 +233,25 @@ class TransformerEncoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        causal=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
 
-        self.self_att = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
-        )
+        if attention_type == "regularMHA":
+            self.self_att = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                dropout=dropout,
+                kdim=kdim,
+                vdim=vdim,
+            )
+
+        elif attention_type == "RelPosMHAXL":
+            self.self_att = sb.nnet.attention.RelPosMHAXL(
+                d_model, nhead, dropout, mask_pos_future=causal
+            )
+
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
@@ -236,6 +271,7 @@ class TransformerEncoderLayer(nn.Module):
         src,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguements
@@ -258,6 +294,7 @@ class TransformerEncoderLayer(nn.Module):
             src1,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs,
         )
 
         # add & norm
@@ -326,6 +363,8 @@ class TransformerEncoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        causal=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
 
@@ -349,6 +388,8 @@ class TransformerEncoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    causal=causal,
+                    attention_type=attention_type,
                 )
                 for i in range(num_layers)
             ]
@@ -360,6 +401,7 @@ class TransformerEncoder(nn.Module):
         src,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
@@ -378,6 +420,7 @@ class TransformerEncoder(nn.Module):
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
+                pos_embs=pos_embs,
             )
             attention_lst.append(attention)
         output = self.norm(output)
@@ -423,14 +466,35 @@ class TransformerDecoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
+        causal=None,
     ):
         super().__init__()
-        self.self_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
-        )
-        self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
-        )
+
+        if attention_type == "regularMHA":
+            self.self_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
+            )
+            self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
+            )
+
+        elif attention_type == "RelPosMHAXL":
+            self.self_attn = sb.nnet.attention.RelPosMHAXL(
+                d_model, nhead, dropout, mask_pos_future=causal
+            )
+            self.mutihead_attn = sb.nnet.attention.RelPosMHAXL(
+                d_model, nhead, dropout, mask_pos_future=causal
+            )
+
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
@@ -456,6 +520,8 @@ class TransformerDecoderLayer(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
+        pos_embs_tgt=None,
+        pos_embs_src=None,
     ):
         """
         Arguements
@@ -485,6 +551,7 @@ class TransformerDecoderLayer(nn.Module):
             value=tgt1,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
+            pos_embs=pos_embs_tgt,
         )
 
         # add & norm
@@ -504,6 +571,7 @@ class TransformerDecoderLayer(nn.Module):
             value=memory,
             attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask,
+            pos_embs=pos_embs_src,
         )
 
         # add & norm
@@ -565,6 +633,8 @@ class TransformerDecoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        causal=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -578,6 +648,8 @@ class TransformerDecoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    causal=causal,
+                    attention_type=attention_type,
                 )
                 for _ in range(num_layers)
             ]
@@ -592,6 +664,8 @@ class TransformerDecoder(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
+        pos_embs_tgt=None,
+        pos_embs_src=None,
     ):
         """
         Arguments
@@ -619,6 +693,8 @@ class TransformerDecoder(nn.Module):
                 memory_mask=memory_mask,
                 tgt_key_padding_mask=tgt_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,
+                pos_embs_tgt=pos_embs_tgt,
+                pos_embs_src=pos_embs_src,
             )
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)

@@ -9,6 +9,7 @@ import torch.nn as nn
 from typing import Optional
 
 from speechbrain.nnet.attention import (
+    RelPosMHAXL,
     MultiheadAttention,
     PositionalwiseFeedForward,
 )
@@ -45,7 +46,7 @@ class ConvolutionModule(nn.Module):
     ):
         super().__init__()
 
-        self.norm = nn.LayerNorm(input_size)
+        self.layer_norm = nn.LayerNorm(input_size)
         self.convolution_module = nn.Sequential(
             # pointwise
             nn.Conv1d(
@@ -72,11 +73,11 @@ class ConvolutionModule(nn.Module):
         )
 
     def forward(self, x):
-        x = self.norm(x)
-        x = x.transpose(1, 2)
-        x = self.convolution_module(x)
-        x = x.transpose(1, 2)
-        return x
+        out = self.layer_norm(x)
+        out = out.transpose(1, 2)
+        out = self.convolution_module(out)
+        out = out.transpose(1, 2)
+        return out
 
 
 class ConformerEncoderLayer(nn.Module):
@@ -107,8 +108,9 @@ class ConformerEncoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
+    >>> pos_embs = torch.rand((1, 2*60-1, 512))
     >>> net = ConformerEncoderLayer(d_ffn=512, nhead=8, d_model=512, kernel_size=3)
-    >>> output = net(x)
+    >>> output = net(x, pos_embs=pos_embs)
     >>> output[0].shape
     torch.Size([8, 60, 512])
     """
@@ -124,18 +126,44 @@ class ConformerEncoderLayer(nn.Module):
         activation=Swish,
         bias=True,
         dropout=0.1,
+        causal=False,
+        attention_type="RelPosMHAXL",
     ):
         super().__init__()
 
-        self.Multihead_attn = MultiheadAttention(
-            nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
-        )
+        if attention_type == "regularMHA":
+            self.mha_layer = MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                dropout=dropout,
+                kdim=kdim,
+                vdim=vdim,
+            )
+        elif attention_type == "RelPosMHAXL":
+            # transformerXL style positional encoding
+            self.mha_layer = RelPosMHAXL(
+                num_heads=nhead,
+                embed_dim=d_model,
+                dropout=dropout,
+                mask_pos_future=causal,
+            )
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout
         )
 
-        self.ffn_module = nn.Sequential(
+        self.ffn_module1 = nn.Sequential(
+            nn.LayerNorm(d_model),
+            PositionalwiseFeedForward(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            ),
+            nn.Dropout(dropout),
+        )
+
+        self.ffn_module2 = nn.Sequential(
             nn.LayerNorm(d_model),
             PositionalwiseFeedForward(
                 d_ffn=d_ffn,
@@ -155,23 +183,27 @@ class ConformerEncoderLayer(nn.Module):
         x,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         # ffn module
-        x = x + 0.5 * self.ffn_module(x)
-
+        x = x + 0.5 * self.ffn_module1(x)
         # muti-head attention module
+        skip = x
         x = self.norm1(x)
-        output, self_attn = self.Multihead_attn(
-            x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask,
+        x, self_attn = self.mha_layer(
+            x,
+            x,
+            x,
+            attn_mask=src_mask,
+            key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs,
         )
-        x = x + output
-
+        x = x + skip
         # convolution module
         x = x + self.convolution_module(x)
-
-        # ffb module
-        y = self.norm2(x + 0.5 * self.ffn_module(x))
-        return y, self_attn
+        # ffn module
+        x = self.norm2(x + 0.5 * self.ffn_module2(x))
+        return x, self_attn
 
 
 class ConformerEncoder(nn.Module):
@@ -203,8 +235,9 @@ class ConformerEncoder(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
+    >>> pos_emb = torch.rand((1, 2*60-1, 512))
     >>> net = ConformerEncoder(1, 8, 512, d_model=512)
-    >>> output, _ = net(x)
+    >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
     """
@@ -222,6 +255,8 @@ class ConformerEncoder(nn.Module):
         activation=Swish,
         kernel_size=31,
         bias=True,
+        causal=False,
+        attention_type="RelPosMHAXL",
     ):
         super().__init__()
 
@@ -246,6 +281,8 @@ class ConformerEncoder(nn.Module):
                     activation=activation,
                     kernel_size=kernel_size,
                     bias=bias,
+                    causal=causal,
+                    attention_type=attention_type,
                 )
                 for i in range(num_layers)
             ]
@@ -257,6 +294,7 @@ class ConformerEncoder(nn.Module):
         src,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
@@ -275,6 +313,7 @@ class ConformerEncoder(nn.Module):
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
+                pos_embs=pos_embs,
             )
             attention_lst.append(attention)
         output = self.norm(output)
