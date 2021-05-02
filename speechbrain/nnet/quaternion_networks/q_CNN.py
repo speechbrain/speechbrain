@@ -298,7 +298,7 @@ class QConv1d(torch.nn.Module):
         # Check quaternion format
         if in_channels % 4 != 0:
             raise ValueError(
-                "Quaternion Tensors must have a dimensions divisible by 4."
+                "Quaternion Tensors must have dimensions divisible by 4."
                 " input.size()[3] = " + str(in_channels)
             )
 
@@ -548,7 +548,7 @@ class QConv2d(torch.nn.Module):
         # Check quaternion format
         if in_channels % 4 != 0:
             raise ValueError(
-                "Quaternion Tensors must have a dimensions divisible by 4."
+                "Quaternion Tensors must have dimensions divisible by 4."
                 " input.size()[" + str(-1) + "] = " + str(in_channels)
             )
 
