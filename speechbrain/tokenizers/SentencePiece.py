@@ -405,7 +405,7 @@ class SentencePiece:
             Containing the relative length of each label sequences. Must be 1D
             tensor of shape: [batch_size]. (default: None)
         ind2lab : dict
-            Dictionnary which map the index from label sequences
+            Dictionary which maps the index from label sequences
             (batch tensor) to string label.
         task : str
             ("encode", "decode", "decode_from_list)
