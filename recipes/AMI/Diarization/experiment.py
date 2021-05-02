@@ -1,15 +1,18 @@
 #!/usr/bin/python3
-"""This recipe implements diarization baseline
-using deep embedding extraction followed by spectral clustering.
+"""This recipe implements diarization system using deep embedding extraction followed by spectral clustering.
 
-To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+Reference: This recipe is based on the following paper,
+ N. Dawalatabad, M. Ravanelli, F. Grondin, J. Thienpondt, B. Desplanques, H. Na,
+ "ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
 
-Condition: Oracle VAD
+To run this recipe:
+> python experiment.py hparams/<your_hyperparams_file.yaml>
+ e.g., python experiment.py hparams/ecapa_tdnn.yaml
 
-Note: There are multiple ways to write this recipe. We chose to iterate over individual files.
-This method is less GPU memory demanding and also makes code easy to understand.
+Condition: Oracle VAD (speech regions taken from the goundtruth).
 
+Note: There are multiple ways to write this recipe. We iterate over individual recordings.
+ This approach is less GPU memory demanding and also makes code easy to understand.
 
 Authors
  * Nauman Dawalatabad 2020
@@ -21,6 +24,7 @@ import torch
 import logging
 import pickle
 import csv
+import json
 import glob
 import shutil
 import numpy as np
@@ -32,6 +36,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing import diarization as diar
 from speechbrain.utils.DER import DER
+from speechbrain.dataio.dataio import read_audio_multichannel
 
 np.random.seed(1234)
 
@@ -45,7 +50,7 @@ try:
     import sklearn  # noqa F401
 except ImportError:
     err_msg = (
-        "Cannot import optional dependency `sklearn` used in this module\n"
+        "Cannot import optional dependency `sklearn` used in this module.\n"
     )
     err_msg += "Please follow the below instructions\n"
     err_msg += "=============================\n"
@@ -58,7 +63,7 @@ except ImportError:
 
 
 def compute_embeddings(wavs, lens):
-    """Definition of the steps for computation of embeddings from the waveforms
+    """Definition of the steps for computation of embeddings from the waveforms.
     """
     with torch.no_grad():
         wavs = wavs.to(params["device"])
@@ -73,20 +78,21 @@ def compute_embeddings(wavs, lens):
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
-    """Extracts embeddings for a given dataset loader
+    """Extracts embeddings for a given dataset loader.
     """
 
-    # Extract embeddings (skip if already done)
+    # Note: We use speechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
+    # Extract embeddings (skip if already done).
     if not os.path.isfile(stat_file):
         logger.debug("Extracting deep embeddings and diarizing")
         embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
 
-        # Different data may have different statistics
+        # Different data may have different statistics.
         params["mean_var_norm_emb"].count = 0
 
-        for batch in set_loader:  # t:
+        for batch in set_loader:
             ids = batch.id
             wavs, lens = batch.sig
 
@@ -95,7 +101,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
             modelset = modelset + mod
             segset = segset + seg
 
-            # Embedding computation
+            # Embedding computation.
             emb = (
                 compute_embeddings(wavs, lens)
                 .contiguous()
@@ -108,7 +114,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
         modelset = np.array(modelset, dtype="|O")
         segset = np.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0
+        # Intialize variables for start, stop and stat0.
         s = np.array([None] * embeddings.shape[0])
         b = np.array([[1.0]] * embeddings.shape[0])
 
@@ -124,8 +130,8 @@ def embedding_computation_loop(split, set_loader, stat_file):
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.debug("Skipping embedding extraction (as already present)")
-        logger.debug("Loading previously saved embeddings")
+        logger.debug("Skipping embedding extraction (as already present).")
+        logger.debug("Loading previously saved embeddings.")
 
         with open(stat_file, "rb") as in_file:
             stat_obj = pickle.load(in_file)
@@ -133,11 +139,43 @@ def embedding_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
-    """Diarizes all the recordings in a given dataset
+def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
+    """Simple trick to convert csv to json for multi-mic processing.
+    Process multiple mics is easier in json.
     """
 
-    # Prepare `spkr_info` only once when Oracle num of speakers is selected
+    # Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
+
+    json_dict = {}
+    with open(in_csv_file, mode="r") as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+
+        for row in csv_reader:
+            chunk_id = row["ID"]
+            p = row["wav"].rsplit(".", 2)[0] + "." + array_type + "-"
+
+            f = []
+            for i in range(8):
+                f.append(p + str(i + 1).zfill(2) + ".wav")
+
+            json_dict[chunk_id] = {
+                "wav": {
+                    "files": f,
+                    "duration": float(row["duration"]),
+                    "start": int(row["start"]),
+                    "stop": int(row["stop"]),
+                },
+            }
+
+        with open(out_json_file, mode="w") as json_f:
+            json.dump(json_dict, json_f, indent=2)
+
+
+def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
+    """Diarizes all the recordings in a given dataset.
+    """
+
+    # Prepare `spkr_info` only once when Oracle num of speakers is selected.
     if params["oracle_n_spkrs"] is True:
         full_ref_rttm_file = (
             params["ref_rttm_dir"] + "/fullref_ami_" + split_type + ".rttm"
@@ -149,7 +187,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             filter(lambda x: x.startswith("SPKR-INFO"), rttm)
         )
 
-    # Get all recording IDs in this dataset
+    # Get all recording IDs in this dataset.
     A = [row[0].rstrip().split("_")[0] for row in full_csv]
     all_rec_ids = list(set(A[1:]))
     all_rec_ids.sort()
@@ -158,7 +196,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     split = "AMI_" + split_type
     i = 1
 
-    # Setting eval modality
+    # Setting eval modality.
     params["embedding_model"].eval()
     msg = "Diarizing " + split_type + " set"
     logger.info(msg)
@@ -183,21 +221,33 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
         )
         diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
-        # Setup a dataloader for above one recording (above csv)
-        diary_set_loader = dataio_prep(params, new_csv_file)
+        # If mic_array then convert into json.
+        # It's easier to handle multi-mics in json.
+        if params["mic_type"] == "Array1":
+            new_json_file = os.path.join(
+                params["embedding_dir"], split, rec_id + ".json"
+            )
+            csv_to_json(new_csv_file, new_json_file)
 
-        # Putting modules on the device
+            diary_set_loader = dataio_prep_multi_mic(params, new_json_file)
+
+        else:
+            # For rest of audio streams.
+            # Setup a dataloader for above one recording (above csv).
+            diary_set_loader = dataio_prep(params, new_csv_file)
+
+        # Putting modules on the device.
         params["compute_features"].to(params["device"])
         params["mean_var_norm"].to(params["device"])
         params["embedding_model"].to(params["device"])
         params["mean_var_norm_emb"].to(params["device"])
 
-        # Compute Embeddings
+        # Compute Embeddings.
         diary_obj = embedding_computation_loop(
             "diary", diary_set_loader, diary_stat_file
         )
 
-        # Perform spectral clustering
+        # Perform spectral clustering.
         out_rttm_dir = os.path.join(params["sys_rttm_dir"], split)
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
@@ -208,24 +258,37 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             if params["affinity"] == "nn":
-                # Num of speakers tunned on dev set
+                # Num of speakers tunned on dev set (only for nn affinity).
                 num_spkrs = n_lambdas
             else:
-                # Will be estimated using max eigen gap for cos based affinity
+                # Will be estimated using max eigen gap for cos based affinity.
                 num_spkrs = None
 
-        diar.do_spec_clustering(
-            diary_obj,
-            out_rttm_file,
-            rec_id,
-            num_spkrs,
-            pval,
-            params["affinity"],
-            n_neighbors,
-        )
+        if params["backend"] == "kmeans":
+            diar.do_kmeans_clustering(
+                diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
+            )
 
-    # Concatenate individual RTTM files
-    # This is not needed but just staying with the standards
+        if params["backend"] == "SC":
+            # Go for Spectral Clustering (SC).
+            diar.do_spec_clustering(
+                diary_obj,
+                out_rttm_file,
+                rec_id,
+                num_spkrs,
+                pval,
+                params["affinity"],
+                n_neighbors,
+            )
+
+        # Maybe used for AHC later.
+        if params["backend"] == "AHC":
+            # call AHC
+            threshold = pval  # pval for AHC is nothing but threshold.
+            diar.do_AHC(diary_obj, out_rttm_file, rec_id, num_spkrs, threshold)
+
+    # Concatenate individual RTTM files.
+    # This is not needed but just staying with the standards.
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
 
     logger.debug("Concatenating individual RTTM files...")
@@ -246,13 +309,14 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
 
 
 def dev_p_tuner(full_csv, split_type):
-    """Tuning p_value affinity matrix
+    """Tuning p_value affinity matrix.
+    The p_value used so that only p% of the values in each row is retained.
     """
 
     DER_list = []
     prange = np.arange(0.002, 0.015, 0.001)
 
-    n_lambdas = None
+    n_lambdas = None  # using it as flag later.
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
@@ -270,6 +334,47 @@ def dev_p_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
+        if params["oracle_n_spkrs"] is True and params["backend"] == "kmeans":
+            # no need of p_val search. Note p_val is needed for SC for both oracle and est num of speakers.
+            # p_val is needed in oracle_n_spkr=False when using kmeans backend
+            break
+
+    # Take p_val that gave minmum DER on Dev dataset.
+    tuned_p_val = prange[DER_list.index(min(DER_list))]
+
+    return tuned_p_val
+
+
+def dev_threshold_tuner(full_csv, split_type):
+    """Tuning threshold for affinity matrix. This function is called when AHC is used as backend.
+    """
+
+    DER_list = []
+    prange = np.arange(0.0, 1.0, 0.1)
+
+    n_lambdas = None  # using it as flag later.
+
+    # Note: p_val is threshold in case of AHC.
+    for p_v in prange:
+        # Process whole dataset for value of p_v.
+        concate_rttm_file = diarize_dataset(
+            full_csv, split_type, n_lambdas, p_v
+        )
+
+        ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
+        sys_rttm = concate_rttm_file
+        [MS, FA, SER, DER_] = DER(
+            ref_rttm,
+            sys_rttm,
+            params["ignore_overlap"],
+            params["forgiveness_collar"],
+        )
+
+        DER_list.append(DER_)
+
+        if params["oracle_n_spkrs"] is True:
+            break  # no need of threshold search
+
     # Take p_val that gave minmum DER on Dev dataset
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
@@ -277,18 +382,19 @@ def dev_p_tuner(full_csv, split_type):
 
 
 def dev_nn_tuner(full_csv, split_type):
-    """Tuning n_neighbors on dev set.
-    Assuming oracle num of speakers.
+    """Tuning n_neighbors on dev set. Assuming oracle num of speakers.
+    This is used when nn based affinity is selected.
     """
 
     DER_list = []
     pval = None
+
+    # Now assumming oracle num of speakers.
+    n_lambdas = 4
+
     for nn in range(5, 15):
 
-        # Fix this later. Now assumming oracle num of speakers
-        n_lambdas = 4
-
-        # Process whole dataset for value of n_lambdas
+        # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_csv, split_type, n_lambdas, pval, nn
         )
@@ -304,6 +410,9 @@ def dev_nn_tuner(full_csv, split_type):
 
         DER_list.append([nn, DER_])
 
+        if params["oracle_n_spkrs"] is True and params["backend"] == "kmeans":
+            break
+
     DER_list.sort(key=lambda x: x[1])
     tunned_nn = DER_list[0]
 
@@ -311,7 +420,7 @@ def dev_nn_tuner(full_csv, split_type):
 
 
 def dev_tuner(full_csv, split_type):
-    """Tuning n_components on dev set.
+    """Tuning n_components on dev set. Used for nn based affinity matrix.
     Note: This is a very basic tunning for nn based affinity.
     This is work in progress till we find a better way.
     """
@@ -320,7 +429,7 @@ def dev_tuner(full_csv, split_type):
     pval = None
     for n_lambdas in range(1, params["max_num_spkrs"] + 1):
 
-        # Process whole dataset for value of n_lambdas
+        # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_csv, split_type, n_lambdas, pval
         )
@@ -336,14 +445,51 @@ def dev_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER
+    # Take n_lambdas with minmum DER.
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas
 
 
+def dataio_prep_multi_mic(hparams, json_file):
+    """Creates the datasets and their data processing pipelines.
+    This is used for multi-mic processing.
+    """
+
+    # 1. Datasets
+    data_folder = hparams["data_folder"]
+    dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=json_file, replacements={"data_root": data_folder},
+    )
+
+    # 2. Define audio pipeline:
+    # @sb.utils.data_pipeline.takes("wav", "start", "stop")
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+
+        mics_signals = read_audio_multichannel(wav).unsqueeze(0)
+
+        sig = params["multimic_beamformer"](mics_signals)
+
+        sig = sig.squeeze()
+        return sig
+
+    sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
+
+    # 3. Set output:
+    sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
+
+    # 4. Create dataloader:
+    dataloader = sb.dataio.dataloader.make_dataloader(
+        dataset, **params["dataloader_opts"]
+    )
+
+    return dataloader
+
+
 def dataio_prep(hparams, csv_file):
-    "Creates the datasets and their data processing pipelines."
+    """Creates the datasets and their data processing pipelines."""
 
     # 1. Datasets
     data_folder = hparams["data_folder"]
@@ -355,6 +501,7 @@ def dataio_prep(hparams, csv_file):
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop):
+
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
@@ -369,7 +516,7 @@ def dataio_prep(hparams, csv_file):
     # 3. Set output:
     sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
 
-    # 4. create dataloader:
+    # 4. Create dataloader:
     dataloader = sb.dataio.dataloader.make_dataloader(
         dataset, **params["dataloader_opts"]
     )
@@ -377,16 +524,38 @@ def dataio_prep(hparams, csv_file):
     return dataloader
 
 
-# Begin!
+def check_dirs():
+    """Check if directories are present"""
+
+    # Only these 3 directories are important
+    if os.path.isdir(params["data_folder"]) is False:
+        msg = "Can't find data_folder:  %s \n" % (params["data_folder"])
+        logger.error(msg)
+        sys.exit()
+
+    if os.path.isdir(params["manual_annot_folder"]) is False:
+        msg = "Can't find manual_annot_folder:  %s \n" % (
+            params["manual_annot_folder"]
+        )
+        logger.error(msg)
+        sys.exit()
+
+    if os.path.isdir(params["output_folder"]) is False:
+        msg = "Can't find output_folder:  %s \n" % (params["output_folder"])
+        logger.error(msg)
+        sys.exit()
+
+
+# Begin experiment!
 if __name__ == "__main__":  # noqa: C901
 
-    # Load hyperparameters file with command-line overrides
+    # Load hyperparameters file with command-line overrides.
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Dataset prep (parsing VoxCeleb and annotation into csv files)
+    # Dataset prep (parsing AMI and annotation into csv files).
     from ami_prepare import prepare_ami  # noqa
 
     run_on_main(
@@ -404,14 +573,14 @@ if __name__ == "__main__":  # noqa: C901
         },
     )
 
-    # Create experiment directory
+    # Create experiment directory.
     sb.core.create_experiment_directory(
         experiment_directory=params["output_folder"],
         hyperparams_to_save=params_file,
         overrides=overrides,
     )
 
-    # Few more experiment directories (to have cleaner structure)
+    # Few more experiment directories inside results/ (to have cleaner structure).
     exp_dirs = [
         params["embedding_dir"],
         params["csv_dir"],
@@ -423,8 +592,11 @@ if __name__ == "__main__":  # noqa: C901
         if not os.path.exists(dir_):
             os.makedirs(dir_)
 
-    # We download the pretrained LM from HuggingFace (or elsewhere depending on
-    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    # Checking for 3 important directories.
+    check_dirs()
+
+    # We download the pretrained Model from HuggingFace (or elsewhere depending on
+    # the path given in the YAML file).
     run_on_main(params["pretrainer"].collect_files)
     params["pretrainer"].load_collected()
     params["embedding_model"].eval()
@@ -444,19 +616,32 @@ if __name__ == "__main__":  # noqa: C901
 
     n_lambdas = None
     best_pval = None
-    if params["affinity"] == "cos":  # oracle num_spkrs or not doesn't matter
-        # cos: Tune for best pval
-        logger.info("Tuning for p-value (Multiple iterations over AMI Dev set)")
+
+    if params["affinity"] == "cos" and (
+        params["backend"] == "SC" or params["backend"] == "kmeans"
+    ):
+        # oracle num_spkrs or not, doesn't matter for kmeans and SC backends
+        # cos: Tune for the best pval for SC /kmeans (for unknown num of spkrs)
+        logger.info(
+            "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
+        )
         best_pval = dev_p_tuner(full_csv, "dev")
+
+    elif params["backend"] == "AHC":
+        logger.info("Tuning for threshold-value for AHC")
+        best_threshold = dev_threshold_tuner(full_csv, "dev")
+        best_pval = best_threshold
     else:
+        # This part (NN for unknown num of speakers) is WIP
         if params["oracle_n_spkrs"] is False:
             # nn: Tune num of number of components (to be updated later)
             logger.info(
-                "Tuning for number of eigen components (Multiple iterations over AMI Dev set)"
+                "Tuning for number of eigen components for NN (Multiple iterations over AMI Dev set)"
             )
+            # dev_tuner is WIP (used for tuning num of components in NN)
             n_lambdas = dev_tuner(full_csv, "dev")
 
-    # Running once more of dev set (optional)
+    # Running once more of dev set (optional).
     out_boundaries = diarize_dataset(
         full_csv,
         "dev",
@@ -465,7 +650,7 @@ if __name__ == "__main__":  # noqa: C901
         n_neighbors=best_nn,
     )
 
-    # Evaluating on DEV set
+    # Evaluating on DEV set.
     logger.info("Evaluating for AMI Dev. set")
     ref_rttm_dev = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
     sys_rttm_dev = out_boundaries
@@ -481,7 +666,7 @@ if __name__ == "__main__":  # noqa: C901
     )
     logger.info(msg)
 
-    # AMI Eval Set
+    # AMI Eval Set.
     full_csv = []
     with open(params["csv_diary_eval"], "r") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
@@ -496,7 +681,7 @@ if __name__ == "__main__":  # noqa: C901
         n_neighbors=best_nn,
     )
 
-    # Evaluating on EVAL set
+    # Evaluating AMI EVAL set.
     logger.info("Evaluating for AMI Eval. set")
     ref_rttm_eval = os.path.join(
         params["ref_rttm_dir"], "fullref_ami_eval.rttm"
@@ -520,7 +705,7 @@ if __name__ == "__main__":  # noqa: C901
     )
     logger.info(msg)
 
-    # Writing der for individual files
+    # Writing DER for individual files.
     t0 = "oracle" if params["oracle_n_spkrs"] else "est"
     tag = t0 + "_" + str(params["affinity"]) + ".txt"
 
