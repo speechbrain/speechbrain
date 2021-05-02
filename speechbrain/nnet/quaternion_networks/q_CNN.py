@@ -261,7 +261,7 @@ class QConv1d(torch.nn.Module):
         kernel_size : int
             Kernel size.
         dilation : int
-            Dialation.
+            Dilation.
         stride: int
             Stride.
         """
