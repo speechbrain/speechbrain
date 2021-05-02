@@ -14,7 +14,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 class seq2seqBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given input chars it computes the phonems probabilities"
+        "Given input chars it computes the phoneme's probabilities"
         chars, char_lens = batch.char_encoded
         phns, phn_lens = batch.phn_encoded_bos
 
