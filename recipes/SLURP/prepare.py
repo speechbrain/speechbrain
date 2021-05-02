@@ -30,7 +30,7 @@ def prepare_SLURP(
       "decoupled":{input=transcript, output=semantics} (using ground-truth transcripts)
 
     train_splits : list of splits to be joined to form train .csv
-    skip_prep: If True, data preprations is skipped.
+    skip_prep: If True, data preparation is skipped.
     """
     if skip_prep:
         return
