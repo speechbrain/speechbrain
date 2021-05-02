@@ -212,7 +212,7 @@ class StatObject_SB:
         )
 
     def norm_stat1(self):
-        """Divide all first-order statistics by their euclidian norm.
+        """Divide all first-order statistics by their Euclidean norm.
         """
 
         vect_norm = numpy.clip(
