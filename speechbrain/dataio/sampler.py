@@ -303,7 +303,7 @@ class ConcatDatasetBatchSampler(Sampler):
 class DynamicBatchSampler(Sampler):
     """This BatchSampler batches examples together by grouping them by their length.
 
-    Every example in the batch have approximatively the same length and
+    Every example in the batch have approximately the same length and
     thus padding is minimized.
     This enables faster training on datasets
     where length of examples can vary significantly (e.g Librispeech).
@@ -326,7 +326,7 @@ class DynamicBatchSampler(Sampler):
     A bucket_length_multiplier is used to specify the number of possible buckets.
     E.g., if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
     there will be 3 buckets: [0, 10), [10, 20), [20, 40).
-    A common choice would be setting left_bucket_length to approximatively the length
+    A common choice would be setting left_bucket_length to approximately the length
     of your shortest example in the dataset.
     Decreasing bucket_length_multiplier creates more buckets in the whole interval
     of [left_bucket_length, max_batch_size]: e.g. if max_batch_length = 32 and left_bucket_length = 10,
