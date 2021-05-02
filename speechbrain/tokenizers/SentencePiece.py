@@ -67,7 +67,7 @@ class SentencePiece:
     eos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     split_by_whitespace : bool
-        If False, allow the sentenciepiece to extract piece crossing multiple
+        If False, allow the sentencepiece to extract piece crossing multiple
         words. This feature is important for : Chinese/Japanese/Korean.
         (default: True)
     num_sequences : int
