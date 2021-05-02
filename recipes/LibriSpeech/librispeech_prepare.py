@@ -149,7 +149,7 @@ def prepare_librispeech(
 def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     """
     Creates lexicon csv files useful for traning and testing a
-    graphene-to-phonene (G2P) model.
+    graphene-to-phoneme (G2P) model.
 
     Arguments
     ---------
