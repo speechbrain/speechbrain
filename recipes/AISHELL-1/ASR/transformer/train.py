@@ -238,7 +238,7 @@ class ASR(sb.core.Brain):
             self.switched = True
 
     def on_fit_start(self):
-        """Initilaize the right optimizer on the training start"""
+        """Initialize the right optimizer on the training start"""
         super().on_fit_start()
 
         # if the model is resumed from stage two, reinitilaize the optimizer
