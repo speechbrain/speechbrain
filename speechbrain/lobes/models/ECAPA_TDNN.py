@@ -28,7 +28,7 @@ class BatchNorm1d(_BatchNorm1d):
 class TDNNBlock(nn.Module):
     """An implementation of TDNN.
 
-    Arguements
+    Arguments
     ----------
     in_channels : int
         Number of input channels.
