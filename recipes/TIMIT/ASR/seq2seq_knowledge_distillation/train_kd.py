@@ -126,9 +126,9 @@ class ASR(sb.Brain):
             item for item in item_tea_list
         ]
 
-        # Stategy "average": average losses of teachers when doing distillation.
-        # Stategy "best": choosing the best teacher based on WER.
-        # Stategy "weighted": assigning weights to teachers based on WER.
+        # Strategy "average": average losses of teachers when doing distillation.
+        # Strategy "best": choosing the best teacher based on WER.
+        # Strategy "weighted": assigning weights to teachers based on WER.
         if self.hparams.strategy == "best":
             # tea_ce for kd
             wer_scores, indx = torch.min(wer_tea, dim=0)
