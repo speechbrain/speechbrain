@@ -274,7 +274,7 @@ class StatObject_SB:
 
         elif sigma.ndim == 3:
             # we assume that sigma is a 3D ndarray of size D x n x n
-            # where D is the number of distributions and n is the dimension of a single distibution
+            # where D is the number of distributions and n is the dimension of a single distribution
             n = self.stat1.shape[1] // self.stat0.shape[1]
             sess_nb = self.stat0.shape[0]
             self.center_stat1(mu)
