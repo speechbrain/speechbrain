@@ -68,7 +68,7 @@ class SentencePiece:
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     split_by_whitespace : bool
         If False, allow the sentenciepiece to extract piece crossing multiple
-        words. This feature is important for : Chinese/Japenese/Korean.
+        words. This feature is important for : Chinese/Japanese/Korean.
         (default: True)
     num_sequences : int
         If not none, use at most this many sequences to train the tokenizer
