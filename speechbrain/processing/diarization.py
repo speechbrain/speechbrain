@@ -289,7 +289,7 @@ def distribute_overlap(lol):
             # Update the current sub-segment
             sseg = next_sseg
 
-    # Add the remaning last sub-segment
+    # Add the remaining last sub-segment
     new_lol.append(next_sseg)
 
     return new_lol
