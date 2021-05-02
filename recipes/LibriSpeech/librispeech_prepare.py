@@ -64,7 +64,7 @@ def prepare_librispeech(
     merge_name: str
         Name of the merged csv file.
     create_lexicon: bool
-        If True, it outputs csv files contaning mapping between grapheme
+        If True, it outputs csv files containing mapping between grapheme
         to phonemes. Use it for training a G2P system.
     skip_prep: bool
         If True, data preparation is skipped.
@@ -154,7 +154,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     Arguments
     ---------
     all_text : dict
-        Dictionary contaning text from the librispeech transcriptions
+        Dictionary containing text from the librispeech transcriptions
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
     save_folder : str
@@ -219,9 +219,9 @@ def split_lexicon(data_folder, split_ratio):
     Arguments
     ---------
     data_folder : str
-        Path to the folder contaning the lexicon.csv file to split.
+        Path to the folder containing the lexicon.csv file to split.
     split_ratio : list
-        List contaning the training, validation, and test split ratio. Set it
+        List containing the training, validation, and test split ratio. Set it
         to [80, 10, 10] for having 80% of material for training, 10% for valid,
         and 10 for test.
 
