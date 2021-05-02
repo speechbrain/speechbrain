@@ -578,7 +578,7 @@ class CyclicLRScheduler:
         The lr at any cycle is the sum of base_lr
         and some scaling of the amplitude; therefore
         max_lr may not actually be reached depending on
-        scalling function.
+        scaling function.
     step_size : int
         number of training iterations per
         half cycle. The authors suggest setting step_size
