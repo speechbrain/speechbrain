@@ -373,7 +373,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     "To perform joint ATT/CTC decoding, set blank, eos and bos to different indexes."
                 )
 
-        # ctc already initalized
+        # ctc already initialized
         self.minus_inf = minus_inf
         self.ctc_score_mode = ctc_score_mode
         self.ctc_window_size = ctc_window_size
