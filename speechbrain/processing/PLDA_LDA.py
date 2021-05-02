@@ -843,7 +843,7 @@ class PLDA:
     (10, 5)
     >>> print (plda.Sigma.shape)
     (10, 10)
-    >>> # Enrolment (20 utts), Test (30 utts)
+    >>> # Enrollment (20 utts), Test (30 utts)
     >>> en_N = 20
     >>> en_xv = numpy.random.rand(en_N, dim)
     >>> en_sgs = ['en'+str(i) for i in range(en_N)]
