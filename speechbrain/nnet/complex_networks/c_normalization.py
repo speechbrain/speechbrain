@@ -329,7 +329,7 @@ class CBatchNorm(torch.nn.Module):
 
 
 class CLayerNorm(torch.nn.Module):
-    """This class is used to instanciate the complex
+    """This class is used to instantiate the complex
     layer-normalization as introduced by "Deep Complex Networks",
     Trabelsi C. et al.
 
