@@ -217,7 +217,7 @@ class CConv1d(torch.nn.Module):
         # Check complex format
         if in_channels % 2 != 0:
             raise ValueError(
-                "Complex Tensors must have a dimensions dividible by 2."
+                "Complex Tensors must have dimensions divisible by 2."
                 " input.size()["
                 + str(self.channels_axis)
                 + "] = "
@@ -465,7 +465,7 @@ class CConv2d(nn.Module):
         # Check complex format
         if in_channels % 2 != 0:
             raise ValueError(
-                "Complex Tensors must have a dimensions dividible by 2."
+                "Complex Tensors must have dimensions divisible by 2."
                 " input.size()["
                 + str(self.channels_axis)
                 + "] = "

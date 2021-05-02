@@ -270,7 +270,7 @@ def download_file(
         Destination path.
     unpack : bool
         If True, it unpacks the data in the dest folder.
-    replace_exsisting : bool
+    replace_existing : bool
         If True, replaces the existing files.
     """
     try:

@@ -305,7 +305,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length withing the mixture.
+        """This function selects a random segment of a given length within the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,

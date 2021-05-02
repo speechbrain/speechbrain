@@ -45,7 +45,7 @@ class AlignBrain(sb.Brain):
         return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss with the specified alignement algorithm"""
+        """Computes the loss with the specified alignment algorithm"""
         pout, pout_lens = predictions
         ids = batch.id
         phns, phn_lens = batch.phn_encoded

@@ -419,7 +419,7 @@ def EER(positive_scores, negative_scores):
     del positive_scores
     del pos_scores_threshold
 
-    # Computing False Aceptance Rate (false alarm)
+    # Computing False Acceptance Rate (false alarm)
     negative_scores = torch.cat(
         len(thresholds) * [negative_scores.unsqueeze(0)]
     )
@@ -489,7 +489,7 @@ def minDCF(
     del positive_scores
     del pos_scores_threshold
 
-    # Computing False Aceptance Rate (false alarm)
+    # Computing False Acceptance Rate (false alarm)
     negative_scores = torch.cat(
         len(thresholds) * [negative_scores.unsqueeze(0)]
     )

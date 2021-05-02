@@ -578,7 +578,7 @@ class CyclicLRScheduler:
         The lr at any cycle is the sum of base_lr
         and some scaling of the amplitude; therefore
         max_lr may not actually be reached depending on
-        scalling function.
+        scaling function.
     step_size : int
         number of training iterations per
         half cycle. The authors suggest setting step_size
@@ -595,7 +595,7 @@ class CyclicLRScheduler:
         Custom scaling policy defined by a single
         argument lambda function, where
         0 <= scale_fn(x) <= 1 for all x >= 0.
-        mode paramater is ignored
+        mode parameter is ignored
     scale_mode : str
         {'cycle', 'iterations'}.
         Defines whether scale_fn is evaluated on

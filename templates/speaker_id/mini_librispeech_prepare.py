@@ -1,8 +1,8 @@
 """
 Downloads and creates data manifest files for Mini LibriSpeech (spk-id).
-For speaker-id, different senteces of the same speaker must appear in train,
+For speaker-id, different sentences of the same speaker must appear in train,
 validation, and test sets. In this case, these sets are thus derived from
-splitting the orginal training set intothree chunks.
+splitting the original training set intothree chunks.
 
 Authors:
  * Mirco Ravanelli, 2021
@@ -45,7 +45,7 @@ def prepare_mini_librispeech(
         Path where the test data specification file will be saved.
     split_ratio: list
         List composed of three integers that sets split ratios for train, valid,
-        and test sets, respecively. For instance split_ratio=[80, 10, 10] will
+        and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
 
@@ -153,7 +153,7 @@ def split_sets(wav_list, split_ratio):
     same proportion of samples (e.g, spk01 should have 80% of samples in
     training, 10% validation, 10% test, the same for speaker2 etc.). This
     is the approach followed in some recipes such as the Voxceleb one. For
-    simplicity, we here simply split the full list without necessarly respecting
+    simplicity, we here simply split the full list without necessarily respecting
     the split ratio within each class.
 
     Arguments

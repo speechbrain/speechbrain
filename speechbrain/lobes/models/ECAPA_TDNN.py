@@ -28,7 +28,7 @@ class BatchNorm1d(_BatchNorm1d):
 class TDNNBlock(nn.Module):
     """An implementation of TDNN.
 
-    Arguements
+    Arguments
     ----------
     in_channels : int
         Number of input channels.
@@ -128,7 +128,7 @@ class Res2NetBlock(torch.nn.Module):
 
 
 class SEBlock(nn.Module):
-    """An implementation of squeeuze-and-excitation block.
+    """An implementation of squeeze-and-excitation block.
 
     Arguments
     ---------
@@ -426,7 +426,7 @@ class ECAPA_TDNN(torch.nn.Module):
             activation,
         )
 
-        # Attentitve Statistical Pooling
+        # Attentive Statistical Pooling
         self.asp = AttentiveStatisticsPooling(
             channels[-1],
             attention_channels=attention_channels,

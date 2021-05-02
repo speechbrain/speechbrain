@@ -289,7 +289,7 @@ def distribute_overlap(lol):
             # Update the current sub-segment
             sseg = next_sseg
 
-    # Add the remaning last sub-segment
+    # Add the remaining last sub-segment
     new_lol.append(next_sseg)
 
     return new_lol
@@ -952,7 +952,7 @@ class Spec_Clust_unorm:
         Returns
         -------
         eig_vals_gap_list : list
-            List of differences (gaps) between adjancent Eigen values.
+            List of differences (gaps) between adjacent Eigen values.
         """
 
         eig_vals_gap_list = []

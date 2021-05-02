@@ -14,7 +14,7 @@ from speechbrain.decoders.ctc import CTCPrefixScorer
 
 class S2SBaseSearcher(torch.nn.Module):
     """S2SBaseSearcher class to be inherited by other
-    decoding approches for seq2seq model.
+    decoding approaches for seq2seq model.
 
     Arguments
     ---------
@@ -275,7 +275,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     eos_threshold : float
         The threshold coefficient for eos token (default: 1.5). See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
-    length_normlization : bool
+    length_normalization : bool
         Whether to divide the scores by the length. (default: True)
     length_rewarding : float
         The coefficient of length rewarding (γ).
@@ -300,7 +300,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Compute the ctc scores over the time frames using windowing based on attention peaks.
         If 0, no windowing applied.
     using_max_attn_shift: bool
-        Whether using the max_attn_shift constaint. (default: False)
+        Whether using the max_attn_shift constraint. (default: False)
     max_attn_shift: int
         Beam search will block the beams that attention shift more
         than max_attn_shift.
@@ -348,7 +348,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         if self.length_normalization and self.length_rewarding > 0:
             raise ValueError(
-                "length normalization is not compartiable with length rewarding."
+                "length normalization is not compatible with length rewarding."
             )
 
         self.using_eos_threshold = using_eos_threshold
@@ -373,7 +373,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     "To perform joint ATT/CTC decoding, set blank, eos and bos to different indexes."
                 )
 
-        # ctc already initalized
+        # ctc already initialized
         self.minus_inf = minus_inf
         self.ctc_score_mode = ctc_score_mode
         self.ctc_window_size = ctc_window_size
@@ -784,7 +784,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 timesteps=t,
             )
 
-            # Block the pathes that have reached eos.
+            # Block the paths that have reached eos.
             sequence_scores.masked_fill_(is_eos, float("-inf"))
 
         if not self._check_full_beams(hyps_and_scores, self.beam_size):

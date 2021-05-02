@@ -6,7 +6,7 @@ To train a full speech recognition system the pipeline is the following:
 
 **The results obtained with the different models can be found in the corresponding sub-directories!**
 
-**Note:** *This folder also contains a Graphene-to-phoneme  (G2P) system that can be used to convert a sequence of characters into the corresponding sequence of phonemes.*
+**Note:** *This folder also contains a Grapheme-to-phoneme  (G2P) system that can be used to convert a sequence of characters into the corresponding sequence of phonemes.*
 
 ## How to simply use pretrained models to transcribe my audio file?
 

@@ -2,7 +2,7 @@ import platform
 
 
 def get_torchaudio_backend():
-    """Get the backend for torchaudio between soundfile and sox_io accoding to the os.
+    """Get the backend for torchaudio between soundfile and sox_io according to the os.
 
     Allow users to use soundfile or sox_io according to their os.
 
