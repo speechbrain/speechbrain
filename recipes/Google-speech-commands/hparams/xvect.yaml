@@ -32,7 +32,7 @@ testing_percentage: 10
 percentage_unknown: 10 # Set this to 0 for the V2 35 task
 percentage_silence: 10 # Set this to 0 for the V2 35 task
 
-# Wether to use data augmentation
+# Whether to use data augmentation
 apply_data_augmentation: True
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
