@@ -415,7 +415,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
             csv_writer.writerow(line)
 
     # Final prints
-    msg = "\t%s Sucessfully created!" % (csv_file)
+    msg = "\t%s successfully created!" % (csv_file)
     logger.info(msg)
 
 
