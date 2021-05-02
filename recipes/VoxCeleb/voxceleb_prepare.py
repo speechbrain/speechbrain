@@ -347,7 +347,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
     csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id"]]
 
-    # For assiging unique ID to each chunk
+    # For assigning unique ID to each chunk
     my_sep = "--"
     entry = []
     # Processing all the wav files in the list
