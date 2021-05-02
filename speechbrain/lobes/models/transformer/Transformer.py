@@ -174,7 +174,7 @@ class PositionalEncoding(nn.Module):
 class TransformerEncoderLayer(nn.Module):
     """This is an implementation of self-attention encoder layer.
 
-    Arguements
+    Arguments
     ----------
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
@@ -238,7 +238,7 @@ class TransformerEncoderLayer(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         src : tensor
             The sequence to the encoder layer (required).
@@ -458,7 +458,7 @@ class TransformerDecoderLayer(nn.Module):
         memory_key_padding_mask=None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         tgt: tensor
             The sequence to the decoder layer (required).
@@ -662,7 +662,7 @@ class NormalizedEmbedding(nn.Module):
 def get_key_padding_mask(padded_input, pad_idx):
     """Creates a binary mask to prevent attention to padded locations.
 
-    Arguements
+    Arguments
     ----------
     padded_input: int
         Padded input.
