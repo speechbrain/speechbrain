@@ -128,7 +128,7 @@ class Res2NetBlock(torch.nn.Module):
 
 
 class SEBlock(nn.Module):
-    """An implementation of squeeuze-and-excitation block.
+    """An implementation of squeeze-and-excitation block.
 
     Arguments
     ---------
