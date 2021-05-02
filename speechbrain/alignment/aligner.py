@@ -1418,7 +1418,7 @@ def batch_log_matvecmul(A, b):
     >>> x
     tensor([[0.6931, 0.0000]])
     >>>
-    >>> # non-log domain equivalent without batching funcionality
+    >>> # non-log domain equivalent without batching functionality
     >>> A_ = torch.tensor([[1., 1.],
     ...                    [0., 1.]])
     >>> b_ = torch.tensor([1., 1.,])
