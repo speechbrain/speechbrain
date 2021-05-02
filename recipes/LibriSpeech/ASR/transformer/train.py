@@ -17,7 +17,7 @@ targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
 
-The best model is the avergage of the checkpoints from last 5 epochs.
+The best model is the average of the checkpoints from last 5 epochs.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
