@@ -348,7 +348,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         if self.length_normalization and self.length_rewarding > 0:
             raise ValueError(
-                "length normalization is not compartiable with length rewarding."
+                "length normalization is not compatible with length rewarding."
             )
 
         self.using_eos_threshold = using_eos_threshold
