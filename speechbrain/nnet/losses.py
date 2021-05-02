@@ -828,7 +828,7 @@ class AngularMargin(nn.Module):
         Arguments
         ---------
         outputs : torch.Tensor
-            The outputs of shape [N, C], cosine simiarity is required.
+            The outputs of shape [N, C], cosine similarity is required.
         targets : torch.Tensor
             The targets of shape [N, C], where the margin is applied for.
 
@@ -884,7 +884,7 @@ class AdditiveAngularMargin(AngularMargin):
         Arguments
         ---------
         outputs : torch.Tensor
-            The outputs of shape [N, C], cosine simiarity is required.
+            The outputs of shape [N, C], cosine similarity is required.
         targets : torch.Tensor
             The targets of shape [N, C], where the margin is applied for.
 
