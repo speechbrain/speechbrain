@@ -45,7 +45,7 @@ def prepare_mini_librispeech(
         Path where the test data specification file will be saved.
     split_ratio: list
         List composed of three integers that sets split ratios for train, valid,
-        and test sets, respecively. For instance split_ratio=[80, 10, 10] will
+        and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
 
