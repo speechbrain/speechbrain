@@ -23,7 +23,7 @@ class SentencePiece:
 
     Reference: https://github.com/google/sentencepiece
 
-    SetencePiece lib is an unsupervised text tokenizer and detokenizer.
+    SentencePiece lib is an unsupervised text tokenizer and detokenizer.
     It implements subword units like Byte-pair-encoding (BPE),
     Unigram language model and char/word tokenizer.
 
