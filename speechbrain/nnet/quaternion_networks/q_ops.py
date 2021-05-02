@@ -813,6 +813,6 @@ def check_quaternion_input(input_shape):
 
     if nb_hidden % 4 != 0:
         raise Exception(
-            "Quaternion Tensors must have a dimensions divisible by 4."
+            "Quaternion Tensors must have dimensions divisible by 4."
             " input.size()[1] = " + str(nb_hidden)
         )
