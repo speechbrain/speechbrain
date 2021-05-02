@@ -238,7 +238,7 @@ my $usage = "\n\nUsage: $0 [-h] -r <ref_file> -s <src_file>\n\n".
     "       alignment option is used then this data must include system STT\n".
     "       output data in addition to the metadata to be evaluated.\n".
     "  OR\n".
-    "  -s <sys-file>  A file containin system output metadata, in RTTM format\n\n".
+    "  -s <sys-file>  A file containing system output metadata, in RTTM format\n\n".
     "  input options:\n".
     "    -x to include complex edits in the analysis and scoring.\n".
     "    -w for word-mediated alignment.\n".
