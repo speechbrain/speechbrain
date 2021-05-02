@@ -1103,7 +1103,7 @@ class Music(torch.nn.Module):
         # Save epsilon
         self.eps = eps
 
-        # Save number of signalsà
+        # Save number of signals
         self.n_sig = n_sig
 
     def forward(self, XXs):
