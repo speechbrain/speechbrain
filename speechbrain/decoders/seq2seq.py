@@ -784,7 +784,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 timesteps=t,
             )
 
-            # Block the pathes that have reached eos.
+            # Block the paths that have reached eos.
             sequence_scores.masked_fill_(is_eos, float("-inf"))
 
         if not self._check_full_beams(hyps_and_scores, self.beam_size):
