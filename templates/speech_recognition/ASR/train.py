@@ -362,7 +362,7 @@ def dataio_prepare(hparams):
         )
         hparams[f"{dataset}_dataloader_opts"]["shuffle"] = False
 
-    # Sorting traiing data with ascending order makes the code  much
+    # Sorting training data with ascending order makes the code  much
     # faster  because we minimize zero-padding. In most of the cases, this
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
