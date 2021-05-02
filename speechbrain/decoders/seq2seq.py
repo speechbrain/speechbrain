@@ -275,7 +275,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     eos_threshold : float
         The threshold coefficient for eos token (default: 1.5). See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
-    length_normlization : bool
+    length_normalization : bool
         Whether to divide the scores by the length. (default: True)
     length_rewarding : float
         The coefficient of length rewarding (γ).
