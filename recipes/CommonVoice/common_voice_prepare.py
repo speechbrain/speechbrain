@@ -315,7 +315,7 @@ def create_csv(
             csv_writer.writerow(line)
 
     # Final prints
-    msg = "%s sucessfully created!" % (csv_file)
+    msg = "%s successfully created!" % (csv_file)
     logger.info(msg)
     msg = "Number of samples: %s " % (str(len(loaded_csv)))
     logger.info(msg)

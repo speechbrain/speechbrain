@@ -326,7 +326,7 @@ def create_csv(
             csv_writer.writerow(line)
 
     # Final print
-    msg = "%s sucessfully created!" % (csv_file)
+    msg = "%s successfully created!" % (csv_file)
     logger.info(msg)
 
 
