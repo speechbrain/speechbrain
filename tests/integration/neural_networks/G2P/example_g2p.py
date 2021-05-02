@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a graphene-to-phoneme (G2P) converter
+"""This minimal example trains a grapheme-to-phoneme (G2P) converter
 that turns a sequence of characters into a sequence of phonemes. The system uses
 a standard attention-based encoder-decoder pipeline. The encoder is based on an
  LSTM, while the decoder is based on a GRU. Greedy search applied on the top of
