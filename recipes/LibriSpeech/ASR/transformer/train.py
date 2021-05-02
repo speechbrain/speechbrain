@@ -236,7 +236,7 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-            # save the averaged checkpoint at the end of the evalation stage
+            # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
             # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
             self.checkpointer.save_and_keep_only(
