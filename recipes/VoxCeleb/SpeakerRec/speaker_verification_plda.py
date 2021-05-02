@@ -270,7 +270,7 @@ if __name__ == "__main__":
     params["embedding_model"].eval()
     params["embedding_model"].to(params["device"])
 
-    # Computing training embeddigs (skip it of if already extracted)
+    # Computing training embeddings (skip it of if already extracted)
     if not os.path.exists(xv_file):
         logger.info("Extracting embeddings from Training set..")
         with tqdm(train_dataloader, dynamic_ncols=True) as t:
