@@ -70,7 +70,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (French) | Speech Recognition | wav2vec2 + CTC/Att. | WER=13.7% (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
-| AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.13% (lapel-mix)|
+| AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.57% (LapelMix-eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
 | WSJ2MIX      | Speech Separation | SepFormer| SDRi=22.6 dB (test)|
 | WSJ3MIX      | Speech Separation | SepFormer| SDRi=20.0 dB (test)|
