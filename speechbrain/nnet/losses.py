@@ -130,7 +130,7 @@ class PitWrapper(nn.Module):
         Returns
         -------
         loss : torch.Tensor
-            Permutation invariant loss forthe  current example, tensor of shape [1]
+            Permutation invariant loss for the current example, tensor of shape [1]
 
         assigned_perm : tuple
             Indexes for optimal permutation of the input over sources which
