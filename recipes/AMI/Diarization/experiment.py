@@ -270,7 +270,7 @@ def dev_p_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
-    # Take p_val that gave minmum DER on Dev dataset
+    # Take p_val that gave minimum DER on Dev dataset
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -336,7 +336,7 @@ def dev_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER
+    # Take n_lambdas with minimum DER
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas
