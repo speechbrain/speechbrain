@@ -180,7 +180,7 @@ class StatObject_SB:
         # Keep this. may need this in future (Nauman)
         # sts_per_model.start = numpy.empty(
         #    sts_per_model.segset.shape, "|O"
-        # )  # ndf: restruture this
+        # )  # ndf: restructure this
         # sts_per_model.stop = numpy.empty(sts_per_model.segset.shape, "|O")
 
         session_per_model = numpy.zeros(numpy.unique(self.modelset).shape[0])
