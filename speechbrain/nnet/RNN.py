@@ -192,7 +192,7 @@ class LSTM(torch.nn.Module):
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        If True, a bidirectinoal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example

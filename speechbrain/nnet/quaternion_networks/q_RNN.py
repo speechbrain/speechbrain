@@ -35,7 +35,7 @@ class QLSTM(torch.nn.Module):
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
     bidirectional : bool, optional
-        If True, a bidirectinoal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used (default False).
     init_criterion : str , optional
         (glorot, he).
