@@ -914,7 +914,7 @@ def append_eos_token(label, length, eos_index):
     label : torch.IntTensor
         Containing the original labels. Must be of size: [batch_size, max_length]
     length : torch.LongTensor
-        Cotaining the original length of each label sequences. Must be 1D.
+        Containing the original length of each label sequences. Must be 1D.
     eos_index : int
         The index for <eos> token.
 

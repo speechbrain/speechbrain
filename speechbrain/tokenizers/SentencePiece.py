@@ -402,7 +402,7 @@ class SentencePiece:
             List if ( batch_lens = None and task = "decode_from_list")
             Contains the original labels. Shape: [batch_size, max_length]
         batch_lens : tensor.LongTensor
-            Cotaining the relative length of each label sequences. Must be 1D
+            Containing the relative length of each label sequences. Must be 1D
             tensor of shape: [batch_size]. (default: None)
         ind2lab : dict
             Dictionnary which map the index from label sequences
