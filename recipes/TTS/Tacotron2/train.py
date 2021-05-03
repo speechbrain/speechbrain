@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """ runlike this
-# python tacotron2brain.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml	
+# python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml	
 """
 
 import torch
@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 class Tacotron2Brain(sb.Brain):
 
     def compute_forward(self, batch, stage):
-        input, y, num_items = batch_to_gpu(batch)
-        return self.hparams.model(input)  #1#2#
+        inputs, y, num_items = batch_to_gpu(batch)
+        return self.hparams.model(inputs)  #1#2#
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -46,7 +46,7 @@ class Tacotron2Brain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         
-        input, y, num_items = batch_to_gpu(batch)
+        inputs, y, num_items = batch_to_gpu(batch)
         return criterion(predictions, y)
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -119,11 +119,11 @@ def dataio_prepare(hparams):
 
     audio_toMel = transforms.MelSpectrogram(
 		sample_rate = hparams['sampling_rate'] ,
-		#filter_length = 1024,
+		
 		hop_length = hparams['hop_length'] ,
 		win_length = hparams['win_length'] ,
 		n_fft=hparams['n_fft'],
-		n_mels = hparams['n_mel_channels'] ,#only one u need to set
+		n_mels = hparams['n_mel_channels'] ,
 		f_min = hparams['mel_fmin'],
 		f_max =hparams['mel_fmax'],
 		normalized=hparams['mel_normalized'],
@@ -151,15 +151,7 @@ def dataio_prepare(hparams):
 
     return train_data_loader, valid_data_loader, test_data_loader
     
-##############################################3
-###
 
-
-from textToSequence import text_to_sequence
-
-##
-
-############################
 #some helper functoions 
 def batch_to_gpu(batch):
     text_padded, input_lengths, mel_padded, gate_padded, \
@@ -196,6 +188,8 @@ def criterion( model_output, targets):
        torch.nn.MSELoss()(mel_out_postnet, mel_target)
    gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
    return mel_loss + gate_loss
+   
+   
 ### custome Collate function for the dataloader
 class TextMelCollate():
     """ Zero-pads model inputs and targets based on number of frames per setep
