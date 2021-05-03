@@ -88,8 +88,10 @@ class FairseqWav2Vec2(nn.Module):
         # Hence, we check if the model has be trained with or without it.
         # If the information isn't contained in the checkpoint it is set to False.
         if input_norm is None:
-            if not hasattr(cfg["task"], "normalize"):
+            if hasattr(cfg["task"], "normalize"):
                 self.normalize = cfg["task"].normalize
+            elif hasattr(cfg, "normalize"):
+                self.normalize = cfg.normalize
             else:
                 self.normalize = False
         else:
