@@ -7,36 +7,31 @@ output_folder: !ref ./<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 epochs : 1501
-iters_per_checkpoint : 1000
-dynamic_loss_scaling : True
-
 
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: ./
-#data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
 data_folder_rirs: !ref <data_folder>
-
 json_train: data.json
 json_valid: data.json
 json_test: data.json
 #json_train: !ref <output_folder>/train.json
 #json_valid: !ref <output_folder>/valid.json
 #json_test: !ref <output_folder>/test.json
-text_cleaners : ['english_cleaners'] #only suported one now
+text_cleaners : ['english_cleaners'] 
 
 ################################
 # Audio Parameters             #
 ################################
-sampling_rate : 1600 #22050 
-hop_length : null #256
-win_length : null #1024
-n_mel_channels : 128 #80
-n_fft: 400 #1024
+sampling_rate : 16000  
+hop_length : null 
+win_length : null 
+n_mel_channels : 128 
+n_fft: 400 
 mel_fmin :  0.0
-mel_fmax : null #8000.0
-mel_normalized: False #True
+mel_fmax : null 
+mel_normalized: False 
 
 ################################
 # Optimization Hyperparameters #
@@ -45,15 +40,12 @@ learning_rate : 0.001
 weight_decay : 0.000006
 grad_clip_thresh : 1.0
 batch_size : 5 #minimum 2
-
-mask_padding : False ###or true # set model's padded outputs to padded values
+mask_padding : False 
 
 ################################
 # Model Parameters and model   #
 ################################
-
-###148=len(symbols) the symbols are symbols.py
-n_symbols : 148 
+n_symbols : 148 #fixed deppending on symbols in textToSequence
 symbols_embedding_dim : 512
 
 # Encoder parameters
@@ -65,11 +57,11 @@ encoder_embedding_dim : 512
 n_frames_per_step : 1  # currently only 1 is supported
 decoder_rnn_dim : 1024
 prenet_dim : 256
-max_decoder_steps : 2000 ### 1664  1000   1000   changes these two 
-gate_threshold : 0.5 ###      0.5   0.5    0.6     together
+max_decoder_steps : 2000 
+gate_threshold : 0.5 
 p_attention_dropout : 0.1
 p_decoder_dropout : 0.1
-decoder_no_early_stopping : False ###True
+decoder_no_early_stopping : False 
 
 # Attention parameters
 attention_rnn_dim : 1024
@@ -85,7 +77,7 @@ postnet_kernel_size : 5
 postnet_n_convolutions : 5
 
 #model
-model: !new:model.Tacotron2
+model: !new:speechbrain.lobes.models.Tacotron2.Tacotron2
     mask_padding: !ref <mask_padding>
     n_mel_channels: !ref <n_mel_channels>
     # symbols
@@ -145,5 +137,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     counter: !ref <epoch_counter>
     scheduler: !ref <lr_annealing>
     
-    
-
