@@ -148,7 +148,8 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)  # add the encodings here
-            pos_embs_encoder = None
+            pos_embs_encoder = None	
+
 
         encoder_out, _ = self.encoder(
             src=src,
@@ -160,17 +161,25 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":
-            pos_embs_target = self.positional_encoding(tgt)
-        elif self.positional_encoding_type == "fixed_abs_sine":
-            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+            # use standard sinusoidal pos encoding in decoder 
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            src = src + self.positional_encoding_decoder(src)
             pos_embs_target = None
             pos_embs_encoder = None
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)  
+            src = src + self.positional_encoding(src)
+            pos_embs_target = None
+            pos_embs_encoder = None
+
 
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
+            memory_mask=src_mask,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
             pos_embs_tgt=pos_embs_target,
             pos_embs_src=pos_embs_encoder,
         )
@@ -212,21 +221,22 @@ class TransformerASR(TransformerInterface):
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
-            pos_embs_target = self.positional_encoding(tgt)
-            pos_embs_encoder = self.positional_encoding(encoder_out)
+            # we use fixed positional encodings in the decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt) 
+            pos_embs_target = None                                                                  
+            pos_embs_encoder = None
         elif self.positional_encoding_type == "fixed_abs_sine":
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
             pos_embs_target = None
             pos_embs_encoder = None
 
-        # if hasattr(self, "positional_encoding"):
-        #   tgt = tgt + self.positional_encoding(tgt)
         prediction, self_attns, multihead_attns = self.decoder(
             tgt,
             encoder_out,
             tgt_mask=tgt_mask,
             pos_embs_tgt=pos_embs_target,
             pos_embs_src=pos_embs_encoder,
+
         )
         return prediction, multihead_attns[-1]
 
@@ -256,11 +266,9 @@ class TransformerASR(TransformerInterface):
             pos_embs_source = self.positional_encoding(src)
 
         elif self.positional_encoding_type == "fixed_abs_sine":
-            src = src + self.positional_encoding(src)  # add the encodings here
+            src = src + self.positional_encoding(src)  
             pos_embs_source = None
 
-        # if hasattr(self, "positional_encoding"):
-        #   src = src + self.positional_encoding(src)
         encoder_out, _ = self.encoder(
             src=src,
             src_key_padding_mask=src_key_padding_mask,
