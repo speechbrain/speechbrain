@@ -168,7 +168,6 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = None
         elif self.positional_encoding_type == "fixed_abs_sine":
             tgt = tgt + self.positional_encoding(tgt)  
-            src = src + self.positional_encoding(src)
             pos_embs_target = None
             pos_embs_encoder = None
 
