@@ -46,14 +46,14 @@ python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 | Multistage (LibriSpeech LM) | 67.8% ± 1.4% | 79.4% ± 0.4% | 64.6% ± 0.7% |
 | Multistage (Timers and Such LM) | 72.6% ± 1.6% | 85.4% ± 0.2% | 69.9% ± 6.0% |
 | Direct | 77.5% ± 1.6% | 96.7% ± 0.3% | 68.9% ± 5.4% |
-| Direct (wav2vec 2.0 ASR) | 92.2% ± 2.1% | none | none |
+| Direct (wav2vec 2.0 ASR) | 94.01% ± 1.2% | none | none |
 
 The table reports the performance achieved when training with both real and synthetic data (train-real+train-synth).
 The sentence accuracy is reported for the all-real subset as well, a subset obtained by combining all the real data in train-real,
 dev-real, and test-real (we train on train-synth only).
 
-You can find the output folder (model, logs, etc) here:
-https://drive.google.com/drive/folders/1kSwdBT8kDhnmTLzrOPDL77LX_Eq-3Tzl?usp=sharing
+You can find the output folders (model, logs, etc) here: https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing
+
 
 # The paper
 
