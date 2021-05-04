@@ -1,0 +1,190 @@
+# ############################################################################
+# Model: Direct SLU with wav2vec 2.0
+# Encoder: Pre-trained wav2vec 2.0
+# Decoder: GRU + beamsearch
+# Tokens: BPE with unigram
+# losses: NLL
+# Training: Timers and Such
+# Authors:  Abdelmoumene Boumadane, AbdelWahab Heba, Loren Lugosch 2021
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+experiment: wav2vec2-train-real
+output_folder: !ref results/<experiment>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the wav2vec 2.0 model, you can change to benchmark different models
+wav2vec2_hub: "facebook/wav2vec2-base-960h"
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
+train_splits: ["train-synth", "train-real"]
+csv_train: !ref <output_folder>/train-type=direct.csv
+csv_dev_real: !ref <output_folder>/dev-real-type=direct.csv
+csv_dev_synth: !ref <output_folder>/dev-synth-type=direct.csv
+csv_test_real: !ref <output_folder>/test-real-type=direct.csv
+csv_test_synth: !ref <output_folder>/test-synth-type=direct.csv
+csv_all_real: !ref <output_folder>/all-real-type=direct.csv
+tokenizer_file: https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr/resolve/main/tokenizer.ckpt
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+test_on_all_real: False
+
+
+# Training parameters
+number_of_epochs: 50
+batch_size: 8
+lr: 0.0004
+lr_wav2vec2: 0.00001
+
+#freeze all wav2vec2
+freeze_wav2vec: False
+
+#set to true to freeze the CONV part of the wav2vec2 model
+freeze_wav2vec_conv: True
+
+token_type: unigram # ["unigram", "bpe", "char"]
+sorting: ascending
+
+# Model parameters
+sample_rate: 16000
+emb_size: 128
+dec_neurons: 512
+output_neurons: 51 # index(eos/bos) = 0
+wav2vec2_encoder_dim: 768
+encoder_dim: 256
+
+# Decoding parameters
+bos_index: 0
+eos_index: 0
+min_decode_ratio: 0.0
+max_decode_ratio: 10.0
+slu_beam_size: 80
+eos_threshold: 1.5
+temperature: 1.25
+
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec>
+    freeze_feature_extractor: True
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+slu_enc: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <wav2vec2_encoder_dim>]
+    lstm: !new:speechbrain.nnet.RNN.LSTM
+        input_size: !ref <wav2vec2_encoder_dim>
+        bidirectional: True
+        hidden_size: !ref <encoder_dim>
+        num_layers: 2
+    linear: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <encoder_dim> * 2
+        n_neurons: !ref <encoder_dim>
+
+output_emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: !ref <encoder_dim>
+    input_size: !ref <emb_size>
+    rnn_type: gru
+    attn_type: keyvalue
+    hidden_size: !ref <dec_neurons>
+    attn_dim: 512
+    num_layers: 3
+    scaling: 1.0
+    dropout: 0.0
+
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    slu_enc: !ref <slu_enc>
+    output_emb: !ref <output_emb>
+    dec: !ref <dec>
+    seq_lin: !ref <seq_lin>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <slu_enc>, !ref <output_emb>,
+       !ref <dec>, !ref <seq_lin>]
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>/TAS_tokenizer
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>
+
+beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
+    embedding: !ref <output_emb>
+    decoder: !ref <dec>
+    linear: !ref <seq_lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <slu_beam_size>
+    eos_threshold: !ref <eos_threshold>
+    temperature: !ref <temperature>
+    using_max_attn_shift: False
+    max_attn_shift: 30
+    coverage_penalty: 0.
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+wav2vec2_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_wav2vec2>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
+
+lr_annealing_wav2vec2: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec2>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        wav2vec2: !ref <wav2vec2>
+        scheduler: !ref <lr_annealing>
+        lr_annealing_wav2vec2: !ref <lr_annealing_wav2vec2>
+        counter: !ref <epoch_counter>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: 0.1
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True
