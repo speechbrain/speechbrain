@@ -87,6 +87,8 @@ class TransformerInterface(nn.Module):
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
             self.positional_encoding = RelPosEncXL(d_model)
+            self.positional_encoding_decoder = PositionalEncoding(d_model, max_length)
+
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -138,8 +140,8 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 normalize_before=normalize_before,
-                causal=self.causal,
-                attention_type=self.attention_type,
+                causal=True,
+                attention_type="regularMHA", # always use regular attention in decoder 
             )
 
     def forward(self, **kwags):
@@ -470,6 +472,7 @@ class TransformerDecoderLayer(nn.Module):
         causal=None,
     ):
         super().__init__()
+        self.nhead = nhead
 
         if attention_type == "regularMHA":
             self.self_attn = sb.nnet.attention.MultiheadAttention(
@@ -564,7 +567,11 @@ class TransformerDecoderLayer(nn.Module):
         else:
             tgt1 = tgt
 
+
         # multi-head attention over the target sequence and encoder states
+
+        
+
         tgt2, multihead_attention = self.mutihead_attn(
             query=tgt1,
             key=memory,
