@@ -21,7 +21,7 @@ wav2vec2_hub: "facebook/wav2vec2-base-960h"
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
-train_splits: ["train-real"]
+train_splits: ["train-synth", "train-real"]
 csv_train: !ref <output_folder>/train-type=direct.csv
 csv_dev_real: !ref <output_folder>/dev-real-type=direct.csv
 csv_dev_synth: !ref <output_folder>/dev-synth-type=direct.csv
@@ -36,7 +36,7 @@ test_on_all_real: False
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 4
+batch_size: 8
 lr: 0.0004
 lr_wav2vec2: 0.00001
 
