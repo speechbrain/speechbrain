@@ -222,7 +222,8 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
             # we use fixed positional encodings in the decoder
-            tgt = tgt + self.positional_encoding_decoder(tgt) 
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            encoder_out = encoder_out + self.positional_encoding_decoder(encoder_out)
             pos_embs_target = None                                                                  
             pos_embs_encoder = None
         elif self.positional_encoding_type == "fixed_abs_sine":
