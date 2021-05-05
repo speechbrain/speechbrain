@@ -1,3 +1,12 @@
+"""
+Neural network modules for the Tacotron2 end-to-end neural
+Text-to-Speech (TTS) model
+
+Authors
+* Georges Abous-Rjeili 2020
+"""
+
+
 ###https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
@@ -719,11 +728,10 @@ def to_gpu(x):
     if torch.cuda.is_available():
         x = x.cuda(non_blocking=True)
     return x
-    
+
 def get_mask_from_lengths(lengths):
     max_len = torch.max(lengths).item()
     ids = torch.arange(0, max_len, device=lengths.device, dtype=lengths.dtype)
     mask = (ids < lengths.unsqueeze(1)).byte()
     mask = torch.le(mask, 0)
     return mask
-    

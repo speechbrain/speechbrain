@@ -1,3 +1,9 @@
+# ################################
+# Model: Tacotron 2 Text-to-Speech
+# Authors:
+# * Georges Abous-Rjeili 2021
+# ################################
+
 ###################################
 # Experiment Parameters and setup #
 ###################################
@@ -19,19 +25,19 @@ json_test: data.json
 #json_train: !ref <output_folder>/train.json
 #json_valid: !ref <output_folder>/valid.json
 #json_test: !ref <output_folder>/test.json
-text_cleaners : ['english_cleaners'] 
+text_cleaners : ['english_cleaners']
 
 ################################
 # Audio Parameters             #
 ################################
-sampling_rate : 16000  
-hop_length : null 
-win_length : null 
-n_mel_channels : 128 
-n_fft: 400 
+sampling_rate : 16000
+hop_length : null
+win_length : null
+n_mel_channels : 128
+n_fft: 400
 mel_fmin :  0.0
-mel_fmax : null 
-mel_normalized: False 
+mel_fmax : null
+mel_normalized: False
 
 ################################
 # Optimization Hyperparameters #
@@ -40,7 +46,7 @@ learning_rate : 0.001
 weight_decay : 0.000006
 grad_clip_thresh : 1.0
 batch_size : 5 #minimum 2
-mask_padding : False 
+mask_padding : False
 
 ################################
 # Model Parameters and model   #
@@ -57,11 +63,11 @@ encoder_embedding_dim : 512
 n_frames_per_step : 1  # currently only 1 is supported
 decoder_rnn_dim : 1024
 prenet_dim : 256
-max_decoder_steps : 2000 
-gate_threshold : 0.5 
+max_decoder_steps : 2000
+gate_threshold : 0.5
 p_attention_dropout : 0.1
 p_decoder_dropout : 0.1
-decoder_no_early_stopping : False 
+decoder_no_early_stopping : False
 
 # Attention parameters
 attention_rnn_dim : 1024
@@ -109,16 +115,16 @@ model: !new:speechbrain.lobes.models.Tacotron2.Tacotron2
 
 modules:
     model: !ref <model>
-    
+
 #optimizer
 opt_class: !name:torch.optim.Adam
     lr: !ref <learning_rate>
     weight_decay: !ref <weight_decay>
-    
+
 #epoch object
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <epochs>
-    
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
@@ -136,4 +142,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     model: !ref <model>
     counter: !ref <epoch_counter>
     scheduler: !ref <lr_annealing>
-    
+

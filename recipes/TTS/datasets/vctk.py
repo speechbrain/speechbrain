@@ -1,17 +1,28 @@
+# coding: utf-8
+"""A helper class to read the VCTK dataset into a DynamicItemDataset.
+
+Authors
+* Artem Ploujnikov 2021
+"""
+
 import csv
 import os
 import re
 import shutil
 import tempfile
 from glob import glob
-from os.path import splitext
 from speechbrain.dataio.dataset import DynamicItemDataset
-from typing import Dict, Iterable, List, Tuple, Union
 
 
 class VCTK:
     """
     A helper class for the loading of the VCTK dataset
+
+    Arguments
+    ----------
+    file_path: str
+        the path to the unzipped dataset
+
     """
     PATH_TXT = 'txt'
     PATH_WAV = 'wav48'
@@ -19,25 +30,21 @@ class VCTK:
     PATTERN_TXT = '*.txt'
     RE_WHITESPACE = r'\s+'
 
-    def __init__(self, file_path: str):
-        """
-        Class constructor
-        :param file_path: The path to the unzipped dataset
-        """
+    def __init__(self, file_path):
         self.file_path = file_path
         self._speakers = None
-    
+
     @property
-    def speaker_file_name(self) -> str:
+    def speaker_file_name(self):
         """
         Returns the speaker file name
         """
         return os.path.join(self.file_path, self.PATH_SPEAKER_INFO)
 
     @property
-    def speakers(self) -> Dict[int, dict]:
+    def speakers(self):
         """
-        Reads the speaker file associated with the dataset and returns 
+        Reads the speaker file associated with the dataset and returns
         as a dictionary mapping: {'<ID>': {'ID': '123', 'AGE': 25, ...}}
         """
         if self._speakers is None:
@@ -52,7 +59,7 @@ class VCTK:
             int(speaker['ID']): speaker
             for speaker in self._read_speaker_file()}
 
-    def _read_speaker_file(self) -> Iterable[dict]:
+    def _read_speaker_file(self):
         """
         Reads the speaker file as an enumerable of
         dictionaries
@@ -65,19 +72,27 @@ class VCTK:
             last_column = len(column_headers) - 1
             for line in speaker_file_iter:
                 row = re.split(self.RE_WHITESPACE, line)
-                # Note: The file is not tab-separated and the last 
+                # Note: The file is not tab-separated and the last
                 # column may contain spaces
                 values = row[:last_column] + [' '.join(row[last_column:])]
                 values = [value.strip() for value in values]
                 yield dict(zip(column_headers, values))
 
 
-    def get_speaker_file_names(self, speaker_id: Union[int, str]) -> List[str]:
+    def get_speaker_file_names(self, speaker_id):
         """
         Returns a list of (text_file, wav_file) tuples for the specified
         speaker ID
 
-        :param speaker_id: the speaker ID
+        Arguments
+        ----------
+        speaker_id: str
+            the speaker ID
+
+        Returns
+        -------
+        paths: list
+            a list fo paths
         """
         txt_path, wav_path = self.get_speaker_paths(speaker_id)
         txt_file_pattern = os.path.join(txt_path, self.PATTERN_TXT)
@@ -85,21 +100,34 @@ class VCTK:
         return [(txt_file_name, _get_wav_file_name(wav_path, txt_file_name))
                 for txt_file_name in txt_files]
 
-    def get_speaker_paths(self, speaker_id: Union[int, str]) -> Tuple[str, str]:
+    def get_speaker_paths(self, speaker_id):
         """
-        Determines the paths to recordings and labels for the specified
-        speaker ID
+        Determines the paths to recordings and labels for the specified speaker ID
+
+        Arguments
+        ----------
+        speaker_id: str
+            the speaker ID
+
+        Returns
+        -------
+        paths: tuple
+            a (txt_path, wav_path) tuple with the paths to texts and paths to
+            wave files, respectively
         """
         speaker_dir = f'p{speaker_id}'
         txt_path = os.path.join(self.file_path, self.PATH_TXT, speaker_dir)
         wav_path = os.path.join(self.file_path, self.PATH_WAV, speaker_dir)
         return txt_path, wav_path
-        
 
-    def get_all_speakers_data(self) -> Iterable[Dict]:
+
+    def get_all_speakers_data(self):
         """
         Returns data for all available speakers in the dataset
-        :return: a generator of dictionaries with speaker data
+
+        Returns
+        -------
+        a generator of dictionaries with speaker data
         """
         # NOTE: The text is quick to read - it will be included in the CSV
         return (
@@ -111,15 +139,21 @@ class VCTK:
              'label': _read_text(txt_file_name)}
             for speaker_id, speaker in self.speakers.items()
             for txt_file_name, wav_file_name in self.get_speaker_file_names(speaker_id))
-    
-    def has_speaker_data(self, speaker_id: Union[int, str]) -> bool:
+
+    def has_speaker_data(self, speaker_id):
         """
         Determines whether or not this particular dataset has data
         for the specified speaker. This is used primarily to run
         experiments on subsets of the original dataset
 
-        :param speaker_id: the speaker ID to check
-        :return: True if data for the speaker is available, False otherwise
+        Arguments
+        ----------
+        speaker_id
+            the speaker ID to check
+
+        Returns
+        -------
+        True if data for the speaker is available, False otherwise
         """
         txt_path, wav_path = self.get_speaker_paths(speaker_id)
         return os.path.isdir(txt_path) and os.path.isdir(wav_path)
@@ -127,7 +161,11 @@ class VCTK:
     def to_csv(self, target):
         """
         Creates a CSV representation of the dataset
-        :param target: a file name or a file-like object
+
+        Arguments
+        ---------
+        target: str or file
+            a file name or a file-like object to which the script will be saved
         """
         if isinstance(target, str):
             with open(target, 'w') as csv_file:
@@ -145,17 +183,20 @@ class VCTK:
             _flatten_speaker(item) for item in items)
 
 
-    def to_dataset(self) -> DynamicItemDataset:
+    def to_dataset(self):
         """
         Converts VCTK to a SpeechBrain dataset
 
-        :return: A SpeechBrain dynamic dataset
+        Returns
+        -------
+        dataset: DynamicItemDataset
+            A SpeechBrain dynamic dataset
         """
         with tempfile.NamedTemporaryFile('w') as csv_file:
             self.to_csv(csv_file)
             csv_file.flush()
             return DynamicItemDataset.from_csv(csv_file.name)
-    
+
     def _get_csv_fieldnames(self):
         """
         Returns the field names for the CSV file
@@ -165,7 +206,17 @@ class VCTK:
 
 def _flatten_speaker(item):
     """
-    Flattens the 'speaker' key
+    Flattens the dataste data from
+    {'speaker' : {'field1': 'value1', 'field2': 'value2},
+     'txt': 'blah', 'wav': '1.wav'}
+    to
+    {'speaker_field1': 'value1', 'speaker_field2': 'value2',
+     'txt': 'blah', 'wav': '1.wav'}
+
+    Arguments
+    ---------
+    item: dict
+        the flattened item
     """
     speaker_dict = {
         f'speaker_{key}': value for key, value in item['speaker'].items()}
@@ -178,20 +229,38 @@ def _read_text(file_name):
     """
     Reads the contents of a text file
 
-    :param file_name: the name of the file to read
+    Arguments
+    ---------
+
+    file_name: str
+        the name of the file to read
+
+    Returns
+    -------
+    contents: str
+        the file contents
     """
     with open(file_name) as text_file:
         return text_file.read().strip()
 
 
-def _get_wav_file_name(target_path: str, file_name: str) -> str:
+def _get_wav_file_name(target_path, file_name):
     """
     Computes the name of the .wav file corresponding to the specified
     text file. Used primarily to find the .wav file for a given .txt
     file based on the file convention used in the VCTK dataset
 
-    :param target_path: the directory in which the file will be located
-    :param file_name: the original file name.
+    Arguments
+    ---------
+    target_path: str
+         the directory in which the file will be located
+    file_name: str
+        the original file name
+
+    Returns
+    --------
+    full_path: str
+        the full path to the wave file
     """
     base_name = os.path.basename(file_name)
     stripped_file_name, _ = os.path.splitext(base_name)
@@ -204,11 +273,20 @@ def filename_to_id(file_name):
     and the directory part. Based on the convention of
     the dataset, it can be used as an ID
 
-    :param file_name: the file name (of the .txt or .wav file)
+    Arguments
+    ---------
+    file_name: str
+        the file name (of the .txt or .wav file)
+
+    Returns
+    -------
+    item_id: str
+        the ID part of the filename
     """
     base_name = os.path.basename(file_name)
     item_id, _ = os.path.splitext(base_name)
     return item_id
+
 
 def _get_fake_data():
     """
@@ -250,13 +328,13 @@ def test_get_all_speakers_data():
         item['speaker']['ID'] == '226'
         for item in data)
     assert any(
-        item['wav'].endswith('p225/p225_002.wav') 
+        item['wav'].endswith('p225/p225_002.wav')
         for item in data)
     assert any(
-        item['wav'].endswith('p226/p226_003.wav') 
+        item['wav'].endswith('p226/p226_003.wav')
         for item in data)
     assert any(
-        item['txt'].endswith('p225/p225_002.txt') 
+        item['txt'].endswith('p225/p225_002.txt')
         for item in data)
     assert all(
         os.path.exists(item['wav'])

@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
-""" runlike this
+"""
+Recipe for training the Tacotron Text-To-Speech model, an end-to-end
+neural text-to-speech (TTS) system
+
+To run this recipe, do the following:
 # python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml
+
+Authors
+* Georges Abous-Rjeili 2020
 """
 
 import torch
