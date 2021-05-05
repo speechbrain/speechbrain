@@ -94,7 +94,7 @@ class WavenetBrain(sb.core.Brain):
         for i,b in enumerate(self.last_target_audio):
             self._save_sample_audio(
             'target_audio_'+str(i)+'.wav', b.unsqueeze(0))
-        for i,b in enumerate(self.last_predicted_audio):
+        for i,b in enumerate(self.last_predicted_audio):        
             self._save_sample_audio(
             'predicted_audio_'+str(i)+'.wav', b.unsqueeze(0))
         for i,b in enumerate(self.last_target_mel):

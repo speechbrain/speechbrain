@@ -62,8 +62,10 @@ class UpsampleNetwork(nn.Module):
         c = c.transpose(1,2).contiguous()
         # B x 1 x C x T
         c = c.unsqueeze(1)
+
         for f in self.up_layers:
             c = f(c)
+
         # B x C x T
         c = c.squeeze(1)
 
@@ -85,12 +87,13 @@ class ConvInUpsampleNetwork(nn.Module):
         # To capture wide-context information in conditional features
         # meaningless if cin_pad == 0
         ks = 2 * cin_pad + 1
-        self.conv_in = nn.Conv1d(cin_channels, cin_channels, kernel_size=ks, bias=False)
+        self.conv_in = CNN.Conv1d(in_channels = cin_channels, out_channels = cin_channels, kernel_size=ks, bias=False, padding="valid")
         self.upsample = UpsampleNetwork(
             upsample_scales, upsample_activation, upsample_activation_params,
             mode, freq_axis_kernel_size, cin_pad=0, cin_channels=cin_channels)
 
-    def forward(self, c):
+    def forward(self, c):   
+
         c_up = self.upsample(self.conv_in(c))
         return c_up
 
@@ -384,7 +387,7 @@ class WaveNet(nn.Module):
                  skip_out_channels=512,
                  kernel_size=3, dropout=1 - 0.95,
                  cin_channels=-1, gin_channels=-1, n_speakers=None,
-                 upsample_conditional_features=False,
+                 upsample_conditional_features=True,
                  upsample_net="ConvInUpsampleNetwork",
                  upsample_params={"upsample_scales": [4, 4, 4, 4]},
                  scalar_input=False,
@@ -393,6 +396,7 @@ class WaveNet(nn.Module):
                  cin_pad=0,
                  ):
         super(WaveNet, self).__init__()
+
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
@@ -428,6 +432,9 @@ class WaveNet(nn.Module):
         else:
             self.embed_speakers = None
 
+        upsample_params["cin_pad"] = cin_pad
+        upsample_params["cin_channels"] = cin_channels
+    
         # Upsample conv net
         if upsample_conditional_features:
             self.upsample_net = ConvInUpsampleNetwork(**upsample_params)
