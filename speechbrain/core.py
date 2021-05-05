@@ -672,8 +672,8 @@ class Brain:
             self.checkpointer is not None
             and ckpt_prefix is not None
             and (
-                isinstance(dataloader, SaveableDataLoader) or 
-                isinstance(dataloader, LoopedLoader)
+                isinstance(dataloader, SaveableDataLoader)
+                or isinstance(dataloader, LoopedLoader)
             )
         ):
             ckpt_key = ckpt_prefix + stage.name

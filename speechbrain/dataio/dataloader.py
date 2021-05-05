@@ -47,9 +47,11 @@ from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
 )
+
 # Optional support for webdataset
 try:
     import webdataset as wds
+
     WDS_AVAILABLE = True
 except ImportError:
     WDS_AVAILABLE = False
@@ -115,7 +117,11 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
         del loader_kwargs["shuffle"]
     # With WDS it is recommended to do batching in the dataset itself,
     # which requires batch_size = None in the DataLoader
-    if WDS_AVAILABLE and "batch_size" not in loader_kwargs:
+    if (
+        WDS_AVAILABLE
+        and isinstance(dataset, wds.dataset.Composable)
+        and "batch_size" not in loader_kwargs
+    ):
         loader_kwargs["batch_size"] = None
     # Create the loader
     if isinstance(dataset, IterableDataset):
@@ -253,7 +259,7 @@ class LoopedLoader:
     """Loops an underlying iterable indefinitely, with nominal epoch lengths
 
     This is useful for working with IterableDatasets, and particularly
-    webdataset-style loading. We recommend using ``.repeat()`` on the 
+    webdataset-style loading. We recommend using ``.repeat()`` on the
     webdataset IterableDataset instance, so that the underlying dataloader
     naturally continues for ever.
 
@@ -279,7 +285,7 @@ class LoopedLoader:
         return self
 
     def __next__(self):
-        if self.step < self.epoch_length: 
+        if self.step < self.epoch_length:
             self.step += 1
             self.total_steps += 1
             try:

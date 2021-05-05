@@ -10,18 +10,22 @@ from functools import partial
 from typing import Any
 from speechbrain.dataio.batch import PaddedBatch
 
+
 @dataclass(order=True)
 class LengthItem:
     length: int
-    data: Any=field(compare=False)
+    data: Any = field(compare=False)
+
 
 def total_length_with_padding(lengths):
     # How long would batch be (with padding)
-    return len(lengths)*max(lengths)
+    return len(lengths) * max(lengths)
+
 
 def padding_ratio(lengths):
     # How much of batch is padding:
-    return 1. - sum(lengths) / total_length_with_padding(lengths) 
+    return 1.0 - sum(lengths) / total_length_with_padding(lengths)
+
 
 @dataclass(order=True)
 class RatioIndex:
@@ -30,14 +34,14 @@ class RatioIndex:
 
 
 def indices_around_random_pivot(
-        databuffer,
-        target_batch_numel,
-        max_batch_size=None,
-        max_batch_numel=None,
-        max_padding_ratio=0.2,
-        randint_generator=random.randint
-    ):
-    """Random pivot sampler_fn for 
+    databuffer,
+    target_batch_numel,
+    max_batch_size=None,
+    max_batch_numel=None,
+    max_padding_ratio=0.2,
+    randint_generator=random.randint,
+):
+    """Random pivot sampler_fn for
 
     Create a batch around a random pivot index in the sorted buffer
 
@@ -55,29 +59,29 @@ def indices_around_random_pivot(
         Sorted list of LengthItems
     target_batch_numel : int
         Target of total batch length including padding, which is simply computed
-        as batch size * length of longest example. This function aims to return 
-        the batch as soon as the gathered length exceeds this. If some limits 
-        are encountered first, this may not be satisifed. 
+        as batch size * length of longest example. This function aims to return
+        the batch as soon as the gathered length exceeds this. If some limits
+        are encountered first, this may not be satisifed.
     max_batch_size : None, int
         Maximum number of examples to include in the batch, or None to not limit
         by number of examples.
     max_batch_numel : None, int
         Maximum of total batch length including padding, which is simply computed
         as batch size * length of longest example.
-    
+
     """
     bufferlen = len(databuffer)
     if max_batch_size is None:
         max_batch_size = bufferlen
     # Choose pivot:
-    min_index = max_index = randint_generator(0, bufferlen-1)
+    min_index = max_index = randint_generator(0, bufferlen - 1)
     lengths = [databuffer[min_index].length]
 
-    #Define index filtering function:
+    # Define index filtering function:
     def possibly_consider(index, to_consider):
         # Adds an index to the to_consider list,
         # if the index passes all requirements.
-        if index <0 or index >= len(databuffer):
+        if index < 0 or index >= len(databuffer):
             return
         consideree = databuffer[index]
         updated_lengths = [consideree.length] + lengths
@@ -91,13 +95,15 @@ def indices_around_random_pivot(
         to_consider.append(RatioIndex(updated_ratio, index))
 
     # Loop till the target length is exceeded or max batch size is hit:
-    while (max_index+1 - min_index < max_batch_size and
-            total_length_with_padding(lengths) < target_batch_numel):
+    while (
+        max_index + 1 - min_index < max_batch_size
+        and total_length_with_padding(lengths) < target_batch_numel
+    ):
         # Consider indices to the left and to the right, if they
         # pass the requirements:
         to_consider = []
-        possibly_consider(min_index-1, to_consider)
-        possibly_consider(max_index+1, to_consider)
+        possibly_consider(min_index - 1, to_consider)
+        possibly_consider(max_index + 1, to_consider)
         # If neither pass the requirements, then we must return the batch
         # as it is now (there can be no better addition):
         if not to_consider:
@@ -107,25 +113,26 @@ def indices_around_random_pivot(
         min_index = min(min_index, to_add.index)
         max_index = max(max_index, to_add.index)
         lengths.append(databuffer[to_add.index].length)
-    return list(range(min_index, max_index+1))
-    
+    return list(range(min_index, max_index + 1))
+
+
 def dynamic_bucketed_batch(
-        data, 
-        len_key=None,
-        len_fn=len, 
-        min_sample_len=None,
-        max_sample_len=None,
-        buffersize=1024,
-        collate_fn=PaddedBatch,
-        sampler_fn=indices_around_random_pivot,
-        sampler_kwargs={},
-        drop_end=False
-    ):
+    data,
+    len_key=None,
+    len_fn=len,
+    min_sample_len=None,
+    max_sample_len=None,
+    buffersize=1024,
+    collate_fn=PaddedBatch,
+    sampler_fn=indices_around_random_pivot,
+    sampler_kwargs={},
+    drop_end=False,
+):
     """Produce batches from a sorted buffer
 
     This function keeps a sorted buffer of the incoming samples.
     The samples can be filtered for min/max length.
-    An external sampler is used to choose samples for each batch, 
+    An external sampler is used to choose samples for each batch,
     which allows different dynamic batching algorithms to be used.
 
     Arguments
@@ -159,7 +166,7 @@ def dynamic_bucketed_batch(
     drop_end : bool
         After the data stream is exhausted, should batches be made until the data
         buffer is exhausted, or should the rest of the buffer be discarded. Without
-        new samples, the last batches might not be efficient to process. 
+        new samples, the last batches might not be efficient to process.
         Note: you can use ``.repeat`` on `webdataset` IterableDatasets to never
         run out of new samples, and then use
         `speechbrain.dataio.dataloader.LoopedLoader` to set a nominal epoch length.
@@ -178,8 +185,9 @@ def dynamic_bucketed_batch(
         else:
             raise ValueError("Must specify at least one of len_key or len_fn")
         # Possibly filter by length:
-        if ((min_sample_len is not None and length < min_sample_len) or 
-                (max_sample_len is not None and length > max_sample_len)):
+        if (min_sample_len is not None and length < min_sample_len) or (
+            max_sample_len is not None and length > max_sample_len
+        ):
             # Drop sample
             continue
         item = LengthItem(length, sample)
@@ -196,7 +204,7 @@ def dynamic_bucketed_batch(
                 item = databuffer.pop(i)
                 batch_list.append(item.data)
             yield collate_fn(batch_list)
-    # Data stream was exhausted. Data buffer is relatively full at first, 
+    # Data stream was exhausted. Data buffer is relatively full at first,
     # but cannot be replenished, so batches might not be efficiently produced.
     # Either stop, or exhaust buffer.
     if drop_end:
