@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """ runlike this
-# python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml	
+# python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml
 """
 
 import torch
@@ -12,12 +12,10 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.dataset import DynamicItemDataset
 from hyperpyyaml import load_hyperpyyaml
 import sys
-import os
 import logging
 from speechbrain.utils.distributed import run_on_main
 
 ###
-from model import Tacotron2 
 from textToSequence import text_to_sequence
 ##
 sys.path.append("..")
@@ -45,7 +43,7 @@ class Tacotron2Brain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        
+
         inputs, y, num_items = batch_to_gpu(batch)
         return criterion(predictions, y)
 
@@ -61,8 +59,8 @@ class Tacotron2Brain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-        
-        
+
+
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -71,24 +69,24 @@ class Tacotron2Brain(sb.Brain):
             stats = {
                 "loss": stage_loss,
             }
-        
+
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(stage_loss) #1#2#
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-        
+
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats( #1#2#
                 {"Epoch": epoch},
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
-        
+
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
-        
-        
+
+
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -119,7 +117,7 @@ def dataio_prepare(hparams):
 
     audio_toMel = transforms.MelSpectrogram(
 		sample_rate = hparams['sampling_rate'] ,
-		
+
 		hop_length = hparams['hop_length'] ,
 		win_length = hparams['win_length'] ,
 		n_fft=hparams['n_fft'],
@@ -140,7 +138,7 @@ def dataio_prepare(hparams):
         yield text_seq,mel,len_text
 
 		# set outputs
-    speechbrain.dataio.dataset.add_dynamic_item(datasets, audio_pipeline) 
+    speechbrain.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
     speechbrain.dataio.dataset.set_output_keys(
 				datasets, ["mel_text_pair"],
 			)
@@ -150,9 +148,9 @@ def dataio_prepare(hparams):
     test_data_loader = SaveableDataLoader(test_data, batch_size=hparams['batch_size'],collate_fn=TextMelCollate(),drop_last=True )
 
     return train_data_loader, valid_data_loader, test_data_loader
-    
 
-#some helper functoions 
+
+#some helper functoions
 def batch_to_gpu(batch):
     text_padded, input_lengths, mel_padded, gate_padded, \
         output_lengths, len_x = batch
@@ -173,8 +171,8 @@ def to_gpu(x):
     if torch.cuda.is_available():
         x = x.cuda(non_blocking=True)
     return x
-    
-    
+
+
  ############loss fucntion
 def criterion( model_output, targets):
    mel_target, gate_target = targets[0], targets[1]
@@ -188,8 +186,8 @@ def criterion( model_output, targets):
        torch.nn.MSELoss()(mel_out_postnet, mel_target)
    gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
    return mel_loss + gate_loss
-   
-   
+
+
 ### custome Collate function for the dataloader
 class TextMelCollate():
     """ Zero-pads model inputs and targets based on number of frames per setep
@@ -203,9 +201,9 @@ class TextMelCollate():
         ------
         batch: [text_normalized, mel_normalized]
         """
-        for i in range(len(batch)): #the pipline return a dictionary wiht one elemnent 
+        for i in range(len(batch)): #the pipline return a dictionary wiht one elemnent
             batch[i]=list(batch[i].values())[0]
-            
+
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
             torch.LongTensor([len(x[0]) for x in batch]),
@@ -249,9 +247,9 @@ if __name__ == "__main__":
     #########
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     #hparams_file="hparams.yaml"
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
+    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     #run_opts={"device ": device}
-    
+
     #############
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
@@ -300,7 +298,7 @@ if __name__ == "__main__":
         tacotron2_brain.hparams.epoch_counter,
         train_set,
         valid_set
-        
+
     )
 
     # Test
