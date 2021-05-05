@@ -1,4 +1,4 @@
-# CommonVoice ASR with CTC + Attention based Seq2Seq models.
+# CommonVoice ASR with Transducers.
 This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
 
 # How to run
