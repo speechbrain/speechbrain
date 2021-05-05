@@ -161,8 +161,8 @@ def dynamic_bucketed_batch(
         buffer is exhausted, or should the rest of the buffer be discarded. Without
         new samples, the last batches might not be efficient to process. 
         Note: you can use ``.repeat`` on `webdataset` IterableDatasets to never
-        run out of new samples, and then use webdataset.dataset.ResizedDataset
-        to set nominal epoch lengths.
+        run out of new samples, and then use
+        `speechbrain.dataio.dataloader.LoopedLoader` to set a nominal epoch length.
     """
     databuffer = []
     if sampler_kwargs:

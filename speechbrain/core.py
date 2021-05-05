@@ -30,6 +30,7 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
@@ -670,7 +671,10 @@ class Brain:
         if (
             self.checkpointer is not None
             and ckpt_prefix is not None
-            and isinstance(dataloader, SaveableDataLoader)
+            and (
+                isinstance(dataloader, SaveableDataLoader) or 
+                isinstance(dataloader, LoopedLoader)
+            )
         ):
             ckpt_key = ckpt_prefix + stage.name
             self.checkpointer.add_recoverable(ckpt_key, dataloader)
