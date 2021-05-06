@@ -181,3 +181,70 @@ class PaddedBatch:
         """Fetch an item by its position in the batch."""
         key = self.__keys[pos]
         return getattr(self, key)
+
+    @property
+    def batchsize(self):
+        return self.__length
+
+
+class BatchsizeGuesser:
+    """Try to figure out the batchsize, but never error out
+
+    Example
+    -------
+    >>> guesser = BatchsizeGuesser()
+    >>> guesser(torch.randn((2,3)))
+    2
+    >>> # Works with PaddedBatch:
+    >>> guesser(PaddedBatch([{"wav": [1.,2.,3.]}, {"wav": [4.,5.,6.]}]))
+    2
+    >>> guesser("Even weird non-batches have a fallback")
+    1
+
+    """
+
+    def __init__(self):
+        self.method = None
+
+    def __call__(self, batch):
+        try:
+            return self.method(batch)
+        except TypeError:
+            return self.find_suitable_method(batch)
+
+    def find_suitable_method(self, batch):
+        """Try the different methods and note which worked"""
+        try:
+            bs = self.attr_based(batch)
+            self.method = self.attr_based
+            return bs
+        except:  # noqa: E722
+            pass
+        try:
+            bs = self.len_of_first(batch)
+            self.method = self.len_of_first
+            return bs
+        except:  # noqa: E722
+            pass
+        try:
+            bs = self.len_of_iter_first(batch)
+            self.method = self.len_of_iter_first
+            return bs
+        except:  # noqa: E722
+            pass
+        # Last ditch fallback:
+        bs = self.fallback(batch)
+        self.method = self.fallback(batch)
+        return bs
+
+    def attr_based(self, batch):
+        return batch.batchsize
+
+    def len_of_first(self, batch):
+        return len(batch[0])
+
+    def len_of_iter_first(self, batch):
+        return len(next(iter(batch)))
+
+    def fallback(self, batch):
+        return 1
