@@ -57,9 +57,9 @@ class DNN(torch.nn.Sequential):
             [type]: [description]
         """
         pass
-        N, T, F = x.size()
         if x.dim() == 4:
             x = x.squeeze()       # [N,1,T,F] to [N, T, F]
+        N, T, F = x.size()
 
         # N, T, F = x.size()
 
