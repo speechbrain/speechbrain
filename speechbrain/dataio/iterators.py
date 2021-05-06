@@ -41,7 +41,7 @@ def indices_around_random_pivot(
     max_padding_ratio=0.2,
     randint_generator=random.randint,
 ):
-    """Random pivot sampler_fn for
+    """Random pivot sampler_fn for dynamic_bucketed_batch
 
     Create a batch around a random pivot index in the sorted buffer
 

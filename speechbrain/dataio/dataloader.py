@@ -39,7 +39,7 @@ from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
-from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.dataio.batch import PaddedBatch, BatchsizeGuesser
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
 from speechbrain.utils.checkpoints import (
@@ -272,12 +272,15 @@ class LoopedLoader:
         StopIteration
     """
 
-    def __init__(self, loader, epoch_length):
+    def __init__(self, loader, epoch_length, batchsize_fn=None):
         self.loader = loader
         self.iterator = None
         self.epoch_length = epoch_length
         self.step = 0  # Step in epoch
         self.total_steps = 0  # Total steps ever
+        self.total_samples = 0  # Total samples seen on this process
+        if batchsize_fn is None:
+            self.batchisize_fn = BatchsizeGuesser()
 
     def __iter__(self):
         if self.iterator is None:
@@ -289,11 +292,12 @@ class LoopedLoader:
             self.step += 1
             self.total_steps += 1
             try:
-                sample = next(self.iterator)
+                batch = next(self.iterator)
             except StopIteration:
                 self.iterator = iter(self.loader)
-                sample = next(self.iterator)
-            return sample
+                batch = next(self.iterator)
+            self.total_samples += self.batchsize_fn(batch)
+            return batch
         else:
             self.step = 0
             raise StopIteration
