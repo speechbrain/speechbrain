@@ -38,7 +38,7 @@ skip_prep: False
 
 # Training Parameters
 number_of_epochs: 50
-N_batch: 8
+N_batch: 4
 lr: 0.0001
 sorting: ascending
 dataloader_options:
