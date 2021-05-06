@@ -1,0 +1,45 @@
+# ################################
+# Model: Skip connection modules for dense skip scale and NormLayer
+# Authors:  Sreeramadas Sai Aravind & Émile Dimas & Nicolas Duchêne 2021
+# ################################
+dnn_neurons: 512
+n_fft: 257
+
+skip_0: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <dnn_neurons>]
+    se_skip_conn: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <dnn_neurons>]
+        '1': !new:CoopNet.ScaleLayer
+        '2': !new:CoopNet.ScaleLayer
+    asr_skip_conn: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <dnn_neurons>]
+        '1': !new:CoopNet.ScaleLayer
+        '2': !new:CoopNet.ScaleLayer
+
+skip_1: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <dnn_neurons>]
+    se_skip_conn: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <dnn_neurons>]
+        '2': !new:CoopNet.ScaleLayer
+    asr_skip_conn: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <dnn_neurons>]
+        '2': !new:CoopNet.ScaleLayer
+    norm_asr: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <dnn_neurons>]
+        norm: !name:speechbrain.nnet.normalization.LayerNorm
+            input_shape: !ref <dnn_neurons>
+    norm_se: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        norm: !name:speechbrain.nnet.normalization.LayerNorm
+            input_shape: !ref <n_fft> // 2 + 1
+
+skip_2: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <dnn_neurons>]
+    norm_asr: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <dnn_neurons>]
+        norm: !name:speechbrain.nnet.normalization.LayerNorm
+            input_shape: !ref <dnn_neurons>
+    norm_se: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        norm: !name:speechbrain.nnet.normalization.LayerNorm
+            input_shape: !ref <n_fft> // 2 + 1
