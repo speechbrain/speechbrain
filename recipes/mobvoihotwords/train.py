@@ -76,8 +76,8 @@ class SpeakerBrain(sb.core.Brain):
         # print("outputs.size():{}".format(outputs.size()))
 
         # Ecapa model uses softmax outside of its classifer
-        # if "softmax" in self.modules.keys():
-        #     outputs = self.modules.softmax(outputs)
+        if "softmax" in self.modules.keys():
+            outputs = self.modules.softmax(outputs)
 
         return outputs, lens
 
