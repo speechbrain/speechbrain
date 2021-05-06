@@ -5,7 +5,7 @@ with the VoiceBank dataset.
 !!Add downloading instructions!!
 
 # How to run
-python train.py train/train.yaml
+python train.py hparams/train.yaml --data_parallel_backend
 
 # Results
 
