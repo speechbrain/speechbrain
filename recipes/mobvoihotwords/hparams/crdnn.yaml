@@ -87,12 +87,8 @@ embedding_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_channels: [32, 64]
     dnn_neurons: 128
 
-classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-    input_shape: [null, null, 128]
-    activation: !name:torch.nn.LeakyReLU
-    lin_blocks: 1
-    lin_neurons: 128
-    out_neurons: !ref <out_n_neurons>
+classifier: !new:models.DNN.DNN
+    output_sizeL !ref <out_n_neurons>
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
