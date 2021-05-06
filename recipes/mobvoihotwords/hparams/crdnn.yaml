@@ -163,7 +163,6 @@ modules:
     add_rev_noise: !ref <add_rev_noise>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
-    softmax: !ref <softmax>
     mean_var_norm: !ref <mean_var_norm>
 
 
