@@ -11,7 +11,7 @@
 seed: 4234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-data_folder: /localscratch/noisy-vctk-16k
+data_folder: /home/work/corpus/se/voicebank1/noisy-vctk-16k
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 output_folder: !ref ./results/spectral_mask/<seed>
