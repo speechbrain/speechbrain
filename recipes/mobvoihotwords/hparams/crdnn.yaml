@@ -84,14 +84,14 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 
 embedding_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_size: !ref <n_mels>
-    cnn_channels: [64, 128]
-    dnn_neurons: 256
+    cnn_channels: [32, 64]
+    dnn_neurons: 128
 
 classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-    input_shape: [null, null, 256]
+    input_shape: [null, null, 128]
     activation: !name:torch.nn.LeakyReLU
     lin_blocks: 1
-    lin_neurons: 256
+    lin_neurons: 128
     out_neurons: !ref <out_n_neurons>
 
 softmax: !new:speechbrain.nnet.activations.Softmax
