@@ -1,0 +1,38 @@
+# Automatically publish to PyPI when a GitHub release is published
+name: Publish to PyPI
+
+# Run this action when a release is published
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+
+# Updates version.txt, builds, and pushes to PyPI
+jobs:
+  release:
+    name: Builds and publishes to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: main
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - uses: battila7/get-version-action@v2
+      - name: Update version.txt
+        run: |
+          echo ${{ steps.get_version.outputs.version-without-v }} > speechbrain/version.txt
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add speechbrain/version.txt
+          git commit -m 'Auto-update version.txt'
+          git push
+      - name: Install pypa/build
+        run: python -m pip install build --user
+      - name: Build binary wheel and source tarball
+        run: python -m build --sdist --wheel --outdir dist/
+      - name: Publish to PyPI
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_KEY }}

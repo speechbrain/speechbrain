@@ -1,0 +1,20 @@
+name: "Draft release when pushing to main"
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - "main"
+
+jobs:
+  pre-release:
+    name: "Draft release"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: "marvinpinto/action-automatic-releases@v1.1.2"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          draft: True
+          prerelease: False
+          title: "Change this to vX.Y.Z"
