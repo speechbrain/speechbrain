@@ -84,6 +84,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 
 embedding_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_size: !ref <n_mels>
+    cnn_channels: [64, 128]
 
 classifier: !new:speechbrain.lobes.models.Xvector.Classifier
     input_shape: [null, null, 512]
