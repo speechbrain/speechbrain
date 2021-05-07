@@ -89,7 +89,7 @@ class HuggingFaceBertToknizer:
         )
 
     def batch_encode(self, batch):
-        """Encoding of a batch of strings to the Bert Expected ouput
+        """Encoding of a batch of strings to the Bert Expected input
 
         Arguments
         ---------
@@ -111,5 +111,29 @@ class HuggingFaceBertToknizer:
         # Bert based models only process sequences of length 512
         input_ids = [t[: min(len(t), 512)] for t in input_ids]
         attention_mask = [t[: min(len(t), 512)] for t in attention_mask]
+
+        return input_ids, attention_mask
+
+    def encode(self, transcript):
+        """Encoding of a batch of strings to the Bert Expected input
+
+        Arguments
+        ---------
+
+        Batch : List(str)
+            Batch of strings to be tokenize
+        save_path : str
+            Path (dir) of the downloaded model.
+
+        Returns
+        -------
+        (inputs,attention_mask)
+            return input token Ids and the attention mask
+        """
+        input_ids = self.tokenizer.encode(transcript)
+
+        # Bert based models only process sequences of length 512
+        input_ids = input_ids[: min(len(input_ids), 512)]
+        attention_mask = [1] * len(input_ids)
 
         return input_ids, attention_mask
