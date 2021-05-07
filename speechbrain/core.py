@@ -213,6 +213,12 @@ def parse_arguments(arg_list):
         help="One of {nccl, gloo, mpi}",
     )
     parser.add_argument(
+        "--find_unused_parameters",
+        default=False,
+        action="store_true",
+        help="This flag disable unused parameters detection",
+    )
+    parser.add_argument(
         "--jit_module_keys",
         type=str,
         nargs="*",
@@ -416,6 +422,7 @@ class Brain:
             "data_parallel_backend": False,
             "distributed_launch": False,
             "distributed_backend": "nccl",
+            "find_unused_parameters": False,
             "jit_module_keys": None,
             "auto_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -1078,12 +1085,11 @@ class Brain:
         elif self.distributed_launch:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
-                    # for ddp, all module must run on same GPU
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
                     module = DDP(
                         module,
                         device_ids=[self.device],
-                        find_unused_parameters=True,
+                        find_unused_parameters=self.find_unused_parameters,
                     )
                     self.modules[name] = module
         else:
