@@ -88,8 +88,8 @@ ckpt_frequency: 100
 progress_samples: true
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 100
-overfit_test: true
-overfit_test_iterations: 5
+overfit_test: false
+overfit_test_iterations: 1
 train_data_path: ../datasets/testdata/fake_vctk_1ex
 valid_data_path: ../datasets/testdata/fake_vctk_1ex
 save_for_pretrained: true
