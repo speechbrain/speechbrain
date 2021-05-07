@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    hparams["asr_model"].cuda()
+    hparams["asr_model"].to(run_opts["device"])
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol

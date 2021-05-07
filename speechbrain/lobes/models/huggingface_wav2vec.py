@@ -132,14 +132,13 @@ class HuggingFaceWav2Vec2(nn.Module):
 
 class HuggingFaceWav2Vec2ForCTC(nn.Module):
     """This lobe enables the integration of HuggingFace
-    pretrained wav2vec2.0 with ASR heads.
+    pretrained wav2vec2.0 with ASR head.
 
     Source paper: https://arxiv.org/abs/2006.11477
     Transformer from HuggingFace needs to be installed:
     https://huggingface.co/transformers/installation.html
 
-    The model can be used as a fixed feature extractor or can be finetuned. It
-    will download automatically the model from HuggingFace.
+    It will download automatically the model from HuggingFace.
 
     Arguments
     ---------
@@ -173,6 +172,11 @@ class HuggingFaceWav2Vec2ForCTC(nn.Module):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        asr_tokens :  torch.Tensor
+            Wav2vec ASR tokens corresponding to a wav
         """
 
         if self.normalize_wav:
