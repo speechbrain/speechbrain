@@ -27,7 +27,7 @@ sys.path.append("..")
 import torchvision
 import torchaudio
 from datasets.vctk import VCTK
-from common.dataio import dataio_prep, mulaw_quantize, inv_mulaw_quantize
+from common.dataio_wavenet import dataio_prep, mulaw_quantize, inv_mulaw_quantize
 
 
 class WavenetBrain(sb.core.Brain):

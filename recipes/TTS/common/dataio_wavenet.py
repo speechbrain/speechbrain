@@ -6,9 +6,7 @@ import torch
 import numpy as np
 from torch.nn import functional as F
 from datasets.vctk import VCTK
-from datasets.lj import LJ
 from speechbrain.dataio.encoder import CategoricalEncoder
-
 from speechbrain.dataio.dataset import DynamicItemDataset
 
 
@@ -440,15 +438,9 @@ def dataio_prep(hparams):
     """
     Prepares a dict of the dataset for training with SpeechBrain
     """
-
-    dataset_type = hparams["dataset_type"]
     result = {}
     for name, dataset_params in hparams['datasets'].items():
-        # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
-        if dataset_type == "vctk":
-            dataset = VCTK(dataset_params['path']).to_dataset()
-        elif dataset_type == "lj":
-            dataset = LJ(dataset_params["path"]).to_dataset()
+        dataset = VCTK(dataset_params['path']).to_dataset()
         result[name] = dataset_prep(dataset,hparams)
     
     return result

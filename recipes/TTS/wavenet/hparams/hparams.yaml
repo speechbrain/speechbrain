@@ -51,7 +51,7 @@ upsample_params:
   cin_pad: !ref <cin_pad>
   cin_channels: !ref <cin_channels>
 
-model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
+model: !new:speechbrain.lobes.models.synthesis.wavenet.model.WaveNet
   out_channels: !ref <quantize_channels>
   layers: !ref <layers>
   stacks: !ref <stacks>
@@ -69,7 +69,7 @@ model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
 modules:
     model: !ref <model>
 
-compute_cost: !new:speechbrain.lobes.models.wavenet.model.Loss
+compute_cost: !new:speechbrain.lobes.models.synthesis.wavenet.model.Loss
 
 lr: 0.002
 lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
@@ -90,9 +90,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
 
-dataset_type: "vctk"
-train_data_path: datasets/VCTK-Corpus-1speaker-1
-valid_data_path: datasets/validdata/fake_vctk_1ex
+train_data_path: ../datasets/mockdata/fake_vctk_1ex/
+valid_data_path: ../datasets/mockdata/fake_vctk_1ex/
 
 datasets:
   train:
