@@ -8,6 +8,28 @@ Authors
 * Ryuichi Yamamoto 2021 (original R9Y9 model)
 """
 
+# Given below is the copyright notice and license from the R9Y9 model,
+# which must be included in all derivative works.
+
+# Copyright (c) 2017: Ryuichi Yamamoto.
+
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
 
 
 import dataclasses
@@ -48,20 +70,20 @@ class WeightNorm(nn.Module):
             (self.std_mul * (1.0 - self.dropout)) / (self.inner.conv.kernel_size[0] * self.inner.conv.in_channels))
         self.inner.conv.weight.data.normal_(mean=0, std=std)
         self.inner.conv.bias.data.zero_()
-    
+
     def forward(self, *args, **kwargs):
         """
         Computes the forward pass. The arguments are the same
         as those to CNN.Conv1d
         """
-        return self.inner.forward(*args, **kwargs)        
+        return self.inner.forward(*args, **kwargs)
 
     def incremental_forward(self, *args, **kwargs):
         """
         Computes the forward pass as part of an incremental
         pass
         """
-        return self.inner.incremental_forward(*args, **kwargs)        
+        return self.inner.incremental_forward(*args, **kwargs)
 
 
 class IncrementalConv1d(CNN.Conv1d):
@@ -132,7 +154,7 @@ class IncrementalConv1d(CNN.Conv1d):
         """
         Clears linearized weights
         """
-        self._linearized_weight = None        
+        self._linearized_weight = None
 
 
 
@@ -176,7 +198,7 @@ class EdgeConvBlock(nn.Module):
         x: torch.Tensor
             the input tensor
         speaker_embed: torch.Tensor
-            speaker embedding - not used, provided mainly to 
+            speaker embedding - not used, provided mainly to
             make various convolutional blocks interchangeable
 
         Returns
@@ -196,7 +218,7 @@ class EdgeConvBlock(nn.Module):
         x: torch.Tensor
             the input tensor
         speaker_embed: torch.Tensor
-            speaker embedding - not used, provided mainly to 
+            speaker embedding - not used, provided mainly to
             make various convolutional blocks interchangeable
 
         Returns
@@ -219,12 +241,12 @@ class TransposeConvBlock(nn.Module):
     A transposed convolution block
     """
     def __init__(
-            self, 
+            self,
             dropout: float=0.,
             std_mul: float=1., *args, **kwargs):
         """
         Class constructor
-        
+
         Arguments
         ---------
         dropout
@@ -237,7 +259,7 @@ class TransposeConvBlock(nn.Module):
             inner=CNN.TransposeConv1d(
                 skip_transpose=True, *args, **kwargs),
             std_mul=std_mul,
-            dropout=dropout)        
+            dropout=dropout)
 
     def forward(self, x, speaker_embed=None):
         """
@@ -248,7 +270,7 @@ class TransposeConvBlock(nn.Module):
         x: torch.Tensor
             the input tensor
         speaker_embed: torch.Tensor
-            speaker embedding - not used, provided mainly to 
+            speaker embedding - not used, provided mainly to
             make various convolutional blocks interchangeable
 
         Returns
@@ -269,7 +291,7 @@ class TransposeConvBlock(nn.Module):
         x: torch.Tensor
             the input tensor
         speaker_embed: torch.Tensor
-            speaker embedding - not used, provided mainly to 
+            speaker embedding - not used, provided mainly to
             make various convolutional blocks interchangeable
 
         Returns
@@ -353,7 +375,7 @@ class ConvBlock(nn.Module):
         if padding is None:
             padding_raw = get_padding(causal, kernel_size, dilation)
 
-        self.conv = WeightNorm(            
+        self.conv = WeightNorm(
             inner=IncrementalConv1d(
                 skip_transpose=True,
                 in_channels=in_channels,
@@ -379,7 +401,7 @@ class ConvBlock(nn.Module):
         self.conv.bias.data.zero_()
 
     def forward(self, x, speaker_embed=None):
-        return self._forward(x, speaker_embed, False)    
+        return self._forward(x, speaker_embed, False)
 
     def incremental_forward(self, x, speaker_embed=None):
         return self._forward(x, speaker_embed, True)
@@ -454,7 +476,7 @@ class SinusoidalEncoding(nn.Embedding):
     def forward(self, x, w=1.0):
         """
         Computes the forward pass
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -509,7 +531,7 @@ class GradMultiply(torch.autograd.Function):
         ctx.mark_shared_storage((x, res))
         return res
 
-    @staticmethod    
+    @staticmethod
     def backward(ctx, grad):
         """
         Computes the forward pass
@@ -523,7 +545,7 @@ class GradMultiply(torch.autograd.Function):
         -------
         result: tuple
             (gradient multipled by the scaling forward, None)
-        """        
+        """
         return grad * ctx.scale, None
 
 
@@ -560,12 +582,12 @@ def Embedding(num_embeddings, embedding_dim, padding_idx=None, std=0.01):
 
 def get_mask_from_lengths(memory, memory_lengths):
     """Get mask tensor from list of length
-    
+
     Arguments
     ---------
     memory: tuple
         (batch, max_time, dim)
-    
+
     memory_lengths: array-like
         The length of the memory cell
     """
@@ -700,7 +722,7 @@ class AttentionLayer(nn.Module):
         the dropout rate
     window_ahead: int
         the size of the window to look ahead in the sequence
-    window_backward: int 
+    window_backward: int
         the size of the window to look behind
     key_projection: bool
         whether to use key projections
@@ -734,7 +756,7 @@ class AttentionLayer(nn.Module):
     def forward(self, query, encoder_out, mask=None, last_attended=None):
         """
         Performs a forward step
-        
+
         Arguments
         ---------
         query: torch.Tensor
@@ -745,12 +767,12 @@ class AttentionLayer(nn.Module):
             The mask tensor to be used
         last_attended: torch.Tensor
             The last attended steps
-        
+
         Returns
         -------
         result: tuple
-            A tuple of (x, attn_scores) where x is the 
-            result of applying attention and attn_scores is the 
+            A tuple of (x, attn_scores) where x is the
+            result of applying attention and attn_scores is the
             individual attentions cores
         """
         keys, values = encoder_out
@@ -804,7 +826,7 @@ class AttentionLayer(nn.Module):
 class Decoder(nn.Module):
     """
     The decoder block
-    
+
     embed_dim: int
         The embedding dimension
     use_speaker_embed: bool
@@ -884,7 +906,7 @@ class Decoder(nn.Module):
         self.max_decoder_steps = 200
         self.min_decoder_steps = 20
         self.use_memory_mask = use_memory_mask
-        
+
         if isinstance(force_monotonic_attention, bool):
             self.force_monotonic_attention = [force_monotonic_attention] * len(convolutions)
         else:
@@ -966,7 +988,7 @@ class Decoder(nn.Module):
 
         # Prenet
         for f in self.preattention:
-            x = f(x, speaker_embed_btc) 
+            x = f(x, speaker_embed_btc)
         # Casual convolutions + Multi-hop attentions
         alignments = []
         for f, attention in zip(self.convolutions, self.attention):
@@ -981,11 +1003,11 @@ class Decoder(nn.Module):
                 x = x if frame_positions is None else x + frame_pos_embed
                 x, alignment = attention(x, (keys, values), mask=mask)
                 # (T x B x C)
-                x = x.transpose(1, 2)                
+                x = x.transpose(1, 2)
                 alignments += [alignment]
 
             if isinstance(f, ConvBlock):
-                x = (x + residual) * math.sqrt(0.5)            
+                x = (x + residual) * math.sqrt(0.5)
 
         # decoder state (B x T x C):
         # internal representation before compressed to output dimention
@@ -1029,7 +1051,7 @@ class Decoder(nn.Module):
         result: tuple
             A tuple of Torch tensors: (outputs, alignments, done, decoder_states)
 
-        """                            
+        """
         keys, values = encoder_out
         B = keys.size(0)
 
@@ -1141,7 +1163,7 @@ class Decoder(nn.Module):
 
     def start_fresh_sequence(self):
         """
-        Starts a fresh sequence - used when 
+        Starts a fresh sequence - used when
         """
         _clear_modules(self.preattention)
         _clear_modules(self.convolutions)
@@ -1197,7 +1219,7 @@ class Converter(nn.Module):
     def forward(self, x, speaker_embed=None):
         """
         Computes the forward pass
-        
+
         Arguments
         ---------
         x
@@ -1217,7 +1239,7 @@ class Converter(nn.Module):
         x = x.transpose(1, 2)
         for f in self.convolutions:
             # Case for upsampling
-            if (speaker_embed_btc is not None 
+            if (speaker_embed_btc is not None
                 and speaker_embed_btc.size(1) != x.size(-1)):
                 speaker_embed_btc = expand_speaker_embed(
                     x, speaker_embed, tdim=-1)
@@ -1247,8 +1269,6 @@ class TTSModel(nn.Module):
         whether to use epeaker embeddings
     speaker_embed_dim: int
         the dimension of speaker embeddings
-    trainable_positional_encodings: bool
-        whether positional encodings should be trainable
     speaker_embedding_weight_std: float
         the standard deviations
     embed_speakers: nn.Module
@@ -1261,16 +1281,14 @@ class TTSModel(nn.Module):
     def __init__(self, seq2seq, postnet,
                  mel_dim=80, linear_dim=513,
                  use_speaker_embed=False, speaker_embed_dim=16,
-                 trainable_positional_encodings=False,
                  use_decoder_state_for_postnet_input=False,
                  embed_speakers=None,
                  freeze_embedding=False):
         super().__init__()
         self.seq2seq = seq2seq
-        self.postnet = postnet  
+        self.postnet = postnet
         self.mel_dim = mel_dim
         self.linear_dim = linear_dim
-        self.trainable_positional_encodings = trainable_positional_encodings
         self.use_decoder_state_for_postnet_input = use_decoder_state_for_postnet_input
         self.freeze_embedding = freeze_embedding
 
@@ -1279,25 +1297,6 @@ class TTSModel(nn.Module):
         self.use_speaker_embed = use_speaker_embed
         self.speaker_embed_dim = speaker_embed_dim
 
-    def get_trainable_parameters(self):
-        """
-        Returns an array of trainable parameters (ones that should not be frozen)
-        """
-        frozen_param_ids = set()
-
-        encoder, decoder = self.seq2seq.encoder, self.seq2seq.decoder
-
-        # Avoid updating the position encoding
-        if not self.trainable_positional_encodings:
-            pe_query_param_ids = set(map(id, decoder.embed_query_positions.parameters()))
-            pe_keys_param_ids = set(map(id, decoder.embed_keys_positions.parameters()))
-            frozen_param_ids |= (pe_query_param_ids | pe_keys_param_ids)
-        # Avoid updating the text embedding
-        if self.freeze_embedding:
-            embed_param_ids = set(map(id, encoder.embed_tokens.parameters()))
-            frozen_param_ids |= embed_param_ids
-
-        return (p for p in self.parameters() if id(p) not in frozen_param_ids)
 
     def forward(self, text_sequences, mel_targets=None, speaker_ids=None,
                 text_positions=None, frame_positions=None, input_lengths=None,
@@ -1332,7 +1331,7 @@ class TTSModel(nn.Module):
                 speaker_embed = self.embed_speakers(speaker_ids)
             else:
                 speaker_embed = None
-        
+
         assert not self.use_speaker_embed or speaker_embed is not None
 
         # Apply seq2seq
@@ -1362,7 +1361,7 @@ class TTSModel(nn.Module):
 
 class AttentionSeq2Seq(nn.Module):
     """Encoder + Decoder with attention
-    
+
     Arguments
     ---------
     encoder: Encoder
@@ -1390,10 +1389,10 @@ class AttentionSeq2Seq(nn.Module):
         text_sequences: torch.Tensor
             the original text sequences with each character, word or phoneme
             encoded as an integer
-        
+
         mel_targets: torch.Tensor
             the MEL spectrogram targets - optional (provided during training only)
-        
+
         speaker_embed: torch.Tensor
             the speaker embeddings (optional)
 
@@ -1404,7 +1403,7 @@ class AttentionSeq2Seq(nn.Module):
 
         frame_positions: torch.Tensor
             similar to text_positions but for spectrogram frames
-        
+
         input_lengths: torch.Tensor
             a single-dimensional tensor in which each position indicates
             the length of the sample
@@ -1440,7 +1439,7 @@ class LossStats:
     linear_binary_div: torch.Tensor
     done_loss: torch.Tensor
     attn_loss: torch.Tensor = None
-    
+
     def as_scalar(self):
         """
         Converts the loss tensors to scalars and returns them
@@ -1506,7 +1505,7 @@ class Loss(nn.Module):
     def forward(self, input, target):
         """
         Computes the losses
-        
+
         inputs : tuple
             A tuple of (MEL input, linear input, attention, done, target lengths)
             The *input* to the loss is the *output* of the model
@@ -1523,7 +1522,7 @@ class Loss(nn.Module):
         target_mel, target_linear, target_done, target_lengths = target
 
         decoder_target_mask, target_mask = self.compute_masks(
-            target_linear, target_mel, target_lengths)               
+            target_linear, target_mel, target_lengths)
 
         mel_loss, mel_l1_loss, mel_binary_div = self.mel_loss(
             input_mel, target_mel, decoder_target_mask)
@@ -1531,7 +1530,7 @@ class Loss(nn.Module):
 
         linear_loss, linear_l1_loss, linear_binary_div = self.linear_loss(
             input_linear, target_linear, target_mask)
-        
+
         decoder_lengths = (
             target_lengths.long()
             // self.outputs_per_step
@@ -1551,7 +1550,7 @@ class Loss(nn.Module):
             linear_l1_loss=linear_l1_loss,
             linear_binary_div=linear_binary_div,
             done_loss=done_loss,
-            attn_loss=attn_loss   
+            attn_loss=attn_loss
         )
         return loss_stats
 
@@ -1577,7 +1576,7 @@ class Loss(nn.Module):
             target_lengths // (self.outputs_per_step * self.downsample_step),
             max_len=target_mel.size(1),
             device=target_mel.device).unsqueeze(-1)
-        
+
         if self.downsample_step > 1:
             # spectrogram-domain mask
             target_mask = self.sequence_mask(
@@ -1585,7 +1584,7 @@ class Loss(nn.Module):
                 device=target_lengths.device).unsqueeze(-1)
         else:
             target_mask = decoder_target_mask
-        
+
         decoder_target_mask = decoder_target_mask[:, self.outputs_per_step:, :]
         target_mask = target_mask[:, self.outputs_per_step:, :]
         return decoder_target_mask, target_mask
@@ -1639,33 +1638,33 @@ class Loss(nn.Module):
         -------
         losses: tuple
             A tuple of (linear_loss, linear_l1_loss,
-            linear_binary_div) - linear MEL loss, linear L1 loss, 
+            linear_binary_div) - linear MEL loss, linear L1 loss,
             linear binary divergence
 
         """
-        n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5) 
+        n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5)
                               * self.linear_dim)
 
         linear_l1_loss, linear_binary_div = self.spec_loss(
-            input_linear[:, :-self.outputs_per_step, :], 
-            target_linear[:, self.outputs_per_step:, :], 
+            input_linear[:, :-self.outputs_per_step, :],
+            target_linear[:, self.outputs_per_step:, :],
             target_mask,
             priority_bin=n_priority_freq,
             priority_w=self.priority_freq_weight,
             masked_loss_weight=self.masked_loss_weight,
             binary_divergence_weight=self.binary_divergence_weight)
         linear_loss = (
-            (1 - self.binary_divergence_weight) * linear_l1_loss 
+            (1 - self.binary_divergence_weight) * linear_l1_loss
              + self.binary_divergence_weight * linear_binary_div)
         return linear_loss, linear_l1_loss, linear_binary_div
-        
+
 
     def spec_loss(self, y_hat, y, mask, priority_bin=None,
                   priority_w=0, masked_loss_weight=0.,
                   binary_divergence_weight=0.):
         """
         Computes the DeepVoice3 mask spectrogram loss
-        
+
         Arguments
         ---------
         y_hat: torch.Tensor
@@ -1746,7 +1745,7 @@ class Loss(nn.Module):
     def guided_attention(self, N, max_N, T, max_T, g):
         """
         Computes a single guided attention matrix for a single sample
-        
+
         Arguments
         ---------
         N: int
@@ -1768,7 +1767,7 @@ class Loss(nn.Module):
         """
         W = torch.zeros((max_N, max_T)).float()
         n, t = torch.meshgrid(
-            torch.arange(N).to(N.device), 
+            torch.arange(N).to(N.device),
             torch.arange(T).to(N.device))
         value = 1. - torch.exp(-(n / N - t / T) ** 2 / (2 * g * g))
         return value
@@ -1788,7 +1787,7 @@ class Loss(nn.Module):
             The maximum target length
         g: float
             The attention weight
-        
+
         Returns
         -------
         W: torch.Tensor
@@ -1821,7 +1820,7 @@ def logit(x, eps=1e-8):
         The input
     eps: float
         The epsilon value
-    
+
     Returns
     -------
     result: torch.Tensor
@@ -1877,11 +1876,11 @@ class MaskedL1Loss(nn.Module):
             the lengths will be computed if omitted)
         max_len: torch.Tensor
             The maximum length
-        
+
         Returns
         -------
         result: torch.Tensor
-            the masked L1 loss                   
+            the masked L1 loss
         """
         if lengths is None and mask is None:
             raise RuntimeError("Should provide either lengths or mask")
