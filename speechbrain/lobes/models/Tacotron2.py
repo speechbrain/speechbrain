@@ -1,12 +1,3 @@
-"""
-Neural network modules for the Tacotron2 end-to-end neural
-Text-to-Speech (TTS) model
-
-Authors
-* Georges Abous-Rjeili 2020
-"""
-
-
 ###https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
@@ -40,7 +31,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-
+#################
+#defining some helper classes
 class LinearNorm(torch.nn.Module):
     def __init__(self, in_dim, out_dim, bias=True, w_init_gain='linear'):
         super(LinearNorm, self).__init__()
@@ -73,7 +65,7 @@ class ConvNorm(torch.nn.Module):
 
     def forward(self, signal):
         return self.conv(signal)
-
+###############
 
 
 class LocationLayer(nn.Module):
@@ -636,6 +628,57 @@ class Tacotron2(nn.Module):
                  p_attention_dropout, p_decoder_dropout,
                  postnet_embedding_dim, postnet_kernel_size,
                  postnet_n_convolutions, decoder_no_early_stopping):
+        """ Tactron2 object
+        Simplified STRUCTURE: input->word embedding ->encoder ->attention \
+        ->decoder(+prenet) -> postnet ->output
+        
+        prenet(input is decoder previous time step) output is input to decoder
+        concatenanted with the attention output
+        
+        PARAMS
+        ------
+        mask_padding: (bool) whether or not to mask pad-outputs of tacotron
+        
+        #mel generation parameter in data io
+        n_mel_channels: (int) number of mel channels for constructing spectrogram
+        
+        #symbols
+        n_symbols:(int=128) number of accepted char symbols defined in textToSequence 
+        symbols_embedding_dim: (int) number of embeding dimension for symbols fed to nn.Embedding
+        
+        # Encoder parameters
+        encoder_kernel_size:(int) size of kernel processing the embeddings
+        encoder_n_convolutions:(int) number of convolution layers in encoder
+        encoder_embedding_dim:(int) number of kernels in encoder, this is also the dimension
+        of the bidirectional LSTM in the encoder
+        
+        # Attention parameters
+        attention_rnn_dim:(int) input dimension 
+        attention_dim:(int) number of hidden represetation in attention
+        # Location Layer parameters
+        attention_location_n_filters:(int) number of 1-D convulation filters in attention
+        attention_location_kernel_size:(int) lenght of the 1-D convolution filters
+        
+        # Decoder parameters
+        n_frames_per_step:(int=1 ) only 1 generated mel-frame per step is supported for the decoder as of now.
+        decoder_rnn_dim:(int) number of 2 unidirectionnal stacked LSTM units 
+        prenet_dim: dimension of linear prenet layers
+        max_decoder_steps:(int) maximum number of steps/frames the decoder generates before stopping
+        p_attention_dropout:(float) attention drop out probability 
+        p_decoder_dropout:(float) decoder drop  out probability
+        
+        gate_threshold:(int)  cut off level any output probabilty above that is considered 
+        complete and stops genration so we have variable length outputs
+        decoder_no_early_stopping:(bool) determines early stoppinf od decoder 
+        along with gate_threshold . The logical inverse of this is fed to the decoder
+        
+        
+        #Mel-post processing network parameters
+        postnet_embedding_dim: (int) number os postnet dfilters
+        postnet_kernel_size: (int) 1d size of posnet kernel
+        postnet_n_convolutions: (int) number of convolution layers in postnet
+        
+        """
         super(Tacotron2, self).__init__()
         self.mask_padding = mask_padding
         self.n_mel_channels = n_mel_channels
@@ -661,6 +704,7 @@ class Tacotron2(nn.Module):
                                postnet_n_convolutions)
 
     def parse_batch(self, batch):
+        ## parsses batch object to gpu  
         text_padded, input_lengths, mel_padded, gate_padded, \
             output_lengths = batch
         text_padded = to_gpu(text_padded).long()
@@ -675,6 +719,7 @@ class Tacotron2(nn.Module):
             (mel_padded, gate_padded))
 
     def parse_output(self, outputs, output_lengths):
+        #masks paded part of output
         # type: (List[Tensor], Tensor) -> List[Tensor]
         if self.mask_padding and output_lengths is not None:
             mask = get_mask_from_lengths(output_lengths)
@@ -688,6 +733,20 @@ class Tacotron2(nn.Module):
         return outputs
 
     def forward(self, inputs):
+        """ Decoder forward pass for training
+        PARAMS
+        ------
+        inputs: batch object 
+
+        RETURNS
+        -------
+        mel_outputs: mel outputs from the decoder
+        mel_outputs_postnet: mel outputs from postnet
+        gate_outputs: gate outputs from the decoder
+        alignments: sequence of attention weights from the decoder
+        output_legnths: lenght of the output without padding
+        """
+    
         inputs, input_lengths, targets, max_len, output_lengths = inputs
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
 
@@ -707,6 +766,21 @@ class Tacotron2(nn.Module):
 
 
     def infer(self, inputs, input_lengths):
+        
+        """ Decoder inference
+        PARAMS
+        ------
+        inputs:(int list) text converted to sequence of ints with the function text_to_sequence in 
+        tectTosequence.py
+        
+        input_lengths:(int) lenght of seuqence
+        RETURNS
+        
+        -------
+        mel_outputs_postnet: final mel output of tacotron 2
+        mel_lengths: length of mels
+        alignments: sequence of attention weights 
+        """
 
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         encoder_outputs = self.encoder.infer(embedded_inputs, input_lengths)
@@ -728,10 +802,11 @@ def to_gpu(x):
     if torch.cuda.is_available():
         x = x.cuda(non_blocking=True)
     return x
-
+    
 def get_mask_from_lengths(lengths):
     max_len = torch.max(lengths).item()
     ids = torch.arange(0, max_len, device=lengths.device, dtype=lengths.dtype)
     mask = (ids < lengths.unsqueeze(1)).byte()
     mask = torch.le(mask, 0)
     return mask
+    
