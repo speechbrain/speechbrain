@@ -31,4 +31,4 @@ To train this from scratch, there are other yaml files that can be used
     python train.py hparams/pretrain_1layer.yaml
     python train.py hparams/train_3layer.yaml
 
-Just make sure to change the pretrainer paths in `train_3layer.yaml`.
+Just make sure to change the pretrainer paths so that they point to the right checkpoints.
