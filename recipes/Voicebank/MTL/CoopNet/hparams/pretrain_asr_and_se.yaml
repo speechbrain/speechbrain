@@ -25,7 +25,7 @@ skip_prep: False
 
 # Training parameters
 n_layers: 1
-number_of_epochs: 10
+number_of_epochs: 50
 ctc_epochs: 10
 batch_size: 8
 lr_asr: 0.0005
@@ -57,7 +57,7 @@ epochs_before_lr_drop: 0
 
 # Loss weights
 target_type: phn
-enhance_type: clean  # null, mapping, masking, noisy, clean
+enhance_type: noisy  # null, mapping, masking, noisy, clean
 enhance_weight: [1]
 ctc_weight: [1]
 ctc_type: clean  # null, clean, joint
