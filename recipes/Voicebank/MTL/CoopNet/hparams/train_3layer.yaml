@@ -226,34 +226,18 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 # are declared in the yaml. E.g here, we will download the file lm.ckpt
 # and it will be loaded into "lm" which is pointing to the <lm_model> defined
 # before.
-p_root: !ref "<output_root>/pretrain/1layer/save"
-se_path: !ref "<p_root>/se_0.ckpt"
-asr_path: !ref "<p_root>/asr_0.ckpt"
-fuse_path: !ref "<p_root>/fuse_0.ckpt"
-norm_path: !ref "<p_root>/normalizer.ckpt"
+p_root: !ref "https://www.dropbox.com/sh/v7myj7wc06z31rw/"
+model_path: !ref "<p_root>/AACa83zGaWCOLS4Pw8FEojL3a/\
+    3ll-mask_weight/vctk/model.ckpt?dl=0"
+norm_path: !ref "<p_root>/AAAlAHDoHvbdZC76-oRajQlla/\
+    3ll-mask_weight/vctk/normalizer.ckpt?dl=0"
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
-        asr_0: !ref <asr_0>
-        asr_1: !ref <asr_1>
-        asr_2: !ref <asr_2>
-        se_0: !ref <enhance_model[se_0]>
-        se_1: !ref <enhance_model[se_1]>
-        se_2: !ref <enhance_model[se_2]>
-        fuse_0: !ref <attention_model[att_mask_0]>
-        fuse_1: !ref <attention_model[att_mask_1]>
-        fuse_2: !ref <attention_model[att_mask_2]>
+        model: !ref <model>
         normalizer: !ref <normalizer>
     paths:
-        asr_0: !ref <asr_path>
-        asr_1: !ref <asr_path>
-        asr_2: !ref <asr_path>
-        se_0: !ref <se_path>
-        se_1: !ref <se_path>
-        se_2: !ref <se_path>
-        fuse_0: !ref <fuse_path>
-        fuse_1: !ref <fuse_path>
-        fuse_2: !ref <fuse_path>
+        model: !ref <model_path>
         normalizer: !ref <norm_path>
 
 enhance_loss: !name:speechbrain.nnet.losses.mse_loss
