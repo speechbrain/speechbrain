@@ -1,14 +1,14 @@
-"""The SpeechBrain implementation of WaveNet by
+"""The SpeechBrain implementation of WaveNet
 https://arxiv.org/pdf/1609.03499.pdf
 Inspired by:
 https://github.com/r9y9/wavenet_vocoder 
-"""
 
-from __future__ import with_statement, print_function, absolute_import
+Written by:
+Aleksandar Rachkov, 2021
+"""
 
 import math
 import numpy as np
-
 import speechbrain.nnet.CNN as CNN
 import torch
 from torch import nn
