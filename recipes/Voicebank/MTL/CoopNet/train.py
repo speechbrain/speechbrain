@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recipe for multi-task learning, using seq2seq and enhancement objectives.
+"""Recipe for multi-task learning, using CTC and enhancement objectives.
 
 To run this recipe, do the following:
 > python train.py hparams/{config file} --data_folder /path/to/noisy-vctk
