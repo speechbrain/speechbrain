@@ -1,0 +1,69 @@
+# ################################
+# Model: Attention modules
+# - lin_att: Linear layer + sigmoid for multiply gate
+# - att_mask: Linear layer + scaling for attention mask
+# Authors:  Sreeramadas Sai Aravind & Émile Dimas & Nicolas Duchêne 2021
+# ################################
+input_size: !PLACEHOLDER
+n_neurons: !PLACEHOLDER
+
+lin_att_0: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <input_size>]
+    lin: !name:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    act: !new:torch.nn.Sigmoid
+
+lin_att_1: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <input_size>]
+    lin: !name:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    act: !new:torch.nn.Sigmoid
+
+lin_att_2: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <input_size>]
+    lin: !name:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    act: !new:torch.nn.Sigmoid
+
+lin_att_3: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <input_size>]
+    lin: !name:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    act: !new:torch.nn.Sigmoid
+
+
+scale_0: 1
+att_mask_0: !new:speechbrain.nnet.containers.Sequential
+    lin: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    scale: !new:CoopNet.ScaleLayer
+        init_value: !ref <scale_0>
+
+scale_1: 1
+att_mask_1: !new:speechbrain.nnet.containers.Sequential
+    lin: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    scale: !new:CoopNet.ScaleLayer
+        init_value: !ref <scale_1>
+
+scale_2: 1
+att_mask_2: !new:speechbrain.nnet.containers.Sequential
+    lin: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    scale: !new:CoopNet.ScaleLayer
+        init_value: !ref <scale_2>
+
+scale_3: 1
+att_mask_3: !new:speechbrain.nnet.containers.Sequential
+    lin: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <input_size>
+        n_neurons: !ref <n_neurons>
+    scale: !new:CoopNet.ScaleLayer
+        init_value: !ref <scale_3>

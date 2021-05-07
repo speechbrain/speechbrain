@@ -4,6 +4,7 @@ Authors
  * Peter Plantinga 2020
 """
 import logging
+import ruamel.yaml
 
 logger = logging.getLogger(__name__)
 
@@ -156,3 +157,46 @@ class TensorboardLogger(TrainLogger):
                     new_global_step = self.global_step[dataset][stat] + 1
                     self.writer.add_scalar(tag, value, new_global_step)
                     self.global_step[dataset][stat] = new_global_step
+
+
+class WandBLogger(TrainLogger):
+    """Logger for wandb. To be used the same way as TrainLogger. Handles nested dicts as well.
+    An example on how to use this can be found in recipes/Voicebank/MTL/CoopNet/"""
+
+    def __init__(self, *args, **kwargs):
+        try:
+            yaml_file = kwargs.pop("yaml_config")
+            with open(yaml_file, "r") as yaml_stream:
+                # Read yaml with ruamel to ignore bangs
+                config_dict = ruamel.yaml.YAML().load(yaml_stream)
+            self.run = kwargs.pop("initializer", None)(
+                *args, **kwargs, config=config_dict
+            )
+        except Exception as e:
+            raise e("There was an issue with the WandB Logger initialization")
+
+    def log_stats(
+        self,
+        stats_meta,
+        train_stats=None,
+        valid_stats=None,
+        test_stats=None,
+        verbose=False,
+    ):
+        """See TrainLogger.log_stats()"""
+
+        logs = {}
+        for dataset, stats in [
+            ("train", train_stats),
+            ("valid", valid_stats),
+            ("test", test_stats),
+        ]:
+            if stats is None:
+                continue
+            logs[dataset] = stats
+
+        step = stats_meta.get("epoch", None)
+        if step is not None:  # Useful for continuing runs that crashed
+            self.run.log({**logs, **stats_meta}, step=step)
+        else:
+            self.run.log({**logs, **stats_meta})
