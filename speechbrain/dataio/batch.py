@@ -215,7 +215,7 @@ class BatchsizeGuesser:
     def __call__(self, batch):
         try:
             return self.method(batch)
-        except TypeError:
+        except:  # noqa: E722
             return self.find_suitable_method(batch)
 
     def find_suitable_method(self, batch):
