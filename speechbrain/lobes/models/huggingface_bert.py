@@ -12,7 +12,7 @@ from torch import nn
 try:
     from transformers import AutoModel, AutoTokenizer
 except ImportError:
-    print("Please install transformer from HuggingFace to use wav2vec2!")
+    print("Please install transformer from HuggingFace to use Bert!")
 
 
 class HuggingFaceBert(nn.Module):
@@ -89,7 +89,7 @@ class HuggingFaceBertToknizer:
         )
 
     def batch_encode(self, batch):
-        """Encoding of a batch of strings to the Bert Expected input
+        """Encoding of a list of strings to the Bert expected input (token_id,attention_mask)
 
         Arguments
         ---------
@@ -102,7 +102,7 @@ class HuggingFaceBertToknizer:
         Returns
         -------
         (inputs,attention_mask)
-            return input token Ids and the attention mask
+            return a tuple of lists of the input token ids and the attention_mask
         """
         encoded_batch = self.tokenizer.batch_encode_plus(batch, padding=True)
         input_ids = encoded_batch["input_ids"]
@@ -115,7 +115,7 @@ class HuggingFaceBertToknizer:
         return input_ids, attention_mask
 
     def encode(self, transcript):
-        """Encoding of a batch of strings to the Bert Expected input
+        """Encoding a single string to the Bert expected input (token_id,attention_mask)
 
         Arguments
         ---------
@@ -127,8 +127,8 @@ class HuggingFaceBertToknizer:
 
         Returns
         -------
-        (inputs,attention_mask)
-            return input token Ids and the attention mask
+        (input_ids,attention_mask)
+            return a tuple of token Ids and the attention mask
         """
         input_ids = self.tokenizer.encode(transcript)
 

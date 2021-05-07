@@ -12,10 +12,10 @@ and sample many possible transcriptions.)
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Pl$
 
 Run using:
-> python train.py hparams/train.yaml
+> python train_with_bert.py hparams/train_with_bert.yaml
 
 Authors
- * Loren Lugosch, Mirco Ravanelli 2020
+ * Abdelmoumene Boumadane 2021
 """
 
 import sys
@@ -49,6 +49,7 @@ class SLU(sb.Brain):
             wavs.detach(), wav_lens
         )
 
+        # Encode words
         input_ids, input_masks = self.hparams.bert_tokenizer.batch_encode(words)
 
         input_ids = torch.tensor(input_ids).to(self.device)
@@ -57,7 +58,9 @@ class SLU(sb.Brain):
         # Bert Forword path
         bert_ouput = self.hparams.bert_model(input_ids, input_masks)
 
-        # Pad examples to have same length.
+        # Use all the last hidden states of the tokens
+
+        # Get True length of sequences
         bert_token_lens = torch.tensor([sum(t) for t in input_masks])
         bert_max_length = bert_token_lens.max().item()
         bert_token_lens = bert_token_lens.float()
@@ -341,7 +344,7 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    hparams["bert_model"].cuda()
+    hparams["bert_model"].to(run_opts["device"])
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
