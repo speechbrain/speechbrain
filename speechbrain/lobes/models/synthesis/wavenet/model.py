@@ -1,7 +1,7 @@
 """The SpeechBrain implementation of WaveNet by
 https://arxiv.org/pdf/1609.03499.pdf
 Inspired by:
-https://github.com/r9y9/wavenet_vocoder
+https://github.com/r9y9/wavenet_vocoder 
 """
 
 from __future__ import with_statement, print_function, absolute_import
@@ -15,6 +15,19 @@ from torch import nn
 from torch.nn import functional as F
 
 class Stretch2d(nn.Module):
+    """
+    Performs a stretch in the time domain of the input conditioning features
+
+    Arguments
+    ----------
+    x_scale: int
+        Scale of stretching the time axis
+    y_scale: int
+        Scale of stretching the frequency/mel axis (default=1)
+    mode: str
+        Mode used for upsampling by torch.nn.functional.interpolate
+
+    """
     def __init__(self, x_scale, y_scale, mode="nearest"):
         super(Stretch2d, self).__init__()
         self.x_scale = x_scale
@@ -25,15 +38,24 @@ class Stretch2d(nn.Module):
         return F.interpolate(
             x, scale_factor=(self.y_scale, self.x_scale), mode=self.mode)
 
-
-def _get_activation(upsample_activation):
-    nonlinear = getattr(nn, upsample_activation)
-    return nonlinear
-
-
 class UpsampleNetwork(nn.Module):
-    def __init__(self, upsample_scales, upsample_activation="none",
-                 upsample_activation_params={}, mode="nearest",
+    """
+    The learned upsampling network
+
+    Arguments
+    ----------
+    upsample_scales: list
+        List of upsampling scales. np.prod(upsample_scales) must be equal to hop_length
+    mode: str
+        Mode used for upsampling by torch.nn.functional.interpolate
+    freq_axis_kernel_size: int
+        Size of the kernel's frequency axis
+    cin_channels: int
+        Number of local conditioning channels. Set to -1 to disable local conditions
+    cin_pad: int
+        Padding of the conditional features to capture a wider context during upsampling
+    """
+    def __init__(self, upsample_scales, mode="nearest",
                  freq_axis_kernel_size=1, cin_pad=0, cin_channels=80):
         super(UpsampleNetwork, self).__init__()
         self.up_layers = nn.ModuleList()
@@ -49,14 +71,18 @@ class UpsampleNetwork(nn.Module):
             conv = nn.utils.weight_norm(conv)
             self.up_layers.append(stretch)
             self.up_layers.append(conv)
-            if upsample_activation != "none":
-                nonlinear = _get_activation(upsample_activation)
-                self.up_layers.append(nonlinear(**upsample_activation_params))
 
     def forward(self, c):
         """
-        Args:
-            c : B x T x C
+        Arguments:
+        ----------
+        c : torch.tensor, (B x T x C)
+            Input local conditioning features
+        
+        Returns:
+        ----------
+        c : torch.tensor, (B x T x C)
+            Upsampled features
         """
         # input is in B x T x C, convert to B x C x T for upsampling
         c = c.transpose(1,2).contiguous()
@@ -71,36 +97,61 @@ class UpsampleNetwork(nn.Module):
 
         if self.indent > 0:
             c = c[:, :, self.indent:-self.indent]
-
+        
         # convert back to BxTxC
         c = c.transpose(1,2).contiguous()
 
         return c
 
-
 class ConvInUpsampleNetwork(nn.Module):
-    def __init__(self, upsample_scales, upsample_activation="none",
-                 upsample_activation_params={}, mode="nearest",
+    """
+    Performs a convolution to capture wider-context information on conditional features (meaningless if cin_pad=0)
+    and then upsamples the local conditioning features to match with input audio' time resolution
+
+    Arguments
+    ----------
+    upsample_scales: list
+        List of upsampling scales. np.prod(upsample_scales) must be equal to hop_length
+    mode: str
+        Mode used for upsampling by torch.nn.functional.interpolate
+    freq_axis_kernel_size: int
+        Size of the kernel's frequency axis
+    cin_channels: int
+        Number of local conditioning channels. Set to -1 to disable local conditions
+    cin_pad: int
+        Padding of the conditional features to capture a wider context during upsampling
+    """
+    def __init__(self, upsample_scales, mode="nearest",
                  freq_axis_kernel_size=1, cin_pad=0,
                  cin_channels=80):
         super(ConvInUpsampleNetwork, self).__init__()
-        # To capture wide-context information in conditional features
-        # meaningless if cin_pad == 0
+
         ks = 2 * cin_pad + 1
         self.conv_in = CNN.Conv1d(in_channels = cin_channels, out_channels = cin_channels, kernel_size=ks, bias=False, padding="valid")
         self.upsample = UpsampleNetwork(
-            upsample_scales, upsample_activation, upsample_activation_params,
-            mode, freq_axis_kernel_size, cin_pad=0, cin_channels=cin_channels)
+            upsample_scales, mode, freq_axis_kernel_size, cin_pad=0, cin_channels=cin_channels)
 
-    def forward(self, c):   
+    def forward(self, c):
+        """
+        Calculates the upsampled local conditioning features
 
+        Arguments
+        ----------
+        c: torch.Tensor, (B x T x C)
+            Local conditioning features. In the case of TTS pipeline, these are the mel spectrograms
+        
+        Returns
+        ----------
+        c_up: torch.Tensor, (B x T x C)
+            Upsampled features
+        """
         c_up = self.upsample(self.conv_in(c))
         return c_up
 
 class IncrementalConv1d(CNN.Conv1d):
     """
     An extension of the standard SpeechBrain Conv1d that
-    supports "Incremental Forward" mode.
+    supports "Incremental Forward" mode. Used for synthesizing new signal from input features
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args,**kwargs)
@@ -110,9 +161,19 @@ class IncrementalConv1d(CNN.Conv1d):
 
     def incremental_forward(self, input):
         """
-        Performs the incremental forward step
-        """
+        Performs one incremental forward timestep. 
+        It is a bit messy, but the gist of it is that the convolutional weights are linearized and passed through a linear layer.
 
+        Arguments
+        ----------
+        input: torch.Tensor, (B x 1 x C)
+            Input for one timestep
+        
+        Returns
+        output: torch.Tensor, (B x 1 x C)
+            Output for next timestep
+    
+        """
         if self.training:
             raise RuntimeError('incremental_forward only supports eval mode')
         # run forward pre hooks (e.g., weight norm)
@@ -149,11 +210,14 @@ class IncrementalConv1d(CNN.Conv1d):
             self._linearized_weight = weight.view(self.conv.out_channels, -1)
         return self._linearized_weight
     def _clear_linearized_weight(self, *args):
-        self._linearized_weight = None
+        self._linearized_weight = None        
 
 
 def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, padding="causal", **kwargs):
-
+    """
+    Performs Conv1D using the IncrementalConv1d class for incremental forward option.
+    Weights have kaiming normalization applied to them.
+    """
     m = IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=padding, **kwargs)
     nn.init.kaiming_normal_(m.conv.weight, nonlinearity="relu")
     if m.conv.bias is not None:
@@ -162,19 +226,24 @@ def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, padding="causal
     return m
 
 def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
+    """
+    Used by the model to learn the speaker embeddings
+    """
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     m.weight.data.normal_(0, std)
     return m
 
 def Conv1d1x1(in_channels, out_channels, padding="causal", bias=True):
-    """1-by-1 convolution layer
+    """
+    1-by-1 convolution layer
     """
     return IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, padding=padding,
                   dilation=1, bias=bias)
 
 
 def _conv1x1_forward(conv, x, is_incremental):
-    """Conv1x1 forward
+    """
+    Forward for a 1-by-1 convolution, with an option for incremental forward
     """
     if is_incremental:
         x = conv.incremental_forward(x)
@@ -183,43 +252,41 @@ def _conv1x1_forward(conv, x, is_incremental):
     return x
 
 
-class ResidualConv1dGLU(nn.Module):
-    """Residual dilated conv1d + Gated linear unit
+class ResidualBlockLayer(nn.Module):
+    """
+    Residual dilated conv1d + Gated linear unit
 
-    Args:
-        residual_channels (int): Residual input / output channels
-        gate_channels (int): Gated activation channels.
-        kernel_size (int): Kernel size of convolution layers.
-        skip_out_channels (int): Skip connection channels. If None, set to same
-          as ``residual_channels``.
-        cin_channels (int): Local conditioning channels. If negative value is
-          set, local conditioning is disabled.
-        gin_channels (int): Global conditioning channels. If negative value is
-          set, global conditioning is disabled.
-        dropout (float): Dropout probability.
-        padding (int): Padding for convolution layers. If None, proper padding
-          is computed depends on dilation and kernel_size.
-        dilation (int): Dilation factor.
+    Arguments
+    ----------
+    residual_channels: int 
+        Number of residual input / output channels
+    gate_channels: int
+        Number of gate activation unit channels        
+    skip_out_channels: int
+        Number of skip connection channels
+    kernel_size: int
+        Kernel size of convolution layers.
+    dropout: float
+        Dropout probability 
+    cin_channels: int
+        Number of local conditioning channels. Set to -1 to disable local conditions
+    gin_channels: int
+        Number of global conditioning channels. Set to -1 to disable global conditions
+    dropout: float
+        Dropout probability.
+    dilation: int
+        Dilation factor
     """
 
     def __init__(self, residual_channels, gate_channels, kernel_size,
                  skip_out_channels=None,
                  cin_channels=-1, gin_channels=-1,
-                 dropout=1 - 0.95, padding="causal", dilation=1, causal=True,
+                 dropout=1 - 0.95, padding="causal", dilation=1,
                  bias=True, *args, **kwargs):
-        super(ResidualConv1dGLU, self).__init__()
+        super(ResidualBlockLayer, self).__init__()
         self.dropout = dropout
         if skip_out_channels is None:
             skip_out_channels = residual_channels
-        '''
-        if padding is None:
-            # no future time stamps available
-            if causal:
-                padding = (kernel_size - 1) * dilation
-            else:
-                padding = (kernel_size - 1) // 2 * dilation
-        self.causal = causal
-        '''
 
         self.conv = Conv1dkxk(residual_channels, gate_channels, kernel_size,
                            padding=padding, dilation=dilation,
@@ -249,16 +316,25 @@ class ResidualConv1dGLU(nn.Module):
         return self._forward(x, c, g, True)
 
     def _forward(self, x, c, g, is_incremental):
-        """Forward
+        """
+        Forward step
 
-        Args:
-            x (Tensor): B x T x C
-            c (Tensor): B x T x C, Local conditioning features
-            g (Tensor): B x T x C, Expanded global conditioning features
-            is_incremental (Bool) : Whether incremental mode or not
+        Arguments
+        ----------
+            x: torch.tensor, (B x T x C)
+                signal
+            c: torch.tensor, (B x T x C)
+                Local conditioning features
+            g: torch.tensor, (B x T x C) 
+                Expanded global conditioning features
+            is_incremental: bool
+                Whether incremental mode or not
 
         Returns:
-            Tensor: output
+            x: torch.tensor, (B x T x C) 
+                output from Residual Block Layer
+            s: torch.tensor, (B x T x C)
+                skip-connection
         """
         residual = x
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -267,12 +343,9 @@ class ResidualConv1dGLU(nn.Module):
             x = self.conv.incremental_forward(x)
         else:
             x = self.conv(x)
-            '''
-            # remove future time steps
-            x = x[:,:residual.size(-1),:] if self.causal else x
-            '''
 
         splitdim = -1
+
         a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
 
         # local conditioning
@@ -307,15 +380,20 @@ class ResidualConv1dGLU(nn.Module):
                 c.clear_buffer()
 
 def _expand_global_features(B, T, g):
-    """Expand global conditioning features to all time steps
+    """
+    Expand global conditioning features to all time steps
 
     Args:
-        B (int): Batch size.
-        T (int): Time length.
-        g (Tensor): Global features, (B x C) or (B x 1 x C).
+        B: int
+            Batch size.
+        T: int
+            Time length.
+        g: torch.tensor, (B x C)
+            Global features 
 
     Returns:
-        Tensor: B x T x C or None
+        g_btc: torch.tensor (B x T x C)
+            Global features expanded
     """
     if g is None:
         return None
@@ -324,61 +402,44 @@ def _expand_global_features(B, T, g):
     g_btc = g.expand(B,T,-1)
     return g_btc.contiguous()
 
-
-def receptive_field_size(total_layers, num_cycles, kernel_size,
-                         dilation=lambda x: 2**x):
-    """Compute receptive field size
-
-    Args:
-        total_layers (int): total layers
-        num_cycles (int): cycles
-        kernel_size (int): kernel size
-        dilation (lambda): lambda to compute dilation factor. ``lambda x : 1``
-          to disable dilated convolution.
-
-    Returns:
-        int: receptive field size in sample
-
-    """
-    assert total_layers % num_cycles == 0
-    layers_per_cycle = total_layers // num_cycles
-    dilations = [dilation(i % layers_per_cycle) for i in range(total_layers)]
-    return (kernel_size - 1) * sum(dilations) + 1
-
-
 class WaveNet(nn.Module):
-    """The WaveNet model that supports local and global conditioning.
+    """
+    The WaveNet model that supports local and global conditioning.
 
-    Args:
-        out_channels (int): Output channels. If input_type is mu-law quantized
-          one-hot vecror. this must equal to the quantize channels. Other wise
-          num_mixtures x 3 (pi, mu, log_scale).
-        layers (int): Number of total layers
-        stacks (int): Number of dilation cycles
-        residual_channels (int): Residual input / output channels
-        gate_channels (int): Gated activation channels.
-        skip_out_channels (int): Skip connection channels.
-        kernel_size (int): Kernel size of convolution layers.
-        dropout (float): Dropout probability.
-        cin_channels (int): Local conditioning channels. If negative value is
-          set, local conditioning is disabled.
-        gin_channels (int): Global conditioning channels. If negative value is
-          set, global conditioning is disabled.
-        n_speakers (int): Number of speakers. Used only if global conditioning
-          is enabled.
-        upsample_conditional_features (bool): Whether upsampling local
-          conditioning features by transposed convolution layers or not.
-        upsample_scales (list): List of upsample scale.
-          ``np.prod(upsample_scales)`` must equal to hop size. Used only if
-          upsample_conditional_features is enabled.
-        freq_axis_kernel_size (int): Freq-axis kernel_size for transposed
-          convolution layers for upsampling. If you only care about time-axis
-          upsampling, set this to 1.
-        scalar_input (Bool): If True, scalar input ([-1, 1]) is expected, otherwise
-          quantized one-hot vector is expected.
-        use_speaker_embedding (Bool): Use speaker embedding or Not. Set to False
-          if you want to disable embedding layer and use external features
-          directly.
+    Reference paper: https://arxiv.org/pdf/1609.03499.pdf
+
+    Arguments
+    ----------
+    out_channels : int
+        Number of output channels = number of quantized channels (mu=256)
+    layers: int
+        Number of total layers
+    stacks: int
+        Number of dilation cycles. Number of layers must be a multiple of number of stacks
+    residual_channels: int 
+        Number of residual input / output channels
+    gate_channels: int
+        Number of gate activation unit channels
+    skip_out_channels: int
+        Number of skip connection channels
+    kernel_size: int
+        Kernel size of convolution layers.
+    dropout: float
+        Dropout probability 
+    cin_channels: int
+        Number of local conditioning channels. Set to -1 to disable local conditions
+    cin_pad: int
+        Padding of the conditional features to capture a wider context during upsampling
+    upsample_params: dict
+        Contains parameters needed for upsamplng:
+        - cin_channels
+        - cin_pad
+        - upsample scales: list
+            List of upsample scales. np.prod(upsample_scales) must be equal to hop_length
+    gin_channels: int
+        Number of global conditioning channels. Set to -1 to disable global conditions
+    n_speakers: int
+        Number of speakers
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -387,37 +448,32 @@ class WaveNet(nn.Module):
                  skip_out_channels=512,
                  kernel_size=3, dropout=1 - 0.95,
                  cin_channels=-1, gin_channels=-1, n_speakers=None,
-                 upsample_conditional_features=True,
-                 upsample_net="ConvInUpsampleNetwork",
-                 upsample_params={"upsample_scales": [4, 4, 4, 4]},
-                 scalar_input=False,
-                 use_speaker_embedding=False,
-                 output_distribution="Logistic",
+                 upsample_params={},
                  cin_pad=0,
                  ):
         super(WaveNet, self).__init__()
 
-        self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
-        self.output_distribution = output_distribution
+        self.gin_channels = gin_channels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
 
         self.first_conv = Conv1d1x1(in_channels=out_channels, out_channels=residual_channels)
-
+ 
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
-            conv = ResidualConv1dGLU(
+            conv = ResidualBlockLayer(
                 residual_channels, gate_channels,
                 kernel_size=kernel_size,
                 skip_out_channels=skip_out_channels,
-                bias=True,  # magenda uses bias, but musyoku doesn't
+                bias=True, 
                 dilation=dilation, dropout=dropout,
                 cin_channels=cin_channels,
                 gin_channels=gin_channels)
             self.conv_layers.append(conv)
+        
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),
             Conv1d1x1(skip_out_channels, skip_out_channels),
@@ -425,48 +481,35 @@ class WaveNet(nn.Module):
             Conv1d1x1(skip_out_channels, out_channels),
         ])
 
-        if gin_channels > 0 and use_speaker_embedding:
+        if self.gin_channels > 0:
             assert n_speakers is not None
             self.embed_speakers = Embedding(
                 n_speakers, gin_channels, padding_idx=None, std=0.1)
         else:
             self.embed_speakers = None
 
-        upsample_params["cin_pad"] = cin_pad
-        upsample_params["cin_channels"] = cin_channels
-    
         # Upsample conv net
-        if upsample_conditional_features:
+        if self.cin_channels>0:
             self.upsample_net = ConvInUpsampleNetwork(**upsample_params)
         else:
             self.upsample_net = None
 
-        self.receptive_field = receptive_field_size(layers, stacks, kernel_size)
+    def forward(self, x, c=None, g=None):
+        """
+        Forward step
 
-    def has_speaker_embedding(self):
-        return self.embed_speakers is not None
-
-    def local_conditioning_enabled(self):
-        return self.cin_channels > 0
-
-    def forward(self, x, c=None, g=None, softmax=False):
-        """Forward step
-
-        Args:
-            x (Tensor): One-hot encoded audio signal, shape (B x T x C)
-            c (Tensor): Local conditioning features,
-              shape (B x T x cin_channels)
-            g (Tensor): Global conditioning features,
-              shape (B x 1 x gin_channels) or speaker Ids of shape (B x 1).
-              Note that ``self.use_speaker_embedding`` must be False when you
-              want to disable embedding layer and use external features
-              directly (e.g., one-hot vector).
-              Also type of input tensor must be FloatTensor, not LongTensor
-              in case of ``self.use_speaker_embedding`` equals False.
-            softmax (bool): Whether applies softmax or not.
+        Arguments
+        ----------
+            x: torch.tensor, (B x T x C)
+                signal
+            c: torch.tensor, (B x T x C)
+                Local conditioning features
+            g: torch.tensor, (B x T x C) 
+                Expanded global conditioning features
 
         Returns:
-            Tensor: output, shape B x T x out_channels
+            x: torch.tensor, (B x T x C)
+                Class scores for each timestep 
         """
         B, T, _ = x.size()
 
@@ -475,6 +518,7 @@ class WaveNet(nn.Module):
                 # (B x 1) -> (B x 1 x gin_channels)
                 g = self.embed_speakers(g.view(B, -1))
                 assert g.dim() == 3
+
         # Expand global conditioning features to all time steps
         g_bct = _expand_global_features(B, T, g)
 
@@ -496,36 +540,34 @@ class WaveNet(nn.Module):
         for f in self.last_conv_layers:
             x = f(x)
 
-        x = F.softmax(x, dim=1) if softmax else x
-
         return x
 
     def incremental_forward(self, initial_input=None, c=None, g=None,
                             T=100, test_inputs=None,
-                            tqdm=lambda x: x, softmax=True, quantize=True,
-                            log_scale_min=-50.0):
-        """Incremental forward step
-
+                            tqdm=lambda x: x):
+        """
+        Incremental forward step
         Input of each time step is of shape (B x 1 x C).
 
-        Args:
-            initial_input (Tensor): Initial decoder input, (B x 1 x C)
-            c (Tensor): Local conditioning features, shape (B x T x C')
-            g (Tensor): Global conditioning features, shape (B x C'' or B x 1 x C'')
-            T (int): Number of time steps to generate.
-            test_inputs (Tensor): Teacher forcing inputs (for debugging)
+        Arguments
+        ----------
+            initial_input: torch.tensor, (B x 1 x C)
+                Initial decoder input
+            c: torch.tensor, (B x T x C)
+                Local conditioning features
+            g: torch.tensor, (B x C)
+                Global conditioning features
+            T: int
+                Number of time steps to generate.
             tqdm (lamda) : tqdm
-            softmax (bool) : Whether applies softmax or not
-            quantize (bool): Whether quantize softmax output before feeding the
-              network output to input for the next time step. TODO: rename
-            log_scale_min (float):  Log scale minimum value.
 
         Returns:
-            Tensor: Generated one-hot encoded samples. B x T x C　
+            outputs: torch.tensor, (B x T x C)
+                Generated one-hot encoded samples　
         """
         self.clear_buffer()
         B = 1
-        print("INCREMENTAL")
+
         # cast to int in case of numpy.int64...
         T = int(T)
 
@@ -534,7 +576,7 @@ class WaveNet(nn.Module):
             if self.embed_speakers is not None:
                 g = self.embed_speakers(g.view(B, -1))
                 assert g.dim() == 3
-        g_btc = _expand_global_features(B, T, g, bct=False)
+        g_btc = _expand_global_features(B, T, g)
 
         # Local conditioning
         if c is not None:
@@ -546,7 +588,7 @@ class WaveNet(nn.Module):
         outputs = []
         if initial_input is None:
             initial_input = torch.zeros(B, 1, self.out_channels)
-            initial_input[:, :, 127] = 1  # TODO: is this ok?
+            initial_input[:, :, 127] = 1 
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
@@ -580,12 +622,13 @@ class WaveNet(nn.Module):
                 except AttributeError:
                     x = f(x)
 
-            # Generate next input
-            x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
-            if quantize:
-                dist = torch.distributions.OneHotCategorical(x)
-                x = dist.sample()
+            # Generate next input 
+            x = F.softmax(x.view(B, -1), dim=1)
+
+            dist = torch.distributions.OneHotCategorical(x)
+            x = dist.sample()
             outputs += [x.data]
+
         # T x B x C
         outputs = torch.stack(outputs)
         # B x T x C
@@ -605,6 +648,9 @@ class WaveNet(nn.Module):
                 pass
 
     def make_generation_fast_(self):
+        """
+        Removes weight norm for faster generation
+        """
         def remove_weight_norm(m):
             try:
                 nn.utils.remove_weight_norm(m)
@@ -614,21 +660,35 @@ class WaveNet(nn.Module):
 
 class Loss(nn.Module):
     """
-    The loss for the WaveNet model
+    Masked Cross-Entropy Loss. 
     """
     def __init__(self):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss(reduction='none')
 
     def forward(self, predictions, target, lengths):
+        """
+        Calculates the masked cross-entropy loss
 
-        # (B,1,T)
-        mask = self.sequence_mask(lengths).unsqueeze(1)
-        # (B,T,1)
+        Arguments
+        ---------
+        predictions: torch.Tensor, (B,T,C,1)
+            batch of predicted output
+        target: torch.Tensor, (B,T,1)
+            batch of targets
+        lengths: torch.Tensor, (B)
+            target lengths
+
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.     
+        """
+        # (B,T) -> (B,1,T)
+        mask = self.sequence_mask(lengths).unsqueeze(1)        
+        # (B,1,T) -> (B,T,1)
         mask = mask.transpose(1,2).contiguous()
         mask = mask[:,1:,:]
-
-        # (B, D, T)
         mask_ = mask.expand_as(target)
 
         # cross entropy loss expects LongTensor target
@@ -637,18 +697,41 @@ class Loss(nn.Module):
         # B,T,C,1 -> B,C,T,1
         predictions = predictions.transpose(1,2).contiguous()
         losses = self.criterion(predictions, target.long())
+
         return ((losses * mask_).sum()) / mask_.sum()
-
+    
     def sequence_mask(self, sequence_length):
+        """
+        Function that computes sequence mask based on a series of sequence lengths
+        
+        Arguments
+        ---------
+        sequence_length: torch.Tensor, (L)
+            Path to the file name
 
+        Returns
+        -------
+        mask : torch.Tensor, (L x L)
+            A tensor containing the mask
+
+        Ex:
+        >>> sequence_length = torch.tensor([1,2,3,4,5,6])
+        >>> print(sequence_mask(sequence_length))
+        tensor([[1., 0., 0., 0., 0., 0.],
+        [1., 1., 0., 0., 0., 0.],
+        [1., 1., 1., 0., 0., 0.],
+        [1., 1., 1., 1., 0., 0.],
+        [1., 1., 1., 1., 1., 0.],
+        [1., 1., 1., 1., 1., 1.]])
+        """
         max_len = sequence_length.data.max()
-
         batch_size = sequence_length.size(0)
         seq_range = torch.arange(0, max_len).long()
+
         seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
+
         if sequence_length.is_cuda:
             seq_range_expand = seq_range_expand.cuda()
         seq_length_expand = sequence_length.unsqueeze(1) \
             .expand_as(seq_range_expand)
-
         return (seq_range_expand < seq_length_expand).float()
