@@ -1,90 +1,81 @@
 seed: 42
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-embed_dim: 256
-batch_size: 32
-encoder_conv_channels: 256
+batch_size: 10
 dropout: 0.1
-num_mels: 80
-outputs_per_step: 1
-downsample_step: 4
-max_target_len: 1024
-masked_loss_weight: 0.5
-binary_divergence_weight: 0.1
-priority_freq: 3000
-priority_freq_weight: 0.0
-#sample_rate: 48000 #22050
-source_sample_rate: 48000 #22050
-sample_rate: 8000
 
+# preprocessing pipeline
+num_mels: 80
+source_sample_rate: 48000 
+sample_rate: 8000
 min_level_db: -100
 ref_level_db: 20
-mu: 256
-
-#local conditioning, -1 for OFF
-c: 1
-# global conditioning, -1 for OFF
-g: -1
-
-# DC removal
-highpass_cutoff: 70.0
-
-trim_threshold: -30
-silence_threshold: 2
-is_mulaw_quantized: True
+highpass_cutoff: 70.0 # remove DC
+trim_threshold: -30 # silence trim
+silence_threshold: 2 # mulaw domain silence
 hop_length: 256
 n_fft: 1024
 max_time_sec: null
-max_time_steps: 1560 #!ref <hop_length> * 40
+max_time_steps: 1500 
 
-lr: 0.002
-lr_warmup_steps: 4000
-number_of_epochs: 400 #200
-checkpoint_every_epoch: True
 
-overfit_test: true
-overfit_test_iterations: 3 #5
-
-model: !new:speechbrain.lobes.models.synthesis.wavenet.model.WaveNet
-  dropout: !ref <dropout>
-  cin_channels: !ref <cin_channels>
-  cin_pad: !ref <cin_pad>
-  layers: !ref <layers>
-  stacks: !ref <stacks>
-
-modules:
-    model: !ref <model>
-
-compute_cost: !new:speechbrain.lobes.models.synthesis.wavenet.model.Loss
-
-lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
-  initial_value: !ref <lr>
-  decay_factor: 0.98
-  decay_drop: 30000
+number_of_epochs: 500
+checkpoint_every_epoch: False
+checkpoint_frequency : 10
 
 progress_samples: true
 progress_sample_path: samples
-progress_samples_interval: 1
+progress_samples_interval: 10
 
-input_type: "mulaw_quantize"
-quantize_channels: 256
-
-# Model:
-# This should equal to `quantize_channels` if mu-law quantize enabled
-# otherwise num_mixture * 3 (pi, mean, log_scale)
-# single mixture case: 2
-num_mixture: 10
-out_channels: !ref <num_mixture> * 3
-layers: 30 #24
-stacks: 3 #4
-residual_channels: 4 #128
-gate_channels: 4 #256  # split into 2 gropus internally for gated activation
-skip_out_channels: 4 #128
+layers: 50 
+stacks: 5
+residual_channels: 128
+gate_channels: 256  # split into 2 gropus internally for gated activation
+skip_out_channels: 128
 kernel_size: 3
+quantize_channels: 256
 
 # Local conditioning (set negative value to disable, e.g. -1))
 cin_channels: 80
 cin_pad: 2
+# global conditioning, -1 for OFF
+gin_channels: 1
+n_speakers: 1
+
+upsample_params:
+  upsample_scales: # product must be equal to hop_length
+    - 4
+    - 4
+    - 4
+    - 4
+  cin_pad: !ref <cin_pad>
+  cin_channels: !ref <cin_channels>
+
+model: !new:speechbrain.lobes.models.wavenet.model.WaveNet
+  out_channels: !ref <quantize_channels>
+  layers: !ref <layers>
+  stacks: !ref <stacks>
+  residual_channels: !ref <residual_channels>
+  gate_channels: !ref <gate_channels>
+  skip_out_channels: !ref <skip_out_channels>
+  kernel_size: !ref <kernel_size>
+  dropout: !ref <dropout>
+  cin_channels: !ref <cin_channels>
+  cin_pad: !ref <cin_pad>
+  upsample_params: !ref <upsample_params>
+  gin_channels: !ref <gin_channels>  
+  n_speakers: !ref <n_speakers>
+
+modules:
+    model: !ref <model>
+
+compute_cost: !new:speechbrain.lobes.models.wavenet.model.Loss
+
+lr: 0.002
+lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
+  initial_value: !ref <lr>
+  decay_factor: 0.98
+  decay_drop: 30000
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -99,16 +90,15 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
 
-causal: True
-# Note: This should be overridden with a path to an actual downloaded dataset
-train_data_path: ../datasets/mockdata/fake_vctk_single_speaker
-valid_data_path: ../datasets/mockdata/fake_vctk_1ex
+dataset_type: "vctk"
+train_data_path: datasets/VCTK-Corpus-1speaker-1
+valid_data_path: datasets/validdata/fake_vctk_1ex
+
 datasets:
   train:
     path: !ref <train_data_path>
   valid:
     path: !ref <valid_data_path>
-
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
