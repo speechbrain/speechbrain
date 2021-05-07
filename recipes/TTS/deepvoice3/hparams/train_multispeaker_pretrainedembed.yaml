@@ -78,7 +78,6 @@ guided_attention_sigma: 0.2
 padding_idx: 0
 embedding_weight_std: 0.1
 force_monotonic_attention: true
-trainable_positional_encodings: false
 use_decoder_state_for_postnet_input: true
 freeze_embedding: false
 lr: 0.0005
@@ -376,7 +375,6 @@ model: !new:speechbrain.lobes.models.synthesis.deepvoice3.TTSModel
   linear_dim: !ref <linear_dim>
   use_speaker_embed: !ref <use_speaker_embed>
   speaker_embed_dim: !ref <speaker_embed_dim>
-  trainable_positional_encodings: !ref <trainable_positional_encodings>
   use_decoder_state_for_postnet_input: !ref <use_decoder_state_for_postnet_input>
   freeze_embedding: !ref <freeze_embedding>
   embed_speakers: !apply:speechbrain.lobes.models.synthesis.deepvoice3.Embedding
