@@ -190,10 +190,16 @@ class PaddedBatch:
 class BatchsizeGuesser:
     """Try to figure out the batchsize, but never error out
 
+    If this cannot figure out anything else, will fallback to guessing 1
+
     Example
     -------
     >>> guesser = BatchsizeGuesser()
+    >>> # Works with simple tensors:
     >>> guesser(torch.randn((2,3)))
+    2
+    >>> # Works with sequences of tensors:
+    >>> guesser((torch.randn((2,3)), torch.randint(high=5, size=(2,))))
     2
     >>> # Works with PaddedBatch:
     >>> guesser(PaddedBatch([{"wav": [1.,2.,3.]}, {"wav": [4.,5.,6.]}]))
@@ -221,6 +227,12 @@ class BatchsizeGuesser:
         except:  # noqa: E722
             pass
         try:
+            bs = self.torch_tensor_bs(batch)
+            self.method = self.torch_tensor_bs
+            return bs
+        except:  # noqa: E722
+            pass
+        try:
             bs = self.len_of_first(batch)
             self.method = self.len_of_first
             return bs
@@ -239,6 +251,9 @@ class BatchsizeGuesser:
 
     def attr_based(self, batch):
         return batch.batchsize
+
+    def torch_tensor_bs(self, batch):
+        return batch.shape[0]
 
     def len_of_first(self, batch):
         return len(batch[0])

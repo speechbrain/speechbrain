@@ -280,7 +280,7 @@ class LoopedLoader:
         self.total_steps = 0  # Total steps ever
         self.total_samples = 0  # Total samples seen on this process
         if batchsize_fn is None:
-            self.batchisize_fn = BatchsizeGuesser()
+            self.batchsize_fn = BatchsizeGuesser()
 
     def __iter__(self):
         if self.iterator is None:
