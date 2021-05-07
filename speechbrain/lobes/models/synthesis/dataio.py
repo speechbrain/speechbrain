@@ -115,7 +115,7 @@ def pretrained_speaker_embeddings(
 
 
 
-def categorical(takes, provides):
+def categorical(takes, provides, encoder=None):
     """
     A pipeline function that encodes categorical information,
     such as speaker IDs
@@ -126,13 +126,17 @@ def categorical(takes, provides):
         the name of the pipeline input
     provides: str
         the name of the pipeline output
+    encoder: CategoricalEncoder
+        the categorical encoder to be used (particularly)
+        useful if its state needs to be saved
 
     Returns
     -------
     result: DynamicItem
       A wrapped transformation function
     """
-    encoder = CategoricalEncoder()
+    if not encoder:
+        encoder = CategoricalEncoder()
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(label):

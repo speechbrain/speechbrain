@@ -857,6 +857,12 @@ class Decoder(nn.Module):
         The query position rate
     key_position_rate: float
         The key position rate
+    max_decoder_steps: int
+        The maximum number of decoder steps during
+        an incremental reconstruction (defaults to 200)
+    min_decoder_steps: int
+        The minimum number of decoder steps during an
+        incremental reconstruction (defaults to 20)
     """
     def __init__(self, embed_dim,
                  use_speaker_embed,
@@ -873,7 +879,8 @@ class Decoder(nn.Module):
                  force_monotonic_attention=False,
                  query_position_rate=1.0,
                  key_position_rate=1.29,
-                 ):
+                 max_decoder_steps=200,
+                 min_decoder_steps=20):
         super().__init__()
         self.dropout = dropout
         self.in_dim = in_dim
@@ -903,8 +910,8 @@ class Decoder(nn.Module):
         # Mel-spectrogram (before sigmoid) -> Done binary flag
         self.fc = Linear(in_dim * r, 1)
 
-        self.max_decoder_steps = 200
-        self.min_decoder_steps = 20
+        self.max_decoder_steps = max_decoder_steps
+        self.min_decoder_steps = min_decoder_steps
         self.use_memory_mask = use_memory_mask
 
         if isinstance(force_monotonic_attention, bool):

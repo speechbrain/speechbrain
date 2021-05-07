@@ -85,6 +85,7 @@ max_grad_norm: 0.1
 number_of_epochs: 50
 ckpt_frequency: 100
 progress_samples: true
+progress_samples_incremental: false
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 100
 overfit_test: false
@@ -449,6 +450,8 @@ loggers:
 
 test_frozen_batch: false
 
+speaker_id_encoder: !new:speechbrain.dataio.encoder.CategoricalEncoder
+
 train_pipeline:
   output_keys:
       - text_sequences
@@ -468,6 +471,7 @@ train_pipeline:
     - !apply:speechbrain.lobes.models.synthesis.dataio.categorical
       takes: speaker_id
       provides: speaker_id_enc
+      encoder: !ref <speaker_id_encoder>
 
 features_pipeline:
   output_keys:
