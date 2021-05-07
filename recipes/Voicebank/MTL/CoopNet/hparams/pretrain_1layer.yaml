@@ -16,7 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 #enh_dir: !ref <output_folder>/enhanced_train/
 
 # Data files
-data_folder: /content/noisy-vctk-16k # e.g. /path/to/vctk
+data_folder: !PLACEHOLDER # e.g. /path/to/vctk
 data_folder_rirs: !ref <data_folder>
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
@@ -194,7 +194,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 # are declared in the yaml. E.g here, we will download the file lm.ckpt
 # and it will be loaded into "lm" which is pointing to the <lm_model> defined
 # before.
-p_root: !ref "<output_root>/pretrain/clean/save"
+# Change ckpt_path to the path that holds the pretrained asr and se checkpoints
+ckpt_path: !PLACEHOLDER
+p_root: !ref "<output_root>/pretrain/clean/save/<ckpt_path>"
 se_path: !ref "<p_root>/se_0.ckpt"
 asr_path: !ref "<p_root>/asr_0.ckpt"
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
