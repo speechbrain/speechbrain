@@ -4,7 +4,26 @@ attention-based neural text-to-speech (TTS) system
 https://arxiv.org/abs/1710.07654
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
+
+> python train.py hparams/train.yaml --train_data_path=/path/to/train/dataset \
+    --valid_data_path=/path/to/valid/dataset
+
+For a full list of parameters, refer to one of the available hparams files.
+
+Commonly overridden parameters:
+--overfit_test=true: caches a single batch, skipping the processing pipeline,
+useful for overfitting tests
+of a small number of examples
+--number_of_epochs=<number>: the number of training epochs
+--ckpt_frequency=<number>: save a checkpoint every <number> epochs. The default
+SpeechBrain behaviour of saving
+a checkpoint on every endpoint is suitable for large-scale training but will
+reduce performance for overfit
+tests
+--progress_samples=<true|false>: whether or not to output sample spectrograms
+at regular intervals
+--progress_samples_interval=<number>: Output progress samples every <number>
+intervals
 
 Authors
 * Artem Ploujnikov 2020
