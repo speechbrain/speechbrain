@@ -2,7 +2,6 @@
 
 Authors
  * Peter Plantinga 2020
- * Nicolas Duchêne 2021
 """
 import logging
 import ruamel.yaml
@@ -146,14 +145,23 @@ class TensorboardLogger(TrainLogger):
                 if stat not in self.global_step[dataset]:
                     self.global_step[dataset][stat] = 0
                 tag = f"{stat}/{dataset}"
-                for value in value_list:
+
+                # Both single value (per Epoch) and list (Per batch) logging is supported
+                if isinstance(value_list, list):
+                    for value in value_list:
+                        new_global_step = self.global_step[dataset][stat] + 1
+                        self.writer.add_scalar(tag, value, new_global_step)
+                        self.global_step[dataset][stat] = new_global_step
+                else:
+                    value = value_list
                     new_global_step = self.global_step[dataset][stat] + 1
                     self.writer.add_scalar(tag, value, new_global_step)
                     self.global_step[dataset][stat] = new_global_step
 
 
 class WandBLogger(TrainLogger):
-    """Logger for wandb. To be used the same way as TrainLogger. Handles nested dicts as well."""
+    """Logger for wandb. To be used the same way as TrainLogger. Handles nested dicts as well.
+    An example on how to use this can be found in recipes/Voicebank/MTL/CoopNet/"""
 
     def __init__(self, *args, **kwargs):
         try:
