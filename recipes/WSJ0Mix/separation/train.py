@@ -59,10 +59,13 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if "whamr" in self.hparams.data_folder:
-                        targets = self.hparams.reverb(
-                            targets[0].t(), torch.ones(targets.size(-1))
-                        )
-                        targets = targets.t().unsqueeze(0)
+                        targets_rev = [
+                            self.hparams.reverb(targets[:, :, i], None)
+                            for i in range(self.hparams.num_spks)
+                        ]
+                        targets_rev = torch.stack(targets_rev, dim=-1)
+                        mix = targets_rev.sum(-1)
+                    else:
                         mix = targets.sum(-1)
 
                     if "wham" in self.hparams.data_folder:
@@ -531,11 +534,13 @@ def dataio_prep(hparams):
         )
     else:
         if "wham" in hparams["data_folder"]:
-            print("Using the WHAM! dataset")
+            print("Using the WHAM! noise in the data pipeline")
             sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+
             sb.dataio.dataset.set_output_keys(
                 datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
             )
+
         else:
             sb.dataio.dataset.set_output_keys(
                 datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
@@ -581,12 +586,28 @@ if __name__ == "__main__":
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
+            "fs": hparams["sample_rate"],
         },
     )
 
+    # if whamr, and we do speedaugment we need to prepare the csv file
+    if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
+        from recipes.WSJ0Mix.prepare_data import create_whamr_rir_csv
+        from recipes.WSJ0Mix.meta.create_whamr_rirs import create_rirs
+
+        # If the Room Impulse Responses do not exist, we create them
+        if not os.path.exists(hparams["rir_path"]):
+            print("Creating Room Impulse Responses...")
+            create_rirs(hparams["rir_path"], hparams["sample_rate"])
+
+        create_whamr_rir_csv(hparams["rir_path"], hparams["save_folder"])
+
+        hparams["reverb"] = sb.processing.speech_augmentation.AddReverb(
+            os.path.join(hparams["save_folder"], "whamr_rirs.csv")
+        )
+
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-
         if hparams["num_spks"] == 2:
             from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
@@ -603,6 +624,11 @@ if __name__ == "__main__":
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
 
+    # Load pretrained model if pretrained_separator is present in the yaml
+    if "pretrained_separator" in hparams:
+        run_on_main(hparams["pretrained_separator"].collect_files)
+        hparams["pretrained_separator"].load_collected()
+
     # Brain class initialization
     separator = Separation(
         modules=hparams["modules"],
@@ -612,9 +638,10 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # re-initialize the parameters
-    for module in separator.modules.values():
-        separator.reset_layer_recursively(module)
+    # re-initialize the parameters if we don't use a pretrained model
+    if "pretrained_separator" not in hparams:
+        for module in separator.modules.values():
+            separator.reset_layer_recursively(module)
 
     if not hparams["test_only"]:
         # Training

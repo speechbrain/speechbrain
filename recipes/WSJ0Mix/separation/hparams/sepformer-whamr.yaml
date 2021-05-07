@@ -13,15 +13,17 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Data params
 
 # the data folder for the wham dataset
-# needs to end with wham_original for the wham dataset
-# needs to end with wham_reverb for the whamr dataset
+# data_folder needs to follow the format:  /yourpath/whamr.
+# make sure to use the name whamr at your top folder for the dataset!
 data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepformer-whamr
+experiment_name: sepformer-whamr-randomreverb
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -31,7 +33,6 @@ train_data: !ref <save_folder>/whamr_tr.csv
 valid_data: !ref <save_folder>/whamr_cv.csv
 test_data: !ref <save_folder>/whamr_tt.csv
 skip_prep: False
-
 
 # Experiment params
 auto_mix_prec: False # Set it to True for mixed precision
@@ -57,6 +58,12 @@ training_signal_len: 32000000
 dynamic_mixing: False
 
 # Parameters for data augmentation
+
+# rir_path variable points to the directory of the room impulse responses
+# e.g. /miniscratch/subakany/rir_wavs
+# If the path does not exist, it is created automatically.
+rir_path: !PLACEHOLDER
+
 use_wavedrop: False
 use_speedperturb: True
 use_speedperturb_sameforeachsource: False
@@ -77,12 +84,6 @@ wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     drop_chunk_prob: 1.0
     sample_rate: !ref <sample_rate>
 
-reverb: !new:speechbrain.lobes.augment.EnvCorrupt
-    reverb_prob: 1.0
-    babble_prob: 0.0
-    noise_prob: 0.0
-    openrir_folder: !ref <data_folder>
-
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
 threshold: -30
@@ -97,7 +98,6 @@ kernel_stride: 8
 dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 3
-
 
 # Specifying the network
 Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
