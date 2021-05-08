@@ -85,6 +85,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 embedding_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_size: !ref <n_mels>
     cnn_channels: [32, 64]
+    rnn_layers: 2
     rnn_neurons: 64
     dnn_neurons: 64
 
