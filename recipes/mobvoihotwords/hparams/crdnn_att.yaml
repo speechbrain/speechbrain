@@ -90,6 +90,7 @@ embedding_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 classifier: !new:models.attention.Attention
     input_size: 64
+    att_feature: 64
     output_size: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
