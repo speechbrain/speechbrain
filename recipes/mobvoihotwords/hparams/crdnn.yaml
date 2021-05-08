@@ -88,7 +88,7 @@ embedding_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: 128
 
 classifier: !new:models.DNN.DNN
-    output_sizeL !ref <out_n_neurons>
+    output_size: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
