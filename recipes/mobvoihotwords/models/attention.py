@@ -32,7 +32,7 @@ class Attention(torch.nn.Sequential):
         self.tanh = nn.Tanh()
         self.v = nn.Linear(in_features=att_feature, out_features=1, bias=False)
 
-        self.fc2 = nn.Linear(in_features=att_feature, out_features=output_size, bias=False)
+        self.fc2 = nn.Linear(in_features=input_size, out_features=output_size, bias=False)
 
 
         # self.dropout = nn.Dropout(0.25)
