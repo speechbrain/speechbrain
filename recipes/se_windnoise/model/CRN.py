@@ -182,10 +182,11 @@ class crn(torch.nn.Module):
         Returns:
             [type]: [description]
         """
-        N, T, F = x.size()
-        x = x.unsqueeze(1)       # [N,T,F] to [N, 1, T, F]
+        # N, T, F = x.size()
+        if len(x.shape)==3:
+            x = x.unsqueeze(1)       # [N,T,F] to [N, 1, T, F]
 
-        # N, C, T, F = x.size()
+        N, C, T, F = x.size()
 
         o1, o2, o3, o4, o5 = self.encoder(x)
 
@@ -206,7 +207,7 @@ if __name__ == "__main__":
     N, C, T, F = 10, 1, 100, 257
     data = torch.rand((N, T,F))
     print(data.shape)
-    model = crn()
+    model = crn(input_size=F)
     output = model(data)
     print(output.shape)
     # input_size = 257
