@@ -23,7 +23,7 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 
-from train_crn import SpeakerBrain
+from train import SpeakerBrain
 import numpy as np
 from matplotlib import pyplot as plt 
 from scipy.io import wavfile
@@ -103,7 +103,9 @@ if __name__ == "__main__":
     )
 
     wav = 'wav/xmos/hixiaowen/音轨-4.wav'
-    wav = 'wav/hixiaowen_unk_nihaowenwen2.wav'
+    wav = 'wav/diy/hixiaowen2/音轨-2.wav'
+    # wav = 'wav/hixiaowen_unk_nihaowenwen2.wav'
+    wav = 'wav/xmos/noise1/音轨-4.wav'
 
     wav_data = sb.dataio.dataio.read_audio(wav)
     noisy_wavs = wav_data.reshape(1, -1)
@@ -114,6 +116,8 @@ if __name__ == "__main__":
 
     se_brain.on_evaluate_start(min_key="ErrorRate")
     se_brain.on_stage_start(sb.Stage.TEST, epoch=None)
+
+    print("Epoch loaded: {}".format(hparams['epoch_counter'].current))
 
     se_brain.modules.eval()
 
@@ -138,7 +142,7 @@ if __name__ == "__main__":
         output = np.exp(output.detach().cpu().numpy()[0,0,:])
         # print(outputs.shape)
 
-        output_list.append(output[0])
+        output_list.append(output[1])
 
 
 
@@ -155,10 +159,10 @@ if __name__ == "__main__":
     output_prob = np.array(output_list)
 
     hop_len = 160
-    save_prob_to_wav(wav_data, output_prob, hop_len, predict_win, 'wav/output/hixiaowen_unk_nihaowenwen2_prob.wav', delay=8000)
+    save_prob_to_wav(wav_data, output_prob, hop_len, predict_win, 'wav/output/hixiaowen_unk_nihaowenwen2_prob3.wav', delay=8000)
 
     print(output_prob.shape)
     plt.figure()
     plt.plot(output_prob)
-    plt.savefig('wav/output/output1.png')
+    plt.savefig('wav/output/output3.png')
 
