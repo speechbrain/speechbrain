@@ -1,7 +1,7 @@
 import sacrebleu
-import torch
-from speechbrain.dataio.dataio import merge_char
+from speechbrain.dataio.dataio import merge_char, split_word
 from speechbrain.utils.metric_stats import MetricStats
+
 
 def merge_words(sequences):
     results = []
@@ -9,6 +9,7 @@ def merge_words(sequences):
         words = " ".join(seq)
         results.append(words)
     return results
+
 
 def detokenize_batch(detokenizer, sentences):
     """
@@ -23,6 +24,7 @@ def detokenize_batch(detokenizer, sentences):
         detok_sentences.append(sentence)
 
     return detok_sentences
+
 
 class BLEUStats(MetricStats):
     """A class for tracking BLEU.
@@ -50,8 +52,8 @@ class BLEUStats(MetricStats):
     >>> i2l = {0: 'a', 1: 'b'}
     >>> bleu.append(
     ...     ids=['utterance1'],
-    ...     predict=torch.tensor([[0, 1, 1]]),
-    ...     target=torch.tensor([[0, 1, 0]]),
+    ...     predict=[[0, 1, 1]],
+    ...     target=[[0, 1, 0]],
     ...     ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
     ... )
     >>> stats = bleu.summarize()
@@ -59,7 +61,14 @@ class BLEUStats(MetricStats):
     0.0
     """
 
-    def __init__(self, lang='en', merge_words=True, merge_tokens=False, split_tokens=False, space_token="_"):
+    def __init__(
+        self,
+        lang="en",
+        merge_words=True,
+        merge_tokens=False,
+        split_tokens=False,
+        space_token="_",
+    ):
         self.clear()
         self.merge_words = merge_words
         self.merge_tokens = merge_tokens
@@ -68,14 +77,9 @@ class BLEUStats(MetricStats):
 
         self.predicts = []
         self.targets = []
-        
 
     def append(
-        self,
-        ids,
-        predict,
-        target,
-        ind2lab=None,
+        self, ids, predict, target, ind2lab=None,
     ):
         """Add stats to the relevant containers.
         * See MetricStats.append()
@@ -92,7 +96,7 @@ class BLEUStats(MetricStats):
             for writing alignments.
         """
         self.ids.extend(ids)
-        
+
         if ind2lab is not None:
             predict = ind2lab(predict)
             target = ind2lab(target)
@@ -104,7 +108,7 @@ class BLEUStats(MetricStats):
         if self.split_tokens:
             predict = split_word(predict, space=self.space_token)
             target = split_word(target, space=self.space_token)
-        
+
         if self.merge_words:
             predict = merge_words(predict)
             target = merge_words(target)
@@ -112,21 +116,20 @@ class BLEUStats(MetricStats):
         self.predicts.extend(predict)
         self.targets.extend(target)
 
-
     def summarize(self, field=None):
         """Summarize the BLEU and return relevant statistics.
         * See MetricStats.summarize()
         """
- 
+
         scores = sacrebleu.corpus_bleu(self.predicts, [self.targets])
         details = {}
-        details['BLEU'] = scores.score
-        details['BP'] = scores.bp
-        details['ratio'] = scores.sys_len / scores.ref_len
-        details['hyp_len'] = scores.sys_len
-        details['ref_len'] = scores.ref_len
-        details['precisions'] = scores.precisions
-        
+        details["BLEU"] = scores.score
+        details["BP"] = scores.bp
+        details["ratio"] = scores.sys_len / scores.ref_len
+        details["hyp_len"] = scores.sys_len
+        details["ref_len"] = scores.ref_len
+        details["precisions"] = scores.precisions
+
         self.scores = scores
         self.summary = details
 
@@ -144,6 +147,5 @@ class BLEUStats(MetricStats):
         """
         if not self.summary:
             self.summarize()
-        
-        print(self.scores, file=filestream)
 
+        print(self.scores, file=filestream)
