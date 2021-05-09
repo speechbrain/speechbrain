@@ -617,19 +617,25 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # Initialize the previous attention peak to zero
         # This variable will be used when using_max_attn_shift=True
         prev_attn_peak = torch.zeros(batch_size * self.beam_size, device=device)
+        attn = None
+
+        log_probs = torch.full(
+            (batch_size * self.beam_size, 5000), 0.0, device=device
+        )  # TODO (SLin): replace 5000 with vocab size
 
         for t in range(max_decode_steps):
             # terminate condition
             if self._check_full_beams(hyps_and_scores, self.beam_size):
                 break
 
-            log_probs, memory, attn = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens
-            )
+            if self.att_weight > 0:
+                log_probs, memory, attn = self.forward_step(
+                    inp_tokens, memory, enc_states, enc_lens
+                )
             log_probs = self.att_weight * log_probs
 
-            # Keep the original value
-            log_probs_clone = log_probs.clone().reshape(batch_size, -1)
+            ## Keep the original value
+            # log_probs_clone = log_probs.clone().reshape(batch_size, -1)
             vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
@@ -643,15 +649,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Set eos to minus_inf when less than minimum steps.
             if t < min_decode_steps:
                 log_probs[:, self.eos_index] = self.minus_inf
-
-            # Set the eos prob to minus_inf when it doesn't exceed threshold.
-            if self.using_eos_threshold:
-                cond = self._check_eos_threshold(log_probs)
-                log_probs[:, self.eos_index] = mask_by_condition(
-                    log_probs[:, self.eos_index],
-                    cond,
-                    fill_value=self.minus_inf,
-                )
 
             # adding LM scores to log_prob if lm_weight > 0
             if self.lm_weight > 0:
@@ -677,6 +674,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     g, ctc_memory, ctc_candidates, attn
                 )
                 log_probs = log_probs + self.ctc_weight * ctc_log_probs
+
+            # Keep the original value
+            log_probs_clone = log_probs.clone().reshape(batch_size, -1)
+
+            # Set the eos prob to minus_inf when it doesn't exceed threshold.
+            if self.using_eos_threshold:
+                cond = self._check_eos_threshold(log_probs)
+                log_probs[:, self.eos_index] = mask_by_condition(
+                    log_probs[:, self.eos_index],
+                    cond,
+                    fill_value=self.minus_inf,
+                )
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -709,7 +718,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             ).view(batch_size * self.beam_size)
 
             # Permute the memory to synchoronize with the output.
-            memory = self.permute_mem(memory, index=predecessors)
+            if self.att_weight:
+                memory = self.permute_mem(memory, index=predecessors)
+
             if self.lm_weight > 0:
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
