@@ -62,8 +62,10 @@ number_of_epochs: 200
 batch_size: 16
 learning_rate: 0.001
 lr_final: 0.0001
+sorting: ascending
 dataloader_options:
     batch_size: !ref <batch_size>
+waveform_target: False  # Switch to TRUE to
 
 # The mask operates on log-spectral features, computed using these
 # STFT parameters, as well as computing magnitude and log1p.
