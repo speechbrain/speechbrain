@@ -114,7 +114,11 @@ class CTCPrefixScorer:
                 self.x[0, :, :, self.blank_index], 0
             ).unsqueeze(2)
             r_prev = r_prev.view(-1, 2, self.batch_size * self.beam_size)
-            psi_prev = 0.0
+            psi_prev = torch.full(
+                (self.batch_size * self.beam_size, self.vocab_size),
+                0.0,
+                device=self.device,
+            )
         else:
             r_prev, psi_prev = state
 
