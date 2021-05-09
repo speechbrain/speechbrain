@@ -56,7 +56,6 @@ hop_length: 16
 n_fft: 512
 window_fn: !name:torch.hamming_window
 contex: 0
-use_tensorboard: True
 
 # Training Parameters
 number_of_epochs: 200
