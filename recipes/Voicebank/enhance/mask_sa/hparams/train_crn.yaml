@@ -111,6 +111,8 @@ model: !new:model.CRN.crn
     bidir: !ref <bidir>
     rnn_size: 256
     projection: 128
+    
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
