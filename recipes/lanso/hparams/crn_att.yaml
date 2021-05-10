@@ -5,7 +5,7 @@
 # ################################
 
 # Basic parameters
-seed: 195
+seed: 196
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Use 12 for V2 12 task and 35 for V2 35 task
@@ -18,9 +18,9 @@ tensorboard_logs: !ref <output_folder>/logs
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/GSC
-train_annotation: !ref <output_folder>/save/train.csv
-valid_annotation: !ref <output_folder>/save/valid.csv
-test_annotation: !ref <output_folder>/save/test.csv
+train_annotation: !ref results/save/train.csv
+valid_annotation: !ref results/save/valid.csv
+test_annotation: !ref results/save/test.csv
 
 # Folder to extract data augmentation files
 rir_folder: !ref <rir_folder> # Change it if needed
