@@ -136,9 +136,12 @@ class ASR(sb.Brain):
         """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-            print(
-                "Average batchsize:",
-                self.train_loader.total_samples / self.train_loader.total_steps,
+            logger.info(
+                "Average batchsize: "
+                + str(
+                    self.train_loader.total_samples
+                    / self.train_loader.total_steps
+                )
             )
         else:
             per = self.per_metrics.summarize("error_rate")
