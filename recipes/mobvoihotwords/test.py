@@ -138,6 +138,8 @@ if __name__ == "__main__":
         feat_n = noisy_feats[:, n:n+predict_win, :]
         feats = se_brain.modules.mean_var_norm(feat_n, torch.ones([1]).to(se_brain.device))
         output = se_brain.modules.embedding_model(feats)
+        if "classifier" in se_brain.modules.keys():
+            output = se_brain.modules.classifier(output)
         # print(outputs.size())
         output = np.exp(output.detach().cpu().numpy()[0,0,:])
         # print(outputs.shape)
