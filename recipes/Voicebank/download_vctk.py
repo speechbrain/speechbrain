@@ -420,7 +420,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
     for zip_file in zip_files:
         logger.info("Unzipping " + zip_file)
         shutil.unpack_archive(zip_file, tmp_dir, "zip")
-        os.remove(zip_file)
+        # os.remove(zip_file)
 
     # Move transcripts to final dir
     shutil.move(os.path.join(tmp_dir, "testset_txt"), final_dir)
