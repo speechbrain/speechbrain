@@ -29,10 +29,10 @@ skip_prep: False # Skip data preparation including shards
 # Training parameters
 number_of_epochs: 50
 eval_batchsize: 8
-dynamic_batch_kwargs:
+dynamic_batch_kwargs:  # These are used for the training data.
     len_key: "sig"
     sampler_kwargs:
-        target_batch_numel: 380000  # 20s
+        target_batch_numel: 380000  # 23.75s
         max_batch_numel: 420000
 lr: 0.0003
 ctc_weight: 0.2
