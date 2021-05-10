@@ -119,7 +119,8 @@ def dataset_summary(data_path, save_folder):
 
         dataset['spk_id'].append(spk)   # speaker
         dataset['ID'].append(utt_id)                # no extension
-        dataset['wav'].append(fullname)                    # fullpath
+        fullname_trim = fullname.replace("LS-ASR-data", "LS-ASR-data_16k_trim", 1)
+        dataset['wav'].append(fullname_trim)                    # fullpath
 
         keyword = str(np.genfromtxt(txt_name, dtype='str'))
 
@@ -176,6 +177,10 @@ def prepare_kws(data_folder='/home/wangwei/work/corpus/kws/speechbrain/himia',
                 save_folder='results/save',
                 words_wanted=['小蓝小蓝', '管家管家', '物业物业'],
                 skip_prep=False):
+
+    if skip_prep:
+        print('skipping prepare kws!')
+        return
 
     dataset_csv = os.path.join(save_folder, 'dataset') + ".csv"
     if os.path.exists(dataset_csv):
