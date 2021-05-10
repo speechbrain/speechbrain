@@ -969,11 +969,17 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
-        if not isinstance(train_set, DataLoader):
+        if not (
+            isinstance(train_set, DataLoader)
+            or isinstance(train_set, LoopedLoader)
+        ):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
-        if valid_set is not None and not isinstance(valid_set, DataLoader):
+        if valid_set is not None and not (
+            isinstance(valid_set, DataLoader)
+            or isinstance(valid_set, LoopedLoader)
+        ):
             valid_set = self.make_dataloader(
                 valid_set,
                 stage=sb.Stage.VALID,
@@ -1154,7 +1160,10 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
-        if not isinstance(test_set, DataLoader):
+        if not (
+            isinstance(test_set, DataLoader)
+            or isinstance(test_set, LoopedLoader)
+        ):
             test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
                 test_set, Stage.TEST, **test_loader_kwargs
