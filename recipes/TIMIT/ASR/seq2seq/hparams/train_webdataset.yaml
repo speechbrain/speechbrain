@@ -21,7 +21,7 @@ manifests:
     train: !ref <output_folder>/train.json
     valid: !ref <output_folder>/dev.json
     test: !ref <output_folder>/test.json
-shards_root: /tmp/timit-data-shards
+shards_root: !PLACEHOLDER  # Where to put the shards (top-dir), e.g. /tmp/timit-shards
 examples_per_shard: 1024
 skip_prep: False # Skip data preparation including shards
 
