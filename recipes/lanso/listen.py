@@ -42,8 +42,8 @@ class Listener(realtime_processing):
     def __init__(self, model, feature_type, Recording=False):
         super(Listener, self).__init__(model, feature_type, Recording=Recording)
         # self.audio_processor = AudioProcessor()
-        self.model = model
-        self.model.eval()
+        self.se_brain = model
+        self.se_brain.modules.eval()
         # self.audio_processor = AudioProcessor()
         self.feature_type = feature_type
 
@@ -67,6 +67,7 @@ class Listener(realtime_processing):
         self.keyword = 0
 
     def process(self, data):
+        se_brain = self.se_brain
 
         self.data_buffer[:self.overlap] = self.data_buffer[-self.overlap:]
         self.data_buffer[-self.CHUNK:] = data
@@ -100,6 +101,8 @@ class Listener(realtime_processing):
                 # print("data_tensor[i, :, :, :].shape.{}".format(data_tensor[i:i+1, :, :, :].shape))
                 # print(data_tensor[i:i+1, :, :].shape)
                 y = self.model(data_tensor[i:i+1, :, :])
+                if "classifier" in se_brain.modules.keys():
+                    outputs = se_brain.modules.classifier(outputs)
                 y = y[0, 0, :]
                 
                 if torch.argmax(y) == self.keyword:
@@ -134,10 +137,10 @@ def power_spec(audio: np.ndarray, window_stride=(160, 80), fft_size=512):
 
 
 def main(se_brain):
-    model = se_brain.modules.embedding_model
+    # model = se_brain.modules.embedding_model
 
 
-    listener = Listener(model, feature_type='FBANK')
+    listener = Listener(se_brain, feature_type='FBANK')
 
 
     listener.start()
