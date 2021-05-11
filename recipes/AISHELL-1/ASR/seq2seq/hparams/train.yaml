@@ -25,7 +25,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 train_data: !ref <output_folder>/train.csv
 valid_data: !ref <output_folder>/dev.csv
 test_data: !ref <output_folder>/test.csv
-tokenizer_file: https://drive.google.com/uc?export=download&id=1VHcphRLJITHFkF6NbnSy_6s5gelYKW07
+tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 
 # Training parameters
 number_of_epochs: 40

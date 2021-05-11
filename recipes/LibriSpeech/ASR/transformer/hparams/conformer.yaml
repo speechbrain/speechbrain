@@ -15,7 +15,7 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
+# LM + tokenizer file. LM must be trained with this tokenizer to avoid token mismatch.
 # # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
 language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
 tokenizer_file: ../../Tokenizer/pre-trained/5000_unigram.model # yamllint disable-line rule:line-length

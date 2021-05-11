@@ -1193,8 +1193,8 @@ class Brain:
             The average loss.
         """
         if torch.isfinite(loss):
-            avg_loss -= avg_loss / (self.step + 1)
-            avg_loss += float(loss) / (self.step + 1)
+            avg_loss -= avg_loss / self.step
+            avg_loss += float(loss) / self.step
         return avg_loss
 
     @sb.utils.checkpoints.mark_as_saver

@@ -140,3 +140,6 @@ dmypy.json
 
 # Results folders
 **/results/
+
+# Mac OS
+.DS_Store

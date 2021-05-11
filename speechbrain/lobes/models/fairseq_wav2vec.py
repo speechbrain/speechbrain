@@ -2,7 +2,7 @@
 
 Reference: https://arxiv.org/abs/2006.11477
 Reference: https://arxiv.org/abs/1904.05862
-FairSeq needs to be installed: https://fairseq.readthedocs.io/en/latest/
+FairSeq >= 1.0.0 needs to be installed: https://fairseq.readthedocs.io/en/latest/
 
 Authors
  * Titouan Parcollet 2021
@@ -25,7 +25,8 @@ class FairseqWav2Vec2(nn.Module):
     """This lobe enables the integration of fairseq pretrained wav2vec2.0 models.
 
     Source paper: https://arxiv.org/abs/2006.11477
-    FairSeq needs to be installed: https://fairseq.readthedocs.io/en/latest/
+    FairSeq >= 1.0.0 needs to be installed:
+    https://fairseq.readthedocs.io/en/latest/
 
     The model can be used as a fixed features extractor or can be finetuned. It
     will download automatically the model if a url is given (e.g FairSeq
@@ -37,11 +38,19 @@ class FairseqWav2Vec2(nn.Module):
         Path of the pretrained wav2vec2 model. It can be a url or a local path.
     save_path : str
         Path and filename of the downloaded model.
+    input_norm : bool (default: None)
+        If True, a layer_norm (affine) will be applied to the input waveform.
+        By default, it is extracted from the checkpoint of the downloaded model
+        in order to match the pretraining conditions. However, if this information
+        is not given in the checkpoint, it is set to False.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
+        alongside with the rest of the pipeline.
+    freeze_feature_extractor : bool (default: False)
+        If freeze is False and freeze_feature_extractor is True the feature_extractor module is frozen. If True, the all the model will be trained
         alongside with the rest of the pipeline.
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
@@ -62,8 +71,10 @@ class FairseqWav2Vec2(nn.Module):
         self,
         pretrained_path,
         save_path,
+        input_norm=None,
         output_norm=True,
         freeze=True,
+        freeze_feature_extractor=False,
         pretrain=True,
     ):
         super().__init__()
@@ -79,13 +90,28 @@ class FairseqWav2Vec2(nn.Module):
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
-        self.normalize = cfg.normalize
+        # If the information isn't contained in the checkpoint it is set to False.
+        if input_norm is None:
+            if hasattr(cfg["task"], "normalize"):
+                self.normalize = cfg["task"].normalize
+            elif hasattr(cfg, "normalize"):
+                self.normalize = cfg.normalize
+            else:
+                self.normalize = False
+        else:
+            self.normalize = input_norm
+
         model = model[0]
         self.model = model
         self.freeze = freeze
         self.output_norm = output_norm
+        self.freeze_feature_extractor = freeze_feature_extractor
         if self.freeze:
             model.eval()
+        elif self.freeze_feature_extractor:
+            # Freeze the feature extractor module
+            for param in self.model.feature_extractor.parameters():
+                param.requires_grad = False
 
         # Randomly initialized layers if pretrain is False
         if not (pretrain):

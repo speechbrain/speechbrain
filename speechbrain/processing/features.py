@@ -521,7 +521,7 @@ class Filterbank(torch.nn.Module):
                 * self.param_change_factor
             )
 
-        # Regularization with random changes of filter central frequnecy and band
+        # Regularization with random changes of filter central frequency and band
         elif self.param_rand_factor != 0 and self.training:
             rand_change = (
                 1.0
@@ -1100,7 +1100,7 @@ class InputNormalization(torch.nn.Module):
         return x
 
     def _compute_current_stats(self, x):
-        """Returns the tensor with the sourrounding context.
+        """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
