@@ -570,9 +570,11 @@ if __name__ == "__main__":
     )
 
     # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(hparams["wsj0_tr"]):
+    if hparams["dynamic_mixing"] and not os.path.exists(
+        hparams["base_folder_dm"]
+    ):
         print(
-            "Please, specify a valid wsj0_tr folder when using dynamic mixing"
+            "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
         sys.exit(1)
 
@@ -609,8 +611,26 @@ if __name__ == "__main__":
     # Create dataset objects
     if hparams["dynamic_mixing"]:
         if hparams["num_spks"] == 2:
-            from dynamic_mixing import dynamic_mix_data_prep  # noqa
+            if "Libri" in hparams["data_folder"]:
+                from dynamic_mixing import (
+                    dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
+                )  # noqa
+            else:
+                from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
+            # if the base_folder for dm is not processed, preprocess them
+            if "processed" not in hparams["base_folder_dm"]:
+                from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
+                    resample_folder,
+                )
+
+                print("Resampling the base folder")
+                resample_folder(
+                    hparams["base_folder_dm"],
+                    hparams["base_folder_dm"] + "_processed",
+                    hparams["sample_rate"],
+                    "**/*.flac",
+                )
             train_data = dynamic_mix_data_prep(hparams)
         elif hparams["num_spks"] == 3:
             from dynamic_mixing import dynamic_mix_data_prep_3mix  # noqa
