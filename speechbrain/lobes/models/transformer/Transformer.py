@@ -9,7 +9,7 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
-from .conformer import ConformerEncoder
+from .conformer import ConformerEncoder, ConformerDecoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 
@@ -131,18 +131,33 @@ class TransformerInterface(nn.Module):
         if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
-
-            self.decoder = TransformerDecoder(
-                num_layers=num_decoder_layers,
-                nhead=nhead,
-                d_ffn=d_ffn,
-                d_model=d_model,
-                dropout=dropout,
-                activation=activation,
-                normalize_before=normalize_before,
-                causal=True,
-                attention_type="regularMHA", # always use regular attention in decoder 
+            if encoder_module == "transformer":
+                self.decoder = TransformerDecoder(
+                 num_layers=num_decoder_layers,
+                 nhead=nhead,
+                 d_ffn=d_ffn,
+                 d_model=d_model,
+                 dropout=dropout,
+                 activation=activation,
+                 normalize_before=normalize_before,
+                 causal=True,
+                 attention_type="regularMHA", # always use regular attention in decoder 
             )
+            elif encoder_module == "conformer":
+                
+                self.decoder = ConformerDecoder(nhead=nhead,
+                        num_layers=num_decoder_layers,
+                        d_ffn=d_ffn,
+                        d_model=d_model,
+                        dropout=dropout,
+                        activation=conformer_activation,
+                        kernel_size=kernel_size,
+                        bias=bias,
+                        causal=True,
+                        attention_type=self.attention_type,
+                        )
+
+
 
     def forward(self, **kwags):
         """Users should modify this function according to their own tasks.
