@@ -80,6 +80,8 @@ if __name__ == "__main__":
     se_brain.on_evaluate_start(max_key="pesq")
     se_brain.on_stage_start(sb.Stage.VALID, epoch=None)
 
+    print("Epoch loaded: {}".format(se_brain.hparams['epoch_counter'].current))
+
     se_brain.modules.eval()
 
     noisy_feats = noisy_feats.to(se_brain.device)
