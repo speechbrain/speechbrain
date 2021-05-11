@@ -361,7 +361,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # ctc related
         self.ctc_weight = ctc_weight
         self.blank_index = blank_index
-        self.att_weight = 1.0 - ctc_weight
+        self.attn_weight = 1.0 - ctc_weight
 
         assert (
             0.0 <= self.ctc_weight <= 1.0
@@ -628,11 +628,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self._check_full_beams(hyps_and_scores, self.beam_size):
                 break
 
-            if self.att_weight > 0:
+            if self.attn_weight > 0:
                 log_probs, memory, attn = self.forward_step(
                     inp_tokens, memory, enc_states, enc_lens
                 )
-            log_probs = self.att_weight * log_probs
+            log_probs = self.attn_weight * log_probs
 
             ## Keep the original value
             # log_probs_clone = log_probs.clone().reshape(batch_size, -1)
@@ -718,7 +718,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             ).view(batch_size * self.beam_size)
 
             # Permute the memory to synchoronize with the output.
-            if self.att_weight:
+            if self.attn_weight:
                 memory = self.permute_mem(memory, index=predecessors)
 
             if self.lm_weight > 0:
@@ -734,7 +734,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 )
 
             # Add coverage penalty
-            if self.coverage_penalty > 0:
+            if self.attn_weight > 0 and self.coverage_penalty > 0:
                 cur_attn = torch.index_select(attn, dim=0, index=predecessors)
 
                 # coverage: cumulative attention probability vector
