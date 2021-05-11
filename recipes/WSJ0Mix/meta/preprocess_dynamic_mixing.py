@@ -14,7 +14,8 @@ from pathlib import Path
 import tqdm
 import torchaudio
 import glob
-from oct2py import octave
+
+# from oct2py import octave
 from scipy import signal
 import numpy as np
 import torch
@@ -47,8 +48,8 @@ def resample_folder(input_folder, output_folder, fs, regex):
     reg_exp: str
         Regular expression for search.
     """
-    filedir = os.path.dirname(os.path.realpath(__file__))
-    octave.addpath(filedir)
+    # filedir = os.path.dirname(os.path.realpath(__file__))
+    # octave.addpath(filedir)
     # add the matlab functions to octave dir here
 
     files = glob.glob(os.path.join(input_folder, regex), recursive=True)
@@ -58,12 +59,12 @@ def resample_folder(input_folder, output_folder, fs, regex):
         audio = audio[0].numpy()
         audio = signal.resample_poly(audio, fs, fs_read)
 
-        tmp = octave.activlev(audio.tolist(), fs, "n")
-        audio, _ = tmp[:-1].squeeze(), tmp[-1]
+        # tmp = octave.activlev(audio.tolist(), fs, "n")
+        # audio, _ = tmp[:-1].squeeze(), tmp[-1]
 
         peak = np.max(np.abs(audio))
         audio = audio / peak
-        audio = torch.from_numpy(audio)
+        audio = torch.from_numpy(audio).float()
 
         relative_path = os.path.join(
             Path(f).relative_to(Path(input_folder)).parent,
@@ -81,7 +82,9 @@ def resample_folder(input_folder, output_folder, fs, regex):
         )
 
         torchaudio.save(
-            os.path.join(output_folder, relative_path), audio, fs,
+            os.path.join(output_folder, relative_path),
+            audio.reshape(1, -1),
+            fs,
         )
 
 
