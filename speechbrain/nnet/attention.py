@@ -384,7 +384,7 @@ class RelPosMHAXL(nn.Module):
         embed_dim,
         num_heads,
         dropout=0.0,
-        vbias=True,
+        vbias=None,
         add_zero_attn=False,
         vdim=None,
         mask_pos_future=False,
@@ -410,10 +410,10 @@ class RelPosMHAXL(nn.Module):
 
         if self._qkv_same_embed_dim is False:
             self.qk_proj_weight = nn.Parameter(
-                torch.Tensor(2 * embed_dim, embed_dim)
+                torch.empty(2 * embed_dim, embed_dim)
             )
             self.v_proj_weight = nn.Parameter(
-                torch.Tensor(self.vdim, embed_dim)
+                torch.empty(self.vdim, embed_dim)
             )
         else:
             self.in_proj_weight = nn.Parameter(
@@ -430,10 +430,10 @@ class RelPosMHAXL(nn.Module):
         self.linear_pos = nn.Linear(embed_dim, embed_dim, bias=False)
 
         self.pos_bias_u = nn.Parameter(
-            torch.Tensor(self.head_dim, self.num_heads)
+            torch.empty(self.head_dim, self.num_heads)
         )
         self.pos_bias_v = nn.Parameter(
-            torch.Tensor(self.head_dim, self.num_heads)
+            torch.empty(self.head_dim, self.num_heads)
         )
 
         if next(self.parameters()).dtype == torch.float16:
@@ -559,6 +559,7 @@ class RelPosMHAXL(nn.Module):
                     bsz, -1, self.num_heads, self.head_dim
                 )
         else:
+            raise NotImplementedError
             query, key = (
                 nn.functional.linear(query, self.qk_proj_weight)
                 .view(bsz, -1, self.num_heads, self.head_dim * 2)
@@ -569,42 +570,53 @@ class RelPosMHAXL(nn.Module):
             )
 
         if self.vbias:
-            value += self.value_bias_weight.view(
+            value = value + self.value_bias_weight.view(
                 1, 1, self.num_heads, self.vhead_dim
             )
 
-        p = self.linear_pos(pos_embs).view(1, -1, self.num_heads, self.head_dim)
-        # (batch, head, time1, d_k)
+        p_k = self.linear_pos(pos_embs).view(1, -1, self.num_heads, self.head_dim)
+        # (batch, head, klen, d_k)
+
         q_with_bias_u = (
-            query + self.pos_bias_u.reshape(1, 1, self.num_heads, self.head_dim)
+            query + self.pos_bias_u.view(1, 1, self.num_heads, self.head_dim)
         ).transpose(1, 2)
-        # (batch, head, time1, d_k)
+        # (batch, head, qlen, d_k)
         q_with_bias_v = (
-            query + self.pos_bias_v.reshape(1, 1, self.num_heads, self.head_dim)
+            query + self.pos_bias_v.view(1, 1, self.num_heads, self.head_dim)
         ).transpose(1, 2)
 
-        # (batch, head, time1, time2)
+        # (batch, head, qlen, klen)
         matrix_ac = torch.matmul(q_with_bias_u, key.permute(0, 2, 3, 1))
-        # (batch, num_heads, qlen, 2*qlen-1)
-        matrix_bd = torch.matmul(q_with_bias_v, p.permute(0, 2, 3, 1))
+        # (batch, num_heads, klen, 2*klen-1)
+        matrix_bd = torch.matmul(q_with_bias_v, p_k.permute(0, 2, 3, 1))
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
+
+        #if klen != qlen:
+         #   import ipdb
+          #  ipdb.set_trace(
 
         attn_score = (matrix_ac + matrix_bd) * self.scale
 
         # compute attention probability
         if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(
-                    attn_mask.view(1, 1, qlen, klen), self.attn_fill_value
-                )
+            if attn_mask.ndim == 2:
+                attn_mask = attn_mask.view(1, 1, qlen, klen)
             else:
-                attn_score += attn_mask.reshape(1, 1, qlen, klen)
+                attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
+
+            if attn_mask.dtype == torch.bool:
+                    attn_score = attn_score.masked_fill(
+                    attn_mask, self.attn_fill_value
+                    )
+            else:
+                attn_score += attn_mask
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
-                key_padding_mask.reshape(bsz, 1, 1, klen), self.attn_fill_value,
+                key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
+	
         attn_score = F.softmax(attn_score, dim=-1)
         attn_score = self.dropout_att(attn_score)
         x = torch.matmul(
@@ -739,6 +751,11 @@ class MultiheadAttention(nn.Module):
                 attn_mask += pos_embs
             else:
                 attn_mask = pos_embs
+
+        #if attn_mask is not None and  attn_mask.ndim == 4:
+
+         #   bsz, nheads, qlen, klen = attn_mask.shape
+         #   attn_mask = attn_mask.reshape(bsz*nheads, qlen, klen)
 
         output = self.att(
             query,
