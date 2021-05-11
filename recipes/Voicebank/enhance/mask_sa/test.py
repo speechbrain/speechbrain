@@ -97,9 +97,10 @@ if __name__ == "__main__":
     print("noisy_wavs:{}".format(noisy_wavs.shape))
     print("noisy_wavs:{}".format(noisy_wavs.device))
 
-    # Also return predicted wav, for evaluation. Note that this could
-    # also be used for a time-domain loss term.
-    predict_wav = se_brain.resynthesize(predict_spec)
+    # Also return predicted wav
+    predict_wav = se_brain.hparams.resynth(
+            torch.expm1(predict_spec), noisy_wavs
+        )
 
     print(predict_wav.shape)
     filename = os.path.split(wav)[-1].split('.')[0]
