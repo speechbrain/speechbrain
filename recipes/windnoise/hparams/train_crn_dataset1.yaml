@@ -102,7 +102,7 @@ bidir: False
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
-models: !new:model.CRN.crn
+model: !new:model.CRN.crn
     input_size: !ref <n_fft> // 2 + 1
     contex: !ref <contex>
     bidir: !ref <bidir>
