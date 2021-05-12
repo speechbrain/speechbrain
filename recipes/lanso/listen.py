@@ -7,6 +7,7 @@ from pprint import pprint
 import torch
 import numpy as np
 import time
+import logging
 
 # from utils.file_utils import common_path
 
@@ -72,8 +73,8 @@ class Listener(realtime_processing):
         self.keywords_num = 3
 
         self.postprocessing_list = []
-        sensitivity_list = [0.3, 0.3, 0.1]
-        trigger_list = [5, 5, 8]
+        sensitivity_list = [0.3, 0.4, 0.4]
+        trigger_list = [5, 5, 4]
 
         for m in range(self.keywords_num):
             self.postprocessing_list.append(TriggerDetector(self.CHUNK, sensitivity=sensitivity_list[m], trigger_level=trigger_list[m]))
@@ -151,7 +152,7 @@ class Listener(realtime_processing):
                         self.wake_count = self.wake_count + 1
                         save_name = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
                         save_name = './wav/' + self.words_wanted[m] +  save_name + '.wav'
-                        wavfile.write(save_name, 16000, self.save_buffer)
+                        wavfile.write(save_name, 16000, self.save_buffer.astype(np.float32))
                         print("{}:.................{}............save to {}..............".format(self.wake_count, self.words_wanted[m], save_name))
 
                 # if y_max_index > 0:
@@ -238,9 +239,7 @@ if __name__ == "__main__":
     )
 
     ind2lab = label_encoder.ind2lab
-    print(ind2lab)
     lab2ind = label_encoder.lab2ind
-    print(lab2ind)
 
 
     se_brain.on_evaluate_start(min_key="ErrorRate")
