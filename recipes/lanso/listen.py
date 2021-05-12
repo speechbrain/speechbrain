@@ -40,11 +40,18 @@ torchaudio.set_audio_backend("soundfile")
 
 class Listener(realtime_processing):
     
-    def __init__(self, model, feature_type, Recording=False):
+    def __init__(self, model, feature_type, Recording=False, label_encoder=None):
         super(Listener, self).__init__(model, feature_type, Recording=Recording)
         # self.audio_processor = AudioProcessor()
         self.se_brain = model
         self.se_brain.modules.eval()
+
+        self.label_encoder = label_encoder
+
+        self.ind2lab = label_encoder.ind2lab
+        print(ind2lab)
+        self.lab2ind = label_encoder.lab2ind
+        print(lab2ind)
         # self.audio_processor = AudioProcessor()
         self.feature_type = feature_type
 
@@ -80,7 +87,7 @@ class Listener(realtime_processing):
         self.save_len = 24000
         self.save_buffer = np.zeros(self.save_len,)
 
-        self.words_wanted=['小蓝小蓝', '物业物业','管家管家']
+        self.words_wanted=['小蓝小蓝', '管家管家', '物业物业', 'unknown']
 
     def process(self, data):
         se_brain = self.se_brain
@@ -132,29 +139,29 @@ class Listener(realtime_processing):
                     y = se_brain.modules.softmax(y)
 
                 y = y[0, 0, :]
-                
+
                 y_max_index = np.argmax(y)
                 # if y_max_index > 0:
                 #     print("prob:{}".format(torch.exp(y[self.keyword])))
 
                 y = np.exp(y.detach().cpu().numpy())
-                
-                for m in range(len(self.words_wanted)):
-                    if self.postprocessing_list[m].update(y[m]):
+
+                for m in range(len(self.words_wanted)-1):
+                    if self.postprocessing_list[m].update(y[self.lab2ind[self.words_wanted[m]]]):
                         self.wake_count = self.wake_count + 1
                         save_name = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-                        save_name = './wav/' + save_name + '.wav'
+                        save_name = './wav/' + self.words_wanted[m] +  save_name + '.wav'
                         wavfile.write(save_name, 16000, self.save_buffer)
                         print("{}:.................{}............save to {}..............".format(self.wake_count, self.words_wanted[m], save_name))
-                
+
                 # if y_max_index > 0:
                 #     if self.postprocessing_list[y_max_index-1].update(y[y_max_index]):
                 #         self.wake_count = self.wake_count + 1
                 #         print("{}:{}:.................keyword detected!..............................".format(self.words_wanted[y_max_index-1], self.wake_count))
-                
-                prob = y[self.keyword]
-                unkonwn_prob = y[3]
-                
+
+                prob = y[self.lab2ind[self.words_wanted[2]]]
+                # unkonwn_prob = y[3]
+
                 # if self.postprocessing.update(prob):
                 #     self.wake_count = self.wake_count + 1
                 #     print("{}:.................keyword detected!..............................".format(self.wake_count))
@@ -163,7 +170,7 @@ class Listener(realtime_processing):
 
         line_with = 1   # [1, self.CHUNK]
         self.audio_data[:self.buffer_len - line_with, 0] = self.audio_data[line_with:, 0]
-        self.audio_data[-line_with:, 0] = (1-unkonwn_prob) * np.ones((line_with,))
+        self.audio_data[-line_with:, 0] = prob * np.ones((line_with,))
 
         return output
 
@@ -180,11 +187,11 @@ def power_spec(audio: np.ndarray, window_stride=(160, 80), fft_size=512):
     return (fft.real ** 2 + fft.imag ** 2) / fft_size
 
 
-def main(se_brain):
+def main(se_brain, label_encoder=None):
     # model = se_brain.modules.embedding_model
 
 
-    listener = Listener(se_brain, feature_type='FBANK')
+    listener = Listener(se_brain, feature_type='FBANK', label_encoder=label_encoder)
 
 
     listener.start()
@@ -222,9 +229,23 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    # 3. Fit encoder:
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file
+    )
+
+    ind2lab = label_encoder.ind2lab
+    print(ind2lab)
+    lab2ind = label_encoder.lab2ind
+    print(lab2ind)
+
+
     se_brain.on_evaluate_start(min_key="ErrorRate")
     se_brain.on_stage_start(sb.Stage.TEST, epoch=None)
 
     se_brain.modules.eval()
 
-    main(se_brain)
+    main(se_brain, label_encoder=label_encoder)
