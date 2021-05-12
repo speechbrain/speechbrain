@@ -118,7 +118,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # Objects in "modules" dict will have their parameters moved to the correct
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
-    model: !ref <models[model]>
+    model: !ref <model>
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -136,5 +136,5 @@ lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        model: !ref <models[model]>
+        model: !ref <model>
         counter: !ref <epoch_counter>
