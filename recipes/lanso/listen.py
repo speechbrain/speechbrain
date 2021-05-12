@@ -6,6 +6,7 @@ from pprint import pprint
 
 import torch
 import numpy as np
+import time
 
 # from utils.file_utils import common_path
 
@@ -48,7 +49,7 @@ class Listener(realtime_processing):
         self.feature_type = feature_type
 
         self.hop_len = 160
-        self.win_len = 480
+        self.win_len = 400
         self.CHUNK = 960
         self.overlap = self.win_len - self.hop_len   # 320
         self.data_buffer = np.zeros((self.CHUNK + self.overlap,)) # 1280
@@ -61,16 +62,34 @@ class Listener(realtime_processing):
 
         self.new_frame_num = 6
 
+        self.keywords_num = 3
+
+        self.postprocessing_list = []
+        sensitivity_list = [0.3, 0.3, 0.1]
+        trigger_list = [5, 5, 8]
+
+        for m in range(self.keywords_num):
+            self.postprocessing_list.append(TriggerDetector(self.CHUNK, sensitivity=sensitivity_list[m], trigger_level=trigger_list[m]))
+
+
         self.postprocessing = TriggerDetector(self.CHUNK, sensitivity=0.5, trigger_level=3)
         self.wake_count = 0
 
         self.keyword = 0
+
+        self.save_len = 24000
+        self.save_buffer = np.zeros(self.save_len,)
+
+        self.words_wanted=['小蓝小蓝', '物业物业','管家管家']
 
     def process(self, data):
         se_brain = self.se_brain
 
         self.data_buffer[:self.overlap] = self.data_buffer[-self.overlap:]
         self.data_buffer[-self.CHUNK:] = data
+
+        self.save_buffer[:(self.save_len - self.CHUNK)] = self.save_buffer[-(self.save_len - self.CHUNK):]
+        self.save_buffer[-self.CHUNK:] = data
 
         # print(self.data_buffer.dtype)
 
@@ -96,30 +115,55 @@ class Listener(realtime_processing):
 
         prob = 0.0
 
+        unkonwn_prob = 0.0
+
         with torch.no_grad():
             for i in range(data_tensor.shape[0]):
                 # print("data_tensor[i, :, :, :].shape.{}".format(data_tensor[i:i+1, :, :, :].shape))
                 # print(data_tensor[i:i+1, :, :].shape)
-                y = self.model(data_tensor[i:i+1, :, :])
+                y = self.se_brain.modules.embedding_model(data_tensor[i:i+1, :, :])
+
                 if "classifier" in se_brain.modules.keys():
-                    outputs = se_brain.modules.classifier(outputs)
+                    y = se_brain.modules.classifier(y)
+                # print("outputs.size():{}".format(outputs.size()))
+
+                # Ecapa model uses softmax outside of its classifer
+                if "softmax" in se_brain.modules.keys():
+                    y = se_brain.modules.softmax(y)
+
                 y = y[0, 0, :]
                 
-                if torch.argmax(y) == self.keyword:
-                    print("prob:{}".format(y))
+                y_max_index = np.argmax(y)
+                # if y_max_index > 0:
+                #     print("prob:{}".format(torch.exp(y[self.keyword])))
 
                 y = np.exp(y.detach().cpu().numpy())
-                prob = y[self.keyword]
                 
-                if self.postprocessing.update(prob):
-                    self.wake_count = self.wake_count + 1
-                    print("{}:.................keyword detected!..............................".format(self.wake_count))
+                for m in range(len(self.words_wanted)):
+                    if self.postprocessing_list[m].update(y[m]):
+                        self.wake_count = self.wake_count + 1
+                        save_name = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+                        save_name = './wav/' + save_name + '.wav'
+                        wavfile.write(save_name, 16000, self.save_buffer)
+                        print("{}:.................{}............save to {}..............".format(self.wake_count, self.words_wanted[m], save_name))
+                
+                # if y_max_index > 0:
+                #     if self.postprocessing_list[y_max_index-1].update(y[y_max_index]):
+                #         self.wake_count = self.wake_count + 1
+                #         print("{}:{}:.................keyword detected!..............................".format(self.words_wanted[y_max_index-1], self.wake_count))
+                
+                prob = y[self.keyword]
+                unkonwn_prob = y[3]
+                
+                # if self.postprocessing.update(prob):
+                #     self.wake_count = self.wake_count + 1
+                #     print("{}:.................keyword detected!..............................".format(self.wake_count))
                 # output_0.append(y.cpu().numpy()[0, 0])
                 # output_1.append(y.cpu().numpy()[0, 1])
 
         line_with = 1   # [1, self.CHUNK]
         self.audio_data[:self.buffer_len - line_with, 0] = self.audio_data[line_with:, 0]
-        self.audio_data[-line_with:, 0] = prob * np.ones((line_with,))
+        self.audio_data[-line_with:, 0] = (1-unkonwn_prob) * np.ones((line_with,))
 
         return output
 
