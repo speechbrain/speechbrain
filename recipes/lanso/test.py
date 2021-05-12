@@ -19,6 +19,7 @@ Authors
  * Peter Plantinga 2021
 """
 import sys
+import os
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -102,10 +103,26 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    # 3. Fit encoder:
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file
+    )
+
+    ind2lab = label_encoder.ind2lab
+    print(ind2lab)
+    lab2ind = label_encoder.lab2ind
+    print(lab2ind)
+
+    words_wanted=['小蓝小蓝', '管家管家', '物业物业', 'unknown']
+
+
     wav = 'wav/xmos/hixiaowen/音轨-4.wav'
-    wav = 'wav/diy/hixiaowen2/音轨-2.wav'
+    # wav = 'wav/diy/xiaolanxiaolan/1/音轨-2.wav'
     # wav = 'wav/hixiaowen_unk_nihaowenwen2.wav'
-    # wav = 'wav/xmos/noise1/音轨-4.wav'
+    wav = 'wav/xmos/noise1/音轨-4.wav'
 
     wav_data = sb.dataio.dataio.read_audio(wav)
     noisy_wavs = wav_data.reshape(1, -1)
@@ -134,35 +151,34 @@ if __name__ == "__main__":
     output_wavdata = np.zeros([noisy_wavs.shape[1], 2])
 
     output_list = []
+    output_list = [{} for i in range(len(words_wanted))]
+    for i, word in enumerate(words_wanted):
+        output_list[i][word] = []
+
+    output_unk_list = []
     for n in range(frame_num - predict_win):
-        feat_n = noisy_feats[:, n:n+predict_win, :]
-        feats = se_brain.modules.mean_var_norm(feat_n, torch.ones([1]).to(se_brain.device))
+        feat_n = noisy_feats[:, n:n+predict_win, :]#.detach().clone()
+        feats = feat_n.detach().clone()
+        feats = se_brain.modules.mean_var_norm(feats, torch.ones([1]).to(se_brain.device))
+
         output = se_brain.modules.embedding_model(feats)
-        # print(outputs.size())
+        if "classifier" in se_brain.modules.keys():
+            output = se_brain.modules.classifier(output)
+
         output = np.exp(output.detach().cpu().numpy()[0,0,:])
-        # print(outputs.shape)
 
-        output_list.append(output[1])
+        if np.argmax(output) != lab2ind['unknown']:
+            print('{}:{}'.format(ind2lab[np.argmax(output)], np.max(output)))
 
+        for i, word in enumerate(words_wanted):
+            output_list[i][word].append(output[lab2ind[word]])
 
+    for i, word in enumerate(words_wanted):
+        prob = np.array(output_list[i][word])
+        plt.figure()
+        plt.plot(prob)
+        plt.savefig('wav/output/' + word + '.png')
 
-    #     output_prob[n*win_len:(n+1)*win_len] = np.ones(win_len) * output[0]
-
-
-    # output_wavdata[:, 0] = wav_data             # # copy raw data to channel-1
-    #                                             # save prob to channel-2
-    # delay = 16000
-    # output_wavdata[delay:, 1] = output_prob[:len(output_wavdata[delay:, 1])]
-
-    # save_audio('wav/output/a3_prob.wav',output_wavdata)
-
-    output_prob = np.array(output_list)
-
-    hop_len = 160
-    save_prob_to_wav(wav_data, output_prob, hop_len, predict_win, 'wav/output/hixiaowen_unk_nihaowenwen2_prob3.wav', delay=8000)
-
-    print(output_prob.shape)
-    plt.figure()
-    plt.plot(output_prob)
-    plt.savefig('wav/output/output3.png')
-
+        if word == 'unknown':
+            hop_len = 160
+            save_prob_to_wav(wav_data, 1-prob, hop_len, predict_win, 'wav/output/hixiaowen_unk_nihaowenwen2_prob3.wav', delay=8000)
