@@ -13,6 +13,7 @@ from os import walk
 import glob
 import shutil
 import logging
+from typing import Coroutine
 import torch
 import re
 import hashlib
@@ -92,7 +93,7 @@ def dataset_summary(data_path, save_folder):
         "wav": [],
         "spk_id": [],
         "command": [],
-        "transcript": [],
+        # "transcript": [],
     }
 
     dataset = fields.copy()
@@ -127,7 +128,7 @@ def dataset_summary(data_path, save_folder):
         length = 24000       # audio already trimed to 1.5s
 
         dataset['command'].append(keyword)                    # command
-        dataset['transcript'].append(keyword)                    # command
+        # dataset['transcript'].append(keyword)                    # command
         dataset['duration'].append(1.5)
         dataset['start'].append(0)
         dataset['stop'].append(24000)
@@ -176,7 +177,8 @@ def dataset_summary(data_path, save_folder):
 def prepare_kws(data_folder='/home/wangwei/work/corpus/kws/speechbrain/himia',
                 save_folder='results/save',
                 words_wanted=['小蓝小蓝', '管家管家', '物业物业'],
-                skip_prep=False):
+                skip_prep=False,
+                use_others=True):
 
     if skip_prep:
         print('skipping prepare kws!')
@@ -210,16 +212,16 @@ def prepare_kws(data_folder='/home/wangwei/work/corpus/kws/speechbrain/himia',
         "wav": [],
         "spk_id": [],
         "command": [],
-        "transcript": [],
+        # "transcript": [],
     }
 
     splits = {
         "train": copy.deepcopy(fields),
-        "valid": copy.deepcopy(fields),
+        "dev": copy.deepcopy(fields),
         "test": copy.deepcopy(fields),
     }
 
-    data_split = ['train', 'valid', 'test']
+    data_split = ['train', 'dev', 'test']
 
     for i in tqdm(range(len(datasets['wav']))):
         spk_index = all_spk.index(datasets['spk_id'][i])
@@ -229,18 +231,27 @@ def prepare_kws(data_folder='/home/wangwei/work/corpus/kws/speechbrain/himia',
             split = 2  # test
         else:
             split = 1  # dev
+        if datasets['command'][i] in words_wanted:
+            splits[data_split[split]]['command'].append(datasets['command'][i])
+        elif use_others:
+            splits[data_split[split]]['command'].append('unknown')
+        else:
+            continue
+        # print(splits[data_split[split]]['command'])
+
         splits[data_split[split]]['ID'].append(datasets['ID'][i])
         splits[data_split[split]]['duration'].append(datasets['duration'][i])
         splits[data_split[split]]['start'].append(datasets['start'][i])
         splits[data_split[split]]['stop'].append(datasets['stop'][i])
         splits[data_split[split]]['wav'].append(datasets['wav'][i])
         splits[data_split[split]]['spk_id'].append(datasets['spk_id'][i])
-        if datasets['command'][i] in words_wanted:
-            splits[data_split[split]]['command'].append(datasets['command'][i])
-        else:
-            splits[data_split[split]]['command'].append('unknown')
-        splits[data_split[split]]['transcript'].append(
-            datasets['transcript'][i])
+        # if datasets['command'][i] in words_wanted:
+        #     splits[data_split[split]]['command'].append(datasets['command'][i])
+        # else:
+        #     splits[data_split[split]]['command'].append('unknown')
+        # splits[data_split[split]]['transcript'].append(
+        #     datasets['transcript'][i])
+        # print(len(splits[data_split[split]]))
 
     for split in data_split:
         new_filename = os.path.join(save_folder, split) + ".csv"
@@ -256,5 +267,21 @@ if __name__ == "__main__":
 
     data_folder = '/home/wangwei/work/corpus/kws/lanso/LS-ASR-data'
 
-    prepare_kws(data_folder=data_folder, save_folder='results/save',
-                words_wanted=['小蓝小蓝', '管家管家', '物业物业'])
+    prepare_kws(data_folder=data_folder, save_folder='results/save1',
+                words_wanted=['小蓝小蓝', '管家管家', '物业物业'], use_others=False)
+
+    # combine with mobvoihotwords negative samples
+    mobvoi_path = '/home/wangwei/work/speechbrain/recipes/mobvoihotwords/results/save'
+    data_split = ['train', 'dev', 'test']
+    for split in data_split:
+        mobvoi_split_path = os.path.join(mobvoi_path, split + '.csv')
+        datasets = pd.read_csv(mobvoi_split_path)
+        datasets_unk = datasets[datasets['command'].str.contains('unknown')]
+        unk_csv = datasets.loc[datasets_unk.index]
+        print("unknown {}:{}".format(split, len(unk_csv)))
+
+        target_split_path = os.path.join('results/save1', split + '.csv')
+
+        unk_csv.to_csv(target_split_path, mode='a', header=False, index=None)
+
+
