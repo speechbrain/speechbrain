@@ -73,14 +73,14 @@ if __name__ == "__main__":
     noisy_wavs = noisy_wavs.reshape(1, -1)
     print(noisy_wavs.shape)
 
-    noisy_feats = se_brain.compute_feats(noisy_wavs)
+    noisy_feats = se_brain.compute_feats(noisy_wavs)[0]
 
     print(noisy_feats.shape)
 
     se_brain.on_evaluate_start(max_key="pesq")
     se_brain.on_stage_start(sb.Stage.VALID, epoch=None)
 
-    print("Epoch loaded: {}".format(se_brain.hparams['epoch_counter'].current))
+    # print("Epoch loaded: {}".format(se_brain.hparams['epoch_counter'].current))
 
     se_brain.modules.eval()
 
