@@ -170,7 +170,18 @@ class ReLU(nn.ReLU):
         return self.forward(x)
 
 
-class EdgeConvBlock(nn.Module):
+class ClearBufferMixin:
+    """
+    A mixin to clear incremental buffers
+    """
+    def clear_buffer(self):
+        """
+        Clears the buffer used for incremental construction
+        """
+        self.conv.inner.clear_buffer()
+
+
+class EdgeConvBlock(nn.Module, ClearBufferMixin):
     """
     A convolution block found at the "edge" of multi-layer
     stacks within DeepVoice3, typically, the first or last
@@ -232,11 +243,8 @@ class EdgeConvBlock(nn.Module):
         x = x.transpose(1, 2)
         return x
 
-    def clear_buffer(self):
-        self.conv.inner.clear_buffer()
 
-
-class TransposeConvBlock(nn.Module):
+class TransposeConvBlock(nn.Module, ClearBufferMixin):
     """
     A transposed convolution block
     """
@@ -322,7 +330,7 @@ def get_padding(causal, kernel_size, dilation):
     return padding
 
 
-class ConvBlock(nn.Module):
+class ConvBlock(nn.Module, ClearBufferMixin):
     """
     A wrapper for the standard SpeechBrain convolution applying the weight normalization
     described in the paper
@@ -393,17 +401,44 @@ class ConvBlock(nn.Module):
         else:
             self.speaker_proj = None
 
-
-    def _apply_weight_norm(self):
-        std = math.sqrt(
-            (self.std_mul * (1.0 - self.dropout)) / (self.conv.kernel_size[0] * self.conv.in_channels))
-        self.conv.weight.data.normal_(mean=0, std=std)
-        self.conv.bias.data.zero_()
-
     def forward(self, x, speaker_embed=None):
+        """
+        Computes a forward pass.
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+        speaker_embed: torch.Tensor
+            speaker embedding - not used, provided mainly to
+            make various convolutional blocks interchangeable
+
+        Returns
+        -------
+        result: torch.Tensor
+            the output of the convolutional layer
+
+        """
         return self._forward(x, speaker_embed, False)
 
     def incremental_forward(self, x, speaker_embed=None):
+        """
+        Computes a forward pass incrementally (used when generating a sample
+        from a train model)
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+        speaker_embed: torch.Tensor
+            speaker embedding - not used, provided mainly to
+            make various convolutional blocks interchangeable
+
+        Returns
+        -------
+        result: torch.Tensor
+            the output of the convolutional layer
+        """
         return self._forward(x, speaker_embed, True)
 
     def _forward(self, x, speaker_embed, is_incremental):
@@ -425,7 +460,7 @@ class ConvBlock(nn.Module):
             softsign = softsign if is_incremental else softsign.transpose(1, 2)
             a = a + softsign
         x = a * torch.sigmoid(b)
-        return (x + residual) * math.sqrt(0.5) if self.residual else x
+        return (x + residual) * self.multiplier if self.residual else x
 
 
 def position_encoding_init(n_position, d_pos_vec, position_rate=1.0,

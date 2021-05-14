@@ -235,19 +235,19 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
       use_speaker_embed: !ref <use_speaker_embed>
       speaker_embed_dim: !ref <speaker_embed_dim>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
-      <<: *decoder_preattention_conv
+      <<: *decoder_conv
       dilation: 3
       std_mul: !ref <decoder_mid_std_mul>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
-      <<: *decoder_preattention_conv
+      <<: *decoder_conv
       dilation: 9
       std_mul: !ref <decoder_mid_std_mul>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
-      <<: *decoder_preattention_conv
+      <<: *decoder_conv
       dilation: 27
       std_mul: !ref <decoder_mid_std_mul>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
-      <<: *decoder_preattention_conv
+      <<: *decoder_conv
       dilation: 1
       std_mul: !ref <decoder_mid_std_mul>
     attention:
@@ -271,7 +271,7 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
       dilation: 1
       padding: valid
       dropout: 0.
-      std_mul: !ref <encoder_in_std_mul>
+      std_mul: !ref <decoder_high_std_mul>
 
 
 converter: !new:speechbrain.lobes.models.synthesis.deepvoice3.Converter
