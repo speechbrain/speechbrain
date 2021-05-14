@@ -287,7 +287,7 @@ class NoamScheduler:
         self.losses = []
 
         self.n_steps = 0
-        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        self.normalize = n_warmup_steps ** 0.5
         if model_size is not None:
             self.normalize = model_size ** (-0.5)
 
