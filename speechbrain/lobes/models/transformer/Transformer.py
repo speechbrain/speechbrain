@@ -154,7 +154,7 @@ class TransformerInterface(nn.Module):
                         kernel_size=kernel_size,
                         bias=bias,
                         causal=True,
-                        attention_type=self.attention_type,
+                        attention_type="regularMHA",
                         )
 
 
