@@ -148,7 +148,10 @@ def prepare_kws(
     for dataset in ['train', 'dev', 'test']:
         for utt_dict in tqdm(datasets[dataset]):
             splits[dataset]['ID'].append(utt_dict['utt_id'])
-            splits[dataset]['spk_id'].append(utt_dict['speaker_id'])
+            if utt_dict['speaker_id'] is not None:
+                splits[dataset]['spk_id'].append(utt_dict['speaker_id'])
+            else:
+                splits[dataset]['spk_id'].append('unknown_spk')
 
             wav = os.path.join(data_folder, utt_dict['utt_id'] + '.wav')
             splits[dataset]["wav"].append(wav)
@@ -184,18 +187,18 @@ def prepare_kws(
 
             #     splits[dataset]["command"].append(keywords[utt_dict['keyword_id']])
 
-            info = WavInfoReader(wav)
-            fs = info.fmt.sample_rate
-            assert fs == 16000
-            n_frames = info.data.frame_count
-            duration = float(n_frames / fs)
+            # info = WavInfoReader(wav)
+            # fs = info.fmt.sample_rate
+            # assert fs == 16000
+            # n_frames = info.data.frame_count
+            # duration = float(n_frames / fs)
 
-            splits[dataset]["duration"].append(duration)
+            # splits[dataset]["duration"].append(duration)
 
-            splits[dataset]["start"].append(0)
-            stop_len = n_frames if n_frames < 24000 else 24000
-            splits[dataset]["stop"].append(stop_len)
-            splits[dataset]["command"].append(keywords[utt_dict['keyword_id']])
+            # splits[dataset]["start"].append(0)
+            # stop_len = n_frames if n_frames < 24000 else 24000
+            # splits[dataset]["stop"].append(stop_len)
+            # splits[dataset]["command"].append(keywords[utt_dict['keyword_id']])
 
         print('datasets[{}]:{}'.format(dataset, len(datasets[dataset])))
 
@@ -313,11 +316,9 @@ def prepare_kws(
 if __name__ == "__main__":
     import argparse
 
-    data_folder = '/home/wangwei/diskdata/corpus/kws/mobvoi_hotword_dataset/mobvoi_hotword_dataset'
+    data_folder = '/home/wangwei/work/corpus/kws/mobvoi_hotword_dataset/mobvoi_hotword_dataset'
 
     # load_resource(data_folder + '_resources')
 
     prepare_kws(data_folder=data_folder,
-                  save_folder='results/save',
-                  percentage_silence=0,
-                  words_wanted=["wake-word"])
+                  save_folder='results/save1')
