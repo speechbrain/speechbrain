@@ -439,10 +439,10 @@ class RelPosMHAXL(nn.Module):
         if next(self.parameters()).dtype == torch.float16:
             self.attn_fill_value = -65000
         else:
-            self.attn_fill_value = -1e30
+            self.attn_fill_value = -float("inf")
 
         self._reset_parameters()
-        self.scale = math.sqrt(self.embed_dim)
+        self.scale = 1 / math.sqrt(self.embed_dim)
         # self.pos_emb = RelPosEncXL(self.embed_dim)
 
     def _reset_parameters(self):
