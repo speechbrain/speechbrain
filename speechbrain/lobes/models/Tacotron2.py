@@ -1,4 +1,12 @@
-###https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
+"""
+Neural network modules for the Tacotron2 end-to-end neural
+Text-to-Speech (TTS) model
+
+Authors
+* Georges Abous-Rjeili 2020
+"""
+
+# https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -32,7 +40,9 @@ from torch import nn
 from torch.nn import functional as F
 
 #################
-#defining some helper classes
+# defining some helper classes
+
+
 class LinearNorm(torch.nn.Module):
     def __init__(self, in_dim, out_dim, bias=True, w_init_gain='linear'):
         super(LinearNorm, self).__init__()
@@ -66,6 +76,7 @@ class ConvNorm(torch.nn.Module):
     def forward(self, signal):
         return self.conv(signal)
 ###############
+
 
 class LocationLayer(nn.Module):
     def __init__(self, attention_n_filters, attention_kernel_size,
@@ -104,14 +115,19 @@ class Attention(nn.Module):
     def get_alignment_energies(self, query, processed_memory,
                                attention_weights_cat):
         """
-        PARAMS
-        ------
-        query: decoder output (batch, n_mel_channels * n_frames_per_step)
-        processed_memory: processed encoder outputs (B, T_in, attention_dim)
-        attention_weights_cat: cumulative and prev. att weights (B, 2, max_time)
-        RETURNS
+        Arguments
+        ---------
+        query: torch.Tensor
+            decoder output (batch, n_mel_channels * n_frames_per_step)
+        processed_memory: torch.Tensor
+            processed encoder outputs (B, T_in, attention_dim)
+        attention_weights_cat: torch.Tensor
+            cumulative and prev. att weights (B, 2, max_time)
+
+        Returns
         -------
-        alignment (batch, max_time)
+        alignment : torch.Tensor
+            (batch, max_time)
         """
 
         processed_query = self.query_layer(query.unsqueeze(1))
@@ -125,13 +141,18 @@ class Attention(nn.Module):
     def forward(self, attention_hidden_state, memory, processed_memory,
                 attention_weights_cat, mask):
         """
-        PARAMS
-        ------
-        attention_hidden_state: attention rnn last output
-        memory: encoder outputs
-        processed_memory: processed encoder outputs
-        attention_weights_cat: previous and cummulative attention weights
-        mask: binary mask for padded data
+        Arguments
+        ---------
+        attention_hidden_state: torch.Tensor
+            attention rnn last output
+        memory: torch.Tensor
+            encoder outputs
+        processed_memory: torch.Tensor
+            processed encoder outputs
+        attention_weights_cat: torch.Tensor
+            previous and cummulative attention weights
+        mask: torch.Tensor
+            binary mask for padded data
         """
         alignment = self.get_alignment_energies(
             attention_hidden_state, processed_memory, attention_weights_cat)
@@ -398,16 +419,24 @@ class Decoder(nn.Module):
 
     def parse_decoder_outputs(self, mel_outputs, gate_outputs, alignments):
         """ Prepares decoder outputs for output
-        PARAMS
-        ------
-        mel_outputs:
-        gate_outputs: gate output energies
-        alignments:
-        RETURNS
+
+        Arguments
+        ---------
+        mel_outputs: torch.Tensor
+            MEL-scale spectrogram outputs
+        gate_outputs: torch.Tensor
+            gate output energies
+        alignments: torch.Tensor
+            the alignment tensor
+
+        Returns
         -------
-        mel_outputs:
-        gate_outpust: gate output energies
-        alignments:
+        mel_outputs: torch.Tensor
+            MEL-scale spectrogram outputs
+        gate_outputs: torch.Tensor
+            gate output energies
+        alignments: torch.Tensor
+            the alignment tensor
         """
         # (T_out, B) -> (B, T_out)
         alignments = alignments.transpose(0, 1).contiguous()
@@ -428,14 +457,19 @@ class Decoder(nn.Module):
                attention_weights_cum, attention_context, memory,
                processed_memory, mask):
         """ Decoder step using stored states, attention and memory
-        PARAMS
-        ------
-        decoder_input: previous mel output
-        RETURNS
+        Arguments
+        ---------
+        decoder_input: torch.Tensor
+            previous mel output
+
+        Returns
         -------
-        mel_output:
-        gate_output: gate output energies
-        attention_weights:
+        mel_output: torch.Tensor
+            the MEL-scale outputs
+        gate_output: torch.Tensor
+            gate output energies
+        attention_weights: torch.Tensor
+            attention weights
         """
         cell_input = torch.cat((decoder_input, attention_context), -1)
 
@@ -474,16 +508,24 @@ class Decoder(nn.Module):
     @torch.jit.ignore
     def forward(self, memory, decoder_inputs, memory_lengths):
         """ Decoder forward pass for training
-        PARAMS
-        ------
-        memory: Encoder outputs
-        decoder_inputs: Decoder inputs for teacher forcing. i.e. mel-specs
-        memory_lengths: Encoder output lengths for attention masking.
-        RETURNS
+
+        Arguments
+        ----------
+        memory: torch.Tensor
+            Encoder outputs
+        decoder_inputs: torch.Tensor
+            Decoder inputs for teacher forcing. i.e. mel-specs
+        memory_lengths: torch.Tensor
+            Encoder output lengths for attention masking.
+
+        Returns
         -------
-        mel_outputs: mel outputs from the decoder
-        gate_outputs: gate outputs from the decoder
-        alignments: sequence of attention weights from the decoder
+        mel_outputs: torch.Tensor
+            mel outputs from the decoder
+        gate_outputs: torch.Tensor
+            gate outputs from the decoder
+        alignments: torch.Tensor
+            sequence of attention weights from the decoder
         """
 
         decoder_input = self.get_go_frame(memory).unsqueeze(0)
@@ -538,14 +580,22 @@ class Decoder(nn.Module):
     @torch.jit.export
     def infer(self, memory, memory_lengths):
         """ Decoder inference
-        PARAMS
-        ------
-        memory: Encoder outputs
-        RETURNS
+
+        Arguments
+        ---------
+        memory: torch.Tensor
+            Encoder outputs
+
+        Returns
         -------
-        mel_outputs: mel outputs from the decoder
-        gate_outputs: gate outputs from the decoder
-        alignments: sequence of attention weights from the decoder
+        mel_outputs: torch.Tensor
+            mel outputs from the decoder
+        gate_outputs: torch.Tensor
+            gate outputs from the decoder
+        alignments: torch.Tensor
+            sequence of attention weights from the decoder
+        mel_lengths: torch.Tensor
+            the length of MEL spectrograms
         """
         decoder_input = self.get_go_frame(memory)
 
@@ -639,46 +689,68 @@ class Tacotron2(nn.Module):
 
         PARAMS
         ------
-        mask_padding: (bool) whether or not to mask pad-outputs of tacotron
+        mask_padding: bool
+            whether or not to mask pad-outputs of tacotron
 
         #mel generation parameter in data io
-        n_mel_channels: (int) number of mel channels for constructing spectrogram
+        n_mel_channels: int
+            number of mel channels for constructing spectrogram
 
         #symbols
-        n_symbols:(int=128) number of accepted char symbols defined in textToSequence
-        symbols_embedding_dim: (int) number of embeding dimension for symbols fed to nn.Embedding
+        n_symbols:  int=128
+            number of accepted char symbols defined in textToSequence
+        symbols_embedding_dim: int
+            number of embeding dimension for symbols fed to nn.Embedding
 
         # Encoder parameters
-        encoder_kernel_size:(int) size of kernel processing the embeddings
-        encoder_n_convolutions:(int) number of convolution layers in encoder
-        encoder_embedding_dim:(int) number of kernels in encoder, this is also the dimension
-        of the bidirectional LSTM in the encoder
+        encoder_kernel_size: int
+            size of kernel processing the embeddings
+        encoder_n_convolutions: int
+            number of convolution layers in encoder
+        encoder_embedding_dim: int
+            number of kernels in encoder, this is also the dimension
+            of the bidirectional LSTM in the encoder
 
         # Attention parameters
-        attention_rnn_dim:(int) input dimension
-        attention_dim:(int) number of hidden represetation in attention
+        attention_rnn_dim: int
+            input dimension
+        attention_dim: int
+            number of hidden represetation in attention
         # Location Layer parameters
-        attention_location_n_filters:(int) number of 1-D convulation filters in attention
-        attention_location_kernel_size:(int) lenght of the 1-D convolution filters
+        attention_location_n_filters: int
+            number of 1-D convulation filters in attention
+        attention_location_kernel_size: int
+            length of the 1-D convolution filters
 
         # Decoder parameters
-        n_frames_per_step:(int=1 ) only 1 generated mel-frame per step is supported for the decoder as of now.
-        decoder_rnn_dim:(int) number of 2 unidirectionnal stacked LSTM units
-        prenet_dim: dimension of linear prenet layers
-        max_decoder_steps:(int) maximum number of steps/frames the decoder generates before stopping
-        p_attention_dropout:(float) attention drop out probability
-        p_decoder_dropout:(float) decoder drop  out probability
+        n_frames_per_step: int=1
+            only 1 generated mel-frame per step is supported for the decoder as of now.
+        decoder_rnn_dim: int
+            number of 2 unidirectionnal stacked LSTM units
+        prenet_dim: int
+            dimension of linear prenet layers
+        max_decoder_steps: int
+            maximum number of steps/frames the decoder generates before stopping
+        p_attention_dropout: float
+            attention drop out probability
+        p_decoder_dropout: float
+            decoder drop  out probability
 
-        gate_threshold:(int)  cut off level any output probabilty above that is considered
-        complete and stops genration so we have variable length outputs
-        decoder_no_early_stopping:(bool) determines early stoppinf od decoder
-        along with gate_threshold . The logical inverse of this is fed to the decoder
+        gate_threshold: int
+            cut off level any output probabilty above that is considered
+            complete and stops genration so we have variable length outputs
+        decoder_no_early_stopping: bool
+            determines early stopping of decoder
+            along with gate_threshold . The logical inverse of this is fed to the decoder
 
 
         #Mel-post processing network parameters
-        postnet_embedding_dim: (int) number os postnet dfilters
-        postnet_kernel_size: (int) 1d size of posnet kernel
-        postnet_n_convolutions: (int) number of convolution layers in postnet
+        postnet_embedding_dim: int
+            number os postnet dfilters
+        postnet_kernel_size: int
+            1d size of posnet kernel
+        postnet_n_convolutions: int
+            number of convolution layers in postnet
 
         """
         super(Tacotron2, self).__init__()
@@ -706,7 +778,7 @@ class Tacotron2(nn.Module):
                                postnet_n_convolutions)
 
     def parse_batch(self, batch):
-        ## parsses batch object to gpu
+        # parsses batch object to gpu
         text_padded, input_lengths, mel_padded, gate_padded, \
             output_lengths = batch
         text_padded = to_gpu(text_padded).long()
@@ -721,8 +793,21 @@ class Tacotron2(nn.Module):
             (mel_padded, gate_padded))
 
     def parse_output(self, outputs, output_lengths):
-        #masks paded part of output
-        # type: (List[Tensor], Tensor) -> List[Tensor]
+        """
+        Masks the padded part of output
+
+        Arguments
+        ---------
+        outputs: list
+            a list of tensors - raw outputs
+        outputs_lengths: torch.Tensor
+            a tensor representing the lengths of all outputs
+
+        Returns
+        -------
+        result: torch.Tensor
+            the original outputs - with the mask applied
+        """
         if self.mask_padding and output_lengths is not None:
             mask = get_mask_from_lengths(output_lengths)
             mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
@@ -736,17 +821,22 @@ class Tacotron2(nn.Module):
 
     def forward(self, inputs):
         """ Decoder forward pass for training
-        PARAMS
-        ------
+        Arguments
+        ---------
         inputs: batch object
 
-        RETURNS
-        -------
-        mel_outputs: mel outputs from the decoder
-        mel_outputs_postnet: mel outputs from postnet
-        gate_outputs: gate outputs from the decoder
-        alignments: sequence of attention weights from the decoder
-        output_legnths: lenght of the output without padding
+        Arguments
+        ---------
+        mel_outputs: torch.Tensor
+            mel outputs from the decoder
+        mel_outputs_postnet: torch.Tensor
+            mel outputs from postnet
+        gate_outputs: torch.Tensor
+            gate outputs from the decoder
+        alignments: torch.Tensor
+            sequence of attention weights from the decoder
+        output_legnths: torch.Tensor
+            length of the output without padding
         """
 
         inputs, input_lengths, targets, max_len, output_lengths = inputs
@@ -767,20 +857,22 @@ class Tacotron2(nn.Module):
             output_lengths)
 
     def infer(self, inputs, input_lengths):
-
         """ Decoder inference
-        PARAMS
-        ------
+        Arguments
+        ---------
         inputs:(int list) text converted to sequence of ints with the function text_to_sequence in
         tectTosequence.py
 
         input_lengths:(int) lenght of seuqence
-        RETURNS
 
+        Returns
         -------
-        mel_outputs_postnet: final mel output of tacotron 2
-        mel_lengths: length of mels
-        alignments: sequence of attention weights
+        mel_outputs_postnet: torch.Tensor
+            final mel output of tacotron 2
+        mel_lengths: torch.Tensor
+            length of mels
+        alignments: torch.Tensor
+            sequence of attention weights
         """
 
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
@@ -806,10 +898,10 @@ def to_gpu(x):
         x = x.cuda(non_blocking=True)
     return x
 
+
 def get_mask_from_lengths(lengths):
     max_len = torch.max(lengths).item()
     ids = torch.arange(0, max_len, device=lengths.device, dtype=lengths.dtype)
     mask = (ids < lengths.unsqueeze(1)).byte()
     mask = torch.le(mask, 0)
     return mask
-

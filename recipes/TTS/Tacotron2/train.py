@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
-""" runlike this
-# python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml
+"""
+ Recipe for training the Tacotron Text-To-Speech model, an end-to-end
+ neural text-to-speech (TTS) system
 
-to infer simply load saved model and do
+ To run this recipe, do the following:
+ # python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml
+
+ to infer simply load saved model and do
  savemodel.infer(text_Sequence,len(textsequence))
 
  were text_Sequence is the ouput of the text_to_sequence function from
  textToSequence.py (from textToSequence import text_to_sequence)
+
+ Authors
+ * Georges Abous-Rjeili 2020
 
 """
 
@@ -18,7 +25,6 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.dataset import DynamicItemDataset
 from hyperpyyaml import load_hyperpyyaml
 import sys
-import os
 import logging
 
 from textToSequence import text_to_sequence
@@ -66,7 +72,6 @@ class Tacotron2Brain(sb.Brain):
             `None` during the test stage.
         """
 
-
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -91,7 +96,6 @@ class Tacotron2Brain(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
-
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -124,19 +128,19 @@ def dataio_prepare(hparams):
     datasets = [train_data, valid_data, test_data]
 
     audio_toMel = transforms.MelSpectrogram(
-		sample_rate = hparams['sampling_rate'] ,
+        sample_rate=hparams['sampling_rate'],
 
-		hop_length = hparams['hop_length'] ,
-		win_length = hparams['win_length'] ,
-		n_fft=hparams['n_fft'],
-		n_mels = hparams['n_mel_channels'] ,
-		f_min = hparams['mel_fmin'],
-		f_max =hparams['mel_fmax'],
-		normalized=hparams['mel_normalized'],
-		)
+        hop_length=hparams['hop_length'],
+        win_length=hparams['win_length'],
+        n_fft=hparams['n_fft'],
+        n_mels=hparams['n_mel_channels'],
+        f_min=hparams['mel_fmin'],
+        f_max=hparams['mel_fmax'],
+        normalized=hparams['mel_normalized'],
+    )
 
-		#  Define audio and text pipeline:
-    @speechbrain.utils.data_pipeline.takes("file_path","words")
+    #  Define audio and text pipeline:
+    @speechbrain.utils.data_pipeline.takes("file_path", "words")
     @speechbrain.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(file_path, words):
         text_seq = torch.IntTensor(
@@ -147,7 +151,7 @@ def dataio_prepare(hparams):
         len_text = len(text_seq)
         yield text_seq, mel, len_text
 
-		# set outputs
+        # set outputs
     speechbrain.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
     speechbrain.dataio.dataset.set_output_keys(
         datasets, ["mel_text_pair"],
@@ -172,7 +176,7 @@ def dataio_prepare(hparams):
     return train_data_loader, valid_data_loader, test_data_loader
 
 
-#some helper functoions
+# some helper functoions
 def batch_to_gpu(batch):
     text_padded, input_lengths, mel_padded, gate_padded, \
         output_lengths, len_x = batch
@@ -196,22 +200,21 @@ def to_gpu(x):
     return x
 
 
- ############loss fucntion
-def criterion( model_output, targets):
-   mel_target, gate_target = targets[0], targets[1]
-   mel_target.requires_grad = False
-   gate_target.requires_grad = False
-   gate_target = gate_target.view(-1, 1)
+def criterion(model_output, targets):
+    mel_target, gate_target = targets[0], targets[1]
+    mel_target.requires_grad = False
+    gate_target.requires_grad = False
+    gate_target = gate_target.view(-1, 1)
 
-   mel_out, mel_out_postnet, gate_out, _ = model_output
-   gate_out = gate_out.view(-1, 1)
-   mel_loss = torch.nn.MSELoss()(mel_out, mel_target) + \
-       torch.nn.MSELoss()(mel_out_postnet, mel_target)
-   gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
-   return mel_loss + gate_loss
+    mel_out, mel_out_postnet, gate_out, _ = model_output
+    gate_out = gate_out.view(-1, 1)
+    mel_loss = torch.nn.MSELoss()(mel_out, mel_target) + \
+        torch.nn.MSELoss()(mel_out_postnet, mel_target)
+    gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
+    return mel_loss + gate_loss
 
 
-### custome Collate function for the dataloader
+# custome Collate function for the dataloader
 class TextMelCollate():
     """ Zero-pads model inputs and targets based on number of frames per setep
     """
@@ -225,8 +228,9 @@ class TextMelCollate():
         ------
         batch: [text_normalized, mel_normalized]
         """
-        for i in range(len(batch)): #the pipline return a dictionary wiht one elemnent
-            batch[i]=list(batch[i].values())[0]
+        for i in range(
+                len(batch)):  # the pipline return a dictionary wiht one elemnent
+            batch[i] = list(batch[i].values())[0]
 
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
@@ -272,9 +276,6 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     #########
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    #hparams_file="hparams.yaml"
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    #run_opts={"device ": device}
 
     #############
     with open(hparams_file) as fin:

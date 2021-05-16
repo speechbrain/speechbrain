@@ -43,7 +43,7 @@ from torch.utils.data import DataLoader
 
 
 sys.path.append("..")
-from datasets.vctk import VCTK
+from datasets.vctk import VCTK # noqa
 
 
 class DeepVoice3Brain(sb.core.Brain):
