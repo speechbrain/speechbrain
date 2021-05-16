@@ -46,7 +46,9 @@ class WeightNorm(nn.Module):
     """
     A weight normalization wrapper for convolutional layers
     """
-    def __init__(self, inner: CNN.Conv1d, dropout: float=0.1, std_mul: float=4.0):
+
+    def __init__(self, inner: CNN.Conv1d, dropout: float = 0.1,
+                 std_mul: float = 4.0):
         """
         Class constructor
 
@@ -91,6 +93,7 @@ class IncrementalConv1d(CNN.Conv1d):
     An extension of the standard SpeechBrain Conv1d that
     supports "Incremental Forward" mode.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, padding_mode='constant', **kwargs)
         self.clear_buffer()
@@ -117,11 +120,13 @@ class IncrementalConv1d(CNN.Conv1d):
         if kw > 1:
             input = input.data
             if self.input_buffer is None:
-                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                self.input_buffer = input.new(
+                    bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
                 self.input_buffer.zero_()
             else:
                 # shift buffer
-                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
+                self.input_buffer[:, :
+                                  - 1, :] = self.input_buffer[:, 1:, :].clone()
             # append next input
             self.input_buffer[:, -1, :] = input[:, -1, :]
             input = self.input_buffer
@@ -157,12 +162,12 @@ class IncrementalConv1d(CNN.Conv1d):
         self._linearized_weight = None
 
 
-
 class ReLU(nn.ReLU):
     """
     A ReLU equivalent with a pass-through incremental_forward
     implementation
     """
+
     def forward(self, x, speaker_embed=None):
         return super().forward(x)
 
@@ -174,6 +179,7 @@ class ClearBufferMixin:
     """
     A mixin to clear incremental buffers
     """
+
     def clear_buffer(self):
         """
         Clears the buffer used for incremental construction
@@ -188,10 +194,11 @@ class EdgeConvBlock(nn.Module, ClearBufferMixin):
     layer consisting of a "regular" convolutional layer
 
     """
+
     def __init__(
             self,
-            dropout: float=0.,
-            std_mul: float=1., *args, **kwargs):
+            dropout: float = 0.,
+            std_mul: float = 1., *args, **kwargs):
         super().__init__()
         self.conv = WeightNorm(
             inner=IncrementalConv1d(
@@ -248,10 +255,11 @@ class TransposeConvBlock(nn.Module, ClearBufferMixin):
     """
     A transposed convolution block
     """
+
     def __init__(
             self,
-            dropout: float=0.,
-            std_mul: float=1., *args, **kwargs):
+            dropout: float = 0.,
+            std_mul: float = 1., *args, **kwargs):
         """
         Class constructor
 
@@ -335,21 +343,22 @@ class ConvBlock(nn.Module, ClearBufferMixin):
     A wrapper for the standard SpeechBrain convolution applying the weight normalization
     described in the paper
     """
+
     def __init__(
-        self,
-        use_speaker_embed=False,
-        speaker_embed_dim=16,
-        in_channels=256,
-        out_channels=256,
-        kernel_size=5,
-        padding=None,
-        dilation=1,
-        dropout=0.,
-        std_mul=4.0,
-        causal=False,
-        residual=False,
-        *args,
-        **kwargs):
+            self,
+            use_speaker_embed=False,
+            speaker_embed_dim=16,
+            in_channels=256,
+            out_channels=256,
+            kernel_size=5,
+            padding=None,
+            dilation=1,
+            dropout=0.,
+            std_mul=4.0,
+            causal=False,
+            residual=False,
+            *args,
+            **kwargs):
         """
         Class constructor. Any arguments not explicitly specified
         will be passed through to the Conv1d instance
@@ -469,7 +478,8 @@ def position_encoding_init(n_position, d_pos_vec, position_rate=1.0,
 
     # keep dim 0 for padding token position encoding zero vector
     position_enc = np.array([
-        [position_rate * pos / np.power(10000, 2 * (i // 2) / d_pos_vec) for i in range(d_pos_vec)]
+        [position_rate * pos
+            / np.power(10000, 2 * (i // 2) / d_pos_vec) for i in range(d_pos_vec)]
         if pos != 0 else np.zeros(d_pos_vec) for pos in range(n_position)])
 
     position_enc = torch.from_numpy(position_enc).float()
@@ -499,6 +509,7 @@ class SinusoidalEncoding(nn.Embedding):
         The embedding dimension (i.e. the dimension of
         each embedding vector)
     """
+
     def __init__(self, num_embeddings, embedding_dim,
                  *args, **kwargs):
         super().__init__(
@@ -627,9 +638,11 @@ def get_mask_from_lengths(memory, memory_lengths):
         The length of the memory cell
     """
     max_len = max(memory_lengths)
-    mask = torch.arange(max_len).expand(memory.size(0), max_len) < torch.tensor(memory_lengths).unsqueeze(-1)
+    mask = torch.arange(max_len).expand(memory.size(0),
+                                        max_len) < torch.tensor(memory_lengths).unsqueeze(-1)
     mask = mask.to(memory.device)
     return ~mask
+
 
 def expand_speaker_embed(inputs_btc, speaker_embed=None, tdim=1):
     if speaker_embed is None:
@@ -669,6 +682,7 @@ class Encoder(nn.Module):
         Whether to apply gradient scaling
 
     """
+
     def __init__(self, n_vocab, embed_dim,
                  use_speaker_embed=False,
                  speaker_embed_dim=16,
@@ -686,13 +700,14 @@ class Encoder(nn.Module):
 
         # Speaker embedding
         if use_speaker_embed:
-            self.speaker_fc1 = Linear(speaker_embed_dim, embed_dim, dropout=dropout)
-            self.speaker_fc2 = Linear(speaker_embed_dim, embed_dim, dropout=dropout)
+            self.speaker_fc1 = Linear(
+                speaker_embed_dim, embed_dim, dropout=dropout)
+            self.speaker_fc2 = Linear(
+                speaker_embed_dim, embed_dim, dropout=dropout)
         self.use_speaker_embed = use_speaker_embed
 
         # Non causual convolution blocks
         self.convolutions = nn.ModuleList(convolutions)
-
 
     def forward(self, text_sequences, speaker_embed=None):
         """
@@ -714,7 +729,10 @@ class Encoder(nn.Module):
         # expand speaker embedding for all time steps
         speaker_embed_btc = expand_speaker_embed(x, speaker_embed)
         if speaker_embed_btc is not None:
-            speaker_embed_btc = F.dropout(speaker_embed_btc, p=self.dropout, training=self.training)
+            speaker_embed_btc = F.dropout(
+                speaker_embed_btc,
+                p=self.dropout,
+                training=self.training)
             x = x + F.softsign(self.speaker_fc1(speaker_embed_btc))
 
         input_embedding = x
@@ -723,7 +741,6 @@ class Encoder(nn.Module):
         x = x.transpose(1, 2)
 
         # １D conv blocks
-        i = 1
         for f in self.convolutions:
             x = f(x, speaker_embed_btc)
 
@@ -735,7 +752,8 @@ class Encoder(nn.Module):
 
         # scale gradients (this only affects backward, not forward)
         if self.apply_grad_scaling and self.num_attention_layers is not None:
-            keys = GradMultiply.apply(keys, 1.0 / (2.0 * self.num_attention_layers))
+            keys = GradMultiply.apply(keys,
+                                      1.0 / (2.0 * self.num_attention_layers))
 
         # add output to input embedding for attention
         values = (keys + input_embedding) * math.sqrt(0.5)
@@ -764,6 +782,7 @@ class AttentionLayer(nn.Module):
     value_projection: bool
         whether to use value projections
     """
+
     def __init__(self, conv_channels, embed_dim, dropout=0.1,
                  window_ahead=3, window_backward=1,
                  key_projection=True, value_projection=True):
@@ -856,8 +875,6 @@ class AttentionLayer(nn.Module):
         return x, attn_scores
 
 
-
-
 class Decoder(nn.Module):
     """
     The decoder block
@@ -899,6 +916,7 @@ class Decoder(nn.Module):
         The minimum number of decoder steps during an
         incremental reconstruction (defaults to 20)
     """
+
     def __init__(self, embed_dim,
                  use_speaker_embed,
                  speaker_embed_dim=None,
@@ -923,7 +941,8 @@ class Decoder(nn.Module):
         self.query_position_rate = query_position_rate
         self.key_position_rate = key_position_rate
 
-        # Position encodings for query (decoder states) and keys (encoder states)
+        # Position encodings for query (decoder states) and keys (encoder
+        # states)
         self.embed_query_positions = SinusoidalEncoding(
             max_positions, in_channels)
         self.embed_keys_positions = SinusoidalEncoding(
@@ -941,7 +960,6 @@ class Decoder(nn.Module):
         self.attention = nn.ModuleList(attention)
         self.output = output
 
-
         # Mel-spectrogram (before sigmoid) -> Done binary flag
         self.fc = Linear(in_dim * r, 1)
 
@@ -950,7 +968,8 @@ class Decoder(nn.Module):
         self.use_memory_mask = use_memory_mask
 
         if isinstance(force_monotonic_attention, bool):
-            self.force_monotonic_attention = [force_monotonic_attention] * len(convolutions)
+            self.force_monotonic_attention = [
+                force_monotonic_attention] * len(convolutions)
         else:
             self.force_monotonic_attention = force_monotonic_attention
 
@@ -985,7 +1004,8 @@ class Decoder(nn.Module):
         if inputs is None:
             assert text_positions is not None
             self.start_fresh_sequence()
-            outputs = self.incremental_forward(encoder_out, text_positions, speaker_embed)
+            outputs = self.incremental_forward(
+                encoder_out, text_positions, speaker_embed)
             return outputs
 
         # Grouping multiple frames if necessary
@@ -996,7 +1016,10 @@ class Decoder(nn.Module):
         # expand speaker embedding for all time steps
         speaker_embed_btc = expand_speaker_embed(inputs, speaker_embed)
         if speaker_embed_btc is not None:
-            speaker_embed_btc = F.dropout(speaker_embed_btc, p=self.dropout, training=self.training)
+            speaker_embed_btc = F.dropout(
+                speaker_embed_btc,
+                p=self.dropout,
+                training=self.training)
 
         keys, values = encoder_out
 
@@ -1010,13 +1033,15 @@ class Decoder(nn.Module):
             w = self.key_position_rate
             # TODO: may be useful to have projection per attention layer
             if self.speaker_proj1 is not None:
-                w = w * torch.sigmoid(self.speaker_proj1(speaker_embed)).view(-1)
+                w = w * \
+                    torch.sigmoid(self.speaker_proj1(speaker_embed)).view(-1)
             text_pos_embed = self.embed_keys_positions(text_positions, w)
             keys = keys + text_pos_embed
         if frame_positions is not None:
             w = self.query_position_rate
             if self.speaker_proj2 is not None:
-                w = w * torch.sigmoid(self.speaker_proj2(speaker_embed)).view(-1)
+                w = w * \
+                    torch.sigmoid(self.speaker_proj2(speaker_embed)).view(-1)
             frame_pos_embed = self.embed_query_positions(frame_positions, w)
 
         # transpose only once to speed up attention layers
@@ -1069,7 +1094,6 @@ class Decoder(nn.Module):
 
     def incremental_forward(self, encoder_out, text_positions, speaker_embed=None,
                             initial_input=None, test_inputs=None):
-
         """
         Computes the forward pass incrementally (needed when producing an output without a target)
 
@@ -1197,7 +1221,8 @@ class Decoder(nn.Module):
 
         # Combine outputs for all time steps
         alignments = torch.stack(alignments).transpose(0, 1)
-        decoder_states = torch.stack(decoder_states).transpose(0, 1).contiguous()
+        decoder_states = torch.stack(
+            decoder_states).transpose(0, 1).contiguous()
         outputs = torch.stack(outputs).transpose(0, 1).contiguous()
         dones = torch.cat(dones, dim=1)
 
@@ -1212,8 +1237,6 @@ class Decoder(nn.Module):
         self.output.clear_buffer()
 
 
-
-
 def _clear_modules(modules):
     """
     Clears the specified modules' buffers
@@ -1226,7 +1249,7 @@ def _clear_modules(modules):
     for m in modules:
         try:
             m.clear_buffer()
-        except AttributeError as e:
+        except AttributeError:
             pass
 
 
@@ -1247,6 +1270,7 @@ class Converter(nn.Module):
     dropout: float
         the dropout rate (0.0 - 1.0)
     """
+
     def __init__(self, use_speaker_embed, in_dim, out_dim, convolutions,
                  dropout=0.1):
         super().__init__()
@@ -1282,7 +1306,7 @@ class Converter(nn.Module):
         for f in self.convolutions:
             # Case for upsampling
             if (speaker_embed_btc is not None
-                and speaker_embed_btc.size(1) != x.size(-1)):
+                    and speaker_embed_btc.size(1) != x.size(-1)):
                 speaker_embed_btc = expand_speaker_embed(
                     x, speaker_embed, tdim=-1)
                 speaker_embed_btc = F.dropout(
@@ -1338,7 +1362,6 @@ class TTSModel(nn.Module):
         self.embed_speakers = embed_speakers
         self.use_speaker_embed = use_speaker_embed
         self.speaker_embed_dim = speaker_embed_dim
-
 
     def forward(self, text_sequences, mel_targets=None, speaker_ids=None,
                 text_positions=None, frame_positions=None, input_lengths=None,
@@ -1422,7 +1445,6 @@ class AttentionSeq2Seq(nn.Module):
 
     def forward(self, text_sequences, mel_targets=None, speaker_embed=None,
                 text_positions=None, frame_positions=None, input_lengths=None):
-
         """
         Computes the forward pass
 
@@ -1497,7 +1519,6 @@ class LossStats:
                 for field in fields}
 
 
-
 class Loss(nn.Module):
     """
     The loss for the DeepVoice3 model
@@ -1517,16 +1538,16 @@ class Loss(nn.Module):
     """
 
     def __init__(
-        self,
-        linear_dim: int,
-        downsample_step: int,
-        outputs_per_step: int,
-        masked_loss_weight: float,
-        binary_divergence_weight: float,
-        priority_freq_weight: float,
-        priority_freq: float,
-        sample_rate: float,
-        guided_attention_sigma: float):
+            self,
+            linear_dim: int,
+            downsample_step: int,
+            outputs_per_step: int,
+            masked_loss_weight: float,
+            binary_divergence_weight: float,
+            priority_freq_weight: float,
+            priority_freq: float,
+            sample_rate: float,
+            guided_attention_sigma: float):
 
         super().__init__()
         self.linear_dim = linear_dim
@@ -1542,8 +1563,8 @@ class Loss(nn.Module):
         self.masked_l1 = MaskedL1Loss()
         self.l1 = nn.L1Loss()
 
+    # TODO: Make this more friendly
 
-    #TODO: Make this more friendly
     def forward(self, input, target):
         """
         Computes the losses
@@ -1631,7 +1652,6 @@ class Loss(nn.Module):
         target_mask = target_mask[:, self.outputs_per_step:, :]
         return decoder_target_mask, target_mask
 
-
     def mel_loss(self, input_mel, target_mel, decoder_target_mask):
         """
         Computes the MEL scale spectrogram loss
@@ -1660,7 +1680,7 @@ class Loss(nn.Module):
             binary_divergence_weight=self.binary_divergence_weight)
         mel_loss = (
             (1 - self.binary_divergence_weight) * mel_l1_loss
-             + self.binary_divergence_weight * mel_binary_div)
+            + self.binary_divergence_weight * mel_binary_div)
         return mel_loss, mel_l1_loss, mel_binary_div
 
     def linear_loss(self, input_linear, target_linear, target_mask):
@@ -1697,9 +1717,8 @@ class Loss(nn.Module):
             binary_divergence_weight=self.binary_divergence_weight)
         linear_loss = (
             (1 - self.binary_divergence_weight) * linear_l1_loss
-             + self.binary_divergence_weight * linear_binary_div)
+            + self.binary_divergence_weight * linear_binary_div)
         return linear_loss, linear_l1_loss, linear_binary_div
-
 
     def spec_loss(self, y_hat, y, mask, priority_bin=None,
                   priority_w=0, masked_loss_weight=0.,
@@ -1728,7 +1747,9 @@ class Loss(nn.Module):
         # L1 loss
         if w > 0:
             assert mask is not None
-            l1_loss = w * self.masked_l1(y_hat, y, mask=mask) + (1 - w) * self.l1(y_hat, y)
+            l1_loss = w * \
+                self.masked_l1(y_hat, y, mask=mask) + \
+                (1 - w) * self.l1(y_hat, y)
         else:
             assert mask is None
             l1_loss = self.l1(y_hat, y)
@@ -1738,9 +1759,11 @@ class Loss(nn.Module):
             if w > 0:
                 priority_loss = w * self.masked_l1(
                     y_hat[:, :, :priority_bin], y[:, :, :priority_bin], mask=mask) \
-                    + (1 - w) * self.l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+                    + (1 - w) * \
+                    self.l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
             else:
-                priority_loss = self.l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+                priority_loss = self.l1(
+                    y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
             l1_loss = (1 - priority_w) * l1_loss + priority_w * priority_loss
 
         # Binary divergence loss
@@ -1779,7 +1802,9 @@ class Loss(nn.Module):
         seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
         seq_length_expand = sequence_length.unsqueeze(1) \
             .expand_as(seq_range_expand)
-        result = (seq_range_expand < seq_length_expand.to(seq_range_expand.device)).float()
+        result = (
+            seq_range_expand < seq_length_expand.to(
+                seq_range_expand.device)).float()
         if device is not None:
             result.to(device)
         return result
@@ -1807,15 +1832,14 @@ class Loss(nn.Module):
         value: torch.Tensor
             The guided attention tensor for a single example
         """
-        W = torch.zeros((max_N, max_T)).float()
         n, t = torch.meshgrid(
             torch.arange(N).to(N.device),
             torch.arange(T).to(N.device))
         value = 1. - torch.exp(-(n / N - t / T) ** 2 / (2 * g * g))
         return value
 
-
-    def guided_attentions(self, input_lengths, target_lengths, max_target_len, g=0.2):
+    def guided_attentions(self, input_lengths,
+                          target_lengths, max_target_len, g=0.2):
         """
         Computes guided attention matrices
 
@@ -1838,9 +1862,9 @@ class Loss(nn.Module):
         B = len(input_lengths)
         max_input_len = input_lengths.max()
         W = (torch.zeros((B, max_target_len, max_input_len.item()))
-            .float()
-            .to(input_lengths.device))
-        #TODO: Attempt to vectorize here as well
+             .float()
+             .to(input_lengths.device))
+        # TODO: Attempt to vectorize here as well
         for b in range(B):
             attention = self.guided_attention(
                 input_lengths[b],
@@ -1897,6 +1921,7 @@ class MaskedL1Loss(nn.Module):
     """
     A masked L1 loss implementation
     """
+
     def __init__(self):
         super().__init__()
         self.criterion = nn.L1Loss(reduction="sum")

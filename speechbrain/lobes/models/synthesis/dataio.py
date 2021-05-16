@@ -42,8 +42,10 @@ def wrap_transform(transform_type, takes=None, provides=None):
     """
     default_takes = takes
     default_provides = provides
+
     def decorator(takes=None, provides=None, *args, **kwargs):
         transform = transform_type(*args, **kwargs)
+
         @sb.utils.data_pipeline.takes(takes or default_takes)
         @sb.utils.data_pipeline.provides(provides or default_provides)
         def f(*args, **kwargs):
@@ -55,6 +57,7 @@ def wrap_transform(transform_type, takes=None, provides=None):
 
 SPEAKER_EMBEDDINGS_DEFAULT_SOURCE = "speechbrain/spkrec-ecapa-voxceleb"
 RE_NON_ALPHA = '[^A-Za-z]'
+
 
 def _compute_default_savedir(source):
     """
@@ -114,7 +117,6 @@ def pretrained_speaker_embeddings(
     return f
 
 
-
 def categorical(takes, provides, encoder=None):
     """
     A pipeline function that encodes categorical information,
@@ -137,6 +139,7 @@ def categorical(takes, provides, encoder=None):
     """
     if not encoder:
         encoder = CategoricalEncoder()
+
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(label):
@@ -180,18 +183,16 @@ def transpose_spectrogram(takes, provides):
     return f
 
 
-resample = wrap_transform(transforms.Resample, takes="sig", provides="sig_resampled")
-mel_spectrogram = wrap_transform(transforms.MelSpectrogram, takes="sig", provides="mel")
-spectrogram = wrap_transform(transforms.Spectrogram, takes="sig", provides="spectrogram")
-#inverse_spectrogram = wrap_transform(transforms.GriffinLim, takes="spectrogram", provides="sig")
-
-def inverse_spectrogram(takes=None, provides=None, *args, **kwargs):
-
-    transform = transforms.GriffinLim(*args, **kwargs)
-    @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides(provides)
-    def f(*args, **kwargs):
-        return transform.to(args[0].device)(*args, **kwargs)
-    return f
-
-
+resample = wrap_transform(
+    transforms.Resample,
+    takes="sig",
+    provides="sig_resampled")
+mel_spectrogram = wrap_transform(
+    transforms.MelSpectrogram,
+    takes="sig",
+    provides="mel")
+spectrogram = wrap_transform(
+    transforms.Spectrogram,
+    takes="sig",
+    provides="spectrogram")
+inverse_spectrogram = wrap_transform(transforms.GriffinLim, takes="spectrogram", provides="sig")

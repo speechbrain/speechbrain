@@ -95,7 +95,7 @@ class Pretrained:
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
         if self.HPARAMS_NEEDED and hparams is None:
-            raise ValueError(f"Need to provide hparams dict.")
+            raise ValueError("Need to provide hparams dict.")
         if hparams is not None:
             # Also first check that all required params are found:
             for hp in self.HPARAMS_NEEDED:
@@ -928,7 +928,7 @@ class SpeechSynthesizer(Pretrained):
         ---------
         text: str or List[str]
             the text to be translated into speech
-        
+
         Returns
         -------
         a single waveform if a single example is provided - or
@@ -948,7 +948,7 @@ class SpeechSynthesizer(Pretrained):
         model_output = self.compute_forward(model_input)
         pipeline_input = self._get_decode_pipeline_input(model_output)
         decoded_output = self._run_pipeline(
-            pipeline=self.decode_pipeline, 
+            pipeline=self.decode_pipeline,
             input=pipeline_input,
             batch=self.batch_outputs)
         waveform = decoded_output.get('wav')
@@ -970,7 +970,7 @@ class SpeechSynthesizer(Pretrained):
             'txt': text
         }
         if not self.batch_inputs:
-            pipeline_input = self._itemize(pipeline_input)            
+            pipeline_input = self._itemize(pipeline_input)
         return pipeline_input
 
     def _get_decode_pipeline_input(self, model_output):
@@ -1016,7 +1016,7 @@ class SpeechSynthesizer(Pretrained):
         batch_intputs: bool
         """
         return self.hparams.encode_pipeline.get('batch', True)
-    
+
     @property
     def batch_outputs(self):
         """
@@ -1028,7 +1028,7 @@ class SpeechSynthesizer(Pretrained):
         -------
         batch_outputs: bool
         """
-        return self.hparams.decode_pipeline.get('batch', True)        
+        return self.hparams.decode_pipeline.get('batch', True)
 
     def _collate(self, data):
         if not self.batch_inputs:
@@ -1051,7 +1051,7 @@ class SpeechSynthesizer(Pretrained):
         ---------
         data
             the raw inputs to the model
-        
+
         Returns
         -------
         The raw output of the model (the exact output

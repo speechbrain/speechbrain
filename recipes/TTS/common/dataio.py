@@ -9,8 +9,10 @@ def wrap_transform(transform_type, takes=None, provides=None):
     """
     default_takes = takes
     default_provides = provides
+
     def decorator(takes=None, provides=None, *args, **kwargs):
         transform = transform_type(*args, **kwargs)
+
         @sb.utils.data_pipeline.takes(takes or default_takes)
         @sb.utils.data_pipeline.provides(provides or default_provides)
         def f(*args, **kwargs):
@@ -30,7 +32,19 @@ def audio_pipeline(file_name: str):
     return sb.dataio.dataio.read_audio(file_name)
 
 
-resample = wrap_transform(transforms.Resample, takes="sig", provides="sig_resampled")
-mel_spectrogram = wrap_transform(transforms.MelSpectrogram, takes="sig", provides="mel")
-spectrogram = wrap_transform(transforms.Spectrogram, takes="sig", provides="spectrogram")
-inverse_spectrogram = wrap_transform(transforms.GriffinLim, takes="spectrogram", provides="sig")
+resample = wrap_transform(
+    transforms.Resample,
+    takes="sig",
+    provides="sig_resampled")
+mel_spectrogram = wrap_transform(
+    transforms.MelSpectrogram,
+    takes="sig",
+    provides="mel")
+spectrogram = wrap_transform(
+    transforms.Spectrogram,
+    takes="sig",
+    provides="spectrogram")
+inverse_spectrogram = wrap_transform(
+    transforms.GriffinLim,
+    takes="spectrogram",
+    provides="sig")

@@ -11,8 +11,7 @@ import speechbrain as sb
 
 from speechbrain.dataio.encoder import TextEncoder
 # NOTE: These are imported for ease of referencing from HyperPyYAML files
-from torchaudio import transforms
-from speechbrain.lobes.models.synthesis.dataio import audio_pipeline, spectrogram, resample, mel_spectrogram
+from speechbrain.lobes.models.synthesis.dataio import audio_pipeline, spectrogram, resample, mel_spectrogram  # noqa
 
 
 import math
@@ -48,7 +47,8 @@ def text_encoder(max_input_len=128, tokens=None, takes="label"):
     encoder.add_bos_eos()
 
     @sb.utils.data_pipeline.takes(takes)
-    @sb.utils.data_pipeline.provides("text_sequences", "input_lengths", "text_positions")
+    @sb.utils.data_pipeline.provides("text_sequences",
+                                     "input_lengths", "text_positions")
     def f(label):
         text_sequence = encoder.encode_sequence_torch(label.upper())
         text_sequence_eos = encoder.append_eos_index(text_sequence)
@@ -76,9 +76,9 @@ def downsample_spectrogram(takes, provides, downsample_step=4):
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
-    def f(spectrogram):
-        spectrogram = spectrogram[:, :, 0::downsample_step].contiguous()
-        return spectrogram
+    def f(original_spectrogram):
+        return original_spectrogram[:, :, 0::downsample_step].contiguous()
+
     return f
 
 
@@ -206,14 +206,16 @@ def frame_positions(takes="mel", provides="frame_positions",
     def f(mel):
         batch_size, _, mel_len = mel.shape
         return (
-            torch.arange(1, mel_len+1, device=mel.device)
-                .expand((batch_size, mel_len)))
+            torch.arange(1, mel_len + 1, device=mel.device)
+            .expand((batch_size, mel_len)))
     return f
 
 
 LOG_10 = math.log(10)
 
-def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=False):
+
+def normalize_spectrogram(takes, provides, min_level_db,
+                          ref_level_db, absolute=False):
     """
     Normalizes the spectrogram for DeepVoice3
 
@@ -240,8 +242,14 @@ def normalize_spectrogram(takes, provides, min_level_db, ref_level_db, absolute=
     def f(linear):
         if absolute:
             linear = (linear**2).sum(dim=-1).sqrt()
-        min_level = torch.tensor(math.exp(min_level_db / ref_level_db * LOG_10)).to(linear.device)
-        linear_db = ref_level_db * torch.log10(torch.maximum(min_level, linear)) - ref_level_db
+        min_level = torch.tensor(
+            math.exp(
+                min_level_db
+                / ref_level_db
+                * LOG_10)).to(
+            linear.device)
+        linear_db = ref_level_db * \
+            torch.log10(torch.maximum(min_level, linear)) - ref_level_db
         normalized = torch.clip(
             (linear_db - min_level_db) / -min_level_db,
             min=0.,
@@ -361,11 +369,12 @@ def denormalize_spectrogram(takes="linear", provides="linear_denorm",
     """
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
-    def f(spectrogram):
-        x = torch.clip(spectrogram, 0., 1.) * -min_level_db + min_level_db
+    def f(original_spectrogram):
+        x = (
+            torch.clip(original_spectrogram, 0., 1.)
+            * -min_level_db
+            + min_level_db)
         x += ref_level_db
         x = torch.pow(DB_BASE, x * DB_MULTIPLIER)
         return x
     return f
-
-

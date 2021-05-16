@@ -16,9 +16,10 @@ from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
+
 class TransposeConv1d(nn.Module):
     """This function implements transposed 1d convolution.
-    https://arxiv.org/pdf/1603.07285.pdf 
+    https://arxiv.org/pdf/1603.07285.pdf
 
     Arguments
     ---------
@@ -184,6 +185,7 @@ class TransposeConv1d(nn.Module):
                 % (self.kernel_size)
             )
         return in_channels
+
 
 class SincConv(nn.Module):
     """This function implements SincConv (SincNet).
@@ -539,7 +541,7 @@ class Conv1d(nn.Module):
 
         if padding_raw is None:
             padding_raw = 0
-        else:        
+        else:
             self.padding = None
         self.conv = nn.Conv1d(
             in_channels,

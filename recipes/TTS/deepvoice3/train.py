@@ -28,6 +28,7 @@ intervals
 Authors
 * Artem Ploujnikov 2020
 """
+from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
 import torch
 import torchvision
 import sys
@@ -43,7 +44,6 @@ from torch.utils.data import DataLoader
 
 sys.path.append("..")
 from datasets.vctk import VCTK
-from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
 
 
 class DeepVoice3Brain(sb.core.Brain):
@@ -51,6 +51,7 @@ class DeepVoice3Brain(sb.core.Brain):
     A Brain implementation for the DeepVoice3 text-to-speech model
 
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.features_pipeline = DataPipeline(
@@ -338,7 +339,8 @@ class DeepVoice3Brain(sb.core.Brain):
                 or epoch == self.hparams.number_of_epochs)
             if save_checkpoint:
                 meta_stats = {key: value[0] for key, value in stats.items()}
-                self.checkpointer.save_and_keep_only(meta=meta_stats, min_keys=["loss"])
+                self.checkpointer.save_and_keep_only(
+                    meta=meta_stats, min_keys=["loss"])
             output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0)
@@ -409,6 +411,7 @@ class SingleBatchLoader(DataLoader):
     batch: dict
         a batch
     """
+
     def __init__(self, batch):
         super()
         self.batch = batch
@@ -423,6 +426,7 @@ class SingleBatchWrapper(DataLoader):
     A wrapper that retrieves one batch from a DataLoader
     and keeps iterating - useful for overfit tests
     """
+
     def __init__(self, loader: DataLoader, num_iterations=1):
         """
         Class constructor
@@ -460,7 +464,8 @@ def dataio_prep(hparams):
     """
     result = {}
     for name, dataset_params in hparams['datasets'].items():
-        # TODO: Add support for multiple datasets by instantiating from hparams - this is temporary
+        # TODO: Add support for multiple datasets by instantiating from hparams
+        # - this is temporary
         vctk = VCTK(dataset_params['path']).to_dataset()
         result[name] = dataset_prep(vctk, hparams)
 

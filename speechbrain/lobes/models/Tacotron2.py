@@ -7,7 +7,7 @@ Authors
 """
 
 
-###https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
+# https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -73,7 +73,6 @@ class ConvNorm(torch.nn.Module):
 
     def forward(self, signal):
         return self.conv(signal)
-
 
 
 class LocationLayer(nn.Module):
@@ -225,6 +224,7 @@ class Encoder(nn.Module):
         - Three 1-d convolution banks
         - Bidirectional LSTM
     """
+
     def __init__(self, encoder_n_convolutions,
                  encoder_embedding_dim, encoder_kernel_size):
         super(Encoder, self).__init__()
@@ -345,7 +345,7 @@ class Decoder(nn.Module):
         dtype = memory.dtype
         device = memory.device
         decoder_input = torch.zeros(
-            B, self.n_mel_channels*self.n_frames_per_step,
+            B, self.n_mel_channels * self.n_frames_per_step,
             dtype=dtype, device=device)
         return decoder_input
 
@@ -399,7 +399,7 @@ class Decoder(nn.Module):
         decoder_inputs = decoder_inputs.transpose(1, 2)
         decoder_inputs = decoder_inputs.view(
             decoder_inputs.size(0),
-            int(decoder_inputs.size(1)/self.n_frames_per_step), -1)
+            int(decoder_inputs.size(1) / self.n_frames_per_step), -1)
         # (B, T_out, n_mel_channels) -> (T_out, B, n_mel_channels)
         decoder_inputs = decoder_inputs.transpose(0, 1)
         return decoder_inputs
@@ -567,8 +567,10 @@ class Decoder(nn.Module):
          attention_context,
          processed_memory) = self.initialize_decoder_states(memory)
 
-        mel_lengths = torch.zeros([memory.size(0)], dtype=torch.int32, device=memory.device)
-        not_finished = torch.ones([memory.size(0)], dtype=torch.int32, device=memory.device)
+        mel_lengths = torch.zeros(
+            [memory.size(0)], dtype=torch.int32, device=memory.device)
+        not_finished = torch.ones(
+            [memory.size(0)], dtype=torch.int32, device=memory.device)
 
         mel_outputs, gate_outputs, alignments = (
             torch.zeros(1), torch.zeros(1), torch.zeros(1))
@@ -609,7 +611,7 @@ class Decoder(nn.Module):
             dec = torch.le(torch.sigmoid(gate_output),
                            self.gate_threshold).to(torch.int32).squeeze(1)
 
-            not_finished = not_finished*dec
+            not_finished = not_finished * dec
             mel_lengths += not_finished
 
             if self.early_stopping and torch.sum(not_finished) == 0:
@@ -675,7 +677,6 @@ class Tacotron2(nn.Module):
             (mel_padded, gate_padded))
 
     def parse_output(self, outputs, output_lengths):
-        # type: (List[Tensor], Tensor) -> List[Tensor]
         if self.mask_padding and output_lengths is not None:
             mask = get_mask_from_lengths(output_lengths)
             mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
@@ -705,7 +706,6 @@ class Tacotron2(nn.Module):
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
             output_lengths)
 
-
     def infer(self, inputs, input_lengths):
 
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
@@ -717,17 +717,20 @@ class Tacotron2(nn.Module):
         mel_outputs_postnet = mel_outputs + mel_outputs_postnet
 
         BS = mel_outputs_postnet.size(0)
-        alignments = alignments.unfold(1, BS, BS).transpose(0,2)
+        alignments = alignments.unfold(1, BS, BS).transpose(0, 2)
 
         return mel_outputs_postnet, mel_lengths, alignments
 
-## helper functions
+# helper functions
+
+
 def to_gpu(x):
     x = x.contiguous()
 
     if torch.cuda.is_available():
         x = x.cuda(non_blocking=True)
     return x
+
 
 def get_mask_from_lengths(lengths):
     max_len = torch.max(lengths).item()

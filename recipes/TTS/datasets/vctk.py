@@ -13,6 +13,8 @@ import tempfile
 from glob import glob
 from speechbrain.dataio.dataset import DynamicItemDataset
 
+from .common import filename_to_id
+
 
 class VCTK:
     """
@@ -78,7 +80,6 @@ class VCTK:
                 values = [value.strip() for value in values]
                 yield dict(zip(column_headers, values))
 
-
     def get_speaker_file_names(self, speaker_id):
         """
         Returns a list of (text_file, wav_file) tuples for the specified
@@ -119,7 +120,6 @@ class VCTK:
         txt_path = os.path.join(self.file_path, self.PATH_TXT, speaker_dir)
         wav_path = os.path.join(self.file_path, self.PATH_WAV, speaker_dir)
         return txt_path, wav_path
-
 
     def get_all_speakers_data(self):
         """
@@ -182,7 +182,6 @@ class VCTK:
         writer.writerows(
             _flatten_speaker(item) for item in items)
 
-
     def to_dataset(self):
         """
         Converts VCTK to a SpeechBrain dataset
@@ -203,6 +202,7 @@ class VCTK:
         """
         sample_record = next(self.get_all_speakers_data())
         return _flatten_speaker(sample_record).keys()
+
 
 def _flatten_speaker(item):
     """
@@ -267,34 +267,13 @@ def _get_wav_file_name(target_path, file_name):
     return os.path.join(target_path, f'{stripped_file_name}.wav')
 
 
-def filename_to_id(file_name):
-    """
-    Returns the provided file name without the extension
-    and the directory part. Based on the convention of
-    the dataset, it can be used as an ID
-
-    Arguments
-    ---------
-    file_name: str
-        the file name (of the .txt or .wav file)
-
-    Returns
-    -------
-    item_id: str
-        the ID part of the filename
-    """
-    base_name = os.path.basename(file_name)
-    item_id, _ = os.path.splitext(base_name)
-    return item_id
-
-
 def _get_fake_data():
     """
     Creates a VCTK dataset from the included
     fake data for unit tests
     """
     module_path = os.path.dirname(__file__)
-    data_path = os.path.join(module_path, 'testdata', 'fake_vctk')
+    data_path = os.path.join(module_path, 'mockdata', 'fake_vctk')
     return VCTK(data_path)
 
 
@@ -341,6 +320,7 @@ def test_get_all_speakers_data():
         and os.path.exists(item['txt'])
         for item in data)
 
+
 def test_to_csv():
     """
     Unit test for CSV creation
@@ -355,12 +335,12 @@ def test_to_csv():
             data = {row['ID']: row for row in reader}
             item = data['p225_001']
             assert item['speaker_ID'] == '225'
-            assert item['txt_file_name'].endswith('p225_001.txt')
+            assert item['txt'].endswith('p225_001.txt')
             assert item['wav'].endswith('p225_001.wav')
             assert item['label'] == 'Please call Stella.'
             item = data['p226_002']
             assert item['speaker_ID'] == '226'
-            assert item['txt_file_name'].endswith('p226_002.txt')
+            assert item['txt'].endswith('p226_002.txt')
             assert item['wav'].endswith('p226_002.wav')
             assert item['label'] == 'Ask her to bring these things with her from the store.'
     finally:

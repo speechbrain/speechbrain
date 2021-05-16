@@ -1,5 +1,4 @@
 import torch
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained import SpeechSynthesizer
 from speechbrain.utils.data_pipeline import takes, provides
 from speechbrain.dataio.encoder import TextEncoder
@@ -12,6 +11,7 @@ model: !new:speechbrain.lobes.models.synthesis.framework.TestModel
 model_input_keys: ['input']
 model_output_keys: ['output']
 '''
+
 
 class TestModel(nn.Module):
     def forward(self, input):

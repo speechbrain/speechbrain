@@ -1,7 +1,7 @@
 """The SpeechBrain implementation of WaveNet
 https://arxiv.org/pdf/1609.03499.pdf
 Inspired by:
-https://github.com/r9y9/wavenet_vocoder 
+https://github.com/r9y9/wavenet_vocoder
 
 Written by:
 Aleksandar Rachkov, 2021
@@ -13,6 +13,7 @@ import speechbrain.nnet.CNN as CNN
 import torch
 from torch import nn
 from torch.nn import functional as F
+
 
 class Stretch2d(nn.Module):
     """
@@ -28,6 +29,7 @@ class Stretch2d(nn.Module):
         Mode used for upsampling by torch.nn.functional.interpolate
 
     """
+
     def __init__(self, x_scale, y_scale, mode="nearest"):
         super(Stretch2d, self).__init__()
         self.x_scale = x_scale
@@ -37,6 +39,7 @@ class Stretch2d(nn.Module):
     def forward(self, x):
         return F.interpolate(
             x, scale_factor=(self.y_scale, self.x_scale), mode=self.mode)
+
 
 class UpsampleNetwork(nn.Module):
     """
@@ -55,6 +58,7 @@ class UpsampleNetwork(nn.Module):
     cin_pad: int
         Padding of the conditional features to capture a wider context during upsampling
     """
+
     def __init__(self, upsample_scales, mode="nearest",
                  freq_axis_kernel_size=1, cin_pad=0, cin_channels=80):
         super(UpsampleNetwork, self).__init__()
@@ -66,7 +70,12 @@ class UpsampleNetwork(nn.Module):
             k_size = (freq_axis_kernel_size, scale * 2 + 1)
             padding = (freq_axis_padding, scale)
             stretch = Stretch2d(scale, 1, mode)
-            conv = nn.Conv2d(1, 1, kernel_size=k_size, padding=padding, bias=False)
+            conv = nn.Conv2d(
+                1,
+                1,
+                kernel_size=k_size,
+                padding=padding,
+                bias=False)
             conv.weight.data.fill_(1. / np.prod(k_size))
             conv = nn.utils.weight_norm(conv)
             self.up_layers.append(stretch)
@@ -78,14 +87,14 @@ class UpsampleNetwork(nn.Module):
         ----------
         c : torch.tensor, (B x T x C)
             Input local conditioning features
-        
+
         Returns:
         ----------
         c : torch.tensor, (B x T x C)
             Upsampled features
         """
         # input is in B x T x C, convert to B x C x T for upsampling
-        c = c.transpose(1,2).contiguous()
+        c = c.transpose(1, 2).contiguous()
         # B x 1 x C x T
         c = c.unsqueeze(1)
 
@@ -97,11 +106,12 @@ class UpsampleNetwork(nn.Module):
 
         if self.indent > 0:
             c = c[:, :, self.indent:-self.indent]
-        
+
         # convert back to BxTxC
-        c = c.transpose(1,2).contiguous()
+        c = c.transpose(1, 2).contiguous()
 
         return c
+
 
 class ConvInUpsampleNetwork(nn.Module):
     """
@@ -121,13 +131,19 @@ class ConvInUpsampleNetwork(nn.Module):
     cin_pad: int
         Padding of the conditional features to capture a wider context during upsampling
     """
+
     def __init__(self, upsample_scales, mode="nearest",
                  freq_axis_kernel_size=1, cin_pad=0,
                  cin_channels=80):
         super(ConvInUpsampleNetwork, self).__init__()
 
         ks = 2 * cin_pad + 1
-        self.conv_in = CNN.Conv1d(in_channels = cin_channels, out_channels = cin_channels, kernel_size=ks, bias=False, padding="valid")
+        self.conv_in = CNN.Conv1d(
+            in_channels=cin_channels,
+            out_channels=cin_channels,
+            kernel_size=ks,
+            bias=False,
+            padding="valid")
         self.upsample = UpsampleNetwork(
             upsample_scales, mode, freq_axis_kernel_size, cin_pad=0, cin_channels=cin_channels)
 
@@ -139,7 +155,7 @@ class ConvInUpsampleNetwork(nn.Module):
         ----------
         c: torch.Tensor, (B x T x C)
             Local conditioning features. In the case of TTS pipeline, these are the mel spectrograms
-        
+
         Returns
         ----------
         c_up: torch.Tensor, (B x T x C)
@@ -148,31 +164,33 @@ class ConvInUpsampleNetwork(nn.Module):
         c_up = self.upsample(self.conv_in(c))
         return c_up
 
+
 class IncrementalConv1d(CNN.Conv1d):
     """
     An extension of the standard SpeechBrain Conv1d that
     supports "Incremental Forward" mode. Used for synthesizing new signal from input features
     """
+
     def __init__(self, *args, **kwargs):
-        super().__init__(*args,**kwargs)
+        super().__init__(*args, **kwargs)
         self.clear_buffer()
         self._linearized_weight = None
         self.register_backward_hook(self._clear_linearized_weight)
 
     def incremental_forward(self, input):
         """
-        Performs one incremental forward timestep. 
+        Performs one incremental forward timestep.
         It is a bit messy, but the gist of it is that the convolutional weights are linearized and passed through a linear layer.
 
         Arguments
         ----------
         input: torch.Tensor, (B x 1 x C)
             Input for one timestep
-        
+
         Returns
         output: torch.Tensor, (B x 1 x C)
             Output for next timestep
-    
+
         """
         if self.training:
             raise RuntimeError('incremental_forward only supports eval mode')
@@ -187,11 +205,13 @@ class IncrementalConv1d(CNN.Conv1d):
         if kw > 1:
             input = input.data
             if self.input_buffer is None:
-                self.input_buffer = input.new(bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                self.input_buffer = input.new(
+                    bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
                 self.input_buffer.zero_()
             else:
                 # shift buffer
-                self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
+                self.input_buffer[:, :
+                                  - 1, :] = self.input_buffer[:, 1:, :].clone()
             # append next input
             self.input_buffer[:, -1, :] = input[:, -1, :]
             input = self.input_buffer
@@ -200,8 +220,10 @@ class IncrementalConv1d(CNN.Conv1d):
         output = F.linear(input.view(bsz, -1), weight, self.conv.bias)
         output = output.unsqueeze(-1)
         return output.view(bsz, 1, -1)
+
     def clear_buffer(self):
         self.input_buffer = None
+
     def _get_linearized_weight(self):
         if self._linearized_weight is None:
             kw = self.conv.kernel_size[0]
@@ -209,21 +231,29 @@ class IncrementalConv1d(CNN.Conv1d):
             assert weight.size() == (self.conv.out_channels, kw, self.conv.in_channels)
             self._linearized_weight = weight.view(self.conv.out_channels, -1)
         return self._linearized_weight
+
     def _clear_linearized_weight(self, *args):
-        self._linearized_weight = None        
+        self._linearized_weight = None
 
 
-def Conv1dkxk(in_channels, out_channels, kernel_size, dropout=0, padding="causal", **kwargs):
+def Conv1dkxk(in_channels, out_channels, kernel_size,
+              dropout=0, padding="causal", **kwargs):
     """
     Performs Conv1D using the IncrementalConv1d class for incremental forward option.
     Weights have kaiming normalization applied to them.
     """
-    m = IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=padding, **kwargs)
+    m = IncrementalConv1d(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        kernel_size=kernel_size,
+        padding=padding,
+        **kwargs)
     nn.init.kaiming_normal_(m.conv.weight, nonlinearity="relu")
     if m.conv.bias is not None:
         nn.init.constant_(m.conv.bias, 0)
     nn.utils.weight_norm(m.conv)
     return m
+
 
 def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
     """
@@ -233,12 +263,13 @@ def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
     m.weight.data.normal_(0, std)
     return m
 
+
 def Conv1d1x1(in_channels, out_channels, padding="causal", bias=True):
     """
     1-by-1 convolution layer
     """
     return IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, padding=padding,
-                  dilation=1, bias=bias)
+                             dilation=1, bias=bias)
 
 
 def _conv1x1_forward(conv, x, is_incremental):
@@ -258,16 +289,16 @@ class ResidualBlockLayer(nn.Module):
 
     Arguments
     ----------
-    residual_channels: int 
+    residual_channels: int
         Number of residual input / output channels
     gate_channels: int
-        Number of gate activation unit channels        
+        Number of gate activation unit channels
     skip_out_channels: int
         Number of skip connection channels
     kernel_size: int
         Kernel size of convolution layers.
     dropout: float
-        Dropout probability 
+        Dropout probability
     cin_channels: int
         Number of local conditioning channels. Set to -1 to disable local conditions
     gin_channels: int
@@ -289,8 +320,8 @@ class ResidualBlockLayer(nn.Module):
             skip_out_channels = residual_channels
 
         self.conv = Conv1dkxk(residual_channels, gate_channels, kernel_size,
-                           padding=padding, dilation=dilation,
-                           bias=bias, *args, **kwargs)
+                              padding=padding, dilation=dilation,
+                              bias=bias, *args, **kwargs)
 
         # local conditioning
         if cin_channels > 0:
@@ -306,8 +337,10 @@ class ResidualBlockLayer(nn.Module):
 
         # conv output is split into two groups
         gate_out_channels = gate_channels // 2
-        self.conv1x1_out = Conv1d1x1(gate_out_channels, residual_channels, bias=bias)
-        self.conv1x1_skip = Conv1d1x1(gate_out_channels, skip_out_channels, bias=bias)
+        self.conv1x1_out = Conv1d1x1(
+            gate_out_channels, residual_channels, bias=bias)
+        self.conv1x1_skip = Conv1d1x1(
+            gate_out_channels, skip_out_channels, bias=bias)
 
     def forward(self, x, c=None, g=None):
         return self._forward(x, c, g, False)
@@ -325,13 +358,13 @@ class ResidualBlockLayer(nn.Module):
                 signal
             c: torch.tensor, (B x T x C)
                 Local conditioning features
-            g: torch.tensor, (B x T x C) 
+            g: torch.tensor, (B x T x C)
                 Expanded global conditioning features
             is_incremental: bool
                 Whether incremental mode or not
 
         Returns:
-            x: torch.tensor, (B x T x C) 
+            x: torch.tensor, (B x T x C)
                 output from Residual Block Layer
             s: torch.tensor, (B x T x C)
                 skip-connection
@@ -379,6 +412,7 @@ class ResidualBlockLayer(nn.Module):
             if c is not None:
                 c.clear_buffer()
 
+
 def _expand_global_features(B, T, g):
     """
     Expand global conditioning features to all time steps
@@ -389,7 +423,7 @@ def _expand_global_features(B, T, g):
         T: int
             Time length.
         g: torch.tensor, (B x C)
-            Global features 
+            Global features
 
     Returns:
         g_btc: torch.tensor (B x T x C)
@@ -399,8 +433,9 @@ def _expand_global_features(B, T, g):
         return None
 
     g = g.unsqueeze(1) if g.dim() == 2 else g
-    g_btc = g.expand(B,T,-1)
+    g_btc = g.expand(B, T, -1)
     return g_btc.contiguous()
+
 
 class WaveNet(nn.Module):
     """
@@ -416,7 +451,7 @@ class WaveNet(nn.Module):
         Number of total layers
     stacks: int
         Number of dilation cycles. Number of layers must be a multiple of number of stacks
-    residual_channels: int 
+    residual_channels: int
         Number of residual input / output channels
     gate_channels: int
         Number of gate activation unit channels
@@ -425,7 +460,7 @@ class WaveNet(nn.Module):
     kernel_size: int
         Kernel size of convolution layers.
     dropout: float
-        Dropout probability 
+        Dropout probability
     cin_channels: int
         Number of local conditioning channels. Set to -1 to disable local conditions
     cin_pad: int
@@ -459,8 +494,10 @@ class WaveNet(nn.Module):
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
 
-        self.first_conv = Conv1d1x1(in_channels=out_channels, out_channels=residual_channels)
- 
+        self.first_conv = Conv1d1x1(
+            in_channels=out_channels,
+            out_channels=residual_channels)
+
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
@@ -468,12 +505,12 @@ class WaveNet(nn.Module):
                 residual_channels, gate_channels,
                 kernel_size=kernel_size,
                 skip_out_channels=skip_out_channels,
-                bias=True, 
+                bias=True,
                 dilation=dilation, dropout=dropout,
                 cin_channels=cin_channels,
                 gin_channels=gin_channels)
             self.conv_layers.append(conv)
-        
+
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),
             Conv1d1x1(skip_out_channels, skip_out_channels),
@@ -489,7 +526,7 @@ class WaveNet(nn.Module):
             self.embed_speakers = None
 
         # Upsample conv net
-        if self.cin_channels>0:
+        if self.cin_channels > 0:
             self.upsample_net = ConvInUpsampleNetwork(**upsample_params)
         else:
             self.upsample_net = None
@@ -504,12 +541,12 @@ class WaveNet(nn.Module):
                 signal
             c: torch.tensor, (B x T x C)
                 Local conditioning features
-            g: torch.tensor, (B x T x C) 
+            g: torch.tensor, (B x T x C)
                 Expanded global conditioning features
 
         Returns:
             x: torch.tensor, (B x T x C)
-                Class scores for each timestep 
+                Class scores for each timestep
         """
         B, T, _ = x.size()
 
@@ -588,7 +625,7 @@ class WaveNet(nn.Module):
         outputs = []
         if initial_input is None:
             initial_input = torch.zeros(B, 1, self.out_channels)
-            initial_input[:, :, 127] = 1 
+            initial_input[:, :, 127] = 1
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
@@ -622,7 +659,7 @@ class WaveNet(nn.Module):
                 except AttributeError:
                     x = f(x)
 
-            # Generate next input 
+            # Generate next input
             x = F.softmax(x.view(B, -1), dim=1)
 
             dist = torch.distributions.OneHotCategorical(x)
@@ -658,10 +695,12 @@ class WaveNet(nn.Module):
                 return
         self.apply(remove_weight_norm)
 
+
 class Loss(nn.Module):
     """
-    Masked Cross-Entropy Loss. 
+    Masked Cross-Entropy Loss.
     """
+
     def __init__(self):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss(reduction='none')
@@ -682,28 +721,28 @@ class Loss(nn.Module):
         Returns
         -------
         loss : torch.Tensor
-            A one-element tensor used for backpropagating the gradient.     
+            A one-element tensor used for backpropagating the gradient.
         """
         # (B,T) -> (B,1,T)
-        mask = self.sequence_mask(lengths).unsqueeze(1)        
+        mask = self.sequence_mask(lengths).unsqueeze(1)
         # (B,1,T) -> (B,T,1)
-        mask = mask.transpose(1,2).contiguous()
-        mask = mask[:,1:,:]
+        mask = mask.transpose(1, 2).contiguous()
+        mask = mask[:, 1:, :]
         mask_ = mask.expand_as(target)
 
         # cross entropy loss expects LongTensor target
         # cross entropy loss requires input to be of (N,Classes,...)
         # classes in our case are the quantized channels
         # B,T,C,1 -> B,C,T,1
-        predictions = predictions.transpose(1,2).contiguous()
+        predictions = predictions.transpose(1, 2).contiguous()
         losses = self.criterion(predictions, target.long())
 
         return ((losses * mask_).sum()) / mask_.sum()
-    
+
     def sequence_mask(self, sequence_length):
         """
         Function that computes sequence mask based on a series of sequence lengths
-        
+
         Arguments
         ---------
         sequence_length: torch.Tensor, (L)
@@ -716,7 +755,8 @@ class Loss(nn.Module):
 
         Ex:
         >>> sequence_length = torch.tensor([1,2,3,4,5,6])
-        >>> print(sequence_mask(sequence_length))
+        >>> loss = Loss()
+        >>> print(loss.sequence_mask(sequence_length))
         tensor([[1., 0., 0., 0., 0., 0.],
         [1., 1., 0., 0., 0., 0.],
         [1., 1., 1., 0., 0., 0.],
