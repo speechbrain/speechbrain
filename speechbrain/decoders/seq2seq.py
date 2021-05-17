@@ -536,15 +536,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
             top_lengths, dtype=torch.int, device=top_scores.device
         )
         # Get topk indices
-        topk_scores, indices = top_scores.topk(self.topk, dim=-1)
+        topk_scores, indices = top_scores.topk(topk, dim=-1)
         indices = (indices + self.beam_offset.unsqueeze(1)).view(
-            batch_size * self.topk
+            batch_size * topk
         )
         # Select topk hypotheses
         topk_hyps = torch.index_select(top_hyps, dim=0, index=indices,)
-        topk_hyps = topk_hyps.view(batch_size, self.topk, -1)
+        topk_hyps = topk_hyps.view(batch_size, topk, -1)
         topk_lengths = torch.index_select(top_lengths, dim=0, index=indices,)
-        topk_lengths = topk_lengths.view(batch_size, self.topk)
+        topk_lengths = topk_lengths.view(batch_size, topk)
         topk_log_probs = [top_lengths[index.item()] for index in indices]
 
         return topk_hyps, topk_scores, topk_lengths, topk_log_probs
@@ -810,7 +810,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs,
         ) = self._get_top_score_prediction(hyps_and_scores, topk=self.topk,)
         # pick the best hyp
-        predictions = topk_hyps[:, 0, :]
+        predictions = topk_hyps[:, :self.topk, :]
         predictions = batch_filter_seq2seq_output(
             predictions, eos_id=self.eos_index
         )
