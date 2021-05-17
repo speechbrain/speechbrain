@@ -832,16 +832,17 @@ class Loss(nn.Module):
         mask : torch.Tensor, (L x L)
             A tensor containing the mask
 
-        Ex:
+        Example
+        -------
         >>> sequence_length = torch.tensor([1,2,3,4,5,6])
         >>> loss = Loss()
         >>> print(loss.sequence_mask(sequence_length))
         tensor([[1., 0., 0., 0., 0., 0.],
-        [1., 1., 0., 0., 0., 0.],
-        [1., 1., 1., 0., 0., 0.],
-        [1., 1., 1., 1., 0., 0.],
-        [1., 1., 1., 1., 1., 0.],
-        [1., 1., 1., 1., 1., 1.]])
+                [1., 1., 0., 0., 0., 0.],
+                [1., 1., 1., 0., 0., 0.],
+                [1., 1., 1., 1., 0., 0.],
+                [1., 1., 1., 1., 1., 0.],
+                [1., 1., 1., 1., 1., 1.]])
         """
         max_len = sequence_length.data.max()
         batch_size = sequence_length.size(0)
