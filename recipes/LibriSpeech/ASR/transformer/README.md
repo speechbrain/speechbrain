@@ -14,3 +14,4 @@ python train.py train/train.yaml
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 20-05-22 | transformer.yaml | 2.46 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1ZudxqMWb8VNCJKvY2Ws5oNY3WI1To0I7?usp=sharing) | 2xRTX8000 42GB |
 | 20-05-22 | conformer.yaml | -.-- | Not Available | Not Available | 4xV100 32GB |
+| TBD | longformer.yaml | -.-- | Not Available | Not Available | Not Available |
