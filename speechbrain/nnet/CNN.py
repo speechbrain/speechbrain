@@ -522,7 +522,7 @@ class Conv1d(nn.Module):
         bias=True,
         padding_mode="reflect",
         skip_transpose=False,
-        padding_raw=None
+        padding_raw=None,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -551,7 +551,7 @@ class Conv1d(nn.Module):
             dilation=self.dilation,
             padding=padding_raw,
             groups=groups,
-            bias=bias
+            bias=bias,
         )
 
     def forward(self, x):

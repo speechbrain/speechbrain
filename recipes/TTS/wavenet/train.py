@@ -1,4 +1,4 @@
-'''
+"""
 Recipe for training WaveNet, a fully-convolutional generative model for raw audio,
 with option to condition on mel spectrograms and speaker embeddings.
 When conditioned on mel spectrograms, it can be used as a vocoder in a text-to-speech (TTS) system,
@@ -12,7 +12,7 @@ To run this recipe, do:
 
 Authors
 * Aleksandar Rachkov 2021
-'''
+"""
 
 import torchaudio
 import torchvision
@@ -24,7 +24,7 @@ from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
 
 sys.path.append("..")
-from common.dataio_wavenet import dataio_prep, inv_mulaw_quantize # noqa
+from common.dataio_wavenet import dataio_prep, inv_mulaw_quantize  # noqa
 
 
 class WavenetBrain(sb.core.Brain):
@@ -61,9 +61,7 @@ class WavenetBrain(sb.core.Brain):
         batch = batch.to(self.device)
 
         predictions = self.hparams.model(
-            x=batch.x.data,
-            c=batch.mel.data,
-            g=batch.speaker_id_cat.data
+            x=batch.x.data, c=batch.mel.data, g=batch.speaker_id_cat.data
         )
 
         return predictions
@@ -106,9 +104,11 @@ class WavenetBrain(sb.core.Brain):
         # creating progress samples
         if self.hparams.progress_samples:
             predicted_mel = torchaudio.transforms.MelSpectrogram(
-                self.hparams.sample_rate)(predicted_audio.squeeze())
+                self.hparams.sample_rate
+            )(predicted_audio.squeeze())
             target_mel = torchaudio.transforms.MelSpectrogram(
-                self.hparams.sample_rate)(target_audio.squeeze())
+                self.hparams.sample_rate
+            )(target_audio.squeeze())
 
             self.last_predicted_audio = predicted_audio.detach().cpu()
             self.last_target_audio = target_audio.detach().cpu()
@@ -154,22 +154,24 @@ class WavenetBrain(sb.core.Brain):
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
-                {"Epoch": epoch},
-                train_stats={"loss": self.train_loss},
+                {"Epoch": epoch}, train_stats={"loss": self.train_loss},
             )
 
             # Save the current checkpoint and delete previous checkpoints.
             save_checkpoint = (
                 epoch % self.hparams.checkpoint_frequency == 0
-                or epoch == self.hparams.number_of_epochs)
+                or epoch == self.hparams.number_of_epochs
+            )
             if save_checkpoint:
                 self.checkpointer.save_and_keep_only(
-                    meta=stats, min_keys=["loss"])
+                    meta=stats, min_keys=["loss"]
+                )
 
             # Output samples
             output_progress_sample = (
                 self.hparams.progress_samples
-                and epoch % self.hparams.progress_samples_interval == 0)
+                and epoch % self.hparams.progress_samples_interval == 0
+            )
             if output_progress_sample:
                 self.save_progress_sample()
 
@@ -190,15 +192,19 @@ class WavenetBrain(sb.core.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints.
-            save_checkpoint = (epoch % self.hparams.checkpoint_frequency == 0
-                               or epoch == self.hparams.number_of_epochs)
+            save_checkpoint = (
+                epoch % self.hparams.checkpoint_frequency == 0
+                or epoch == self.hparams.number_of_epochs
+            )
             if save_checkpoint:
                 self.checkpointer.save_and_keep_only(
-                    meta=stats, min_keys=["loss"])
+                    meta=stats, min_keys=["loss"]
+                )
 
             output_progress_sample = (
                 self.hparams.progress_samples
-                and epoch % self.hparams.progress_samples_interval == 0)
+                and epoch % self.hparams.progress_samples_interval == 0
+            )
             if output_progress_sample:
                 self.save_progress_sample()
 
@@ -218,13 +224,15 @@ class WavenetBrain(sb.core.Brain):
             last_predicted_mel = self.last_predicted_mel
 
         self.save_sample_audio(
-            'target_audio.wav', last_target_audio.unsqueeze(0))
+            "target_audio.wav", last_target_audio.unsqueeze(0)
+        )
         self.save_sample_audio(
-            'predicted_audio.wav', last_predicted_audio.unsqueeze(0))
+            "predicted_audio.wav", last_predicted_audio.unsqueeze(0)
+        )
+        self.save_sample_image("target_mel.png", last_target_mel.unsqueeze(0))
         self.save_sample_image(
-            'target_mel.png', last_target_mel.unsqueeze(0))
-        self.save_sample_image(
-            'predicted_mel.png', last_predicted_mel.unsqueeze(0))
+            "predicted_mel.png", last_predicted_mel.unsqueeze(0)
+        )
 
     def save_sample_image(self, file_name, data):
         """
@@ -239,7 +247,8 @@ class WavenetBrain(sb.core.Brain):
         """
 
         effective_file_name = os.path.join(
-            self.hparams.progress_sample_path, file_name)
+            self.hparams.progress_sample_path, file_name
+        )
         torchvision.utils.save_image(data, effective_file_name)
 
     def save_sample_audio(self, file_name, data):
@@ -254,11 +263,11 @@ class WavenetBrain(sb.core.Brain):
             sample audio to be saved
         """
         effective_file_name = os.path.join(
-            self.hparams.progress_sample_path, file_name)
+            self.hparams.progress_sample_path, file_name
+        )
         torchaudio.save(
-            effective_file_name,
-            data,
-            sample_rate=self.hparams.sample_rate)
+            effective_file_name, data, sample_rate=self.hparams.sample_rate
+        )
 
 
 def main():
@@ -299,6 +308,6 @@ def main():
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     torch.cuda.empty_cache()
     main()

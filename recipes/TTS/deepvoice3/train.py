@@ -43,7 +43,7 @@ from torch.utils.data import DataLoader
 
 
 sys.path.append("..")
-from datasets.vctk import VCTK # noqa
+from datasets.vctk import VCTK  # noqa
 
 
 class DeepVoice3Brain(sb.core.Brain):
@@ -55,9 +55,9 @@ class DeepVoice3Brain(sb.core.Brain):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.features_pipeline = DataPipeline(
-            static_data_keys=self.hparams.train_pipeline['output_keys'],
-            dynamic_items=self.hparams.features_pipeline['steps'],
-            output_keys=self.hparams.features_pipeline['output_keys'],
+            static_data_keys=self.hparams.train_pipeline["output_keys"],
+            dynamic_items=self.hparams.features_pipeline["steps"],
+            output_keys=self.hparams.features_pipeline["output_keys"],
         )
         self.last_outputs = {}
         self.last_batch = None
@@ -96,18 +96,21 @@ class DeepVoice3Brain(sb.core.Brain):
         """
         batch = batch.to(self.device)
         features = self.compute_features(
-            batch, incremental=incremental, single=single)
+            batch, incremental=incremental, single=single
+        )
 
         pred = self.hparams.model(
-            text_sequences=features['text_sequences'],
+            text_sequences=features["text_sequences"],
             mel_targets=(
-                None if incremental else features['mel'].transpose(1, 2)),
-            text_positions=features['text_positions'],
+                None if incremental else features["mel"].transpose(1, 2)
+            ),
+            text_positions=features["text_positions"],
             frame_positions=(
-                None if incremental else features['frame_positions']),
-            input_lengths=features['input_lengths'],
-            speaker_ids=features.get('speaker_id_enc'),
-            speaker_embed=features.get('speaker_embed')
+                None if incremental else features["frame_positions"]
+            ),
+            input_lengths=features["input_lengths"],
+            speaker_ids=features.get("speaker_id_enc"),
+            speaker_embed=features.get("speaker_embed"),
         )
 
         return pred
@@ -155,32 +158,39 @@ class DeepVoice3Brain(sb.core.Brain):
         # TODO: Avoid doing this twice
         features = self.compute_features(batch)
         output_mel, output_linear, attention, output_done = predictions
-        target_mel = features['mel'].transpose(1, 2)
-        target_done = features['done']
-        target_linear = features['linear'].transpose(1, 2)
-        target_lengths = features['target_lengths']
+        target_mel = features["mel"].transpose(1, 2)
+        target_done = features["done"]
+        target_linear = features["linear"].transpose(1, 2)
+        target_lengths = features["target_lengths"]
         # TODO: Too much transposing going on - optimize
         if incremental:
             output_mel = pad_to_length(
-                output_mel.transpose(1, 2), target_mel.size(1)).transpose(1, 2)
+                output_mel.transpose(1, 2), target_mel.size(1)
+            ).transpose(1, 2)
             output_linear = pad_to_length(
-                output_linear.transpose(1, 2), target_linear.size(1)).transpose(1, 2)
+                output_linear.transpose(1, 2), target_linear.size(1)
+            ).transpose(1, 2)
             output_done = pad_to_length(
-                output_done.transpose(1, 2), target_done.size(1), 1.).transpose(1, 2)
+                output_done.transpose(1, 2), target_done.size(1), 1.0
+            ).transpose(1, 2)
 
-        output_linear = output_linear[:, :target_linear.size(1), :]
+        output_linear = output_linear[:, : target_linear.size(1), :]
         targets = target_mel, target_linear, target_done, target_lengths
-        outputs = output_mel, output_linear, attention, output_done, batch.input_lengths
-        loss_stats = self.hparams.compute_cost(
-            outputs, targets
+        outputs = (
+            output_mel,
+            output_linear,
+            attention,
+            output_done,
+            batch.input_lengths,
         )
+        loss_stats = self.hparams.compute_cost(outputs, targets)
 
         self.last_loss_stats[stage] = loss_stats.as_scalar()
         self._update_last_output(
             output_linear=output_linear,
             target_linear=target_linear,
             output_mel=output_mel,
-            target_mel=target_mel
+            target_mel=target_mel,
         )
 
         return loss_stats.loss
@@ -216,10 +226,10 @@ class DeepVoice3Brain(sb.core.Brain):
             features = self.features_pipeline(features)
         features = {
             key: torch.as_tensor(value, device=self.device)
-            for key, value in features.items()}
+            for key, value in features.items()
+        }
         if single:
-            features = {
-                key: value[:1] for key, value in features.items()}
+            features = {key: value[:1] for key, value in features.items()}
         return features
 
     def on_fit_start(self):
@@ -237,8 +247,8 @@ class DeepVoice3Brain(sb.core.Brain):
         Updates the internal dictionary of output snapshots
         """
         self.last_outputs.update(
-            {key: value[0].detach().cpu()
-             for key, value in kwargs.items()})
+            {key: value[0].detach().cpu() for key, value in kwargs.items()}
+        )
 
     def _compute_incremental_outputs(self, batch):
         """
@@ -247,12 +257,13 @@ class DeepVoice3Brain(sb.core.Brain):
         are used.
         """
         predictions = self.compute_forward(
-            batch, sb.Stage.VALID, incremental=True,
-            single=False)
+            batch, sb.Stage.VALID, incremental=True, single=False
+        )
         output_mel, output_linear, _, _ = predictions
         self._update_last_output(
             output_mel_incremental=output_mel,
-            output_linear_incremental=output_linear)
+            output_linear_incremental=output_linear,
+        )
 
     def _save_progress_sample(self, epoch):
         """
@@ -264,8 +275,8 @@ class DeepVoice3Brain(sb.core.Brain):
             The epoch number
         """
         entries = [
-            (f'{key}.png', value)
-            for key, value in self.last_outputs.items()]
+            (f"{key}.png", value) for key, value in self.last_outputs.items()
+        ]
         for file_name, data in entries:
             self._save_sample_image(file_name, data, epoch)
 
@@ -283,8 +294,8 @@ class DeepVoice3Brain(sb.core.Brain):
             the epoch number (used in file path calculations)
         """
         target_path = os.path.join(
-            self.hparams.progress_sample_path,
-            str(epoch))
+            self.hparams.progress_sample_path, str(epoch)
+        )
         if not os.path.exists(target_path):
             os.makedirs(target_path)
         effective_file_name = os.path.join(target_path, file_name)
@@ -321,29 +332,31 @@ class DeepVoice3Brain(sb.core.Brain):
         # At the end of validation, we can wrote
         if stage == sb.Stage.VALID:
             # Recover the learning rate (it is updated in fit_batch)
-            current_lr = self.optimizer.param_groups[-1]['lr']
+            current_lr = self.optimizer.param_groups[-1]["lr"]
 
             # The train_logger writes a summary to stdout and to the logfile.
             train_stats = dict(
-                lr=current_lr, **self.last_loss_stats[sb.Stage.TRAIN])
+                lr=current_lr, **self.last_loss_stats[sb.Stage.TRAIN]
+            )
             train_stats = {key: [value] for key, value in train_stats.items()}
             self.log_stats(
-                {"Epoch": epoch},
-                train_stats=train_stats,
-                valid_stats=stats,
+                {"Epoch": epoch}, train_stats=train_stats, valid_stats=stats,
             )
 
             # Save the current checkpoint and delete previous checkpoints.
             save_checkpoint = (
                 epoch % self.hparams.ckpt_frequency == 0
-                or epoch == self.hparams.number_of_epochs)
+                or epoch == self.hparams.number_of_epochs
+            )
             if save_checkpoint:
                 meta_stats = {key: value[0] for key, value in stats.items()}
                 self.checkpointer.save_and_keep_only(
-                    meta=meta_stats, min_keys=["loss"])
+                    meta=meta_stats, min_keys=["loss"]
+                )
             output_progress_sample = (
                 self.hparams.progress_samples
-                and epoch % self.hparams.progress_samples_interval == 0)
+                and epoch % self.hparams.progress_samples_interval == 0
+            )
             if output_progress_sample:
                 if self.hparams.progress_samples_incremental:
                     self._compute_incremental_outputs(self.last_batch)
@@ -387,17 +400,18 @@ def dataset_prep(dataset, hparams, tokens=None):
     """
 
     if not tokens:
-        tokens = hparams['tokens']
+        tokens = hparams["tokens"]
 
-    encoder_pipeline = hparams['train_pipeline']
-    pipeline = encoder_pipeline['steps']
+    encoder_pipeline = hparams["train_pipeline"]
+    pipeline = encoder_pipeline["steps"]
 
     for element in pipeline:
         dataset.add_dynamic_item(element)
 
-    dataset.set_output_keys(encoder_pipeline['output_keys'])
-    return SaveableDataLoader(dataset, collate_fn=PaddedBatch,
-                              **hparams["dataloader_options"])
+    dataset.set_output_keys(encoder_pipeline["output_keys"])
+    return SaveableDataLoader(
+        dataset, collate_fn=PaddedBatch, **hparams["dataloader_options"]
+    )
 
 
 class SingleBatchLoader(DataLoader):
@@ -463,10 +477,10 @@ def dataio_prep(hparams):
 
     """
     result = {}
-    for name, dataset_params in hparams['datasets'].items():
+    for name, dataset_params in hparams["datasets"].items():
         # TODO: Add support for multiple datasets by instantiating from hparams
         # - this is temporary
-        vctk = VCTK(dataset_params['path']).to_dataset()
+        vctk = VCTK(dataset_params["path"]).to_dataset()
         result[name] = dataset_prep(vctk, hparams)
 
     return result
@@ -484,22 +498,23 @@ def main():
         overrides=overrides,
     )
     # Create dataset objects "train", "valid", and "test".
-    frozen_batch = hparams.get('test_frozen_batch')
+    frozen_batch = hparams.get("test_frozen_batch")
     if frozen_batch:
         batch = torch.load(frozen_batch)
-        for key in ['mel', 'linear']:
+        for key in ["mel", "linear"]:
             batch[key] = batch[key].transpose(1, 2)
         loader = SingleBatchLoader(batch)
-        datasets = {
-            key: loader for key in ['train', 'test']}
+        datasets = {key: loader for key in ["train", "test"]}
     else:
         datasets = dataio_prep(hparams)
-        if hparams.get('overfit_test'):
+        if hparams.get("overfit_test"):
             datasets = {
                 key: SingleBatchWrapper(
                     dataset,
-                    num_iterations=hparams.get('overfit_test_iterations', 1))
-                for key, dataset in datasets.items()}
+                    num_iterations=hparams.get("overfit_test_iterations", 1),
+                )
+                for key, dataset in datasets.items()
+            }
 
     # Initialize the Brain object to prepare for mask training.
     tts_brain = DeepVoice3Brain(
@@ -522,11 +537,11 @@ def main():
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
-    if hparams.get('save_for_pretrained'):
+    if hparams.get("save_for_pretrained"):
         tts_brain.save_for_pretrained()
 
     # Implement evaluation (if specified)
-    if 'test' in datasets:
+    if "test" in datasets:
         test_stats = tts_brain.evaluate(
             test_set=datasets["test"],
             test_loader_kwargs=hparams["dataloader_options"],
@@ -535,5 +550,5 @@ def main():
         print(test_stats)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

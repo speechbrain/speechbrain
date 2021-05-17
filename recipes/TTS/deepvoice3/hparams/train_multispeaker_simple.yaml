@@ -49,8 +49,8 @@ decoder_conv_kernel_size: 5
 decoder_query_position_rate: 1.0
 decoder_key_position_rate: 1.29
 decoder_max_positions: 512
-decoder_key_projection: true
-decoder_value_projection: true
+decoder_key_projection: True
+decoder_value_projection: True
 decoder_low_std_mul: 1.0
 decoder_mid_std_mul: 4.0
 decoder_high_std_mul: 4.0
@@ -76,26 +76,23 @@ pad_mel: !ref <max_mel_len>
 guided_attention_sigma: 0.2
 padding_idx: 0
 embedding_weight_std: 0.1
-force_monotonic_attention: true
-use_decoder_state_for_postnet_input: true
-freeze_embedding: false
+force_monotonic_attention: True
+use_decoder_state_for_postnet_input: True
+freeze_embedding: False
 lr: 0.0005
 lr_warmup_steps: 4000
 max_grad_norm: 0.1
 number_of_epochs: 50
 ckpt_frequency: 100
-progress_samples: true
-progress_samples_incremental: false
+progress_samples: True
+progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 100
-overfit_test: false
+overfit_test: False
 overfit_test_iterations: 1
 train_data_path: ../datasets/testdata/fake_vctk_1ex
 valid_data_path: ../datasets/testdata/fake_vctk_1ex
-save_for_pretrained: true
-
-
-
+save_for_pretrained: True
 output_folder: !ref ./results/tts/deepvoice/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
@@ -133,7 +130,7 @@ encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Encoder
       padding: same
       dropout: !ref <dropout>
       std_mul: !ref <encoder_mid_std_mul>
-      residual: true
+      residual: True
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
       <<: *encoder_conv
       dilation: 1
@@ -185,18 +182,18 @@ encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Encoder
 
 
 decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
-    embed_dim: !ref <embed_dim>
-    in_dim: !ref <mel_dim>
-    r: !ref <outputs_per_step>
-    use_speaker_embed: !ref <use_speaker_embed>
-    speaker_embed_dim: !ref <speaker_embed_dim>
-    dropout: !ref <dropout>
-    max_positions: !ref <decoder_max_positions>
-    in_channels: !ref <preattention_conv_channels>
-    force_monotonic_attention: !ref <force_monotonic_attention>
-    query_position_rate: !ref <decoder_query_position_rate>
-    key_position_rate: !ref <decoder_key_position_rate>
-    preattention:
+  embed_dim: !ref <embed_dim>
+  in_dim: !ref <mel_dim>
+  r: !ref <outputs_per_step>
+  use_speaker_embed: !ref <use_speaker_embed>
+  speaker_embed_dim: !ref <speaker_embed_dim>
+  dropout: !ref <dropout>
+  max_positions: !ref <decoder_max_positions>
+  in_channels: !ref <preattention_conv_channels>
+  force_monotonic_attention: !ref <force_monotonic_attention>
+  query_position_rate: !ref <decoder_query_position_rate>
+  key_position_rate: !ref <decoder_key_position_rate>
+  preattention:
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.EdgeConvBlock
       in_channels: !ref <mel_dim> * <outputs_per_step>
       out_channels: !ref <preattention_conv_channels>
@@ -213,20 +210,20 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
       padding: null
       dropout: !ref <dropout>
       std_mul: !ref <preattention_mid_std_mul>
-      causal: true
-      residual: true
+      causal: True
+      residual: True
       dilation: 1
       use_speaker_embed: !ref <use_speaker_embed>
       speaker_embed_dim: 16
-    convolutions:
+  convolutions:
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock &decoder_conv
       in_channels: !ref <decoder_conv_channels>
       out_channels: !ref <decoder_conv_channels>
       kernel_size: !ref <decoder_conv_kernel_size>
       dropout: !ref <dropout>
       std_mul: !ref <decoder_low_std_mul>
-      causal: true
-      residual: false
+      causal: True
+      residual: False
       dilation: 1
       use_speaker_embed: !ref <use_speaker_embed>
       speaker_embed_dim: 16
@@ -246,7 +243,7 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
       <<: *decoder_conv
       dilation: 1
       std_mul: !ref <decoder_mid_std_mul>
-    attention:
+  attention:
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.AttentionLayer &attention
       conv_channels: !ref <decoder_conv_channels>
       embed_dim: !ref <embed_dim>
@@ -259,14 +256,14 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
     - null
     - null
     - null
-    output: !new:speechbrain.lobes.models.synthesis.deepvoice3.EdgeConvBlock
-      in_channels: !ref <decoder_conv_channels>
-      out_channels: !ref <mel_dim> * <outputs_per_step>
-      kernel_size: 1
-      dilation: 1
-      padding: valid
-      dropout: 0.
-      std_mul: !ref <decoder_high_std_mul>
+  output: !new:speechbrain.lobes.models.synthesis.deepvoice3.EdgeConvBlock
+    in_channels: !ref <decoder_conv_channels>
+    out_channels: !ref <mel_dim> * <outputs_per_step>
+    kernel_size: 1
+    dilation: 1
+    padding: valid
+    dropout: 0.
+    std_mul: !ref <decoder_high_std_mul>
 
 
 converter: !new:speechbrain.lobes.models.synthesis.deepvoice3.Converter
@@ -297,8 +294,8 @@ converter: !new:speechbrain.lobes.models.synthesis.deepvoice3.Converter
       out_channels: !ref <converter_conv_channels>
       kernel_size: 3
       dropout: 0.
-      causal: false
-      residual: true
+      causal: False
+      residual: True
       dilation: 1
       std_mul: !ref <converter_mid_std_mul>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
@@ -325,8 +322,8 @@ converter: !new:speechbrain.lobes.models.synthesis.deepvoice3.Converter
       out_channels: !ref <converter_conv_channels>
       kernel_size: !ref <converter_conv_kernel_size>
       dropout: !ref <dropout>
-      causal: false
-      residual: true
+      causal: False
+      residual: True
       dilation: 1
       std_mul: !ref <converter_mid_std_mul>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
@@ -347,14 +344,14 @@ converter: !new:speechbrain.lobes.models.synthesis.deepvoice3.Converter
       in_channels: !ref  <converter_conv_channels_bottom>
       out_channels: !ref <converter_conv_channels_bottom>
       dilation: 1
-      residual: true
+      residual: True
       std_mul: !ref <converter_mid_std_mul> // 2
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
       <<: *converter_conv
       in_channels: !ref <converter_conv_channels_bottom>
       out_channels: !ref <converter_conv_channels_bottom>
       dilation: 3
-      residual: true
+      residual: True
       std_mul: !ref <converter_mid_std_mul>
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.EdgeConvBlock
       in_channels: !ref <converter_conv_channels_bottom>
@@ -440,7 +437,7 @@ dataloader_options:
   shuffle: True
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+  save_file: !ref <train_log>
 tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
   save_dir: !ref <tensorboard_logs>
 
@@ -448,17 +445,17 @@ loggers:
   - !ref <train_logger>
   - !ref <tensorboard_train_logger>
 
-test_frozen_batch: false
+test_frozen_batch: False
 
 speaker_id_encoder: !new:speechbrain.dataio.encoder.CategoricalEncoder
 
 train_pipeline:
   output_keys:
-      - text_sequences
-      - input_lengths
-      - text_positions
-      - sig_trimmed
-      - speaker_id_enc
+    - text_sequences
+    - input_lengths
+    - text_positions
+    - sig_trimmed
+    - speaker_id_enc
   steps:
     - !name:speechbrain.lobes.models.synthesis.dataio.audio_pipeline
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.trim
@@ -475,15 +472,15 @@ train_pipeline:
 
 features_pipeline:
   output_keys:
-      - text_sequences
-      - input_lengths
-      - text_positions
-      - mel
-      - target_lengths
-      - frame_positions
-      - done
-      - linear
-      - speaker_id_enc
+    - text_sequences
+    - input_lengths
+    - text_positions
+    - mel
+    - target_lengths
+    - frame_positions
+    - done
+    - linear
+    - speaker_id_enc
   steps:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.resample
       takes: sig_trimmed
@@ -536,33 +533,32 @@ features_pipeline:
 
 
 encode_pipeline:
-  batch: false
+  batch: False
   output_keys:
-  - text_sequences
-  - text_positions
-  - input_lengths
+    - text_sequences
+    - text_positions
+    - input_lengths
   steps:
-  - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
-    takes: txt
-    max_input_len: !ref <max_input_len>
-    tokens: !ref <tokens>
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
+      takes: txt
+      max_input_len: !ref <max_input_len>
+      tokens: !ref <tokens>
 
 
 decode_pipeline:
   steps:
-  - !apply:speechbrain.lobes.models.synthesis.deepvoice3.denormalize_spectrogram
-    takes: linear
-    provides: linear_denorm
-    min_level_db: !ref <min_level_db>
-    ref_level_db: !ref <ref_level_db>
-  - !apply:speechbrain.lobes.models.synthesis.dataio.transpose_spectrogram
-    takes: linear_denorm
-    provides: linear_denorm_flip
-  - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
-    takes: linear_denorm_flip
-    provides: wav
-    n_fft: !ref <n_fft>
-    n_iter: !ref <inverse_spectrogram_n_iter>
-    hop_length: !ref <hop_length>
-    power: 1
-
+    - !apply:speechbrain.lobes.models.synthesis.deepvoice3.denormalize_spectrogram
+      takes: linear
+      provides: linear_denorm
+      min_level_db: !ref <min_level_db>
+      ref_level_db: !ref <ref_level_db>
+    - !apply:speechbrain.lobes.models.synthesis.dataio.transpose_spectrogram
+      takes: linear_denorm
+      provides: linear_denorm_flip
+    - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
+      takes: linear_denorm_flip
+      provides: wav
+      n_fft: !ref <n_fft>
+      n_iter: !ref <inverse_spectrogram_n_iter>
+      hop_length: !ref <hop_length>
+      power: 1

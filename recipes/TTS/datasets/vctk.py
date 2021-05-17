@@ -26,11 +26,12 @@ class VCTK:
         the path to the unzipped dataset
 
     """
-    PATH_TXT = 'txt'
-    PATH_WAV = 'wav48'
-    PATH_SPEAKER_INFO = 'speaker-info.txt'
-    PATTERN_TXT = '*.txt'
-    RE_WHITESPACE = r'\s+'
+
+    PATH_TXT = "txt"
+    PATH_WAV = "wav48"
+    PATH_SPEAKER_INFO = "speaker-info.txt"
+    PATTERN_TXT = "*.txt"
+    RE_WHITESPACE = r"\s+"
 
     def __init__(self, file_path):
         self.file_path = file_path
@@ -58,8 +59,8 @@ class VCTK:
         Loads the speaker file for the first time
         """
         self._speakers = {
-            int(speaker['ID']): speaker
-            for speaker in self._read_speaker_file()}
+            int(speaker["ID"]): speaker for speaker in self._read_speaker_file()
+        }
 
     def _read_speaker_file(self):
         """
@@ -70,13 +71,14 @@ class VCTK:
             speaker_file_iter = iter(speaker_file)
             line = next(speaker_file_iter)
             column_headers = list(
-                filter(None, re.split(self.RE_WHITESPACE, line)))
+                filter(None, re.split(self.RE_WHITESPACE, line))
+            )
             last_column = len(column_headers) - 1
             for line in speaker_file_iter:
                 row = re.split(self.RE_WHITESPACE, line)
                 # Note: The file is not tab-separated and the last
                 # column may contain spaces
-                values = row[:last_column] + [' '.join(row[last_column:])]
+                values = row[:last_column] + [" ".join(row[last_column:])]
                 values = [value.strip() for value in values]
                 yield dict(zip(column_headers, values))
 
@@ -98,8 +100,10 @@ class VCTK:
         txt_path, wav_path = self.get_speaker_paths(speaker_id)
         txt_file_pattern = os.path.join(txt_path, self.PATTERN_TXT)
         txt_files = glob(txt_file_pattern)
-        return [(txt_file_name, _get_wav_file_name(wav_path, txt_file_name))
-                for txt_file_name in txt_files]
+        return [
+            (txt_file_name, _get_wav_file_name(wav_path, txt_file_name))
+            for txt_file_name in txt_files
+        ]
 
     def get_speaker_paths(self, speaker_id):
         """
@@ -116,7 +120,7 @@ class VCTK:
             a (txt_path, wav_path) tuple with the paths to texts and paths to
             wave files, respectively
         """
-        speaker_dir = f'p{speaker_id}'
+        speaker_dir = f"p{speaker_id}"
         txt_path = os.path.join(self.file_path, self.PATH_TXT, speaker_dir)
         wav_path = os.path.join(self.file_path, self.PATH_WAV, speaker_dir)
         return txt_path, wav_path
@@ -131,14 +135,19 @@ class VCTK:
         """
         # NOTE: The text is quick to read - it will be included in the CSV
         return (
-            {'ID': filename_to_id(txt_file_name),
-             'speaker_id': speaker_id,
-             'speaker': speaker,
-             'txt': txt_file_name,
-             'wav': wav_file_name,
-             'label': _read_text(txt_file_name)}
+            {
+                "ID": filename_to_id(txt_file_name),
+                "speaker_id": speaker_id,
+                "speaker": speaker,
+                "txt": txt_file_name,
+                "wav": wav_file_name,
+                "label": _read_text(txt_file_name),
+            }
             for speaker_id, speaker in self.speakers.items()
-            for txt_file_name, wav_file_name in self.get_speaker_file_names(speaker_id))
+            for txt_file_name, wav_file_name in self.get_speaker_file_names(
+                speaker_id
+            )
+        )
 
     def has_speaker_data(self, speaker_id):
         """
@@ -168,19 +177,16 @@ class VCTK:
             a file name or a file-like object to which the script will be saved
         """
         if isinstance(target, str):
-            with open(target, 'w') as csv_file:
+            with open(target, "w") as csv_file:
                 self._write_csv(csv_file)
         else:
             self._write_csv(target)
 
     def _write_csv(self, csv_file):
-        writer = csv.DictWriter(
-            csv_file,
-            fieldnames=self._get_csv_fieldnames())
+        writer = csv.DictWriter(csv_file, fieldnames=self._get_csv_fieldnames())
         writer.writeheader()
         items = self.get_all_speakers_data()
-        writer.writerows(
-            _flatten_speaker(item) for item in items)
+        writer.writerows(_flatten_speaker(item) for item in items)
 
     def to_dataset(self):
         """
@@ -191,7 +197,7 @@ class VCTK:
         dataset: DynamicItemDataset
             A SpeechBrain dynamic dataset
         """
-        with tempfile.NamedTemporaryFile('w') as csv_file:
+        with tempfile.NamedTemporaryFile("w") as csv_file:
             self.to_csv(csv_file)
             csv_file.flush()
             return DynamicItemDataset.from_csv(csv_file.name)
@@ -219,9 +225,10 @@ def _flatten_speaker(item):
         the flattened item
     """
     speaker_dict = {
-        f'speaker_{key}': value for key, value in item['speaker'].items()}
+        f"speaker_{key}": value for key, value in item["speaker"].items()
+    }
     result = dict(item, **speaker_dict)
-    del result['speaker']
+    del result["speaker"]
     return result
 
 
@@ -264,7 +271,7 @@ def _get_wav_file_name(target_path, file_name):
     """
     base_name = os.path.basename(file_name)
     stripped_file_name, _ = os.path.splitext(base_name)
-    return os.path.join(target_path, f'{stripped_file_name}.wav')
+    return os.path.join(target_path, f"{stripped_file_name}.wav")
 
 
 def _get_fake_data():
@@ -273,7 +280,7 @@ def _get_fake_data():
     fake data for unit tests
     """
     module_path = os.path.dirname(__file__)
-    data_path = os.path.join(module_path, 'mockdata', 'fake_vctk')
+    data_path = os.path.join(module_path, "mockdata", "fake_vctk")
     return VCTK(data_path)
 
 
@@ -284,13 +291,13 @@ def test_speakers():
     vctk = _get_fake_data()
     assert 225 in vctk.speakers
     speaker = vctk.speakers[225]
-    assert speaker.get('GENDER') == 'F'
-    assert speaker.get('AGE') == '23'
-    assert speaker.get('REGION') == 'Southern England'
+    assert speaker.get("GENDER") == "F"
+    assert speaker.get("AGE") == "23"
+    assert speaker.get("REGION") == "Southern England"
     speaker = vctk.speakers[226]
-    assert speaker.get('GENDER') == 'M'
-    assert speaker.get('AGE') == '22'
-    assert speaker.get('REGION') == 'Surrey'
+    assert speaker.get("GENDER") == "M"
+    assert speaker.get("AGE") == "22"
+    assert speaker.get("REGION") == "Surrey"
     assert len(vctk.speakers) == 2
 
 
@@ -300,25 +307,15 @@ def test_get_all_speakers_data():
     """
     vctk = _get_fake_data()
     data = list(vctk.get_all_speakers_data())
-    assert any(
-        item['speaker']['ID'] == '225'
-        for item in data)
-    assert any(
-        item['speaker']['ID'] == '226'
-        for item in data)
-    assert any(
-        item['wav'].endswith('p225/p225_002.wav')
-        for item in data)
-    assert any(
-        item['wav'].endswith('p226/p226_003.wav')
-        for item in data)
-    assert any(
-        item['txt'].endswith('p225/p225_002.txt')
-        for item in data)
+    assert any(item["speaker"]["ID"] == "225" for item in data)
+    assert any(item["speaker"]["ID"] == "226" for item in data)
+    assert any(item["wav"].endswith("p225/p225_002.wav") for item in data)
+    assert any(item["wav"].endswith("p226/p226_003.wav") for item in data)
+    assert any(item["txt"].endswith("p225/p225_002.txt") for item in data)
     assert all(
-        os.path.exists(item['wav'])
-        and os.path.exists(item['txt'])
-        for item in data)
+        os.path.exists(item["wav"]) and os.path.exists(item["txt"])
+        for item in data
+    )
 
 
 def test_to_csv():
@@ -327,22 +324,25 @@ def test_to_csv():
     """
     temp_dir = tempfile.mkdtemp()
     try:
-        file_name = os.path.join(temp_dir, 'test.csv')
+        file_name = os.path.join(temp_dir, "test.csv")
         vctk = _get_fake_data()
         vctk.to_csv(file_name)
         with open(file_name) as csv_file:
             reader = csv.DictReader(csv_file)
-            data = {row['ID']: row for row in reader}
-            item = data['p225_001']
-            assert item['speaker_ID'] == '225'
-            assert item['txt'].endswith('p225_001.txt')
-            assert item['wav'].endswith('p225_001.wav')
-            assert item['label'] == 'Please call Stella.'
-            item = data['p226_002']
-            assert item['speaker_ID'] == '226'
-            assert item['txt'].endswith('p226_002.txt')
-            assert item['wav'].endswith('p226_002.wav')
-            assert item['label'] == 'Ask her to bring these things with her from the store.'
+            data = {row["ID"]: row for row in reader}
+            item = data["p225_001"]
+            assert item["speaker_ID"] == "225"
+            assert item["txt"].endswith("p225_001.txt")
+            assert item["wav"].endswith("p225_001.wav")
+            assert item["label"] == "Please call Stella."
+            item = data["p226_002"]
+            assert item["speaker_ID"] == "226"
+            assert item["txt"].endswith("p226_002.txt")
+            assert item["wav"].endswith("p226_002.wav")
+            assert (
+                item["label"]
+                == "Ask her to bring these things with her from the store."
+            )
     finally:
         if os.path.isdir(temp_dir):
             shutil.rmtree(temp_dir)

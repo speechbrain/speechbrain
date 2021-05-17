@@ -6,7 +6,7 @@ dropout: 0.1
 
 # preprocessing pipeline
 num_mels: 80
-source_sample_rate: 48000 
+source_sample_rate: 48000
 sample_rate: 8000
 min_level_db: -100
 ref_level_db: 20
@@ -16,18 +16,18 @@ silence_threshold: 2 # mulaw domain silence
 hop_length: 256
 n_fft: 1024
 max_time_sec: null
-max_time_steps: 1500 
+max_time_steps: 1500
 
 
 number_of_epochs: 500
 checkpoint_every_epoch: False
-checkpoint_frequency : 10
+checkpoint_frequency: 10
 
-progress_samples: true
+progress_samples: True
 progress_sample_path: samples
 progress_samples_interval: 10
 
-layers: 50 
+layers: 50
 stacks: 5
 residual_channels: 128
 gate_channels: 256  # split into 2 gropus internally for gated activation
@@ -63,11 +63,11 @@ model: !new:speechbrain.lobes.models.synthesis.wavenet.model.WaveNet
   cin_channels: !ref <cin_channels>
   cin_pad: !ref <cin_pad>
   upsample_params: !ref <upsample_params>
-  gin_channels: !ref <gin_channels>  
+  gin_channels: !ref <gin_channels>
   n_speakers: !ref <n_speakers>
 
 modules:
-    model: !ref <model>
+  model: !ref <model>
 
 compute_cost: !new:speechbrain.lobes.models.synthesis.wavenet.model.Loss
 
@@ -78,17 +78,17 @@ lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
   decay_drop: 30000
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+  limit: !ref <number_of_epochs>
 
 output_folder: !ref ./results/tts/wavenet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        counter: !ref <epoch_counter>
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    counter: !ref <epoch_counter>
 
 train_data_path: ../datasets/mockdata/fake_vctk_1ex/
 valid_data_path: ../datasets/mockdata/fake_vctk_1ex/
@@ -106,4 +106,4 @@ dataloader_options:
   batch_size: !ref <batch_size>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+  save_file: !ref <train_log>

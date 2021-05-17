@@ -17,6 +17,7 @@ def wrap_transform(transform_type, takes=None, provides=None):
         @sb.utils.data_pipeline.provides(provides or default_provides)
         def f(*args, **kwargs):
             return transform(*args, **kwargs)
+
         return f
 
     return decorator
@@ -33,18 +34,14 @@ def audio_pipeline(file_name: str):
 
 
 resample = wrap_transform(
-    transforms.Resample,
-    takes="sig",
-    provides="sig_resampled")
+    transforms.Resample, takes="sig", provides="sig_resampled"
+)
 mel_spectrogram = wrap_transform(
-    transforms.MelSpectrogram,
-    takes="sig",
-    provides="mel")
+    transforms.MelSpectrogram, takes="sig", provides="mel"
+)
 spectrogram = wrap_transform(
-    transforms.Spectrogram,
-    takes="sig",
-    provides="spectrogram")
+    transforms.Spectrogram, takes="sig", provides="spectrogram"
+)
 inverse_spectrogram = wrap_transform(
-    transforms.GriffinLim,
-    takes="spectrogram",
-    provides="sig")
+    transforms.GriffinLim, takes="spectrogram", provides="sig"
+)

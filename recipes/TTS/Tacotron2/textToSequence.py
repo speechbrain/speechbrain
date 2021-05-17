@@ -30,33 +30,111 @@ from unidecode import unidecode
 
 
 valid_symbols = [
-    'AA', 'AA0', 'AA1', 'AA2', 'AE', 'AE0', 'AE1', 'AE2', 'AH', 'AH0', 'AH1', 'AH2',
-    'AO', 'AO0', 'AO1', 'AO2', 'AW', 'AW0', 'AW1', 'AW2', 'AY', 'AY0', 'AY1', 'AY2',
-    'B', 'CH', 'D', 'DH', 'EH', 'EH0', 'EH1', 'EH2', 'ER', 'ER0', 'ER1', 'ER2', 'EY',
-    'EY0', 'EY1', 'EY2', 'F', 'G', 'HH', 'IH', 'IH0', 'IH1', 'IH2', 'IY', 'IY0', 'IY1',
-    'IY2', 'JH', 'K', 'L', 'M', 'N', 'NG', 'OW', 'OW0', 'OW1', 'OW2', 'OY', 'OY0',
-    'OY1', 'OY2', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UH0', 'UH1', 'UH2', 'UW',
-    'UW0', 'UW1', 'UW2', 'V', 'W', 'Y', 'Z', 'ZH'
+    "AA",
+    "AA0",
+    "AA1",
+    "AA2",
+    "AE",
+    "AE0",
+    "AE1",
+    "AE2",
+    "AH",
+    "AH0",
+    "AH1",
+    "AH2",
+    "AO",
+    "AO0",
+    "AO1",
+    "AO2",
+    "AW",
+    "AW0",
+    "AW1",
+    "AW2",
+    "AY",
+    "AY0",
+    "AY1",
+    "AY2",
+    "B",
+    "CH",
+    "D",
+    "DH",
+    "EH",
+    "EH0",
+    "EH1",
+    "EH2",
+    "ER",
+    "ER0",
+    "ER1",
+    "ER2",
+    "EY",
+    "EY0",
+    "EY1",
+    "EY2",
+    "F",
+    "G",
+    "HH",
+    "IH",
+    "IH0",
+    "IH1",
+    "IH2",
+    "IY",
+    "IY0",
+    "IY1",
+    "IY2",
+    "JH",
+    "K",
+    "L",
+    "M",
+    "N",
+    "NG",
+    "OW",
+    "OW0",
+    "OW1",
+    "OW2",
+    "OY",
+    "OY0",
+    "OY1",
+    "OY2",
+    "P",
+    "R",
+    "S",
+    "SH",
+    "T",
+    "TH",
+    "UH",
+    "UH0",
+    "UH1",
+    "UH2",
+    "UW",
+    "UW0",
+    "UW1",
+    "UW2",
+    "V",
+    "W",
+    "Y",
+    "Z",
+    "ZH",
 ]
 
 
-'''
+"""
 Defines the set of symbols used in text input to the model.
-The default is a set of ASCII characters that works well for English or text that has been run through Unidecode. For other data, you can modify _characters. See TRAINING_DATA.md for details. '''
+The default is a set of ASCII characters that works well for English or text that has been run through Unidecode. For other data, you can modify _characters. See TRAINING_DATA.md for details. """
 
 
-_pad = '_'
-_punctuation = '!\'(),.:;? '
-_special = '-'
-_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+_pad = "_"
+_punctuation = "!'(),.:;? "
+_special = "-"
+_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 # Prepend "@" to ARPAbet symbols to ensure uniqueness (some are the same
 # as uppercase letters):
-_arpabet = ['@' + s for s in valid_symbols]
+_arpabet = ["@" + s for s in valid_symbols]
 
 # Export all symbols:
-symbols = [_pad] + list(_special) + list(_punctuation) + \
-    list(_letters) + _arpabet
+symbols = (
+    [_pad] + list(_special) + list(_punctuation) + list(_letters) + _arpabet
+)
 
 
 # Mappings from symbol to numeric ID and vice versa:
@@ -64,33 +142,36 @@ _symbol_to_id = {s: i for i, s in enumerate(symbols)}
 _id_to_symbol = {i: s for i, s in enumerate(symbols)}
 
 # Regular expression matching text enclosed in curly braces:
-_curly_re = re.compile(r'(.*?)\{(.+?)\}(.*)')
+_curly_re = re.compile(r"(.*?)\{(.+?)\}(.*)")
 
 
 # Regular expression matching whitespace:
-_whitespace_re = re.compile(r'\s+')
+_whitespace_re = re.compile(r"\s+")
 
 # List of (regular expression, replacement) pairs for abbreviations:
-_abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in [
-    ('mrs', 'misess'),
-    ('mr', 'mister'),
-    ('dr', 'doctor'),
-    ('st', 'saint'),
-    ('co', 'company'),
-    ('jr', 'junior'),
-    ('maj', 'major'),
-    ('gen', 'general'),
-    ('drs', 'doctors'),
-    ('rev', 'reverend'),
-    ('lt', 'lieutenant'),
-    ('hon', 'honorable'),
-    ('sgt', 'sergeant'),
-    ('capt', 'captain'),
-    ('esq', 'esquire'),
-    ('ltd', 'limited'),
-    ('col', 'colonel'),
-    ('ft', 'fort'),
-]]
+_abbreviations = [
+    (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+    for x in [
+        ("mrs", "misess"),
+        ("mr", "mister"),
+        ("dr", "doctor"),
+        ("st", "saint"),
+        ("co", "company"),
+        ("jr", "junior"),
+        ("maj", "major"),
+        ("gen", "general"),
+        ("drs", "doctors"),
+        ("rev", "reverend"),
+        ("lt", "lieutenant"),
+        ("hon", "honorable"),
+        ("sgt", "sergeant"),
+        ("capt", "captain"),
+        ("esq", "esquire"),
+        ("ltd", "limited"),
+        ("col", "colonel"),
+        ("ft", "fort"),
+    ]
+]
 
 
 def expand_abbreviations(text):
@@ -108,7 +189,7 @@ def lowercase(text):
 
 
 def collapse_whitespace(text):
-    return re.sub(_whitespace_re, ' ', text)
+    return re.sub(_whitespace_re, " ", text)
 
 
 def convert_to_ascii(text):
@@ -116,14 +197,14 @@ def convert_to_ascii(text):
 
 
 def basic_cleaners(text):
-    '''Basic pipeline that lowercases and collapses whitespace without transliteration.'''
+    """Basic pipeline that lowercases and collapses whitespace without transliteration."""
     text = lowercase(text)
     text = collapse_whitespace(text)
     return text
 
 
 def transliteration_cleaners(text):
-    '''Pipeline for non-English text that transliterates to ASCII.'''
+    """Pipeline for non-English text that transliterates to ASCII."""
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = collapse_whitespace(text)
@@ -131,7 +212,7 @@ def transliteration_cleaners(text):
 
 
 def english_cleaners(text):
-    '''Pipeline for English text, including number and abbreviation expansion.'''
+    """Pipeline for English text, including number and abbreviation expansion."""
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = expand_abbreviations(text)
@@ -140,7 +221,7 @@ def english_cleaners(text):
 
 
 def text_to_sequence(text, cleaner_names):
-    '''Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
+    """Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
       The text can optionally have ARPAbet sequences enclosed in curly braces embedded
       in it. For example, "Turn left on {HH AW1 S S T AH0 N} Street."
       Args:
@@ -148,7 +229,7 @@ def text_to_sequence(text, cleaner_names):
         cleaner_names: names of the cleaner functions to run the text through
       Returns:
         List of integers corresponding to the symbols in the text
-    '''
+    """
     sequence = []
 
     # Check for curly braces and treat their contents as ARPAbet:
@@ -165,28 +246,28 @@ def text_to_sequence(text, cleaner_names):
 
 
 def sequence_to_text(sequence):
-    '''Converts a sequence of IDs back to a string'''
-    result = ''
+    """Converts a sequence of IDs back to a string"""
+    result = ""
     for symbol_id in sequence:
         if symbol_id in _id_to_symbol:
             s = _id_to_symbol[symbol_id]
             # Enclose ARPAbet back in curly braces:
-            if len(s) > 1 and s[0] == '@':
-                s = '{%s}' % s[1:]
+            if len(s) > 1 and s[0] == "@":
+                s = "{%s}" % s[1:]
             result += s
-    return result.replace('}{', ' ')
+    return result.replace("}{", " ")
 
 
 def _clean_text(text, cleaner_names):
     for name in cleaner_names:
-        if(name == 'english_cleaners'):
+        if name == "english_cleaners":
             cleaner = english_cleaners
-        if(name == 'transliteration_cleaners'):
+        if name == "transliteration_cleaners":
             cleaner = transliteration_cleaners
-        if(name == 'basic_cleaners'):
+        if name == "basic_cleaners":
             cleaner = basic_cleaners
         if not cleaner:
-            raise Exception('Unknown cleaner: %s' % name)
+            raise Exception("Unknown cleaner: %s" % name)
         text = cleaner(text)
     return text
 
@@ -196,8 +277,8 @@ def _symbols_to_sequence(symbols):
 
 
 def _arpabet_to_sequence(text):
-    return _symbols_to_sequence(['@' + s for s in text.split()])
+    return _symbols_to_sequence(["@" + s for s in text.split()])
 
 
 def _should_keep_symbol(s):
-    return s in _symbol_to_id and s != '_' and s != '~'
+    return s in _symbol_to_id and s != "_" and s != "~"

@@ -47,8 +47,9 @@ class WeightNorm(nn.Module):
     A weight normalization wrapper for convolutional layers
     """
 
-    def __init__(self, inner: CNN.Conv1d, dropout: float = 0.1,
-                 std_mul: float = 4.0):
+    def __init__(
+        self, inner: CNN.Conv1d, dropout: float = 0.1, std_mul: float = 4.0
+    ):
         """
         Class constructor
 
@@ -69,7 +70,9 @@ class WeightNorm(nn.Module):
 
     def _apply_weight_norm(self):
         std = math.sqrt(
-            (self.std_mul * (1.0 - self.dropout)) / (self.inner.conv.kernel_size[0] * self.inner.conv.in_channels))
+            (self.std_mul * (1.0 - self.dropout))
+            / (self.inner.conv.kernel_size[0] * self.inner.conv.in_channels)
+        )
         self.inner.conv.weight.data.normal_(mean=0, std=std)
         self.inner.conv.bias.data.zero_()
 
@@ -95,7 +98,7 @@ class IncrementalConv1d(CNN.Conv1d):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, padding_mode='constant', **kwargs)
+        super().__init__(*args, padding_mode="constant", **kwargs)
         self.clear_buffer()
         self._linearized_weight = None
         self.register_backward_hook(self._clear_linearized_weight)
@@ -105,7 +108,7 @@ class IncrementalConv1d(CNN.Conv1d):
         Performs the incremental forward step
         """
         if self.training:
-            raise RuntimeError('incremental_forward only supports eval mode')
+            raise RuntimeError("incremental_forward only supports eval mode")
 
         # run forward pre hooks (e.g., weight norm)
         for hook in self._forward_pre_hooks.values():
@@ -121,12 +124,14 @@ class IncrementalConv1d(CNN.Conv1d):
             input = input.data
             if self.input_buffer is None:
                 self.input_buffer = input.new(
-                    bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                    bsz, kw + (kw - 1) * (dilation - 1), input.size(2)
+                )
                 self.input_buffer.zero_()
             else:
                 # shift buffer
-                self.input_buffer[:, :
-                                  - 1, :] = self.input_buffer[:, 1:, :].clone()
+                self.input_buffer[:, :-1, :] = self.input_buffer[
+                    :, 1:, :
+                ].clone()
             # append next input
             self.input_buffer[:, -1, :] = input[:, -1, :]
             input = self.input_buffer
@@ -151,7 +156,11 @@ class IncrementalConv1d(CNN.Conv1d):
         if self._linearized_weight is None:
             kw = self.conv.kernel_size[0]
             weight = self.conv.weight.transpose(1, 2).contiguous()
-            assert weight.size() == (self.conv.out_channels, kw, self.conv.in_channels)
+            assert weight.size() == (
+                self.conv.out_channels,
+                kw,
+                self.conv.in_channels,
+            )
             self._linearized_weight = weight.view(self.conv.out_channels, -1)
         return self._linearized_weight
 
@@ -196,15 +205,14 @@ class EdgeConvBlock(nn.Module, ClearBufferMixin):
     """
 
     def __init__(
-            self,
-            dropout: float = 0.,
-            std_mul: float = 1., *args, **kwargs):
+        self, dropout: float = 0.0, std_mul: float = 1.0, *args, **kwargs
+    ):
         super().__init__()
         self.conv = WeightNorm(
-            inner=IncrementalConv1d(
-                skip_transpose=True, *args, **kwargs),
+            inner=IncrementalConv1d(skip_transpose=True, *args, **kwargs),
             std_mul=std_mul,
-            dropout=dropout)
+            dropout=dropout,
+        )
 
     def forward(self, x, speaker_embed=None):
         """
@@ -257,9 +265,8 @@ class TransposeConvBlock(nn.Module, ClearBufferMixin):
     """
 
     def __init__(
-            self,
-            dropout: float = 0.,
-            std_mul: float = 1., *args, **kwargs):
+        self, dropout: float = 0.0, std_mul: float = 1.0, *args, **kwargs
+    ):
         """
         Class constructor
 
@@ -272,10 +279,10 @@ class TransposeConvBlock(nn.Module, ClearBufferMixin):
         """
         super().__init__()
         self.conv = WeightNorm(
-            inner=CNN.TransposeConv1d(
-                skip_transpose=True, *args, **kwargs),
+            inner=CNN.TransposeConv1d(skip_transpose=True, *args, **kwargs),
             std_mul=std_mul,
-            dropout=dropout)
+            dropout=dropout,
+        )
 
     def forward(self, x, speaker_embed=None):
         """
@@ -331,7 +338,7 @@ def get_padding(causal, kernel_size, dilation):
     dilation
         the dilation of the convolution block
     """
-    padding = (kernel_size - 1)
+    padding = kernel_size - 1
     if not causal:
         padding //= 2
     padding *= dilation
@@ -345,20 +352,21 @@ class ConvBlock(nn.Module, ClearBufferMixin):
     """
 
     def __init__(
-            self,
-            use_speaker_embed=False,
-            speaker_embed_dim=16,
-            in_channels=256,
-            out_channels=256,
-            kernel_size=5,
-            padding=None,
-            dilation=1,
-            dropout=0.,
-            std_mul=4.0,
-            causal=False,
-            residual=False,
-            *args,
-            **kwargs):
+        self,
+        use_speaker_embed=False,
+        speaker_embed_dim=16,
+        in_channels=256,
+        out_channels=256,
+        kernel_size=5,
+        padding=None,
+        dilation=1,
+        dropout=0.0,
+        std_mul=4.0,
+        causal=False,
+        residual=False,
+        *args,
+        **kwargs,
+    ):
         """
         Class constructor. Any arguments not explicitly specified
         will be passed through to the Conv1d instance
@@ -401,9 +409,11 @@ class ConvBlock(nn.Module, ClearBufferMixin):
                 padding=padding,
                 dilation=dilation,
                 padding_raw=padding_raw,
-                **kwargs),
+                **kwargs,
+            ),
             dropout=dropout,
-            std_mul=std_mul)
+            std_mul=std_mul,
+        )
         self.multiplier = math.sqrt(0.5)
         if use_speaker_embed:
             self.speaker_proj = Linear(speaker_embed_dim, out_channels)
@@ -460,7 +470,7 @@ class ConvBlock(nn.Module, ClearBufferMixin):
             splitdim = 1
             x = self.conv(x)
             # remove future time steps
-            x = x[:, :, :residual.size(-1)] if self.causal else x
+            x = x[:, :, : residual.size(-1)] if self.causal else x
 
         a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
         if self.speaker_proj is not None:
@@ -472,15 +482,23 @@ class ConvBlock(nn.Module, ClearBufferMixin):
         return (x + residual) * self.multiplier if self.residual else x
 
 
-def position_encoding_init(n_position, d_pos_vec, position_rate=1.0,
-                           sinusoidal=True):
-    ''' Init the sinusoid position encoding table '''
+def position_encoding_init(
+    n_position, d_pos_vec, position_rate=1.0, sinusoidal=True
+):
+    """ Init the sinusoid position encoding table """
 
     # keep dim 0 for padding token position encoding zero vector
-    position_enc = np.array([
-        [position_rate * pos
-            / np.power(10000, 2 * (i // 2) / d_pos_vec) for i in range(d_pos_vec)]
-        if pos != 0 else np.zeros(d_pos_vec) for pos in range(n_position)])
+    position_enc = np.array(
+        [
+            [
+                position_rate * pos / np.power(10000, 2 * (i // 2) / d_pos_vec)
+                for i in range(d_pos_vec)
+            ]
+            if pos != 0
+            else np.zeros(d_pos_vec)
+            for pos in range(n_position)
+        ]
+    )
 
     position_enc = torch.from_numpy(position_enc).float()
     if sinusoidal:
@@ -510,14 +528,13 @@ class SinusoidalEncoding(nn.Embedding):
         each embedding vector)
     """
 
-    def __init__(self, num_embeddings, embedding_dim,
-                 *args, **kwargs):
+    def __init__(self, num_embeddings, embedding_dim, *args, **kwargs):
         super().__init__(
-            num_embeddings, embedding_dim, padding_idx=0,
-            *args, **kwargs)
+            num_embeddings, embedding_dim, padding_idx=0, *args, **kwargs
+        )
         self.weight.data = position_encoding_init(
-            num_embeddings, embedding_dim, position_rate=1.0,
-            sinusoidal=False)
+            num_embeddings, embedding_dim, position_rate=1.0, sinusoidal=False
+        )
 
     def forward(self, x, w=1.0):
         """
@@ -536,17 +553,31 @@ class SinusoidalEncoding(nn.Embedding):
         if isscalar or w.size(0) == 1:
             weight = sinusoidal_encode(self.weight, w)
             return F.embedding(
-                x, weight, self.padding_idx, self.max_norm,
-                self.norm_type, self.scale_grad_by_freq, self.sparse)
+                x,
+                weight,
+                self.padding_idx,
+                self.max_norm,
+                self.norm_type,
+                self.scale_grad_by_freq,
+                self.sparse,
+            )
         else:
             # TODO: cannot simply apply for batch
             # better to implement efficient function
             pe = []
             for batch_idx, we in enumerate(w):
                 weight = sinusoidal_encode(self.weight, we)
-                pe.append(F.embedding(
-                    x[batch_idx], weight, self.padding_idx, self.max_norm,
-                    self.norm_type, self.scale_grad_by_freq, self.sparse))
+                pe.append(
+                    F.embedding(
+                        x[batch_idx],
+                        weight,
+                        self.padding_idx,
+                        self.max_norm,
+                        self.norm_type,
+                        self.scale_grad_by_freq,
+                        self.sparse,
+                    )
+                )
             pe = torch.stack(pe)
             return pe
 
@@ -555,6 +586,7 @@ class GradMultiply(torch.autograd.Function):
     """
     The gradient multiplier implementation
     """
+
     @staticmethod
     def forward(ctx, x, scale):
         """
@@ -638,8 +670,9 @@ def get_mask_from_lengths(memory, memory_lengths):
         The length of the memory cell
     """
     max_len = max(memory_lengths)
-    mask = torch.arange(max_len).expand(memory.size(0),
-                                        max_len) < torch.tensor(memory_lengths).unsqueeze(-1)
+    mask = torch.arange(max_len).expand(memory.size(0), max_len) < torch.tensor(
+        memory_lengths
+    ).unsqueeze(-1)
     mask = mask.to(memory.device)
     return ~mask
 
@@ -651,7 +684,8 @@ def expand_speaker_embed(inputs_btc, speaker_embed=None, tdim=1):
     # (B, N) -> (B, T, N)
     ss = speaker_embed.size()
     speaker_embed_btc = speaker_embed.unsqueeze(1).expand(
-        ss[0], inputs_btc.size(tdim), ss[-1])
+        ss[0], inputs_btc.size(tdim), ss[-1]
+    )
     return speaker_embed_btc
 
 
@@ -683,12 +717,18 @@ class Encoder(nn.Module):
 
     """
 
-    def __init__(self, n_vocab, embed_dim,
-                 use_speaker_embed=False,
-                 speaker_embed_dim=16,
-                 padding_idx=None, embedding_weight_std=0.1,
-                 convolutions=[],
-                 dropout=0.1, apply_grad_scaling=False):
+    def __init__(
+        self,
+        n_vocab,
+        embed_dim,
+        use_speaker_embed=False,
+        speaker_embed_dim=16,
+        padding_idx=None,
+        embedding_weight_std=0.1,
+        convolutions=[],
+        dropout=0.1,
+        apply_grad_scaling=False,
+    ):
         super().__init__()
         self.dropout = dropout
         self.num_attention_layers = None
@@ -696,14 +736,17 @@ class Encoder(nn.Module):
 
         # Text input embeddings
         self.embed_tokens = Embedding(
-            n_vocab, embed_dim, padding_idx, embedding_weight_std)
+            n_vocab, embed_dim, padding_idx, embedding_weight_std
+        )
 
         # Speaker embedding
         if use_speaker_embed:
             self.speaker_fc1 = Linear(
-                speaker_embed_dim, embed_dim, dropout=dropout)
+                speaker_embed_dim, embed_dim, dropout=dropout
+            )
             self.speaker_fc2 = Linear(
-                speaker_embed_dim, embed_dim, dropout=dropout)
+                speaker_embed_dim, embed_dim, dropout=dropout
+            )
         self.use_speaker_embed = use_speaker_embed
 
         # Non causual convolution blocks
@@ -730,9 +773,8 @@ class Encoder(nn.Module):
         speaker_embed_btc = expand_speaker_embed(x, speaker_embed)
         if speaker_embed_btc is not None:
             speaker_embed_btc = F.dropout(
-                speaker_embed_btc,
-                p=self.dropout,
-                training=self.training)
+                speaker_embed_btc, p=self.dropout, training=self.training
+            )
             x = x + F.softsign(self.speaker_fc1(speaker_embed_btc))
 
         input_embedding = x
@@ -752,8 +794,9 @@ class Encoder(nn.Module):
 
         # scale gradients (this only affects backward, not forward)
         if self.apply_grad_scaling and self.num_attention_layers is not None:
-            keys = GradMultiply.apply(keys,
-                                      1.0 / (2.0 * self.num_attention_layers))
+            keys = GradMultiply.apply(
+                keys, 1.0 / (2.0 * self.num_attention_layers)
+            )
 
         # add output to input embedding for attention
         values = (keys + input_embedding) * math.sqrt(0.5)
@@ -783,9 +826,16 @@ class AttentionLayer(nn.Module):
         whether to use value projections
     """
 
-    def __init__(self, conv_channels, embed_dim, dropout=0.1,
-                 window_ahead=3, window_backward=1,
-                 key_projection=True, value_projection=True):
+    def __init__(
+        self,
+        conv_channels,
+        embed_dim,
+        dropout=0.1,
+        window_ahead=3,
+        window_backward=1,
+        key_projection=True,
+        value_projection=True,
+    ):
 
         super().__init__()
         self.query_projection = Linear(conv_channels, embed_dim)
@@ -794,7 +844,9 @@ class AttentionLayer(nn.Module):
             # According to the DeepVoice3 paper, intiailize weights to same values
             # TODO: Does this really work well? not sure..
             if conv_channels == embed_dim:
-                self.key_projection.weight.data = self.query_projection.weight.data.clone()
+                self.key_projection.weight.data = (
+                    self.query_projection.weight.data.clone()
+                )
         else:
             self.key_projection = None
         if value_projection:
@@ -917,23 +969,27 @@ class Decoder(nn.Module):
         incremental reconstruction (defaults to 20)
     """
 
-    def __init__(self, embed_dim,
-                 use_speaker_embed,
-                 speaker_embed_dim=None,
-                 in_channels=256,
-                 in_dim=80, r=5,
-                 max_positions=512,
-                 preattention=[],
-                 convolutions=[],
-                 output=None,
-                 attention=True,
-                 dropout=0.1,
-                 use_memory_mask=False,
-                 force_monotonic_attention=False,
-                 query_position_rate=1.0,
-                 key_position_rate=1.29,
-                 max_decoder_steps=200,
-                 min_decoder_steps=20):
+    def __init__(
+        self,
+        embed_dim,
+        use_speaker_embed,
+        speaker_embed_dim=None,
+        in_channels=256,
+        in_dim=80,
+        r=5,
+        max_positions=512,
+        preattention=[],
+        convolutions=[],
+        output=None,
+        attention=True,
+        dropout=0.1,
+        use_memory_mask=False,
+        force_monotonic_attention=False,
+        query_position_rate=1.0,
+        key_position_rate=1.29,
+        max_decoder_steps=200,
+        min_decoder_steps=20,
+    ):
         super().__init__()
         self.dropout = dropout
         self.in_dim = in_dim
@@ -944,9 +1000,9 @@ class Decoder(nn.Module):
         # Position encodings for query (decoder states) and keys (encoder
         # states)
         self.embed_query_positions = SinusoidalEncoding(
-            max_positions, in_channels)
-        self.embed_keys_positions = SinusoidalEncoding(
-            max_positions, embed_dim)
+            max_positions, in_channels
+        )
+        self.embed_keys_positions = SinusoidalEncoding(max_positions, embed_dim)
         # Used for compute multiplier for positional encodings
         if use_speaker_embed:
             self.speaker_proj1 = Linear(speaker_embed_dim, 1, dropout=dropout)
@@ -968,14 +1024,21 @@ class Decoder(nn.Module):
         self.use_memory_mask = use_memory_mask
 
         if isinstance(force_monotonic_attention, bool):
-            self.force_monotonic_attention = [
-                force_monotonic_attention] * len(convolutions)
+            self.force_monotonic_attention = [force_monotonic_attention] * len(
+                convolutions
+            )
         else:
             self.force_monotonic_attention = force_monotonic_attention
 
-    def forward(self, encoder_out, inputs=None,
-                text_positions=None, frame_positions=None,
-                speaker_embed=None, lengths=None):
+    def forward(
+        self,
+        encoder_out,
+        inputs=None,
+        text_positions=None,
+        frame_positions=None,
+        speaker_embed=None,
+        lengths=None,
+    ):
         """
         Computes the forward pass
 
@@ -1005,7 +1068,8 @@ class Decoder(nn.Module):
             assert text_positions is not None
             self.start_fresh_sequence()
             outputs = self.incremental_forward(
-                encoder_out, text_positions, speaker_embed)
+                encoder_out, text_positions, speaker_embed
+            )
             return outputs
 
         # Grouping multiple frames if necessary
@@ -1017,9 +1081,8 @@ class Decoder(nn.Module):
         speaker_embed_btc = expand_speaker_embed(inputs, speaker_embed)
         if speaker_embed_btc is not None:
             speaker_embed_btc = F.dropout(
-                speaker_embed_btc,
-                p=self.dropout,
-                training=self.training)
+                speaker_embed_btc, p=self.dropout, training=self.training
+            )
 
         keys, values = encoder_out
 
@@ -1033,15 +1096,17 @@ class Decoder(nn.Module):
             w = self.key_position_rate
             # TODO: may be useful to have projection per attention layer
             if self.speaker_proj1 is not None:
-                w = w * \
-                    torch.sigmoid(self.speaker_proj1(speaker_embed)).view(-1)
+                w = w * torch.sigmoid(self.speaker_proj1(speaker_embed)).view(
+                    -1
+                )
             text_pos_embed = self.embed_keys_positions(text_positions, w)
             keys = keys + text_pos_embed
         if frame_positions is not None:
             w = self.query_position_rate
             if self.speaker_proj2 is not None:
-                w = w * \
-                    torch.sigmoid(self.speaker_proj2(speaker_embed)).view(-1)
+                w = w * torch.sigmoid(self.speaker_proj2(speaker_embed)).view(
+                    -1
+                )
             frame_pos_embed = self.embed_query_positions(frame_positions, w)
 
         # transpose only once to speed up attention layers
@@ -1092,8 +1157,14 @@ class Decoder(nn.Module):
 
         return outputs, torch.stack(alignments), done, decoder_states
 
-    def incremental_forward(self, encoder_out, text_positions, speaker_embed=None,
-                            initial_input=None, test_inputs=None):
+    def incremental_forward(
+        self,
+        encoder_out,
+        text_positions,
+        speaker_embed=None,
+        initial_input=None,
+        test_inputs=None,
+    ):
         """
         Computes the forward pass incrementally (needed when producing an output without a target)
 
@@ -1142,7 +1213,8 @@ class Decoder(nn.Module):
             last_attended[idx] = 0 if v else None
 
         num_attention_layers = sum(
-            [layer is not None for layer in self.attention])
+            [layer is not None for layer in self.attention]
+        )
         t = 0
         if initial_input is None:
             initial_input = keys.data.new(B, 1, self.in_dim * self.r).zero_()
@@ -1152,8 +1224,9 @@ class Decoder(nn.Module):
             frame_pos = keys.data.new(B, 1).fill_(t + 1).long()
             w = self.query_position_rate
             if self.speaker_proj2 is not None:
-                w = w * torch.sigmoid(
-                    self.speaker_proj2(speaker_embed)).view(-1)
+                w = w * torch.sigmoid(self.speaker_proj2(speaker_embed)).view(
+                    -1
+                )
             frame_pos_embed = self.embed_query_positions(frame_pos, w)
 
             if test_inputs is not None:
@@ -1172,19 +1245,22 @@ class Decoder(nn.Module):
 
             # Casual convolutions + Multi-hop attentions
             ave_alignment = None
-            for idx, (f, attention) in enumerate(zip(self.convolutions,
-                                                     self.attention)):
+            for idx, (f, attention) in enumerate(
+                zip(self.convolutions, self.attention)
+            ):
                 residual = x
                 x = f.incremental_forward(x, speaker_embed)
 
                 # attention
                 if attention is not None:
                     x = x + frame_pos_embed
-                    x, alignment = attention(x, (keys, values),
-                                             last_attended=last_attended[idx])
+                    x, alignment = attention(
+                        x, (keys, values), last_attended=last_attended[idx]
+                    )
                     if self.force_monotonic_attention[idx]:
                         last_attended[idx] = (
-                            alignment.max(-1)[1].view(-1).data[0])
+                            alignment.max(-1)[1].view(-1).data[0]
+                        )
                     if ave_alignment is None:
                         ave_alignment = alignment
                     else:
@@ -1221,8 +1297,9 @@ class Decoder(nn.Module):
 
         # Combine outputs for all time steps
         alignments = torch.stack(alignments).transpose(0, 1)
-        decoder_states = torch.stack(
-            decoder_states).transpose(0, 1).contiguous()
+        decoder_states = (
+            torch.stack(decoder_states).transpose(0, 1).contiguous()
+        )
         outputs = torch.stack(outputs).transpose(0, 1).contiguous()
         dones = torch.cat(dones, dim=1)
 
@@ -1271,8 +1348,9 @@ class Converter(nn.Module):
         the dropout rate (0.0 - 1.0)
     """
 
-    def __init__(self, use_speaker_embed, in_dim, out_dim, convolutions,
-                 dropout=0.1):
+    def __init__(
+        self, use_speaker_embed, in_dim, out_dim, convolutions, dropout=0.1
+    ):
         super().__init__()
         self.dropout = dropout
         self.in_dim = in_dim
@@ -1299,18 +1377,22 @@ class Converter(nn.Module):
         speaker_embed_btc = expand_speaker_embed(x, speaker_embed)
         if speaker_embed_btc is not None:
             speaker_embed_btc = F.dropout(
-                speaker_embed_btc, p=self.dropout, training=self.training)
+                speaker_embed_btc, p=self.dropout, training=self.training
+            )
 
         # Generic case: B x T x C -> B x C x T
         x = x.transpose(1, 2)
         for f in self.convolutions:
             # Case for upsampling
-            if (speaker_embed_btc is not None
-                    and speaker_embed_btc.size(1) != x.size(-1)):
+            if speaker_embed_btc is not None and speaker_embed_btc.size(
+                1
+            ) != x.size(-1):
                 speaker_embed_btc = expand_speaker_embed(
-                    x, speaker_embed, tdim=-1)
+                    x, speaker_embed, tdim=-1
+                )
                 speaker_embed_btc = F.dropout(
-                    speaker_embed_btc, p=self.dropout, training=self.training)
+                    speaker_embed_btc, p=self.dropout, training=self.training
+                )
             x = f(x, speaker_embed_btc) if isinstance(f, ConvBlock) else f(x)
 
         # Back to B x T x C
@@ -1344,18 +1426,26 @@ class TTSModel(nn.Module):
         whether speaker embeddings should be frozen
     """
 
-    def __init__(self, seq2seq, postnet,
-                 mel_dim=80, linear_dim=513,
-                 use_speaker_embed=False, speaker_embed_dim=16,
-                 use_decoder_state_for_postnet_input=False,
-                 embed_speakers=None,
-                 freeze_embedding=False):
+    def __init__(
+        self,
+        seq2seq,
+        postnet,
+        mel_dim=80,
+        linear_dim=513,
+        use_speaker_embed=False,
+        speaker_embed_dim=16,
+        use_decoder_state_for_postnet_input=False,
+        embed_speakers=None,
+        freeze_embedding=False,
+    ):
         super().__init__()
         self.seq2seq = seq2seq
         self.postnet = postnet
         self.mel_dim = mel_dim
         self.linear_dim = linear_dim
-        self.use_decoder_state_for_postnet_input = use_decoder_state_for_postnet_input
+        self.use_decoder_state_for_postnet_input = (
+            use_decoder_state_for_postnet_input
+        )
         self.freeze_embedding = freeze_embedding
 
         # Speaker embedding
@@ -1363,9 +1453,16 @@ class TTSModel(nn.Module):
         self.use_speaker_embed = use_speaker_embed
         self.speaker_embed_dim = speaker_embed_dim
 
-    def forward(self, text_sequences, mel_targets=None, speaker_ids=None,
-                text_positions=None, frame_positions=None, input_lengths=None,
-                speaker_embed=None):
+    def forward(
+        self,
+        text_sequences,
+        mel_targets=None,
+        speaker_ids=None,
+        text_positions=None,
+        frame_positions=None,
+        input_lengths=None,
+        speaker_embed=None,
+    ):
         """
         Computes the forward pass
 
@@ -1402,8 +1499,13 @@ class TTSModel(nn.Module):
         # Apply seq2seq
         # (B, T//r, mel_dim*r)
         mel_outputs, alignments, done, decoder_states = self.seq2seq(
-            text_sequences, mel_targets, speaker_embed,
-            text_positions, frame_positions, input_lengths)
+            text_sequences,
+            mel_targets,
+            speaker_embed,
+            text_positions,
+            frame_positions,
+            input_lengths,
+        )
 
         # Reshape
         # (B, T, mel_dim)
@@ -1441,10 +1543,18 @@ class AttentionSeq2Seq(nn.Module):
         self.decoder = decoder
         if isinstance(self.decoder.attention, nn.ModuleList):
             self.encoder.num_attention_layers = sum(
-                [layer is not None for layer in decoder.attention])
+                [layer is not None for layer in decoder.attention]
+            )
 
-    def forward(self, text_sequences, mel_targets=None, speaker_embed=None,
-                text_positions=None, frame_positions=None, input_lengths=None):
+    def forward(
+        self,
+        text_sequences,
+        mel_targets=None,
+        speaker_embed=None,
+        text_positions=None,
+        frame_positions=None,
+        input_lengths=None,
+    ):
         """
         Computes the forward pass
 
@@ -1475,15 +1585,20 @@ class AttentionSeq2Seq(nn.Module):
         """
         # (B, T, text_embed_dim)
         encoder_outputs = self.encoder(
-            text_sequences, speaker_embed=speaker_embed)
+            text_sequences, speaker_embed=speaker_embed
+        )
 
         # Mel: (B, T//r, mel_dim*r)
         # Alignments: (N, B, T_target, T_input)
         # Done: (B, T//r, 1)
         mel_outputs, alignments, done, decoder_states = self.decoder(
-            encoder_outputs, mel_targets,
-            text_positions=text_positions, frame_positions=frame_positions,
-            speaker_embed=speaker_embed, lengths=input_lengths)
+            encoder_outputs,
+            mel_targets,
+            text_positions=text_positions,
+            frame_positions=frame_positions,
+            speaker_embed=speaker_embed,
+            lengths=input_lengths,
+        )
 
         return mel_outputs, alignments, done, decoder_states
 
@@ -1494,6 +1609,7 @@ class LossStats:
     Represents the different losses available in DeepVoice3,
     including the total loss
     """
+
     loss: torch.Tensor
     mel_loss: torch.Tensor
     mel_l1_loss: torch.Tensor
@@ -1515,8 +1631,9 @@ class LossStats:
             The losses, as a {key: float} dictionary
         """
         fields = dataclasses.fields(self)
-        return {field.name: getattr(self, field.name).item()
-                for field in fields}
+        return {
+            field.name: getattr(self, field.name).item() for field in fields
+        }
 
 
 class Loss(nn.Module):
@@ -1538,16 +1655,17 @@ class Loss(nn.Module):
     """
 
     def __init__(
-            self,
-            linear_dim: int,
-            downsample_step: int,
-            outputs_per_step: int,
-            masked_loss_weight: float,
-            binary_divergence_weight: float,
-            priority_freq_weight: float,
-            priority_freq: float,
-            sample_rate: float,
-            guided_attention_sigma: float):
+        self,
+        linear_dim: int,
+        downsample_step: int,
+        outputs_per_step: int,
+        masked_loss_weight: float,
+        binary_divergence_weight: float,
+        priority_freq_weight: float,
+        priority_freq: float,
+        sample_rate: float,
+        guided_attention_sigma: float,
+    ):
 
         super().__init__()
         self.linear_dim = linear_dim
@@ -1585,22 +1703,29 @@ class Loss(nn.Module):
         target_mel, target_linear, target_done, target_lengths = target
 
         decoder_target_mask, target_mask = self.compute_masks(
-            target_linear, target_mel, target_lengths)
+            target_linear, target_mel, target_lengths
+        )
 
         mel_loss, mel_l1_loss, mel_binary_div = self.mel_loss(
-            input_mel, target_mel, decoder_target_mask)
+            input_mel, target_mel, decoder_target_mask
+        )
         done_loss = self.binary_criterion(input_done, target_done)
 
         linear_loss, linear_l1_loss, linear_binary_div = self.linear_loss(
-            input_linear, target_linear, target_mask)
+            input_linear, target_linear, target_mask
+        )
 
         decoder_lengths = (
             target_lengths.long()
             // self.outputs_per_step
-            // self.downsample_step)
+            // self.downsample_step
+        )
         soft_mask = self.guided_attentions(
-            input_lengths, decoder_lengths,
-            attention.size(-2), self.guided_attention_sigma)
+            input_lengths,
+            decoder_lengths,
+            attention.size(-2),
+            self.guided_attention_sigma,
+        )
         attn_loss = (attention * soft_mask).mean()
 
         loss = mel_loss + linear_loss + done_loss + attn_loss
@@ -1613,7 +1738,7 @@ class Loss(nn.Module):
             linear_l1_loss=linear_l1_loss,
             linear_binary_div=linear_binary_div,
             done_loss=done_loss,
-            attn_loss=attn_loss
+            attn_loss=attn_loss,
         )
         return loss_stats
 
@@ -1638,18 +1763,21 @@ class Loss(nn.Module):
         decoder_target_mask = self.sequence_mask(
             target_lengths // (self.outputs_per_step * self.downsample_step),
             max_len=target_mel.size(1),
-            device=target_mel.device).unsqueeze(-1)
+            device=target_mel.device,
+        ).unsqueeze(-1)
 
         if self.downsample_step > 1:
             # spectrogram-domain mask
             target_mask = self.sequence_mask(
-                target_lengths, max_len=target_linear.size(1),
-                device=target_lengths.device).unsqueeze(-1)
+                target_lengths,
+                max_len=target_linear.size(1),
+                device=target_lengths.device,
+            ).unsqueeze(-1)
         else:
             target_mask = decoder_target_mask
 
-        decoder_target_mask = decoder_target_mask[:, self.outputs_per_step:, :]
-        target_mask = target_mask[:, self.outputs_per_step:, :]
+        decoder_target_mask = decoder_target_mask[:, self.outputs_per_step :, :]
+        target_mask = target_mask[:, self.outputs_per_step :, :]
         return decoder_target_mask, target_mask
 
     def mel_loss(self, input_mel, target_mel, decoder_target_mask):
@@ -1673,14 +1801,15 @@ class Loss(nn.Module):
         """
 
         mel_l1_loss, mel_binary_div = self.spec_loss(
-            input_mel[:, :-self.outputs_per_step, :],
-            target_mel[:, self.outputs_per_step:, :],
+            input_mel[:, : -self.outputs_per_step, :],
+            target_mel[:, self.outputs_per_step :, :],
             decoder_target_mask,
             masked_loss_weight=self.masked_loss_weight,
-            binary_divergence_weight=self.binary_divergence_weight)
+            binary_divergence_weight=self.binary_divergence_weight,
+        )
         mel_loss = (
-            (1 - self.binary_divergence_weight) * mel_l1_loss
-            + self.binary_divergence_weight * mel_binary_div)
+            1 - self.binary_divergence_weight
+        ) * mel_l1_loss + self.binary_divergence_weight * mel_binary_div
         return mel_loss, mel_l1_loss, mel_binary_div
 
     def linear_loss(self, input_linear, target_linear, target_mask):
@@ -1704,25 +1833,35 @@ class Loss(nn.Module):
             linear binary divergence
 
         """
-        n_priority_freq = int(self.priority_freq / (self.sample_rate * 0.5)
-                              * self.linear_dim)
+        n_priority_freq = int(
+            self.priority_freq / (self.sample_rate * 0.5) * self.linear_dim
+        )
 
         linear_l1_loss, linear_binary_div = self.spec_loss(
-            input_linear[:, :-self.outputs_per_step, :],
-            target_linear[:, self.outputs_per_step:, :],
+            input_linear[:, : -self.outputs_per_step, :],
+            target_linear[:, self.outputs_per_step :, :],
             target_mask,
             priority_bin=n_priority_freq,
             priority_w=self.priority_freq_weight,
             masked_loss_weight=self.masked_loss_weight,
-            binary_divergence_weight=self.binary_divergence_weight)
+            binary_divergence_weight=self.binary_divergence_weight,
+        )
         linear_loss = (
             (1 - self.binary_divergence_weight) * linear_l1_loss
-            + self.binary_divergence_weight * linear_binary_div)
+            + self.binary_divergence_weight * linear_binary_div
+        )
         return linear_loss, linear_l1_loss, linear_binary_div
 
-    def spec_loss(self, y_hat, y, mask, priority_bin=None,
-                  priority_w=0, masked_loss_weight=0.,
-                  binary_divergence_weight=0.):
+    def spec_loss(
+        self,
+        y_hat,
+        y,
+        mask,
+        priority_bin=None,
+        priority_w=0,
+        masked_loss_weight=0.0,
+        binary_divergence_weight=0.0,
+    ):
         """
         Computes the DeepVoice3 mask spectrogram loss
 
@@ -1747,9 +1886,9 @@ class Loss(nn.Module):
         # L1 loss
         if w > 0:
             assert mask is not None
-            l1_loss = w * \
-                self.masked_l1(y_hat, y, mask=mask) + \
-                (1 - w) * self.l1(y_hat, y)
+            l1_loss = w * self.masked_l1(y_hat, y, mask=mask) + (
+                1 - w
+            ) * self.l1(y_hat, y)
         else:
             assert mask is None
             l1_loss = self.l1(y_hat, y)
@@ -1758,12 +1897,16 @@ class Loss(nn.Module):
         if priority_bin is not None and priority_w > 0:
             if w > 0:
                 priority_loss = w * self.masked_l1(
-                    y_hat[:, :, :priority_bin], y[:, :, :priority_bin], mask=mask) \
-                    + (1 - w) * \
-                    self.l1(y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+                    y_hat[:, :, :priority_bin],
+                    y[:, :, :priority_bin],
+                    mask=mask,
+                ) + (1 - w) * self.l1(
+                    y_hat[:, :, :priority_bin], y[:, :, :priority_bin]
+                )
             else:
                 priority_loss = self.l1(
-                    y_hat[:, :, :priority_bin], y[:, :, :priority_bin])
+                    y_hat[:, :, :priority_bin], y[:, :, :priority_bin]
+                )
             l1_loss = (1 - priority_w) * l1_loss + priority_w * priority_loss
 
         # Binary divergence loss
@@ -1800,11 +1943,12 @@ class Loss(nn.Module):
         batch_size = sequence_length.size(0)
         seq_range = torch.arange(0, max_len, device=device).long()
         seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
-        seq_length_expand = sequence_length.unsqueeze(1) \
-            .expand_as(seq_range_expand)
+        seq_length_expand = sequence_length.unsqueeze(1).expand_as(
+            seq_range_expand
+        )
         result = (
-            seq_range_expand < seq_length_expand.to(
-                seq_range_expand.device)).float()
+            seq_range_expand < seq_length_expand.to(seq_range_expand.device)
+        ).float()
         if device is not None:
             result.to(device)
         return result
@@ -1833,13 +1977,14 @@ class Loss(nn.Module):
             The guided attention tensor for a single example
         """
         n, t = torch.meshgrid(
-            torch.arange(N).to(N.device),
-            torch.arange(T).to(N.device))
-        value = 1. - torch.exp(-(n / N - t / T) ** 2 / (2 * g * g))
+            torch.arange(N).to(N.device), torch.arange(T).to(N.device)
+        )
+        value = 1.0 - torch.exp(-((n / N - t / T) ** 2) / (2 * g * g))
         return value
 
-    def guided_attentions(self, input_lengths,
-                          target_lengths, max_target_len, g=0.2):
+    def guided_attentions(
+        self, input_lengths, target_lengths, max_target_len, g=0.2
+    ):
         """
         Computes guided attention matrices
 
@@ -1861,9 +2006,11 @@ class Loss(nn.Module):
         """
         B = len(input_lengths)
         max_input_len = input_lengths.max()
-        W = (torch.zeros((B, max_target_len, max_input_len.item()))
-             .float()
-             .to(input_lengths.device))
+        W = (
+            torch.zeros((B, max_target_len, max_input_len.item()))
+            .float()
+            .to(input_lengths.device)
+        )
         # TODO: Attempt to vectorize here as well
         for b in range(B):
             attention = self.guided_attention(
@@ -1871,8 +2018,9 @@ class Loss(nn.Module):
                 max_input_len,
                 target_lengths[b],
                 max_target_len,
-                g).T
-            W[b, :attention.size(0), :attention.size(1)] = attention
+                g,
+            ).T
+            W[b, : attention.size(0), : attention.size(1)] = attention
         return W
 
 

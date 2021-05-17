@@ -884,8 +884,8 @@ class SpectralMaskEnhancement(Pretrained):
 
 class SpeechSynthesizer(Pretrained):
     HPARAMS_NEEDED = ["model", "encode_pipeline", "decode_pipeline"]
-    INPUT_STATIC_KEYS = ['txt']
-    OUTPUT_KEYS = ['wav']
+    INPUT_STATIC_KEYS = ["txt"]
+    OUTPUT_KEYS = ["wav"]
 
     """
     A friendly wrapper for speech synthesis models
@@ -906,17 +906,18 @@ class SpeechSynthesizer(Pretrained):
     ... ]
     >>> waveforms = synthesizer.tts(items)
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.encode_pipeline = DataPipeline(
             static_data_keys=self.INPUT_STATIC_KEYS,
-            dynamic_items=self.hparams.encode_pipeline['steps'],
-            output_keys=self.hparams.encode_pipeline['output_keys']
+            dynamic_items=self.hparams.encode_pipeline["steps"],
+            output_keys=self.hparams.encode_pipeline["output_keys"],
         )
         self.decode_pipeline = DataPipeline(
             static_data_keys=self.hparams.model_output_keys,
-            dynamic_items=self.hparams.decode_pipeline['steps'],
-            output_keys=self.OUTPUT_KEYS
+            dynamic_items=self.hparams.decode_pipeline["steps"],
+            output_keys=self.OUTPUT_KEYS,
         )
 
     def tts(self, text):
@@ -942,7 +943,7 @@ class SpeechSynthesizer(Pretrained):
         model_input = self._run_pipeline(
             pipeline=self.encode_pipeline,
             input=pipeline_input,
-            batch=self.batch_inputs
+            batch=self.batch_inputs,
         )
         model_input = self._collate(model_input)
         model_output = self.compute_forward(model_input)
@@ -950,8 +951,9 @@ class SpeechSynthesizer(Pretrained):
         decoded_output = self._run_pipeline(
             pipeline=self.decode_pipeline,
             input=pipeline_input,
-            batch=self.batch_outputs)
-        waveform = decoded_output.get('wav')
+            batch=self.batch_outputs,
+        )
+        waveform = decoded_output.get("wav")
         if waveform is None:
             raise ValueError("The output pipeline did not output a waveform")
         if single:
@@ -966,18 +968,13 @@ class SpeechSynthesizer(Pretrained):
         return output
 
     def _get_encode_pipeline_input(self, text):
-        pipeline_input = {
-            'txt': text
-        }
+        pipeline_input = {"txt": text}
         if not self.batch_inputs:
             pipeline_input = self._itemize(pipeline_input)
         return pipeline_input
 
     def _get_decode_pipeline_input(self, model_output):
-        model_output_keys = getattr(
-            self.hparams,
-            'model_output_keys',
-            None)
+        model_output_keys = getattr(self.hparams, "model_output_keys", None)
         pipeline_input = model_output
         # The input to a pipeline is a dictionary. If model_output_keys
         # is provided, the output of the model is assumed to be a collection
@@ -996,12 +993,17 @@ class SpeechSynthesizer(Pretrained):
         first_item = next(iter(pipeline_input.values()))
         keys, values = pipeline_input.keys(), pipeline_input.values()
         batch_length = len(first_item)
-        return [dict(zip(keys, [value[idx] for value in values]))
-                for idx in range(batch_length)]
+        return [
+            dict(zip(keys, [value[idx] for value in values]))
+            for idx in range(batch_length)
+        ]
 
     def _to_dict(self, data):
         if isinstance(data, PaddedBatch):
-            data = {key: getattr(data, key).data for key in self.hparams.encode_pipeline['output_keys']}
+            data = {
+                key: getattr(data, key).data
+                for key in self.hparams.encode_pipeline["output_keys"]
+            }
         return data
 
     @property
@@ -1015,7 +1017,7 @@ class SpeechSynthesizer(Pretrained):
         -------
         batch_intputs: bool
         """
-        return self.hparams.encode_pipeline.get('batch', True)
+        return self.hparams.encode_pipeline.get("batch", True)
 
     @property
     def batch_outputs(self):
@@ -1028,11 +1030,11 @@ class SpeechSynthesizer(Pretrained):
         -------
         batch_outputs: bool
         """
-        return self.hparams.decode_pipeline.get('batch', True)
+        return self.hparams.decode_pipeline.get("batch", True)
 
     def _collate(self, data):
         if not self.batch_inputs:
-            collate_fn = getattr(self.hparams, 'collate_fn', PaddedBatch)
+            collate_fn = getattr(self.hparams, "collate_fn", PaddedBatch)
             data = collate_fn(data)
         return data
 

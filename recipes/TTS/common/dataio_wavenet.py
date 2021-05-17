@@ -53,7 +53,7 @@ def inv_mulaw_quantize(sig, mu=256):
 
     """
     sig = 2 * sig.type(torch.FloatTensor) / mu - 1
-    inverse = sig.sign() * (1.0 / mu) * ((1.0 + mu)**sig.abs() - 1.0)
+    inverse = sig.sign() * (1.0 / mu) * ((1.0 + mu) ** sig.abs() - 1.0)
     return inverse
 
 
@@ -120,9 +120,9 @@ def read_wav(file_name: str):
     return sig
 
 
-def prepare_signal(takes, provides, orig_freq, fs, threshold, cutoff,
-                   mu, silence_threshold):
-
+def prepare_signal(
+    takes, provides, orig_freq, fs, threshold, cutoff, mu, silence_threshold
+):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(sig):
@@ -151,8 +151,9 @@ def prepare_signal(takes, provides, orig_freq, fs, threshold, cutoff,
         signal_cut: torch.tensor, (T)
             Pre-processed audio ready for feature processing
         """
-        sig_resampled = transforms.Resample(
-            orig_freq=orig_freq, new_freq=fs)(sig)
+        sig_resampled = transforms.Resample(orig_freq=orig_freq, new_freq=fs)(
+            sig
+        )
 
         # remove leading and trailing silence
         # amp = 10**(0.05*dB)
@@ -179,12 +180,25 @@ def prepare_signal(takes, provides, orig_freq, fs, threshold, cutoff,
         signal_cut = sig_lowcut[start:end]
 
         return signal_cut.float()
+
     return f
 
 
-def prepare_features(takes, provides, fs, n_mels, hop_length, n_fft,
-                     min_level_db, ref_level_db, cin_channels, cin_pad, max_t_sec,
-                     max_t_steps, num_classes):
+def prepare_features(
+    takes,
+    provides,
+    fs,
+    n_mels,
+    hop_length,
+    n_fft,
+    min_level_db,
+    ref_level_db,
+    cin_channels,
+    cin_pad,
+    max_t_sec,
+    max_t_steps,
+    num_classes,
+):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(sig):
@@ -223,8 +237,13 @@ def prepare_features(takes, provides, fs, n_mels, hop_length, n_fft,
         data: tuple
             Tuple containing target signal, target signal one-hot quantized and mel spectrogram (if local conditioning is on)
         """
-        mel_raw = transforms.MelSpectrogram(sample_rate=fs, n_mels=n_mels,
-                                            hop_length=hop_length, n_fft=n_fft, power=1)(sig)
+        mel_raw = transforms.MelSpectrogram(
+            sample_rate=fs,
+            n_mels=n_mels,
+            hop_length=hop_length,
+            n_fft=n_fft,
+            power=1,
+        )(sig)
 
         sig_mulaw = mulaw_quantize(sig, 255)
 
@@ -234,7 +253,8 @@ def prepare_features(takes, provides, fs, n_mels, hop_length, n_fft,
 
         if l > 0 or r > 0:
             sig_padded = F.pad(
-                sig_mulaw, (l, r), mode="constant", value=constant_values)
+                sig_mulaw, (l, r), mode="constant", value=constant_values
+            )
         N = mel_raw.size(1)
 
         assert len(sig_padded) >= N * hop_length
@@ -243,17 +263,14 @@ def prepare_features(takes, provides, fs, n_mels, hop_length, n_fft,
         LOG_10 = math.log(10)
 
         min_level = torch.tensor(
-            math.exp(
-                min_level_db
-                / ref_level_db
-                * LOG_10)).to(
-            mel_raw.device)
-        linear_db = ref_level_db * \
-            torch.log10(torch.maximum(min_level, mel_raw)) - ref_level_db
+            math.exp(min_level_db / ref_level_db * LOG_10)
+        ).to(mel_raw.device)
+        linear_db = (
+            ref_level_db * torch.log10(torch.maximum(min_level, mel_raw))
+            - ref_level_db
+        )
         mel_norm = torch.clip(
-            (linear_db - min_level_db) / -min_level_db,
-            min=0.,
-            max=1.
+            (linear_db - min_level_db) / -min_level_db, min=0.0, max=1.0
         )
 
         # time resolution adjustment
@@ -261,7 +278,7 @@ def prepare_features(takes, provides, fs, n_mels, hop_length, n_fft,
         # transposed convolution to upsample
         # print(sig_padded.min(),sig_padded.max())
         # print(sig_padded.size())
-        out = sig_padded[:N * hop_length]
+        out = sig_padded[: N * hop_length]
         assert out.size(0) % hop_length == 0
 
         local_conditioning = cin_channels > 0
@@ -281,35 +298,49 @@ def prepare_features(takes, provides, fs, n_mels, hop_length, n_fft,
             if max_time_steps is not None:
 
                 max_steps = ensure_divisible(max_time_steps, hop_length)
-                assert out.size(0) > max_steps, "Size of audio ({s}) is smaller than max_steps ({m}). Reduce max_time_steps.".format(
-                    s=out.size(0), m=max_steps)
+                assert (
+                    out.size(0) > max_steps
+                ), "Size of audio ({s}) is smaller than max_steps ({m}). Reduce max_time_steps.".format(
+                    s=out.size(0), m=max_steps
+                )
                 if out.size(0) > max_steps:
                     max_time_frames = max_steps // hop_length
-                    assert mel_norm.size(
-                        1) >= 2 * cin_pad + max_time_frames, "Mel's time axis ({t}) is smaller than 2 x cin_pad + max_time_frames. Either reduce max_time_steps or reduce cin_pad.".format(t=mel_norm.size(1),)
+                    assert (
+                        mel_norm.size(1) >= 2 * cin_pad + max_time_frames
+                    ), "Mel's time axis ({t}) is smaller than 2 x cin_pad + max_time_frames. Either reduce max_time_steps or reduce cin_pad.".format(
+                        t=mel_norm.size(1),
+                    )
                     if mel_norm.size(1) > 2 * cin_pad + max_time_frames:
                         s = np.random.randint(
-                            cin_pad, mel_norm.size(1) - max_time_frames - cin_pad)
+                            cin_pad,
+                            mel_norm.size(1) - max_time_frames - cin_pad,
+                        )
                     else:
                         s = cin_pad
                     ts = s * hop_length
-                    out = out[ts:ts + hop_length * max_time_frames]
-                    mel_out = mel_norm[:,
-                                       s - cin_pad:s + max_time_frames + cin_pad]
+                    out = out[ts : ts + hop_length * max_time_frames]
+                    mel_out = mel_norm[
+                        :, s - cin_pad : s + max_time_frames + cin_pad
+                    ]
                     mel_out = mel_out.transpose(0, 1)
-                    assert out.size(0) == (
-                        mel_out.size(0) - 2 * cin_pad) * hop_length
+                    assert (
+                        out.size(0)
+                        == (mel_out.size(0) - 2 * cin_pad) * hop_length
+                    )
 
             # Converts a class vector (integers) to 1-hot encodes a tensor
-            out_quantized = torch.from_numpy(np.asarray(
-                np.eye(num_classes, dtype='float32')[out]))
+            out_quantized = torch.from_numpy(
+                np.asarray(np.eye(num_classes, dtype="float32")[out])
+            )
 
             return (out, out_quantized, mel_out)
         else:
             out = out[0:max_time_steps]
-            out_quantized = torch.from_numpy(np.asarray(
-                np.eye(num_classes, dtype='float32')[out]))
-            return(out, out_quantized)
+            out_quantized = torch.from_numpy(
+                np.asarray(np.eye(num_classes, dtype="float32")[out])
+            )
+            return (out, out_quantized)
+
     return f
 
 
@@ -321,6 +352,7 @@ def get_target(takes, provides):
         Provides the target waveform
         """
         return data[0]
+
     return f
 
 
@@ -332,6 +364,7 @@ def get_x(takes, provides):
         Provides the input x, pre-processed audio signal and split into 256 channels
         """
         return data[1]
+
     return f
 
 
@@ -346,6 +379,7 @@ def get_mel(takes, provides, local_conditioning):
             return data[2]
         else:
             return None
+
     return f
 
 
@@ -357,6 +391,7 @@ def get_target_length(takes, provides):
         Provides the target lengths
         """
         return target.size(0)
+
     return f
 
 
@@ -410,7 +445,8 @@ def dataset_prep(dataset: DynamicItemDataset, hparams, tokens=None):
         "mel",
         "target",
         "target_length",
-        "speaker_id_cat"]
+        "speaker_id_cat",
+    ]
     local_conditioning = hparams["cin_channels"] > 0
 
     pipeline = [
@@ -423,7 +459,7 @@ def dataset_prep(dataset: DynamicItemDataset, hparams, tokens=None):
             threshold=hparams["trim_threshold"],
             cutoff=hparams["highpass_cutoff"],
             mu=hparams["quantize_channels"],
-            silence_threshold=hparams["silence_threshold"]
+            silence_threshold=hparams["silence_threshold"],
         ),
         prepare_features(
             takes="signal_cut",
@@ -432,35 +468,23 @@ def dataset_prep(dataset: DynamicItemDataset, hparams, tokens=None):
             n_mels=hparams["num_mels"],
             hop_length=hparams["hop_length"],
             n_fft=hparams["n_fft"],
-            min_level_db=hparams['min_level_db'],
-            ref_level_db=hparams['ref_level_db'],
+            min_level_db=hparams["min_level_db"],
+            ref_level_db=hparams["ref_level_db"],
             cin_channels=hparams["cin_channels"],
             cin_pad=hparams["cin_pad"],
             max_t_sec=hparams["max_time_sec"],
             max_t_steps=hparams["max_time_steps"],
-            num_classes=hparams["quantize_channels"]
+            num_classes=hparams["quantize_channels"],
         ),
-        get_x(
-            takes="data",
-            provides="x"
-        ),
+        get_x(takes="data", provides="x"),
         get_mel(
-            takes="data",
-            provides="mel",
-            local_conditioning=local_conditioning
+            takes="data", provides="mel", local_conditioning=local_conditioning
         ),
-        get_target(
-            takes="data",
-            provides="target"
-        ),
-        get_target_length(
-            takes="target",
-            provides="target_length"
-        ),
+        get_target(takes="data", provides="target"),
+        get_target_length(takes="target", provides="target_length"),
         get_categorical_embeddings(
-            takes="speaker_id",
-            provides="speaker_id_cat"
-        )
+            takes="speaker_id", provides="speaker_id_cat"
+        ),
     ]
 
     for element in pipeline:
@@ -476,8 +500,8 @@ def dataio_prep(hparams):
     Prepares a dict of the dataset for training with SpeechBrain
     """
     result = {}
-    for name, dataset_params in hparams['datasets'].items():
-        dataset = VCTK(dataset_params['path']).to_dataset()
+    for name, dataset_params in hparams["datasets"].items():
+        dataset = VCTK(dataset_params["path"]).to_dataset()
         result[name] = dataset_prep(dataset, hparams)
 
     return result

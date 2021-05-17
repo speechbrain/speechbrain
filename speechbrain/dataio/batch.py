@@ -190,4 +190,4 @@ class PaddedBatch:
         """Returns the raw value (Torch tensor, list, scalar, etc)
         corresponding to the data element"""
         value = getattr(self, key)
-        return getattr(value, 'data', value)
+        return getattr(value, "data", value)

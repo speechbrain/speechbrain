@@ -50,13 +50,14 @@ def wrap_transform(transform_type, takes=None, provides=None):
         @sb.utils.data_pipeline.provides(provides or default_provides)
         def f(*args, **kwargs):
             return transform.to(args[0].device)(*args, **kwargs)
+
         return f
 
     return decorator
 
 
 SPEAKER_EMBEDDINGS_DEFAULT_SOURCE = "speechbrain/spkrec-ecapa-voxceleb"
-RE_NON_ALPHA = '[^A-Za-z]'
+RE_NON_ALPHA = "[^A-Za-z]"
 
 
 def _compute_default_savedir(source):
@@ -72,13 +73,16 @@ def _compute_default_savedir(source):
     -------
         the target directory
     """
-    source_norm = re.sub(RE_NON_ALPHA, '_', source)
-    return f'pretrained_{source_norm}'
+    source_norm = re.sub(RE_NON_ALPHA, "_", source)
+    return f"pretrained_{source_norm}"
 
 
 def pretrained_speaker_embeddings(
-        takes=["sig", "sig_lengths"], provides="speaker_embed",
-        source=None, savedir=None):
+    takes=["sig", "sig_lengths"],
+    provides="speaker_embed",
+    source=None,
+    savedir=None,
+):
     """
     A pipeline function that obtains pretrained speaker embeddings
 
@@ -104,15 +108,19 @@ def pretrained_speaker_embeddings(
     if not source:
         source = SPEAKER_EMBEDDINGS_DEFAULT_SOURCE
     if not savedir:
-        savedir = os.path.join('.', _compute_default_savedir(source))
+        savedir = os.path.join(".", _compute_default_savedir(source))
 
     verification = SpeakerRecognition.from_hparams(
-        source=source, savedir=savedir)
+        source=source, savedir=savedir
+    )
 
     @sb.utils.data_pipeline.takes(*takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(sig, sig_lengths):
-        return verification.encode_batch(sig, sig_lengths)
+        embedding = verification.encode_batch(sig, sig_lengths.float())
+        if len(embedding.shape) == 3:
+            embedding = embedding.squeeze(1)
+        return embedding
 
     return f
 
@@ -176,23 +184,24 @@ def transpose_spectrogram(takes, provides):
     -------
     result: DymamicItem
     """
+
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(spectrogram):
         return spectrogram.transpose(-1, -2)
+
     return f
 
 
 resample = wrap_transform(
-    transforms.Resample,
-    takes="sig",
-    provides="sig_resampled")
+    transforms.Resample, takes="sig", provides="sig_resampled"
+)
 mel_spectrogram = wrap_transform(
-    transforms.MelSpectrogram,
-    takes="sig",
-    provides="mel")
+    transforms.MelSpectrogram, takes="sig", provides="mel"
+)
 spectrogram = wrap_transform(
-    transforms.Spectrogram,
-    takes="sig",
-    provides="spectrogram")
-inverse_spectrogram = wrap_transform(transforms.GriffinLim, takes="spectrogram", provides="sig")
+    transforms.Spectrogram, takes="sig", provides="spectrogram"
+)
+inverse_spectrogram = wrap_transform(
+    transforms.GriffinLim, takes="spectrogram", provides="sig"
+)

@@ -38,7 +38,8 @@ class Stretch2d(nn.Module):
 
     def forward(self, x):
         return F.interpolate(
-            x, scale_factor=(self.y_scale, self.x_scale), mode=self.mode)
+            x, scale_factor=(self.y_scale, self.x_scale), mode=self.mode
+        )
 
 
 class UpsampleNetwork(nn.Module):
@@ -59,8 +60,14 @@ class UpsampleNetwork(nn.Module):
         Padding of the conditional features to capture a wider context during upsampling
     """
 
-    def __init__(self, upsample_scales, mode="nearest",
-                 freq_axis_kernel_size=1, cin_pad=0, cin_channels=80):
+    def __init__(
+        self,
+        upsample_scales,
+        mode="nearest",
+        freq_axis_kernel_size=1,
+        cin_pad=0,
+        cin_channels=80,
+    ):
         super(UpsampleNetwork, self).__init__()
         self.up_layers = nn.ModuleList()
         total_scale = np.prod(upsample_scales)
@@ -71,12 +78,9 @@ class UpsampleNetwork(nn.Module):
             padding = (freq_axis_padding, scale)
             stretch = Stretch2d(scale, 1, mode)
             conv = nn.Conv2d(
-                1,
-                1,
-                kernel_size=k_size,
-                padding=padding,
-                bias=False)
-            conv.weight.data.fill_(1. / np.prod(k_size))
+                1, 1, kernel_size=k_size, padding=padding, bias=False
+            )
+            conv.weight.data.fill_(1.0 / np.prod(k_size))
             conv = nn.utils.weight_norm(conv)
             self.up_layers.append(stretch)
             self.up_layers.append(conv)
@@ -105,7 +109,7 @@ class UpsampleNetwork(nn.Module):
         c = c.squeeze(1)
 
         if self.indent > 0:
-            c = c[:, :, self.indent:-self.indent]
+            c = c[:, :, self.indent : -self.indent]
 
         # convert back to BxTxC
         c = c.transpose(1, 2).contiguous()
@@ -132,9 +136,14 @@ class ConvInUpsampleNetwork(nn.Module):
         Padding of the conditional features to capture a wider context during upsampling
     """
 
-    def __init__(self, upsample_scales, mode="nearest",
-                 freq_axis_kernel_size=1, cin_pad=0,
-                 cin_channels=80):
+    def __init__(
+        self,
+        upsample_scales,
+        mode="nearest",
+        freq_axis_kernel_size=1,
+        cin_pad=0,
+        cin_channels=80,
+    ):
         super(ConvInUpsampleNetwork, self).__init__()
 
         ks = 2 * cin_pad + 1
@@ -143,9 +152,15 @@ class ConvInUpsampleNetwork(nn.Module):
             out_channels=cin_channels,
             kernel_size=ks,
             bias=False,
-            padding="valid")
+            padding="valid",
+        )
         self.upsample = UpsampleNetwork(
-            upsample_scales, mode, freq_axis_kernel_size, cin_pad=0, cin_channels=cin_channels)
+            upsample_scales,
+            mode,
+            freq_axis_kernel_size,
+            cin_pad=0,
+            cin_channels=cin_channels,
+        )
 
     def forward(self, c):
         """
@@ -193,7 +208,7 @@ class IncrementalConv1d(CNN.Conv1d):
 
         """
         if self.training:
-            raise RuntimeError('incremental_forward only supports eval mode')
+            raise RuntimeError("incremental_forward only supports eval mode")
         # run forward pre hooks (e.g., weight norm)
         for hook in self._forward_pre_hooks.values():
             hook(self, input)
@@ -206,12 +221,14 @@ class IncrementalConv1d(CNN.Conv1d):
             input = input.data
             if self.input_buffer is None:
                 self.input_buffer = input.new(
-                    bsz, kw + (kw - 1) * (dilation - 1), input.size(2))
+                    bsz, kw + (kw - 1) * (dilation - 1), input.size(2)
+                )
                 self.input_buffer.zero_()
             else:
                 # shift buffer
-                self.input_buffer[:, :
-                                  - 1, :] = self.input_buffer[:, 1:, :].clone()
+                self.input_buffer[:, :-1, :] = self.input_buffer[
+                    :, 1:, :
+                ].clone()
             # append next input
             self.input_buffer[:, -1, :] = input[:, -1, :]
             input = self.input_buffer
@@ -228,7 +245,11 @@ class IncrementalConv1d(CNN.Conv1d):
         if self._linearized_weight is None:
             kw = self.conv.kernel_size[0]
             weight = self.conv.weight.transpose(1, 2).contiguous()
-            assert weight.size() == (self.conv.out_channels, kw, self.conv.in_channels)
+            assert weight.size() == (
+                self.conv.out_channels,
+                kw,
+                self.conv.in_channels,
+            )
             self._linearized_weight = weight.view(self.conv.out_channels, -1)
         return self._linearized_weight
 
@@ -236,8 +257,14 @@ class IncrementalConv1d(CNN.Conv1d):
         self._linearized_weight = None
 
 
-def Conv1dkxk(in_channels, out_channels, kernel_size,
-              dropout=0, padding="causal", **kwargs):
+def Conv1dkxk(
+    in_channels,
+    out_channels,
+    kernel_size,
+    dropout=0,
+    padding="causal",
+    **kwargs,
+):
     """
     Performs Conv1D using the IncrementalConv1d class for incremental forward option.
     Weights have kaiming normalization applied to them.
@@ -247,7 +274,8 @@ def Conv1dkxk(in_channels, out_channels, kernel_size,
         out_channels=out_channels,
         kernel_size=kernel_size,
         padding=padding,
-        **kwargs)
+        **kwargs,
+    )
     nn.init.kaiming_normal_(m.conv.weight, nonlinearity="relu")
     if m.conv.bias is not None:
         nn.init.constant_(m.conv.bias, 0)
@@ -268,8 +296,14 @@ def Conv1d1x1(in_channels, out_channels, padding="causal", bias=True):
     """
     1-by-1 convolution layer
     """
-    return IncrementalConv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, padding=padding,
-                             dilation=1, bias=bias)
+    return IncrementalConv1d(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        kernel_size=1,
+        padding=padding,
+        dilation=1,
+        bias=bias,
+    )
 
 
 def _conv1x1_forward(conv, x, is_incremental):
@@ -309,19 +343,36 @@ class ResidualBlockLayer(nn.Module):
         Dilation factor
     """
 
-    def __init__(self, residual_channels, gate_channels, kernel_size,
-                 skip_out_channels=None,
-                 cin_channels=-1, gin_channels=-1,
-                 dropout=1 - 0.95, padding="causal", dilation=1,
-                 bias=True, *args, **kwargs):
+    def __init__(
+        self,
+        residual_channels,
+        gate_channels,
+        kernel_size,
+        skip_out_channels=None,
+        cin_channels=-1,
+        gin_channels=-1,
+        dropout=1 - 0.95,
+        padding="causal",
+        dilation=1,
+        bias=True,
+        *args,
+        **kwargs,
+    ):
         super(ResidualBlockLayer, self).__init__()
         self.dropout = dropout
         if skip_out_channels is None:
             skip_out_channels = residual_channels
 
-        self.conv = Conv1dkxk(residual_channels, gate_channels, kernel_size,
-                              padding=padding, dilation=dilation,
-                              bias=bias, *args, **kwargs)
+        self.conv = Conv1dkxk(
+            residual_channels,
+            gate_channels,
+            kernel_size,
+            padding=padding,
+            dilation=dilation,
+            bias=bias,
+            *args,
+            **kwargs,
+        )
 
         # local conditioning
         if cin_channels > 0:
@@ -338,9 +389,11 @@ class ResidualBlockLayer(nn.Module):
         # conv output is split into two groups
         gate_out_channels = gate_channels // 2
         self.conv1x1_out = Conv1d1x1(
-            gate_out_channels, residual_channels, bias=bias)
+            gate_out_channels, residual_channels, bias=bias
+        )
         self.conv1x1_skip = Conv1d1x1(
-            gate_out_channels, skip_out_channels, bias=bias)
+            gate_out_channels, skip_out_channels, bias=bias
+        )
 
     def forward(self, x, c=None, g=None):
         return self._forward(x, c, g, False)
@@ -407,8 +460,13 @@ class ResidualBlockLayer(nn.Module):
         return x, s
 
     def clear_buffer(self):
-        for c in [self.conv, self.conv1x1_out, self.conv1x1_skip,
-                  self.conv1x1c, self.conv1x1g]:
+        for c in [
+            self.conv,
+            self.conv1x1_out,
+            self.conv1x1_skip,
+            self.conv1x1c,
+            self.conv1x1g,
+        ]:
             if c is not None:
                 c.clear_buffer()
 
@@ -477,15 +535,22 @@ class WaveNet(nn.Module):
         Number of speakers
     """
 
-    def __init__(self, out_channels=256, layers=20, stacks=2,
-                 residual_channels=512,
-                 gate_channels=512,
-                 skip_out_channels=512,
-                 kernel_size=3, dropout=1 - 0.95,
-                 cin_channels=-1, gin_channels=-1, n_speakers=None,
-                 upsample_params={},
-                 cin_pad=0,
-                 ):
+    def __init__(
+        self,
+        out_channels=256,
+        layers=20,
+        stacks=2,
+        residual_channels=512,
+        gate_channels=512,
+        skip_out_channels=512,
+        kernel_size=3,
+        dropout=1 - 0.95,
+        cin_channels=-1,
+        gin_channels=-1,
+        n_speakers=None,
+        upsample_params={},
+        cin_pad=0,
+    ):
         super(WaveNet, self).__init__()
 
         self.out_channels = out_channels
@@ -495,33 +560,39 @@ class WaveNet(nn.Module):
         layers_per_stack = layers // stacks
 
         self.first_conv = Conv1d1x1(
-            in_channels=out_channels,
-            out_channels=residual_channels)
+            in_channels=out_channels, out_channels=residual_channels
+        )
 
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
-            dilation = 2**(layer % layers_per_stack)
+            dilation = 2 ** (layer % layers_per_stack)
             conv = ResidualBlockLayer(
-                residual_channels, gate_channels,
+                residual_channels,
+                gate_channels,
                 kernel_size=kernel_size,
                 skip_out_channels=skip_out_channels,
                 bias=True,
-                dilation=dilation, dropout=dropout,
+                dilation=dilation,
+                dropout=dropout,
                 cin_channels=cin_channels,
-                gin_channels=gin_channels)
+                gin_channels=gin_channels,
+            )
             self.conv_layers.append(conv)
 
-        self.last_conv_layers = nn.ModuleList([
-            nn.ReLU(inplace=True),
-            Conv1d1x1(skip_out_channels, skip_out_channels),
-            nn.ReLU(inplace=True),
-            Conv1d1x1(skip_out_channels, out_channels),
-        ])
+        self.last_conv_layers = nn.ModuleList(
+            [
+                nn.ReLU(inplace=True),
+                Conv1d1x1(skip_out_channels, skip_out_channels),
+                nn.ReLU(inplace=True),
+                Conv1d1x1(skip_out_channels, out_channels),
+            ]
+        )
 
         if self.gin_channels > 0:
             assert n_speakers is not None
             self.embed_speakers = Embedding(
-                n_speakers, gin_channels, padding_idx=None, std=0.1)
+                n_speakers, gin_channels, padding_idx=None, std=0.1
+            )
         else:
             self.embed_speakers = None
 
@@ -579,9 +650,15 @@ class WaveNet(nn.Module):
 
         return x
 
-    def incremental_forward(self, initial_input=None, c=None, g=None,
-                            T=100, test_inputs=None,
-                            tqdm=lambda x: x):
+    def incremental_forward(
+        self,
+        initial_input=None,
+        c=None,
+        g=None,
+        T=100,
+        test_inputs=None,
+        tqdm=lambda x: x,
+    ):
         """
         Incremental forward step
         Input of each time step is of shape (B x 1 x C).
@@ -688,11 +765,13 @@ class WaveNet(nn.Module):
         """
         Removes weight norm for faster generation
         """
+
         def remove_weight_norm(m):
             try:
                 nn.utils.remove_weight_norm(m)
             except ValueError:  # this module didn't have weight norm
                 return
+
         self.apply(remove_weight_norm)
 
 
@@ -703,7 +782,7 @@ class Loss(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.criterion = nn.CrossEntropyLoss(reduction='none')
+        self.criterion = nn.CrossEntropyLoss(reduction="none")
 
     def forward(self, predictions, target, lengths):
         """
@@ -772,6 +851,7 @@ class Loss(nn.Module):
 
         if sequence_length.is_cuda:
             seq_range_expand = seq_range_expand.cuda()
-        seq_length_expand = sequence_length.unsqueeze(1) \
-            .expand_as(seq_range_expand)
+        seq_length_expand = sequence_length.unsqueeze(1).expand_as(
+            seq_range_expand
+        )
         return (seq_range_expand < seq_length_expand).float()

@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 class Tacotron2Brain(sb.Brain):
-
     def compute_forward(self, batch, stage):
         inputs, y, num_items = batch_to_gpu(batch)
         return self.hparams.model(inputs)  # 1#2#
@@ -112,13 +111,13 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = DynamicItemDataset.from_json(
-        json_path=hparams["json_train"], replacements={
-            "data_root": data_folder},
+        json_path=hparams["json_train"],
+        replacements={"data_root": data_folder},
     )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["json_valid"], replacements={
-            "data_root": data_folder},
+        json_path=hparams["json_valid"],
+        replacements={"data_root": data_folder},
     )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
@@ -128,15 +127,14 @@ def dataio_prepare(hparams):
     datasets = [train_data, valid_data, test_data]
 
     audio_toMel = transforms.MelSpectrogram(
-        sample_rate=hparams['sampling_rate'],
-
-        hop_length=hparams['hop_length'],
-        win_length=hparams['win_length'],
-        n_fft=hparams['n_fft'],
-        n_mels=hparams['n_mel_channels'],
-        f_min=hparams['mel_fmin'],
-        f_max=hparams['mel_fmax'],
-        normalized=hparams['mel_normalized'],
+        sample_rate=hparams["sampling_rate"],
+        hop_length=hparams["hop_length"],
+        win_length=hparams["win_length"],
+        n_fft=hparams["n_fft"],
+        n_mels=hparams["n_mel_channels"],
+        f_min=hparams["mel_fmin"],
+        f_max=hparams["mel_fmax"],
+        normalized=hparams["mel_normalized"],
     )
 
     #  Define audio and text pipeline:
@@ -144,14 +142,15 @@ def dataio_prepare(hparams):
     @speechbrain.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(file_path, words):
         text_seq = torch.IntTensor(
-            text_to_sequence(
-                words, hparams['text_cleaners']))
+            text_to_sequence(words, hparams["text_cleaners"])
+        )
         audio = speechbrain.dataio.dataio.read_audio(file_path)
         mel = audio_toMel(audio)
         len_text = len(text_seq)
         yield text_seq, mel, len_text
 
         # set outputs
+
     speechbrain.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
     speechbrain.dataio.dataset.set_output_keys(
         datasets, ["mel_text_pair"],
@@ -159,27 +158,36 @@ def dataio_prepare(hparams):
     # create dataloaders that are passed to the model.
     train_data_loader = SaveableDataLoader(
         train_data,
-        batch_size=hparams['batch_size'],
+        batch_size=hparams["batch_size"],
         collate_fn=TextMelCollate(),
-        drop_last=True)
+        drop_last=True,
+    )
     valid_data_loader = SaveableDataLoader(
         valid_data,
-        batch_size=hparams['batch_size'],
+        batch_size=hparams["batch_size"],
         collate_fn=TextMelCollate(),
-        drop_last=True)
+        drop_last=True,
+    )
     test_data_loader = SaveableDataLoader(
         test_data,
-        batch_size=hparams['batch_size'],
+        batch_size=hparams["batch_size"],
         collate_fn=TextMelCollate(),
-        drop_last=True)
+        drop_last=True,
+    )
 
     return train_data_loader, valid_data_loader, test_data_loader
 
 
 # some helper functoions
 def batch_to_gpu(batch):
-    text_padded, input_lengths, mel_padded, gate_padded, \
-        output_lengths, len_x = batch
+    (
+        text_padded,
+        input_lengths,
+        mel_padded,
+        gate_padded,
+        output_lengths,
+        len_x,
+    ) = batch
     text_padded = to_gpu(text_padded).long()
     input_lengths = to_gpu(input_lengths).long()
     max_len = torch.max(input_lengths.data).item()
@@ -208,14 +216,15 @@ def criterion(model_output, targets):
 
     mel_out, mel_out_postnet, gate_out, _ = model_output
     gate_out = gate_out.view(-1, 1)
-    mel_loss = torch.nn.MSELoss()(mel_out, mel_target) + \
-        torch.nn.MSELoss()(mel_out_postnet, mel_target)
+    mel_loss = torch.nn.MSELoss()(mel_out, mel_target) + torch.nn.MSELoss()(
+        mel_out_postnet, mel_target
+    )
     gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
     return mel_loss + gate_loss
 
 
 # custome Collate function for the dataloader
-class TextMelCollate():
+class TextMelCollate:
     """ Zero-pads model inputs and targets based on number of frames per setep
     """
 
@@ -229,27 +238,29 @@ class TextMelCollate():
         batch: [text_normalized, mel_normalized]
         """
         for i in range(
-                len(batch)):  # the pipline return a dictionary wiht one elemnent
+            len(batch)
+        ):  # the pipline return a dictionary wiht one elemnent
             batch[i] = list(batch[i].values())[0]
 
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
-            torch.LongTensor([len(x[0]) for x in batch]),
-            dim=0, descending=True)
+            torch.LongTensor([len(x[0]) for x in batch]), dim=0, descending=True
+        )
         max_input_len = input_lengths[0]
 
         text_padded = torch.LongTensor(len(batch), max_input_len)
         text_padded.zero_()
         for i in range(len(ids_sorted_decreasing)):
             text = batch[ids_sorted_decreasing[i]][0]
-            text_padded[i, :text.size(0)] = text
+            text_padded[i, : text.size(0)] = text
 
         # Right zero-pad mel-spec
         num_mels = batch[0][1].size(0)
         max_target_len = max([x[1].size(1) for x in batch])
         if max_target_len % self.n_frames_per_step != 0:
-            max_target_len += self.n_frames_per_step - \
-                max_target_len % self.n_frames_per_step
+            max_target_len += (
+                self.n_frames_per_step - max_target_len % self.n_frames_per_step
+            )
             assert max_target_len % self.n_frames_per_step == 0
 
         # include mel padded and gate padded
@@ -260,15 +271,21 @@ class TextMelCollate():
         output_lengths = torch.LongTensor(len(batch))
         for i in range(len(ids_sorted_decreasing)):
             mel = batch[ids_sorted_decreasing[i]][1]
-            mel_padded[i, :, :mel.size(1)] = mel
-            gate_padded[i, mel.size(1) - 1:] = 1
+            mel_padded[i, :, : mel.size(1)] = mel
+            gate_padded[i, mel.size(1) - 1 :] = 1
             output_lengths[i] = mel.size(1)
 
         # count number of items - characters in text
         len_x = [x[2] for x in batch]
         len_x = torch.Tensor(len_x)
-        return text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths, len_x
+        return (
+            text_padded,
+            input_lengths,
+            mel_padded,
+            gate_padded,
+            output_lengths,
+            len_x,
+        )
 
 
 if __name__ == "__main__":
@@ -291,7 +308,7 @@ if __name__ == "__main__":
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
-        overrides=overrides
+        overrides=overrides,
     )
 
     # Dataset prep
@@ -309,10 +326,7 @@ if __name__ == "__main__":
 
     # Training
     tacotron2_brain.fit(
-        tacotron2_brain.hparams.epoch_counter,
-        train_set,
-        valid_set
-
+        tacotron2_brain.hparams.epoch_counter, train_set, valid_set
     )
 
     # Test
