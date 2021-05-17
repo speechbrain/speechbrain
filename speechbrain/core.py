@@ -4,6 +4,7 @@ Authors
  * Peter Plantinga 2020
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
+ * Aku Rouhe 2021
 """
 
 import os
