@@ -11,3 +11,8 @@ torchaudio>=0.7.2
 tqdm>=4.42.0
 huggingface_hub>=0.0.6
 SoundFile; sys_platform == 'win32'
+einops>=0.3
+pytorch-fast-transformers>=0.3.0
+local-attention>=1.1.1
+axial-positional-embedding>=0.1.0
+madgrad
