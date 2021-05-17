@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
-
+from .Longformer import LongformerEncoder
 from .conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 
@@ -43,6 +43,11 @@ class TransformerInterface(nn.Module):
         Module that processes the src features to expected feature dim.
     custom_tgt_module : torch class
         Module that processes the src features to expected feature dim.
+    longf_attention_window : int
+        Size of the attention window size for the Longformer
+    longf_attention_mode : str
+        Type of attention for the Longformer
+
     """
 
     def __init__(
@@ -62,6 +67,8 @@ class TransformerInterface(nn.Module):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        longf_attention_window: Optional[list] = None,
+        longf_attention_mode: Optional[str] = None
     ):
         super().__init__()
 
@@ -104,6 +111,24 @@ class TransformerInterface(nn.Module):
                 assert (
                     conformer_activation is not None
                 ), "conformer_activation must not be None"
+            elif encoder_module == "longformer":
+                assert (
+                    longf_attention_window is not None
+                ), "longformer requires an attention window size"
+                assert (
+                    longf_attention_mode is not None
+                ), "longformer requires an attention mode type"
+                self.encoder = LongformerEncoder(
+                    d_ffn=d_ffn,
+                    num_layers=num_encoder_layers,
+                    nhead=nhead,
+                    attention_window=[longf_attention_window] * num_encoder_layers,
+                    attention_mode=longf_attention_mode,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                )
 
         # initialize the decoder
         if num_decoder_layers > 0:

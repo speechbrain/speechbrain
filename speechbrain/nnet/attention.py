@@ -10,8 +10,22 @@ import torch
 import logging
 import torch.nn as nn
 import numpy as np
+import math
+import torch.nn.functional as F
 from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
+
+from speechbrain.nnet.longformer_utilities.longformer_diagonaled_mm_tvm import (
+    mask_invalid_locations,
+)
+from speechbrain.nnet.longformer_utilities.longformer_sliding_chunks import (
+    sliding_chunks_matmul_qk,
+    sliding_chunks_matmul_pv,
+)
+from speechbrain.nnet.longformer_utilities.longformer_sliding_chunks import (
+    sliding_chunks_no_overlap_matmul_qk,
+    sliding_chunks_no_overlap_matmul_pv,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -486,3 +500,153 @@ class PositionalwiseFeedForward(nn.Module):
         x = x.permute(1, 0, 2)
 
         return x
+
+
+class LongformerSelfAttention(nn.Module):
+    """
+    This class comes from: https://github.com/allenai/longformer
+    Longformer is an open-source project developed by the Allen Institute for Artificial Intelligence (AI2).
+    AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and
+    engineering.
+    The Longformer paper:
+        @article{
+        Beltagy2020Longformer,
+        title={Longformer: The Long-Document Transformer},
+        author={Iz Beltagy and Matthew E. Peters and Arman Cohan},
+        journal={arXiv:2004.05150},
+        year={2020}
+        }
+    Parts of the code found herein were modified by: Jonathan Tremblay (jonathan.tremblay.11@gmail.com) in order
+    to fit SpeechBrain's interface.
+    """
+
+    def __init__(
+        self,
+        layer_id,
+        num_attention_heads,
+        hidden_size,
+        attention_probs_dropout_prob,
+        attention_window,
+        attention_mode,
+        attention_dilation,
+    ):
+        super(LongformerSelfAttention, self).__init__()
+        if hidden_size % num_attention_heads != 0:
+            raise ValueError(
+                "The hidden size (%d) is not a multiple of the number of attention "
+                "heads (%d)" % (hidden_size, num_attention_heads)
+            )
+        self.num_heads = num_attention_heads
+        self.head_dim = int(hidden_size / num_attention_heads)
+        self.embed_dim = hidden_size
+
+        self.attention_dilation = attention_dilation  # Not implemented yet
+
+        self.query = nn.Linear(hidden_size, self.embed_dim)
+        self.key = nn.Linear(hidden_size, self.embed_dim)
+        self.value = nn.Linear(hidden_size, self.embed_dim)
+
+        self.query_global = nn.Linear(hidden_size, self.embed_dim)
+        self.key_global = nn.Linear(hidden_size, self.embed_dim)
+        self.value_global = nn.Linear(hidden_size, self.embed_dim)
+
+        self.dropout = attention_probs_dropout_prob
+
+        self.layer_id = layer_id
+        self.attention_window = attention_window[self.layer_id]
+        self.attention_dilation = self.attention_dilation[self.layer_id]
+        self.attention_mode = attention_mode
+        assert self.attention_window > 0
+        assert self.attention_dilation > 0
+        assert self.attention_mode in [
+            "sliding_chunks",
+            "sliding_chunks_no_overlap",
+        ]
+        if self.attention_mode in [
+            "sliding_chunks",
+            "sliding_chunks_no_overlap",
+        ]:
+            assert (
+                self.attention_dilation == 1
+            ), "dilatation is not implemented yet"
+
+    def forward(
+        self, hidden_states, output_attentions=False,
+    ):
+        hidden_states = hidden_states.transpose(0, 1)
+        seq_len, bsz, embed_dim = hidden_states.size()
+        assert embed_dim == self.embed_dim
+        q = self.query(hidden_states)
+        k = self.key(hidden_states)
+        v = self.value(hidden_states)
+        q /= math.sqrt(self.head_dim)
+
+        q = q.view(seq_len, bsz, self.num_heads, self.head_dim).transpose(0, 1)
+        k = k.view(seq_len, bsz, self.num_heads, self.head_dim).transpose(0, 1)
+
+        if self.attention_mode == "sliding_chunks":
+            attn_weights = sliding_chunks_matmul_qk(
+                q, k, self.attention_window, padding_value=0
+            )
+        elif self.attention_mode == "sliding_chunks_no_overlap":
+            attn_weights = sliding_chunks_no_overlap_matmul_qk(
+                q, k, self.attention_window, padding_value=0
+            )
+        else:
+            raise False
+        mask_invalid_locations(
+            attn_weights, self.attention_window, self.attention_dilation, False
+        )
+
+        assert list(attn_weights.size())[:3] == [bsz, seq_len, self.num_heads]
+        assert attn_weights.size(dim=3) in [
+            self.attention_window * 2 + 1,
+            self.attention_window * 3,
+        ]
+
+        attn_weights_float = F.softmax(
+            attn_weights, dim=-1, dtype=torch.float32
+        )  # use fp32 for numerical stability
+        attn_weights = attn_weights_float.type_as(attn_weights)
+        attn_probs = F.dropout(
+            attn_weights_float.type_as(attn_weights),
+            p=self.dropout,
+            training=self.training,
+        )
+        v = v.view(seq_len, bsz, self.num_heads, self.head_dim).transpose(0, 1)
+        attn = 0
+
+        if self.attention_mode == "sliding_chunks":
+            attn += sliding_chunks_matmul_pv(
+                attn_probs, v, self.attention_window
+            )
+        elif self.attention_mode == "sliding_chunks_no_overlap":
+            attn += sliding_chunks_no_overlap_matmul_pv(
+                attn_probs, v, self.attention_window
+            )
+        else:
+            raise False
+
+        attn = attn.type_as(hidden_states)
+        assert list(attn.size()) == [
+            bsz,
+            seq_len,
+            self.num_heads,
+            self.head_dim,
+        ]
+        attn = (
+            attn.transpose(0, 1).reshape(seq_len, bsz, embed_dim).contiguous()
+        )
+
+        context_layer = attn.transpose(0, 1)
+        if output_attentions:
+            # without global attention, return local attention probabilities
+            # batch_size x num_heads x sequence_length x window_size
+            # which is the attention weights of every token attending to its neighbours
+            attn_weights = attn_weights.permute(0, 2, 1, 3)
+        outputs = (
+            (context_layer, (attn_weights.sum(dim=1) / self.num_heads))
+            if output_attentions
+            else (context_layer,)
+        )
+        return outputs
