@@ -5,7 +5,7 @@
 # ################################
 
 # Basic parameters
-seed: 12
+seed: 14
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Use 12 for V2 12 task and 35 for V2 35 task
