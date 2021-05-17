@@ -9,6 +9,8 @@ import random
 from speechbrain.processing.signal_processing import rescale
 from speechbrain.dataio.batch import PaddedBatch
 from tqdm import tqdm
+import warnings
+import pyloudnorm
 
 """
 The functions to implement Dynamic Mixing For SpeechSeparation
@@ -396,8 +398,27 @@ def dynamic_mix_data_prep_librimix(hparams):
             hparams["training_signal_len"],
         )
 
-        for i, spk_file in enumerate(spk_files):
+        meter = pyloudnorm.Meter(hparams["sample_rate"])
 
+        MAX_AMP = 0.9
+        MIN_LOUDNESS = -33
+        MAX_LOUDNESS = -25
+
+        def normalize(signal, is_noise=False):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                c_loudness = meter.integrated_loudness(signal)
+                if is_noise:
+                    target_loudness = np.random.randint(MIN_LOUDNESS - 5, MAX_LOUDNESS - 5)
+                else:
+                    target_loudness = np.random.randint(MIN_LOUDNESS, MAX_LOUDNESS)
+                signal = pyloudnorm.normalize.loudness(signal, c_loudness, target_loudness)
+
+                # check for clipping
+                if np.max(np.abs(src)) >= 1:
+                    signal = signal * MAX_AMP / np.max(np.abs(signal))
+
+        for i, spk_file in enumerate(spk_files):
             # select random offset
             length = torchaudio.info(spk_file).num_frames
             start = 0
@@ -409,23 +430,9 @@ def dynamic_mix_data_prep_librimix(hparams):
             tmp, fs_read = torchaudio.load(
                 spk_file, frame_offset=start, num_frames=stop - start,
             )
-
-            # peak = float(Path(spk_file).stem.split("_peak_")[-1])
-            tmp = tmp[0]  # * peak  # remove channel dim and normalize
-
-            if i == 0:
-                gain = np.clip(random.normalvariate(-27.43, 2.57), -45, 0)
-                tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
-                first_lvl = gain
-            else:
-                gain = np.clip(
-                    first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
-                )
-                tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
+            tmp = tmp[0].numpy()
+            tmp = normalize(signal)
             sources.append(tmp)
-
-        # padding left
-        # sources, _ = batch_pad_right(sources)
 
         sources = torch.stack(sources)
         mixture = torch.sum(sources, 0)
@@ -433,24 +440,25 @@ def dynamic_mix_data_prep_librimix(hparams):
             len_noise = len(noise)
             len_mix = len(mixture)
             min_len = min(len_noise, len_mix)
+            noise = normalize(noise, is_noise=True)
             mixture = mixture[:min_len] + noise[:min_len]
 
-        max_amp = max(
-            torch.abs(mixture).max().item(),
-            *[x.item() for x in torch.abs(sources).max(dim=-1)[0]],
-        )
-        mix_scaling = 1 / max_amp * 0.9
-        sources = mix_scaling * sources
-        mixture = mix_scaling * mixture
+        # check for clipping 
+        if np.max(np.abs(mixture)) > MAX_AMP:
+            weight = MAX_AMP / np.max(np.abs(mixture))
+        else:
+            weight = 1
+
+        max_amp = max(torch.abs(mixture).max().item())
+        sources = weight * sources
+        mixture = weight * mixture
 
         yield mixture
         for i in range(hparams["num_spks"]):
             yield sources[i]
 
         if hparams["use_wham_noise"]:
-            mean_source_lvl = sources.abs().mean()
-            mean_noise_lvl = noise.abs().mean()
-            noise = (mean_source_lvl / mean_noise_lvl) * noise
+            noise = noise * weight
             yield noise
         else:
             yield None
