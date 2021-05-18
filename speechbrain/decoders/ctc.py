@@ -81,6 +81,7 @@ class CTCPrefixScorer:
             torch.arange(batch_size, device=self.device) * self.vocab_size
         )
 
+    @torch.no_grad()
     def forward_step(self, g, state, candidates=None, attn=None):
         """This method if one step of forwarding operation
         for the prefix ctc scorer.
