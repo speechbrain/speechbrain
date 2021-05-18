@@ -15,7 +15,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     NormalizedEmbedding,
 )
-from speechbrain.nnet.attention_utils.longformer_padders import (
+from speechbrain.nnet.attention_utils.longformer_utilities import (
     longformer_src_mask_padder,
 )
 from speechbrain.nnet.activations import Swish
