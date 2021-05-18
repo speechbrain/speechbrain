@@ -262,3 +262,4 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     paths:
         lm: /home/john/Desktop/lm_model.ckpt
         tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+

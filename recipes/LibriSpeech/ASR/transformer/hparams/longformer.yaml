@@ -22,7 +22,7 @@ tensorboard_logs: !ref <output_folder>/tb_logs/
 
 # LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
 # # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1   # yamllint disable-line rule:line-length
+language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
 pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
@@ -110,7 +110,7 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     strides: (2, 2, 1)
     residuals: (False, False, False)
 
-Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR  # yamllint disable-line rule:line-length
     input_size: 10240
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
@@ -125,7 +125,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     longf_attention_window: 12
     longf_attention_mode: sliding_chunks
 
-lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM  # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
     d_model: 768
     nhead: 12
@@ -260,3 +260,4 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     paths:
         lm: /home/jonathan_tremblay_11/lm_model.ckpt
         tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+
