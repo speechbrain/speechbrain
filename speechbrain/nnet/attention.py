@@ -863,34 +863,35 @@ class LinearMultiheadAttention(nn.Module):
                 method=self.method,
             )
 
+    # noqa: C901
     @staticmethod
     def linear_multi_head_attention_forward(
-            query: torch.Tensor,
-            key: torch.Tensor,
-            value: torch.Tensor,
-            embed_dim_to_check: int,
-            num_heads: int,
-            in_proj_weight: torch.Tensor,
-            in_proj_bias: torch.Tensor,
-            bias_k: Optional[torch.Tensor],
-            bias_v: Optional[torch.Tensor],
-            add_zero_attn: bool,
-            dropout_p: float,
-            out_proj_weight: torch.Tensor,
-            out_proj_bias: torch.Tensor,
-            training: bool = True,
-            key_padding_mask: Optional[torch.Tensor] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[torch.Tensor] = None,
-            use_separate_proj_weight: bool = False,
-            q_proj_weight: Optional[torch.Tensor] = None,
-            k_proj_weight: Optional[torch.Tensor] = None,
-            v_proj_weight: Optional[torch.Tensor] = None,
-            e_proj: Optional[torch.Tensor] = None,
-            f_proj: Optional[torch.Tensor] = None,
-            method: str = "learnable",
-            static_k: Optional[torch.Tensor] = None,
-            static_v: Optional[torch.Tensor] = None,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        embed_dim_to_check: int,
+        num_heads: int,
+        in_proj_weight: torch.Tensor,
+        in_proj_bias: torch.Tensor,
+        bias_k: Optional[torch.Tensor],
+        bias_v: Optional[torch.Tensor],
+        add_zero_attn: bool,
+        dropout_p: float,
+        out_proj_weight: torch.Tensor,
+        out_proj_bias: torch.Tensor,
+        training: bool = True,
+        key_padding_mask: Optional[torch.Tensor] = None,
+        need_weights: bool = True,
+        attn_mask: Optional[torch.Tensor] = None,
+        use_separate_proj_weight: bool = False,
+        q_proj_weight: Optional[torch.Tensor] = None,
+        k_proj_weight: Optional[torch.Tensor] = None,
+        v_proj_weight: Optional[torch.Tensor] = None,
+        e_proj: Optional[torch.Tensor] = None,
+        f_proj: Optional[torch.Tensor] = None,
+        method: str = "learnable",
+        static_k: Optional[torch.Tensor] = None,
+        static_v: Optional[torch.Tensor] = None,
     ):
         """
         Args:
@@ -963,7 +964,7 @@ class LinearMultiheadAttention(nn.Module):
 
         head_dim = embed_dim // num_heads
         assert (
-                head_dim * num_heads == embed_dim
+            head_dim * num_heads == embed_dim
         ), "embed_dim must be divisible by num_heads"
         scaling = float(head_dim) ** -0.5
 
@@ -1041,14 +1042,18 @@ class LinearMultiheadAttention(nn.Module):
             len1, len2 = v_proj_weight_non_opt.size()
             assert len1 == embed_dim and len2 == value.size(-1)
             if in_proj_bias is not None:
-                q = linear(query, q_proj_weight_non_opt, in_proj_bias[0:embed_dim])
+                q = linear(
+                    query, q_proj_weight_non_opt, in_proj_bias[0:embed_dim]
+                )
                 k = linear(
                     key,
                     k_proj_weight_non_opt,
-                    in_proj_bias[embed_dim: (embed_dim * 2)],
+                    in_proj_bias[embed_dim : (embed_dim * 2)],
                 )
                 v = linear(
-                    value, v_proj_weight_non_opt, in_proj_bias[(embed_dim * 2):]
+                    value,
+                    v_proj_weight_non_opt,
+                    in_proj_bias[(embed_dim * 2) :],
                 )
             else:
                 q = linear(query, q_proj_weight_non_opt, in_proj_bias)
@@ -1058,11 +1063,11 @@ class LinearMultiheadAttention(nn.Module):
 
         if attn_mask is not None:
             assert (
-                    attn_mask.dtype == torch.float32
-                    or attn_mask.dtype == torch.float64
-                    or attn_mask.dtype == torch.float16
-                    or attn_mask.dtype == torch.uint8
-                    or attn_mask.dtype == torch.bool
+                attn_mask.dtype == torch.float32
+                or attn_mask.dtype == torch.float64
+                or attn_mask.dtype == torch.float16
+                or attn_mask.dtype == torch.uint8
+                or attn_mask.dtype == torch.bool
             ), "Only float, byte, and bool types are supported for attn_mask, not {}".format(
                 attn_mask.dtype
             )
@@ -1096,7 +1101,10 @@ class LinearMultiheadAttention(nn.Module):
             # attn_mask's dim is 3 now.
 
         # convert ByteTensor key_padding_mask to bool
-        if key_padding_mask is not None and key_padding_mask.dtype == torch.uint8:
+        if (
+            key_padding_mask is not None
+            and key_padding_mask.dtype == torch.uint8
+        ):
             warnings.warn(
                 "Byte tensor for key_padding_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead."
             )
@@ -1127,11 +1135,23 @@ class LinearMultiheadAttention(nn.Module):
             k = e_proj(k)
             v = f_proj(v)
 
-        q = q.contiguous().view(tgt_len, bsz * num_heads, head_dim).transpose(0, 1)
+        q = (
+            q.contiguous()
+            .view(tgt_len, bsz * num_heads, head_dim)
+            .transpose(0, 1)
+        )
         if k is not None:
-            k = k.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
+            k = (
+                k.contiguous()
+                .view(-1, bsz * num_heads, head_dim)
+                .transpose(0, 1)
+            )
         if v is not None:
-            v = v.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
+            v = (
+                v.contiguous()
+                .view(-1, bsz * num_heads, head_dim)
+                .transpose(0, 1)
+            )
 
         if static_k is not None:
             assert static_k.size(0) == bsz * num_heads
@@ -1195,7 +1215,9 @@ class LinearMultiheadAttention(nn.Module):
         attn_output = torch.bmm(attn_output_weights, v)
         assert list(attn_output.size()) == [bsz * num_heads, tgt_len, head_dim]
         attn_output = (
-            attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+            attn_output.transpose(0, 1)
+            .contiguous()
+            .view(tgt_len, bsz, embed_dim)
         )
         attn_output = linear(attn_output, out_proj_weight, out_proj_bias)
 
@@ -1210,6 +1232,3 @@ class LinearMultiheadAttention(nn.Module):
             return attn_output, (attn_output_weights.sum(dim=1) / num_heads)
         else:
             return attn_output, None
-
-
-
