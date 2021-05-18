@@ -207,7 +207,7 @@ class crn_att(torch.nn.Module):
 
         rnn_in = o4.transpose(1, 2)
         rnn_in = rnn_in.reshape(N, T, -1)
-        print(rnn_in.shape)
+        # print(rnn_in.shape)
         rnn_in = self.dropout(rnn_in)
         rnn_out = self.rnn(rnn_in)
 
