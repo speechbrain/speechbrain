@@ -275,10 +275,13 @@ class NoamScheduler:
     >>> scheduler =NoamScheduler(optim.param_groups[0]["lr"], 3)
     >>> curr_lr,next_lr=scheduler(optim)
     >>> optim.param_groups[0]["lr"]
+    0.3333333333333333
     >>> curr_lr,next_lr=scheduler(optim)
     >>> optim.param_groups[0]["lr"]
+    0.6666666666666666
     >>> curr_lr,next_lr=scheduler(optim)
     >>> optim.param_groups[0]["lr"]
+    0.9999999999999999
     """
 
     def __init__(self, lr_initial, n_warmup_steps, model_size=None):
