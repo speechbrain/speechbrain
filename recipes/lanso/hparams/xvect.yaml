@@ -19,7 +19,7 @@ tensorboard_logs: !ref <output_folder>/logs
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/GSC
 train_annotation: !ref results/save6/train.csv
-valid_annotation: !ref results/save6/valid.csv
+valid_annotation: !ref results/save6/dev.csv
 test_annotation: !ref results/save6/test.csv
 
 # Folder to extract data augmentation files

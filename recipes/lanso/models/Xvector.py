@@ -14,7 +14,7 @@ from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
 
-from attention import Attention
+from .attention import Attention
 
 
 class Xvector(torch.nn.Module):
