@@ -259,7 +259,7 @@ class LongformerEncoderLayer(nn.Module):
             src1 = src
 
         src1 = longformer_src_padder(
-            tensor=src1,
+            tens=src1,
             window_padding_size=self.attention_window[0],
             permutation=True,
         )
