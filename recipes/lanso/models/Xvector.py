@@ -91,7 +91,7 @@ class Xvector(torch.nn.Module):
             )
         )
 
-        self.blocks.append(Attention(input_size=512,
+        self.blocks.append(Attention(input_size=lin_neurons,
                  output_size=4))
 
     def forward(self, x, lens=None):
