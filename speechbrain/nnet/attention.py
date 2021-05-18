@@ -776,9 +776,9 @@ class LinearMultiheadAttention(nn.Module):
 
     def forward(
         self,
-        query : torch.Tensor,
-        key : torch.Tensor,
-        value : torch.Tensor,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
         need_weights: Optional[bool] = True,
