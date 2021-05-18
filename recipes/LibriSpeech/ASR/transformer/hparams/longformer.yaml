@@ -9,32 +9,35 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 4421
+seed: 1227
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref /home/jonathan_tremblay_11/results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+# Tensorboard parameters
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/tb_logs/
+
 # LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
 # # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/gtomtku5hhuwam1/model.ckpt?dl=1  # yamllint disable-line rule:line-length
-tokenizer_file: ../../../Tokenizer/pretrained/pretrained_tok/5000_unigram.model # yamllint disable-line rule:line-length
+language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1   # yamllint disable-line rule:line-length
+tokenizer_file: /home/jonathan_tremblay_11/sb/recipes/LibriSpeech/Tokenizer/pretrained/pretrained_tok/5000_unigram.model # yamllint disable-line rule:line-length
 
 # Data files
-data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
+data_folder: /home/jonathan_tremblay_11 # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/dev-clean.csv
+train_splits: ["train-clean-5"]
+dev_splits: ["dev-clean-2"]
+test_splits: ["test-clean"]
+train_csv: !ref <data_folder>/train-clean-5.csv
+valid_csv: !ref <data_folder>/dev-clean-2.csv
 test_csv:
     - !ref <data_folder>/test-clean.csv
-    - !ref <data_folder>/test-other.csv
 
 # Training parameters
 number_of_epochs: 110
