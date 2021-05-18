@@ -5,10 +5,8 @@ SpeechBrain style implementation of: Linformer Encoder
 import torch
 import torch.nn as nn
 import speechbrain as sb
-from speechbrain.nnet.normalization import LayerNorm
 from typing import Optional
 from speechbrain.nnet.attention import (
-    MultiheadAttention,
     LinearMultiheadAttention,
     get_EF,
 )

@@ -23,14 +23,10 @@ import torch.nn.functional as F
 from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
 
-from speechbrain.nnet.attention_utils.longformer_diagonaled_mm_tvm import (
+from speechbrain.nnet.attention_utils.longformer_utilities import (
     mask_invalid_locations,
-)
-from speechbrain.nnet.attention_utils.longformer_sliding_chunks import (
     sliding_chunks_matmul_qk,
     sliding_chunks_matmul_pv,
-)
-from speechbrain.nnet.attention_utils.longformer_sliding_chunks import (
     sliding_chunks_no_overlap_matmul_qk,
     sliding_chunks_no_overlap_matmul_pv,
 )
@@ -164,14 +160,14 @@ class LocationAwareAttention(nn.Module):
     precomputed_enc_h: Optional[torch.Tensor]
 
     def __init__(
-            self,
-            enc_dim,
-            dec_dim,
-            attn_dim,
-            output_dim,
-            conv_channels,
-            kernel_size,
-            scaling=1.0,
+        self,
+        enc_dim,
+        dec_dim,
+        attn_dim,
+        output_dim,
+        conv_channels,
+        kernel_size,
+        scaling=1.0,
     ):
         super(LocationAwareAttention, self).__init__()
 
@@ -357,15 +353,15 @@ class MultiheadAttention(nn.Module):
     """
 
     def __init__(
-            self,
-            nhead,
-            d_model,
-            dropout=0.0,
-            bias=True,
-            add_bias_kv=False,
-            add_zero_attn=False,
-            kdim=None,
-            vdim=None,
+        self,
+        nhead,
+        d_model,
+        dropout=0.0,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        kdim=None,
+        vdim=None,
     ):
         super().__init__()
 
@@ -381,12 +377,12 @@ class MultiheadAttention(nn.Module):
         )
 
     def forward(
-            self,
-            query,
-            key,
-            value,
-            attn_mask: Optional[torch.Tensor] = None,
-            key_padding_mask: Optional[torch.Tensor] = None,
+        self,
+        query,
+        key,
+        value,
+        attn_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
@@ -475,12 +471,12 @@ class PositionalwiseFeedForward(nn.Module):
     """
 
     def __init__(
-            self,
-            d_ffn,
-            input_shape=None,
-            input_size=None,
-            dropout=0.1,
-            activation=nn.ReLU,
+        self,
+        d_ffn,
+        input_shape=None,
+        input_size=None,
+        dropout=0.1,
+        activation=nn.ReLU,
     ):
         super().__init__()
 
@@ -514,27 +510,19 @@ class LongformerSelfAttention(nn.Module):
     Longformer is an open-source project developed by the Allen Institute for Artificial Intelligence (AI2).
     AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and
     engineering.
-    The Longformer paper:
-        @article{
-        Beltagy2020Longformer,
-        title={Longformer: The Long-Document Transformer},
-        author={Iz Beltagy and Matthew E. Peters and Arman Cohan},
-        journal={arXiv:2004.05150},
-        year={2020}
-        }
-    Parts of the code found herein were modified by: Jonathan Tremblay (jonathan.tremblay.11@gmail.com) in order
-    to fit SpeechBrain's interface.
+
+    Parts of the code found herein were modified by: Jonathan Tremblay in order to fit SpeechBrain's interface.
     """
 
     def __init__(
-            self,
-            layer_id,
-            num_attention_heads,
-            hidden_size,
-            attention_probs_dropout_prob,
-            attention_window,
-            attention_mode,
-            attention_dilation,
+        self,
+        layer_id,
+        num_attention_heads,
+        hidden_size,
+        attention_probs_dropout_prob,
+        attention_window,
+        attention_mode,
+        attention_dilation,
     ):
         super(LongformerSelfAttention, self).__init__()
         if hidden_size % num_attention_heads != 0:
@@ -573,11 +561,11 @@ class LongformerSelfAttention(nn.Module):
             "sliding_chunks_no_overlap",
         ]:
             assert (
-                    self.attention_dilation == 1
+                self.attention_dilation == 1
             ), "dilatation is not implemented yet"
 
     def forward(
-            self, hidden_states, output_attentions=False,
+        self, hidden_states, output_attentions=False,
     ):
         hidden_states = hidden_states.transpose(0, 1)
         seq_len, bsz, embed_dim = hidden_states.size()
@@ -660,10 +648,10 @@ class LongformerSelfAttention(nn.Module):
 
 class LinearMultiheadAttention(nn.Module):
     """
-    This class comes from (it was adjusted to fit SpeechBrain's design):
-    https://github.com/kuixu/Linear-Multihead-Attention
-
+    This class comes from https://github.com/kuixu/Linear-Multihead-Attention
+    It was adjusted to fit SpeechBrain's architecture.
     """
+
     __annotations__ = {
         "bias_k": torch._jit_internal.Optional[torch.Tensor],
         "bias_v": torch._jit_internal.Optional[torch.Tensor],
@@ -678,34 +666,34 @@ class LinearMultiheadAttention(nn.Module):
     ]
 
     def __init__(
-            self,
-            embed_dim,
-            num_heads,
-            dropout=0.1,
-            bias=True,
-            add_bias_kv=False,
-            add_zero_attn=False,
-            kdim=None,
-            vdim=None,
-            seq_len=512,
-            proj_k=128,
-            param_sharing="none",
-            method="convolution",
-            layerwise_proj=None,
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.1,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        kdim=None,
+        vdim=None,
+        seq_len=512,
+        proj_k=128,
+        param_sharing="none",
+        method="convolution",
+        layerwise_proj=None,
     ):
         super(LinearMultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
         self.kdim = kdim if kdim is not None else embed_dim
         self.vdim = vdim if vdim is not None else embed_dim
         self._qkv_same_embed_dim = (
-                self.kdim == embed_dim and self.vdim == embed_dim
+            self.kdim == embed_dim and self.vdim == embed_dim
         )
 
         self.num_heads = num_heads
         self.dropout = dropout
         self.head_dim = embed_dim // num_heads
         assert (
-                self.head_dim * num_heads == self.embed_dim
+            self.head_dim * num_heads == self.embed_dim
         ), "embed_dim must be divisible by num_heads"
 
         if self._qkv_same_embed_dim is False:
@@ -778,11 +766,6 @@ class LinearMultiheadAttention(nn.Module):
             xavier_normal_(self.bias_k)
         if self.bias_v is not None:
             xavier_normal_(self.bias_v)
-        # if self.method == "learnable":
-        #     if self.e_proj.bias is not None:
-        #         xavier_normal_(self.e_proj.bias)
-        #     if self.f_proj.bias is not None:
-        #         xavier_normal_(self.f_proj.bias)
 
     def __setstate__(self, state):
         # Support loading old MultiheadAttention checkpoints generated by v1.1.0
@@ -792,15 +775,15 @@ class LinearMultiheadAttention(nn.Module):
         super(LinearMultiheadAttention, self).__setstate__(state)
 
     def forward(
-            self,
-            query,
-            key,
-            value,
-            attn_mask: Optional[torch.Tensor] = None,
-            key_padding_mask: Optional[torch.Tensor] = None,
-            need_weights: Optional[bool] = True,
+        self,
+        query,
+        key,
+        value,
+        attn_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: Optional[torch.Tensor] = None,
+        need_weights: Optional[bool] = True,
     ):
-        # type: (Tensor, Tensor, Tensor, Optional[Tensor], bool, Optional[Tensor]) -> Tuple[Tensor, Optional[Tensor]]
+        # type: (torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor], bool, Optional[torch.Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]
         r"""
         Args:
             query, key, value: map a query and a set of key-value pairs to an output.
@@ -885,37 +868,34 @@ class LinearMultiheadAttention(nn.Module):
 
 
 def linear_multi_head_attention_forward(
-        query,  # type: Tensor
-        key,  # type: Tensor
-        value,  # type: Tensor
-        embed_dim_to_check,  # type: int
-        num_heads,  # type: int
-        in_proj_weight,  # type: Tensor
-        in_proj_bias,  # type: Tensor
-        bias_k,  # type: Optional[Tensor]
-        bias_v,  # type: Optional[Tensor]
-        #  bias_e,                          # type: Optional[Tensor]
-        #  bias_f,                          # type: Optional[Tensor]
-        add_zero_attn,  # type: bool
-        dropout_p,  # type: float
-        out_proj_weight,  # type: Tensor
-        out_proj_bias,  # type: Tensor
-        training=True,  # type: bool
-        key_padding_mask=None,  # type: Optional[Tensor]
-        need_weights=True,  # type: bool
-        attn_mask=None,  # type: Optional[Tensor]
-        use_separate_proj_weight=False,  # type: bool
-        q_proj_weight=None,  # type: Optional[Tensor]
-        k_proj_weight=None,  # type: Optional[Tensor]
-        v_proj_weight=None,  # type: Optional[Tensor]
-        e_proj=None,  # type: Optional[Tensor]
-        f_proj=None,  # type: Optional[Tensor]
-        method="learnable",  # type: str
-        static_k=None,  # type: Optional[Tensor]
-        static_v=None,  # type: Optional[Tensor]
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    embed_dim_to_check: int,
+    num_heads: int,
+    in_proj_weight: torch.Tensor,
+    in_proj_bias: torch.Tensor,
+    bias_k: Optional[torch.Tensor],
+    bias_v: Optional[torch.Tensor],
+    add_zero_attn: bool,
+    dropout_p: float,
+    out_proj_weight: torch.Tensor,
+    out_proj_bias: torch.Tensor,
+    training: bool = True,
+    key_padding_mask: Optional[torch.Tensor] = None,
+    need_weights: bool = True,
+    attn_mask: Optional[torch.Tensor] = None,
+    use_separate_proj_weight: bool = False,
+    q_proj_weight: Optional[torch.Tensor] = None,
+    k_proj_weight: Optional[torch.Tensor] = None,
+    v_proj_weight: Optional[torch.Tensor] = None,
+    e_proj: Optional[torch.Tensor] = None,
+    f_proj: Optional[torch.Tensor] = None,
+    method: str = "learnable",
+    static_k: Optional[torch.Tensor] = None,
+    static_v: Optional[torch.Tensor] = None
 ):
-    # type: (...) -> Tuple[Tensor, Optional[Tensor]]
-    r"""
+    """
     Args:
         query, key, value: map a query and a set of key-value pairs to an output.
             See "Attention Is All You Need" for more details.
@@ -986,7 +966,7 @@ def linear_multi_head_attention_forward(
 
     head_dim = embed_dim // num_heads
     assert (
-            head_dim * num_heads == embed_dim
+        head_dim * num_heads == embed_dim
     ), "embed_dim must be divisible by num_heads"
     scaling = float(head_dim) ** -0.5
 
@@ -1068,10 +1048,10 @@ def linear_multi_head_attention_forward(
             k = linear(
                 key,
                 k_proj_weight_non_opt,
-                in_proj_bias[embed_dim: (embed_dim * 2)],
+                in_proj_bias[embed_dim : (embed_dim * 2)],
             )
             v = linear(
-                value, v_proj_weight_non_opt, in_proj_bias[(embed_dim * 2):]
+                value, v_proj_weight_non_opt, in_proj_bias[(embed_dim * 2) :]
             )
         else:
             q = linear(query, q_proj_weight_non_opt, in_proj_bias)
@@ -1081,11 +1061,11 @@ def linear_multi_head_attention_forward(
 
     if attn_mask is not None:
         assert (
-                attn_mask.dtype == torch.float32
-                or attn_mask.dtype == torch.float64
-                or attn_mask.dtype == torch.float16
-                or attn_mask.dtype == torch.uint8
-                or attn_mask.dtype == torch.bool
+            attn_mask.dtype == torch.float32
+            or attn_mask.dtype == torch.float64
+            or attn_mask.dtype == torch.float16
+            or attn_mask.dtype == torch.uint8
+            or attn_mask.dtype == torch.bool
         ), "Only float, byte, and bool types are supported for attn_mask, not {}".format(
             attn_mask.dtype
         )

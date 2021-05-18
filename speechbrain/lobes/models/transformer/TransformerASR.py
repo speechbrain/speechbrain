@@ -15,7 +15,9 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     NormalizedEmbedding,
 )
-from speechbrain.nnet.attention_utils.longformer_padders import longformer_src_mask_padder
+from speechbrain.nnet.attention_utils.longformer_padders import (
+    longformer_src_mask_padder,
+)
 from speechbrain.nnet.activations import Swish
 from speechbrain.dataio.dataio import length_to_mask
 
@@ -81,7 +83,7 @@ class TransformerASR(TransformerInterface):
         linf_max_seq_len: Optional[int] = 1000,
         linf_proj_k: Optional[int] = 128,
         linf_param_sharing: Optional[str] = "none",
-        linf_method: Optional[str] = "learnable"
+        linf_method: Optional[str] = "learnable",
     ):
         super().__init__(
             d_model=d_model,
@@ -102,7 +104,7 @@ class TransformerASR(TransformerInterface):
             linf_max_seq_len=linf_max_seq_len,
             linf_proj_k=linf_proj_k,
             linf_param_sharing=linf_param_sharing,
-            linf_method=linf_method
+            linf_method=linf_method,
         )
         self.encoder_module = encoder_module
         if encoder_module == "longformer":
@@ -162,7 +164,7 @@ class TransformerASR(TransformerInterface):
         ):
             src_key_padding_mask = longformer_src_mask_padder(
                 src_key_padding_mask=src_key_padding_mask,
-                window_padding_size=self.attention_window
+                window_padding_size=self.attention_window,
             )
         tgt = self.custom_tgt_module(tgt)
         tgt = tgt + self.positional_encoding(tgt)

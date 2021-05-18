@@ -14,10 +14,11 @@ import torch.nn.functional as F
 
 
 def mask_invalid_locations(
-        attn_weights: torch.Tensor,
-        attn_window: int,
-        attn_dilatation: Union[torch.Tensor, int],
-        autoregressive: bool) -> torch.Tensor:
+    attn_weights: torch.Tensor,
+    attn_window: int,
+    attn_dilatation: Union[torch.Tensor, int],
+    autoregressive: bool,
+) -> torch.Tensor:
     """
     This helpers function will mask invalid locations for the Longformer
     input_tensor is used for the attention weights
@@ -43,12 +44,16 @@ def mask_invalid_locations(
     beginning_mask = beginning_mask[:, :seq_len].expand(beginning_input.size())
     beginning_input.masked_fill_(beginning_mask, -float("inf"))
     if not autoregressive:
-        ending_input = attn_weights[:, -affected_seq_len:, :, -(attn_window + 1):]
+        ending_input = attn_weights[
+            :, -affected_seq_len:, :, -(attn_window + 1) :
+        ]
         ending_mask = ending_mask[:, -seq_len:].expand(ending_input.size())
         ending_input.masked_fill_(ending_mask, -float("inf"))
 
 
-def _get_invalid_locations_mask_fixed_dilation(seq_len: int, attn_window: int, attn_dilatation: int):
+def _get_invalid_locations_mask_fixed_dilation(
+    seq_len: int, attn_window: int, attn_dilatation: int
+):
     """
     Internal to get invalid locations (for fixed dilatation)
 
@@ -63,7 +68,9 @@ def _get_invalid_locations_mask_fixed_dilation(seq_len: int, attn_window: int, a
 
     """
     diagonals_list = []
-    for j in range(-attn_dilatation * attn_window, attn_dilatation, attn_dilatation):
+    for j in range(
+        -attn_dilatation * attn_window, attn_dilatation, attn_dilatation
+    ):
         diagonal_mask = torch.zeros(seq_len, device="cpu", dtype=torch.uint8)
         diagonal_mask[:-j] = 1
         diagonals_list.append(diagonal_mask)
@@ -72,7 +79,10 @@ def _get_invalid_locations_mask_fixed_dilation(seq_len: int, attn_window: int, a
 
 @lru_cache()
 def _get_invalid_locations_mask(
-        attn_window: int, attn_dilatation: Union[torch.Tensor, int], autoregressive: bool, device: str
+    attn_window: int,
+    attn_dilatation: Union[torch.Tensor, int],
+    autoregressive: bool,
+    device: str,
 ):
     """
     Internal helper function to mask the invalid location for the Longformer
@@ -179,7 +189,7 @@ def _chunk(x: torch.Tensor, w: int):
 
 
 def sliding_chunks_matmul_qk(
-        q: torch.Tensor, k: torch.Tensor, w: int, padding_value: float
+    q: torch.Tensor, k: torch.Tensor, w: int, padding_value: float
 ):
     """
     Matrix multiplication of query x key tensors using with a sliding window attention pattern.
@@ -235,9 +245,9 @@ def sliding_chunks_matmul_qk(
     diagonal_attn[:, -1, :, w:] = diagonal_chunk_attn[:, -1, w:, : w + 1]
     # - copying the lower triangle
     diagonal_attn[:, 1:, :, :w] = diagonal_chunk_attn[
-                                  :, :, -(w + 1): -1, w + 1:
-                                  ]
-    diagonal_attn[:, 0, 1:w, 1:w] = diagonal_chunk_attn[:, 0, : w - 1, 1 - w:]
+        :, :, -(w + 1) : -1, w + 1 :
+    ]
+    diagonal_attn[:, 0, 1:w, 1:w] = diagonal_chunk_attn[:, 0, : w - 1, 1 - w :]
 
     # separate bsz and num_heads dimensions again
     diagonal_attn = diagonal_attn.view(
@@ -296,10 +306,10 @@ def sliding_chunks_matmul_pv(prob: torch.Tensor, v: torch.Tensor, w: int):
 
 
 def pad_to_window_size(
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
-        one_sided_window_size: int,
-        pad_token_id: int,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
+    one_sided_window_size: int,
+    pad_token_id: int,
 ):
     """A helper function to pad tokens and mask to work with the sliding_chunks implementation of Longformer selfattention.
     Input:
@@ -320,7 +330,9 @@ def pad_to_window_size(
     return input_ids, attention_mask
 
 
-def sliding_chunks_no_overlap_matmul_qk(q: torch.Tensor, k: torch.Tensor, w: int, padding_value: float):
+def sliding_chunks_no_overlap_matmul_qk(
+    q: torch.Tensor, k: torch.Tensor, w: int, padding_value: float
+):
     """
     Matrix multiplication of Q and K
     Parameters
@@ -354,7 +366,9 @@ def sliding_chunks_no_overlap_matmul_qk(q: torch.Tensor, k: torch.Tensor, w: int
     return diagonal_attn.reshape(bsz, seqlen, num_heads, 3 * w)
 
 
-def sliding_chunks_no_overlap_matmul_pv(prob: torch.Tensor, v: torch.Tensor, w: int):
+def sliding_chunks_no_overlap_matmul_pv(
+    prob: torch.Tensor, v: torch.Tensor, w: int
+):
     """
     Matrix multiplication for sliding chunks methodology
     Parameters
@@ -420,7 +434,8 @@ def longformer_src_padder(tens, window_padding_size, permutation=True):
     padding_amount = input_size - seq_len
     if padding_amount > 0:
         net_tensor = torch.zeros(
-            (seq_len + padding_amount, batch_size, tens.shape[-1]), device=tens.device,
+            (seq_len + padding_amount, batch_size, tens.shape[-1]),
+            device=tens.device,
         )
         net_tensor[:seq_len, :, :] = tens
         return net_tensor if not permutation else net_tensor.permute((1, 0, 2))
@@ -428,7 +443,9 @@ def longformer_src_padder(tens, window_padding_size, permutation=True):
         return tens if not permutation else tens.permute((1, 0, 2))
 
 
-def longformer_src_mask_padder(src_key_padding_mask: torch.Tensor, window_padding_size: int):
+def longformer_src_mask_padder(
+    src_key_padding_mask: torch.Tensor, window_padding_size: int
+):
     """
     Thin wrapper function to do padding for the Longformer's window sliding to work properly
     Parameters
@@ -442,7 +459,7 @@ def longformer_src_mask_padder(src_key_padding_mask: torch.Tensor, window_paddin
     -------
     """
     longformuler_modulo = src_key_padding_mask.shape[1] % (
-            2 * window_padding_size
+        2 * window_padding_size
     )
     new_dim = (
         src_key_padding_mask.shape[1]

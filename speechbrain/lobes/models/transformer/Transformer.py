@@ -73,7 +73,7 @@ class TransformerInterface(nn.Module):
         linf_max_seq_len: Optional[int] = 1000,
         linf_proj_k: Optional[int] = 128,
         linf_param_sharing: Optional[str] = "none",
-        linf_method: Optional[str] = "learnable"
+        linf_method: Optional[str] = "learnable",
     ):
         super().__init__()
 
@@ -127,7 +127,8 @@ class TransformerInterface(nn.Module):
                     d_ffn=d_ffn,
                     num_layers=num_encoder_layers,
                     nhead=nhead,
-                    attention_window=[longf_attention_window] * num_encoder_layers,
+                    attention_window=[longf_attention_window]
+                    * num_encoder_layers,
                     attention_mode=longf_attention_mode,
                     d_model=d_model,
                     dropout=dropout,
@@ -146,7 +147,7 @@ class TransformerInterface(nn.Module):
                     max_seq_len=linf_max_seq_len,
                     proj_k=linf_proj_k,
                     param_sharing=linf_param_sharing,
-                    method=linf_method
+                    method=linf_method,
                 )
 
         # initialize the decoder
