@@ -41,7 +41,7 @@ test_csv:
 skip_prep: False
 
 # Training parameters
-number_of_epochs: 110
+number_of_epochs: 19
 batch_size: 16
 ctc_weight: 0.3
 gradient_accumulation: 4
