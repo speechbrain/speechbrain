@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from speechbrain.nnet.longformer_utilities.longformer_padders import longformer_src_padder
+from speechbrain.nnet.attention_utilities.longformer_padders import longformer_src_padder
 import speechbrain as sb
 from typing import Optional
 

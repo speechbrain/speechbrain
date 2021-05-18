@@ -9,6 +9,7 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 from .Longformer import LongformerEncoder
+from .Linformer import LinformerEncoder
 from .conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 
@@ -68,7 +69,11 @@ class TransformerInterface(nn.Module):
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
         longf_attention_window: Optional[list] = None,
-        longf_attention_mode: Optional[str] = None
+        longf_attention_mode: Optional[str] = None,
+        linf_max_seq_len: Optional[int] = 1000,
+        linf_proj_k: Optional[int] = 128,
+        linf_param_sharing: Optional[str] = "none",
+        linf_method: Optional[str] = "learnable"
     ):
         super().__init__()
 
@@ -128,6 +133,20 @@ class TransformerInterface(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                )
+            elif encoder_module == "linformer":
+                self.encoder = LinformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                    max_seq_len=linf_max_seq_len,
+                    proj_k=linf_proj_k,
+                    param_sharing=linf_param_sharing,
+                    method=linf_method
                 )
 
         # initialize the decoder

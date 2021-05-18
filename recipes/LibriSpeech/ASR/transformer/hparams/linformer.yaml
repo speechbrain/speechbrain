@@ -121,9 +121,11 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     normalize_before: False
-    encoder_module: longformer
-    longf_attention_window: 12
-    longf_attention_mode: sliding_chunks
+    encoder_module: linformer
+    linf_max_seq_len: 1000
+    linf_proj_k: 225
+    linf_param_sharing: none
+    linf_method: learnable
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
