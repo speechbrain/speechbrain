@@ -985,8 +985,14 @@ class Brain:
         # Iterate epochs
         for epoch in epoch_counter:
 
-            # Training stage
-            self.on_stage_start(Stage.TRAIN, epoch)
+            # Training stage 
+            # tmp_set = self.on_stage_start(Stage.TRAIN, epoch)
+            # if tmp_set is not None:
+            #     # Modified on_stage_start will also return an updated train_set
+            #     train_set = tmp_set
+            # OR:
+            train_set = self.on_stage_start(Stage.TRAIN, epoch) or train_set
+
             self.modules.train()
 
             # Reset nonfinite count to 0 each epoch
