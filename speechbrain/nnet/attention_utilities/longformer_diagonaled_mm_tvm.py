@@ -1,5 +1,5 @@
 """
-All the code comes from: https://github.com/allenai/longformer and some change were done to fit SpeechBrain's architecture.
+The code comes from: https://github.com/allenai/longformer and some change were done to fit SpeechBrain's architecture.
 
     Longformer is an open-source project developed by the Allen Institute for Artificial Intelligence (AI2).
     AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and
@@ -13,10 +13,7 @@ All the code comes from: https://github.com/allenai/longformer and some change w
         journal={arXiv:2004.05150},
         year={2020}
         }
-
-    Parts of the code found herein were modified by: Jonathan Tremblay in order to fit SpeechBrain's interface.
 """
-
 from typing import Union
 from functools import lru_cache
 import torch
@@ -33,7 +30,7 @@ def _get_invalid_locations_mask_fixed_dilation(seq_len: int, w: int, d: int):
 
 @lru_cache()
 def _get_invalid_locations_mask(
-    w: int, d: Union[torch.Tensor, int], autoregressive: bool, device: str
+        w: int, d: Union[torch.Tensor, int], autoregressive: bool, device: str
 ):
     if isinstance(d, int):
         affected_seq_len = w * d
@@ -60,11 +57,27 @@ def _get_invalid_locations_mask(
 
 
 def mask_invalid_locations(
-    input_tensor: torch.Tensor,
-    w: int,
-    d: Union[torch.Tensor, int],
-    autoregressive: bool,
-) -> torch.Tensor:
+        input_tensor: torch.Tensor,
+        w: int,
+        d: Union[torch.Tensor, int],
+        autoregressive: bool) -> torch.Tensor:
+    """
+    This helpers function will mask invalid locations for the Longformer
+    input_tensor is used for the attention weights
+    w is the attention window
+    d is the attention dilatation
+
+    Parameters
+    ----------
+    input_tensor : torch.Tensor
+    w : int
+    d : Union[torch.Tensor, int],
+    autoregressive : bool
+
+    Returns torch.Tensor
+    -------
+
+    """
     affected_seq_len, beginning_mask, ending_mask = _get_invalid_locations_mask(
         w, d, autoregressive, input_tensor.device
     )
@@ -73,6 +86,6 @@ def mask_invalid_locations(
     beginning_mask = beginning_mask[:, :seq_len].expand(beginning_input.size())
     beginning_input.masked_fill_(beginning_mask, -float("inf"))
     if not autoregressive:
-        ending_input = input_tensor[:, -affected_seq_len:, :, -(w + 1) :]
+        ending_input = input_tensor[:, -affected_seq_len:, :, -(w + 1):]
         ending_mask = ending_mask[:, -seq_len:].expand(ending_input.size())
         ending_input.masked_fill_(ending_mask, -float("inf"))

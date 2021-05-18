@@ -242,7 +242,8 @@ class LongformerEncoderLayer(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
     ):
         # TODO: Masks are not yet implemented within the Longformer but this doesn't cause any issue for ASR
-        # TODO: introduce something similar that's being done within PyTorch library:https://github.com/pytorch/pytorch/blob/master/torch/nn/functional.py
+        # TODO: introduce something similar that's being done within PyTorch library:
+        #  https://github.com/pytorch/pytorch/blob/master/torch/nn/functional.py
         """
         Arguements
         ----------
