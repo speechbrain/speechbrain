@@ -776,15 +776,14 @@ class LinearMultiheadAttention(nn.Module):
 
     def forward(
         self,
-        query,
-        key,
-        value,
+        query : torch.Tensor,
+        key : torch.Tensor,
+        value : torch.Tensor,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
         need_weights: Optional[bool] = True,
     ):
-        # type: (torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor], bool, Optional[torch.Tensor]) -> tuple[torch.Tensor, Optional[torch.Tensor]]
-        r"""
+        """
         Args:
             query, key, value: map a query and a set of key-value pairs to an output.
                 See "Attention Is All You Need" for more details.
@@ -814,7 +813,6 @@ class LinearMultiheadAttention(nn.Module):
             L is the target sequence length, S is the source sequence length.
         """
         if not self._qkv_same_embed_dim:
-            # print(self.e_proj_weight.size())
             return linear_multi_head_attention_forward(
                 query,
                 key,
@@ -842,7 +840,6 @@ class LinearMultiheadAttention(nn.Module):
                 method=self.method,
             )
         else:
-            # print(self.e_proj_weight.size())
             return linear_multi_head_attention_forward(
                 query,
                 key,
@@ -1124,7 +1121,6 @@ def linear_multi_head_attention_forward(
         k = linear(k, e_proj.weight[:, 0:tgt_len], e_proj.bias)
         v = v.permute(1, 2, 0)
         v = linear(v, f_proj.weight[:, 0:tgt_len], f_proj.bias)
-
     elif method == "convolution":
         k = k.permute(1, 2, 0)
         v = v.permute(1, 2, 0)
