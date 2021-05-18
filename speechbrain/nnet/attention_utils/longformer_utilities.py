@@ -426,7 +426,7 @@ def longformer_src_padder(tens, window_padding_size, permutation=True):
         else tens.shape[0]
     )
 
-    batch_size, seq_len, hidden_size = (
+    batch_size, seq_len, _ = (
         tens.shape[1],
         tens.shape[0],
         tens.shape[2],

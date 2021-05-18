@@ -783,7 +783,7 @@ class LinearMultiheadAttention(nn.Module):
         key_padding_mask: Optional[torch.Tensor] = None,
         need_weights: Optional[bool] = True,
     ):
-        # type: (torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor], bool, Optional[torch.Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]
+        # type: (torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor], bool, Optional[torch.Tensor]) -> tuple[torch.Tensor, Optional[torch.Tensor]]
         r"""
         Args:
             query, key, value: map a query and a set of key-value pairs to an output.
@@ -1119,7 +1119,6 @@ def linear_multi_head_attention_forward(
     else:
         assert bias_k is None
         assert bias_v is None
-    ##======= linformer =========##
     if method == "learnable":
         k = k.permute(1, 2, 0)
         k = linear(k, e_proj.weight[:, 0:tgt_len], e_proj.bias)
