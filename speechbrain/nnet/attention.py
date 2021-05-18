@@ -23,18 +23,18 @@ import torch.nn.functional as F
 from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
 
-from speechbrain.nnet.attention_utilities.longformer_diagonaled_mm_tvm import (
+from speechbrain.nnet.attention_utils.longformer_diagonaled_mm_tvm import (
     mask_invalid_locations,
 )
-from speechbrain.nnet.attention_utilities.longformer_sliding_chunks import (
+from speechbrain.nnet.attention_utils.longformer_sliding_chunks import (
     sliding_chunks_matmul_qk,
     sliding_chunks_matmul_pv,
 )
-from speechbrain.nnet.attention_utilities.longformer_sliding_chunks import (
+from speechbrain.nnet.attention_utils.longformer_sliding_chunks import (
     sliding_chunks_no_overlap_matmul_qk,
     sliding_chunks_no_overlap_matmul_pv,
 )
-from speechbrain.nnet.attention_utilities.linformer_utilities import get_EF
+from speechbrain.nnet.attention_utils.linformer_utilities import get_EF
 
 logger = logging.getLogger(__name__)
 
