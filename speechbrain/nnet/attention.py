@@ -863,6 +863,7 @@ class LinearMultiheadAttention(nn.Module):
                 method=self.method,
             )
 
+    # TODO: possible refactor
     # noqa: C901
     @staticmethod
     def linear_multi_head_attention_forward(
