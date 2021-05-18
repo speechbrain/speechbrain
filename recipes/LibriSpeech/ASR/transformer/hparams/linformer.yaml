@@ -9,7 +9,7 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1227
+seed: 1117
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref /home/jonathan_tremblay_11/results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
