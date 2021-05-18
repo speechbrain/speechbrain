@@ -260,6 +260,10 @@ class NoamScheduler:
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
         numer of warm-up steps
+    model_size : int
+        size of transformer embed_dim. It is used to scale the maximum learning rate value reached 
+        by the scheduler. It is divided by model_size ** (0.5). 
+        If not specified the maximum learning rate value is instead multiplied by warmup_steps ** (0.5).  
 
     Example
     -------
@@ -287,7 +291,7 @@ class NoamScheduler:
         self.losses = []
 
         self.n_steps = 0
-        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        self.normalize = n_warmup_steps ** 0.5
         if model_size is not None:
             self.normalize = model_size ** (-0.5)
 
