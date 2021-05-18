@@ -893,7 +893,7 @@ def linear_multi_head_attention_forward(
     f_proj: Optional[torch.Tensor] = None,
     method: str = "learnable",
     static_k: Optional[torch.Tensor] = None,
-    static_v: Optional[torch.Tensor] = None
+    static_v: Optional[torch.Tensor] = None,
 ):
     """
     Args:
