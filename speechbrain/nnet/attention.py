@@ -864,7 +864,7 @@ class LinearMultiheadAttention(nn.Module):
             )
 
     # TODO: possible refactor
-    # noqa: C901
+    # flake8: noqa: C901
     @staticmethod
     def linear_multi_head_attention_forward(
         query: torch.Tensor,
