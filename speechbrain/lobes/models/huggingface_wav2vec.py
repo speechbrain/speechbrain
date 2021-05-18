@@ -50,6 +50,10 @@ class HuggingFaceWav2Vec2(nn.Module):
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
         If False, the randomly-initialized model is instantiated.
+    apply_spec_augment : bool (default: False)
+        If True, the model will apply spec augment on the output of feature extractor
+        (inside huggingface Wav2VecModel() class).
+        If False, the model will not apply spec augment. We set this to false to prevent from doing it twice.
     Example
     -------
     >>> inputs = torch.rand([10, 600])
@@ -69,6 +73,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         freeze=True,
         freeze_feature_extractor=False,
         pretrain=True,
+        apply_spec_augment=False,
     ):
         super().__init__()
 
@@ -88,6 +93,9 @@ class HuggingFaceWav2Vec2(nn.Module):
             self.model = Wav2Vec2Model.from_pretrained(
                 source, cache_dir=save_path
             )
+
+        # set apply_spec_augment
+        self.model.config.apply_spec_augment = apply_spec_augment
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
         self.normalize_wav = self.feature_extractor.do_normalize
