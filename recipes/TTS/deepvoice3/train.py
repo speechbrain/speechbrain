@@ -40,7 +40,8 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.checkpoints import torch_save
 from torch.utils.data import DataLoader
-sys.path.append('..')
+
+sys.path.append("..")
 
 
 class DeepVoice3Brain(sb.core.Brain):
