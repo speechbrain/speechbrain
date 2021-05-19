@@ -5,7 +5,6 @@ joblib>=0.14.1
 numpy>=1.17.0
 packaging
 pre-commit>=2.3.0
-sacrebleu>=1.5.1
 scipy>=1.4.1
 sentencepiece>=0.1.91
 SoundFile; sys_platform == 'win32'

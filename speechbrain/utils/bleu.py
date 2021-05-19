@@ -1,9 +1,27 @@
-import sacrebleu
-from speechbrain.dataio.dataio import merge_char, split_word
 from speechbrain.utils.metric_stats import MetricStats
+
+try:
+    import sacrebleu
+except ImportError:
+    print(
+        "Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric"
+    )
+    import sys
+
+    sys.exit()
 
 
 def merge_words(sequences):
+    """Merge successive words into phrase, putting space between each word
+
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains a word sequence.
+    Returns
+    -------
+    The list contains phrase sequences.
+    """
     results = []
     for seq in sequences:
         words = " ".join(seq)
@@ -11,41 +29,12 @@ def merge_words(sequences):
     return results
 
 
-def detokenize_batch(detokenizer, sentences):
-    """
-    detokenizer: object
-        Detokenizer to be used
-    sentences: list
-        List of sentences to de detokenzied
-    """
-    detok_sentences = []
-    for sentence in sentences:
-        sentence = detokenizer.detokenize(sentence)
-        detok_sentences.append(sentence)
-
-    return detok_sentences
-
-
 class BLEUStats(MetricStats):
-    """A class for tracking BLEU.
+    """A class for tracking BLEU (https://www.aclweb.org/anthology/P02-1040.pdf).
     Arguments
     ---------
-    merge_tokens : bool
-        Whether to merge the successive tokens (used for e.g.,
-        creating words out of character tokens).
-        See ``speechbrain.dataio.dataio.merge_char``.
     merge_words: bool
-        Whether to merge the successive tokens (used for e.g.,
-        creating words out of character tokens).
-    split_tokens : bool
-        Whether to split tokens (used for e.g. creating
-        characters out of word tokens).
-        See ``speechbrain.dataio.dataio.split_word``.
-    space_token : str
-        The character to use for boundaries. Used with ``merge_tokens``
-        this represents character to split on after merge.
-        Used with ``split_tokens`` the sequence is joined with
-        this token in between, and then the whole sequence is split.
+        Whether to merge the successive words to create sentences.
     Example
     -------
     >>> bleu = BLEUStats()
@@ -53,7 +42,7 @@ class BLEUStats(MetricStats):
     >>> bleu.append(
     ...     ids=['utterance1'],
     ...     predict=[[0, 1, 1]],
-    ...     target=[[0, 1, 0]],
+    ...     targets=[[[0, 1, 0]], [[0, 1, 1]], [[1, 1, 0]]],
     ...     ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
     ... )
     >>> stats = bleu.summarize()
@@ -62,24 +51,16 @@ class BLEUStats(MetricStats):
     """
 
     def __init__(
-        self,
-        lang="en",
-        merge_words=True,
-        merge_tokens=False,
-        split_tokens=False,
-        space_token="_",
+        self, lang="en", merge_words=True,
     ):
         self.clear()
         self.merge_words = merge_words
-        self.merge_tokens = merge_tokens
-        self.split_tokens = split_tokens
-        self.space_token = space_token
 
         self.predicts = []
-        self.targets = []
+        self.targets = None
 
     def append(
-        self, ids, predict, target, ind2lab=None,
+        self, ids, predict, targets, ind2lab=None,
     ):
         """Add stats to the relevant containers.
         * See MetricStats.append()
@@ -89,8 +70,9 @@ class BLEUStats(MetricStats):
             List of ids corresponding to utterances.
         predict : torch.tensor
             A predicted output, for comparison with the target output
-        target : torch.tensor
-            The correct reference output, for comparison with the prediction.
+        targets : list
+            list of references (when measuring BLEU, one sentence could have more
+                                than one target translation).
         ind2lab : callable
             Callable that maps from indices to labels, operating on batches,
             for writing alignments.
@@ -99,29 +81,26 @@ class BLEUStats(MetricStats):
 
         if ind2lab is not None:
             predict = ind2lab(predict)
-            target = ind2lab(target)
-
-        if self.merge_tokens:
-            predict = merge_char(predict, space=self.space_token)
-            target = merge_char(target, space=self.space_token)
-
-        if self.split_tokens:
-            predict = split_word(predict, space=self.space_token)
-            target = split_word(target, space=self.space_token)
+            targets = [ind2lab(t) for t in targets]
 
         if self.merge_words:
             predict = merge_words(predict)
-            target = merge_words(target)
+            targets = [merge_words(t) for t in targets]
 
         self.predicts.extend(predict)
-        self.targets.extend(target)
+        if self.targets is None:
+            self.targets = targets
+        else:
+            assert len(self.targets) == len(targets)
+            for i in range(len(self.targets)):
+                self.targets[i].extend(targets[i])
 
     def summarize(self, field=None):
         """Summarize the BLEU and return relevant statistics.
         * See MetricStats.summarize()
         """
 
-        scores = sacrebleu.corpus_bleu(self.predicts, [self.targets])
+        scores = sacrebleu.corpus_bleu(self.predicts, self.targets)
         details = {}
         details["BLEU"] = scores.score
         details["BP"] = scores.bp
