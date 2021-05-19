@@ -96,8 +96,10 @@ valid_data_path: ../datasets/mockdata/fake_vctk_1ex/
 datasets:
   train:
     path: !ref <train_data_path>
+    loader: !name:datasets.vctk.load
   valid:
     path: !ref <valid_data_path>
+    loader: !name:datasets.vctk.load
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>

@@ -5,7 +5,6 @@ from scipy.signal import firwin, lfilter
 import torch
 import numpy as np
 from torch.nn import functional as F
-from datasets.vctk import VCTK
 from speechbrain.dataio.encoder import CategoricalEncoder
 from speechbrain.dataio.dataset import DynamicItemDataset
 
@@ -501,7 +500,8 @@ def dataio_prep(hparams):
     """
     result = {}
     for name, dataset_params in hparams["datasets"].items():
-        dataset = VCTK(dataset_params["path"]).to_dataset()
+        loader = dataset_params["loader"]
+        dataset = loader(dataset_params["path"])
         result[name] = dataset_prep(dataset, hparams)
 
     return result

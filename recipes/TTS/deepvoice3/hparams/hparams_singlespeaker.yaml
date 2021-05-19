@@ -1,19 +1,16 @@
 # ################################
-# Model: DeepVoice3 - Multispeaker
-# Training with pretrained embeddings
+# Model: DeepVoice3 - Single Speaker
+# Training
 # Authors:
 # * Artem Ploujnikov 2021
 # ################################
-seed: 16
+seed: 64
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 embed_dim: 256
-speaker_embed_source: speechbrain/spkrec-ecapa-voxceleb
-speaker_embed_dim: 192
+speaker_embed_dim: None
 batch_size: 32
-use_speaker_embed: True
-speaker_embedding_weight_std: 0.01
-n_speakers: 108
+use_speaker_embed: False
 n_vocab: 128
 dropout: 0.05
 mel_dim: 80
@@ -50,8 +47,8 @@ decoder_conv_kernel_size: 5
 decoder_query_position_rate: 1.0
 decoder_key_position_rate: 1.29
 decoder_max_positions: 512
-decoder_key_projection: True
-decoder_value_projection: True
+decoder_key_projection: False
+decoder_value_projection: False
 decoder_low_std_mul: 1.0
 decoder_mid_std_mul: 4.0
 decoder_high_std_mul: 4.0
@@ -86,14 +83,16 @@ max_grad_norm: 0.1
 number_of_epochs: 50
 ckpt_frequency: 100
 progress_samples: True
+progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 100
-progress_samples_incremental: False
-overfit_test: True
+overfit_test: False
 overfit_test_iterations: 1
-train_data_path: ../datasets/testdata/fake_vctk_1ex
-valid_data_path: ../datasets/testdata/fake_vctk_1ex
-output_folder: !ref ./results/tts/deepvoice/<seed>
+train_data_path: ../datasets/mockdata/fake_vctk_1ex
+valid_data_path: ../datasets/mockdata/fake_vctk_1ex
+save_for_pretrained: True
+
+output_folder: !ref ./results/tts/deepvoice3/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 train_log: !ref <output_folder>/train_log.txt
@@ -102,6 +101,7 @@ tensorboard_logs: !ref <output_folder>/logs
 inverse_spectrogram_n_iter: 1024
 
 tokens: ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!-
+
 
 encoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Encoder
   n_vocab: !ref <n_vocab>
@@ -214,6 +214,12 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
       dilation: 1
       use_speaker_embed: !ref <use_speaker_embed>
       speaker_embed_dim: !ref <speaker_embed_dim>
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock
+      <<: *decoder_preattention_conv
+      std_mul: !ref <preattention_high_std_mul>
+      use_speaker_embed: !ref <use_speaker_embed>
+      speaker_embed_dim: !ref <speaker_embed_dim>
+      dilation: 3
   convolutions:
     - !new:speechbrain.lobes.models.synthesis.deepvoice3.ConvBlock &decoder_conv
       in_channels: !ref <decoder_conv_channels>
@@ -254,7 +260,8 @@ decoder: !new:speechbrain.lobes.models.synthesis.deepvoice3.Decoder
     - null
     - null
     - null
-    - null
+    - !new:speechbrain.lobes.models.synthesis.deepvoice3.AttentionLayer
+      <<: *attention
   output: !new:speechbrain.lobes.models.synthesis.deepvoice3.EdgeConvBlock
     in_channels: !ref <decoder_conv_channels>
     out_channels: !ref <mel_dim> * <outputs_per_step>
@@ -376,10 +383,6 @@ model: !new:speechbrain.lobes.models.synthesis.deepvoice3.TTSModel
   speaker_embed_dim: !ref <speaker_embed_dim>
   use_decoder_state_for_postnet_input: !ref <use_decoder_state_for_postnet_input>
   freeze_embedding: !ref <freeze_embedding>
-  embed_speakers: !apply:speechbrain.lobes.models.synthesis.deepvoice3.Embedding
-    num_embeddings: !ref <n_speakers>
-    embedding_dim: !ref <speaker_embed_dim>
-    std: !ref <speaker_embedding_weight_std>
 
 model_output_keys:
   - mel
@@ -424,9 +427,10 @@ modules:
 datasets:
   train:
     path: !ref <train_data_path>
+    loader: !name:datasets.vctk.load
   valid:
     path: !ref <train_data_path>
-
+    loader: !name:datasets.vctk.load
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
@@ -452,8 +456,6 @@ train_pipeline:
     - input_lengths
     - text_positions
     - sig_trimmed
-    - sig_lengths
-    - speaker_id_enc
   steps:
     - !name:speechbrain.lobes.models.synthesis.dataio.audio_pipeline
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.trim
@@ -463,9 +465,6 @@ train_pipeline:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
       max_input_len: !ref <max_input_len>
       tokens: !ref <tokens>
-    - !apply:speechbrain.lobes.models.synthesis.dataio.categorical
-      takes: speaker_id
-      provides: speaker_id_enc
 
 features_pipeline:
   output_keys:
@@ -477,7 +476,6 @@ features_pipeline:
     - frame_positions
     - done
     - linear
-    - speaker_embed
   steps:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.resample
       takes: sig_trimmed
@@ -527,11 +525,6 @@ features_pipeline:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.done
       downsample_step: !ref <mel_downsample_step>
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.target_lengths
-    - !apply:speechbrain.lobes.models.synthesis.dataio.pretrained_speaker_embeddings
-      takes:
-        - sig_trimmed
-        - sig_lengths
-      provides: speaker_embed
 
 
 encode_pipeline:

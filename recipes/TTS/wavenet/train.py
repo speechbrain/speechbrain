@@ -24,7 +24,10 @@ from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
 
 sys.path.append("..")
-from common.dataio_wavenet import dataio_prep, inv_mulaw_quantize  # noqa
+from speechbrain.lobes.models.synthesis.wavenet.dataio import (
+    dataio_prep,
+    inv_mulaw_quantize,
+)  # noqa
 
 
 class WavenetBrain(sb.core.Brain):

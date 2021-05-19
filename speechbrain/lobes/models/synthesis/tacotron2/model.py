@@ -442,12 +442,16 @@ class Decoder(nn.Module):
 
     def get_go_frame(self, memory):
         """ Gets all zeros frames to use as first decoder input
-        PARAMS
-        ------
-        memory: decoder outputs
-        RETURNS
+
+        Arguments
+        ---------
+        memory: torch.Tensor
+            decoder outputs
+
+        Returns
         -------
-        decoder_input: all zeros frames
+        decoder_input: torch.Tensor
+            all zeros frames
         """
         B = memory.size(0)
         dtype = memory.dtype
@@ -464,10 +468,28 @@ class Decoder(nn.Module):
         """ Initializes attention rnn states, decoder rnn states, attention
         weights, attention cumulative weights, attention context, stores memory
         and stores processed memory
-        PARAMS
-        ------
-        memory: Encoder outputs
-        mask: Mask for padded data if training, expects None for inference
+
+        Arguments
+        ---------
+        memory: torch.Tensor
+            Encoder outputs
+        mask: torch.Tensor
+            Mask for padded data if training, expects None for inference
+
+        Returns
+        -------
+        result: tuple
+            A tuple of tensors
+            (
+                attention_hidden,
+                attention_cell,
+                decoder_hidden,
+                decoder_cell,
+                attention_weights,
+                attention_weights_cum,
+                attention_context,
+                processed_memory,
+            )
         """
         B = memory.size(0)
         MAX_TIME = memory.size(1)
@@ -511,12 +533,16 @@ class Decoder(nn.Module):
 
     def parse_decoder_inputs(self, decoder_inputs):
         """ Prepares decoder inputs, i.e. mel outputs
-        PARAMS
-        ------
-        decoder_inputs: inputs used for teacher-forced training, i.e. mel-specs
-        RETURNS
+        Arguments
+        ----------
+        decoder_inputs: torch.Tensor
+            inputs used for teacher-forced training, i.e. mel-specs
+
+        Returns
         -------
-        inputs: processed decoder inputs
+        decoder_inputs: torch.Tensor
+            processed decoder inputs
+
         """
         # (B, n_mel_channels, T_out) -> (B, T_out, n_mel_channels)
         decoder_inputs = decoder_inputs.transpose(1, 2)

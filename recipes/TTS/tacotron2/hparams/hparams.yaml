@@ -3,7 +3,7 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./<seed>
+output_folder: !ref ./results/tts/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 epochs: 1501
@@ -74,7 +74,7 @@ postnet_kernel_size: 5
 postnet_n_convolutions: 5
 
 #model
-model: !new:speechbrain.lobes.models.Tacotron2.Tacotron2
+model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
     mask_padding: !ref <mask_padding>
     n_mel_channels: !ref <n_mel_channels>
     # symbols

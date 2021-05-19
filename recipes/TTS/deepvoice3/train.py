@@ -26,7 +26,7 @@ at regular intervals
 intervals
 
 Authors
-* Artem Ploujnikov 2020
+* Artem Ploujnikov 2021
 """
 from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
 import torch
@@ -40,10 +40,7 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.checkpoints import torch_save
 from torch.utils.data import DataLoader
-
-
-sys.path.append("..")
-from datasets.vctk import VCTK  # noqa
+sys.path.append('..')
 
 
 class DeepVoice3Brain(sb.core.Brain):
@@ -478,9 +475,8 @@ def dataio_prep(hparams):
     """
     result = {}
     for name, dataset_params in hparams["datasets"].items():
-        # TODO: Add support for multiple datasets by instantiating from hparams
-        # - this is temporary
-        vctk = VCTK(dataset_params["path"]).to_dataset()
+        loader = dataset_params["loader"]
+        vctk = loader(dataset_params["path"])
         result[name] = dataset_prep(vctk, hparams)
 
     return result

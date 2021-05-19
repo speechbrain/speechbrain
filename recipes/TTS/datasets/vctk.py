@@ -210,6 +210,23 @@ class VCTK:
         return _flatten_speaker(sample_record).keys()
 
 
+def load(path):
+    """
+    A convenience function to load the dataset under the specified path
+
+    Arguments
+    ---------
+    path: str
+        the filesystem path to the dataset
+
+    Returns
+    -------
+    result: DynamicItemDataset
+        the loaded dataset
+    """
+    return VCTK(path).to_dataset()
+
+
 def _flatten_speaker(item):
     """
     Flattens the dataste data from

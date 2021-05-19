@@ -93,7 +93,7 @@ overfit_test_iterations: 1
 train_data_path: ../datasets/testdata/fake_vctk_1ex
 valid_data_path: ../datasets/testdata/fake_vctk_1ex
 save_for_pretrained: True
-output_folder: !ref ./results/tts/deepvoice/<seed>
+output_folder: !ref ./results/tts/deepvoice3/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 train_log: !ref <output_folder>/train_log.txt
@@ -425,9 +425,10 @@ modules:
 datasets:
   train:
     path: !ref <train_data_path>
+    loader: !name:datasets.vctk.load
   valid:
     path: !ref <train_data_path>
-
+    loader: !name:datasets.vctk.load
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
