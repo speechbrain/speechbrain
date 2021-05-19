@@ -5,7 +5,7 @@ https://arxiv.org/abs/1710.07654
 
 To run this recipe, do the following:
 
-> python train.py hparams/train.yaml --train_data_path=/path/to/train/dataset \
+> python train.py hparams/hparams_singlespeaker.yaml --train_data_path=/path/to/train/dataset \
     --valid_data_path=/path/to/valid/dataset
 
 For a full list of parameters, refer to one of the available hparams files.
