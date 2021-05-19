@@ -382,6 +382,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
         batch_outputs.append(out)
     return batch_outputs
 
+
 class CTCDecodeBeamSearch(torch.nn.Module):
     """This class implements the CTC Beam Search Algorithm using the CTCDecode implementation
     Official implementation: https://github.com/parlance/ctcdecode
@@ -448,12 +449,12 @@ class CTCDecodeBeamSearch(torch.nn.Module):
 
         if(nBest == 1):
             sequence = [beam_results[batchElem][0][:out_lens[batchElem][0]].tolist() for batchElem in range(len(beam_results))]
-        else:     
+        else:
             sequence = []
             for batchElem in range(len(beam_results)):
                 bestBeam = []
                 for currentNbest in range(nBest):
                     bestBeam.append(beam_results[batchElem][currentNbest][:out_lens[batchElem][currentNbest]])
                 sequence.append(bestBeam)
- 
+
         return sequence
