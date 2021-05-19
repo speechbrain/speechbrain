@@ -88,8 +88,6 @@ embedding_model: !new:models.CRDNN.CRDNN
     dnn_neurons: 64
     rnn_neurons: 64
 
-classifier: !new:models.DNN.DNN
-    output_size: !ref <out_n_neurons>
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
