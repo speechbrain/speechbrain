@@ -25,8 +25,9 @@ def get_EF(input_size, dim, method="convolution", head_dim=None, bias=True):
         conv = nn.Conv1d(
             head_dim,
             head_dim,
-            kernel_size=int(input_size / dim),
-            stride=int(input_size / dim),
+            kernel_size=3,
+            stride=1,
+            padding=1
         )
         return conv
     if method == "maxpool":
