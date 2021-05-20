@@ -24,9 +24,9 @@ from torch.nn import functional as F
 from hyperpyyaml import load_hyperpyyaml
 
 sys.path.append("..")
-from speechbrain.lobes.models.synthesis.wavenet.dataio import (
-    dataio_prep,
-    inv_mulaw_quantize,
+from speechbrain.lobes.models.synthesis.wavenet.dataio import (  # noqa
+    dataio_prep,  # noqa
+    inv_mulaw_quantize,  # noqa
 )  # noqa
 
 
