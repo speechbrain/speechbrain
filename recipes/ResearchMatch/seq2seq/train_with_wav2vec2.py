@@ -332,7 +332,14 @@ def dataio_prep(hparams):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos", "phn_list"],
+        [
+            "id",
+            "sig",
+            "phn_encoded",
+            "phn_encoded_eos",
+            "phn_encoded_bos",
+            "phn_list",
+        ],
     )
 
     return train_data, valid_data, test_data, label_encoder
@@ -364,12 +371,12 @@ if __name__ == "__main__":
         prepare_syllabus,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder" : hparams["data_prep_loc"],
-            "use_fields" : ["transcribed word"],
+            "save_folder": hparams["data_prep_loc"],
+            "use_fields": ["transcribed word"],
             "train_json_file": hparams["train_annotation"],
             "dev_json_file": hparams["valid_annotation"],
             "test_json_file": hparams["test_annotation"],
-            "skip_prep" : hparams["skip_prep"]
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

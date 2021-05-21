@@ -330,7 +330,14 @@ def dataio_prep(hparams):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos", "phn_list"],
+        [
+            "id",
+            "sig",
+            "phn_encoded",
+            "phn_encoded_eos",
+            "phn_encoded_bos",
+            "phn_list",
+        ],
     )
 
     return train_data, valid_data, test_data, label_encoder

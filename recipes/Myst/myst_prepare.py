@@ -1,25 +1,32 @@
 """
 Data preparation.
 
-Reference: https://boulderlearning.com/request-the-myst-corpus/ 
+Reference: https://boulderlearning.com/request-the-myst-corpus/
 
 Authors
 * Jianyuan Zhong 2021
 """
 
-from genericpath import exists
 import os
 import json
 import logging
 import glob
 
-from speechbrain.utils.data_utils import get_all_files
 from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
 NON_SPEECH_EVENTS = [
-    "<BREATH>", "<LAUGH>", "<COUGH>", "<NOISE>", "<SIDE_SPEECH>", "<SIDE_SPEECH>", "<SILENCE>", "<SNIFF>", "<ECHO>", "<DISCARD>"
+    "<BREATH>",
+    "<LAUGH>",
+    "<COUGH>",
+    "<NOISE>",
+    "<SIDE_SPEECH>",
+    "<SIDE_SPEECH>",
+    "<SILENCE>",
+    "<SNIFF>",
+    "<ECHO>",
+    "<DISCARD>",
 ]
 UNINTELLIGIBLE = "(*)"
 TRUNCATED_WORDS = "WH-"
@@ -27,6 +34,7 @@ TRUNCATED_WORDS = "WH-"
 myst_path = "/miniscratch/jian/myst-v0.4.2"
 lexicon_file = "word2phn.dict"
 word_dict = "word.dict"
+
 
 def prepare_myst(
     data_folder,
@@ -57,7 +65,7 @@ def prepare_myst(
         Default: False
         If True, the data preparation is skipped.
     """
-    
+
     # if os.path.exists(save_json_test):
     #     return
 
@@ -72,11 +80,13 @@ def prepare_myst(
     json_files = [save_json_valid, save_json_test, save_json_train]
     unlabeled_audio_list = []
 
-    
-
     # prepare and create json files
     for i, sub_folder in enumerate(sub_folders):
-        audio_list, transcripts, unlabeled_audio_list = prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_list,
+        audio_list, transcripts, unlabeled_audio_list = prepare_sub_folder(
+            data_folder,
+            sub_folder,
+            lexicon2phn,
+            unlabeled_audio_list,
             remove_non_speech_event,
             remove_unintelligible,
             remove_truncated_words,
@@ -91,15 +101,24 @@ def _get_unique_words(data_folder, word_dict):
     sub_folder_pth = os.path.join(data_folder, "data")
     print(sub_folder_pth)
     assert os.path.exists(sub_folder_pth)
-    trans_files = glob.glob(os.path.join(sub_folder_pth, "**/*.trn"), recursive=True)
-    
+    trans_files = glob.glob(
+        os.path.join(sub_folder_pth, "**/*.trn"), recursive=True
+    )
+
     words = set()
     from tqdm import tqdm
+
     pbar = tqdm(trans_files)
     for f in pbar:
         with open(f, "r") as tf:
             line = tf.readline().strip()
-            wrds = line.replace(">", "> ").replace("<", " <").replace("(", " (").replace(")", ") ").replace(u'\xa0', u" ")
+            wrds = (
+                line.replace(">", "> ")
+                .replace("<", " <")
+                .replace("(", " (")
+                .replace(")", ") ")
+                .replace("\xa0", " ")
+            )
             wrds = wrds.strip().split()
             for w in wrds:
                 words.add(w)
@@ -109,7 +128,11 @@ def _get_unique_words(data_folder, word_dict):
             wd.write(wrd + "\n")
 
 
-def prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_list,
+def prepare_sub_folder(
+    data_folder,
+    sub_folder,
+    lexicon2phn,
+    unlabeled_audio_list,
     remove_non_speech_event=False,
     remove_unintelligible=False,
     remove_truncated_words=False,
@@ -123,12 +146,18 @@ def prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_lis
     notfound = set()
     for i, f in enumerate(audios):
         transcript = f.replace("flac", "trn")
-        
+
         if os.path.exists(transcript):
-            
+
             with open(transcript, "r") as tf:
                 line = tf.readline().strip()
-                wrds = line.replace(">", "> ").replace("<", " <").replace("(", " (").replace(")", ") ").replace(u'\xa0', u" ")
+                wrds = (
+                    line.replace(">", "> ")
+                    .replace("<", " <")
+                    .replace("(", " (")
+                    .replace(")", ") ")
+                    .replace("\xa0", " ")
+                )
 
                 skip = False
                 if remove_non_speech_event:
@@ -141,12 +170,11 @@ def prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_lis
                 if remove_truncated_words:
                     if TRUNCATED_WORDS in wrds:
                         skip = True
-                
+
                 if remove_unintelligible:
                     if "(" in wrds and ")" in wrds:
                         skip = True
-                
-                
+
                 wrds = wrds.split()
                 phns = []
                 try:
@@ -154,7 +182,7 @@ def prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_lis
                         phns += lexicon2phn[wrd]
 
                     phns = " ".join(phns)
-                    
+
                 except KeyError:
                     for wrd in wrds:
                         if wrd not in lexicon2phn:
@@ -162,11 +190,13 @@ def prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_lis
                     unlabeled_audio_list.append(f)
 
                 if len(phns.strip().split()) == 0:
-                    msg = "found empty transcript in {}. removeing it from the dataset!".format(transcript)
+                    msg = "found empty transcript in {}. removeing it from the dataset!".format(
+                        transcript
+                    )
                     logger.info(msg)
                     skip = True
 
-                if skip == True:
+                if skip:
                     msg = "skipped {}".format(wrds)
                     logger.info(msg)
                     unlabeled_audio_list.append(f)
@@ -174,7 +204,7 @@ def prepare_sub_folder(data_folder, sub_folder, lexicon2phn, unlabeled_audio_lis
 
                 transcripts.append((phns, line))
                 audio_list.append(f)
-        
+
         else:
             unlabeled_audio_list.append(f)
 
@@ -208,11 +238,10 @@ def create_json(
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = len(signal) / SAMPLERATE
-        
+
         # discard sentences if they are too long
         if duration > 15:
             continue
-
 
         # get words and phoneme
         if trans_list is not None:
@@ -228,18 +257,20 @@ def create_json(
             "phn": phonemes,
             "wrd": words,
         }
-            
+
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
-    
+
 
 def gather_files(data_folder, sub_folder):
     sub_folder_pth = os.path.join(data_folder, "data", sub_folder)
     assert os.path.exists(sub_folder_pth)
-    audio_files = glob.glob(os.path.join(sub_folder_pth, "**/*.flac"), recursive=True)
+    audio_files = glob.glob(
+        os.path.join(sub_folder_pth, "**/*.flac"), recursive=True
+    )
     return audio_files
 
 
@@ -260,5 +291,6 @@ def _get_phns(myst_path, lexicon_file):
     for event in NON_SPEECH_EVENTS:
         lexicon2phn[event] = [event]
     return lexicon2phn
+
 
 # prepare_myst(myst_path, "train.json", "dev.json", "test.json", "unlabeled_json", "word.dict", False, True, True, True)
