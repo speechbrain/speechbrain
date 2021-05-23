@@ -370,7 +370,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.ctc_weight > 0.0:
             if len({self.bos_index, self.eos_index, self.blank_index}) < 3:
                 raise ValueError(
-                    "To perform joint ATT/CTC decoding, set blank, eos and bos to different indexes."
+                    "To perform joint ATT/CTC or CTC decoding, set blank, eos and bos to different indexes."
                 )
 
         # ctc already initialized
@@ -933,7 +933,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         self.ctc_fc = ctc_linear
         if self.ctc_weight > 0.0 and self.ctc_fc is None:
             raise ValueError(
-                "To perform joint ATT/CTC decoding, ctc_fc is required."
+                "To perform joint ATT/CTC or CTC decoding, ctc_fc is required."
             )
 
         self.softmax = torch.nn.LogSoftmax(dim=-1)
