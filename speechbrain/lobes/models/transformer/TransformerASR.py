@@ -111,8 +111,8 @@ class TransformerASR(TransformerInterface):
             ref_bucket_size=ref_bucket_size
         )
         self.encoder_module = encoder_module
-        if encoder_module == "longformer":
-            self.attention_window = longf_attention_window
+        if encoder_module in ["longformer", "reformer"]:
+            self.attention_window = longf_attention_window if longf_attention_window is not None else ref_bucket_size
         self.custom_src_module = ModuleList(
             Linear(
                 input_size=input_size,
