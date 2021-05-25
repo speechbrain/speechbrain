@@ -136,9 +136,9 @@ def merge_dims(ind_from, ind_to, tensor):
 
 def split_at_index(dim, index, t):
     pre_slices = (slice(None),) * dim
-    l = (*pre_slices, slice(None, index))
-    r = (*pre_slices, slice(index, None))
-    return t[l], t[r]
+    l_ = (*pre_slices, slice(None, index))
+    r_ = (*pre_slices, slice(index, None))
+    return t[l_], t[r_]
 
 
 def look_around(x, backward=1, forward=0, pad_value=-1, dim=2):
@@ -245,52 +245,8 @@ def exists(val):
     return val is not None
 
 
-def default(value, d):
-    return d if not exists(value) else value
-
-
 def to(t):
     return {"device": t.device, "dtype": t.dtype}
-
-
-def max_neg_value(tensor):
-    return -torch.finfo(tensor.dtype).max
-
-
-def merge_dims(ind_from, ind_to, tensor):
-    shape = list(tensor.shape)
-    arr_slice = slice(ind_from, ind_to + 1)
-    shape[arr_slice] = [reduce(mul, shape[arr_slice])]
-    return tensor.reshape(*shape)
-
-
-def expand_dim(t, dim, k, unsqueeze=True):
-    if unsqueeze:
-        t = t.unsqueeze(dim)
-    expand_shape = [-1] * len(t.shape)
-    expand_shape[dim] = k
-    return t.expand(*expand_shape)
-
-
-def pad_to_multiple(tensor, multiple, dim=-1, value=0):
-    seqlen = tensor.shape[dim]
-    m = seqlen / multiple
-    if m.is_integer():
-        return tensor
-    remainder = math.ceil(m) * multiple - seqlen
-    pad_offset = (0,) * (-1 - dim) * 2
-    return F.pad(tensor, (*pad_offset, 0, remainder), value=value)
-
-
-def look_around(x, backward=1, forward=0, pad_value=-1, dim=2):
-    t = x.shape[1]
-    dims = (len(x.shape) - dim) * (0, 0)
-    padded_x = F.pad(x, (*dims, backward, forward), value=pad_value)
-    tensors = [
-        padded_x[:, ind : (ind + t), ...]
-        for ind in range(forward + backward + 1)
-    ]
-    return torch.cat(tensors, dim=dim)
 
 
 class LocalAttention(nn.Module):

@@ -1238,6 +1238,7 @@ class LSHAttention(nn.Module):
     This class comes from https://github.com/lucidrains/reformer-pytorch
     It was adjusted to fit SpeechBrain's architecture.
     """
+
     def __init__(
         self,
         dropout=0.0,
@@ -1558,6 +1559,7 @@ class FullQKAttention(nn.Module):
     This class comes from https://github.com/lucidrains/reformer-pytorch
     It was adjusted to fit SpeechBrain's architecture.
     """
+
     def __init__(self, causal=False, dropout=0.0):
         super().__init__()
         self.causal = causal
@@ -1618,6 +1620,7 @@ class LSHSelfAttention(nn.Module):
     This class comes from https://github.com/lucidrains/reformer-pytorch
     It was adjusted to fit SpeechBrain's architecture.
     """
+
     def __init__(
         self,
         dim,
