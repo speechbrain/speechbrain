@@ -22,13 +22,7 @@ def get_EF(input_size, dim, method="convolution", head_dim=None, bias=True):
         "no_params",
     ], "The method flag needs to be either 'learnable', 'convolution', or 'no_params'."
     if method == "convolution":
-        conv = nn.Conv1d(
-            head_dim,
-            head_dim,
-            kernel_size=3,
-            stride=3,
-            padding=3
-        )
+        conv = nn.Conv1d(head_dim, head_dim, kernel_size=3, stride=3, padding=3)
         return conv
     if method == "maxpool":
         pool = nn.MaxPool1d(

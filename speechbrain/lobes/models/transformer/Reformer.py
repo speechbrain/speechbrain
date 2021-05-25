@@ -9,30 +9,27 @@ from typing import Optional
 
 class ReformerEncoder(nn.Module):
     """
-    Longformer encoder interface implementation in the SpeechBrain style.
+    Reformer encoder interface implementation in the SpeechBrain style.
     Authors
-    * Most of the code comes from: https://github.com/allenai/longformer
-    Longformer is an open-source project developed by the Allen Institute for Artificial Intelligence (AI2).
-    AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and
-    engineering.
+    * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
 
-    The architecture is based on the paper "Longformer: The Long-Document Transformer":
-    https://arxiv.org/pdf/2004.05150.pdf
+    The architecture is based on the paper "Reformer: The Efficient Transformer":
+    https://arxiv.org/abs/2001.04451
 
-    * Modification to fit SpeechBrain's interface by Jonathan Tremblay (2021)
+    * Modification to fit SpeechBrain's interface
 
     Arguments
     ---------
     num_layers : int
-        Number of Longformer layers to include.
+        Number of layers of attention to include.
     nhead : int
         Number of attention heads.
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
-    attention_window : list
-        List of the window size to use
-    attention_mode : str
-        Type of Longformer attention -> currently supports 'sliding_chunks' and 'sliding_chunks_no_overlap'
+    n_hashes : int
+        Number of hashing rounds
+    bucket_size : int
+        bucket size to use during the hashing
     input_shape : tuple
         Expected shape of an example input.
     d_model : int
@@ -47,21 +44,6 @@ class ReformerEncoder(nn.Module):
     # TODO: Fix the example for Unit Testing
     Example
     -------
-    # >>> import torch
-    # >>> x = torch.rand((8, 60, 512))
-    # >>> net = LongformerEncoder(
-    # >>> d_ffn=128,
-    # >>> nhead=4,
-    # >>> num_layers=1,
-    # >>> d_model=512,
-    # >>> attention_window=[12],
-    # >>> attention_mode='sliding_chunks',
-    # >>> dropout=0.1,
-    # >>> activation=nn.ReLU,
-    # >>> normalize_before=False)
-    # >>> output, _ = net(x)
-    # >>> output.shape
-    torch.Size([8, 72, 512])
     """
 
     def __init__(
@@ -140,22 +122,19 @@ class ReformerEncoder(nn.Module):
 
 class ReformerEncoderLayer(nn.Module):
     """
-    This is an implementation of Longformer self-attention encoder layer in the SpeechBrain style.
+    Reformer encoder layer implementation in the SpeechBrain style.
     Authors
-    * Most of the code comes from: https://github.com/allenai/longformer
-    Longformer is an open-source project developed by the Allen Institute for Artificial Intelligence (AI2).
-    AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and
-    engineering.
+    * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
 
-    The architecture is based on the paper "Longformer: The Long-Document Transformer":
-    https://arxiv.org/pdf/2004.05150.pdf
+    The architecture is based on the paper "Reformer: The Efficient Transformer":
+    https://arxiv.org/abs/2001.04451
 
-    * Modification to fit SpeechBrain's interface by Jonathan Tremblay (2021)
+    * Modification to fit SpeechBrain's interface
 
     Arguments
     ---------
     num_layers : int
-        Number of Longformer layers to include.
+        Number of layers to include.
     nhead : int
         Number of attention heads.
     d_ffn : int
@@ -178,22 +157,6 @@ class ReformerEncoderLayer(nn.Module):
     # TODO: Fix the example for Unit Testing
     Example
     -------
-    # >>> import torch
-    # >>> x = torch.rand((8, 60, 512))
-    # >>> net = LongformerEncoderLayer(
-    # >>> d_ffn=128,
-    # >>> nhead=4,
-    # >>> num_layers=1,
-    # >>> layer_id=0,
-    # >>> d_model=512,
-    # >>> attention_window=[12],
-    # >>> attention_mode='sliding_chunks',
-    # >>> dropout=0.1,
-    # >>> activation=nn.ReLU,
-    # >>> normalize_before=False)
-    # >>> output, _ = net(x)
-    # >>> output.shape
-    torch.Size([8, 72, 512])
     """
 
     def __init__(
@@ -220,7 +183,7 @@ class ReformerEncoderLayer(nn.Module):
             rehash_each_round=True,
             drop_for_hash_rate=0.0,
             random_rotations_per_head=False,
-            return_attn=False
+            return_attn=False,
         )
 
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
@@ -243,7 +206,7 @@ class ReformerEncoderLayer(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
     ):
-        # TODO: Masks are not yet implemented within the Longformer but this doesn't cause any issue for ASR
+        # TODO: Masks are not yet implemented within the Reformer but this doesn't cause any issue for ASR
         # TODO: introduce something similar that's being done within PyTorch library:
         #  https://github.com/pytorch/pytorch/blob/master/torch/nn/functional.py
         """
@@ -267,9 +230,7 @@ class ReformerEncoderLayer(nn.Module):
             permutation=True,
         )
 
-        output, self_attn = self.self_att(
-            x=src1
-        )
+        output, self_attn = self.self_att(x=src1)
         src = longformer_src_padder(
             src, window_padding_size=self.attention_window, permutation=True
         )

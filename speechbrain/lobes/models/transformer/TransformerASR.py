@@ -108,11 +108,15 @@ class TransformerASR(TransformerInterface):
             linf_param_sharing=linf_param_sharing,
             linf_method=linf_method,
             ref_n_hashes=ref_n_hashes,
-            ref_bucket_size=ref_bucket_size
+            ref_bucket_size=ref_bucket_size,
         )
         self.encoder_module = encoder_module
         if encoder_module in ["longformer", "reformer"]:
-            self.attention_window = longf_attention_window if longf_attention_window is not None else ref_bucket_size
+            self.attention_window = (
+                longf_attention_window
+                if longf_attention_window is not None
+                else ref_bucket_size
+            )
         self.custom_src_module = ModuleList(
             Linear(
                 input_size=input_size,
@@ -162,10 +166,10 @@ class TransformerASR(TransformerInterface):
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
         )
-        if (
-            src_key_padding_mask is not None
-            and self.encoder_module in ["longformer", 'reformer']
-        ):
+        if src_key_padding_mask is not None and self.encoder_module in [
+            "longformer",
+            "reformer",
+        ]:
             src_key_padding_mask = longformer_src_mask_padder(
                 src_key_padding_mask=src_key_padding_mask,
                 window_padding_size=self.attention_window,

@@ -39,7 +39,7 @@ from speechbrain.nnet.attention_utils.reformer_utilities import (
     max_neg_value,
     TOKEN_SELF_ATTN_VALUE,
     batched_index_select,
-    chunked_sum
+    chunked_sum,
 )
 
 logger = logging.getLogger(__name__)
@@ -1560,7 +1560,7 @@ class LSHAttention(nn.Module):
 
 
 class LSHSelfAttention(nn.Module):
-    def __init__(self, emb, heads = 8, bucket_size = 64, n_hashes = 8, **kwargs):
+    def __init__(self, emb, heads=8, bucket_size=64, n_hashes=8, **kwargs):
         super().__init__()
         self.heads = heads
 
@@ -1569,11 +1569,15 @@ class LSHSelfAttention(nn.Module):
         self.unify_heads = nn.Linear(emb * heads, emb)
         self.n_hashes = n_hashes
         self.bucket_size = bucket_size
-        self.lsh_attn = LSHAttention(bucket_size=bucket_size, n_hashes=n_hashes, **kwargs)
+        self.lsh_attn = LSHAttention(
+            bucket_size=bucket_size, n_hashes=n_hashes, **kwargs
+        )
 
     def forward(self, x):
         b, t, e, h = *x.shape, self.heads
-        assert t % self.bucket_size == 0, f'Sequence length needs to be divisible by target bucket size - {self.bucket_size}'
+        assert (
+            t % self.bucket_size == 0
+        ), f"Sequence length needs to be divisible by target bucket size - {self.bucket_size}"
 
         qk = self.toqk(x)
         v = self.tov(x)

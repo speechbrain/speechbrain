@@ -124,9 +124,9 @@ def merge_dims(ind_from, ind_to, tensor):
 
 def split_at_index(dim, index, t):
     pre_slices = (slice(None),) * dim
-    l = (*pre_slices, slice(None, index))
-    r = (*pre_slices, slice(index, None))
-    return t[l], t[r]
+    l_ = (*pre_slices, slice(None, index))
+    r_ = (*pre_slices, slice(index, None))
+    return t[l_], t[r_]
 
 
 # helper classes
