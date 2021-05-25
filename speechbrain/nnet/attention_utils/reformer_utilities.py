@@ -328,7 +328,8 @@ class LocalAttention(nn.Module):
         ticker = torch.arange(t, device=device, dtype=dtype)[None, :]
         b_t = ticker.reshape(1, windows, window_size)
 
-        bucket_fn = lambda t: t.reshape(b, windows, window_size, -1)
+        def bucket_fn(t):
+            return t.reshape(b, windows, window_size, -1)
         bq, bk, bv = map(bucket_fn, (q, k, v))
 
         look_around_kwargs = {
