@@ -31,16 +31,7 @@ from speechbrain.nnet.attention_utils.longformer_utilities import (
     sliding_chunks_no_overlap_matmul_pv,
 )
 from speechbrain.nnet.attention_utils.linformer_utilities import get_EF
-from speechbrain.nnet.attention_utils.reformer_utilities import (
-    cache_method_decorator,
-    make_unit_length,
-    sort_key_val,
-    default_utils,
-    max_neg_value,
-    TOKEN_SELF_ATTN_VALUE,
-    batched_index_select,
-    chunked_sum,
-)
+from speechbrain.nnet.attention_utils.reformer_utilities import *
 
 logger = logging.getLogger(__name__)
 
@@ -1246,16 +1237,6 @@ class LinearMultiheadAttention(nn.Module):
 
 
 class LSHAttention(nn.Module):
-    """
-    LSHAttention implementation in the SpeechBrain style.
-    * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
-
-    The architecture is based on the paper "Reformer: The Efficient Transformer":
-    https://arxiv.org/abs/2001.04451
-
-    * Modification to fit SpeechBrain's interface
-    """
-
     def __init__(
         self,
         dropout=0.0,
@@ -1283,7 +1264,9 @@ class LSHAttention(nn.Module):
 
         self.causal = causal
         self.bucket_size = bucket_size
+
         self.n_hashes = n_hashes
+
         self._allow_duplicate_attention = allow_duplicate_attention
         self._attend_across_buckets = attend_across_buckets
         self._rehash_each_round = rehash_each_round
@@ -1356,7 +1339,7 @@ class LSHAttention(nn.Module):
         **kwargs,
     ):
         batch_size, seqlen, dim, device = *qk.shape, qk.device
-        query_len = default_utils(query_len, seqlen)
+        query_len = default(query_len, seqlen)
         is_reverse = kwargs.pop("_reverse", False)
         depth = kwargs.pop("_depth", None)
 
@@ -1569,48 +1552,235 @@ class LSHAttention(nn.Module):
         return out, attn, buckets
 
 
-class LSHSelfAttention(nn.Module):
-    """
-    LSHSelfAttention implementation in the SpeechBrain style.
-    * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
-
-    The architecture is based on the paper "Reformer: The Efficient Transformer":
-    https://arxiv.org/abs/2001.04451
-
-    * Modification to fit SpeechBrain's interface
-    """
-
-    def __init__(self, emb, heads=8, bucket_size=64, n_hashes=8, **kwargs):
+# simple full attention
+class FullQKAttention(nn.Module):
+    def __init__(self, causal=False, dropout=0.0):
         super().__init__()
-        self.heads = heads
+        self.causal = causal
+        self.dropout = nn.Dropout(dropout)
 
-        self.toqk = nn.Linear(emb, emb * heads)
-        self.tov = nn.Linear(emb, emb * heads)
-        self.unify_heads = nn.Linear(emb * heads, emb)
-        self.n_hashes = n_hashes
+    def forward(
+        self,
+        qk,
+        v,
+        query_len=None,
+        input_mask=None,
+        input_attn_mask=None,
+        **kwargs,
+    ):
+        b, seq_len, dim = qk.shape
+        query_len = default(query_len, seq_len)
+        t = query_len
+
+        q = qk[:, 0:query_len]
+        qk = F.normalize(qk, 2, dim=-1).type_as(q)
+
+        dot = torch.einsum("bie,bje->bij", q, qk) * (dim ** -0.5)
+
+        # qk attention requires tokens not attend to self
+        i = torch.arange(t)
+        dot[:, i, i] = TOKEN_SELF_ATTN_VALUE
+        masked_value = max_neg_value(dot)
+
+        # Input mask for padding in variable lengthed sequences
+        if input_mask is not None:
+            mask = input_mask[:, 0:query_len, None] * input_mask[:, None, :]
+            mask = F.pad(mask, (0, seq_len - mask.shape[-1]), value=True)
+            dot.masked_fill_(~mask, masked_value)
+
+        # Mask for post qk attention logits of the input sequence
+        if input_attn_mask is not None:
+            input_attn_mask = F.pad(
+                input_attn_mask,
+                (0, seq_len - input_attn_mask.shape[-1]),
+                value=True,
+            )
+            dot.masked_fill_(~input_attn_mask, masked_value)
+
+        if self.causal:
+            i, j = torch.triu_indices(t, t, 1)
+            dot[:, i, j] = masked_value
+
+        dot = dot.softmax(dim=-1)
+        dot = self.dropout(dot)
+
+        out = torch.einsum("bij,bje->bie", dot, v)
+
+        return out, dot, torch.empty(0)
+
+
+# Shared qk attention, using either full or LSH attention
+
+class LSHSelfAttention(nn.Module):
+    def __init__(
+        self,
+        dim,
+        heads=8,
+        bucket_size=64,
+        n_hashes=8,
+        causal=False,
+        dim_head=None,
+        attn_chunks=1,
+        random_rotations_per_head=False,
+        attend_across_buckets=True,
+        allow_duplicate_attention=True,
+        num_mem_kv=0,
+        one_value_head=False,
+        use_full_attn=False,
+        full_attn_thres=None,
+        return_attn=False,
+        post_attn_dropout=0.0,
+        dropout=0.0,
+        n_local_attn_heads=0,
+        **kwargs,
+    ):
+        super().__init__()
+        assert (
+            dim_head or (dim % heads) == 0
+        ), "dimensions must be divisible by number of heads"
+        assert (
+            n_local_attn_heads < heads
+        ), "local attention heads must be less than number of heads"
+
+        dim_head = default(dim_head, dim // heads)
+        dim_heads = dim_head * heads
+
+        self.dim = dim
+        self.heads = heads
+        self.dim_head = dim_head
+        self.attn_chunks = default(attn_chunks, 1)
+
+        self.v_head_repeats = heads if one_value_head else 1
+        v_dim = dim_heads // self.v_head_repeats
+
+        self.toqk = nn.Linear(dim, dim_heads, bias=False)
+        self.tov = nn.Linear(dim, v_dim, bias=False)
+        self.to_out = nn.Linear(dim_heads, dim)
+
         self.bucket_size = bucket_size
         self.lsh_attn = LSHAttention(
-            bucket_size=bucket_size, n_hashes=n_hashes, **kwargs
+            bucket_size=bucket_size,
+            n_hashes=n_hashes,
+            causal=causal,
+            random_rotations_per_head=random_rotations_per_head,
+            attend_across_buckets=attend_across_buckets,
+            allow_duplicate_attention=allow_duplicate_attention,
+            return_attn=return_attn,
+            dropout=dropout,
+            **kwargs,
+        )
+        self.full_attn = FullQKAttention(causal=causal, dropout=dropout)
+        self.post_attn_dropout = nn.Dropout(post_attn_dropout)
+
+        self.use_full_attn = use_full_attn
+        self.full_attn_thres = default(full_attn_thres, bucket_size)
+
+        self.num_mem_kv = num_mem_kv
+        self.mem_kv = (
+            nn.Parameter(torch.randn(1, num_mem_kv, dim, requires_grad=True))
+            if num_mem_kv > 0
+            else None
         )
 
-    def forward(self, x):
-        b, t, e, h = *x.shape, self.heads
-        assert (
-            t % self.bucket_size == 0
-        ), f"Sequence length needs to be divisible by target bucket size - {self.bucket_size}"
+        self.n_local_attn_heads = n_local_attn_heads
+        self.local_attn = LocalAttention(
+            window_size=bucket_size * 2,
+            causal=causal,
+            dropout=dropout,
+            shared_qk=True,
+            look_forward=(1 if not causal else 0),
+        )
 
+        self.callback = None
+
+    def forward(
+        self,
+        x,
+        keys=None,
+        value=None,
+        input_mask=None,
+        input_attn_mask=None,
+        context_mask=None,
+        **kwargs,
+    ):
+        device, dtype = x.device, x.dtype
+        b, t, e, h, dh, m, l_h = (
+            *x.shape,
+            self.heads,
+            self.dim_head,
+            self.num_mem_kv,
+            self.n_local_attn_heads,
+        )
+
+        mem_kv = default(
+            self.mem_kv, torch.empty(b, 0, e, dtype=dtype, device=device)
+        )
+        mem = mem_kv.expand(b, m, -1)
+
+        keys = default(keys, torch.empty(b, 0, e, dtype=dtype, device=device))
+        c = keys.shape[1]
+
+        kv_len = t + m + c
+        use_full_attn = self.use_full_attn or kv_len <= self.full_attn_thres
+
+        x = torch.cat((x, mem, keys), dim=1)
         qk = self.toqk(x)
         v = self.tov(x)
+        v = v.repeat(1, 1, self.v_head_repeats)
 
         def merge_heads(v):
-            return v.view(b, t, h, e).transpose(1, 2).reshape(b * h, t, e)
+            return v.view(b, kv_len, h, -1).transpose(1, 2)
 
         def split_heads(v):
-            return v.view(b, h, t, e).transpose(1, 2).contiguous()
+            return v.view(b, h, t, -1).transpose(1, 2).contiguous()
 
-        qk = merge_heads(qk)
-        v = merge_heads(v)
-        attn_out, attn, buckets = self.lsh_attn(qk, v)
-        out = split_heads(attn_out).view(b, t, h * e)
+        merge_batch_and_heads = partial(merge_dims, 0, 1)
 
-        return self.unify_heads(out), attn
+        qk, v = map(merge_heads, (qk, v))
+
+        has_local = l_h > 0
+        lsh_h = h - l_h
+
+        split_index_fn = partial(split_at_index, 1, l_h)
+        (lqk, qk), (lv, v) = map(split_index_fn, (qk, v))
+        lqk, qk, lv, v = map(merge_batch_and_heads, (lqk, qk, lv, v))
+
+        masks = {}
+        if input_mask is not None or context_mask is not None:
+            default_mask = torch.tensor([True], device=device)
+            i_mask = default(input_mask, default_mask.expand(b, t))
+            m_mask = default_mask.expand(b, m)
+            c_mask = default(context_mask, default_mask.expand(b, c))
+            mask = torch.cat((i_mask, m_mask, c_mask), dim=1)
+            mask = merge_batch_and_heads(expand_dim(1, lsh_h, mask))
+            masks["input_mask"] = mask
+
+        if input_attn_mask is not None:
+            input_attn_mask = merge_batch_and_heads(
+                expand_dim(1, lsh_h, input_attn_mask)
+            )
+            masks["input_attn_mask"] = input_attn_mask
+
+        attn_fn = self.lsh_attn if not use_full_attn else self.full_attn
+        partial_attn_fn = partial(attn_fn, query_len=t, **kwargs)
+        attn_fn_in_chunks = process_inputs_chunk(
+            partial_attn_fn, chunks=self.attn_chunks
+        )
+
+        out, attn, buckets = attn_fn_in_chunks(qk, v, **masks)
+
+        if self.callback is not None:
+            self.callback(
+                attn.reshape(b, lsh_h, t, -1), buckets.reshape(b, lsh_h, -1)
+            )
+
+        if has_local:
+            lqk, lv = lqk[:, :t], lv[:, :t]
+            local_out = self.local_attn(lqk, lqk, lv, input_mask=input_mask)
+            local_out = local_out.reshape(b, l_h, t, -1)
+            out = out.reshape(b, lsh_h, t, -1)
+            out = torch.cat((local_out, out), dim=1)
+
+        out = split_heads(out).view(b, t, -1)
+        out = self.to_out(out)
+        return self.post_attn_dropout(out), attn

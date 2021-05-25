@@ -1,58 +1,54 @@
 # ############################################################################
-# Model: E2E ASR with Transformer
-# Encoder: Reformer Encoder
-# Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
+# Model: E2E ASR with Transformer (Reformer Encoder)
+# Encoder: Longformer Encoder
+# Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
-# Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Jonathan Tremblay
+# Authors:  Titouan Parcollet and Jianyuan Zhong
 # ############################################################################
-
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1227
+seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref /home/john/Desktop/results/transformer/<seed>
+output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Tensorboard parameters
-use_tensorboard: True
-tensorboard_logs: !ref <output_folder>/tb_logs/
-
-# LM + tokinizer file. LM must be trained with this tokenizer to avoid token mismatch.
-# # The tokenizer is trained with:LibriSpeech/Tokenizer/hyperparams/5K_unigram_subword_bpe.yaml
-language_model_file: https://www.dropbox.com/s/0f1j5l3cs8f1ewl/lm_model.ckpt?dl=1  # yamllint disable-line rule:line-length
-pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
-
 # Data files
-data_folder: /home/john/Desktop/LibriSpeech # e.g., /path/to/LibriSpeech
-# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
-# then data_folder_rirs should be /localscratch/xxx_corpus
-# otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-5"]
-dev_splits: ["dev-clean-2"]
-test_splits: ["test-clean"]
-train_csv: !ref <data_folder>/train-clean-5.csv
-valid_csv: !ref <data_folder>/dev-clean-2.csv
-test_csv:
-    - !ref <data_folder>/test-clean.csv
-skip_prep: False
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
+dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
+accented_letters: True
+language: fr # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+train_csv: !ref <save_folder>/train.csv
+valid_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
+skip_prep: False # Skip data preparation
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 19
-batch_size: 1
+number_of_epochs: 40
+batch_size: 12
 ctc_weight: 0.3
-gradient_accumulation: 4
+gradient_accumulation: 8
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 
 # stages related parameters
-stage_one_epochs: 90
+stage_one_epochs: 30
 lr_adam: 1.0
-lr_sgd: 0.000025
+lr_sgd: 0.00003
+
+# BPE parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
 
 # Feature parameters
 sample_rate: 16000
@@ -63,12 +59,15 @@ n_mels: 80
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    num_workers: 6
 
 valid_dataloader_opts:
-    batch_size: 1
+    batch_size: !ref <batch_size>
+    num_workers: 6
 
 test_dataloader_opts:
-    batch_size: 1
+    batch_size: !ref <batch_size>
+    num_workers: 6
 
 ####################### Model parameters ###########################
 # Transformer
@@ -79,8 +78,8 @@ num_decoder_layers: 6
 d_ffn: 3072
 transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
-output_neurons: 5000
-vocab_size: 5000
+output_neurons: 1000
+vocab_size: 1000
 
 # Outputs
 blank_index: 0
@@ -93,11 +92,10 @@ unk_index: 0
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_search_interval: 10
+valid_search_interval: 5
 valid_beam_size: 10
-test_beam_size: 66
-lm_weight: 0.60
-ctc_weight_decode: 0.52
+test_beam_size: 80
+ctc_weight_decode: 0.3
 
 ############################## models ################################
 
@@ -105,13 +103,13 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
     num_blocks: 3
     num_layers_per_block: 1
-    out_channels: (128, 256, 512)
+    out_channels: (128, 200, 256)
     kernel_sizes: (3, 3, 1)
     strides: (2, 2, 1)
     residuals: (False, False, False)
 
-Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR  # yamllint disable-line rule:line-length
-    input_size: 10240
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+    input_size: 5120
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: !ref <nhead>
@@ -121,20 +119,9 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     normalize_before: False
-    encoder_module: reformer
-    ref_n_hashes: 1
-    ref_bucket_size: 256
-
-lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM  # yamllint disable-line rule:line-length
-    vocab: !ref <output_neurons>
-    d_model: 768
-    nhead: 12
-    num_encoder_layers: 12
-    num_decoder_layers: 0
-    d_ffn: 3072
-    dropout: 0.0
-    activation: !name:torch.nn.GELU
-    normalize_before: False
+    encoder_module: longformer
+    longf_attention_window: 12
+    longf_attention_mode: sliding_chunks
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
@@ -153,7 +140,7 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
-# define two optimizers here for two-stage training
+# We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.Adam
     lr: 0
     betas: (0.9, 0.98)
@@ -164,7 +151,7 @@ SGD: !name:torch.optim.SGD
     momentum: 0.99
     nesterov: True
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
@@ -173,24 +160,6 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
     ctc_weight: !ref <ctc_weight_decode>
-    using_eos_threshold: False
-    length_normalization: False
-
-tokenizer: !new:sentencepiece.SentencePieceProcessor
-
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <test_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
-    lm_weight: !ref <lm_weight>
-    lm_modules: !ref <lm_model>
-    temperature: 1.15
-    temperature_lm: 1.15
     using_eos_threshold: False
     length_normalization: True
 
@@ -223,7 +192,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
-    update_until_epoch: 4
+    update_until_epoch: 3
 
 augmentation: !new:speechbrain.lobes.augment.SpecAugment
     time_warp: True
@@ -237,10 +206,6 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask_width: 30
     time_mask_width: 40
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
@@ -251,12 +216,5 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
-
-pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        lm: !ref <lm_model>
-        tokenizer: !ref <tokenizer>
-    paths:
-        lm: /home/john/Desktop/lm_model.ckpt
-        tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True

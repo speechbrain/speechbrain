@@ -173,7 +173,7 @@ class ReformerEncoderLayer(nn.Module):
         self.attention_window = bucket_size
         self.self_att = sb.nnet.attention.LSHSelfAttention(
             heads=nhead,
-            emb=d_model,
+            dim=d_model,
             bucket_size=bucket_size,
             n_hashes=n_hashes,
             causal=False,
