@@ -122,8 +122,8 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     activation: !ref <activation>
     normalize_before: False
     encoder_module: reformer
-    ref_n_hashes: 8
-    ref_bucket_size: 64
+    ref_n_hashes: 1
+    ref_bucket_size: 256
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM  # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>

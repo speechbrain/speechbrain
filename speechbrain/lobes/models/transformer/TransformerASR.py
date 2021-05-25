@@ -107,6 +107,8 @@ class TransformerASR(TransformerInterface):
             linf_proj_k=linf_proj_k,
             linf_param_sharing=linf_param_sharing,
             linf_method=linf_method,
+            ref_n_hashes=ref_n_hashes,
+            ref_bucket_size=ref_bucket_size
         )
         self.encoder_module = encoder_module
         if encoder_module == "longformer":
