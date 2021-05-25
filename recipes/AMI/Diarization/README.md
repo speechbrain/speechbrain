@@ -15,7 +15,7 @@ You can also train the speaker embedding model from scratch using instructions i
 `python experiment.py hparams/xvectors.yaml`
 `python experiment.py hparams/ecapa_tdnn.yaml`
 
-# Performance Summary using Xvector model trainined on VoxCeleb1+VoxCeleb2 dataset
+# Performance Summary using Xvector model trained on VoxCeleb1+VoxCeleb2 dataset
 Xvectors : Dev = 4.34 % | Eval = 4.45 %
 ECAPA   :  Dev = 2.19 % | Eval = 2.74 %
 ECAPA_big: Dev = 2.16 % | Eval = 2.72 %

@@ -715,14 +715,14 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     Arguments
     ---------
     kaldi_ali : str
-        Path to directory where kaldi alignents are stored.
+        Path to directory where kaldi alignments are stored.
     kaldi_lab_opts : str
         A string that contains the options for reading the kaldi alignments.
 
     Returns
     -------
     lab : dict
-        A dictionary contaning the labels.
+        A dictionary containing the labels.
 
     Note
     ----
@@ -914,7 +914,7 @@ def append_eos_token(label, length, eos_index):
     label : torch.IntTensor
         Containing the original labels. Must be of size: [batch_size, max_length]
     length : torch.LongTensor
-        Cotaining the original length of each label sequences. Must be 1D.
+        Containing the original length of each label sequences. Must be 1D.
     eos_index : int
         The index for <eos> token.
 

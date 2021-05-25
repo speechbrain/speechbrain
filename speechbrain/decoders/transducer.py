@@ -478,7 +478,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             Input sequence from prediction network with shape
             [batch, target_seq_lens].
         decode_network_lst: list
-            List of prediction netowrk (PN) layers.
+            List of prediction network (PN) layers.
         hinne : torch.tensor
             Optional: None, hidden tensor to be used for
                 recurrent layers in the prediction network

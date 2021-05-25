@@ -42,12 +42,15 @@ class FairseqWav2Vec2(nn.Module):
         If True, a layer_norm (affine) will be applied to the input waveform.
         By default, it is extracted from the checkpoint of the downloaded model
         in order to match the pretraining conditions. However, if this information
-        is not given in the checkpoint, it has to be given manually.
+        is not given in the checkpoint, it is set to False.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
+        alongside with the rest of the pipeline.
+    freeze_feature_extractor : bool (default: False)
+        If freeze is False and freeze_feature_extractor is True the feature_extractor module is frozen. If True, the all the model will be trained
         alongside with the rest of the pipeline.
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
@@ -71,6 +74,7 @@ class FairseqWav2Vec2(nn.Module):
         input_norm=None,
         output_norm=True,
         freeze=True,
+        freeze_feature_extractor=False,
         pretrain=True,
     ):
         super().__init__()
@@ -86,19 +90,14 @@ class FairseqWav2Vec2(nn.Module):
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
-        # If the information isn't contained in the checkpoint IT HAS TO BE GIVEN
-        # BY THE USER.
+        # If the information isn't contained in the checkpoint it is set to False.
         if input_norm is None:
-            if hasattr(cfg, "normalize"):
+            if hasattr(cfg["task"], "normalize"):
+                self.normalize = cfg["task"].normalize
+            elif hasattr(cfg, "normalize"):
                 self.normalize = cfg.normalize
             else:
-                msg = "The normalize flag is not set in the loaded fairseq checkpoint. "
-                msg += (
-                    "Please set it to True or False. True = waveform will be "
-                )
-                msg += "normalized. False, it won't. This is dependent on the model."
-                msg += " !!! it has to match the pretraining of the wav2vec 2.0 !!!"
-                raise ValueError(msg)
+                self.normalize = False
         else:
             self.normalize = input_norm
 
@@ -106,8 +105,13 @@ class FairseqWav2Vec2(nn.Module):
         self.model = model
         self.freeze = freeze
         self.output_norm = output_norm
+        self.freeze_feature_extractor = freeze_feature_extractor
         if self.freeze:
             model.eval()
+        elif self.freeze_feature_extractor:
+            # Freeze the feature extractor module
+            for param in self.model.feature_extractor.parameters():
+                param.requires_grad = False
 
         # Randomly initialized layers if pretrain is False
         if not (pretrain):

@@ -44,10 +44,16 @@ class HuggingFaceWav2Vec2(nn.Module):
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    freeze_feature_extractor :  bool (default: False)
+        When freeze = False and freeze_feature_extractor True, the featue_extractor module of the model is Frozen. If False
+        all the wav2vec model will be trained including featue_extractor module.
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
         If False, the randomly-initialized model is instantiated.
-
+    apply_spec_augment : bool (default: False)
+        If True, the model will apply spec augment on the output of feature extractor
+        (inside huggingface Wav2VecModel() class).
+        If False, the model will not apply spec augment. We set this to false to prevent from doing it twice.
     Example
     -------
     >>> inputs = torch.rand([10, 600])
@@ -60,7 +66,14 @@ class HuggingFaceWav2Vec2(nn.Module):
     """
 
     def __init__(
-        self, source, save_path, output_norm=True, freeze=True, pretrain=True
+        self,
+        source,
+        save_path,
+        output_norm=True,
+        freeze=True,
+        freeze_feature_extractor=False,
+        pretrain=True,
+        apply_spec_augment=False,
     ):
         super().__init__()
 
@@ -81,15 +94,21 @@ class HuggingFaceWav2Vec2(nn.Module):
                 source, cache_dir=save_path
             )
 
+        # set apply_spec_augment
+        self.model.config.apply_spec_augment = apply_spec_augment
+
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
         self.normalize_wav = self.feature_extractor.do_normalize
 
         self.freeze = freeze
+        self.freeze_feature_extractor = freeze_feature_extractor
         self.output_norm = output_norm
         if self.freeze:
             self.model.eval()
         else:
             self.model.train()
+            if self.freeze_feature_extractor:
+                self.model.feature_extractor._freeze_parameters()
 
     def forward(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.

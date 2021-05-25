@@ -20,7 +20,7 @@ function [y,k,y0]=maxfilt(x,f,n,d,x0)
 %         Y0  Last nn-1 values (used to initialize a subsequent call to
 %             maxfilt()) (or last output if n=Inf)
 %
-% This routine calaulates y(p)=max(f^r*x(p-r), r=0:n-1) where x(r)=-inf for r<1
+% This routine calculates y(p)=max(f^r*x(p-r), r=0:n-1) where x(r)=-inf for r<1
 % y=x(k) on output
 
 % Example: find all peaks in x that are not exceeded within +-w samples
