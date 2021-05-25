@@ -463,7 +463,6 @@ train_pipeline:
       provides: sig_trimmed
       threshold: !ref <trim_threshold>
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
-      max_input_len: !ref <max_input_len>
       tokens: !ref <tokens>
 
 features_pipeline:
@@ -536,7 +535,6 @@ encode_pipeline:
   steps:
     - !apply:speechbrain.lobes.models.synthesis.deepvoice3.text_encoder
       takes: txt
-      max_input_len: !ref <max_input_len>
       tokens: !ref <tokens>
 
 

@@ -142,50 +142,50 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 
 datasets:
-  train:
-    path: !ref <train_data_path>
-    loader: !name:datasets.vctk.load
-  valid:
-    path: !ref <valid_data_path>
-    loader: !name:datasets.vctk.load
+    train:
+        path: !ref <train_data_path>
+        loader: !name:datasets.vctk.load
+    valid:
+        path: !ref <valid_data_path>
+        loader: !name:datasets.vctk.load
 
 model_output_keys:
-  - mel
-  - mel_lengths
-  - alignments
+    - mel
+    - mel_lengths
+    - alignments
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-  loadables:
-    model: !ref <model>
-  paths:
-    model: !ref <pretrained_path>/model.ckpt
+    loadables:
+        model: !ref <model>
+    paths:
+        model: !ref <pretrained_path>/model.ckpt
 
 encode_pipeline:
-  batch: False
-  output_keys:
-    - text_sequences
-    - input_lengths
-  steps:
-      - !apply:speechbrain.lobes.models.synthesis.tacotron2.encode_text
-        # TODO: Not using !ref because it triggers an odd bug when loading
-        # a file from a saved model - investigate this further
-        text_cleaners: ['english_cleaners']
+    batch: False
+    output_keys:
+        - text_sequences
+        - input_lengths
+    steps:
+        - !apply:speechbrain.lobes.models.synthesis.tacotron2.encode_text
+          # TODO: Not using !ref because it triggers an odd bug when loading
+          # a file from a saved model - investigate this further
+          text_cleaners: ['english_cleaners']
 
 decode_pipeline:
-  steps:
-    - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_mel
-      n_stft: !ref <n_stft>
-      n_mels: !ref <n_mel_channels>
-      sample_rate: !ref <sample_rate>
-      f_min: !ref <mel_fmin>
-      f_max: !ref <mel_fmax>
-    - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
-      takes: linear
-      provides: wav
-      n_fft: !ref <n_fft>
-      n_iter: !ref <inverse_spectrogram_n_iter>
-      hop_length: !ref <hop_length>
-      win_length: !ref <win_length>
+    steps:
+        - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_mel
+          n_stft: !ref <n_stft>
+          n_mels: !ref <n_mel_channels>
+          sample_rate: !ref <sample_rate>
+          f_min: !ref <mel_fmin>
+          f_max: !ref <mel_fmax>
+        - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
+          takes: linear
+          provides: wav
+          n_fft: !ref <n_fft>
+          n_iter: !ref <inverse_spectrogram_n_iter>
+          hop_length: !ref <hop_length>
+          win_length: !ref <win_length>
 
 
 infer: !name:speechbrain.lobes.models.synthesis.tacotron2.model.infer

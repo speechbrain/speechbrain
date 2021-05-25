@@ -20,6 +20,7 @@ from speechbrain.lobes.models.synthesis.dataio import (  # noqa
 )  # noqa
 
 
+import itertools
 import math
 import torch
 from torch.nn import functional as F
@@ -27,17 +28,16 @@ from torch.nn import functional as F
 
 DB_BASE = 10.0
 DB_MULTIPLIER = 0.05
+SPACE = " "
 
 
-def text_encoder(max_input_len=128, tokens=None, takes="label"):
+def text_encoder(tokens=None, takes="label", add_space=True):
     """
     Configures and returns a text encoder function for use with the deepvoice3 model
     wrapped in a SpeechBrain pipeline function
 
     Arguments
     ---------
-    max_input_len: int
-        The maximum allowed length of an input sequence
     tokens: iterable
         a collection of tokens
 
@@ -48,6 +48,8 @@ def text_encoder(max_input_len=128, tokens=None, takes="label"):
     """
 
     encoder = TextEncoder()
+    if add_space:
+        tokens = itertools.chain(tokens, [SPACE])
     encoder.update_from_iterable(tokens)
     encoder.add_unk()
     encoder.add_bos_eos()

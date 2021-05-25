@@ -153,7 +153,7 @@ class LJ:
 
 def _get_fake_data():
     """
-    Creates a VCTK dataset from the included
+    Creates a LJ dataset from the included
     fake data for unit tests
     """
     module_path = os.path.dirname(__file__)
