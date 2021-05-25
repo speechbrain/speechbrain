@@ -10,16 +10,13 @@ import torch
 from torch.nn.parameter import Parameter
 from torch.nn import Linear
 import logging
-import torch.nn as nn
+from functools import partial
 import warnings
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import constant_
 from torch.nn.init import xavier_normal_
 from torch.nn.functional import linear, softmax, dropout
-from torch.nn.functional import pad
 import numpy as np
-import math
-import torch.nn.functional as F
 from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
 
@@ -1237,6 +1234,10 @@ class LinearMultiheadAttention(nn.Module):
 
 
 class LSHAttention(nn.Module):
+    """
+    This class comes from https://github.com/lucidrains/reformer-pytorch
+    It was adjusted to fit SpeechBrain's architecture.
+    """
     def __init__(
         self,
         dropout=0.0,
@@ -1552,8 +1553,11 @@ class LSHAttention(nn.Module):
         return out, attn, buckets
 
 
-# simple full attention
 class FullQKAttention(nn.Module):
+    """
+    This class comes from https://github.com/lucidrains/reformer-pytorch
+    It was adjusted to fit SpeechBrain's architecture.
+    """
     def __init__(self, causal=False, dropout=0.0):
         super().__init__()
         self.causal = causal
@@ -1609,10 +1613,11 @@ class FullQKAttention(nn.Module):
         return out, dot, torch.empty(0)
 
 
-# Shared qk attention, using either full or LSH attention
-
-
 class LSHSelfAttention(nn.Module):
+    """
+    This class comes from https://github.com/lucidrains/reformer-pytorch
+    It was adjusted to fit SpeechBrain's architecture.
+    """
     def __init__(
         self,
         dim,
