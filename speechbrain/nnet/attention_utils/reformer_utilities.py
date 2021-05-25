@@ -291,7 +291,7 @@ class LocalAttention(nn.Module):
     def forward(self, q, k, v, input_mask=None):
         shape = q.shape
 
-        merge_into_batch = lambda t: t.reshape(-1, *t.shape[-2:])
+        def merge_into_batch(t): return t.reshape(-1, *t.shape[-2:])
         q, k, v = map(merge_into_batch, (q, k, v))
 
         if exists(self.rel_pos):
@@ -299,9 +299,11 @@ class LocalAttention(nn.Module):
             q, k = apply_rotary_pos_emb(q, k, pos_emb)
 
         if self.autopad:
+            def merge_into_batch_auto(t):
+                return pad_to_multiple(t, self.window_size, dim=-2)
             orig_t = q.shape[1]
             q, k, v = map(
-                lambda t: pad_to_multiple(t, self.window_size, dim=-2),
+                merge_into_batch_auto,
                 (q, k, v),
             )
 
