@@ -1273,9 +1273,7 @@ class LSHAttention(nn.Module):
 
         self.causal = causal
         self.bucket_size = bucket_size
-
         self.n_hashes = n_hashes
-
         self._allow_duplicate_attention = allow_duplicate_attention
         self._attend_across_buckets = attend_across_buckets
         self._rehash_each_round = rehash_each_round
@@ -1569,9 +1567,9 @@ class LSHSelfAttention(nn.Module):
         self.toqk = nn.Linear(emb, emb * heads)
         self.tov = nn.Linear(emb, emb * heads)
         self.unify_heads = nn.Linear(emb * heads, emb)
-
+        self.n_hashes = n_hashes
         self.bucket_size = bucket_size
-        self.lsh_attn = LSHAttention(bucket_size=bucket_size, **kwargs)
+        self.lsh_attn = LSHAttention(bucket_size=bucket_size, n_hashes=n_hashes, **kwargs)
 
     def forward(self, x):
         b, t, e, h = *x.shape, self.heads
