@@ -1611,6 +1611,7 @@ class FullQKAttention(nn.Module):
 
 # Shared qk attention, using either full or LSH attention
 
+
 class LSHSelfAttention(nn.Module):
     def __init__(
         self,
