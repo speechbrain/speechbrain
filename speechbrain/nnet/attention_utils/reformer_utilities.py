@@ -330,6 +330,7 @@ class LocalAttention(nn.Module):
 
         def bucket_fn(t):
             return t.reshape(b, windows, window_size, -1)
+
         bq, bk, bv = map(bucket_fn, (q, k, v))
 
         look_around_kwargs = {
