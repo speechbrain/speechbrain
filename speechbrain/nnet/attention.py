@@ -1255,6 +1255,7 @@ class LSHAttention(nn.Module):
 
     * Modification to fit SpeechBrain's interface
     """
+
     def __init__(
         self,
         dropout=0.0,
@@ -1578,6 +1579,7 @@ class LSHSelfAttention(nn.Module):
 
     * Modification to fit SpeechBrain's interface
     """
+
     def __init__(self, emb, heads=8, bucket_size=64, n_hashes=8, **kwargs):
         super().__init__()
         self.heads = heads
