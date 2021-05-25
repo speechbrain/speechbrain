@@ -1246,6 +1246,15 @@ class LinearMultiheadAttention(nn.Module):
 
 
 class LSHAttention(nn.Module):
+    """
+    LSHAttention implementation in the SpeechBrain style.
+    * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
+
+    The architecture is based on the paper "Reformer: The Efficient Transformer":
+    https://arxiv.org/abs/2001.04451
+
+    * Modification to fit SpeechBrain's interface
+    """
     def __init__(
         self,
         dropout=0.0,
@@ -1560,6 +1569,15 @@ class LSHAttention(nn.Module):
 
 
 class LSHSelfAttention(nn.Module):
+    """
+    LSHSelfAttention implementation in the SpeechBrain style.
+    * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
+
+    The architecture is based on the paper "Reformer: The Efficient Transformer":
+    https://arxiv.org/abs/2001.04451
+
+    * Modification to fit SpeechBrain's interface
+    """
     def __init__(self, emb, heads=8, bucket_size=64, n_hashes=8, **kwargs):
         super().__init__()
         self.heads = heads

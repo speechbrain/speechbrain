@@ -123,7 +123,6 @@ class ReformerEncoder(nn.Module):
 class ReformerEncoderLayer(nn.Module):
     """
     Reformer encoder layer implementation in the SpeechBrain style.
-    Authors
     * Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
 
     The architecture is based on the paper "Reformer: The Efficient Transformer":

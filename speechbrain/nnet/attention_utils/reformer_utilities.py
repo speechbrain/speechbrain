@@ -1,3 +1,15 @@
+"""
+Utility functions for the Reformer
+
+* Most of the code comes from: https://github.com/lucidrains/reformer-pytorch
+
+The architecture is based on the paper "Reformer: The Efficient Transformer":
+https://arxiv.org/abs/2001.04451
+
+* Modification to fit SpeechBrain's interface
+"""
+
+
 import torch.nn.functional as F
 import torch
 import torch.nn as nn
@@ -5,7 +17,7 @@ from functools import reduce, wraps
 from operator import mul
 
 
-TOKEN_SELF_ATTN_VALUE = -5e4  # carefully set for half precision to work
+TOKEN_SELF_ATTN_VALUE = -5e4
 
 
 def sort_key_val(t1, t2, dim=-1):
@@ -127,9 +139,6 @@ def split_at_index(dim, index, t):
     l_ = (*pre_slices, slice(None, index))
     r_ = (*pre_slices, slice(index, None))
     return t[l_], t[r_]
-
-
-# helper classes
 
 
 class MatrixMultiply(nn.Module):
