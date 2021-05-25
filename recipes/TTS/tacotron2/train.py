@@ -24,10 +24,14 @@ import logging
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.lobes.models.synthesis.tacotron2 import dataio_prepare
 
+
+sys.path.append("..")
+from common.utils import PretrainedModelMixin  # noqa
+
 logger = logging.getLogger(__name__)
 
 
-class Tacotron2Brain(sb.Brain):
+class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
     def compute_forward(self, batch, stage):
         inputs, y, num_items = batch_to_gpu(batch)
         return self.hparams.model(inputs)  # 1#2#
@@ -167,7 +171,7 @@ if __name__ == "__main__":
 
     # Dataset prep
     # here we create the datasets objects as well as tokenization and encoding
-    train_set, valid_set, test_set = dataio_prepare(hparams)
+    datasets = dataio_prepare(hparams)
 
     # Brain class initialization
     tacotron2_brain = Tacotron2Brain(
@@ -180,8 +184,13 @@ if __name__ == "__main__":
 
     # Training
     tacotron2_brain.fit(
-        tacotron2_brain.hparams.epoch_counter, train_set, valid_set
+        tacotron2_brain.hparams.epoch_counter,
+        datasets["train"],
+        datasets["valid"],
     )
+    if hparams.get("save_for_pretrained"):
+        tacotron2_brain.save_for_pretrained()
 
     # Test
-    tacotron2_brain.evaluate(test_set)
+    if "test" in datasets:
+        tacotron2_brain.evaluate(datasets["test"])

@@ -205,3 +205,26 @@ spectrogram = wrap_transform(
 inverse_spectrogram = wrap_transform(
     transforms.GriffinLim, takes="spectrogram", provides="sig"
 )
+inverse_mel = wrap_transform(
+    transforms.InverseMelScale, takes="mel", provides="linear"
+)
+
+
+def load_datasets(hparams, dataset_prep):
+    """
+    A convenience function to load multiple datasets, from hparams
+
+    Arguments
+    ---------
+    hparams: dict
+        a hyperparameters file
+    dataset_prep: callable
+        a function taking two parameters: (dataset, hparams) that
+
+    """
+    result = {}
+    for name, dataset_params in hparams["datasets"].items():
+        loader = dataset_params["loader"]
+        dataset = loader(dataset_params["path"])
+        result[name] = dataset_prep(dataset, hparams)
+    return result

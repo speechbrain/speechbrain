@@ -369,7 +369,6 @@ class Encoder(nn.Module):
         x = nn.utils.rnn.pack_padded_sequence(
             x, input_lengths, batch_first=True
         )
-
         outputs, _ = self.lstm(x)
 
         outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)
@@ -579,7 +578,10 @@ class Decoder(nn.Module):
         # (T_out, B) -> (B, T_out)
         alignments = alignments.transpose(0, 1).contiguous()
         # (T_out, B) -> (B, T_out)
-        gate_outputs = gate_outputs.transpose(0, 1).contiguous()
+        if gate_outputs.dim() == 1:
+            gate_outputs.unsqueeze(0)
+        else:
+            gate_outputs = gate_outputs.transpose(0, 1).contiguous()
         # (T_out, B, n_mel_channels) -> (B, T_out, n_mel_channels)
         mel_outputs = mel_outputs.transpose(0, 1).contiguous()
         # decouple frames per step
@@ -846,7 +848,6 @@ class Decoder(nn.Module):
 
             not_finished = not_finished * dec
             mel_lengths += not_finished
-
             if self.early_stopping and torch.sum(not_finished) == 0:
                 break
             if len(mel_outputs) == self.max_decoder_steps:
@@ -1120,6 +1121,19 @@ class Tacotron2(nn.Module):
 
 
 def to_gpu(x):
+    """
+    Transfers a tensor to the GPU
+
+    Arguments
+    ---------
+    x: torch.Tensor
+        a tensor
+
+    Returns
+    -------
+    result: torch.Tensor
+        the same tensor, on the GPU
+    """
     x = x.contiguous()
 
     if torch.cuda.is_available():
@@ -1128,8 +1142,43 @@ def to_gpu(x):
 
 
 def get_mask_from_lengths(lengths):
+    """
+    Creates a mask from a tensor of lengths
+
+    Arguments
+    ---------
+    lengths: torch.Tensor
+        a tensor of sequence lengths
+
+    Returns
+    -------
+    mask: torch.Tensor
+        the mask
+    """
     max_len = torch.max(lengths).item()
     ids = torch.arange(0, max_len, device=lengths.device, dtype=lengths.dtype)
     mask = (ids < lengths.unsqueeze(1)).byte()
     mask = torch.le(mask, 0)
     return mask
+
+
+def infer(model, text_sequences, input_lengths):
+    """
+    An inference hook for pretrained synthesizers
+
+    Arguments
+    ---------
+    model: Tacotron2
+        the tacotron model
+    text_sequences: torch.Tensor
+        encoded text sequences
+    input_lengths: torch.Tensor
+        input lengths
+
+    Returns
+    -------
+    result: tuple
+        (mel_outputs_postnet, mel_lengths, alignments) - the exact
+        model output
+    """
+    return model.infer(text_sequences, input_lengths)

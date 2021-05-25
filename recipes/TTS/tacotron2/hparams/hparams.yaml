@@ -5,6 +5,8 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/tts/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
+pretrained_path: !ref <save_folder>
+save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
 epochs: 1501
 
@@ -13,19 +15,19 @@ epochs: 1501
 #################################
 data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
 data_folder_rirs: !ref <data_folder>
-json_train: !ref <output_folder>/train.json
-json_valid: !ref <output_folder>/valid.json
-json_test: !ref <output_folder>/test.json
+train_data_path: ../datasets/mockdata/fake_vctk_1ex
+valid_data_path: ../datasets/mockdata/fake_vctk_1ex
 text_cleaners: ['english_cleaners']
 
 ################################
 # Audio Parameters             #
 ################################
-sampling_rate: 16000
+sample_rate: 16000
 hop_length: null
 win_length: null
 n_mel_channels: 128
 n_fft: 400
+n_stft: !ref <n_fft> // 2 + 1
 mel_fmin: 0.0
 mel_fmax: null
 mel_normalized: False
@@ -72,6 +74,10 @@ attention_location_kernel_size: 31
 postnet_embedding_dim: 512
 postnet_kernel_size: 5
 postnet_n_convolutions: 5
+
+# Inverse spectrogram parameters
+inverse_spectrogram_n_iter: 1024
+
 
 #model
 model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
@@ -133,3 +139,53 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
         scheduler: !ref <lr_annealing>
+
+
+datasets:
+  train:
+    path: !ref <train_data_path>
+    loader: !name:datasets.vctk.load
+  valid:
+    path: !ref <valid_data_path>
+    loader: !name:datasets.vctk.load
+
+model_output_keys:
+  - mel
+  - mel_lengths
+  - alignments
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+  loadables:
+    model: !ref <model>
+  paths:
+    model: !ref <pretrained_path>/model.ckpt
+
+encode_pipeline:
+  batch: False
+  output_keys:
+    - text_sequences
+    - input_lengths
+  steps:
+      - !apply:speechbrain.lobes.models.synthesis.tacotron2.encode_text
+        # TODO: Not using !ref because it triggers an odd bug when loading
+        # a file from a saved model - investigate this further
+        text_cleaners: ['english_cleaners']
+
+decode_pipeline:
+  steps:
+    - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_mel
+      n_stft: !ref <n_stft>
+      n_mels: !ref <n_mel_channels>
+      sample_rate: !ref <sample_rate>
+      f_min: !ref <mel_fmin>
+      f_max: !ref <mel_fmax>
+    - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
+      takes: linear
+      provides: wav
+      n_fft: !ref <n_fft>
+      n_iter: !ref <inverse_spectrogram_n_iter>
+      hop_length: !ref <hop_length>
+      win_length: !ref <win_length>
+
+
+infer: !name:speechbrain.lobes.models.synthesis.tacotron2.model.infer

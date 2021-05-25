@@ -919,6 +919,11 @@ class SpeechSynthesizer(Pretrained):
             dynamic_items=self.hparams.decode_pipeline["steps"],
             output_keys=self.OUTPUT_KEYS,
         )
+        # NOTE: Some models will provide a custom, model-specific inference
+        # function, others can be called directly
+        self.infer = getattr(self.hparams, 'infer', None)
+        if not self.infer:
+            self.infer = lambda model, **kwargs: model(**kwargs)
 
     def tts(self, text):
         """
@@ -1059,4 +1064,5 @@ class SpeechSynthesizer(Pretrained):
         The raw output of the model (the exact output
         depends on the implementation)
         """
-        return self.hparams.model(**self._to_dict(data))
+        data_dict = self._to_dict(data)
+        return self.infer(model=self.hparams.model, **data_dict)

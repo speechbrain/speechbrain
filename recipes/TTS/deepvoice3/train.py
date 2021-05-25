@@ -28,23 +28,24 @@ intervals
 Authors
 * Artem Ploujnikov 2021
 """
-from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
+import os
+import speechbrain as sb
+import sys
 import torch
 import torchvision
-import sys
-import speechbrain as sb
-import os
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_pipeline import DataPipeline
-from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
+from speechbrain.lobes.models.synthesis.dataio import load_datasets
 from speechbrain.dataio.batch import PaddedBatch
-from speechbrain.utils.checkpoints import torch_save
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.utils.data_pipeline import DataPipeline
 from torch.utils.data import DataLoader
 
 sys.path.append("..")
+from common.utils import PretrainedModelMixin  # noqa
 
 
-class DeepVoice3Brain(sb.core.Brain):
+class DeepVoice3Brain(sb.core.Brain, PretrainedModelMixin):
     """
     A Brain implementation for the DeepVoice3 text-to-speech model
 
@@ -367,15 +368,6 @@ class DeepVoice3Brain(sb.core.Brain):
                 test_stats=stats,
             )
 
-    def save_for_pretrained(self):
-        """
-        Saves the necessary files for the pretrained model
-        """
-        pretrainer = self.hparams.pretrainer
-        for key, value in pretrainer.loadables.items():
-            path = pretrainer.paths[key]
-            torch_save(value, path)
-
 
 def dataset_prep(dataset, hparams, tokens=None):
     """
@@ -474,13 +466,7 @@ def dataio_prep(hparams):
     datsets: dict
 
     """
-    result = {}
-    for name, dataset_params in hparams["datasets"].items():
-        loader = dataset_params["loader"]
-        vctk = loader(dataset_params["path"])
-        result[name] = dataset_prep(vctk, hparams)
-
-    return result
+    return load_datasets(hparams, dataset_prep=dataset_prep)
 
 
 def main():
