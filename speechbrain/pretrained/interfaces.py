@@ -921,7 +921,7 @@ class SpeechSynthesizer(Pretrained):
         )
         # NOTE: Some models will provide a custom, model-specific inference
         # function, others can be called directly
-        self.infer = getattr(self.hparams, 'infer', None)
+        self.infer = getattr(self.hparams, "infer", None)
         if not self.infer:
             self.infer = lambda model, **kwargs: model(**kwargs)
 

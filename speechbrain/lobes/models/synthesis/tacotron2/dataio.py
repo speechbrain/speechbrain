@@ -113,7 +113,7 @@ def dataset_prep(dataset, hparams):
         dataset,
         batch_size=hparams["batch_size"],
         collate_fn=TextMelCollate(),
-        drop_last=hparams.get('drop_last', False),
+        drop_last=hparams.get("drop_last", False),
     )
 
 
