@@ -125,7 +125,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     linf_max_seq_len: 1000
     linf_proj_k: 225
     linf_param_sharing: none
-    linf_method: learnable
+    linf_method: convolution
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
