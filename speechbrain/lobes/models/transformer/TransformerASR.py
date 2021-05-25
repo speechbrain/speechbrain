@@ -84,6 +84,8 @@ class TransformerASR(TransformerInterface):
         linf_proj_k: Optional[int] = 128,
         linf_param_sharing: Optional[str] = "none",
         linf_method: Optional[str] = "learnable",
+        ref_n_hashes: Optional[int] = 8,
+        ref_bucket_size: Optional[int] = 64,
     ):
         super().__init__(
             d_model=d_model,
@@ -160,7 +162,7 @@ class TransformerASR(TransformerInterface):
         )
         if (
             src_key_padding_mask is not None
-            and self.encoder_module == "longformer"
+            and self.encoder_module in ["longformer", 'reformer']
         ):
             src_key_padding_mask = longformer_src_mask_padder(
                 src_key_padding_mask=src_key_padding_mask,

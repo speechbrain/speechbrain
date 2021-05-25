@@ -11,6 +11,7 @@ from typing import Optional
 from .Longformer import LongformerEncoder
 from .Linformer import LinformerEncoder
 from .conformer import ConformerEncoder
+from .Reformer import ReformerEncoder
 from speechbrain.nnet.activations import Swish
 
 
@@ -74,6 +75,8 @@ class TransformerInterface(nn.Module):
         linf_proj_k: Optional[int] = 128,
         linf_param_sharing: Optional[str] = "none",
         linf_method: Optional[str] = "learnable",
+        ref_n_hashes: Optional[int] = 8,
+        ref_bucket_size: Optional[int] = 64,
     ):
         super().__init__()
 
@@ -148,6 +151,18 @@ class TransformerInterface(nn.Module):
                     proj_k=linf_proj_k,
                     param_sharing=linf_param_sharing,
                     method=linf_method,
+                )
+            elif encoder_module == "reformer":
+                self.encoder = ReformerEncoder(
+                    d_ffn=d_ffn,
+                    num_layers=num_encoder_layers,
+                    nhead=nhead,
+                    n_hashes=ref_n_hashes,
+                    bucket_size=ref_bucket_size,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
                 )
 
         # initialize the decoder
