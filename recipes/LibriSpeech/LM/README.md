@@ -1,8 +1,8 @@
 # Language Model with LibriSpeech
 This folder contains recipes for training language models for the LibriSpeech Dataset.
-It supports both an RNN-based LM and a Transformer-based LM. 
+It supports both an RNN-based LM and a Transformer-based LM.
 The scripts rely on the HuggingFace dataset, which manages data reading and loading from
-large text corpora. 
+large text corpora.
 
 You can download LibriSpeech at http://www.openslr.org/12
 

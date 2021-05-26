@@ -9,8 +9,8 @@ cd ../../Tokenizer
 python train.py hparams/train_transformer_tokenizer_bpe5000.yaml --data_folder=/localscratch/aishell/
 ```
 If not present in the specified data_folder, the dataset will be automatically downloaded there.
-This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not 
-specify a different tokenizer in the speech recognition recipe. 
+This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not
+specify a different tokenizer in the speech recognition recipe.
 
 2- Train the speech recognizer
 ```
