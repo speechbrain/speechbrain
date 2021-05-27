@@ -141,7 +141,7 @@ class LJ:
             self.to_csv(csv_file)
             csv_file.flush()
             return DynamicItemDataset.from_csv(
-                csv_file.name, raw_keys=["label"]
+                csv_file.name, raw_keys=["label_original"]
             )
 
     def _get_csv_fieldnames(self):
