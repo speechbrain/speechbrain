@@ -27,7 +27,7 @@ class LJ:
 
     METADATA_COLS = ["file_name", "label_original", "label_normalized"]
     METADATA_FILE_NAME = "metadata.csv"
-    DIR_WAV = "wav"
+    DIR_WAV = "wavs"
 
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -64,6 +64,7 @@ class LJ:
         """
         return {
             "ID": record["file_name"],
+            "speaker_id": 0,
             "wav": os.path.join(self.wav_path, f"{record['file_name']}.wav"),
             "label": record["label_normalized"],
             "label_original": record["label_original"],
