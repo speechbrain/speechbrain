@@ -10,6 +10,7 @@ import torch
 
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScorer
+from speechbrain.decoders.ngram import NgramScorer
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -331,6 +332,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         blank_index=0,
         ctc_score_mode="full",
         ctc_window_size=0,
+        ngram_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -362,6 +364,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.ctc_weight = ctc_weight
         self.blank_index = blank_index
         self.attn_weight = 1.0 - ctc_weight
+
+        # ngram
+        self.ngram_weight = ngram_weight
 
         assert (
             0.0 <= self.ctc_weight <= 1.0
@@ -573,6 +578,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
             ctc_memory = None
 
+        if self.ngram_weight > 0:
+            ngram_scorer = NgramScorer(
+                "../../train_ngram/4gram.bin",
+                self.bos_index,
+                self.eos_index,
+                batch_size,
+                self.beam_size,
+                device,
+            )
+            ngram_memory = ngram_scorer.reset_mem()
+
         # Inflate the enc_states and enc_len by beam_size times
         enc_states = inflate_tensor(enc_states, times=self.beam_size, dim=0)
         enc_lens = inflate_tensor(enc_lens, times=self.beam_size, dim=0)
@@ -659,21 +675,29 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                g = alived_seq
                 # block blank token
                 log_probs[:, self.blank_index] = self.minus_inf
                 if self.ctc_weight != 1.0 and self.ctc_score_mode == "partial":
                     # pruning vocab for ctc_scorer
                     _, ctc_candidates = log_probs.topk(
-                        self.beam_size * 2, dim=-1
+                        int(self.beam_size * 2), dim=-1
                     )
                 else:
                     ctc_candidates = None
 
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
-                    g, ctc_memory, ctc_candidates, attn
+                    alived_seq, ctc_memory, ctc_candidates, attn
                 )
                 log_probs = log_probs + self.ctc_weight * ctc_log_probs
+
+            if self.ngram_weight > 0:
+                _, ngram_candidates = log_probs.topk(
+                    int(self.beam_size * 2), dim=-1
+                )
+                ngram_log_probs, ngram_memory = ngram_scorer.forward_step(
+                    alived_seq, ngram_memory, ngram_candidates
+                )
+                log_probs = log_probs + self.ngram_weight * ngram_log_probs
 
             # Keep the original value
             log_probs_clone = log_probs.clone().reshape(batch_size, -1)
@@ -726,6 +750,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             if self.ctc_weight > 0:
                 ctc_memory = ctc_scorer.permute_mem(ctc_memory, candidates)
+
+            if self.ngram_weight > 0:
+                ngram_memory = ngram_scorer.permute_mem(
+                    ngram_memory, candidates
+                )
 
             # If using_max_attn_shift, then the previous attn peak has to be permuted too.
             if self.using_max_attn_shift:
