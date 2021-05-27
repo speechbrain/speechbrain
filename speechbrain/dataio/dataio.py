@@ -87,7 +87,7 @@ def _recursive_format(data, replacements):
             # If not dict, list or str, do nothing
 
 
-def load_data_csv(csv_path, replacements={}):
+def load_data_csv(csv_path, replacements={}, raw_keys=None):
     """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
@@ -105,6 +105,9 @@ def load_data_csv(csv_path, replacements={}):
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}
         This is used to recursively format all string values in the data.
+    raw_keys: iterable
+        (Optional) a list of fields for which variable substitution
+        will not be performed
 
     Returns
     -------
@@ -124,7 +127,7 @@ def load_data_csv(csv_path, replacements={}):
     >>> data["utt1"]["wav_path"]
     '/home/utt1.wav'
     """
-
+    raw_keys = set(raw_keys or [])
     with open(csv_path, newline="") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
@@ -143,15 +146,16 @@ def load_data_csv(csv_path, replacements={}):
                 raise ValueError(f"Duplicate id: {data_id}")
             # Replacements:
             for key, value in row.items():
-                try:
-                    row[key] = variable_finder.sub(
-                        lambda match: str(replacements[match[1]]), value
-                    )
-                except KeyError:
-                    raise KeyError(
-                        f"The item {value} requires replacements "
-                        "which were not supplied."
-                    )
+                if key not in raw_keys:
+                    try:
+                        row[key] = variable_finder.sub(
+                            lambda match: str(replacements[match[1]]), value
+                        )
+                    except KeyError:
+                        raise KeyError(
+                            f"The item {value} requires replacements "
+                            "which were not supplied."
+                        )
             # Duration:
             if "duration" in row:
                 row["duration"] = float(row["duration"])

@@ -358,10 +358,15 @@ class DynamicItemDataset(Dataset):
 
     @classmethod
     def from_csv(
-        cls, csv_path, replacements={}, dynamic_items=[], output_keys=[]
+        cls,
+        csv_path,
+        replacements={},
+        dynamic_items=[],
+        output_keys=[],
+        raw_keys=[],
     ):
         """Load a data prep CSV file and create a Dataset based on it."""
-        data = load_data_csv(csv_path, replacements)
+        data = load_data_csv(csv_path, replacements, raw_keys)
         return cls(data, dynamic_items, output_keys)
 
     @classmethod

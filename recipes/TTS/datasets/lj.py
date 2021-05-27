@@ -13,7 +13,7 @@ import tempfile
 from speechbrain.dataio.dataset import DynamicItemDataset
 
 
-# TODO: Reduce repetition
+# TODO: Reduce repetition - this was originally copied from VCTK
 class LJ:
     """
     A helper class for the loading of the LJ dataset
@@ -101,8 +101,6 @@ class LJ:
         data: generator
             a generator of dictionaries with speaker data
         """
-        path = self.file_path
-        _, _, filenames = next(os.walk(path))
         return (
             self._convert_metadata_record(record)
             for record in self._read_metadata()
@@ -141,7 +139,9 @@ class LJ:
         with tempfile.NamedTemporaryFile("w") as csv_file:
             self.to_csv(csv_file)
             csv_file.flush()
-            return DynamicItemDataset.from_csv(csv_file.name)
+            return DynamicItemDataset.from_csv(
+                csv_file.name, raw_keys=["label"]
+            )
 
     def _get_csv_fieldnames(self):
         """

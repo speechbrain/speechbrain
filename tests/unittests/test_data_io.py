@@ -1,5 +1,8 @@
-import torch
+import csv
 import os
+from speechbrain.dataio.dataio import load_data_csv
+import tempfile
+import torch
 
 
 def test_read_audio(tmpdir):
@@ -68,3 +71,19 @@ def test_read_audio_multichannel(tmpdir):
         #         ),
         #     )
         # )
+
+
+def test_load_csv():
+    with tempfile.NamedTemporaryFile("w") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["ID", "raw", "dynamic"])
+        writer.writerow(["1", "It costs $100", "foo=$foo"])
+        writer.writerow(["2", "1$1$1$1", "value=$foo!"])
+        csv_file.flush()
+        data = load_data_csv(
+            csv_file.name, replacements={"foo": "bar"}, raw_keys=["raw"]
+        )
+        assert data["1"]["raw"] == "It costs $100"
+        assert data["1"]["dynamic"] == "foo=bar"
+        assert data["2"]["raw"] == "1$1$1$1"
+        assert data["2"]["dynamic"] == "value=bar!"

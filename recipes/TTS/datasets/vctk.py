@@ -200,7 +200,9 @@ class VCTK:
         with tempfile.NamedTemporaryFile("w") as csv_file:
             self.to_csv(csv_file)
             csv_file.flush()
-            return DynamicItemDataset.from_csv(csv_file.name)
+            return DynamicItemDataset.from_csv(
+                csv_file.name, raw_keys=["label"]
+            )
 
     def _get_csv_fieldnames(self):
         """
