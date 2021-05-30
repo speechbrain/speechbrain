@@ -4,7 +4,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1256
+seed: 1288
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/perceptual_model/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -20,9 +20,9 @@ skip_prep: False
 
 # Training parameters
 number_of_epochs: 20
-ctc_epochs: 5
+ctc_epochs: 4
 batch_size: 8
-lr: 0.0005
+lr: 0.0002
 sorting: ascending
 target_type: phones
 checkpoint_avg: 1
@@ -46,6 +46,7 @@ ctc_type: clean  # null, clean, joint
 seq_weight: 1.0
 seq_type: clean  # null, clean, joint
 label_smoothing: 0.1
+alignment_weight: 1.0
 
 # Set this to the path of a pretrained model to load before training
 pretrained_path: {}
@@ -56,17 +57,22 @@ sample_rate: 16000
 n_fft: 512
 win_length: 32
 hop_length: 16
+#n_mels: 80
 
 # Outputs
 output_neurons: 42
-blank_index: !ref <output_neurons> - 1
-bos_index: !ref <output_neurons> - 1
-eos_index: !ref <output_neurons> - 1
+blank_index: 0
+bos_index: 0
+eos_index: 0
+#blank_index: !ref <output_neurons> - 1
+#bos_index: !ref <output_neurons> - 2
+#eos_index: !ref <output_neurons> - 2
 
 # Import perceptual model hyperparams
 model: !include:models/perceptual_model.yaml
     output_neurons: !ref <output_neurons>
     n_fft: !ref <n_fft>
+    #n_mels: !ref <n_mels>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -82,6 +88,10 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     n_fft: !ref <n_fft>
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
+
+#fbank: !new:speechbrain.processing.features.Filterbank
+#    n_mels: !ref <n_mels>
+#    n_fft: !ref <n_fft>
 
 spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
     power: 0.5
@@ -101,11 +111,8 @@ opt_class: !name:torch.optim.Adam
 
 lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
     initial_value: !ref <lr>
-    decay_factor: 0.5
+    decay_factor: 0.7
     decay_drop: 3
-
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
 
 modules:
     src_embedding: !ref <model[src_embedding]>
@@ -114,7 +121,7 @@ modules:
     ctc_output: !ref <model[ctc_output]>
     seq_output: !ref <model[seq_output]>
 
-jit_module_keys: [src_embedding]
+#jit_module_keys: [src_embedding]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -126,8 +133,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         seq_output: !ref <model[seq_output]>
         counter: !ref <epoch_counter>
 
-ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
 seq_loss: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: !ref <label_smoothing>
 err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
