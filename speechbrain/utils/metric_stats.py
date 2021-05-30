@@ -160,6 +160,16 @@ class ErrorRateStats(MetricStats):
     merge_tokens : bool
         Whether to merge the successive tokens (used for e.g.,
         creating words out of character tokens).
+        See ``speechbrain.dataio.dataio.merge_char``.
+    split_tokens : bool
+        Whether to split tokens (used for e.g. creating
+        characters out of word tokens).
+        See ``speechbrain.dataio.dataio.split_word``.
+    space_token : str
+        The character to use for boundaries. Used with ``merge_tokens``
+        this represents character to split on after merge.
+        Used with ``split_tokens`` the sequence is joined with
+        this token in between, and then the whole sequence is split.
 
     Example
     -------
@@ -183,10 +193,11 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self, merge_tokens=False, split_tokens=False):
+    def __init__(self, merge_tokens=False, split_tokens=False, space_token="_"):
         self.clear()
         self.merge_tokens = merge_tokens
         self.split_tokens = split_tokens
+        self.space_token = space_token
 
     def append(
         self,
@@ -232,12 +243,12 @@ class ErrorRateStats(MetricStats):
             target = ind2lab(target)
 
         if self.merge_tokens:
-            predict = merge_char(predict)
-            target = merge_char(target)
+            predict = merge_char(predict, space=self.space_token)
+            target = merge_char(target, space=self.space_token)
 
         if self.split_tokens:
-            predict = split_word(predict)
-            target = split_word(target)
+            predict = split_word(predict, space=self.space_token)
+            target = split_word(target, space=self.space_token)
 
         scores = wer_details_for_batch(ids, target, predict, True)
 
