@@ -79,11 +79,11 @@ class ASR(sb.Brain):
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
-        h, _ = self.modules.dec(e_in, x, wav_lens)
 
         p_seq, p_ctc, p_tokens = None, None, None
         if self.hparams.ctc_weight != 1:
             # Output layer for seq2seq log-probabilities
+            h, _ = self.modules.dec(e_in, x, wav_lens)
             logits = self.modules.seq_lin(h)
             p_seq = self.hparams.log_softmax(logits)
 
