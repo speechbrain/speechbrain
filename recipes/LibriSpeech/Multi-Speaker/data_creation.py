@@ -1,6 +1,19 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# Creating dev-clean random mixtures (1/3)
+# Creating dev-clean random mixtures (2/3)
+# Creating dev-clean random mixtures (3/3)
+# {'1': 1535, '2': 1664, '3': 1659, '4': 1631, '5': 1620}
+# Creating test-clean random mixtures (1/3)
+# Creating test-clean random mixtures (2/3)
+# Creating test-clean random mixtures (3/3)
+# {'1': 1546, '2': 1613, '3': 1537, '4': 1596, '5': 1568}
+# Creating train-clean-100 random mixtures (1/3)
+# Creating train-clean-100 random mixtures (2/3)
+# Creating train-clean-100 random mixtures (3/3)
+# {'1': 17144, '2': 17143, '3': 17119, '4': 17104, '5': 17107}
+
 ## Creation of Multi-Speaker Datasets
 import os
 import glob
