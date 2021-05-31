@@ -336,7 +336,7 @@ class GRU(torch.nn.Module):
         if input_size is None:
             if len(input_shape) > 3:
                 self.reshape = True
-            input_size = torch.prod(torch.tensor(input_shape[2:]))
+            input_size = torch.prod(torch.tensor(input_shape[2:])).item()
 
         self.rnn = torch.nn.GRU(
             input_size=input_size,
