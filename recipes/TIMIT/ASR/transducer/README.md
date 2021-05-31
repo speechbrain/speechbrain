@@ -5,10 +5,15 @@ TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC9
 
 # Extra-Dependencies
 Before running this recipe, make sure numba is installed. Otherwise, run:
+```
 pip install numba
+```
 
 # How to run
-python train.py train/train.yaml
+Update the path to the dataset in the yaml config file and run the following.
+```
+python train.py hparams/train.yaml
+```
 
 # Results
 
