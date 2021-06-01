@@ -82,6 +82,7 @@ def build_spk_hashtable_librimix(hparams):
 def get_wham_noise_filenames(hparams):
 
     if "Libri" in hparams["data_folder"]:
+        # Data folder should point to Libri2Mix folder
         if hparams["sample_rate"] == 8000:
             noise_path = "wav8k/min/train-360/noise/"
         elif hparams["sample_rate"] == 16000:
