@@ -692,7 +692,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             if self.ngram_weight > 0:
                 _, ngram_candidates = log_probs.topk(
-                    int(self.beam_size * 2), dim=-1
+                    int(self.beam_size * 1.2), dim=-1
                 )
                 ngram_log_probs, ngram_memory = ngram_scorer.forward_step(
                     alived_seq, ngram_memory, ngram_candidates
