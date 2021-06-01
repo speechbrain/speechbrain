@@ -54,6 +54,9 @@ def prepare_wsjmix(
         librimix_addnoise: If True, add whamnoise to librimix datasets
     """
 
+    if skip_prep:
+        return
+
     if "wham_original" in datapath:
         # if we want to train a model on the original wham dataset
         create_wham_csv(datapath, savepath)
@@ -75,8 +78,6 @@ def prepare_wsjmix(
         else:
             raise ValueError("Unsupported Number of Speakers")
     elif "wsj" in datapath:
-        if skip_prep:
-            return
 
         if n_spks == 2:
             create_wsj_csv(datapath, savepath)
@@ -88,21 +89,23 @@ def prepare_wsjmix(
         raise ValueError("Unsupported Dataset")
 
 
-def create_libri2mix_csv(datapath, savepath, addnoise=False):
+def create_libri2mix_csv(
+    datapath,
+    savepath,
+    addnoise=False,
+    version="wav8k/min/",
+    set_types=["train-360", "dev", "test"],
+):
 
-    for set_type in ["train-360", "dev", "test"]:
+    for set_type in set_types:
         if addnoise:
-            mix_path = os.path.join(
-                datapath, "wav8k/min/" + set_type + "/mix_both/"
-            )
+            mix_path = os.path.join(datapath, version, set_type, "mix_both/")
         else:
-            mix_path = os.path.join(
-                datapath, "wav8k/min/" + set_type + "/mix_clean/"
-            )
+            mix_path = os.path.join(datapath, version, set_type, "mix_clean/")
 
-        s1_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s1/")
-        s2_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s2/")
-        noise_path = os.path.join(datapath, "wav8k/min/" + set_type + "/noise/")
+        s1_path = os.path.join(datapath, version, set_type, "s1/")
+        s2_path = os.path.join(datapath, version, set_type, "s2/")
+        noise_path = os.path.join(datapath, version, set_type, "noise/")
 
         files = os.listdir(mix_path)
 
@@ -303,7 +306,14 @@ def create_wham_csv(datapath, savepath):
                 writer.writerow(row)
 
 
-def create_whamr_csv(datapath, savepath, fs):
+def create_whamr_csv(
+    datapath,
+    savepath,
+    fs,
+    version="min",
+    savename="whamr_",
+    set_types=["tr", "cv", "tt"],
+):
     """
     This function creates the csv files to get the speechbrain data loaders for the whamr dataset.
 
@@ -319,24 +329,33 @@ def create_whamr_csv(datapath, savepath, fs):
     else:
         raise ValueError("Unsupported sampling rate")
 
-    for set_type in ["tr", "cv", "tt"]:
+    for set_type in set_types:
         mix_path = os.path.join(
             datapath,
-            "wav{}/min/".format(sample_rate) + set_type + "/mix_both_reverb/",
+            "wav{}".format(sample_rate),
+            version,
+            set_type,
+            "mix_both_reverb/",
         )
         s1_path = os.path.join(
             datapath,
-            "wav{}/min/".format(sample_rate) + set_type + "/s1_anechoic/",
+            "wav{}".format(sample_rate),
+            version,
+            set_type,
+            "s1_anechoic/",
         )
         s2_path = os.path.join(
             datapath,
-            "wav{}/min/".format(sample_rate) + set_type + "/s2_anechoic/",
+            "wav{}".format(sample_rate),
+            version,
+            set_type,
+            "s2_anechoic/",
         )
         noise_path = os.path.join(
-            datapath, "wav{}/min/".format(sample_rate) + set_type + "/noise/"
+            datapath, "wav{}".format(sample_rate), version, set_type, "noise/"
         )
         rir_path = os.path.join(
-            datapath, "wav{}/min/".format(sample_rate) + set_type + "/rirs/"
+            datapath, "wav{}".format(sample_rate), version, set_type, "rirs/"
         )
 
         files = os.listdir(mix_path)
@@ -367,7 +386,9 @@ def create_whamr_csv(datapath, savepath, fs):
             "rir_opts",
         ]
 
-        with open(savepath + "/whamr_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            os.path.join(savepath, savename + set_type + ".csv"), "w"
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for (
