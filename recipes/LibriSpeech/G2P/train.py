@@ -24,27 +24,22 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+#from speechbrain.lobes.models.g2p.datio import grapheme_pipeline, phoneme_pipeline
 
 
 # Define training procedure
-class ASR(sb.Brain):
+class G2PBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
-        chars, char_lens = batch.grapheme_encoded
-        phn_bos, phn_lens = batch.phn_encoded_bos
 
-        emb_char = self.hparams.encoder_emb(chars)
-        x, _ = self.modules.enc(emb_char)
-
-        # Prepend bos token at the beginning
-        e_in = self.modules.emb(phn_bos)
-        h, w = self.modules.dec(e_in, x, char_lens)
-        logits = self.modules.lin(h)
-        p_seq = self.hparams.log_softmax(logits)
+        p_seq, char_lens, encoder_out = self.hparams.model(
+            grapheme_encoded=batch.grapheme_encoded,
+            phn_encoded=batch.phn_encoded_bos
+        )
 
         if stage != sb.Stage.TRAIN:
-            hyps, scores = self.hparams.beam_searcher(x, char_lens)
+            hyps, scores = self.hparams.beam_searcher(encoder_out, char_lens)
             return p_seq, char_lens, hyps
 
         return p_seq, char_lens
@@ -256,6 +251,13 @@ def dataio_prep(hparams):
         ],
     )
 
+    #TODO: Remove this
+    # for dataset in datasets:
+    #     first_key = next(iter(dataset.data.keys()))
+    #     dataset.data_ids = [first_key]
+    #     dataset.data = {key: value for key, value in dataset.data.items() if key == first_key}
+
+
     return train_data, valid_data, test_data, phoneme_encoder
 
 
@@ -287,6 +289,7 @@ if __name__ == "__main__":
             "save_folder": hparams["save_folder"],
             "create_lexicon": True,
             "skip_prep": hparams["skip_prep"],
+            "select_n_sentences": hparams.get("select_n_sentences")
         },
     )
 
@@ -294,18 +297,18 @@ if __name__ == "__main__":
     train_data, valid_data, test_data, phoneme_encoder = dataio_prep(hparams)
 
     # Trainer initialization
-    asr_brain = ASR(
+    g2p_brain = G2PBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-    asr_brain.phoneme_encoder = phoneme_encoder
+    g2p_brain.phoneme_encoder = phoneme_encoder
 
     # Training/validation loop
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
+    g2p_brain.fit(
+        g2p_brain.hparams.epoch_counter,
         train_data,
         valid_data,
         train_loader_kwargs=hparams["dataloader_opts"],
@@ -313,6 +316,6 @@ if __name__ == "__main__":
     )
 
     # Test
-    asr_brain.evaluate(
+    g2p_brain.evaluate(
         test_data, min_key="PER", test_loader_kwargs=hparams["dataloader_opts"],
     )
