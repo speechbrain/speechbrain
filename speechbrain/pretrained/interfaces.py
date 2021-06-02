@@ -85,7 +85,10 @@ class Pretrained:
                     setattr(self, arg, default)
 
         # Put modules on the right device, accessible with dot notation
-        self.modules = torch.nn.ModuleDict(modules).to(self.device)
+        self.modules = torch.nn.ModuleDict(modules)
+        for mod in self.modules:
+            self.modules[mod].to(self.device)
+
         for mod in self.MODULES_NEEDED:
             if mod not in modules:
                 raise ValueError(f"Need modules['{mod}']")
