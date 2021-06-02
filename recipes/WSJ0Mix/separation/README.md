@@ -84,4 +84,16 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * https://huggingface.co/speechbrain/sepformer-wham
 * https://huggingface.co/speechbrain/sepformer-whamr
 
+# Example calls for running the training scripts
+
+* WHAMR! dataset with dynamic mixing `python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr --base_folder_dm yourpath/wsj0-processed/si_tr_s --rir_path yourpath/rir_wavs --dynamic_mixing True`
+
+* Libri2Mix with dynamic mixing `python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri2Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True`
+
+* Libri3Mix with dynamic mixing `python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True`
+
+* WSJ0-2Mix training without dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers`
+
+* WSJ0-3Mix training without dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers --base_folder_dm yourpath/wsj0/si_tr_s --dynamic_mixing True`
+
 

@@ -34,7 +34,7 @@ skip_prep: False
 ckpt_interval_minutes: 60
 
 # Experiment params
-auto_mix_prec: False # Set it to True for mixed precision
+auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 3 # set to 3 for wsj0-3mix
 progressbar: True
@@ -55,6 +55,7 @@ training_signal_len: 32000000
 
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
+use_wham_noise: False
 
 # Parameters for data augmentation
 use_wavedrop: False
