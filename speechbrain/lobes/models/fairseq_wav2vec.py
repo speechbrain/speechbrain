@@ -42,19 +42,21 @@ class FairseqWav2Vec2(nn.Module):
         If True, a layer_norm (affine) will be applied to the input waveform.
         By default, it is extracted from the checkpoint of the downloaded model
         in order to match the pretraining conditions. However, if this information
-        is not given in the checkpoint, it is set to False.
+        is not given in the checkpoint, it has to be given manually.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
-    freeze_feature_extractor : bool (default: False)
-        If freeze is False and freeze_feature_extractor is True the feature_extractor module is frozen. If True, the all the model will be trained
-        alongside with the rest of the pipeline.
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
         If False, the randomly-initialized model is instantiated.
+    dropout : float (default: None)
+        If different from None (0.0 to 1.0), it will override the given fairseq
+        dropout rates. This is useful if the wav2vec2 model has been trained
+        without dropout and one wants to reactivate it for downstream task
+        fine-tuning (better performance observed).
 
     Example
     -------
@@ -74,23 +76,41 @@ class FairseqWav2Vec2(nn.Module):
         input_norm=None,
         output_norm=True,
         freeze=True,
-        freeze_feature_extractor=False,
         pretrain=True,
+        dropout=None,
     ):
         super().__init__()
 
         # Download the pretrained wav2vec2 model. It can be local or online.
         download_file(pretrained_path, save_path)
 
+        # During pretraining dropout might be set to 0. However, we might want
+        # to apply dropout when fine-tuning on a downstream task. Hence we need
+        # to modify the fairseq cfg to activate dropout (if requested).
+        if not freeze and dropout is not None:
+            overrides = {
+                "model": {
+                    "dropout": dropout,
+                    "encoder_layerdrop": dropout,
+                    "dropout_input": dropout,
+                    "attention_dropout": dropout,
+                }
+            }
+        else:
+            overrides = {}
+
         (
             model,
             cfg,
             task,
-        ) = fairseq.checkpoint_utils.load_model_ensemble_and_task([save_path])
+        ) = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+            [save_path], arg_overrides=overrides
+        )
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
-        # If the information isn't contained in the checkpoint it is set to False.
+        # If the information isn't contained in the checkpoint IT HAS TO BE GIVEN
+        # BY THE USER.
         if input_norm is None:
             if hasattr(cfg["task"], "normalize"):
                 self.normalize = cfg["task"].normalize
@@ -105,17 +125,24 @@ class FairseqWav2Vec2(nn.Module):
         self.model = model
         self.freeze = freeze
         self.output_norm = output_norm
-        self.freeze_feature_extractor = freeze_feature_extractor
+
         if self.freeze:
-            model.eval()
-        elif self.freeze_feature_extractor:
-            # Freeze the feature extractor module
-            for param in self.model.feature_extractor.parameters():
+            self.model.eval()
+            # Freeze parameters
+            for param in model.parameters():
                 param.requires_grad = False
+        else:
+            self.model.train()
+            for param in model.parameters():
+                param.requires_grad = True
 
         # Randomly initialized layers if pretrain is False
         if not (pretrain):
             self.reset_layer(self.model)
+
+        # Following the fairseq implementation of downstream training,
+        # we remove some modules that are unnecessary.
+        self.remove_pretraining_modules()
 
     def forward(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.
@@ -155,6 +182,14 @@ class FairseqWav2Vec2(nn.Module):
         for child_layer in model.children():
             if model != child_layer:
                 self.reset_layer(child_layer)
+
+    def remove_pretraining_modules(self):
+        """ Remove uneeded modules. Inspired by the same fairseq function."""
+
+        self.model.quantizer = None
+        self.model.project_q = None
+        self.model.target_glu = None
+        self.model.final_proj = None
 
 
 class FairseqWav2Vec1(nn.Module):

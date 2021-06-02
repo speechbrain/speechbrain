@@ -1,26 +1,28 @@
 # ################################
-# Model: wav2vec2 + DNN + CTC
+# Model: wav2vec2 + DNN + CTC/Attention
 # Augmentation: SpecAugment
 # Authors: Titouan Parcollet 2021
+#          Mirco Ravanelli 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/wav2vec2_ctcatt_fr/<seed>
+output_folder: !ref results/wav2vec2_ctcatt_it/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the biggest HuggingFace LeBenchmarh french w2v2
-wav2vec2_hub: LeBenchmark/wav2vec2-FR-M-large
+# URL for the biggest Fairseq english wav2vec2 model.
+wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
+
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-6.1-2020-12-11/it
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: True
-language: fr # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+language: it # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
@@ -28,10 +30,10 @@ skip_prep: False # Skip data preparation
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
-avoid_if_longer_than: 10.0
+avoid_if_longer_than: 8.0
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 45
 number_of_ctc_epochs: 15
 lr: 1.0
 lr_wav2vec: 0.0001
