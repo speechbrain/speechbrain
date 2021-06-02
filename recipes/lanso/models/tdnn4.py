@@ -62,7 +62,7 @@ class Attention(torch.nn.Module):
         output = self.fc2(output)
 
         # # return decoder_out.squeeze(1)
-        output = torch.nn.functional.log_softmax(output, dim=-1)
+        # output = torch.nn.functional.log_softmax(output, dim=-1)
         return output  # [N, 1, 3]
 
 class TDNN_Block(nn.Module):
@@ -180,14 +180,14 @@ class TDNN(nn.Module):
 
         self.tdnn_dim = 64
 
-        self.tdnn1 = TDNN_Block(input_dim=40, output_dim=self.tdnn_dim, context_size=5, dilation=1)
-        self.tdnn2 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=5, dilation=2)
-        self.tdnn3 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=5, dilation=4)
-        self.tdnn4 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=5, dilation=8)
-        self.tdnn5 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=1)
-        self.tdnn6 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=2)
-        self.tdnn7 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=4)
-        self.tdnn8 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=8)
+        self.tdnn1 = TDNN_Block(input_dim=self.input_dim, output_dim=self.tdnn_dim, context_size=5, dilation=1)
+        self.tdnn2 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=5, dilation=2, dropout_p=dropout_p)
+        self.tdnn3 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=5, dilation=4, dropout_p=dropout_p)
+        self.tdnn4 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=5, dilation=8, dropout_p=dropout_p)
+        self.tdnn5 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=1, dropout_p=dropout_p)
+        self.tdnn6 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=2, dropout_p=dropout_p)
+        self.tdnn7 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=4, dropout_p=dropout_p)
+        self.tdnn8 = TDNN_Block(input_dim=self.tdnn_dim, output_dim=self.tdnn_dim, context_size=3, dilation=8, dropout_p=dropout_p)
 
         self.attention = Attention(input_size=self.tdnn_dim, output_size=4)
 
@@ -205,6 +205,7 @@ class TDNN(nn.Module):
         if x.ndim == 4:
             x = torch.squeeze(x, dim=1)
         # x = torch.squeeze(x, dim=1)
+        # x = x[:, 0, :]               # export model
         x = self.tdnn1(x)
         x = self.tdnn2(x)
         x = self.tdnn3(x)
@@ -225,6 +226,7 @@ class TDNN(nn.Module):
         x = self.attention(x)
 
         x = torch.nn.functional.log_softmax(x, dim=-1)
+        # output = F.softmax(x[:, 0, :], dim=-1)  # export model
 
         return x
 
