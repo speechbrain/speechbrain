@@ -610,36 +610,27 @@ if __name__ == "__main__":
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-        if hparams["num_spks"] == 2:
-            if "Libri" in hparams["data_folder"]:
-                from dynamic_mixing import (
-                    dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
-                )  # noqa
-            else:
-                from dynamic_mixing import dynamic_mix_data_prep  # noqa
-
-            # if the base_folder for dm is not processed, preprocess them
-            if "processed" not in hparams["base_folder_dm"]:
-                from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
-
-                print("Resampling the base folder")
-                resample_folder(
-                    hparams["base_folder_dm"],
-                    hparams["base_folder_dm"] + "_processed",
-                    hparams["sample_rate"],
-                    "**/*.flac",
-                )
-            train_data = dynamic_mix_data_prep(hparams)
-        elif hparams["num_spks"] == 3:
-            from dynamic_mixing import dynamic_mix_data_prep_3mix  # noqa
-
-            train_data = dynamic_mix_data_prep_3mix(hparams)
+        if "Libri" in hparams["data_folder"]:
+            from dynamic_mixing import (
+                dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
+            )  # noqa
         else:
-            raise ValueError(
-                "The specified number of speakers is not supported."
+            from dynamic_mixing import dynamic_mix_data_prep  # noqa
+
+        # if the base_folder for dm is not processed, preprocess them
+        if "processed" not in hparams["base_folder_dm"]:
+            from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
+                resample_folder,
             )
+
+            print("Resampling the base folder")
+            resample_folder(
+                hparams["base_folder_dm"],
+                hparams["base_folder_dm"] + "_processed",
+                hparams["sample_rate"],
+                "**/*.flac",
+            )
+        train_data = dynamic_mix_data_prep(hparams)
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
