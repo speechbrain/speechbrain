@@ -370,7 +370,9 @@ def dynamic_mix_data_prep_librimix(hparams):
         noise_files = get_wham_noise_filenames(hparams)
 
     @sb.utils.data_pipeline.takes("mix_wav")
-    @sb.utils.data_pipeline.provides("mix_sig", "s1_sig", "s2_sig", "noise_sig")
+    @sb.utils.data_pipeline.provides(
+        "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
+    )
     def audio_pipeline(
         mix_wav,
     ):  # this is dummy --> it means one epoch will be same as without dynamic mixing
@@ -387,8 +389,6 @@ def dynamic_mix_data_prep_librimix(hparams):
 
         # select two speakers randomly
         sources = []
-        first_lvl = None
-
         spk_files = [
             np.random.choice(spk_hashtable[spk], 1, False)[0]
             for spk in speakers
@@ -410,14 +410,22 @@ def dynamic_mix_data_prep_librimix(hparams):
                 warnings.simplefilter("ignore")
                 c_loudness = meter.integrated_loudness(signal)
                 if is_noise:
-                    target_loudness = np.random.randint(MIN_LOUDNESS - 5, MAX_LOUDNESS - 5)
+                    target_loudness = np.random.randint(
+                        MIN_LOUDNESS - 5, MAX_LOUDNESS - 5
+                    )
                 else:
-                    target_loudness = np.random.randint(MIN_LOUDNESS, MAX_LOUDNESS)
-                signal = pyloudnorm.normalize.loudness(signal, c_loudness, target_loudness)
+                    target_loudness = np.random.randint(
+                        MIN_LOUDNESS, MAX_LOUDNESS
+                    )
+                signal = pyloudnorm.normalize.loudness(
+                    signal, c_loudness, target_loudness
+                )
 
                 # check for clipping
-                if np.max(np.abs(src)) >= 1:
+                if np.max(np.abs(signal)) >= 1:
                     signal = signal * MAX_AMP / np.max(np.abs(signal))
+
+            return torch.from_numpy(signal)
 
         for i, spk_file in enumerate(spk_files):
             # select random offset
@@ -432,7 +440,7 @@ def dynamic_mix_data_prep_librimix(hparams):
                 spk_file, frame_offset=start, num_frames=stop - start,
             )
             tmp = tmp[0].numpy()
-            tmp = normalize(signal)
+            tmp = normalize(tmp)
             sources.append(tmp)
 
         sources = torch.stack(sources)
@@ -444,19 +452,23 @@ def dynamic_mix_data_prep_librimix(hparams):
             noise = normalize(noise, is_noise=True)
             mixture = mixture[:min_len] + noise[:min_len]
 
-        # check for clipping 
-        if np.max(np.abs(mixture)) > MAX_AMP:
-            weight = MAX_AMP / np.max(np.abs(mixture))
+        # check for clipping
+        max_amp_insig = mixture.abs().max().item()
+        if max_amp_insig > MAX_AMP:
+            weight = MAX_AMP / max_amp_insig
         else:
             weight = 1
 
-        max_amp = max(torch.abs(mixture).max().item())
         sources = weight * sources
         mixture = weight * mixture
 
         yield mixture
         for i in range(hparams["num_spks"]):
             yield sources[i]
+
+        # If the number of speakers is 2, yield None for the 3rd speaker
+        if hparams["num_spks"] == 2:
+            yield None
 
         if hparams["use_wham_noise"]:
             noise = noise * weight
@@ -466,7 +478,8 @@ def dynamic_mix_data_prep_librimix(hparams):
 
     sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline)
     sb.dataio.dataset.set_output_keys(
-        [train_data], ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
+        [train_data],
+        ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"],
     )
 
     train_data = torch.utils.data.DataLoader(

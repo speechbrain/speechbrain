@@ -64,6 +64,19 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix, WHAM!,
 |NoAugment | 11.4 |
 |SpeedAugment | 13.7|
 
+
+| | SepFormer. Libri2Mix |
+| --- | --- |
+|SpeedAugment | 20.1|
+|DynamicMixing | 20.4|
+
+
+| | SepFormer. Libri3Mix |
+| --- | --- |
+|SpeedAugment | 18.4|
+
+
+
 # Pretrained Models:
 Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can be found through huggingface:
 * https://huggingface.co/speechbrain/sepformer-wsj02mix
