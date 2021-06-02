@@ -63,6 +63,7 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix, WHAM!,
 | --- | --- |
 |NoAugment | 11.4 |
 |SpeedAugment | 13.7|
+|DynamicMixing | 14.0|
 
 
 | | SepFormer. Libri2Mix |
