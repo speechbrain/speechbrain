@@ -646,6 +646,8 @@ if __name__ == "__main__":
                     "regex": "**/*.(flac|wav)",
                 },
             )
+            # adjust the base_folder_dm path
+            hparams["base_folder_dm"] = hparams["base_folder_dm"] + "_processed"
         train_data = dynamic_mix_data_prep(hparams)
         _, valid_data, test_data = dataio_prep(hparams)
     else:
