@@ -600,10 +600,22 @@ if __name__ == "__main__":
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
-            print("Creating Room Impulse Responses...")
-            create_rirs(hparams["rir_path"], hparams["sample_rate"])
+            print("ing Room Impulse Responses...")
+            run_on_main(
+                create_rirs,
+                kwargs={
+                    "output_dir": hparams["rir_path"],
+                    "sr": hparams["sample_rate"],
+                },
+            )
 
-        create_whamr_rir_csv(hparams["rir_path"], hparams["save_folder"])
+        run_on_main(
+            create_whamr_rir_csv,
+            kwargs={
+                "datapath": hparams["rir_path"],
+                "savepath": hparams["save_folder"],
+            },
+        )
 
         hparams["reverb"] = sb.processing.speech_augmentation.AddReverb(
             os.path.join(hparams["save_folder"], "whamr_rirs.csv")
@@ -625,11 +637,14 @@ if __name__ == "__main__":
             )
 
             print("Resampling the base folder")
-            resample_folder(
-                hparams["base_folder_dm"],
-                hparams["base_folder_dm"] + "_processed",
-                hparams["sample_rate"],
-                "**/*.(flac|wav)",
+            run_on_main(
+                resample_folder,
+                kwargs={
+                    "input_folder": hparams["base_folder_dm"],
+                    "output_folder": hparams["base_folder_dm"] + "_processed",
+                    "fs": hparams["sample_rate"],
+                    "regex": "**/*.(flac|wav)",
+                },
             )
         train_data = dynamic_mix_data_prep(hparams)
         _, valid_data, test_data = dataio_prep(hparams)
