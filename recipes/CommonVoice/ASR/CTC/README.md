@@ -19,7 +19,9 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
 | English | 2020-12-11 | train_en_with_wav2vec.yaml | No | 5.01 | 12.57 | 7.32 | 15.58 | Not Avail. | [model]() | 2xV100 32GB |
 | French | 2020-12-11 | train_fr_with_wav2vec.yaml | No | 3.70 | 12.98 | 4.42 | 14.44 | Not Avail. | [model]() | 2xV100 32GB |
+| French | 2020-12-11 | train_it_with_wav2vec.yaml | No | 2.81 | 9.81 | 3.21 | 10.93 | Not Avail. | [model]() | 2xV100 32GB |
 | Kinyarwanda | 2020-12-11 | train_rw_with_wav2vec.yaml | No | 6.20 | 20.07 | 8.25 | 23.12 | Not Avail. | [model]() | 2xV100 32GB |
+
 
 ## How to simply use pretrained models to transcribe my audio file?
 
