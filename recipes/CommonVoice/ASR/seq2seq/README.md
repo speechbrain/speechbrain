@@ -25,6 +25,8 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | Italian | 2020-12-11 | train_it.yaml | No | 5.14 | 15.59 | 5.40 | 16.61 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-it) | [model](https://drive.google.com/drive/folders/1asxPsY1EBGHIpIFhBtUi9oiyR6C7gC0g?usp=sharing) | 2xV100 16GB |
 | English | 2020-12-11 | train_en.yaml | No | 8.66 | 20.16 | 12.93 | 24.89 | Not Avail. | [model](https://drive.google.com/drive/folders/1FAKRhfu_1gLnkshYGKp-6G9ZVMIUlv9n?usp=sharing) | 2xV100 16GB |
 | English | 2020-12-11 | train_en_with_wav2vec.yaml | No | 14.50 | 13.21 | 24.65 | 15.69 | Not Avail. | [model](https://drive.google.com/drive/folders/1EfIZiJi8ch53mil9K4tn46OrmTJq5WYj?usp=sharing) | 2xV100 32GB |
+| Italian | 2020-12-11 | train_it.yaml | No | 5.14 | 15.59 | 15.40 | 16.61 | Not Avail. | [model](https://drive.google.com/drive/folders/1asxPsY1EBGHIpIFhBtUi9oiyR6C7gC0g?usp=sharing) | 2xV100 16GB |
+| Italian | 2020-12-11 | train_it_with_wav2vec.yaml | No | 3.11 | 8.30 | 5.75 | 9.86 | Not Avail. | [model](https://drive.google.com/drive/folders/1LKA50Qsr1fM1E3t4PHMWUjlBMS2QGFHj?usp=sharing) | 2xV100 16GB |
 
 ## How to simply use pretrained models to transcribe my audio file?
 
