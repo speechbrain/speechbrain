@@ -21,7 +21,7 @@ data_folder: !PLACEHOLDER
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
 # you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
-wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: sepformer-whamr-randomreverb
 output_folder: !ref results/<experiment_name>/<seed>
