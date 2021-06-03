@@ -218,11 +218,11 @@ class Pretrained:
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
             Where to put the pretraining material. If not given, will use
-            ./pretrained_checkpoints/<class-name>-hash(source).
+            ./pretrained_models/<class-name>-hash(source).
         """
         if savedir is None:
             clsname = cls.__name__
-            savedir = f"./pretrained_checkpoints/{clsname}-{hash(source)}"
+            savedir = f"./pretrained_models/{clsname}-{hash(source)}"
         hparams_local_path = fetch(hparams_file, source, savedir)
 
         # Load the modules:
@@ -260,7 +260,7 @@ class EndToEndSLU(Pretrained):
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
-    HPARAMS_NEEDED = ["tokenizer", "asr_model"]
+    HPARAMS_NEEDED = ["tokenizer", "asr_model_source"]
     MODULES_NEEDED = [
         "slu_enc",
         "beam_searcher",
@@ -269,6 +269,10 @@ class EndToEndSLU(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
+        self.asr_model = EncoderDecoderASR.from_hparams(
+            source=self.hparams.asr_model_source,
+            run_opts={"device": self.device},
+        )
 
     def decode_file(self, path):
         """Maps the given audio file to a string representing the
@@ -285,6 +289,7 @@ class EndToEndSLU(Pretrained):
             The predicted semantics.
         """
         waveform = self.load_audio(path)
+        waveform = waveform.to(self.device)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -313,10 +318,10 @@ class EndToEndSLU(Pretrained):
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         with torch.no_grad():
-            ASR_encoder_out = self.hparams.asr_model.encode_batch(
+            ASR_encoder_out = self.asr_model.encode_batch(
                 wavs.detach(), wav_lens
             )
-        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
+        encoder_out = self.modules.slu_enc(ASR_encoder_out)
         return encoder_out
 
     def decode_batch(self, wavs, wav_lens):
@@ -341,7 +346,7 @@ class EndToEndSLU(Pretrained):
             Each predicted token id.
         """
         with torch.no_grad():
-            wav_lens = wav_lens.to(self.device)
+            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             predicted_tokens, scores = self.modules.beam_searcher(
                 encoder_out, wav_lens
@@ -735,6 +740,7 @@ class SepformerSeparation(Pretrained):
         """
 
         # Separation
+        mix = mix.to(self.device)
         mix_w = self.modules.encoder(mix)
         est_mask = self.modules.masknet(mix_w)
         mix_w = torch.stack([mix_w] * self.hparams.num_spks)
@@ -777,6 +783,7 @@ class SepformerSeparation(Pretrained):
         path = fetch(fl, source=source, savedir=savedir)
 
         batch, fs_file = torchaudio.load(path)
+        batch = batch.to(self.device)
         fs_model = self.hparams.sample_rate
 
         # resample the data if needed
@@ -849,6 +856,7 @@ class SpectralMaskEnhancement(Pretrained):
         torch.tensor
             A batch of enhanced waveforms of the same shape as input.
         """
+        noisy = noisy.to(self.device)
         noisy_features = self.compute_features(noisy)
 
         # Perform masking-based enhancement, multiplying output with input.
@@ -872,6 +880,7 @@ class SpectralMaskEnhancement(Pretrained):
             If provided, writes enhanced data to this file.
         """
         noisy = self.load_audio(filename)
+        noisy = noisy.to(self.device)
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
