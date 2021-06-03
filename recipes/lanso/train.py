@@ -16,8 +16,14 @@ import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from torch.nn.utils import clip_grad_norm_
+import numpy as np
+from sklearn.metrics import confusion_matrix
 
-
+global output_array
+global label_array
+output_array=np.array([])
+label_array = np.array([])
 class SpeakerBrain(sb.core.Brain):
     """Class for GSC training"
     """
@@ -70,6 +76,10 @@ class SpeakerBrain(sb.core.Brain):
         feats = self.modules.mean_var_norm(feats, lens)
         # print("feats.size():{}".format(feats.size()))
 
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "augment_spec"):
+                feats = self.hparams.augment_spec(feats)
+
         # Embeddings + classifier
         outputs = self.modules.embedding_model(feats)
         if "classifier" in self.modules.keys():
@@ -94,9 +104,22 @@ class SpeakerBrain(sb.core.Brain):
             command = torch.cat([command] * self.n_augment, dim=0)
         # print("command.size():{}".format(command.size()))
 
+        if hasattr(self,"hparams.clip_grad"):
+        # if True:
+            norm = clip_grad_norm_(self.modules.embedding_model.parameters(), self.hparams.clip_grad)
+
         # compute the cost function
         loss = self.hparams.compute_cost(predictions, command, lens)
         # loss = sb.nnet.losses.nll_loss(predictions, command, lens)
+
+        if stage != sb.Stage.TRAIN:
+            global label_array
+            global output_array
+
+            output_label = torch.argmax(predictions[:, 0, :], dim=1).cpu().numpy()
+            # label_list.append(command.cpu().numpy())
+            label_array = np.concatenate((label_array, command.cpu().numpy()[:, 0]))
+            output_array = np.concatenate((output_array, output_label))
 
         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
@@ -111,6 +134,11 @@ class SpeakerBrain(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             self.error_metrics = self.hparams.error_stats()
 
+            global output_array
+            global label_array
+            output_array=np.array([])
+            label_array = np.array([])
+
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
@@ -119,6 +147,11 @@ class SpeakerBrain(sb.core.Brain):
             self.train_stats = stage_stats
         else:
             stage_stats["ErrorRate"] = self.error_metrics.summarize("average")
+
+            global label_array
+            global output_array
+            cm = confusion_matrix(label_array, output_array)
+            print(cm)
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
