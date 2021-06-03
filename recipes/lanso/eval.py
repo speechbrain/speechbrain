@@ -16,6 +16,19 @@ import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from sklearn.metrics import confusion_matrix
+import numpy as np
+
+label_list = []
+output_list = []
+
+global output_array
+global label_array
+output_array=np.array([])
+label_array = np.array([])
+
+global batch_count
+batch_count = 0
 
 
 class SpeakerBrain(sb.core.Brain):
@@ -87,7 +100,17 @@ class SpeakerBrain(sb.core.Brain):
         """
         predictions, lens = predictions
         uttid = batch.id
-        command, _ = batch.command_encoded
+        command, _ = batch.command_encoded    #[batch, 1]
+     
+        global label_array
+        global output_array
+        
+
+        output_label = torch.argmax(predictions[:, 0, :], dim=1).cpu().numpy()
+        # label_list.append(command.cpu().numpy())
+        label_array = np.concatenate((label_array, command.cpu().numpy()[:, 0]))
+        output_array = np.concatenate((output_array, output_label))
+        # output_list.append(output_label)
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN and self.hparams.apply_data_augmentation:
@@ -274,7 +297,10 @@ if __name__ == "__main__":
 
     # Load the best checkpoint for evaluation
     test_stats = speaker_brain.evaluate(
-        test_set=test_data,
+        test_set=valid_data,
         min_key="ErrorRate",
         test_loader_kwargs=hparams["dataloader_options"],
     )
+
+    cm = confusion_matrix(label_array, output_array)
+    print(cm)
