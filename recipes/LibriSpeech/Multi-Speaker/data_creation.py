@@ -94,6 +94,11 @@ def make_data(
     audio_files = []
     for folder in audio_folders:
         temp_path = os.path.join(hparams["new_data_folder"], folder)
+
+        # Remove problematic flac file
+        if folder == "dev-clean":
+            os.remove(os.path.join(temp_path, "TEMP.flac"))
+
         audio_files.append(glob.glob(f"{temp_path}/*.flac"))
 
     nb_folders = len(audio_folders)
