@@ -253,3 +253,7 @@ if __name__ == "__main__":
         max_samples=MAX_SAMPLES,
         audio_folders=AUDIO_FOLDERS,
     )
+    
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("\nCurrent Time =", current_time, "\n")
