@@ -603,7 +603,36 @@ class EncoderClassifier(Pretrained):
         out_prob = self.modules.classifier(emb).squeeze(1)
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
+        return out_prob, score, index, text_lab
 
+    def classify_file(self, path):
+        """Classifies the given audiofile into the given set of labels.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file to classify.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        emb = self.encode_batch(batch, rel_length)
+        out_prob = self.modules.classifier(emb).squeeze(1)
+        score, index = torch.max(out_prob, dim=-1)
+        text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
 
 
