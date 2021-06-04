@@ -1,0 +1,21 @@
+# ############################################################################
+# Model: CRNN
+# losses: TBC
+# Training: Multi-speaker 5s clips from Librispeech 100h
+# Authors:  Matteo Esposito 2021
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data files
+original_data_folder: !PLACEHOLDER # e.g, /home/<user>/data/LibriSpeech
+subfolders: ["dev-clean", "test-clean", "train-clean-100"]
+# N.B. Takes relatively long to create data for train.
+
+new_data_folder: !PLACEHOLDER # e.g, /home/<user>/data/5s-LibriSpeech
+
+# Misc. parameterss
+sampling_rate: 16000 # hz
+max_duration: 5 # seconds
