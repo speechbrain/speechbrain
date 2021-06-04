@@ -118,7 +118,7 @@ def make_data(
     # Crop all samples to max(original_duration, 5)
     for i in range(nb_folders):
         print(
-            f"+++ Shortening and adding padding to all {audio_folders[i].split('/')[-1]} samples to create 5s total duration"
+            f"+++ Shortening all {audio_folders[i].split('/')[-1]} samples to create 5s total duration"
         )
         for recording in audio_files[i]:
             xs_speech = read_audio(recording)
@@ -132,7 +132,7 @@ def make_data(
     audio_files = []
     for folder in audio_folders:
         audio_files.append(
-            glob.glob(f"{hparams['new_data_folder']}{folder}/*.flac")
+            glob.glob(os.path.join(hparams['new_data_folder'], folder, "*.flac"))
         )
 
     for i in range(nb_folders):
@@ -149,12 +149,12 @@ def make_data(
             padding_tensor[0, : xs_speech.size()[1]] = xs_speech
 
             # Write file
+            os.remove(recording)
             write_audio(
                 recording[:-5] + "-w-padding.flac",
                 padding_tensor.reshape(-1),
                 16000,
             )
-            os.remove(recording)  # Delete old flac files.
 
     ## Combine 5s audio clips
     # Create speaker-1 to speaker-5 overlap folders to store new intersecting audio
@@ -220,7 +220,7 @@ def make_data(
                 )
                 write_audio(
                     f"{hparams['new_data_folder']}{audio_folders[folder_id]}/{nb_speakers}-speaker/{mixture_name}",
-                    out.reshape(-1),
+                    mix_final.reshape(-1),
                     16000,
                 )
 
