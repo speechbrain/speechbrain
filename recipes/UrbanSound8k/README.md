@@ -32,11 +32,28 @@ enabling/commenting out the list items. If all are enabled, we concatenate wavef
 # 10-fold Cross Validation
 Per the authors of the UrbanSound8k dataset, some of the pre-defined data folds are much "easier" test sets than others. For a true measure of the quality of a network architecture, we must perform a 10-fold cross validation.
 
-Run the following command to loop through, holding out a single fold for validation/test while trainging on the others:
+Run the following commands to perform a 10-fold cross validation:
 
-`python train_10_fold.py hparams/train_ecapa_tdnn.yaml`
+`python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[2, 3, 4, 5, 6, 7, 8, 9, 10] --valid_fold_nums=[1] --test_fold_nums=[1] --output_folder=./results/urban_sound/fold_1
 
-Note that the train_fold_nums, valid_fold_nums and test_fold_nums hyperparameters are IGNORED by this script.
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 3, 4, 5, 6, 7, 8, 9, 10] --valid_fold_nums=[2] --test_fold_nums=[2] --output_folder=./results/urban_sound/fold_2
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 4, 5, 6, 7, 8, 9, 10] --valid_fold_nums=[3] --test_fold_nums=[3] --output_folder=./results/urban_sound/fold_3
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 5, 6, 7, 8, 9, 10] --valid_fold_nums=[4] --test_fold_nums=[4] --output_folder=./results/urban_sound/fold_4
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 4, 6, 7, 8, 9, 10] --valid_fold_nums=[5] --test_fold_nums=[5] --output_folder=./results/urban_sound/fold_5
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 4, 5, 7, 8, 9, 10] --valid_fold_nums=[6] --test_fold_nums=[6] --output_folder=./results/urban_sound/fold_6
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 4, 5, 6, 8, 9, 10] --valid_fold_nums=[7] --test_fold_nums=[7] --output_folder=./results/urban_sound/fold_7
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 4, 5, 6, 7, 9, 10] --valid_fold_nums=[8] --test_fold_nums=[8] --output_folder=./results/urban_sound/fold_8
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 4, 5, 6, 7, 8, 10] --valid_fold_nums=[9] --test_fold_nums=[9] --output_folder=./results/urban_sound/fold_9
+
+python train.py hparams/train_ecapa_tdnn.yaml --data_folder=/localscratch/UrbanSound8K/ --train_fold_nums=[1, 2, 3, 4, 5, 6, 7, 8, 9] --valid_fold_nums=[10] --test_fold_nums=[10] --output_folder=./results/urban_sound/fold_10
+`
 
 Note that the results for 10-fold must be compiled from the output folders and averaged manually.
 
