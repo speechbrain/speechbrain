@@ -1,0 +1,549 @@
+2021-05-10 22:22:46,588 - speechbrain.core - INFO - Beginning experiment!
+2021-05-10 22:22:46,588 - speechbrain.core - INFO - Experiment folder: ./results/spectral_mask/4234
+2021-05-10 22:22:47,089 - speechbrain.utils.superpowers - DEBUG - absl-py==0.12.0
+appdirs==1.4.4
+attrs==17.4.0
+audioread==2.1.9
+black==19.10b0
+cachetools==4.2.1
+certifi==2020.12.5
+cffi==1.14.5
+cfgv==3.2.0
+chardet==4.0.0
+click==7.1.2
+cycler==0.10.0
+Cython==0.29.22
+decorator==5.0.7
+distlib==0.3.1
+ear==2.0.0
+entrypoints==0.3
+enum34==1.1.10
+filelock==3.0.12
+flake8==3.7.9
+google-auth==1.28.1
+google-auth-oauthlib==0.4.4
+grpcio==1.37.0
+huggingface-hub==0.0.8
+HyperPyYAML==1.0.0
+identify==2.2.2
+idna==2.10
+joblib==1.0.1
+kiwisolver==1.3.1
+librosa==0.8.0
+llvmlite==0.36.0
+lxml==4.6.3
+Markdown==3.3.4
+matplotlib==3.4.1
+mccabe==0.6.1
+more-itertools==8.7.0
+multipledispatch==0.6.0
+nodeenv==1.6.0
+numba==0.53.1
+numpy==1.20.2
+oauthlib==3.1.0
+packaging==20.9
+pandas==1.2.4
+pathspec==0.8.1
+pesq==0.0.2
+Pillow==8.2.0
+pluggy==0.13.1
+pooch==1.3.0
+pre-commit==2.12.0
+protobuf==3.15.8
+py==1.10.0
+pyasn1==0.4.8
+pyasn1-modules==0.2.8
+pycodestyle==2.5.0
+pycparser==2.20
+pyflakes==2.1.1
+pyparsing==2.4.7
+pytest==5.4.1
+python-dateutil==2.8.1
+pytz==2021.1
+PyYAML==5.4.1
+regex==2021.4.4
+requests==2.25.1
+requests-oauthlib==1.3.0
+resampy==0.2.2
+rsa==4.7.2
+ruamel.yaml==0.17.4
+ruamel.yaml.clib==0.2.2
+scikit-learn==0.24.1
+scipy==1.6.2
+sentencepiece==0.1.95
+six==1.15.0
+SoundFile==0.10.3.post1
+-e git+git@github.com:wangwei2009/speechbrain.git@7f33899e2fd8a8c5ec0a6ceca2d8946578350d48#egg=speechbrain
+tensorboard==2.4.1
+tensorboard-plugin-wit==1.8.0
+threadpoolctl==2.1.0
+toml==0.10.2
+torch==1.7.1
+torchaudio==0.7.2
+tqdm==4.60.0
+typed-ast==1.4.2
+typing-extensions==3.7.4.3
+urllib3==1.26.4
+virtualenv==20.4.3
+wavinfo==1.6.2
+wcwidth==0.2.5
+Werkzeug==1.0.1
+yamllint==1.23.0
+
+
+2021-05-10 22:22:47,102 - speechbrain.utils.superpowers - DEBUG - 7f33899e
+
+
+2021-05-10 22:22:55,090 - speechbrain.core - INFO - 6.9M trainable parameters in SEBrain
+2021-05-10 22:22:55,093 - speechbrain.utils.checkpoints - INFO - Would load a checkpoint here, but none found yet.
+2021-05-10 22:22:55,093 - speechbrain.utils.epoch_loop - INFO - Going into epoch 1
+2021-05-10 22:30:38,814 - speechbrain.utils.train_logger - INFO - Epoch: 1 - train loss: 8.70e-03 - valid loss: 1.07e-02, valid pesq: 1.87, valid stoi: 8.26e-01
+2021-05-10 22:30:38,978 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-30-38+00
+2021-05-10 22:30:38,982 - speechbrain.utils.epoch_loop - INFO - Going into epoch 2
+2021-05-10 22:39:01,871 - speechbrain.utils.train_logger - INFO - Epoch: 2 - train loss: 6.19e-03 - valid loss: 9.82e-03, valid pesq: 1.92, valid stoi: 8.31e-01
+2021-05-10 22:39:02,031 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-39-01+00
+2021-05-10 22:39:02,053 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-30-38+00
+2021-05-10 22:39:02,053 - speechbrain.utils.epoch_loop - INFO - Going into epoch 3
+2021-05-10 22:49:11,817 - speechbrain.utils.train_logger - INFO - Epoch: 3 - train loss: 5.52e-03 - valid loss: 9.21e-03, valid pesq: 1.94, valid stoi: 8.34e-01
+2021-05-10 22:49:11,976 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-49-11+00
+2021-05-10 22:49:12,001 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-39-01+00
+2021-05-10 22:49:12,001 - speechbrain.utils.epoch_loop - INFO - Going into epoch 4
+2021-05-10 22:57:54,761 - speechbrain.utils.train_logger - INFO - Epoch: 4 - train loss: 5.09e-03 - valid loss: 8.49e-03, valid pesq: 1.96, valid stoi: 8.35e-01
+2021-05-10 22:57:54,917 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-57-54+00
+2021-05-10 22:57:54,945 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-49-11+00
+2021-05-10 22:57:54,946 - speechbrain.utils.epoch_loop - INFO - Going into epoch 5
+2021-05-10 23:06:42,428 - speechbrain.utils.train_logger - INFO - Epoch: 5 - train loss: 4.81e-03 - valid loss: 7.73e-03, valid pesq: 2.01, valid stoi: 8.38e-01
+2021-05-10 23:06:42,589 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-06-42+00
+2021-05-10 23:06:42,620 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+22-57-54+00
+2021-05-10 23:06:42,620 - speechbrain.utils.epoch_loop - INFO - Going into epoch 6
+2021-05-10 23:14:50,119 - speechbrain.utils.train_logger - INFO - Epoch: 6 - train loss: 4.60e-03 - valid loss: 7.73e-03, valid pesq: 2.03, valid stoi: 8.39e-01
+2021-05-10 23:14:50,297 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-14-50+00
+2021-05-10 23:14:50,334 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-06-42+00
+2021-05-10 23:14:50,334 - speechbrain.utils.epoch_loop - INFO - Going into epoch 7
+2021-05-10 23:24:16,697 - speechbrain.utils.train_logger - INFO - Epoch: 7 - train loss: 4.38e-03 - valid loss: 7.02e-03, valid pesq: 2.05, valid stoi: 8.42e-01
+2021-05-10 23:24:16,861 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-24-16+00
+2021-05-10 23:24:16,903 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-14-50+00
+2021-05-10 23:24:16,903 - speechbrain.utils.epoch_loop - INFO - Going into epoch 8
+2021-05-10 23:32:26,122 - speechbrain.utils.train_logger - INFO - Epoch: 8 - train loss: 4.25e-03 - valid loss: 7.31e-03, valid pesq: 2.06, valid stoi: 8.42e-01
+2021-05-10 23:32:26,277 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-32-26+00
+2021-05-10 23:32:26,318 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-24-16+00
+2021-05-10 23:32:26,319 - speechbrain.utils.epoch_loop - INFO - Going into epoch 9
+2021-05-10 23:39:31,234 - speechbrain.utils.train_logger - INFO - Epoch: 9 - train loss: 4.10e-03 - valid loss: 6.53e-03, valid pesq: 2.08, valid stoi: 8.44e-01
+2021-05-10 23:39:31,387 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-39-31+00
+2021-05-10 23:39:31,429 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-32-26+00
+2021-05-10 23:39:31,429 - speechbrain.utils.epoch_loop - INFO - Going into epoch 10
+2021-05-10 23:47:48,472 - speechbrain.utils.train_logger - INFO - Epoch: 10 - train loss: 4.03e-03 - valid loss: 7.04e-03, valid pesq: 2.08, valid stoi: 8.44e-01
+2021-05-10 23:47:48,632 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-47-48+00
+2021-05-10 23:47:48,680 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-39-31+00
+2021-05-10 23:47:48,681 - speechbrain.utils.epoch_loop - INFO - Going into epoch 11
+2021-05-10 23:56:47,858 - speechbrain.utils.train_logger - INFO - Epoch: 11 - train loss: 3.85e-03 - valid loss: 6.68e-03, valid pesq: 2.10, valid stoi: 8.45e-01
+2021-05-10 23:56:48,015 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-56-47+00
+2021-05-10 23:56:48,067 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-47-48+00
+2021-05-10 23:56:48,068 - speechbrain.utils.epoch_loop - INFO - Going into epoch 12
+2021-05-11 00:06:04,348 - speechbrain.utils.train_logger - INFO - Epoch: 12 - train loss: 3.85e-03 - valid loss: 6.94e-03, valid pesq: 2.09, valid stoi: 8.45e-01
+2021-05-11 00:06:04,500 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-06-04+00
+2021-05-11 00:06:04,544 - speechbrain.utils.epoch_loop - INFO - Going into epoch 13
+2021-05-11 00:14:25,419 - speechbrain.utils.train_logger - INFO - Epoch: 13 - train loss: 3.72e-03 - valid loss: 6.52e-03, valid pesq: 2.12, valid stoi: 8.46e-01
+2021-05-11 00:14:25,569 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-14-25+00
+2021-05-11 00:14:25,652 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-06-04+00
+2021-05-11 00:14:25,654 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-10+23-56-47+00
+2021-05-11 00:14:25,654 - speechbrain.utils.epoch_loop - INFO - Going into epoch 14
+2021-05-11 00:24:09,649 - speechbrain.utils.train_logger - INFO - Epoch: 14 - train loss: 3.69e-03 - valid loss: 6.65e-03, valid pesq: 2.11, valid stoi: 8.46e-01
+2021-05-11 00:24:09,800 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-24-09+00
+2021-05-11 00:24:09,850 - speechbrain.utils.epoch_loop - INFO - Going into epoch 15
+2021-05-11 00:32:20,260 - speechbrain.utils.train_logger - INFO - Epoch: 15 - train loss: 3.56e-03 - valid loss: 6.84e-03, valid pesq: 2.10, valid stoi: 8.47e-01
+2021-05-11 00:32:20,414 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-32-20+00
+2021-05-11 00:32:20,507 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-24-09+00
+2021-05-11 00:32:20,507 - speechbrain.utils.epoch_loop - INFO - Going into epoch 16
+2021-05-11 00:40:49,752 - speechbrain.utils.train_logger - INFO - Epoch: 16 - train loss: 3.52e-03 - valid loss: 5.86e-03, valid pesq: 2.11, valid stoi: 8.48e-01
+2021-05-11 00:40:49,897 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-40-49+00
+2021-05-11 00:40:49,984 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-32-20+00
+2021-05-11 00:40:49,984 - speechbrain.utils.epoch_loop - INFO - Going into epoch 17
+2021-05-11 00:49:10,889 - speechbrain.utils.train_logger - INFO - Epoch: 17 - train loss: 3.45e-03 - valid loss: 6.79e-03, valid pesq: 2.11, valid stoi: 8.48e-01
+2021-05-11 00:49:11,042 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-49-10+00
+2021-05-11 00:49:11,137 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-40-49+00
+2021-05-11 00:49:11,138 - speechbrain.utils.epoch_loop - INFO - Going into epoch 18
+2021-05-11 00:56:45,643 - speechbrain.utils.train_logger - INFO - Epoch: 18 - train loss: 3.45e-03 - valid loss: 6.65e-03, valid pesq: 2.14, valid stoi: 8.47e-01
+2021-05-11 00:56:45,790 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-56-45+00
+2021-05-11 00:56:45,884 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-14-25+00
+2021-05-11 00:56:45,893 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-49-10+00
+2021-05-11 00:56:45,893 - speechbrain.utils.epoch_loop - INFO - Going into epoch 19
+2021-05-11 01:07:09,007 - speechbrain.utils.train_logger - INFO - Epoch: 19 - train loss: 3.34e-03 - valid loss: 6.21e-03, valid pesq: 2.16, valid stoi: 8.48e-01
+2021-05-11 01:07:09,172 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-07-09+00
+2021-05-11 01:07:09,249 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+00-56-45+00
+2021-05-11 01:07:09,250 - speechbrain.utils.epoch_loop - INFO - Going into epoch 20
+2021-05-11 01:14:00,756 - speechbrain.utils.train_logger - INFO - Epoch: 20 - train loss: 3.31e-03 - valid loss: 6.88e-03, valid pesq: 2.12, valid stoi: 8.48e-01
+2021-05-11 01:14:00,910 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-14-00+00
+2021-05-11 01:14:00,981 - speechbrain.utils.epoch_loop - INFO - Going into epoch 21
+2021-05-11 01:22:23,107 - speechbrain.utils.train_logger - INFO - Epoch: 21 - train loss: 3.23e-03 - valid loss: 6.12e-03, valid pesq: 2.13, valid stoi: 8.49e-01
+2021-05-11 01:22:23,266 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-22-23+00
+2021-05-11 01:22:23,388 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-14-00+00
+2021-05-11 01:22:23,388 - speechbrain.utils.epoch_loop - INFO - Going into epoch 22
+2021-05-11 01:30:39,395 - speechbrain.utils.train_logger - INFO - Epoch: 22 - train loss: 3.24e-03 - valid loss: 6.86e-03, valid pesq: 2.16, valid stoi: 8.48e-01
+2021-05-11 01:30:39,548 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-30-39+00
+2021-05-11 01:30:39,674 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-22-23+00
+2021-05-11 01:30:39,674 - speechbrain.utils.epoch_loop - INFO - Going into epoch 23
+2021-05-11 01:38:23,571 - speechbrain.utils.train_logger - INFO - Epoch: 23 - train loss: 3.13e-03 - valid loss: 6.71e-03, valid pesq: 2.14, valid stoi: 8.48e-01
+2021-05-11 01:38:23,724 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-38-23+00
+2021-05-11 01:38:23,851 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-30-39+00
+2021-05-11 01:38:23,851 - speechbrain.utils.epoch_loop - INFO - Going into epoch 24
+2021-05-11 01:47:53,166 - speechbrain.utils.train_logger - INFO - Epoch: 24 - train loss: 3.18e-03 - valid loss: 6.41e-03, valid pesq: 2.16, valid stoi: 8.49e-01
+2021-05-11 01:47:53,325 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-47-53+00
+2021-05-11 01:47:53,451 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-07-09+00
+2021-05-11 01:47:53,460 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-38-23+00
+2021-05-11 01:47:53,460 - speechbrain.utils.epoch_loop - INFO - Going into epoch 25
+2021-05-11 01:57:39,439 - speechbrain.utils.train_logger - INFO - Epoch: 25 - train loss: 3.07e-03 - valid loss: 6.10e-03, valid pesq: 2.16, valid stoi: 8.50e-01
+2021-05-11 01:57:39,593 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-57-39+00
+2021-05-11 01:57:39,678 - speechbrain.utils.epoch_loop - INFO - Going into epoch 26
+2021-05-11 02:06:24,315 - speechbrain.utils.train_logger - INFO - Epoch: 26 - train loss: 3.05e-03 - valid loss: 5.59e-03, valid pesq: 2.20, valid stoi: 8.50e-01
+2021-05-11 02:06:24,469 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-06-24+00
+2021-05-11 02:06:24,610 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-57-39+00
+2021-05-11 02:06:24,613 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+01-47-53+00
+2021-05-11 02:06:24,614 - speechbrain.utils.epoch_loop - INFO - Going into epoch 27
+2021-05-11 02:12:52,641 - speechbrain.utils.train_logger - INFO - Epoch: 27 - train loss: 3.04e-03 - valid loss: 6.01e-03, valid pesq: 2.17, valid stoi: 8.50e-01
+2021-05-11 02:12:52,795 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-12-52+00
+2021-05-11 02:12:52,893 - speechbrain.utils.epoch_loop - INFO - Going into epoch 28
+2021-05-11 02:22:13,705 - speechbrain.utils.train_logger - INFO - Epoch: 28 - train loss: 3.10e-03 - valid loss: 5.64e-03, valid pesq: 2.21, valid stoi: 8.51e-01
+2021-05-11 02:22:13,856 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-22-13+00
+2021-05-11 02:22:14,004 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-06-24+00
+2021-05-11 02:22:14,010 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-12-52+00
+2021-05-11 02:22:14,010 - speechbrain.utils.epoch_loop - INFO - Going into epoch 29
+2021-05-11 02:31:42,962 - speechbrain.utils.train_logger - INFO - Epoch: 29 - train loss: 2.92e-03 - valid loss: 5.35e-03, valid pesq: 2.18, valid stoi: 8.51e-01
+2021-05-11 02:31:43,104 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-31-42+00
+2021-05-11 02:31:43,196 - speechbrain.utils.epoch_loop - INFO - Going into epoch 30
+2021-05-11 02:40:31,389 - speechbrain.utils.train_logger - INFO - Epoch: 30 - train loss: 2.98e-03 - valid loss: 5.69e-03, valid pesq: 2.18, valid stoi: 8.50e-01
+2021-05-11 02:40:31,549 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-40-31+00
+2021-05-11 02:40:31,713 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-31-42+00
+2021-05-11 02:40:31,713 - speechbrain.utils.epoch_loop - INFO - Going into epoch 31
+2021-05-11 02:47:58,397 - speechbrain.utils.train_logger - INFO - Epoch: 31 - train loss: 2.97e-03 - valid loss: 6.03e-03, valid pesq: 2.20, valid stoi: 8.50e-01
+2021-05-11 02:47:58,551 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-47-58+00
+2021-05-11 02:47:58,720 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-40-31+00
+2021-05-11 02:47:58,720 - speechbrain.utils.epoch_loop - INFO - Going into epoch 32
+2021-05-11 02:54:46,035 - speechbrain.utils.train_logger - INFO - Epoch: 32 - train loss: 2.84e-03 - valid loss: 5.62e-03, valid pesq: 2.18, valid stoi: 8.51e-01
+2021-05-11 02:54:46,188 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-54-46+00
+2021-05-11 02:54:46,356 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-47-58+00
+2021-05-11 02:54:46,356 - speechbrain.utils.epoch_loop - INFO - Going into epoch 33
+2021-05-11 03:04:26,741 - speechbrain.utils.train_logger - INFO - Epoch: 33 - train loss: 2.92e-03 - valid loss: 5.64e-03, valid pesq: 2.22, valid stoi: 8.51e-01
+2021-05-11 03:04:26,890 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-04-26+00
+2021-05-11 03:04:27,053 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-54-46+00
+2021-05-11 03:04:27,053 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+02-22-13+00
+2021-05-11 03:04:27,053 - speechbrain.utils.epoch_loop - INFO - Going into epoch 34
+2021-05-11 03:15:03,457 - speechbrain.utils.train_logger - INFO - Epoch: 34 - train loss: 2.81e-03 - valid loss: 6.15e-03, valid pesq: 2.15, valid stoi: 8.50e-01
+2021-05-11 03:15:03,610 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-15-03+00
+2021-05-11 03:15:03,725 - speechbrain.utils.epoch_loop - INFO - Going into epoch 35
+2021-05-11 03:24:03,452 - speechbrain.utils.train_logger - INFO - Epoch: 35 - train loss: 2.80e-03 - valid loss: 5.41e-03, valid pesq: 2.20, valid stoi: 8.51e-01
+2021-05-11 03:24:03,605 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-24-03+00
+2021-05-11 03:24:03,798 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-15-03+00
+2021-05-11 03:24:03,798 - speechbrain.utils.epoch_loop - INFO - Going into epoch 36
+2021-05-11 03:30:58,477 - speechbrain.utils.train_logger - INFO - Epoch: 36 - train loss: 2.80e-03 - valid loss: 5.53e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 03:30:58,637 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-30-58+00
+2021-05-11 03:30:58,836 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-24-03+00
+2021-05-11 03:30:58,837 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-04-26+00
+2021-05-11 03:30:58,838 - speechbrain.utils.epoch_loop - INFO - Going into epoch 37
+2021-05-11 03:41:29,911 - speechbrain.utils.train_logger - INFO - Epoch: 37 - train loss: 2.85e-03 - valid loss: 5.58e-03, valid pesq: 2.24, valid stoi: 8.52e-01
+2021-05-11 03:41:30,068 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-41-29+00
+2021-05-11 03:41:30,205 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-30-58+00
+2021-05-11 03:41:30,205 - speechbrain.utils.epoch_loop - INFO - Going into epoch 38
+2021-05-11 03:51:22,478 - speechbrain.utils.train_logger - INFO - Epoch: 38 - train loss: 2.72e-03 - valid loss: 5.57e-03, valid pesq: 2.21, valid stoi: 8.52e-01
+2021-05-11 03:51:22,632 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-51-22+00
+2021-05-11 03:51:22,759 - speechbrain.utils.epoch_loop - INFO - Going into epoch 39
+2021-05-11 03:59:31,154 - speechbrain.utils.train_logger - INFO - Epoch: 39 - train loss: 2.81e-03 - valid loss: 5.58e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 03:59:31,309 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-59-31+00
+2021-05-11 03:59:31,511 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-51-22+00
+2021-05-11 03:59:31,512 - speechbrain.utils.epoch_loop - INFO - Going into epoch 40
+2021-05-11 04:07:32,079 - speechbrain.utils.train_logger - INFO - Epoch: 40 - train loss: 2.69e-03 - valid loss: 6.28e-03, valid pesq: 2.19, valid stoi: 8.51e-01
+2021-05-11 04:07:32,230 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-07-32+00
+2021-05-11 04:07:32,436 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-59-31+00
+2021-05-11 04:07:32,437 - speechbrain.utils.epoch_loop - INFO - Going into epoch 41
+2021-05-11 04:17:18,985 - speechbrain.utils.train_logger - INFO - Epoch: 41 - train loss: 2.69e-03 - valid loss: 5.68e-03, valid pesq: 2.22, valid stoi: 8.51e-01
+2021-05-11 04:17:19,136 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-17-18+00
+2021-05-11 04:17:19,349 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-07-32+00
+2021-05-11 04:17:19,349 - speechbrain.utils.epoch_loop - INFO - Going into epoch 42
+2021-05-11 04:25:14,834 - speechbrain.utils.train_logger - INFO - Epoch: 42 - train loss: 2.69e-03 - valid loss: 5.49e-03, valid pesq: 2.23, valid stoi: 8.52e-01
+2021-05-11 04:25:14,987 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-25-14+00
+2021-05-11 04:25:15,217 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-17-18+00
+2021-05-11 04:25:15,217 - speechbrain.utils.epoch_loop - INFO - Going into epoch 43
+2021-05-11 04:34:58,782 - speechbrain.utils.train_logger - INFO - Epoch: 43 - train loss: 2.70e-03 - valid loss: 5.36e-03, valid pesq: 2.21, valid stoi: 8.52e-01
+2021-05-11 04:34:58,965 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-34-58+00
+2021-05-11 04:34:59,224 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-25-14+00
+2021-05-11 04:34:59,225 - speechbrain.utils.epoch_loop - INFO - Going into epoch 44
+2021-05-11 04:45:06,538 - speechbrain.utils.train_logger - INFO - Epoch: 44 - train loss: 2.66e-03 - valid loss: 5.30e-03, valid pesq: 2.23, valid stoi: 8.52e-01
+2021-05-11 04:45:06,694 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-45-06+00
+2021-05-11 04:45:06,931 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-34-58+00
+2021-05-11 04:45:06,931 - speechbrain.utils.epoch_loop - INFO - Going into epoch 45
+2021-05-11 04:53:22,260 - speechbrain.utils.train_logger - INFO - Epoch: 45 - train loss: 2.61e-03 - valid loss: 5.17e-03, valid pesq: 2.25, valid stoi: 8.52e-01
+2021-05-11 04:53:22,433 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-53-22+00
+2021-05-11 04:53:22,702 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+03-41-29+00
+2021-05-11 04:53:22,711 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-45-06+00
+2021-05-11 04:53:22,711 - speechbrain.utils.epoch_loop - INFO - Going into epoch 46
+2021-05-11 05:02:11,712 - speechbrain.utils.train_logger - INFO - Epoch: 46 - train loss: 2.62e-03 - valid loss: 5.46e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 05:02:11,866 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-02-11+00
+2021-05-11 05:02:12,023 - speechbrain.utils.epoch_loop - INFO - Going into epoch 47
+2021-05-11 05:10:58,653 - speechbrain.utils.train_logger - INFO - Epoch: 47 - train loss: 2.59e-03 - valid loss: 5.51e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 05:10:58,806 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-10-58+00
+2021-05-11 05:10:59,055 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-02-11+00
+2021-05-11 05:10:59,055 - speechbrain.utils.epoch_loop - INFO - Going into epoch 48
+2021-05-11 05:17:46,614 - speechbrain.utils.train_logger - INFO - Epoch: 48 - train loss: 2.57e-03 - valid loss: 5.52e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 05:17:46,786 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-17-46+00
+2021-05-11 05:17:47,081 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-10-58+00
+2021-05-11 05:17:47,081 - speechbrain.utils.epoch_loop - INFO - Going into epoch 49
+2021-05-11 05:27:18,080 - speechbrain.utils.train_logger - INFO - Epoch: 49 - train loss: 2.56e-03 - valid loss: 5.40e-03, valid pesq: 2.23, valid stoi: 8.52e-01
+2021-05-11 05:27:18,252 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-27-18+00
+2021-05-11 05:27:18,546 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-17-46+00
+2021-05-11 05:27:18,546 - speechbrain.utils.epoch_loop - INFO - Going into epoch 50
+2021-05-11 05:35:25,211 - speechbrain.utils.train_logger - INFO - Epoch: 50 - train loss: 2.54e-03 - valid loss: 5.62e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 05:35:25,369 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-35-25+00
+2021-05-11 05:35:25,636 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-27-18+00
+2021-05-11 05:35:25,636 - speechbrain.utils.epoch_loop - INFO - Going into epoch 51
+2021-05-11 05:42:44,191 - speechbrain.utils.train_logger - INFO - Epoch: 51 - train loss: 2.54e-03 - valid loss: 5.28e-03, valid pesq: 2.23, valid stoi: 8.53e-01
+2021-05-11 05:42:44,363 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-42-44+00
+2021-05-11 05:42:44,662 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-35-25+00
+2021-05-11 05:42:44,663 - speechbrain.utils.epoch_loop - INFO - Going into epoch 52
+2021-05-11 05:49:22,569 - speechbrain.utils.train_logger - INFO - Epoch: 52 - train loss: 2.52e-03 - valid loss: 5.49e-03, valid pesq: 2.23, valid stoi: 8.52e-01
+2021-05-11 05:49:22,746 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-49-22+00
+2021-05-11 05:49:23,061 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-42-44+00
+2021-05-11 05:49:23,061 - speechbrain.utils.epoch_loop - INFO - Going into epoch 53
+2021-05-11 05:57:53,291 - speechbrain.utils.train_logger - INFO - Epoch: 53 - train loss: 2.51e-03 - valid loss: 5.62e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 05:57:53,447 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-57-53+00
+2021-05-11 05:57:53,735 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-49-22+00
+2021-05-11 05:57:53,735 - speechbrain.utils.epoch_loop - INFO - Going into epoch 54
+2021-05-11 06:06:52,653 - speechbrain.utils.train_logger - INFO - Epoch: 54 - train loss: 2.63e-03 - valid loss: 5.23e-03, valid pesq: 2.23, valid stoi: 8.53e-01
+2021-05-11 06:06:52,803 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-06-52+00
+2021-05-11 06:06:53,061 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+05-57-53+00
+2021-05-11 06:06:53,061 - speechbrain.utils.epoch_loop - INFO - Going into epoch 55
+2021-05-11 06:13:42,242 - speechbrain.utils.train_logger - INFO - Epoch: 55 - train loss: 2.46e-03 - valid loss: 5.23e-03, valid pesq: 2.23, valid stoi: 8.53e-01
+2021-05-11 06:13:42,406 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-13-42+00
+2021-05-11 06:13:42,686 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-06-52+00
+2021-05-11 06:13:42,686 - speechbrain.utils.epoch_loop - INFO - Going into epoch 56
+2021-05-11 06:22:42,447 - speechbrain.utils.train_logger - INFO - Epoch: 56 - train loss: 2.46e-03 - valid loss: 5.42e-03, valid pesq: 2.23, valid stoi: 8.52e-01
+2021-05-11 06:22:42,599 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-22-42+00
+2021-05-11 06:22:42,893 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-13-42+00
+2021-05-11 06:22:42,893 - speechbrain.utils.epoch_loop - INFO - Going into epoch 57
+2021-05-11 06:31:56,442 - speechbrain.utils.train_logger - INFO - Epoch: 57 - train loss: 2.48e-03 - valid loss: 5.15e-03, valid pesq: 2.24, valid stoi: 8.54e-01
+2021-05-11 06:31:56,599 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-31-56+00
+2021-05-11 06:31:56,902 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-22-42+00
+2021-05-11 06:31:56,902 - speechbrain.utils.epoch_loop - INFO - Going into epoch 58
+2021-05-11 06:40:19,359 - speechbrain.utils.train_logger - INFO - Epoch: 58 - train loss: 2.48e-03 - valid loss: 5.50e-03, valid pesq: 2.25, valid stoi: 8.52e-01
+2021-05-11 06:40:19,516 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-40-19+00
+2021-05-11 06:40:19,825 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-31-56+00
+2021-05-11 06:40:19,826 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+04-53-22+00
+2021-05-11 06:40:19,826 - speechbrain.utils.epoch_loop - INFO - Going into epoch 59
+2021-05-11 06:49:55,301 - speechbrain.utils.train_logger - INFO - Epoch: 59 - train loss: 2.43e-03 - valid loss: 5.50e-03, valid pesq: 2.24, valid stoi: 8.52e-01
+2021-05-11 06:49:55,458 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-49-55+00
+2021-05-11 06:49:55,655 - speechbrain.utils.epoch_loop - INFO - Going into epoch 60
+2021-05-11 06:58:45,725 - speechbrain.utils.train_logger - INFO - Epoch: 60 - train loss: 2.42e-03 - valid loss: 5.35e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 06:58:45,883 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-58-45+00
+2021-05-11 06:58:46,194 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-49-55+00
+2021-05-11 06:58:46,195 - speechbrain.utils.epoch_loop - INFO - Going into epoch 61
+2021-05-11 07:06:33,755 - speechbrain.utils.train_logger - INFO - Epoch: 61 - train loss: 2.41e-03 - valid loss: 5.06e-03, valid pesq: 2.25, valid stoi: 8.54e-01
+2021-05-11 07:06:33,912 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-06-33+00
+2021-05-11 07:06:34,216 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-40-19+00
+2021-05-11 07:06:34,225 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+06-58-45+00
+2021-05-11 07:06:34,225 - speechbrain.utils.epoch_loop - INFO - Going into epoch 62
+2021-05-11 07:15:04,084 - speechbrain.utils.train_logger - INFO - Epoch: 62 - train loss: 2.50e-03 - valid loss: 5.21e-03, valid pesq: 2.26, valid stoi: 8.54e-01
+2021-05-11 07:15:04,240 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-15-04+00
+2021-05-11 07:15:04,456 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-06-33+00
+2021-05-11 07:15:04,456 - speechbrain.utils.epoch_loop - INFO - Going into epoch 63
+2021-05-11 07:24:16,117 - speechbrain.utils.train_logger - INFO - Epoch: 63 - train loss: 2.41e-03 - valid loss: 5.46e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 07:24:16,262 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-24-16+00
+2021-05-11 07:24:16,458 - speechbrain.utils.epoch_loop - INFO - Going into epoch 64
+2021-05-11 07:32:57,855 - speechbrain.utils.train_logger - INFO - Epoch: 64 - train loss: 2.41e-03 - valid loss: 5.11e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 07:32:58,070 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-32-57+00
+2021-05-11 07:32:58,368 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-24-16+00
+2021-05-11 07:32:58,370 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-15-04+00
+2021-05-11 07:32:58,370 - speechbrain.utils.epoch_loop - INFO - Going into epoch 65
+2021-05-11 07:42:26,733 - speechbrain.utils.train_logger - INFO - Epoch: 65 - train loss: 2.37e-03 - valid loss: 5.25e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 07:42:26,885 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-42-26+00
+2021-05-11 07:42:27,107 - speechbrain.utils.epoch_loop - INFO - Going into epoch 66
+2021-05-11 07:49:56,909 - speechbrain.utils.train_logger - INFO - Epoch: 66 - train loss: 2.36e-03 - valid loss: 5.27e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 07:49:57,067 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-49-56+00
+2021-05-11 07:49:57,414 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-42-26+00
+2021-05-11 07:49:57,415 - speechbrain.utils.epoch_loop - INFO - Going into epoch 67
+2021-05-11 07:58:42,634 - speechbrain.utils.train_logger - INFO - Epoch: 67 - train loss: 2.37e-03 - valid loss: 5.67e-03, valid pesq: 2.24, valid stoi: 8.52e-01
+2021-05-11 07:58:42,792 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-58-42+00
+2021-05-11 07:58:43,146 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-49-56+00
+2021-05-11 07:58:43,147 - speechbrain.utils.epoch_loop - INFO - Going into epoch 68
+2021-05-11 08:06:45,258 - speechbrain.utils.train_logger - INFO - Epoch: 68 - train loss: 2.36e-03 - valid loss: 5.43e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 08:06:45,432 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-06-45+00
+2021-05-11 08:06:45,810 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-58-42+00
+2021-05-11 08:06:45,810 - speechbrain.utils.epoch_loop - INFO - Going into epoch 69
+2021-05-11 08:16:38,256 - speechbrain.utils.train_logger - INFO - Epoch: 69 - train loss: 2.34e-03 - valid loss: 5.11e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 08:16:38,411 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-16-38+00
+2021-05-11 08:16:38,762 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-06-45+00
+2021-05-11 08:16:38,764 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+07-32-57+00
+2021-05-11 08:16:38,764 - speechbrain.utils.epoch_loop - INFO - Going into epoch 70
+2021-05-11 08:25:44,465 - speechbrain.utils.train_logger - INFO - Epoch: 70 - train loss: 2.35e-03 - valid loss: 5.12e-03, valid pesq: 2.26, valid stoi: 8.54e-01
+2021-05-11 08:25:44,616 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-25-44+00
+2021-05-11 08:25:44,845 - speechbrain.utils.epoch_loop - INFO - Going into epoch 71
+2021-05-11 08:34:01,655 - speechbrain.utils.train_logger - INFO - Epoch: 71 - train loss: 2.32e-03 - valid loss: 5.38e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 08:34:01,800 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-34-01+00
+2021-05-11 08:34:02,135 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-25-44+00
+2021-05-11 08:34:02,136 - speechbrain.utils.epoch_loop - INFO - Going into epoch 72
+2021-05-11 08:42:36,342 - speechbrain.utils.train_logger - INFO - Epoch: 72 - train loss: 2.33e-03 - valid loss: 5.17e-03, valid pesq: 2.25, valid stoi: 8.54e-01
+2021-05-11 08:42:36,495 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-42-36+00
+2021-05-11 08:42:36,868 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-34-01+00
+2021-05-11 08:42:36,868 - speechbrain.utils.epoch_loop - INFO - Going into epoch 73
+2021-05-11 08:52:41,429 - speechbrain.utils.train_logger - INFO - Epoch: 73 - train loss: 2.31e-03 - valid loss: 4.95e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 08:52:41,583 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-52-41+00
+2021-05-11 08:52:41,952 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-42-36+00
+2021-05-11 08:52:41,952 - speechbrain.utils.epoch_loop - INFO - Going into epoch 74
+2021-05-11 08:59:55,336 - speechbrain.utils.train_logger - INFO - Epoch: 74 - train loss: 2.30e-03 - valid loss: 5.50e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 08:59:55,489 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-59-55+00
+2021-05-11 08:59:55,863 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-52-41+00
+2021-05-11 08:59:55,863 - speechbrain.utils.epoch_loop - INFO - Going into epoch 75
+2021-05-11 09:07:41,672 - speechbrain.utils.train_logger - INFO - Epoch: 75 - train loss: 2.29e-03 - valid loss: 5.21e-03, valid pesq: 2.28, valid stoi: 8.52e-01
+2021-05-11 09:07:41,830 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-07-41+00
+2021-05-11 09:07:42,268 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-16-38+00
+2021-05-11 09:07:42,276 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+08-59-55+00
+2021-05-11 09:07:42,276 - speechbrain.utils.epoch_loop - INFO - Going into epoch 76
+2021-05-11 09:15:55,190 - speechbrain.utils.train_logger - INFO - Epoch: 76 - train loss: 2.29e-03 - valid loss: 5.25e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 09:15:55,368 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-15-55+00
+2021-05-11 09:15:55,676 - speechbrain.utils.epoch_loop - INFO - Going into epoch 77
+2021-05-11 09:23:40,571 - speechbrain.utils.train_logger - INFO - Epoch: 77 - train loss: 2.29e-03 - valid loss: 5.38e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 09:23:40,755 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-23-40+00
+2021-05-11 09:23:41,249 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-15-55+00
+2021-05-11 09:23:41,249 - speechbrain.utils.epoch_loop - INFO - Going into epoch 78
+2021-05-11 09:31:32,626 - speechbrain.utils.train_logger - INFO - Epoch: 78 - train loss: 2.26e-03 - valid loss: 5.09e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 09:31:32,824 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-31-32+00
+2021-05-11 09:31:33,341 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-23-40+00
+2021-05-11 09:31:33,342 - speechbrain.utils.epoch_loop - INFO - Going into epoch 79
+2021-05-11 09:39:16,789 - speechbrain.utils.train_logger - INFO - Epoch: 79 - train loss: 2.26e-03 - valid loss: 5.37e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 09:39:16,966 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-39-16+00
+2021-05-11 09:39:17,443 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-31-32+00
+2021-05-11 09:39:17,444 - speechbrain.utils.epoch_loop - INFO - Going into epoch 80
+2021-05-11 09:46:52,826 - speechbrain.utils.train_logger - INFO - Epoch: 80 - train loss: 2.25e-03 - valid loss: 5.52e-03, valid pesq: 2.24, valid stoi: 8.52e-01
+2021-05-11 09:46:53,000 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-46-52+00
+2021-05-11 09:46:53,467 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-39-16+00
+2021-05-11 09:46:53,467 - speechbrain.utils.epoch_loop - INFO - Going into epoch 81
+2021-05-11 09:54:37,999 - speechbrain.utils.train_logger - INFO - Epoch: 81 - train loss: 2.25e-03 - valid loss: 5.37e-03, valid pesq: 2.26, valid stoi: 8.52e-01
+2021-05-11 09:54:38,167 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-54-38+00
+2021-05-11 09:54:38,652 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-46-52+00
+2021-05-11 09:54:38,653 - speechbrain.utils.epoch_loop - INFO - Going into epoch 82
+2021-05-11 10:02:29,584 - speechbrain.utils.train_logger - INFO - Epoch: 82 - train loss: 2.24e-03 - valid loss: 5.30e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 10:02:29,738 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-02-29+00
+2021-05-11 10:02:30,144 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-54-38+00
+2021-05-11 10:02:30,144 - speechbrain.utils.epoch_loop - INFO - Going into epoch 83
+2021-05-11 10:10:05,800 - speechbrain.utils.train_logger - INFO - Epoch: 83 - train loss: 2.23e-03 - valid loss: 5.31e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 10:10:05,973 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-10-05+00
+2021-05-11 10:10:06,399 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-02-29+00
+2021-05-11 10:10:06,400 - speechbrain.utils.epoch_loop - INFO - Going into epoch 84
+2021-05-11 10:17:20,244 - speechbrain.utils.train_logger - INFO - Epoch: 84 - train loss: 2.22e-03 - valid loss: 5.48e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 10:17:20,420 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-17-20+00
+2021-05-11 10:17:20,862 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-10-05+00
+2021-05-11 10:17:20,862 - speechbrain.utils.epoch_loop - INFO - Going into epoch 85
+2021-05-11 10:24:55,412 - speechbrain.utils.train_logger - INFO - Epoch: 85 - train loss: 2.22e-03 - valid loss: 5.18e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 10:24:55,556 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-24-55+00
+2021-05-11 10:24:55,954 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-17-20+00
+2021-05-11 10:24:55,954 - speechbrain.utils.epoch_loop - INFO - Going into epoch 86
+2021-05-11 10:31:58,447 - speechbrain.utils.train_logger - INFO - Epoch: 86 - train loss: 2.21e-03 - valid loss: 5.09e-03, valid pesq: 2.28, valid stoi: 8.53e-01
+2021-05-11 10:31:58,604 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-31-58+00
+2021-05-11 10:31:59,044 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-24-55+00
+2021-05-11 10:31:59,047 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+09-07-41+00
+2021-05-11 10:31:59,048 - speechbrain.utils.epoch_loop - INFO - Going into epoch 87
+2021-05-11 10:38:23,242 - speechbrain.utils.train_logger - INFO - Epoch: 87 - train loss: 2.20e-03 - valid loss: 5.35e-03, valid pesq: 2.25, valid stoi: 8.54e-01
+2021-05-11 10:38:23,400 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-38-23+00
+2021-05-11 10:38:23,707 - speechbrain.utils.epoch_loop - INFO - Going into epoch 88
+2021-05-11 10:45:27,008 - speechbrain.utils.train_logger - INFO - Epoch: 88 - train loss: 2.20e-03 - valid loss: 5.42e-03, valid pesq: 2.26, valid stoi: 8.52e-01
+2021-05-11 10:45:27,163 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-45-27+00
+2021-05-11 10:45:27,613 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-38-23+00
+2021-05-11 10:45:27,614 - speechbrain.utils.epoch_loop - INFO - Going into epoch 89
+2021-05-11 10:53:45,404 - speechbrain.utils.train_logger - INFO - Epoch: 89 - train loss: 2.19e-03 - valid loss: 5.20e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 10:53:45,572 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-53-45+00
+2021-05-11 10:53:46,107 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-45-27+00
+2021-05-11 10:53:46,107 - speechbrain.utils.epoch_loop - INFO - Going into epoch 90
+2021-05-11 11:00:50,319 - speechbrain.utils.train_logger - INFO - Epoch: 90 - train loss: 2.18e-03 - valid loss: 5.04e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 11:00:50,468 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-00-50+00
+2021-05-11 11:00:50,940 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+10-53-45+00
+2021-05-11 11:00:50,940 - speechbrain.utils.epoch_loop - INFO - Going into epoch 91
+2021-05-11 11:07:51,455 - speechbrain.utils.train_logger - INFO - Epoch: 91 - train loss: 2.18e-03 - valid loss: 5.44e-03, valid pesq: 2.25, valid stoi: 8.52e-01
+2021-05-11 11:07:51,611 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-07-51+00
+2021-05-11 11:07:52,091 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-00-50+00
+2021-05-11 11:07:52,091 - speechbrain.utils.epoch_loop - INFO - Going into epoch 92
+2021-05-11 11:14:18,609 - speechbrain.utils.train_logger - INFO - Epoch: 92 - train loss: 2.17e-03 - valid loss: 5.43e-03, valid pesq: 2.24, valid stoi: 8.52e-01
+2021-05-11 11:14:18,757 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-14-18+00
+2021-05-11 11:14:19,207 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-07-51+00
+2021-05-11 11:14:19,207 - speechbrain.utils.epoch_loop - INFO - Going into epoch 93
+2021-05-11 11:21:58,326 - speechbrain.utils.train_logger - INFO - Epoch: 93 - train loss: 2.16e-03 - valid loss: 5.50e-03, valid pesq: 2.22, valid stoi: 8.52e-01
+2021-05-11 11:21:58,491 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-21-58+00
+2021-05-11 11:21:58,989 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-14-18+00
+2021-05-11 11:21:58,989 - speechbrain.utils.epoch_loop - INFO - Going into epoch 94
+2021-05-11 11:28:32,356 - speechbrain.utils.train_logger - INFO - Epoch: 94 - train loss: 2.16e-03 - valid loss: 5.24e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 11:28:32,505 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-28-32+00
+2021-05-11 11:28:32,987 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-21-58+00
+2021-05-11 11:28:32,987 - speechbrain.utils.epoch_loop - INFO - Going into epoch 95
+2021-05-11 11:35:49,740 - speechbrain.utils.train_logger - INFO - Epoch: 95 - train loss: 2.15e-03 - valid loss: 5.14e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 11:35:49,896 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-35-49+00
+2021-05-11 11:35:50,384 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-28-32+00
+2021-05-11 11:35:50,385 - speechbrain.utils.epoch_loop - INFO - Going into epoch 96
+2021-05-11 11:43:39,719 - speechbrain.utils.train_logger - INFO - Epoch: 96 - train loss: 2.15e-03 - valid loss: 5.06e-03, valid pesq: 2.27, valid stoi: 8.54e-01
+2021-05-11 11:43:39,878 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-43-39+00
+2021-05-11 11:43:40,371 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-35-49+00
+2021-05-11 11:43:40,371 - speechbrain.utils.epoch_loop - INFO - Going into epoch 97
+2021-05-11 11:50:55,742 - speechbrain.utils.train_logger - INFO - Epoch: 97 - train loss: 2.18e-03 - valid loss: 5.34e-03, valid pesq: 2.23, valid stoi: 8.54e-01
+2021-05-11 11:50:55,894 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-50-55+00
+2021-05-11 11:50:56,377 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-43-39+00
+2021-05-11 11:50:56,377 - speechbrain.utils.epoch_loop - INFO - Going into epoch 98
+2021-05-11 11:58:16,165 - speechbrain.utils.train_logger - INFO - Epoch: 98 - train loss: 2.13e-03 - valid loss: 5.22e-03, valid pesq: 2.27, valid stoi: 8.53e-01
+2021-05-11 11:58:16,339 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-58-16+00
+2021-05-11 11:58:16,840 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-50-55+00
+2021-05-11 11:58:16,841 - speechbrain.utils.epoch_loop - INFO - Going into epoch 99
+2021-05-11 12:04:45,041 - speechbrain.utils.train_logger - INFO - Epoch: 99 - train loss: 2.13e-03 - valid loss: 5.47e-03, valid pesq: 2.24, valid stoi: 8.53e-01
+2021-05-11 12:04:45,199 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-04-45+00
+2021-05-11 12:04:45,715 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+11-58-16+00
+2021-05-11 12:04:45,716 - speechbrain.utils.epoch_loop - INFO - Going into epoch 100
+2021-05-11 12:12:11,489 - speechbrain.utils.train_logger - INFO - Epoch: 100 - train loss: 2.13e-03 - valid loss: 5.30e-03, valid pesq: 2.26, valid stoi: 8.53e-01
+2021-05-11 12:12:11,659 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-12-11+00
+2021-05-11 12:12:12,184 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-04-45+00
+2021-05-11 12:12:12,184 - speechbrain.utils.epoch_loop - INFO - Going into epoch 101
+2021-05-11 12:20:08,409 - speechbrain.utils.train_logger - INFO - Epoch: 101 - train loss: 2.12e-03 - valid loss: 5.70e-03, valid pesq: 2.25, valid stoi: 8.52e-01
+2021-05-11 12:20:08,566 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-20-08+00
+2021-05-11 12:20:09,094 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-12-11+00
+2021-05-11 12:20:09,094 - speechbrain.utils.epoch_loop - INFO - Going into epoch 102
+2021-05-11 12:27:04,349 - speechbrain.utils.train_logger - INFO - Epoch: 102 - train loss: 2.12e-03 - valid loss: 5.54e-03, valid pesq: 2.22, valid stoi: 8.53e-01
+2021-05-11 12:27:04,505 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-27-04+00
+2021-05-11 12:27:05,031 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-20-08+00
+2021-05-11 12:27:05,031 - speechbrain.utils.epoch_loop - INFO - Going into epoch 103
+2021-05-11 12:34:51,078 - speechbrain.utils.train_logger - INFO - Epoch: 103 - train loss: 2.11e-03 - valid loss: 5.38e-03, valid pesq: 2.25, valid stoi: 8.53e-01
+2021-05-11 12:34:51,236 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-34-51+00
+2021-05-11 12:34:51,776 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-27-04+00
+2021-05-11 12:34:51,776 - speechbrain.utils.epoch_loop - INFO - Going into epoch 104
+2021-05-11 12:42:40,026 - speechbrain.utils.train_logger - INFO - Epoch: 104 - train loss: 2.12e-03 - valid loss: 5.43e-03, valid pesq: 2.26, valid stoi: 8.54e-01
+2021-05-11 12:42:40,177 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-42-40+00
+2021-05-11 12:42:40,686 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-34-51+00
+2021-05-11 12:42:40,686 - speechbrain.utils.epoch_loop - INFO - Going into epoch 105
+2021-05-11 12:50:26,732 - speechbrain.utils.train_logger - INFO - Epoch: 105 - train loss: 2.13e-03 - valid loss: 5.53e-03, valid pesq: 2.22, valid stoi: 8.53e-01
+2021-05-11 12:50:26,909 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-50-26+00
+2021-05-11 12:50:27,508 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-42-40+00
+2021-05-11 12:50:27,508 - speechbrain.utils.epoch_loop - INFO - Going into epoch 106
+2021-05-11 12:57:35,445 - speechbrain.utils.train_logger - INFO - Epoch: 106 - train loss: 2.09e-03 - valid loss: 5.22e-03, valid pesq: 2.23, valid stoi: 8.54e-01
+2021-05-11 12:57:35,613 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-57-35+00
+2021-05-11 12:57:36,158 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-50-26+00
+2021-05-11 12:57:36,158 - speechbrain.utils.epoch_loop - INFO - Going into epoch 107
+2021-05-11 13:04:12,867 - speechbrain.utils.train_logger - INFO - Epoch: 107 - train loss: 2.08e-03 - valid loss: 5.52e-03, valid pesq: 2.23, valid stoi: 8.52e-01
+2021-05-11 13:04:13,047 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-04-12+00
+2021-05-11 13:04:13,640 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+12-57-35+00
+2021-05-11 13:04:13,640 - speechbrain.utils.epoch_loop - INFO - Going into epoch 108
+2021-05-11 13:12:17,537 - speechbrain.utils.train_logger - INFO - Epoch: 108 - train loss: 2.09e-03 - valid loss: 5.28e-03, valid pesq: 2.24, valid stoi: 8.54e-01
+2021-05-11 13:12:17,693 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-12-17+00
+2021-05-11 13:12:18,245 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-04-12+00
+2021-05-11 13:12:18,245 - speechbrain.utils.epoch_loop - INFO - Going into epoch 109
+2021-05-11 13:19:49,333 - speechbrain.utils.train_logger - INFO - Epoch: 109 - train loss: 2.08e-03 - valid loss: 5.50e-03, valid pesq: 2.24, valid stoi: 8.53e-01
+2021-05-11 13:19:49,482 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-19-49+00
+2021-05-11 13:19:50,035 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-12-17+00
+2021-05-11 13:19:50,035 - speechbrain.utils.epoch_loop - INFO - Going into epoch 110
+2021-05-11 13:26:50,255 - speechbrain.utils.train_logger - INFO - Epoch: 110 - train loss: 2.08e-03 - valid loss: 5.55e-03, valid pesq: 2.24, valid stoi: 8.53e-01
+2021-05-11 13:26:50,412 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-26-50+00
+2021-05-11 13:26:50,993 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-19-49+00
+2021-05-11 13:26:50,993 - speechbrain.utils.epoch_loop - INFO - Going into epoch 111
+2021-05-11 13:35:13,346 - speechbrain.utils.train_logger - INFO - Epoch: 111 - train loss: 2.07e-03 - valid loss: 5.47e-03, valid pesq: 2.24, valid stoi: 8.53e-01
+2021-05-11 13:35:13,523 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-35-13+00
+2021-05-11 13:35:14,133 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-26-50+00
+2021-05-11 13:35:14,133 - speechbrain.utils.epoch_loop - INFO - Going into epoch 112
+2021-05-11 13:42:22,735 - speechbrain.utils.train_logger - INFO - Epoch: 112 - train loss: 2.07e-03 - valid loss: 5.73e-03, valid pesq: 2.24, valid stoi: 8.53e-01
+2021-05-11 13:42:22,889 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-42-22+00
+2021-05-11 13:42:23,460 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-35-13+00
+2021-05-11 13:42:23,461 - speechbrain.utils.epoch_loop - INFO - Going into epoch 113
+2021-05-11 13:49:56,445 - speechbrain.utils.train_logger - INFO - Epoch: 113 - train loss: 2.06e-03 - valid loss: 5.29e-03, valid pesq: 2.24, valid stoi: 8.54e-01
+2021-05-11 13:49:56,596 - speechbrain.utils.checkpoints - INFO - Saved an end-of-epoch checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-49-56+00
+2021-05-11 13:49:57,174 - speechbrain.utils.checkpoints - INFO - Deleted checkpoint in results/spectral_mask/4234/save/CKPT+2021-05-11+13-42-22+00
+2021-05-11 13:49:57,174 - speechbrain.utils.epoch_loop - INFO - Going into epoch 114

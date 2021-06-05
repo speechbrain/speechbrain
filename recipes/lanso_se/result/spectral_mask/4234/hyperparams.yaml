@@ -1,0 +1,155 @@
+# Generated 2021-05-10 from:
+# /home/wangwei/work/speechbrain/recipes/Voicebank/enhance/mask_sa/hparams/train.yaml
+# yamllint disable
+# #################################
+# Basic training parameters
+# To train a different model, change "!include:" statement to new model file
+# To compute loss in the time domain, switch "waveform_target" to True
+# Authors:
+#  * Szu-Wei Fu 2020
+#  * Peter Plantinga 2020, 2021
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 4234
+__set_seed: !!python/object/apply:torch.manual_seed [4234]
+
+data_folder: /home/wangwei/work/corpus/se/voicebank1/noisy-vctk-16k
+test_clean_folder: /home/wangwei/work/corpus/se/voicebank1/noisy-vctk-16k/clean_testset_wav_16k/
+
+output_folder: ./results/spectral_mask/4234
+save_folder: ./results/spectral_mask/4234/save
+train_log: ./results/spectral_mask/4234/train_log.txt
+enhanced_folder: ./results/spectral_mask/4234/enhanced_wavs
+
+# Basic parameters
+use_tensorboard: true
+tensorboard_logs: ./results/spectral_mask/4234/logs/
+
+# FFT paremeters
+Sample_rate: 16000
+Win_length: 32
+Hop_length: 16
+N_fft: 512
+window_fn: &id003 !name:torch.hamming_window
+
+
+# Data files
+train_annotation: ./results/spectral_mask/4234/train.json
+valid_annotation: ./results/spectral_mask/4234/valid.json
+test_annotation: ./results/spectral_mask/4234/test.json
+skip_prep: false
+
+# Training Parameters
+number_of_epochs: 200
+N_batch: 4
+lr: 0.0001
+sorting: ascending
+dataloader_options:
+  batch_size: 4
+waveform_target: false  # Switch to TRUE to
+
+# Change this import to use a different model
+models:
+# ################################
+# Model: 1-D causal CNNTransformer model
+# Authors: Chien-Feng Liao
+# ################################
+
+# Model Parameters
+  drop_rate: 0.1
+  num_blocks: 8
+  intermediate_size: 512
+  nhead: 16
+  causal: false
+  kernel_size: 3
+  base_channels: 1024
+  padding_type: same
+
+  N_fft: 512
+
+  model: &id001 !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
+
+    d_model: 256
+    output_size: 257
+    output_activation: !name:torch.nn.Sigmoid
+    activation: !name:torch.nn.LeakyReLU
+      negative_slope: 0.01
+    dropout: 0.1
+    num_layers: 8
+    d_ffn: 512
+    nhead: 16
+    causal: false
+    custom_emb_module: !new:speechbrain.nnet.containers.Sequential
+      input_shape: [null, null, 257]
+      conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1024
+        kernel_size: 3
+        padding: same
+      norm1: !name:speechbrain.nnet.normalization.LayerNorm
+      act1: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+      conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 512
+        kernel_size: 3
+        padding: same
+      norm2: !name:speechbrain.nnet.normalization.LayerNorm
+      act2: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+      conv3: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 128
+        kernel_size: 3
+        padding: same
+      norm3: !name:speechbrain.nnet.normalization.LayerNorm
+      act3: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+      conv4: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 256
+        kernel_size: 3
+        padding: same
+      norm4: !name:speechbrain.nnet.normalization.LayerNorm
+      act4: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+epoch_counter: &id002 !new:speechbrain.utils.epoch_loop.EpochCounter
+
+  limit: 200
+
+modules:
+  model: *id001
+opt_class: !name:torch.optim.Adam
+  lr: 0.0001
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: ./results/spectral_mask/4234/save
+  recoverables:
+    model: *id001
+    counter: *id002
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
+# To use STOI loss, switch "waveform_target" to True
+# compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
+
+compute_STFT: &id004 !new:speechbrain.processing.features.STFT
+  sample_rate: 16000
+  win_length: 32
+  hop_length: 16
+  n_fft: 512
+  window_fn: *id003
+compute_ISTFT: &id005 !new:speechbrain.processing.features.ISTFT
+
+  sample_rate: 16000
+  win_length: 32
+  hop_length: 16
+  window_fn: *id003
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+  stft: *id004
+  istft: *id005
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+  norm_type: sentence
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: ./results/spectral_mask/4234/train_log.txt
+
+# Tensorboard logger (optional)
+tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+  save_dir: ./results/spectral_mask/4234/logs/
