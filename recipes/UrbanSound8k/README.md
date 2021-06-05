@@ -19,7 +19,6 @@ UrbanSound8k is divided into 10 classes, one of which (engine_idling) receives s
 9 = car_horn
 ```
 
-
 # Multiclass Classification
 
 Run the following command to train using the ECAPA-TDNN network architecture:
