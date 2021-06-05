@@ -40,7 +40,35 @@ Note that the train_fold_nums, valid_fold_nums and test_fold_nums hyperparameter
 
 Note that the results for 10-fold must be compiled from the output folders and averaged manually.
 
-# Results
+# Performance (single fold)
+test loss: 4.15, test acc: 7.55e-01, test error: 2.46e-01
+
+Per Class Accuracy: 
+0: 0.850
+1: 0.670
+2: 0.600
+3: 0.800
+4: 0.812
+5: 0.554
+6: 0.753
+7: 0.906
+8: 0.790
+9: 0.939, 
+
+ Confusion Matrix: 
+[[85  1  2  3  0  1  1  0  1  6]
+ [ 2 67  5  9  0  3  5  2  6  1]
+ [ 0  3 60  1  1  0 16 16  3  0]
+ [ 0 10  3 80  0  1  0  0  6  0]
+ [ 2  0  0  0 26  4  0  0  0  0]
+ [15 14  7  0  0 46  0  0  1  0]
+ [ 0  0 16  0  0  0 70  6  1  0]
+ [ 0  0  0  0  2  0  3 87  4  0]
+ [ 3  1  4  2  0  1  3  6 79  1]
+ [ 1  0  0  0  0  0  0  0  1 31]]
+
+Please, take a look [here](https://drive.google.com/drive/folders/1sItfg_WNuGX6h2dCs8JTGq2v2QoNTaUg?usp=sharing) for the full experiment folder (with pre-trained models).
+
 
 Classification performance and f-scores are output to the console and log file for each epoch using a passed validation set, and after training using the passed test set.
 
