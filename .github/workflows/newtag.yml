@@ -1,9 +1,9 @@
-name: "Draft release when pushing to main"
+name: "Draft release when pushing new tag"
 
 on:  # yamllint disable-line rule:truthy
   push:
-    branches:
-      - "main"
+    tags:
+      - "v*"
 
 jobs:
   pre-release:
@@ -11,10 +11,8 @@ jobs:
     runs-on: "ubuntu-latest"
 
     steps:
-      - uses: "marvinpinto/action-automatic-releases@v1.1.2"
+      - uses: "marvinpinto/action-automatic-releases@v1.2.0"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
           draft: True
           prerelease: False
-          title: "Change this to vX.Y.Z"
