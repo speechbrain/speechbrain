@@ -186,23 +186,24 @@ of what this would likely mean:
  * Added classes or features warrant a minor version bump. Most weekly updates should fall into this.
  * Patch version bumps should happen only for bug fixes.
 
-When releasing a new version, there are only two user-initiated action that need to occur.
-First, the `develop` branch should be merged to the `main` branch. This means that
-the `main` branch now includes the latest changes to the repository. Second,
-the `main` branch should be tagged with the new version. This is done by
-navigating to the `Releases` page, drafting a new release, and publishing it.
+When releasing a new version, there are a few user-initiated action that need to occur.
+ 1. On the `develop` branch, update `speechbrain/version.txt` to say the new version:
+    X.Y.Z
+ 2. Merge the `develop` branch into the `main` branch:
+    git checkout main
+    git merge develop
+ 3. Push the `main` branch to github:
+    git push
+ 4. Tag the `main` branch with the new version:
+    git tag vX.Y.Z
+ 5. Push the new tag to github:
+    git push --tags
 
-The published release should include a summary of changes from the prior
-version. We have created a GitHub action that is run when the `develop`
-branch is merged with the `main` branch that creates a draft release
-titled "Latest". This draft release should include commits since
-the previous release, but will require some editing to summarize or
-highlight important changes.
-
+This kicks off an automatic action that creates a draft release with release notes.
+Review the notes to make sure they make sense and remove commits that aren't important.
+You can then publish the release to make it public.
 Publishing a new release kicks off a series of automatic tools, listed below:
 
- * The file `version.txt` gets updated with the version (excluding "v") named
-   in the release. This update gets pushed to both `main` and `develop` branches.
  * The `main` branch is checked out and used for building a python package.
  * The built package is uploaded to PyPI and the release is published there.
  * Read the Docs uses Webhooks to get notified when a new version is published.
