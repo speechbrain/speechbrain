@@ -53,6 +53,7 @@ def move_to_root_folder(root_path, cur_path):
             move_to_root_folder(root_path, os.path.join(cur_path, filename))
         else:
             sys.exit("Should never reach here.")
+
     # remove empty folders
     if cur_path != root_path:
         os.rmdir(cur_path)
@@ -84,7 +85,7 @@ def flatten_directory(original_data_path, destination_data_path, audio_folders):
 
 
 def make_data(
-    original_data_path, destination_data_path, max_samples, audio_folders
+    original_data_path, destination_data_path, max_samples, audio_folders, speaker_range, augmentation_factor
 ):
     flatten_directory(original_data_path, destination_data_path, audio_folders)
 
@@ -132,7 +133,9 @@ def make_data(
     audio_files = []
     for folder in audio_folders:
         audio_files.append(
-            glob.glob(os.path.join(hparams['new_data_folder'], folder, "*.flac"))
+            glob.glob(
+                os.path.join(hparams["new_data_folder"], folder, "*.flac")
+            )
         )
 
     for i in range(nb_folders):
@@ -161,7 +164,7 @@ def make_data(
     for folder in audio_folders:
         for i in range(1, 6):
             new_folder_path = os.path.join(
-                hparams["new_data_folder"], folder + "/", f"{i}-speaker"
+                hparams["new_data_folder"], folder, f"{i}-speaker"
             )
             if os.path.exists(new_folder_path):
                 shutil.rmtree(new_folder_path)
@@ -175,17 +178,15 @@ def make_data(
 
     # Get random number of unique speaker audio files and combine them (3 times per point, therefore augmenting data 3x)
     for folder_id in range(nb_folders):
-        nb_speakers_log = {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}
-        for iteration in range(0, 3):
+        nb_speakers_log = {str(i): 0 for i in range(speaker_range[0], speaker_range[1]+1)}
+        for iteration in range(augmentation_factor):
             print(
                 f"Creating {audio_folders[folder_id]} random mixtures ({iteration + 1}/3)"
             )
             for path in audio_files[folder_id]:
                 mix_files = []
-                nb_speakers = random.randint(1, 5)
-                nb_speakers_log[
-                    str(nb_speakers)
-                ] += 1  # Keeping a count of the number of 1-5 speaker signals created.
+                nb_speakers = random.randint(speaker_range[0], speaker_range[1])
+                nb_speakers_log[str(nb_speakers)] += 1  # Keeping a count of the number of 1-5 speaker signals created.
                 speaker_indices = random.sample(
                     unique_speakers[folder_id], nb_speakers
                 )
@@ -202,14 +203,13 @@ def make_data(
                 # Read and combine n unique files.
                 out = torch.zeros(size=(1, max_samples))
                 for flac in mix_files:
-                    # random_amplitude = random.uniform(0.5, 1)
+                    random_amplitude = random.uniform(0.5, 1)
                     signal = read_audio(flac)
-                    out += signal / torch.norm(signal)
+                    out += random_amplitude*signal
 
                 # Normalize mixture
-                # amp_final = random.uniform(0.5, 1)
-                # mix_final = amp_final*out/abs(out)
-                mix_final = out / torch.norm(out)
+                amp_final = random.uniform(0.5, 1)
+                mix_final = amp_final*out/max(abs(out))
 
                 # Output in appropriate folder
                 mixture_name = (
@@ -219,7 +219,7 @@ def make_data(
                     + ".flac"
                 )
                 write_audio(
-                    f"{hparams['new_data_folder']}{audio_folders[folder_id]}/{nb_speakers}-speaker/{mixture_name}",
+                    f"{hparams['new_data_folder']}/{audio_folders[folder_id]}/{nb_speakers}-speaker/{mixture_name}",
                     mix_final.reshape(-1),
                     16000,
                 )
@@ -231,9 +231,7 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("\nCurrent Time =", current_time, "\n")
+    start = datetime.now()
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
@@ -252,8 +250,9 @@ if __name__ == "__main__":
         destination_data_path=hparams["new_data_folder"],
         max_samples=MAX_SAMPLES,
         audio_folders=AUDIO_FOLDERS,
+        speaker_range=hparams['speaker_range'],
+        augmentation_factor=hparams['augmentation_factor']
     )
-    
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("\nCurrent Time =", current_time, "\n")
+
+    end = datetime.now()
+    print("\nTotal runtime =", end-start)

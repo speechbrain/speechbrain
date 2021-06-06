@@ -9,13 +9,13 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Data files
+# Data
 original_data_folder: !PLACEHOLDER # e.g, /home/<user>/data/LibriSpeech
 subfolders: ["dev-clean", "test-clean", "train-clean-100"]
-# N.B. Takes relatively long to create data for train.
-
 new_data_folder: !PLACEHOLDER # e.g, /home/<user>/data/5s-LibriSpeech
 
-# Misc. parameterss
+# Other
 sampling_rate: 16000 # hz
 max_duration: 5 # seconds
+speaker_range: [1, 5] # 1 to 5 speakers
+augmentation_factor: 2
