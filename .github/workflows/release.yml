@@ -23,7 +23,7 @@ jobs:
       - name: Build binary wheel and source tarball
         run: python -m build --sdist --wheel --outdir dist/
       - name: Publish to PyPI
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        if: startsWith(github.ref, 'refs/tags')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_KEY }}
