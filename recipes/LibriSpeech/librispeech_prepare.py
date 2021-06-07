@@ -77,7 +77,7 @@ def prepare_librispeech(
     >>> dev_splits = ['dev-clean']
     >>> te_splits = ['test-clean']
     >>> save_folder = 'librispeech_prepared'
-    >>> prepare_librispeech(data_folder, tr_splits, dev_splits, te_splits, save_folder)
+    >>> prepare_librispeech(data_folder, save_folder, tr_splits, dev_splits, te_splits)
     """
 
     if skip_prep:
