@@ -1,26 +1,8 @@
 """
+The functions to create the .csv files for LibriMix
+
 Author
  * Cem Subakan 2020
-
- This script is based on create_wav_2_speakers.m from wsj0-mix dataset.
- This script creates mixtures from wsj0 dataset.
- Create 2-speaker mixtures
- Note that we use octave to call functions from the voicebox MATLAB toolkit.
-
- This script assumes that WSJ0's wv1 sphere files have already
- been converted to wav files, using the original folder structure
- under wsj0/, e.g.,
- 11-1.1/wsj0/si_tr_s/01t/01to030v.wv1 is converted to wav and
- stored in YOUR_PATH/wsj0/si_tr_s/01t/01to030v.wav, and
- 11-6.1/wsj0/si_dt_05/050/050a0501.wv1 is converted to wav and
- stored in YOUR_PATH/wsj0/si_dt_05/050/050a0501.wav.
- Relevant data from all disks are assumed merged under YOUR_PATH/wsj0/
-
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Copyright (C) 2016 Mitsubishi Electric Research Labs
-                           (Jonathan Le Roux, John R. Hershey, Zhuo Chen)
-    Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 """
 
 import os

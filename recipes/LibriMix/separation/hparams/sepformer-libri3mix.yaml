@@ -20,7 +20,7 @@ data_folder: !PLACEHOLDER
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
 # you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
-base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
+base_folder_dm: /yourpath/LibriSpeech/train-clean-360/
 
 experiment_name: sepformer-libri3mix
 output_folder: !ref results/<experiment_name>/<seed>
