@@ -11,7 +11,8 @@ pip install mir_eval
 To run it:
 
 ```
-python train.py hyperparams/sepformer.yaml
+python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
+python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
 ```
 Make sure you modified the paths inside the parameter file before running the recipe.
 
@@ -25,14 +26,8 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 # Dynamic Mixing:
 
-* This recipe supports dynamic mixing where the training data is dynamically created in order to obtain new utterance combinations during training. For this you need to have the WSJ0 dataset (available though LDC at `https://catalog.ldc.upenn.edu/LDC93S6A`). After this you need to run the preprocessing script under `recipes/WSJ0Mix/meta/preprocess_dynamic_mixing.py`. Then you need to specify the path to the output folder of this script through the `wsj0_tr` variable in the variable. This script converts the recordings into 8kHz, and runs the level normalization script.
+* This recipe supports dynamic mixing where the training data is dynamically created in order to obtain new utterance combinations during training. For this you need to have the WSJ0 dataset (available though LDC at `https://catalog.ldc.upenn.edu/LDC93S6A`).
 
-This script utilises octave to be able to call the matlab function `activlev.m` for level normalization. Depending on your octave version, you might observe the following warning:
-```
-error: called from graphics_toolkit at line 81 column 5
-graphics_toolkit: = toolkit is not available
-```
-This is in essence a warning and does not affect the results of this script.
 
 # WHAM! and WHAMR! dataset:
 
@@ -54,47 +49,19 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix, WHAM!,
 |DynamicMixing | 19.8 |
 
 
-| |SepFormer, WHAM! |
-|--- | ---|
-|SpeedAugment | 16.3 |
-
-
-| | SepFormer. WHAMR! |
-| --- | --- |
-|NoAugment | 11.4 |
-|SpeedAugment | 13.7|
-|DynamicMixing | 14.0|
-
-
-| | SepFormer. Libri2Mix |
-| --- | --- |
-|SpeedAugment | 20.1|
-|DynamicMixing | 20.4|
-
-
-| | SepFormer. Libri3Mix |
-| --- | --- |
-|SpeedAugment | 18.4|
-
-
 
 # Pretrained Models:
 Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can be found through huggingface:
 * https://huggingface.co/speechbrain/sepformer-wsj02mix
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
-* https://huggingface.co/speechbrain/sepformer-wham
-* https://huggingface.co/speechbrain/sepformer-whamr
 
 # Example calls for running the training scripts
 
-* WHAMR! dataset with dynamic mixing `python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr --base_folder_dm yourpath/wsj0-processed/si_tr_s --rir_path yourpath/rir_wavs --dynamic_mixing True`
-
-* Libri2Mix with dynamic mixing `python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri2Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True`
-
-* Libri3Mix with dynamic mixing `python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True`
 
 * WSJ0-2Mix training without dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers`
 
-* WSJ0-3Mix training without dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers --base_folder_dm yourpath/wsj0/si_tr_s --dynamic_mixing True`
+* WSJ0-2Mix training with dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers --base_folder_dm yourpath/wsj0/si_tr_s --dynamic_mixing True`
 
+* WSJ0-3Mix training without dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/3speakers`--num_spks 3
 
+* WSJ0-3Mix training with dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/3speakers`--num_spks 3 --base_folder_dm yourpath/wsj0/si_tr_s --dynamic_mixing True`
