@@ -1,7 +1,7 @@
 # Speech separation with WSJ0MIX
 This folder contains some popular recipes for the WHAM! and WHAMR! datasets.
 
-* This recipe supports train with several source separation models on WSJ2 - Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
+* This recipe supports train with several source separation models on WHAM! and WHAMR! datasets, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
 Additional dependency:
 ```
@@ -22,7 +22,7 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 # WHAM! and WHAMR! dataset:
 
-* This recipe also supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM, simply use `--data_folder /yourpath/wham_original`, and for WHAMR use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder should be named respectively `wham_original` and `whamr`, as the script decides which dataset to use based on the `--data_folder` variable.
+* This recipe supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM!, simply use `--data_folder /yourpath/wham_original`, and for WHAMR! use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder should be named respectively `wham_original` and `whamr`, as the script decides which dataset to use based on the `--data_folder` variable.
 
 
 # Dynamic Mixing:
