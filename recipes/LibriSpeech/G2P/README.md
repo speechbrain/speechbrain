@@ -1,6 +1,6 @@
 # Grapheme-to-phoneme (G2P).
 This folder contains the scripts to train a grapheme-to-phoneme system
-that converts characters in input to phonemes in output. It used the 
+that converts characters in input to phonemes in output. It used the
 lexicon of the LibriSpeech dataset
 
 You can download LibriSpeech at http://www.openslr.org/12
