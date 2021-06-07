@@ -25,10 +25,13 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 * This recipe supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM!, simply use `--data_folder /yourpath/wham_original`, and for WHAMR! use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder should be named respectively `wham_original` and `whamr`, as the script decides which dataset to use based on the `--data_folder` variable.
 
+* The recipe automatically creates a dataset of room impulse responses (RIRs) from the WHAMR! dataset to use for data augmentation. If you do not this folder for RIR, the `train.py` will automatically create a folder, you just need to specify the path with `--rir_path`. Otherwise you can manually create this dataset using the script in `../meta/create_whamr_rirs.py`.
+
 
 # Dynamic Mixing:
 
 * This recipe supports dynamic mixing where the training data is dynamically created in order to obtain new utterance combinations during training. For this you need to have the WSJ0 dataset (available though LDC at `https://catalog.ldc.upenn.edu/LDC93S6A`). After this the script will automatically convert the sampling frequency and save the files if needed.
+
 
 
 # Results
