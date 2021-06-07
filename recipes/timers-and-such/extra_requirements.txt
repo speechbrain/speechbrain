@@ -1,2 +1,2 @@
-inflect
 pandas
+inflect
