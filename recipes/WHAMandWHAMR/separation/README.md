@@ -14,7 +14,8 @@ For `pyroomacoustics`, you need to use the version 0.3.1.
 To run it:
 
 ```
-python train.py hyperparams/sepformer-wham.yaml --data_folder
+python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original
+python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr
 ```
 Make sure you modified the paths inside the parameter file before running the recipe.
 
