@@ -56,6 +56,8 @@ Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through h
 * https://huggingface.co/speechbrain/sepformer-wham
 * https://huggingface.co/speechbrain/sepformer-whamr
 
+* Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
+
 # Example calls for running the training scripts
 
 * WHAMR! dataset with dynamic mixing: `python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr --base_folder_dm yourpath/wsj0-processed/si_tr_s --rir_path yourpath/rir_wavs --dynamic_mixing True`

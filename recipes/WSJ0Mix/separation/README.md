@@ -55,6 +55,8 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * https://huggingface.co/speechbrain/sepformer-wsj02mix
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
 
+* Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
+
 # Example calls for running the training scripts
 
 

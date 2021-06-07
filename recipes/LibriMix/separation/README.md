@@ -3,16 +3,17 @@ This folder contains some popular recipes for the [LibriMix Dataset](https://arx
 
 * This recipe supports train with several source separation models on LibriMix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
-Additional dependency:
+Additional dependencies:
 ```
 pip install mir_eval
+pip install pyloudnorm
 ```
 
 To run it:
 
 ```
 python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri2Mix
-python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri2Mix
+python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix
 
 ```
 Make sure you modified the paths inside the parameter file before running the recipe.
@@ -49,7 +50,7 @@ Here are the SI - SNRi results (in dB) on the test set of LibriMix dataset with 
 
 * Libri3Mix with dynamic mixing `python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True`
 
-* Libri2Mix with dynamic mixing with Wham! noise in the mixtures `python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri2Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True --use_wham_noise True`
+* Libri2Mix with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri2Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True --use_wham_noise True`
 
 * Libri3Mix with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True --use_wham_noise True`
 
