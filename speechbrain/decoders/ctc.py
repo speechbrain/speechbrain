@@ -382,6 +382,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
         batch_outputs.append(out)
     return batch_outputs
 
+
 class CTCDecodeBeamSearch(torch.nn.Module):
     """This class implements the CTC Beam Search Algorithm using the CTCDecode implementation
     Official implementation: https://github.com/parlance/ctcdecode
@@ -399,66 +400,76 @@ class CTCDecodeBeamSearch(torch.nn.Module):
     cutoff_top: int
         Cutoff number in pruning
     cutoff_prob: float
-        Cutoff probability in pruning 
+        Cutoff probability in pruning
     beam_width: int
         Size of the Beam search
     num_processes: int
         Number of worker to parallelize the batch
-    blank_id: int 
+    blank_id: int
         Index of the CTC blank token in labels array
     log_prob_inputs: boolean
-        True if outputs have passed through a LogSoftmax, False if outputs have passed through a Softmax   
+        True if outputs have passed through a LogSoftmax, False if outputs have passed through a Softmax
     """
 
     def __init__(
-            self,
-            labels,
-            model_path,
-            alpha=1.0,
-            beta=1.0,
-            cutoff_top_n=40,
-            cutoff_prob=1.0,
-            beam_width=100,
-            num_processes=4,
-            blank_id=0,
-            log_probs_input=False,
+        self,
+        labels,
+        model_path,
+        alpha=1.0,
+        beta=1.0,
+        cutoff_top_n=40,
+        cutoff_prob=1.0,
+        beam_width=100,
+        num_processes=4,
+        blank_id=0,
+        log_probs_input=False,
     ):
-
         super(CTCDecodeBeamSearch, self).__init__()
 
         try:
-            from ctcdecode import CTCBeamDecoder 
+            from ctcdecode import CTCBeamDecoder
         except ImportError:
-            print("Please install CTCDecode : see https://github.com/parlance/ctcdecode")
+            print(
+                "Please install CTCDecode : see https://github.com/parlance/ctcdecode"
+            )
             exit(1)
 
-
         self.ctc_beam_decoder = CTCBeamDecoder(
-                                    labels,
-                                    model_path,
-                                    alpha=alpha,
-                                    beta=beta,
-                                    cutoff_top_n=cutoff_top_n,
-                                    beam_width=beam_width,
-                                    num_processes=num_processes,
-                                    blank_id=blank_id,
-                                    log_probs_input=log_probs_input
-                                ) 
+            labels,
+            model_path,
+            alpha=alpha,
+            beta=beta,
+            cutoff_top_n=cutoff_top_n,
+            beam_width=beam_width,
+            num_processes=num_processes,
+            blank_id=blank_id,
+            log_probs_input=log_probs_input,
+        )
 
-    def forward(self,p_ctc,nBest=1):
-        beam_results, beam_scores, timesteps, out_lens = self.ctc_beam_decoder.decode(p_ctc)
+    def forward(self, p_ctc, nBest=1):
+        (
+            beam_results,
+            beam_scores,
+            timesteps,
+            out_lens,
+        ) = self.ctc_beam_decoder.decode(p_ctc)
 
-        if(nBest == 1):
-            sequence = [beam_results[batchElem][0][:out_lens[batchElem][0]].tolist() for batchElem in range(len(beam_results))]
+        if nBest == 1:
+            sequence = [
+                beam_results[batchElem][0][: out_lens[batchElem][0]].tolist()
+                for batchElem in range(len(beam_results))
+            ]
         else:
-            
             sequence = []
             for batchElem in range(len(beam_results)):
                 bestBeam = []
                 for currentNbest in range(nBest):
-                    bestBeam.append(beam_results[batchElem][currentNbest][:out_lens[batchElem][currentNbest]])
+                    bestBeam.append(
+                        beam_results[batchElem][currentNbest][
+                            : out_lens[batchElem][currentNbest]
+                        ]
+                    )
                 sequence.append(bestBeam)
-            
 
         return sequence
 
