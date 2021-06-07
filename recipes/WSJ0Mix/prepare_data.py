@@ -1,36 +1,14 @@
 """
+The .csv preperation functions for WSJ0-Mix.
+
 Author
  * Cem Subakan 2020
 
- This script is based on create_wav_2_speakers.m from wsj0-mix dataset.
- This script creates mixtures from wsj0 dataset.
- Create 2-speaker mixtures
- Note that we use octave to call functions from the voicebox MATLAB toolkit.
-
- This script assumes that WSJ0's wv1 sphere files have already
- been converted to wav files, using the original folder structure
- under wsj0/, e.g.,
- 11-1.1/wsj0/si_tr_s/01t/01to030v.wv1 is converted to wav and
- stored in YOUR_PATH/wsj0/si_tr_s/01t/01to030v.wav, and
- 11-6.1/wsj0/si_dt_05/050/050a0501.wv1 is converted to wav and
- stored in YOUR_PATH/wsj0/si_dt_05/050/050a0501.wav.
- Relevant data from all disks are assumed merged under YOUR_PATH/wsj0/
-
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    Copyright (C) 2016 Mitsubishi Electric Research Labs
-                           (Jonathan Le Roux, John R. Hershey, Zhuo Chen)
-    Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-"""
+ """
 
 import os
 import numpy as np
-from tqdm import tqdm
-from speechbrain.dataio.dataio import read_audio, write_audio
-from speechbrain.utils.data_utils import download_file
-from scipy.io import wavfile
-from scipy import signal
-import pickle
+from speechbrain.dataio.dataio import write_audio
 import csv
 
 
@@ -57,27 +35,7 @@ def prepare_wsjmix(
     if skip_prep:
         return
 
-    if "wham_original" in datapath:
-        # if we want to train a model on the original wham dataset
-        create_wham_csv(datapath, savepath)
-    elif "whamr" in datapath:
-        # if we want to train a model on the whamr dataset
-        create_whamr_csv(datapath, savepath, fs)
-    elif "Libri" in datapath:
-        # Libri 2/3Mix datasets
-        if n_spks == 2:
-            assert (
-                "Libri2Mix" in datapath
-            ), "Inconsistent number of speakers and datapath"
-            create_libri2mix_csv(datapath, savepath, addnoise=librimix_addnoise)
-        elif n_spks == 3:
-            assert (
-                "Libri3Mix" in datapath
-            ), "Inconsistent number of speakers and datapath"
-            create_libri3mix_csv(datapath, savepath, addnoise=librimix_addnoise)
-        else:
-            raise ValueError("Unsupported Number of Speakers")
-    elif "wsj" in datapath:
+    if "wsj" in datapath:
 
         if n_spks == 2:
             create_wsj_csv(datapath, savepath)
@@ -86,285 +44,35 @@ def prepare_wsjmix(
         else:
             raise ValueError("Unsupported Number of Speakers")
     else:
-        raise ValueError("Unsupported Dataset")
+        print("Creating a csv file for a custom dataset")
+        create_custom_dataset(datapath, savepath)
 
 
-def create_libri2mix_csv(
+def create_custom_dataset(
     datapath,
     savepath,
-    addnoise=False,
-    version="wav8k/min/",
-    set_types=["train-360", "dev", "test"],
-):
-
-    for set_type in set_types:
-        if addnoise:
-            mix_path = os.path.join(datapath, version, set_type, "mix_both/")
-        else:
-            mix_path = os.path.join(datapath, version, set_type, "mix_clean/")
-
-        s1_path = os.path.join(datapath, version, set_type, "s1/")
-        s2_path = os.path.join(datapath, version, set_type, "s2/")
-        noise_path = os.path.join(datapath, version, set_type, "noise/")
-
-        files = os.listdir(mix_path)
-
-        mix_fl_paths = [mix_path + fl for fl in files]
-        s1_fl_paths = [s1_path + fl for fl in files]
-        s2_fl_paths = [s2_path + fl for fl in files]
-        noise_fl_paths = [noise_path + fl for fl in files]
-
-        csv_columns = [
-            "ID",
-            "duration",
-            "mix_wav",
-            "mix_wav_format",
-            "mix_wav_opts",
-            "s1_wav",
-            "s1_wav_format",
-            "s1_wav_opts",
-            "s2_wav",
-            "s2_wav_format",
-            "s2_wav_opts",
-            "noise_wav",
-            "noise_wav_format",
-            "noise_wav_opts",
-        ]
-
-        with open(savepath + "/libri2mix_" + set_type + ".csv", "w") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-            writer.writeheader()
-            for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
-                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
-            ):
-
-                row = {
-                    "ID": i,
-                    "duration": 1.0,
-                    "mix_wav": mix_path,
-                    "mix_wav_format": "wav",
-                    "mix_wav_opts": None,
-                    "s1_wav": s1_path,
-                    "s1_wav_format": "wav",
-                    "s1_wav_opts": None,
-                    "s2_wav": s2_path,
-                    "s2_wav_format": "wav",
-                    "s2_wav_opts": None,
-                    "noise_wav": noise_path,
-                    "noise_wav_format": "wav",
-                    "noise_wav_opts": None,
-                }
-                writer.writerow(row)
-
-
-def create_libri3mix_csv(datapath, savepath, addnoise=False):
-
-    for set_type in ["train-360", "dev", "test"]:
-        if addnoise:
-            mix_path = os.path.join(
-                datapath, "wav8k/min/" + set_type + "/mix_both/"
-            )
-        else:
-            mix_path = os.path.join(
-                datapath, "wav8k/min/" + set_type + "/mix_clean/"
-            )
-
-        s1_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s1/")
-        s2_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s2/")
-        s3_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s3/")
-        noise_path = os.path.join(datapath, "wav8k/min/" + set_type + "/noise/")
-
-        files = os.listdir(mix_path)
-
-        mix_fl_paths = [mix_path + fl for fl in files]
-        s1_fl_paths = [s1_path + fl for fl in files]
-        s2_fl_paths = [s2_path + fl for fl in files]
-        s3_fl_paths = [s3_path + fl for fl in files]
-        noise_fl_paths = [noise_path + fl for fl in files]
-
-        csv_columns = [
-            "ID",
-            "duration",
-            "mix_wav",
-            "mix_wav_format",
-            "mix_wav_opts",
-            "s1_wav",
-            "s1_wav_format",
-            "s1_wav_opts",
-            "s2_wav",
-            "s2_wav_format",
-            "s2_wav_opts",
-            "s3_wav",
-            "s3_wav_format",
-            "s3_wav_opts",
-            "noise_wav",
-            "noise_wav_format",
-            "noise_wav_opts",
-        ]
-
-        with open(savepath + "/libri3mix_" + set_type + ".csv", "w") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-            writer.writeheader()
-            for (
-                i,
-                (mix_path, s1_path, s2_path, s3_path, noise_path),
-            ) in enumerate(
-                zip(
-                    mix_fl_paths,
-                    s1_fl_paths,
-                    s2_fl_paths,
-                    s3_fl_paths,
-                    noise_fl_paths,
-                )
-            ):
-
-                row = {
-                    "ID": i,
-                    "duration": 1.0,
-                    "mix_wav": mix_path,
-                    "mix_wav_format": "wav",
-                    "mix_wav_opts": None,
-                    "s1_wav": s1_path,
-                    "s1_wav_format": "wav",
-                    "s1_wav_opts": None,
-                    "s2_wav": s2_path,
-                    "s2_wav_format": "wav",
-                    "s2_wav_opts": None,
-                    "s3_wav": s3_path,
-                    "s3_wav_format": "wav",
-                    "s3_wav_opts": None,
-                    "noise_wav": noise_path,
-                    "noise_wav_format": "wav",
-                    "noise_wav_opts": None,
-                }
-                writer.writerow(row)
-
-
-def create_wham_csv(datapath, savepath):
-    """
-    This function creates the csv files to get the speechbrain data loaders for the original wham dataset.
-
-    Arguments:
-        datapath (str) : path for the wsj0-mix dataset.
-        savepath (str) : path where we save the csv file
-    """
-    for set_type in ["tr", "cv", "tt"]:
-        mix_path = os.path.join(
-            datapath, "wav8k/min/" + set_type + "/mix_both/"
-        )
-        s1_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s1/")
-        s2_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s2/")
-        noise_path = os.path.join(datapath, "wav8k/min/" + set_type + "/noise/")
-
-        files = os.listdir(mix_path)
-
-        mix_fl_paths = [mix_path + fl for fl in files]
-        s1_fl_paths = [s1_path + fl for fl in files]
-        s2_fl_paths = [s2_path + fl for fl in files]
-        noise_fl_paths = [noise_path + fl for fl in files]
-
-        csv_columns = [
-            "ID",
-            "duration",
-            "mix_wav",
-            "mix_wav_format",
-            "mix_wav_opts",
-            "s1_wav",
-            "s1_wav_format",
-            "s1_wav_opts",
-            "s2_wav",
-            "s2_wav_format",
-            "s2_wav_opts",
-            "noise_wav",
-            "noise_wav_format",
-            "noise_wav_opts",
-        ]
-
-        with open(savepath + "/whamorg_" + set_type + ".csv", "w") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-            writer.writeheader()
-            for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
-                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
-            ):
-
-                row = {
-                    "ID": i,
-                    "duration": 1.0,
-                    "mix_wav": mix_path,
-                    "mix_wav_format": "wav",
-                    "mix_wav_opts": None,
-                    "s1_wav": s1_path,
-                    "s1_wav_format": "wav",
-                    "s1_wav_opts": None,
-                    "s2_wav": s2_path,
-                    "s2_wav_format": "wav",
-                    "s2_wav_opts": None,
-                    "noise_wav": noise_path,
-                    "noise_wav_format": "wav",
-                    "noise_wav_opts": None,
-                }
-                writer.writerow(row)
-
-
-def create_whamr_csv(
-    datapath,
-    savepath,
-    fs,
-    version="min",
-    savename="whamr_",
-    set_types=["tr", "cv", "tt"],
+    dataset_name="custom",
+    set_types=["train", "valid", "test"],
+    folder_names={
+        "source1": "source1",
+        "source2": "source2",
+        "mixture": "mixture",
+    },
 ):
     """
-    This function creates the csv files to get the speechbrain data loaders for the whamr dataset.
-
-    Arguments:
-        datapath (str) : path for the wsj0-mix dataset.
-        savepath (str) : path where we save the csv file
-        fs (int) : the sampling rate
+    This function creates the csv file for a custom source separation dataset
     """
-    if fs == 8000:
-        sample_rate = "8k"
-    elif fs == 16000:
-        sample_rate = "16k"
-    else:
-        raise ValueError("Unsupported sampling rate")
 
     for set_type in set_types:
-        mix_path = os.path.join(
-            datapath,
-            "wav{}".format(sample_rate),
-            version,
-            set_type,
-            "mix_both_reverb/",
-        )
-        s1_path = os.path.join(
-            datapath,
-            "wav{}".format(sample_rate),
-            version,
-            set_type,
-            "s1_anechoic/",
-        )
-        s2_path = os.path.join(
-            datapath,
-            "wav{}".format(sample_rate),
-            version,
-            set_type,
-            "s2_anechoic/",
-        )
-        noise_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "noise/"
-        )
-        rir_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "rirs/"
-        )
+        mix_path = os.path.join(datapath, set_type, folder_names["mixture"])
+        s1_path = os.path.join(datapath, set_type, folder_names["source1"])
+        s2_path = os.path.join(datapath, set_type, folder_names["source2"])
 
         files = os.listdir(mix_path)
 
-        mix_fl_paths = [mix_path + fl for fl in files]
-        s1_fl_paths = [s1_path + fl for fl in files]
-        s2_fl_paths = [s2_path + fl for fl in files]
-        noise_fl_paths = [noise_path + fl for fl in files]
-        rir_fl_paths = [rir_path + fl + ".t" for fl in files]
+        mix_fl_paths = [os.path.join(mix_path, fl) for fl in files]
+        s1_fl_paths = [os.path.join(s1_path, fl) for fl in files]
+        s2_fl_paths = [os.path.join(s2_path, fl) for fl in files]
 
         csv_columns = [
             "ID",
@@ -381,27 +89,15 @@ def create_whamr_csv(
             "noise_wav",
             "noise_wav_format",
             "noise_wav_opts",
-            "rir_t",
-            "rir_format",
-            "rir_opts",
         ]
 
         with open(
-            os.path.join(savepath, savename + set_type + ".csv"), "w"
+            os.path.join(savepath, dataset_name + "_" + set_type + ".csv"), "w"
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
-            for (
-                i,
-                (mix_path, s1_path, s2_path, noise_path, rir_path),
-            ) in enumerate(
-                zip(
-                    mix_fl_paths,
-                    s1_fl_paths,
-                    s2_fl_paths,
-                    noise_fl_paths,
-                    rir_fl_paths,
-                )
+            for i, (mix_path, s1_path, s2_path) in enumerate(
+                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
             ):
 
                 row = {
@@ -416,43 +112,8 @@ def create_whamr_csv(
                     "s2_wav": s2_path,
                     "s2_wav_format": "wav",
                     "s2_wav_opts": None,
-                    "noise_wav": noise_path,
-                    "noise_wav_format": "wav",
-                    "noise_wav_opts": None,
-                    "rir_t": rir_path,
-                    "rir_format": ".t",
-                    "rir_opts": None,
                 }
                 writer.writerow(row)
-
-
-def create_whamr_rir_csv(datapath, savepath):
-    """
-    This function creates the csv files to get the data loaders for the whamr  dataset.
-
-    Arguments:
-        datapath (str) : path for the whamr rirs.
-        savepath (str) : path where we save the csv file
-    """
-
-    csv_columns = ["ID", "duration", "wav", "wav_format", "wav_opts"]
-
-    files = os.listdir(datapath)
-    all_paths = [os.path.join(datapath, fl) for fl in files]
-
-    with open(savepath + "/whamr_rirs.csv", "w") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-        writer.writeheader()
-        for i, wav_path in enumerate(all_paths):
-
-            row = {
-                "ID": i,
-                "duration": 2.0,
-                "wav": wav_path,
-                "wav_format": "wav",
-                "wav_opts": None,
-            }
-            writer.writerow(row)
 
 
 def create_wsj_csv(datapath, savepath):
@@ -680,246 +341,3 @@ def save_mixture(
         sampling_rate=sampling_rate,
     )
     return scaling, scaling16bit
-
-
-def arrange_task_files(TaskFile, min_max, data_type, log_dir):
-    """
-    This function gets the specifications on on what file to read
-    and also opens the files for the logs.
-
-    Arguments:
-        TaskFile (str): The path to the file that specifies the sources.
-        min_max (list): Specifies whether we use min. or max. of the sources,
-                        while creating mixtures
-        data_type (list): Specifies which set to create, in ['tr', 'cv', 'tt']
-        log_dir (str): The string which points to the logs for data creation.
-    """
-    with open(TaskFile, "r") as fid:
-        lines = fid.read()
-        C = []
-
-        for i, line in enumerate(lines.split("\n")):
-            # print(i)
-            if not len(line) == 0:
-                C.append(line.split())
-
-    Source1File = os.path.join(
-        log_dir, "mix_2_spk_" + min_max + "_" + data_type + "_1"
-    )
-    Source2File = os.path.join(
-        log_dir, "mix_2_spk_" + min_max + "_" + data_type + "_2"
-    )
-    MixFile = os.path.join(
-        log_dir, "mix_2_spk_" + min_max + "_" + data_type + "_mix"
-    )
-    return Source1File, Source2File, MixFile, C
-
-
-def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
-    """
-    This function constructs the wsj0-2mix dataset out of wsj0 dataset.
-    (We are assuming that we have the wav files and not the sphere format)
-
-    Argument:
-        wsj0root (str): This string specifies the root folder for the wsj0 dataset.
-        output_dir (str): The string that species the save folder.
-        save_fs (str): The string that specifies the saving sampling frequency, in ['wav8k', 'wav16k']
-        min_maxs (list): The list that contains the specification on whether we take min. or max. of signals
-                         to construct the mixtures. example: ["min", "max"]
-    """
-
-    data_types = ["tr", "cv", "tt"]  # train, valid and test sets
-
-    from oct2py import octave
-
-    filedir = os.path.dirname(os.path.realpath(__file__))
-    octave.addpath(
-        filedir + "/meta"
-    )  # add the matlab functions to octave dir here
-
-    fs_read = 8000 if save_fs == "wav8k" else 16000
-
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-
-    if not os.path.exists(os.path.join(output_dir, save_fs)):
-        os.mkdir(os.path.join(output_dir, save_fs))
-
-    log_dir = os.path.join(output_dir, save_fs + "/mixture_definitions_log")
-    if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
-
-    # get the the text files in the current working directory
-    filelinks = [
-        "https://www.dropbox.com/s/u5gk5h3htzw4cgo/mix_2_spk_tr.txt?dl=1",
-        "https://www.dropbox.com/s/s3s6311d95n4sip/mix_2_spk_cv.txt?dl=1",
-        "https://www.dropbox.com/s/9kdxb2uz18a5k9d/mix_2_spk_tt.txt?dl=1",
-    ]
-    for filelink, data_type in zip(filelinks, data_types):
-        filepath = os.path.join(
-            filedir, "meta", "mix_2_spk_" + data_type + ".txt"
-        )
-        if not os.path.exists(filepath):
-            download_file(filelink, filepath)
-
-    inner_folders = ["s1", "s2", "mix"]
-    for min_max in min_maxs:
-        for data_type in data_types:
-            save_dir = os.path.join(
-                output_dir, save_fs + "/" + min_max + "/" + data_type
-            )
-
-            if not os.path.exists(
-                os.path.join(output_dir, save_fs + "/" + min_max)
-            ):
-                os.mkdir(os.path.join(output_dir, save_fs + "/" + min_max))
-
-            if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-
-            for inner_folder in inner_folders:
-                if not os.path.exists(os.path.join(save_dir, inner_folder)):
-                    os.mkdir(os.path.join(save_dir, inner_folder))
-
-            TaskFile = os.path.join(
-                filedir, "meta", "mix_2_spk_" + data_type + ".txt"
-            )
-            Source1File, Source2File, MixFile, C = arrange_task_files(
-                TaskFile, min_max, data_type, log_dir
-            )
-
-            fid_s1 = open(Source1File, "w")
-            fid_s2 = open(Source2File, "w")
-            fid_m = open(MixFile, "w")
-
-            num_files = len(C)
-
-            print("{} \n".format(min_max + "_" + data_type))
-
-            for i, line in tqdm(enumerate(C)):
-
-                _, inwav1_dir, _, inwav1_name = line[0].split("/")
-                _, inwav2_dir, _, inwav2_name = line[2].split("/")
-
-                # write the log data to the log files
-                fid_s1.write("{}\n".format(line[0]))
-                fid_s2.write("{}\n".format(line[2]))
-
-                inwav1_snr = line[1]
-                inwav2_snr = line[3]
-
-                mix_name = (
-                    inwav1_name
-                    + "_"
-                    + str(inwav1_snr)
-                    + "_"
-                    + inwav2_name
-                    + "_"
-                    + str(inwav2_snr)
-                )
-                fid_m.write("{}\n".format(mix_name))
-
-                fs, _ = wavfile.read(os.path.join(wsj0root, line[0]))
-                s1 = read_audio(os.path.join(wsj0root, line[0]))
-                s2 = read_audio(os.path.join(wsj0root, line[2]))
-
-                # resample, determine levels for source 1
-                s1_8k = signal.resample(s1, int((fs_read / fs) * len(s1)))
-                out = octave.activlev(s1_8k, fs_read, "n")
-                s1_8k, lev1 = out[:-1].squeeze(), out[-1]
-                # print('lev1 {}'.format(lev1))
-
-                # resample, determine levels for source 2
-                s2_8k = signal.resample(s2, int((fs_read / fs) * len(s2)))
-                out = octave.activlev(s2_8k, fs_read, "n")
-                s2_8k, lev2 = out[:-1].squeeze(), out[-1]
-
-                weight_1 = 10 ** (float(inwav1_snr) / 20)
-                weight_2 = 10 ** (float(inwav2_snr) / 20)
-
-                # apply same gain to 16 kHz file
-                if save_fs == "wav8k":
-                    s1_8k = weight_1 * s1_8k
-                    s2_8k = weight_2 * s2_8k
-
-                    scaling_8k, scaling16bit_8k = save_mixture(
-                        s1_8k,
-                        s2_8k,
-                        min_max,
-                        weight_1,
-                        weight_2,
-                        num_files,
-                        lev1,
-                        lev2,
-                        save_fs,
-                        output_dir,
-                        data_type,
-                        mix_name,
-                        i,
-                    )
-                elif save_fs == "wav16k":
-                    s1_16k = weight_1 * s1 / np.sqrt(lev1)
-                    s2_16k = weight_2 * s2 / np.sqrt(lev2)
-
-                    scaling_16k, scaling16bit_16k = save_mixture(
-                        s1_16k,
-                        s2_16k,
-                        min_max,
-                        weight_1,
-                        weight_2,
-                        num_files,
-                        lev1,
-                        lev2,
-                        save_fs,
-                        output_dir,
-                        data_type,
-                        mix_name,
-                        i,
-                    )
-                else:
-                    raise ValueError("Incorrect sampling frequency for saving")
-
-            if save_fs == "wav8k":
-                pickle.dump(
-                    {
-                        "scaling_8k": scaling_8k,
-                        "scaling8bit_8k": scaling16bit_8k,
-                    },
-                    open(
-                        output_dir
-                        + "/"
-                        + save_fs
-                        + "/"
-                        + min_max
-                        + "/"
-                        + data_type
-                        + "/scaling.pkl",
-                        "wb",
-                    ),
-                )
-            elif save_fs == "wav16k":
-                pickle.dump(
-                    {
-                        "scaling_16k": scaling_16k,
-                        "scaling16bit_16k": scaling16bit_16k,
-                    },
-                    open(
-                        output_dir
-                        + "/"
-                        + save_fs
-                        + "/"
-                        + min_max
-                        + "/"
-                        + data_type
-                        + "/scaling.pkl",
-                        "wb",
-                    ),
-                )
-            else:
-                raise ValueError("Incorrect sampling frequency for saving")
-
-
-if __name__ == "__main__":
-    wsj0root = "/network/tmp1/subakany/wsj0-mix"
-    output_dir = "."
-    get_wsj_files(wsj0root, output_dir)
