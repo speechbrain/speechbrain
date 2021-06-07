@@ -1,2 +1,0 @@
-mir_eval
-pyroomacoustics==0.3.1
