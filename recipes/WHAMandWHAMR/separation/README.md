@@ -17,8 +17,6 @@ To run it:
 python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original
 python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr
 ```
-Make sure you modified the paths inside the parameter file before running the recipe.
-
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 # WHAM! and WHAMR! dataset:

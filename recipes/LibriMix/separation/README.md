@@ -16,8 +16,6 @@ python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri2Mi
 python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix
 
 ```
-Make sure you modified the paths inside the parameter file before running the recipe.
-
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 
