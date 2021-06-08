@@ -162,7 +162,7 @@ def make_data(
     ## Combine 5s audio clips
     # Create speaker-1 to speaker-5 overlap folders to store new intersecting audio
     for folder in audio_folders:
-        for i in range(1, 6):
+        for i in range(speaker_range[0], speaker_range[1]+1):
             new_folder_path = os.path.join(
                 hparams["new_data_folder"], folder, f"{i}-speaker"
             )
@@ -181,7 +181,7 @@ def make_data(
         nb_speakers_log = {str(i): 0 for i in range(speaker_range[0], speaker_range[1]+1)}
         for iteration in range(augmentation_factor):
             print(
-                f"Creating {audio_folders[folder_id]} random mixtures ({iteration + 1}/3)"
+                f"Creating {audio_folders[folder_id]} random mixtures ({iteration + 1}/{augmentation_factor})"
             )
             for path in audio_files[folder_id]:
                 mix_files = []
@@ -209,7 +209,7 @@ def make_data(
 
                 # Normalize mixture
                 amp_final = random.uniform(0.5, 1)
-                mix_final = amp_final*out/max(abs(out))
+                mix_final = amp_final*out/(out.abs().max())
 
                 # Output in appropriate folder
                 mixture_name = (
