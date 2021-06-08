@@ -5,6 +5,14 @@ from scipy.signal import resample_poly
 
 
 class WhamRoom(pra.room.ShoeBox):
+    """
+    This class is taken from the original WHAMR! scripts.
+    The original script can be found in
+    http://wham.whisper.ai/
+
+    This class is used to simulate the room-impulse-responses (RIRs) in the WHAMR dataset.
+    """
+
     def __init__(
         self, p, mics, s1, s2, T60, fs=16000, t0=0.0, sigma2_awgn=None
     ):

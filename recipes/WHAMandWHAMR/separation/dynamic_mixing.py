@@ -19,6 +19,9 @@ Authors
 
 
 def build_spk_hashtable(hparams):
+    """
+    This function builds a dictionary of speaker-utterance pairs to be used in dynamic mixing
+    """
 
     wsj0_utterances = glob.glob(
         os.path.join(hparams["base_folder_dm"], "**/*.wav"), recursive=True
@@ -46,6 +49,7 @@ def build_spk_hashtable(hparams):
 
 
 def get_wham_noise_filenames(hparams):
+    "This function lists the WHAM! noise files to be used in dynamic mixing"
 
     if "Libri" in hparams["data_folder"]:
         # Data folder should point to Libri2Mix folder
@@ -97,6 +101,9 @@ def dynamic_mix_data_prep(hparams):
     def audio_pipeline(
         mix_wav,
     ):  # this is dummy --> it means one epoch will be same as without dynamic mixing
+        """
+        This audio pipeline defines the compute graph for dynamic mixing
+        """
 
         speakers = np.random.choice(
             spk_list, hparams["num_spks"], replace=False, p=spk_weights
