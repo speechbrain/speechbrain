@@ -12,10 +12,7 @@ To run it:
 
 ```
 python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
-python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
 ```
-Make sure you modified the paths inside the parameter file before running the recipe.
-
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 
@@ -29,14 +26,9 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 * This recipe supports dynamic mixing where the training data is dynamically created in order to obtain new utterance combinations during training. For this you need to have the WSJ0 dataset (available though LDC at `https://catalog.ldc.upenn.edu/LDC93S6A`).
 
 
-# WHAM! and WHAMR! dataset:
-
-* This recipe also supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM, simply use `--data_folder /yourpath/wham_original`, and for WHAMR use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder should be named respectively `wham_original` and `whamr`, as the script decides which dataset to use based on the `--data_folder` variable.
-
-
 # Results
 
-Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix, WHAM!, WHAMR! datasets with SepFormer:
+Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix with SepFormer:
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
