@@ -1271,7 +1271,7 @@ class SepformerWrapper(nn.Module):
     masknet_extraskipconnection: bool,
         This introduces extra skip connections around the intra block
     masknet_numspks: int,
-        This determines the number of sepakers to estimate
+        This determines the number of speakers to estimate
     intra_numlayers: int,
         This determines the number of layers in the intra block
     inter_numlayers: int,

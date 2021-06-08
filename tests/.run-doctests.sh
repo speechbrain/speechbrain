@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e -u -o pipefail
 
-# It is ugly but currently we have to specifically filter out transducer loss here.
-# Otherwise pytest will stubbornly fail on import if you don't have numba.
-# (In contrast, implicitly discovered files which produce ImportErrors are ignored.)
-git ls-files speechbrain | grep -e "\.py$" | grep -v "transducer_loss.py" | xargs pytest --doctest-modules
+# To run doctests locally, the easiest approach is to do:
+# > pytest --doctest-modules speechbrain/
+# However, we take this more complex approach to avoid testing files not
+# tracked by git. We filter out tests that require optional dependencies.
+avoid="transducer_loss.py\|fairseq_wav2vec.py\|huggingface_wav2vec.py"
+git ls-files speechbrain | grep -e "\.py$" | grep -v $avoid | xargs pytest --doctest-modules

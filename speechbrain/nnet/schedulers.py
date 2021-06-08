@@ -260,6 +260,10 @@ class NoamScheduler:
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
         numer of warm-up steps
+    model_size : int
+        size of transformer embed_dim. It is used to scale the maximum learning rate value reached
+        by the scheduler. It is divided by model_size ** (0.5).
+        If not specified the maximum learning rate value is instead multiplied by warmup_steps ** (0.5).
 
     Example
     -------
@@ -271,13 +275,13 @@ class NoamScheduler:
     >>> scheduler =NoamScheduler(optim.param_groups[0]["lr"], 3)
     >>> curr_lr,next_lr=scheduler(optim)
     >>> optim.param_groups[0]["lr"]
-    0.33333333333333337
+    0.3333333333333333
     >>> curr_lr,next_lr=scheduler(optim)
     >>> optim.param_groups[0]["lr"]
-    0.6666666666666667
+    0.6666666666666666
     >>> curr_lr,next_lr=scheduler(optim)
     >>> optim.param_groups[0]["lr"]
-    1.0
+    0.9999999999999999
     """
 
     def __init__(self, lr_initial, n_warmup_steps, model_size=None):
@@ -285,9 +289,8 @@ class NoamScheduler:
         self.n_warmup_steps = n_warmup_steps
         self.current_lr = lr_initial
         self.losses = []
-
         self.n_steps = 0
-        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        self.normalize = n_warmup_steps ** 0.5
         if model_size is not None:
             self.normalize = model_size ** (-0.5)
 
@@ -578,7 +581,7 @@ class CyclicLRScheduler:
         The lr at any cycle is the sum of base_lr
         and some scaling of the amplitude; therefore
         max_lr may not actually be reached depending on
-        scalling function.
+        scaling function.
     step_size : int
         number of training iterations per
         half cycle. The authors suggest setting step_size
@@ -595,7 +598,7 @@ class CyclicLRScheduler:
         Custom scaling policy defined by a single
         argument lambda function, where
         0 <= scale_fn(x) <= 1 for all x >= 0.
-        mode paramater is ignored
+        mode parameter is ignored
     scale_mode : str
         {'cycle', 'iterations'}.
         Defines whether scale_fn is evaluated on

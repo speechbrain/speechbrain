@@ -1,4 +1,4 @@
-"""Implentation of a Recurrent Language Model.
+"""Implementation of a Recurrent Language Model.
 
 Authors
  * Mirco Ravanelli 2020

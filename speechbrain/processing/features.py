@@ -521,7 +521,7 @@ class Filterbank(torch.nn.Module):
                 * self.param_change_factor
             )
 
-        # Regularization with random changes of filter central frequnecy and band
+        # Regularization with random changes of filter central frequency and band
         elif self.param_rand_factor != 0 and self.training:
             rand_change = (
                 1.0
@@ -987,7 +987,6 @@ class InputNormalization(torch.nn.Module):
         self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
-        self.device_inp = torch.device("cpu")
         self.update_until_epoch = update_until_epoch
 
     def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
@@ -1005,7 +1004,6 @@ class InputNormalization(torch.nn.Module):
             It is used to perform per-speaker normalization when
             norm_type='speaker'.
         """
-        self.device_inp = x.device
         N_batches = x.shape[0]
 
         current_means = []
@@ -1100,7 +1098,7 @@ class InputNormalization(torch.nn.Module):
         return x
 
     def _compute_current_stats(self, x):
-        """Returns the tensor with the sourrounding context.
+        """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
@@ -1172,6 +1170,17 @@ class InputNormalization(torch.nn.Module):
         self.spk_dict_count = state["spk_dict_count"]
 
         return state
+
+    def to(self, device):
+        """Puts the needed tensors in the right device.
+        """
+        self = super(InputNormalization, self).to(device)
+        self.glob_mean = self.glob_mean.to(device)
+        self.glob_std = self.glob_std.to(device)
+        for spk in self.spk_dict_mean:
+            self.spk_dict_mean[spk] = self.spk_dict_mean[spk].to(device)
+            self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
+        return self
 
     @mark_as_saver
     def _save(self, path):

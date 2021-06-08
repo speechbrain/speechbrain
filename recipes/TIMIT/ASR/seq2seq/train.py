@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Recipe for training a phoneme recognizer on TIMIT.
 The system relies on an encoder, a decoder, and attention mechanisms between them.
-Traning is done with NLL. CTC loss is also added on the top of the encoder.
+Training is done with NLL. CTC loss is also added on the top of the encoder.
 Greedy search is using for validation, while beamsearch is used at test time to
 improve the system performance.
 
