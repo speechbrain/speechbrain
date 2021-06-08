@@ -61,3 +61,8 @@ Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through h
 * WHAMR! dataset with dynamic mixing: `python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr --base_folder_dm yourpath/wsj0-processed/si_tr_s --rir_path yourpath/rir_wavs --dynamic_mixing True`
 
 * WHAM! dataset with dynamic mixing: `python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original --base_folder_dm yourpath/wsj0-processed/si_tr_s --dynamic_mixing True`
+
+* WHAMR! dataset without dynamic mixing: `python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr  --rir_path yourpath/rir_wavs`
+
+* WHAM! dataset with dynamic mixing: `python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original`
+
