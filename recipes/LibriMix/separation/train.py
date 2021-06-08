@@ -1,16 +1,16 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
-dataset. The system employs an encoder, a decoder, and a masking network.
+"""Recipe for training a neural speech separation system on Libri2/3Mix datasets.
+The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
-> python train.py hparams/sepformer.yaml
-> python train.py hparams/dualpath_rnn.yaml
-> python train.py hparams/convtasnet.yaml
+> python train.py hparams/sepformer-libri2mix.yaml
+> python train.py hparams/sepformer-libri3mix.yaml
+
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
-different architectures. The script supports both wsj2mix and
-wsj3mix.
+different architectures. The script supports both libri2mix and
+libri3mix.
 
 
 Authors
@@ -60,6 +60,18 @@ class Separation(sb.Brain):
 
                     mix = targets.sum(-1)
 
+                    if self.hparams.use_wham_noise:
+                        noise = noise.to(self.device)
+                        len_noise = noise.shape[1]
+                        len_mix = mix.shape[1]
+                        min_len = min(len_noise, len_mix)
+
+                        # add the noise
+                        mix = mix[:, :min_len] + noise[:, :min_len]
+
+                        # fix the length of targets also
+                        targets = targets[:, :min_len, :]
+
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
 
@@ -92,7 +104,7 @@ class Separation(sb.Brain):
         return est_source, targets
 
     def compute_objectives(self, predictions, targets):
-        """Computes the sinr loss"""
+        """Computes the si-snr loss"""
         return self.hparams.loss(targets, predictions)
 
     def fit_batch(self, batch):
@@ -100,6 +112,10 @@ class Separation(sb.Brain):
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
+        if self.hparams.use_wham_noise:
+            noise = batch.noise_sig[0]
+        else:
+            noise = None
 
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
@@ -107,7 +123,7 @@ class Separation(sb.Brain):
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN
+                    mixture, targets, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, targets)
 
@@ -141,7 +157,7 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN
+                mixture, targets, sb.Stage.TRAIN, noise
             )
             loss = self.compute_objectives(predictions, targets)
 
@@ -284,7 +300,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length within the mixture.
+        """This function selects a random segment of a given length withing the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -492,17 +508,40 @@ def dataio_prep(hparams):
             s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             return s3_sig
 
+    if hparams["use_wham_noise"]:
+
+        @sb.utils.data_pipeline.takes("noise_wav")
+        @sb.utils.data_pipeline.provides("noise_sig")
+        def audio_pipeline_noise(noise_wav):
+            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+            return noise_sig
+
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
     if hparams["num_spks"] == 3:
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
+
+    if hparams["use_wham_noise"]:
+        print("Using the WHAM! noise in the data pipeline")
+        sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+
+    if (hparams["num_spks"] == 2) and hparams["use_wham_noise"]:
         sb.dataio.dataset.set_output_keys(
-            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
+        )
+    elif (hparams["num_spks"] == 3) and hparams["use_wham_noise"]:
+        sb.dataio.dataset.set_output_keys(
+            datasets,
+            ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"],
+        )
+    elif (hparams["num_spks"] == 2) and not hparams["use_wham_noise"]:
+        sb.dataio.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
         )
     else:
         sb.dataio.dataset.set_output_keys(
-            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
         )
 
     return train_data, valid_data, test_data
@@ -539,26 +578,29 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.WSJ0Mix.prepare_data import prepare_wsjmix  # noqa
+    from recipes.LibriMix.prepare_data import prepare_librimix
 
     run_on_main(
-        prepare_wsjmix,
+        prepare_librimix,
         kwargs={
             "datapath": hparams["data_folder"],
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
+            "librimix_addnoise": hparams["use_wham_noise"],
             "fs": hparams["sample_rate"],
         },
     )
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-        from dynamic_mixing import dynamic_mix_data_prep
+        from dynamic_mixing import (
+            dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
+        )
 
         # if the base_folder for dm is not processed, preprocess them
         if "processed" not in hparams["base_folder_dm"]:
-            from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
+            from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
                 resample_folder,
             )
 
@@ -569,7 +611,7 @@ if __name__ == "__main__":
                     "input_folder": hparams["base_folder_dm"],
                     "output_folder": hparams["base_folder_dm"] + "_processed",
                     "fs": hparams["sample_rate"],
-                    "regex": "**/*.wav",
+                    "regex": "**/*.flac",
                 },
             )
             # adjust the base_folder_dm path

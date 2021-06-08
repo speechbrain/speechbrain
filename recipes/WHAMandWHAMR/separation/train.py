@@ -1,17 +1,14 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
-dataset. The system employs an encoder, a decoder, and a masking network.
+"""Recipe for training a neural speech separation system on WHAM! and WHAMR!
+datasets. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
-> python train.py hparams/sepformer.yaml
-> python train.py hparams/dualpath_rnn.yaml
-> python train.py hparams/convtasnet.yaml
+> python train.py hparams/sepformer-wham.yaml --data_folder /your_path/wham_original
+> python train.py hparams/sepformer-whamr.yaml --data_folder /your_path/whamr
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
-different architectures. The script supports both wsj2mix and
-wsj3mix.
-
+different architectures.
 
 Authors
  * Cem Subakan 2020
@@ -58,7 +55,26 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
-                    mix = targets.sum(-1)
+                    if "whamr" in self.hparams.data_folder:
+                        targets_rev = [
+                            self.hparams.reverb(targets[:, :, i], None)
+                            for i in range(self.hparams.num_spks)
+                        ]
+                        targets_rev = torch.stack(targets_rev, dim=-1)
+                        mix = targets_rev.sum(-1)
+                    else:
+                        mix = targets.sum(-1)
+
+                    noise = noise.to(self.device)
+                    len_noise = noise.shape[1]
+                    len_mix = mix.shape[1]
+                    min_len = min(len_noise, len_mix)
+
+                    # add the noise
+                    mix = mix[:, :min_len] + noise[:, :min_len]
+
+                    # fix the length of targets also
+                    targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -92,7 +108,7 @@ class Separation(sb.Brain):
         return est_source, targets
 
     def compute_objectives(self, predictions, targets):
-        """Computes the sinr loss"""
+        """Computes the si-snr loss"""
         return self.hparams.loss(targets, predictions)
 
     def fit_batch(self, batch):
@@ -100,14 +116,12 @@ class Separation(sb.Brain):
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
-
-        if self.hparams.num_spks == 3:
-            targets.append(batch.s3_sig)
+        noise = batch.noise_sig[0]
 
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN
+                    mixture, targets, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, targets)
 
@@ -141,7 +155,7 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN
+                mixture, targets, sb.Stage.TRAIN, noise
             )
             loss = self.compute_objectives(predictions, targets)
 
@@ -179,8 +193,6 @@ class Separation(sb.Brain):
         snt_id = batch.id
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
-        if self.hparams.num_spks == 3:
-            targets.append(batch.s3_sig)
 
         with torch.no_grad():
             predictions, targets = self.compute_forward(mixture, targets, stage)
@@ -284,7 +296,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length within the mixture.
+        """This function selects a random segment of a given length withing the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -484,26 +496,22 @@ def dataio_prep(hparams):
         s2_sig = sb.dataio.dataio.read_audio(s2_wav)
         return s2_sig
 
-    if hparams["num_spks"] == 3:
-
-        @sb.utils.data_pipeline.takes("s3_wav")
-        @sb.utils.data_pipeline.provides("s3_sig")
-        def audio_pipeline_s3(s3_wav):
-            s3_sig = sb.dataio.dataio.read_audio(s3_wav)
-            return s3_sig
+    @sb.utils.data_pipeline.takes("noise_wav")
+    @sb.utils.data_pipeline.provides("noise_sig")
+    def audio_pipeline_noise(noise_wav):
+        noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+        return noise_sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
-    if hparams["num_spks"] == 3:
-        sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
-        sb.dataio.dataset.set_output_keys(
-            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
-        )
-    else:
-        sb.dataio.dataset.set_output_keys(
-            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
-        )
+
+    print("Using the WHAM! noise in the data pipeline")
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+
+    sb.dataio.dataset.set_output_keys(
+        datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
+    )
 
     return train_data, valid_data, test_data
 
@@ -539,30 +547,57 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.WSJ0Mix.prepare_data import prepare_wsjmix  # noqa
+    from recipes.WHAMandWHAMR.prepare_data import prepare_wham_whamr_csv
 
     run_on_main(
-        prepare_wsjmix,
+        prepare_wham_whamr_csv,
         kwargs={
             "datapath": hparams["data_folder"],
             "savepath": hparams["save_folder"],
-            "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
             "fs": hparams["sample_rate"],
         },
     )
 
+    # if whamr, and we do speedaugment we need to prepare the csv file
+    if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
+        from recipes.WHAMandWHAMR.prepare_data import create_whamr_rir_csv
+        from recipes.WHAMandWHAMR.meta.create_whamr_rirs import create_rirs
+
+        # If the Room Impulse Responses do not exist, we create them
+        if not os.path.exists(hparams["rir_path"]):
+            print("ing Room Impulse Responses...")
+            run_on_main(
+                create_rirs,
+                kwargs={
+                    "output_dir": hparams["rir_path"],
+                    "sr": hparams["sample_rate"],
+                },
+            )
+
+        run_on_main(
+            create_whamr_rir_csv,
+            kwargs={
+                "datapath": hparams["rir_path"],
+                "savepath": hparams["save_folder"],
+            },
+        )
+
+        hparams["reverb"] = sb.processing.speech_augmentation.AddReverb(
+            os.path.join(hparams["save_folder"], "whamr_rirs.csv")
+        )
+
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-        from dynamic_mixing import dynamic_mix_data_prep
+        from dynamic_mixing import dynamic_mix_data_prep  # noqa
 
         # if the base_folder for dm is not processed, preprocess them
         if "processed" not in hparams["base_folder_dm"]:
-            from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
+            from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
                 resample_folder,
             )
 
-            print("Resampling the base folder")
+            print("Resampling the base folder (WSJ0 for this dataset)")
             run_on_main(
                 resample_folder,
                 kwargs={

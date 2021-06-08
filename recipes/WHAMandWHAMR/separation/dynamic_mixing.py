@@ -22,6 +22,7 @@ def build_spk_hashtable(hparams):
     """
     This function builds a dictionary of speaker-utterance pairs to be used in dynamic mixing
     """
+
     wsj0_utterances = glob.glob(
         os.path.join(hparams["base_folder_dm"], "**/*.wav"), recursive=True
     )
