@@ -22,15 +22,24 @@ python train.py hparams/{train_LS_LM, train_TAS_LM}.yaml
 ```
 
 ### Direct recipe
-The "direct" maps the input speech to directly to semantics using a seq2seq model.
-The encoder is pre-trained using the LibriSpeech seq2seq recipe.
+The "direct" maps the input speech to directly to semantics using a seq2seq model. The encoder is pre-trained using the LibriSpeech seq2seq recipe.
 
 ```
 cd direct
 python train.py hparams/train.yaml
 ```
 
+The recipe can also be used using a pretrained wav2vec 2.0 model (finetuned for ASR using LibriSpeech) as an encoder:
+
+```
+cd direct
+python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
+```
+
 # Performance summary
+
+The table below reports the performance on the test-real and test-synth subsets achieved when training with both real and synthetic data (train-real+train-synth), as well as performance on the all-real subset when training with train-synth only.
+(Additional results using train-real only and train-synth only can be found in the paper linked below.)
 
 [Sentence accuracy on Timers and Such v1.0, measured using 5 random seeds.]
 | System | test-real | test-synth | all-real
@@ -39,22 +48,31 @@ python train.py hparams/train.yaml
 | Decoupled (Timers and Such LM) | 46.8% ± 2.1% | 38.4% ± 1.3% | 44.6% ± 2.4% |
 | Multistage (LibriSpeech LM) | 67.8% ± 1.4% | 79.4% ± 0.4% | 64.6% ± 0.7% |
 | Multistage (Timers and Such LM) | 72.6% ± 1.6% | 85.4% ± 0.2% | 69.9% ± 6.0% |
-| Direct | 77.5% ± 1.6% | 96.7% ± 0.3% |68.9% ± 5.4% |
+| Direct | 77.5% ± 1.6% | 96.7% ± 0.3% | 68.9% ± 5.4% |
 
-The table reports the performance achieved when training with both real and synthetic data (train-real+train-synth).
-The sentence accuracy is reported for the all-real subset as well, a subset obtained by combining all the real data in train-real,
-dev-real, and test-real (we train on train-synth only).
+Additionally, we report three improved results with the direct recipe trained only on the train-real subset. 
+The first is identical to the baseline CRDNN direct model, except it uses a smaller batch size and is trained for 80 epochs. 
+The second uses the "Base" unsupervised wav2vec 2.0 model as an encoder, with the transformer layers unfrozen and the initial CNN layers frozen.
+The third uses the "960 Hr" variant of wav2vec 2.0, which is finetuned on LibriSpeech using ASR labels.
 
-You can find the output folder (model, logs, etc) here:
-https://drive.google.com/drive/folders/1kSwdBT8kDhnmTLzrOPDL77LX_Eq-3Tzl?usp=sharing
+| Encoder | test-real | test-synth
+|----------------- | ------------ | ------|
+| CRDNN (batch size 8) | 89.2% ± 0.8% | 79.6% ± 2.9% |
+| wav2vec 2.0 "Base" | 92.7% ± 1.0% | none |
+| wav2vec 2.0 "960 Hr" | 94.0% ± 1.2% | none |
 
-# The paper
+You can find the output folders (model, logs, etc) here: https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing
+
+
+# Citation
+
+The dataset and baseline models are described in the paper below. If you found this code or the dataset useful, you can use this bibtex entry to cite the paper:
 
 [Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers](https://arxiv.org/abs/2104.01604)
 
 ```
 @misc{lugosch2021timers,
-      title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers}, 
+      title={Timers and Such: A Practical Benchmark for Spoken Language Understanding with Numbers},
       author={Lugosch, Loren and Papreja, Piyush and Ravanelli, Mirco and Heba, Abdelwahab and Parcollet, Titouan},
       year={2021},
       eprint={2104.01604},

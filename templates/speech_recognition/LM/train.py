@@ -80,7 +80,7 @@ class LM(sb.core.Brain):
         Returns
         -------
         Loss : torch.Tensor
-            A tensor contaning the loss (single real number).
+            A tensor containing the loss (single real number).
         """
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)

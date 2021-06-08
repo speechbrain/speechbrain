@@ -64,7 +64,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     ...     blank_id=0
     ... )
     >>> dec = sb.nnet.RNN.GRU(
-    ...     hidden_size=5, input_shape=(1, 40, 34), bidirectional=True
+    ...     hidden_size=10, input_shape=(1, 40, 34), bidirectional=False
     ... )
     >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 10), n_neurons=35)
     >>> joint_network= sb.nnet.linear.Linear(input_shape=(1, 1, 40, 35), n_neurons=35)
@@ -478,7 +478,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             Input sequence from prediction network with shape
             [batch, target_seq_lens].
         decode_network_lst: list
-            List of prediction netowrk (PN) layers.
+            List of prediction network (PN) layers.
         hinne : torch.tensor
             Optional: None, hidden tensor to be used for
                 recurrent layers in the prediction network

@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
 """This minimal example trains a speech separation system with on a tiny dataset.
-The architecture is based on ConvTasnet and expectes in input mixtures of two
+The architecture is based on ConvTasnet and expects in input mixtures of two
 speakers.
 """
 

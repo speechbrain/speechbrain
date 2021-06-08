@@ -270,7 +270,7 @@ def dev_p_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
-    # Take p_val that gave minmum DER on Dev dataset
+    # Take p_val that gave minimum DER on Dev dataset
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -285,7 +285,7 @@ def dev_nn_tuner(full_csv, split_type):
     pval = None
     for nn in range(5, 15):
 
-        # Fix this later. Now assumming oracle num of speakers
+        # Fix this later. Now assuming oracle num of speakers
         n_lambdas = 4
 
         # Process whole dataset for value of n_lambdas
@@ -312,7 +312,7 @@ def dev_nn_tuner(full_csv, split_type):
 
 def dev_tuner(full_csv, split_type):
     """Tuning n_components on dev set.
-    Note: This is a very basic tunning for nn based affinity.
+    Note: This is a very basic tuning for nn based affinity.
     This is work in progress till we find a better way.
     """
 
@@ -336,7 +336,7 @@ def dev_tuner(full_csv, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER
+    # Take n_lambdas with minimum DER
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas
