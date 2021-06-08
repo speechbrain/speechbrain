@@ -19,7 +19,8 @@ import pyroomacoustics
 
 def create_rirs(output_dir, sr=8000):
     """
-    This function creates the room impulse responses
+    This function creates the room impulse responses from the WHAMR! dataset
+    The implementation is based on the scripts from http://wham.whisper.ai/
 
     Arguments:
     ------
