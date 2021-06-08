@@ -85,7 +85,12 @@ def flatten_directory(original_data_path, destination_data_path, audio_folders):
 
 
 def make_data(
-    original_data_path, destination_data_path, max_samples, audio_folders, speaker_range, augmentation_factor
+    original_data_path,
+    destination_data_path,
+    max_samples,
+    audio_folders,
+    speaker_range,
+    augmentation_factor,
 ):
     flatten_directory(original_data_path, destination_data_path, audio_folders)
 
@@ -162,7 +167,7 @@ def make_data(
     ## Combine 5s audio clips
     # Create speaker-1 to speaker-5 overlap folders to store new intersecting audio
     for folder in audio_folders:
-        for i in range(speaker_range[0], speaker_range[1]+1):
+        for i in range(speaker_range[0], speaker_range[1] + 1):
             new_folder_path = os.path.join(
                 hparams["new_data_folder"], folder, f"{i}-speaker"
             )
@@ -178,7 +183,9 @@ def make_data(
 
     # Get random number of unique speaker audio files and combine them (3 times per point, therefore augmenting data 3x)
     for folder_id in range(nb_folders):
-        nb_speakers_log = {str(i): 0 for i in range(speaker_range[0], speaker_range[1]+1)}
+        nb_speakers_log = {
+            str(i): 0 for i in range(speaker_range[0], speaker_range[1] + 1)
+        }
         for iteration in range(augmentation_factor):
             print(
                 f"Creating {audio_folders[folder_id]} random mixtures ({iteration + 1}/{augmentation_factor})"
@@ -186,7 +193,9 @@ def make_data(
             for path in audio_files[folder_id]:
                 mix_files = []
                 nb_speakers = random.randint(speaker_range[0], speaker_range[1])
-                nb_speakers_log[str(nb_speakers)] += 1  # Keeping a count of the number of 1-5 speaker signals created.
+                nb_speakers_log[
+                    str(nb_speakers)
+                ] += 1  # Keeping a count of the number of 1-5 speaker signals created.
                 speaker_indices = random.sample(
                     unique_speakers[folder_id], nb_speakers
                 )
@@ -205,11 +214,11 @@ def make_data(
                 for flac in mix_files:
                     random_amplitude = random.uniform(0.5, 1)
                     signal = read_audio(flac)
-                    out += random_amplitude*signal
+                    out += random_amplitude * signal
 
                 # Normalize mixture
                 amp_final = random.uniform(0.5, 1)
-                mix_final = amp_final*out/(out.abs().max())
+                mix_final = amp_final * out / (out.abs().max())
 
                 # Output in appropriate folder
                 mixture_name = (
@@ -250,9 +259,9 @@ if __name__ == "__main__":
         destination_data_path=hparams["new_data_folder"],
         max_samples=MAX_SAMPLES,
         audio_folders=AUDIO_FOLDERS,
-        speaker_range=hparams['speaker_range'],
-        augmentation_factor=hparams['augmentation_factor']
+        speaker_range=hparams["speaker_range"],
+        augmentation_factor=hparams["augmentation_factor"],
     )
 
     end = datetime.now()
-    print("\nTotal runtime =", end-start)
+    print("\nTotal runtime =", end - start)
