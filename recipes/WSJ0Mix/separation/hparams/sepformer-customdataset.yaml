@@ -1,9 +1,9 @@
 # ################################
 # Model: SepFormer for source separation
 # https://arxiv.org/abs/2010.13154
-#
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Dataset : Custom dataset
 # ################################
+#
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
@@ -12,24 +12,23 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
 
-# the data folder for the wham dataset
-# needs to end with wham_original for the wham dataset
-# needs to end with wham_reverb for the whamr dataset
+# e.g. '/yourpath/wsj0-mix/2speakers'
+# end with 2speakers for wsj0-2mix or 3speakers for wsj0-3mix
 data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
-wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepformer-whamr
+experiment_name: sepformer-custom
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-
-# the file names should start with whamr instead of whamorg
-train_data: !ref <save_folder>/whamr_tr.csv
-valid_data: !ref <save_folder>/whamr_cv.csv
-test_data: !ref <save_folder>/whamr_tt.csv
+train_data: !ref <save_folder>/custom_train.csv
+valid_data: !ref <save_folder>/custom_valid.csv
+test_data: !ref <save_folder>/custom_test.csv
 skip_prep: False
 
 
@@ -38,8 +37,8 @@ auto_mix_prec: False # Set it to True for mixed precision
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True
-save_audio: False # Save estimated sources on disk
-sample_rate: 8000
+save_audio: True # Save estimated sources on disk
+sample_rate: 16000
 
 # Training parameters
 N_epochs: 200
@@ -77,12 +76,6 @@ wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     drop_chunk_prob: 1.0
     sample_rate: !ref <sample_rate>
 
-reverb: !new:speechbrain.lobes.augment.EnvCorrupt
-    reverb_prob: 1.0
-    babble_prob: 0.0
-    noise_prob: 0.0
-    openrir_folder: !ref <data_folder>
-
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
 threshold: -30
@@ -94,6 +87,7 @@ kernel_size: 16
 kernel_stride: 8
 
 # Dataloader options
+# Set num_workers: 0 on MacOS due to behavior of the multiprocessing library
 dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 3
@@ -106,7 +100,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 
 
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 4
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -115,7 +109,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 4
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -127,7 +121,7 @@ MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     num_spks: !ref <num_spks>
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
-    num_layers: 2
+    num_layers: 1
     K: 250
     intra_model: !ref <SBtfintra>
     inter_model: !ref <SBtfinter>
