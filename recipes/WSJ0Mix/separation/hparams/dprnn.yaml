@@ -17,7 +17,7 @@ data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
-wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: dprnn
 output_folder: !ref results/<experiment_name>/<seed>

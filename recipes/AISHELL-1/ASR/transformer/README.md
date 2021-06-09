@@ -23,8 +23,9 @@ Results are reported in terms of Character Error Rate (CER).
 | hyperparams file | LM | Test CER | Dev CER | GPUs |
 |:--------------------------:|:-----:| :-----:| :-----:| :-----: |
 | train_ASR_transformer.yaml | No | 6.04 | 5.60 | 1xRTX 2080 Ti 11GB |
+| train_ASR_transformer_with_wav2vect.yaml | No | 5.58 | 5.19 | 1xRTX 8000 Ti 48GB |
 
 You can checkout our results (models, training logs, etc,) here:
-https://drive.google.com/drive/folders/1CCNbl5iHPIANYtuH5eF9uYKZG-Pc-EUy?usp=sharing
+https://drive.google.com/drive/folders/1xKo_6Pxk0saPXjGZg8um68b_l0Tgfdjy?usp=sharing
 
 
