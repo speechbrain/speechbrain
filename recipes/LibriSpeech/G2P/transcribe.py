@@ -24,11 +24,7 @@ def main():
         help="The name of the hyperparameter file",
         default="hyperparams.yaml",
     )
-    parser.add_argument(
-        '--text',
-        help='The text to transcribe',
-        required=True
-    )
+    parser.add_argument("--text", help="The text to transcribe", required=True)
     arguments = parser.parse_args()
     if not os.path.isdir(arguments.model):
         print(MSG_MODEL_NOT_FOUND, file=sys.stderr)
@@ -39,10 +35,11 @@ def main():
         sys.exit(1)
 
     g2p = GraphemeToPhoneme.from_hparams(
-        hparams_file=arguments.hparams, source=arguments.model)
+        hparams_file=arguments.hparams, source=arguments.model
+    )
 
     output = g2p(arguments.text)
-    print(output)
+    print(" ".join(output))
 
 
 if __name__ == "__main__":

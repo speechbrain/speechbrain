@@ -30,6 +30,7 @@ sorting: random #ascending
 N_epochs: 75
 batch_size: 1024
 lr: 0.002
+save_for_pretrained: true
 
 # Model parameters
 output_neurons: 41
@@ -48,77 +49,76 @@ eos_index: 0
 
 select_n_sentences: None
 
+graphemes:
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+
+
 phonemes:
-    - AA0
-    - AA1
-    - AA2
-    - AE0
-    - AE1
-    - AE2
-    - AH0
-    - AH1
-    - AH2
-    - AO0
-    - AO1
-    - AO2
-    - AW0
-    - AW1
-    - AW2
-    - AY0
-    - AY1
-    - AY2
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
     - B
     - CH
     - D
     - DH
-    - EH0
-    - EH1
-    - EH2
-    - ER0
-    - ER1
-    - ER2
-    - EY0
-    - EY1
-    - EY2
+    - EH
+    - ER
+    - EY
     - F
     - G
     - HH
-    - IH0
-    - IH1
-    - IH2
-    - IY0
-    - IY1
-    - IY2
+    - IH
+    - IY
     - JH
     - K
     - L
     - M
     - N
     - NG
-    - OW0
-    - OW1
-    - OW2
-    - OY0
-    - OY1
-    - OY2
+    - OW
+    - OY
     - P
     - R
     - S
     - SH
     - T
     - TH
-    - UH0
-    - UH1
-    - UH2
-    - UW0
-    - UW1
-    - UW2
+    - UH
+    - UW
     - V
     - W
     - Y
     - Z
     - ZH
-
 
 dataloader_opts:
     batch_size: !ref <batch_size>
@@ -222,17 +222,39 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
+model_output_keys:
+    - p_seq
+    - char_lens
+    - encoder_out
+
+grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
 encode_pipeline:
     batch: false
+    use_padded_data: true
+    output_keys:
+        - grapheme_list
+        - grapheme_encoded_list
+        - grapheme_encoded
     steps:
+        - !apply:speechbrain.lobes.models.g2p.attnrnn.clean_pipeline
+          graphemes: !ref <graphemes>
         - !apply:speechbrain.lobes.models.g2p.attnrnn.grapheme_pipeline
+          takes: txt_cleaned
+          graphemes: !ref <graphemes>
+          grapheme_encoder: !ref <grapheme_encoder>
 
-decoder_pipeline:
-    batch: false
+decode_pipeline:
+    batch: true
+    output_keys:
+        - phonemes
     steps:
+        - !apply:speechbrain.lobes.models.g2p.attnrnn.beam_search_pipeline
+          beam_searcher: !ref <beam_searcher>
         - !apply:speechbrain.lobes.models.g2p.attnrnn.phoneme_decoder_pipeline
+          phoneme_encoder: !ref <phoneme_encoder>
           phonemes: !ref <phonemes>
-
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
   loadables:

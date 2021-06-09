@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.batch import PaddedBatch, PaddedData
 
 
 class Pretrained:
@@ -1080,7 +1081,7 @@ class EncodeDecodePipelineMixin:
         model_output_keys = getattr(self.hparams, "model_output_keys", None)
         pipeline_input = model_output
         if len(model_output_keys) == 1:
-            pipeline_input = pipeline_input,
+            pipeline_input = (pipeline_input,)
         # The input to a pipeline is a dictionary. If model_output_keys
         # is provided, the output of the model is assumed to be a collection
         # (e.g. a list or a tuple).
@@ -1119,10 +1120,32 @@ class EncodeDecodePipelineMixin:
         """
         if isinstance(data, PaddedBatch):
             data = {
-                key: getattr(data, key).data
+                key: self._get_value(data, key)
                 for key in self.hparams.encode_pipeline["output_keys"]
             }
         return data
+
+    def _get_value(self, data, key):
+        """
+        Retrives the value associated with the specified key, dereferencing
+        .data where applicable
+
+        Arguments
+        ---------
+        data: PaddedBatch
+            a padded batch
+        key: str
+            the key
+
+        Returns
+        -------
+        result: object
+            the result
+        """
+        value = getattr(data, key)
+        if not self.input_use_padded_data and isinstance(value, PaddedData):
+            value = value.data
+        return value
 
     @property
     def batch_inputs(self):
@@ -1136,6 +1159,19 @@ class EncodeDecodePipelineMixin:
         batch_intputs: bool
         """
         return self.hparams.encode_pipeline.get("batch", True)
+
+    @property
+    def input_use_padded_data(self):
+        """
+        If turned on, raw PaddedData instances will be passed to
+        the model. If turned off, only .data will be used
+
+        Returns
+        -------
+        result: bool
+            whether padded data is used as is
+        """
+        return self.hparams.encode_pipeline.get("use_padded_data", False)
 
     @property
     def batch_outputs(self):
@@ -1254,7 +1290,7 @@ class SpeechSynthesizer(Pretrained, EncodeDecodePipelineMixin):
         single = isinstance(text, str)
         if single:
             text = [text]
-        model_input = self.encode_input({'txt': text})
+        model_input = self.encode_input({"txt": text})
         model_output = self.compute_forward(model_input)
         decoded_output = self.decode_output(model_output)
         waveform = decoded_output.get("wav")
@@ -1263,7 +1299,6 @@ class SpeechSynthesizer(Pretrained, EncodeDecodePipelineMixin):
         if single:
             waveform = waveform[0]
         return waveform
-
 
     def __call__(self, text):
         """
@@ -1289,7 +1324,6 @@ class SpeechSynthesizer(Pretrained, EncodeDecodePipelineMixin):
         return self.infer(model=self.hparams.model, **data)
 
 
-
 class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     """
     A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
@@ -1302,14 +1336,12 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     >>> phonemes = g2p.g2p(text)
     """
 
-
     INPUT_STATIC_KEYS = ["txt"]
     OUTPUT_KEYS = ["phonemes"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.create_pipelines()
-
 
     @property
     def phonemes(self):
@@ -1341,14 +1373,20 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
             if a single example was provided, the return value is a
             single list of phonemes
         """
+        single = isinstance(text, str)
+        if single:
+            text = [text]
+
         model_inputs = self.encode_input({"txt": text})
         model_outputs = self.hparams.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
-        return decoded_output["phonemes"]
+        phonemes = decoded_output["phonemes"]
+        if single:
+            phonemes = phonemes[0]
+        return phonemes
 
     def __call__(self, text):
         """
         Calls g2p
         """
         return self.g2p(text)
-

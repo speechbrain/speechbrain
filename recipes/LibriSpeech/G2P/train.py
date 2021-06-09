@@ -20,22 +20,25 @@ Authors
  * Mirco Ravanelli 2020
 """
 import sys
-import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-#from speechbrain.lobes.models.g2p.datio import grapheme_pipeline, phoneme_pipeline
+from speechbrain.pretrained.training import PretrainedModelMixin
+from speechbrain.lobes.models.g2p.attnrnn.dataio import (
+    grapheme_pipeline,
+    phoneme_pipeline,
+)
 
 
 # Define training procedure
-class G2PBrain(sb.Brain):
+class G2PBrain(sb.Brain, PretrainedModelMixin):
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
 
         p_seq, char_lens, encoder_out = self.hparams.model(
             grapheme_encoded=batch.grapheme_encoded,
-            phn_encoded=batch.phn_encoded_bos
+            phn_encoded=batch.phn_encoded_bos,
         )
 
         if stage != sb.Stage.TRAIN:
@@ -174,70 +177,25 @@ def dataio_prep(hparams):
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
+
     phoneme_encoder = sb.dataio.encoder.TextEncoder()
-    grapheme_encoder = sb.dataio.encoder.TextEncoder()
 
     # 2. Define grapheme pipeline:
-    @sb.utils.data_pipeline.takes("char")
-    @sb.utils.data_pipeline.provides(
-        "grapheme_list", "grapheme_encoded_list", "grapheme_encoded"
+    sb.dataio.dataset.add_dynamic_item(
+        datasets,
+        grapheme_pipeline(graphemes=hparams["graphemes"], space_separated=True),
     )
-    def grapheme_pipeline(char):
-        grapheme_list = char.strip().split(" ")
-        yield grapheme_list
-        grapheme_encoded_list = grapheme_encoder.encode_sequence(grapheme_list)
-        yield grapheme_encoded_list
-        grapheme_encoded = torch.LongTensor(grapheme_encoded_list)
-        yield grapheme_encoded
-
-    sb.dataio.dataset.add_dynamic_item(datasets, grapheme_pipeline)
 
     # 3. Define phoneme pipeline:
-    @sb.utils.data_pipeline.takes("phn")
-    @sb.utils.data_pipeline.provides(
-        "phn_list",
-        "phn_encoded_list",
-        "phn_encoded",
-        "phn_encoded_eos",
-        "phn_encoded_bos",
-    )
-    def phoneme_pipeline(phn):
-        phn_list = phn.strip().split(" ")
-        yield phn_list
-        phn_encoded_list = phoneme_encoder.encode_sequence(phn_list)
-        yield phn_encoded_list
-        phn_encoded = torch.LongTensor(phn_encoded_list)
-        yield phn_encoded
-        phn_encoded_eos = torch.LongTensor(
-            phoneme_encoder.append_eos_index(phn_encoded_list)
-        )
-        yield phn_encoded_eos
-        phn_encoded_bos = torch.LongTensor(
-            phoneme_encoder.prepend_bos_index(phn_encoded_list)
-        )
-        yield phn_encoded_bos
-
-    sb.dataio.dataset.add_dynamic_item(datasets, phoneme_pipeline)
-
-    # 3. Fit encoder:
-    grapheme_encoder.update_from_didataset(
-        train_data, output_key="grapheme_list"
-    )
-    phoneme_encoder.update_from_didataset(train_data, output_key="phn_list")
-
-    if hparams["bos_index"] == hparams["eos_index"]:
-        phoneme_encoder.insert_bos_eos(
-            bos_label="<eos-bos>",
-            eos_label="<eos-bos>",
-            bos_index=hparams["bos_index"],
-        )
-    else:
-        phoneme_encoder.insert_bos_eos(
-            bos_label="<bos>",
-            eos_label="<eos>",
+    sb.dataio.dataset.add_dynamic_item(
+        datasets,
+        phoneme_pipeline(
+            phonemes=hparams["phonemes"],
+            phoneme_encoder=phoneme_encoder,
             bos_index=hparams["bos_index"],
             eos_index=hparams["eos_index"],
-        )
+        ),
+    )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
@@ -250,13 +208,6 @@ def dataio_prep(hparams):
             "phn_encoded_bos",
         ],
     )
-
-    #TODO: Remove this
-    # for dataset in datasets:
-    #     first_key = next(iter(dataset.data.keys()))
-    #     dataset.data_ids = [first_key]
-    #     dataset.data = {key: value for key, value in dataset.data.items() if key == first_key}
-
 
     return train_data, valid_data, test_data, phoneme_encoder
 
@@ -289,7 +240,7 @@ if __name__ == "__main__":
             "save_folder": hparams["save_folder"],
             "create_lexicon": True,
             "skip_prep": hparams["skip_prep"],
-            "select_n_sentences": hparams.get("select_n_sentences")
+            "select_n_sentences": hparams.get("select_n_sentences"),
         },
     )
 
@@ -319,3 +270,6 @@ if __name__ == "__main__":
     g2p_brain.evaluate(
         test_data, min_key="PER", test_loader_kwargs=hparams["dataloader_opts"],
     )
+
+    if hparams.get("save_for_pretrained"):
+        g2p_brain.save_for_pretrained()

@@ -9,6 +9,7 @@ Authors
 import torch
 from torch import nn
 
+
 class Model(nn.Module):
     """
     The Attentional RNN encoder-decoder model
@@ -37,16 +38,9 @@ class Model(nn.Module):
         a (p_seq, char_lens) tuple
 
     """
+
     def __init__(
-        self,
-        enc,
-        encoder_emb,
-        emb,
-        dec,
-        lin,
-        out,
-        bos_token=0,
-        max_len=50
+        self, enc, encoder_emb, emb, dec, lin, out, bos_token=0, max_len=50
     ):
         super().__init__()
         self.enc = enc
@@ -58,7 +52,7 @@ class Model(nn.Module):
         self.bos_token = bos_token
         self.max_len = max_len
 
-    def forward(self, grapheme_encoded, phn_encoded=None):
+    def forward(self, grapheme_encoded, phn_encoded=None, **kwargs):
         """
         Computes the forward pass
 
@@ -76,11 +70,11 @@ class Model(nn.Module):
             a tuple of (p_seq, char_lens, encoder_out) - sequence
             probabilities, character lengths and
         """
-        if phn_encoded is None:
-            return self.infer(grapheme_encoded)
-
         chars, char_lens = grapheme_encoded
-        phn_bos, _ = phn_encoded
+        if phn_encoded is None:
+            phn_bos = self._get_dummy_phonemes(chars.size(0), chars.device)
+        else:
+            phn_bos, _ = phn_encoded
 
         emb_char = self.encoder_emb(chars)
         encoder_out, _ = self.enc(emb_char)
@@ -92,24 +86,5 @@ class Model(nn.Module):
 
         return p_seq, char_lens, encoder_out
 
-    def infer(self, grapheme_encoded):
-        done = False
-        batch_size = len(grapheme_encoded)
-        decoded_sequence = self._get_initial_sequence(batch_size)
-        idx = 1
-        while not done:
-            step_grapheme_encoded = grapheme_encoded[:, :idx]
-            step_phn_encoded = torch.tensor(decoded_sequence)
-            p_seq, char_lens, _ = self.forward(
-                grapheme_encoded=step_grapheme_encoded,
-                phn_encoded=step_phn_encoded
-            )
-            #TODO: Beam search
-            predictions = p_seq.argmax(dim=-1)
-            decoded_sequence.append(predictions)
-            idx += 1
-            done = idx < self.max_len
-        return p_seq, char_lens
-
-    def _get_initial_sequence(self, batch_size):
-        return torch.ones(batch_size) * self.bos_token
+    def _get_dummy_phonemes(self, batch_size, device):
+        return torch.tensor([0], device=device).expand(batch_size, 1)
