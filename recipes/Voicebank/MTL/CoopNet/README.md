@@ -38,7 +38,7 @@ Currently, the best performance is the following, with intermediate training poi
 | Input | Mask Loss           | PESQ | eSTOI | dev PER | tst PER  | Epochs |
 |-------|---------------------|:----:|:-----:|:-------:|:--------:|:------:|
 | Clean | CTC only            |  -   |   -   | 14.29   |    -     | 10     |
-| Noisy | MSE on SE only      | 2.24 | 93.4  |    -    |    -     | 50     |
+| Noisy | MSE on SE only      | 2.68  | 93.4  |    -    |    -     | 50     |
 | *Joint Training using pretrained modules*                                |
 | Noisy | MSE + CTC 1 layer   | 2.66 | 84.7  | 19.10   | 18.37    | 25     |
 | Noisy | MSE + CTC 2 layers  | 2.75 | 85.1  | 16.32   | 16.01    | 50     |
