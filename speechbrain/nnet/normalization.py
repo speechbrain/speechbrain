@@ -362,6 +362,7 @@ class InstanceNorm2d(nn.Module):
 
         return x_n
 
+
 class GroupScaling1D(nn.Module):
     """Scales inputs by the second moment for the entire layer
     Arguments
