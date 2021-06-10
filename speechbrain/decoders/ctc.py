@@ -10,7 +10,7 @@ from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
 
 
-class CTCPrefixScorer:
+class CTCPrefixScore:
     """This class implements the CTC prefix scorer of Algorithm 2 in
     reference: https://www.merl.com/publications/docs/TR2017-190.pdf.
     Official implementation: https://github.com/espnet/espnet/blob/master/espnet/nets/ctc_prefix_score.py
@@ -35,19 +35,12 @@ class CTCPrefixScorer:
     """
 
     def __init__(
-        self,
-        x,
-        enc_lens,
-        batch_size,
-        beam_size,
-        blank_index,
-        eos_index,
-        ctc_window_size=0,
+        self, x, enc_lens, beam_size, blank_index, eos_index, ctc_window_size=0,
     ):
         self.blank_index = blank_index
         self.eos_index = eos_index
+        self.batch_size = x.size(0)
         self.max_enc_len = x.size(1)
-        self.batch_size = batch_size
         self.beam_size = beam_size
         self.vocab_size = x.size(-1)
         self.device = x.device
@@ -74,11 +67,11 @@ class CTCPrefixScorer:
 
         # The first index of each sentence.
         self.beam_offset = (
-            torch.arange(batch_size, device=self.device) * self.beam_size
+            torch.arange(self.batch_size, device=self.device) * self.beam_size
         )
         # The first index of each candidates.
         self.cand_offset = (
-            torch.arange(batch_size, device=self.device) * self.vocab_size
+            torch.arange(self.batch_size, device=self.device) * self.vocab_size
         )
 
     @torch.no_grad()
@@ -97,6 +90,7 @@ class CTCPrefixScorer:
             The ctc_beam_size is set as 2 * beam_size. If given, performing partial ctc scoring.
         """
 
+        n_bh = g.size(0)
         prefix_length = g.size(1)
         last_char = [gi[-1] for gi in g] if prefix_length > 0 else [0] * len(g)
         self.num_candidates = (
@@ -114,11 +108,9 @@ class CTCPrefixScorer:
             r_prev[:, 1] = torch.cumsum(
                 self.x[0, :, :, self.blank_index], 0
             ).unsqueeze(2)
-            r_prev = r_prev.view(-1, 2, self.batch_size * self.beam_size)
+            r_prev = r_prev.view(-1, 2, n_bh)
             psi_prev = torch.full(
-                (self.batch_size * self.beam_size, self.vocab_size),
-                0.0,
-                device=self.device,
+                (n_bh, self.vocab_size), 0.0, device=self.device,
             )
         else:
             r_prev, psi_prev = state
@@ -126,15 +118,13 @@ class CTCPrefixScorer:
         # for partial search
         if candidates is not None:
             scoring_table = torch.full(
-                (self.batch_size * self.beam_size, self.vocab_size),
+                (n_bh, self.vocab_size),
                 -1,
                 dtype=torch.long,
                 device=self.device,
             )
             # Assign indices of candidates to their positions in the table
-            col_index = torch.arange(
-                self.batch_size * self.beam_size, device=self.device
-            ).unsqueeze(1)
+            col_index = torch.arange(n_bh, device=self.device).unsqueeze(1)
             scoring_table[col_index, candidates] = torch.arange(
                 self.num_candidates, device=self.device
             )
@@ -149,26 +139,19 @@ class CTCPrefixScorer:
                 self.x.view(2, -1, self.batch_size * self.vocab_size),
                 2,
                 scoring_index,
-            ).view(2, -1, self.batch_size * self.beam_size, self.num_candidates)
+            ).view(2, -1, n_bh, self.num_candidates)
         # for full search
         else:
             scoring_table = None
             x_inflate = (
                 self.x.unsqueeze(3)
                 .repeat(1, 1, 1, self.beam_size, 1)
-                .view(
-                    2, -1, self.batch_size * self.beam_size, self.num_candidates
-                )
+                .view(2, -1, n_bh, self.num_candidates)
             )
 
         # Prepare forward probs
         r = torch.full(
-            (
-                self.max_enc_len,
-                2,
-                self.batch_size * self.beam_size,
-                self.num_candidates,
-            ),
+            (self.max_enc_len, 2, n_bh, self.num_candidates,),
             self.minus_inf,
             device=self.device,
         )
@@ -183,12 +166,12 @@ class CTCPrefixScorer:
 
         # (Alg.2-10): if last token of prefix g in candidates, phi = prev_b + 0
         if candidates is not None:
-            for i in range(self.batch_size * self.beam_size):
+            for i in range(n_bh):
                 pos = scoring_table[i, last_char[i]]
                 if pos != -1:
                     phi[:, i, pos] = r_prev[:, 1, i]
         else:
-            for i in range(self.batch_size * self.beam_size):
+            for i in range(n_bh):
                 phi[:, i, last_char[i]] = r_prev[:, 1, i]
 
         # Start, end frames for scoring (|g| < |h|).
@@ -210,7 +193,7 @@ class CTCPrefixScorer:
             # (Alg.2-12): dim=1, p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
             rb_prev = r[t - 1, 1]
             r_ = torch.stack([rnb_prev, phi[t - 1], rnb_prev, rb_prev]).view(
-                2, 2, self.batch_size * self.beam_size, self.num_candidates
+                2, 2, n_bh, self.num_candidates
             )
             r[t] = torch.logsumexp(r_, 1) + x_inflate[:, t]
 
@@ -221,15 +204,13 @@ class CTCPrefixScorer:
         # (Alg.2-13): psi = psi + phi * p(c)
         if candidates is not None:
             psi = torch.full(
-                (self.batch_size * self.beam_size, self.vocab_size),
-                self.minus_inf,
-                device=self.device,
+                (n_bh, self.vocab_size), self.minus_inf, device=self.device,
             )
             psi_ = torch.logsumexp(
                 torch.cat((phix[start:end], psi_init), dim=0), dim=0
             )
             # only assign prob to candidates
-            for i in range(self.batch_size * self.beam_size):
+            for i in range(n_bh):
                 psi[i, candidates[i]] = psi_[i]
         else:
             psi = torch.logsumexp(
@@ -237,7 +218,7 @@ class CTCPrefixScorer:
             )
 
         # (Alg.2-3): if c = <eos>, psi = log(r_T^n(g) + r_T^b(g)), where T is the length of max frames
-        for i in range(self.batch_size * self.beam_size):
+        for i in range(n_bh):
             psi[i, self.eos_index] = r_sum[
                 self.last_frame_index[i // self.beam_size], i
             ]
