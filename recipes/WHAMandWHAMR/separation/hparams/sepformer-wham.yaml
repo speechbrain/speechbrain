@@ -2,7 +2,7 @@
 # Model: SepFormer for source separation
 # https://arxiv.org/abs/2010.13154
 #
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Dataset : WHAM!
 # ################################
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -14,12 +14,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # the data folder for the wham dataset
 # needs to end with wham_original for the wham dataset
-# needs to end with wham_reverb for the whamr dataset
-data_folder: !PLACEHOLDER
+# respecting this convention effects the code functionality
+data_folder: /yourpath/wham_original
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
-wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
+## you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: sepformer-wham
 output_folder: !ref results/<experiment_name>/<seed>
@@ -34,7 +36,7 @@ skip_prep: False
 
 
 # Experiment params
-auto_mix_prec: False # Set it to True for mixed precision
+auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True
