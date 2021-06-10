@@ -562,7 +562,6 @@ class TransformerDecoderLayer(nn.Module):
             else:
                 tgt = self.power_norm1(tgt)
 
-
         if self.normalize_before:
             if self.use_layer_norm:
                 tgt1 = self.layer_norm2(tgt)
@@ -587,7 +586,6 @@ class TransformerDecoderLayer(nn.Module):
                 tgt = self.layer_norm2(tgt)
             else:
                 tgt = self.power_norm2(tgt)
-
 
         if self.normalize_before:
             if self.use_layer_norm:
