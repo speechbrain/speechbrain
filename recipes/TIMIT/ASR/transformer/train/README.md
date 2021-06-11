@@ -3,7 +3,7 @@ This folder contains the scripts to train a Transformer-based system(s) using TI
 TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
 # How to run
-python train.py /hparams/transformer.yaml
+python train.py hparams/transformer.yaml
 
 # Results
 The following are the results of each model after 140 epochs
