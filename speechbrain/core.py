@@ -40,6 +40,8 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
+PYTHON_VERSION_MAJOR = 3
+PYTHON_VERSION_MINOR = 7
 
 
 def create_experiment_directory(
@@ -456,6 +458,22 @@ class Brain:
                     setattr(self, arg, hparams[arg])
                 else:
                     setattr(self, arg, default)
+
+        # Check Python version
+        if not (
+            sys.version_info.major == PYTHON_VERSION_MAJOR
+            and sys.version_info.minor >= PYTHON_VERSION_MINOR
+        ):
+            logger.warn(
+                "Detected Python "
+                + str(sys.version_info.major)
+                + "."
+                + str(sys.version_info.minor)
+                + ". We suggest using SpeechBrain with Python >="
+                + str(PYTHON_VERSION_MAJOR)
+                + "."
+                + str(PYTHON_VERSION_MINOR)
+            )
 
         if self.data_parallel_backend and self.distributed_launch:
             sys.exit(
