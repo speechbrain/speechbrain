@@ -3,12 +3,7 @@ from speechbrain.utils.metric_stats import MetricStats
 try:
     import sacrebleu
 except ImportError:
-    import pip
-
-    pip.main(["install", "sacrebleu"])
-    import sacrebleu
-
-    # raise ImportError("Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric")
+    print("Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric")
 
 
 def merge_words(sequences):
