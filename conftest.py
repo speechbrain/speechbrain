@@ -11,3 +11,7 @@ try:
     from transformers import Wav2Vec2Model  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/lobes/models/huggingface_wav2vec.py")
+try:
+    import sacrebleu  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/utils/bleu.py")
