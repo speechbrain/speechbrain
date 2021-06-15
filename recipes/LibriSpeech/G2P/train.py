@@ -137,25 +137,40 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 )
 
 
+def sort_data(data, hparams):
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        data = data.filtered_sorted(sort_key="duration")
+
+    elif hparams["sorting"] == "descending":
+        data = data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
+    return data
+
+
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
+    data_load = hparams["data_load"]
     # 1. Declarations:
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_data"], replacements={"data_root": data_folder},
+    train_data = data_load(
+        hparams["train_data"], replacements={"data_root": data_folder},
     )
     if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
@@ -165,16 +180,18 @@ def dataio_prep(hparams):
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+    train_data = sort_data(train_data, hparams)
 
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_data"], replacements={"data_root": data_folder},
+    valid_data = data_load(
+        hparams["valid_data"], replacements={"data_root": data_folder},
     )
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
+    valid_data = sort_data(valid_data, hparams)
 
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_data"], replacements={"data_root": data_folder},
+    test_data = data_load(
+        hparams["test_data"], replacements={"data_root": data_folder},
     )
-    test_data = test_data.filtered_sorted(sort_key="duration")
+    test_data = sort_data(test_data, hparams)
+
 
     datasets = [train_data, valid_data, test_data]
 
@@ -183,7 +200,9 @@ def dataio_prep(hparams):
     # 2. Define grapheme pipeline:
     sb.dataio.dataset.add_dynamic_item(
         datasets,
-        grapheme_pipeline(graphemes=hparams["graphemes"], space_separated=True),
+        grapheme_pipeline(
+            graphemes=hparams["graphemes"],
+            space_separated=hparams['graphemes_space_separated']),
     )
 
     # 3. Define phoneme pipeline:
@@ -194,6 +213,7 @@ def dataio_prep(hparams):
             phoneme_encoder=phoneme_encoder,
             bos_index=hparams["bos_index"],
             eos_index=hparams["eos_index"],
+            space_separated=hparams["phonemes_space_separated"]
         ),
     )
 
@@ -231,18 +251,18 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_librispeech,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["save_folder"],
-            "create_lexicon": True,
-            "skip_prep": hparams["skip_prep"],
-            "select_n_sentences": hparams.get("select_n_sentences"),
-        },
-    )
+    if hparams['data_mode'] == 'lexicon':
+        # multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_librispeech,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_folder": hparams["save_folder"],
+                "create_lexicon": True,
+                "skip_prep": hparams["skip_prep"],
+                "select_n_sentences": hparams.get("select_n_sentences"),
+            },
+        )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, phoneme_encoder = dataio_prep(hparams)

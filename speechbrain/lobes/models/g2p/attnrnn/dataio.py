@@ -101,7 +101,8 @@ def _init_phoneme_encoder(phonemes, phoneme_encoder, bos_index, eos_index):
     return phoneme_encoder
 
 
-def phoneme_pipeline(phonemes, phoneme_encoder=None, bos_index=0, eos_index=0):
+def phoneme_pipeline(phonemes, phoneme_encoder=None, bos_index=0, eos_index=0,
+                     space_separated=True):
     """
     Creates a pipeline element for phoneme encoding
 
@@ -136,7 +137,7 @@ def phoneme_pipeline(phonemes, phoneme_encoder=None, bos_index=0, eos_index=0):
         "phn_encoded_bos",
     )
     def f(phn):
-        phn_list = phn.strip().split(" ")
+        phn_list = phn.strip().split(" ") if space_separated else phn
         yield phn_list
         phn_encoded_list = phoneme_encoder.encode_sequence(phn_list)
         yield phn_encoded_list

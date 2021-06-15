@@ -9,7 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
 output_folder: !ref results/RNN/<seed>
-data_folder: /localscratch/LibriSpeech
+data_folder: /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -20,11 +20,16 @@ pretrained_path: !ref <save_folder>
 
 
 # These three files are created from lexicon.csv.
-train_data: !ref <save_folder>/lexicon_tr.csv
-valid_data: !ref <save_folder>/lexicon_dev.csv
-test_data: !ref <save_folder>/lexicon_test.csv
+data_mode: librig2p
+data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
+train_data: !ref <data_folder>/train.json
+valid_data: !ref <data_folder>/valid.json
+test_data: !ref <data_folder>/test.json
 skip_prep: False
 sorting: random #ascending
+graphemes_space_separated: False
+phonemes_space_separated: False
+
 
 # Neural Parameters
 N_epochs: 75
