@@ -44,15 +44,15 @@ This system achieves an EER = 0.69 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # VoxCeleb2 preparation
-Voxceleb2 audio files are released in ma4 format. All the files must be converted in wav files before
+Voxceleb2 audio files are released in m4a format. All the files must be converted in wav files before
 feeding them is SpeechBrain. Please, follow these steps to prepare the dataset correctly:
 
 1. Download both Voxceleb1 and Voxceleb2.
 You can find download instructions here: http://www.robots.ox.ac.uk/~vgg/data/voxceleb/
 Note that for the speaker verification experiments with Voxceleb2 the official split of voxceleb1 is used to compute EER.
 
-2. Convert .ma4 to wav
-Voxceleb2 stores files with the ma4 audio format. To use them within SpeechBrain you have to convert all the ma4 files into wav files.
+2. Convert .m4a to wav
+Voxceleb2 stores files with the m4a audio format. To use them within SpeechBrain you have to convert all the m4a files into wav files.
 You can do the conversion using ffmpeg(see for instance conversion scripts in https://gitmemory.com/issue/pytorch/audio/104/493137979 or https://gist.github.com/seungwonpark/4f273739beef2691cd53b5c39629d830). This operation might take several hours and should be only once.
 
 2. Put all the wav files in a folder called wav. You should have something like `voxceleb2/wav/id*/*.wav` (e.g, `voxceleb2/wav/id00012/21Uxsk56VDQ/00001.wav`)
