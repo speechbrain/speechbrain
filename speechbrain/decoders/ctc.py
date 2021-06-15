@@ -472,5 +472,3 @@ class CTCDecodeBeamSearch(torch.nn.Module):
                 sequence.append(bestBeam)
 
         return sequence
-
-
