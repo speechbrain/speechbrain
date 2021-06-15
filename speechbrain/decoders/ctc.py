@@ -409,6 +409,15 @@ class CTCDecodeBeamSearch(torch.nn.Module):
         Index of the CTC blank token in labels array
     log_prob_inputs: boolean
         True if outputs have passed through a LogSoftmax, False if outputs have passed through a Softmax
+    
+    Example
+    -------
+    >>> from ctcdecode import CTCBeamDecoder
+    >>> import torch 
+    >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],[[0.2, 0.8], [0.9, 0.1]]])
+    >>> labels = ["a","b"]
+    >>> ctc_beam_decoder = CTCBeamDecoder(labels,"/users/lm/my.kenLM.mmap")
+    >>> beam_results, beam_scores, timesteps, out_lens = ctc_beam_decoder.decode(probs)
     """
 
     def __init__(
