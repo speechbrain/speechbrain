@@ -486,7 +486,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             for index in eos_indices:
                 # convert to int
                 index = index.item()
-                batch_id = index // self.beam_size
+                batch_id = torch.div(
+                    index, self.beam_size, rounding_mode="floor"
+                )
                 if len(hyps_and_scores[batch_id]) == self.beam_size:
                     continue
                 hyp = alived_seq[index, :]
@@ -704,7 +706,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # The index of which beam the current top-K output came from in (t-1) timesteps.
             predecessors = (
-                candidates // vocab_size
+                torch.div(candidates, vocab_size, rounding_mode="floor")
                 + self.beam_offset.unsqueeze(1).expand_as(candidates)
             ).view(batch_size * self.beam_size)
 
