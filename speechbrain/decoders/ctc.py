@@ -389,31 +389,31 @@ class CTCDecodeBeamSearch(torch.nn.Module):
 
     Arguments
     ---------
-    labels: array
-        Labels associated to system outputs
+    labels: list
+        Labels associated to system outputs.
     model_path: string
-        Path to an external kenlm n-gram language model
-    alpha: float
-        Weighting associated with the LM probabilities
-    beta: float
+        Path to an external kenlm n-gram language model.
+    alpha: float (default: 1.0)
+        Weighting associated with the LM probabilities.
+    beta: float (default: 1.0)
         Weighting associated within the number of words within our beam.
-    cutoff_top: int
-        Cutoff number in pruning
-    cutoff_prob: float
-        Cutoff probability in pruning
-    beam_width: int
-        Size of the Beam search
-    num_processes: int
+    cutoff_top: int (default: 40)
+        Cutoff number in pruning.
+    cutoff_prob: float default(1.0)
+        Cutoff probability in pruning.
+    beam_width: int (default: 100)
+        Depth of the Beam search.
+    num_processes: int (default: 1)
         Number of worker to parallelize the batch
-    blank_id: int
+    blank_id: int (default: 0)
         Index of the CTC blank token in labels array
-    log_prob_inputs: boolean
+    log_prob_inputs: boolean (default: True)
         True if outputs have passed through a LogSoftmax, False if outputs have passed through a Softmax
-    
+
     Example
     -------
     >>> from ctcdecode import CTCBeamDecoder
-    >>> import torch 
+    >>> import torch
     >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],[[0.2, 0.8], [0.9, 0.1]]])
     >>> labels = ["a","b"]
     >>> ctc_beam_decoder = CTCBeamDecoder(labels,"/users/lm/my.kenLM.mmap")
@@ -429,9 +429,9 @@ class CTCDecodeBeamSearch(torch.nn.Module):
         cutoff_top_n=40,
         cutoff_prob=1.0,
         beam_width=100,
-        num_processes=4,
+        num_processes=1,
         blank_id=0,
-        log_probs_input=False,
+        log_probs_input=True,
     ):
         super(CTCDecodeBeamSearch, self).__init__()
 
@@ -439,9 +439,8 @@ class CTCDecodeBeamSearch(torch.nn.Module):
             from ctcdecode import CTCBeamDecoder
         except ImportError:
             print(
-                "Please install CTCDecode : see https://github.com/parlance/ctcdecode"
+                "Please install CTCDecode: see https://github.com/parlance/ctcdecode"
             )
-            exit(1)
 
         self.ctc_beam_decoder = CTCBeamDecoder(
             labels,
@@ -455,7 +454,7 @@ class CTCDecodeBeamSearch(torch.nn.Module):
             log_probs_input=log_probs_input,
         )
 
-    def forward(self, p_ctc, nBest=1):
+    def forward(self, p_ctc, n_best=1):
         (
             beam_results,
             beam_scores,
@@ -463,7 +462,7 @@ class CTCDecodeBeamSearch(torch.nn.Module):
             out_lens,
         ) = self.ctc_beam_decoder.decode(p_ctc)
 
-        if nBest == 1:
+        if n_best == 1:
             sequence = [
                 beam_results[batchElem][0][: out_lens[batchElem][0]].tolist()
                 for batchElem in range(len(beam_results))
@@ -472,7 +471,7 @@ class CTCDecodeBeamSearch(torch.nn.Module):
             sequence = []
             for batchElem in range(len(beam_results)):
                 bestBeam = []
-                for currentNbest in range(nBest):
+                for currentNbest in range(n_best):
                     bestBeam.append(
                         beam_results[batchElem][currentNbest][
                             : out_lens[batchElem][currentNbest]
