@@ -7,10 +7,7 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-
 import speechbrain as sb
-from speechbrain.decoders.ctc import CTCPrefixScorer
-from speechbrain.decoders.ngram import NgramScorer
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -281,25 +278,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
     length_rewarding : float
         The coefficient of length rewarding (γ).
         log P(y|x) + λ log P_LM(y) + γ*len(y). (default: 0.0)
-    coverage_penalty: float
-        The coefficient of coverage penalty (η).
-        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y). (default: 0.0)
-        Reference: https://arxiv.org/pdf/1612.02695.pdf, https://arxiv.org/pdf/1808.10792.pdf
     lm_weight : float
         The weight of LM when performing beam search (λ).
         log P(y|x) + λ log P_LM(y). (default: 0.0)
-    ctc_weight : float
-        The weight of CTC probabilities when performing beam search (λ).
-        (1-λ) log P(y|x) + λ log P_CTC(y|x). (default: 0.0)
     blank_index : int
         The index of the blank token.
-    ctc_score_mode: str
-        Default: "full"
-        CTC prefix scoring on "partial" token or "full: token.
-    ctc_window_size: int
-        Default: 0
-        Compute the ctc scores over the time frames using windowing based on attention peaks.
-        If 0, no windowing applied.
     using_max_attn_shift: bool
         Whether using the max_attn_shift constraint. (default: False)
     max_attn_shift: int
@@ -319,20 +302,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
+        scorer=None,  # scorer instance
         topk=1,
         return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
-        coverage_penalty=0.0,
         lm_weight=0.0,
         lm_modules=None,
-        ctc_weight=0.0,
         blank_index=0,
-        ctc_score_mode="full",
-        ctc_window_size=0,
-        ngram_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -341,12 +320,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
+        self.scorer = scorer
         self.topk = topk
         self.return_log_probs = return_log_probs
         self.length_normalization = length_normalization
         self.length_rewarding = length_rewarding
-        self.coverage_penalty = coverage_penalty
-        self.coverage = None
 
         if self.length_normalization and self.length_rewarding > 0:
             raise ValueError(
@@ -361,27 +339,26 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.lm_modules = lm_modules
 
         # ctc related
-        self.ctc_weight = ctc_weight
+        self.ctc_weight = (
+            0.0 if self.scorer is None else self.scorer.weights["ctc"]
+        )
         self.blank_index = blank_index
-        self.attn_weight = 1.0 - ctc_weight
-
-        # ngram
-        self.ngram_weight = ngram_weight
+        self.attn_weight = 1.0 - self.ctc_weight
 
         assert (
             0.0 <= self.ctc_weight <= 1.0
         ), "ctc_weight should not > 1.0 and < 0.0"
 
-        if self.ctc_weight > 0.0:
-            if len({self.bos_index, self.eos_index, self.blank_index}) < 3:
-                raise ValueError(
-                    "To perform joint ATT/CTC or CTC decoding, set blank, eos and bos to different indexes."
-                )
+        if (
+            self.ctc_weight > 0.0
+            and len({self.bos_index, self.eos_index, self.blank_index}) < 3
+        ):
+            raise ValueError(
+                "To perform joint ATT/CTC or CTC decoding, set blank, eos and bos to different indexes."
+            )
 
         # ctc already initialized
         self.minus_inf = minus_inf
-        self.ctc_score_mode = ctc_score_mode
-        self.ctc_window_size = ctc_window_size
 
     def _check_full_beams(self, hyps, beam_size):
         """This method checks whether hyps has been full.
@@ -558,36 +535,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
+        n_bh = batch_size * self.beam_size
 
-        memory = self.reset_mem(batch_size * self.beam_size, device=device)
+        memory = self.reset_mem(n_bh, device=device)
 
         if self.lm_weight > 0:
-            lm_memory = self.reset_lm_mem(batch_size * self.beam_size, device)
+            lm_memory = self.reset_lm_mem(n_bh, device)
 
-        if self.ctc_weight > 0:
-            # (batch_size * beam_size, L, vocab_size)
-            ctc_outputs = self.ctc_forward_step(enc_states)
-            ctc_scorer = CTCPrefixScorer(
-                ctc_outputs,
-                enc_lens,
-                batch_size,
-                self.beam_size,
-                self.blank_index,
-                self.eos_index,
-                self.ctc_window_size,
-            )
-            ctc_memory = None
-
-        if self.ngram_weight > 0:
-            ngram_scorer = NgramScorer(
-                "../../train_ngram/4gram.bin",
-                self.bos_index,
-                self.eos_index,
-                batch_size,
-                self.beam_size,
-                device,
-            )
-            ngram_memory = ngram_scorer.reset_mem()
+        if self.scorer is not None:
+            scorer_memory = self.scorer.reset_scorer_mem(enc_states, enc_lens)
 
         # Inflate the enc_states and enc_len by beam_size times
         enc_states = inflate_tensor(enc_states, times=self.beam_size, dim=0)
@@ -595,9 +551,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # Using bos as the first input
         inp_tokens = (
-            torch.zeros(batch_size * self.beam_size, device=device)
-            .fill_(self.bos_index)
-            .long()
+            torch.zeros(n_bh, device=device).fill_(self.bos_index).long()
         )
 
         # The first index of each sentence.
@@ -606,9 +560,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         # initialize sequence scores variables.
-        sequence_scores = torch.empty(
-            batch_size * self.beam_size, device=device
-        )
+        sequence_scores = torch.empty(n_bh, device=device)
         sequence_scores.fill_(float("-inf"))
 
         # keep only the first to make sure no redundancy.
@@ -618,25 +570,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
         hyps_and_scores = [[] for _ in range(batch_size)]
 
         # keep the sequences that still not reaches eos.
-        alived_seq = torch.empty(
-            batch_size * self.beam_size, 0, device=device
-        ).long()
+        alived_seq = torch.empty(n_bh, 0, device=device).long()
 
         # Keep the log-probabilities of alived sequences.
-        alived_log_probs = torch.empty(
-            batch_size * self.beam_size, 0, device=device
-        )
+        alived_log_probs = torch.empty(n_bh, 0, device=device)
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
         # Initialize the previous attention peak to zero
         # This variable will be used when using_max_attn_shift=True
-        prev_attn_peak = torch.zeros(batch_size * self.beam_size, device=device)
+        prev_attn_peak = torch.zeros(n_bh, device=device)
         attn = None
 
         log_probs = torch.full(
-            (batch_size * self.beam_size, 5000), 0.0, device=device
+            (n_bh, 5000), 0.0, device=device
         )  # TODO (SLin): replace 5000 with vocab size
 
         for t in range(max_decode_steps):
@@ -651,7 +599,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs = self.attn_weight * log_probs
 
             ## Keep the original value
-            # log_probs_clone = log_probs.clone().reshape(batch_size, -1)
             vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
@@ -666,38 +613,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if t < min_decode_steps:
                 log_probs[:, self.eos_index] = self.minus_inf
 
-            # adding LM scores to log_prob if lm_weight > 0
-            if self.lm_weight > 0:
+            # Adding LM scores to log_prob if lm_weight > 0.0
+            if self.lm_weight > 0.0:
                 lm_log_probs, lm_memory = self.lm_forward_step(
                     inp_tokens, lm_memory
                 )
                 log_probs = log_probs + self.lm_weight * lm_log_probs
 
-            # adding CTC scores to log_prob if ctc_weight > 0
-            if self.ctc_weight > 0:
+            # Adding Scorer scores to log_prob if Scorer is not None.
+            if self.scorer is not None:
                 # block blank token
                 log_probs[:, self.blank_index] = self.minus_inf
-                if self.ctc_weight != 1.0 and self.ctc_score_mode == "partial":
-                    # pruning vocab for ctc_scorer
-                    _, ctc_candidates = log_probs.topk(
-                        int(self.beam_size * 2), dim=-1
-                    )
-                else:
-                    ctc_candidates = None
-
-                ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
-                    alived_seq, ctc_memory, ctc_candidates, attn
+                # score with scorers
+                log_probs, scorer_memory = self.scorer.score(
+                    alived_seq, scorer_memory, attn, log_probs, self.beam_size
                 )
-                log_probs = log_probs + self.ctc_weight * ctc_log_probs
-
-            if self.ngram_weight > 0:
-                _, ngram_candidates = log_probs.topk(
-                    int(self.beam_size * 1.2), dim=-1
-                )
-                ngram_log_probs, ngram_memory = ngram_scorer.forward_step(
-                    alived_seq, ngram_memory, ngram_candidates
-                )
-                log_probs = log_probs + self.ngram_weight * ngram_log_probs
 
             # Keep the original value
             log_probs_clone = log_probs.clone().reshape(batch_size, -1)
@@ -724,11 +654,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
             # The input for the next step, also the output of current step.
-            inp_tokens = (candidates % vocab_size).view(
-                batch_size * self.beam_size
-            )
+            inp_tokens = (candidates % vocab_size).view(n_bh)
 
-            scores = scores.view(batch_size * self.beam_size)
+            scores = scores.view(n_bh)
             sequence_scores = scores
 
             # recover the length normalization
@@ -739,7 +667,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             predecessors = (
                 candidates // vocab_size
                 + self.beam_offset.unsqueeze(1).expand_as(candidates)
-            ).view(batch_size * self.beam_size)
+            ).view(n_bh)
 
             # Permute the memory to synchoronize with the output.
             if self.attn_weight:
@@ -748,12 +676,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self.lm_weight > 0:
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
-            if self.ctc_weight > 0:
-                ctc_memory = ctc_scorer.permute_mem(ctc_memory, candidates)
-
-            if self.ngram_weight > 0:
-                ngram_memory = ngram_scorer.permute_mem(
-                    ngram_memory, candidates
+            if self.scorer is not None:
+                scorer_memory = self.scorer.permute_scorer_mem(
+                    scorer_memory, index=candidates
                 )
 
             # If using_max_attn_shift, then the previous attn peak has to be permuted too.
@@ -761,36 +686,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 prev_attn_peak = torch.index_select(
                     prev_attn_peak, dim=0, index=predecessors
                 )
-
-            # Add coverage penalty
-            if self.attn_weight > 0 and self.coverage_penalty > 0:
-                cur_attn = torch.index_select(attn, dim=0, index=predecessors)
-
-                # coverage: cumulative attention probability vector
-                if t == 0:
-                    # Init coverage
-                    self.coverage = cur_attn
-
-                # the attn of transformer is [batch_size*beam_size, current_step, source_len]
-                if len(cur_attn.size()) > 2:
-                    self.converage = torch.sum(cur_attn, dim=1)
-                else:
-                    # Update coverage
-                    self.coverage = torch.index_select(
-                        self.coverage, dim=0, index=predecessors
-                    )
-                    self.coverage = self.coverage + cur_attn
-
-                # Compute coverage penalty and add it to scores
-                penalty = torch.max(
-                    self.coverage, self.coverage.clone().fill_(0.5)
-                ).sum(-1)
-                penalty = penalty - self.coverage.size(-1) * 0.5
-                penalty = penalty.view(batch_size * self.beam_size)
-                penalty = (
-                    penalty / (t + 1) if self.length_normalization else penalty
-                )
-                scores = scores - penalty * self.coverage_penalty
 
             # Update alived_seq
             alived_seq = torch.cat(
@@ -804,7 +699,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Takes the log-probabilities
             beam_log_probs = log_probs_clone[
                 torch.arange(batch_size).unsqueeze(1), candidates
-            ].reshape(batch_size * self.beam_size)
+            ].reshape(n_bh)
             alived_log_probs = torch.cat(
                 [
                     torch.index_select(
@@ -829,11 +724,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         if not self._check_full_beams(hyps_and_scores, self.beam_size):
             # Using all eos to fill-up the hyps.
-            eos = (
-                torch.zeros(batch_size * self.beam_size, device=device)
-                .fill_(self.eos_index)
-                .long()
-            )
+            eos = torch.zeros(n_bh, device=device).fill_(self.eos_index).long()
             _ = self._update_hyp_and_scores(
                 eos,
                 alived_seq,
@@ -859,11 +750,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             return predictions, topk_scores, log_probs
         else:
             return predictions, topk_scores
-
-    def ctc_forward_step(self, x):
-        logits = self.ctc_fc(x)
-        log_probs = self.softmax(logits)
-        return log_probs
 
     def permute_mem(self, memory, index):
         """This method permutes the seq2seq model memory
@@ -928,12 +814,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
     >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
-    >>> ctc_lin = sb.nnet.linear.Linear(n_neurons=5, input_size=7)
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
     ...     linear=lin,
-    ...     ctc_linear=ctc_lin,
     ...     bos_index=4,
     ...     eos_index=4,
     ...     blank_index=4,
@@ -947,24 +831,12 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     """
 
     def __init__(
-        self,
-        embedding,
-        decoder,
-        linear,
-        ctc_linear=None,
-        temperature=1.0,
-        **kwargs,
+        self, embedding, decoder, linear, temperature=1.0, **kwargs,
     ):
         super(S2SRNNBeamSearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
-        self.ctc_fc = ctc_linear
-        if self.ctc_weight > 0.0 and self.ctc_fc is None:
-            raise ValueError(
-                "To perform joint ATT/CTC or CTC decoding, ctc_fc is required."
-            )
-
         self.softmax = torch.nn.LogSoftmax(dim=-1)
         self.temperature = temperature
 
@@ -1289,7 +1161,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
 
         self.model = modules[0]
         self.fc = modules[1]
-        self.ctc_fc = modules[2]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
