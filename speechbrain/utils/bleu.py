@@ -44,14 +44,6 @@ class BLEUStats(MetricStats):
         self, lang="en", merge_words=True,
     ):
 
-        # Check extra-dependency for computing the bleu score
-        try:
-            import sacrebleu
-        except ImportError:
-            print(
-                "Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric"
-            )
-
         self.clear()
         self.merge_words = merge_words
 
@@ -98,6 +90,14 @@ class BLEUStats(MetricStats):
         """Summarize the BLEU and return relevant statistics.
         * See MetricStats.summarize()
         """
+
+        # Check extra-dependency for computing the bleu score
+        try:
+            import sacrebleu
+        except ImportError:
+            print(
+                "Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric"
+            )
 
         scores = sacrebleu.corpus_bleu(self.predicts, self.targets)
         details = {}
