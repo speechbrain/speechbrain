@@ -206,8 +206,9 @@ class ScorerBuilder:
         self.score_mode = dict(ctc=ctc_score_mode, ngram=ngram_score_mode,)
         self.scorers = {}
 
-        if self.score_mode["ctc"] == "full":
+        if self.score_mode["ctc"] == "full" or ctc_weight == 1.0:
             ctc_weight = 1.0
+            self.score_mode["ctc"] = "full"
             coverage_weight = 0.0
 
         if ctc_weight > 0.0:
