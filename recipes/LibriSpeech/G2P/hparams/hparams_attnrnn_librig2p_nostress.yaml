@@ -82,6 +82,7 @@ graphemes:
     - Y
     - Z
     - "'"
+    - " "
 
 
 phonemes:
