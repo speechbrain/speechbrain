@@ -3,7 +3,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Training params
-N_epochs: 10
+N_epochs: 15
 lr: 0.004
 dataloader_options:
     batch_size: 1

@@ -1,3 +1,1 @@
 mir-eval==0.6
-oct2py==5.2.0
-octave-kernel==0.32.0

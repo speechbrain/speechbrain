@@ -18,7 +18,9 @@ data_folder: !PLACEHOLDER
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
-wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: sepformer
 output_folder: !ref results/<experiment_name>/<seed>
@@ -31,7 +33,7 @@ skip_prep: False
 
 
 # Experiment params
-auto_mix_prec: False # Set it to True for mixed precision
+auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True

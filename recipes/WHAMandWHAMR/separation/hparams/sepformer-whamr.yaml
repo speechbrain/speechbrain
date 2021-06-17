@@ -1,7 +1,8 @@
 # ################################
-# Model: Conformer within the dualpath processing pipeline for source separation
+# Model: SepFormer for source separation
+# https://arxiv.org/abs/2010.13154
 #
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Dataset : WHAMR!
 # ################################
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -11,26 +12,30 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
 
-# e.g. '/yourpath/wsj0-mix/2speakers'
-# end with 2speakers for wsj0-2mix or 3speakers for wsj0-3mix
-data_folder: !PLACEHOLDER
+# the data folder for the wham dataset
+# data_folder needs to follow the format:  /yourpath/whamr.
+# make sure to use the name whamr at your top folder for the dataset!
+data_folder: /yourpath/whamr
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
-wsj0_tr: /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepconformer
+experiment_name: sepformer-whamr
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-train_data: !ref <save_folder>/wsj_tr.csv
-valid_data: !ref <save_folder>/wsj_cv.csv
-test_data: !ref <save_folder>/wsj_tt.csv
+
+# the file names should start with whamr instead of whamorg
+train_data: !ref <save_folder>/whamr_tr.csv
+valid_data: !ref <save_folder>/whamr_cv.csv
+test_data: !ref <save_folder>/whamr_tt.csv
 skip_prep: False
 
-
 # Experiment params
-auto_mix_prec: False # Set it to True for mixed precision
+auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
 progressbar: True
@@ -44,15 +49,21 @@ lr: 0.00015
 clip_grad_norm: 5
 loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
 # if True, the training sequences are cut to a specified length
-limit_training_signal_len: True
+limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
-training_signal_len: 32000
+training_signal_len: 32000000
 
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
 
 # Parameters for data augmentation
+
+# rir_path variable points to the directory of the room impulse responses
+# e.g. /miniscratch/subakany/rir_wavs
+# If the path does not exist, it is created automatically.
+rir_path: !PLACEHOLDER
+
 use_wavedrop: False
 use_speedperturb: True
 use_speedperturb_sameforeachsource: False
@@ -88,30 +99,29 @@ dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 3
 
-
 # Specifying the network
 Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
 
 
-intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
-    num_layers: 6
+SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
-    kernel_size: 8
+    norm_before: True
 
-inter: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
-    num_layers: 6
+SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
-    kernel_size: 8
+    norm_before: True
 
 MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     num_spks: !ref <num_spks>
@@ -119,8 +129,8 @@ MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     out_channels: !ref <out_channels>
     num_layers: 2
     K: 250
-    intra_model: !ref <intra>
-    inter_model: !ref <inter>
+    intra_model: !ref <SBtfintra>
+    inter_model: !ref <SBtfinter>
     norm: ln
     linear_layer_after_inter_intra: False
     skip_around_intra: True
