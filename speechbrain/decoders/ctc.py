@@ -35,7 +35,7 @@ class CTCPrefixScore:
     """
 
     def __init__(
-        self, x, enc_lens, beam_size, blank_index, eos_index, ctc_window_size=0,
+        self, x, enc_lens, blank_index, eos_index, ctc_window_size=0,
     ):
         self.blank_index = blank_index
         self.eos_index = eos_index
@@ -239,12 +239,13 @@ class CTCPrefixScore:
 
         """
 
+        r, psi, scoring_table = memory
+
         beam_size = index.size(1)
         n_bh = self.batch_size * beam_size
+
         # The first index of each batch.
         beam_offset = self.batch_index * beam_size
-
-        r, psi, scoring_table = memory
         # The index of top-K vocab came from in (t-1) timesteps at batch * beam * vocab dimension.
         cand_index = (
             index + beam_offset.unsqueeze(1).expand_as(index) * self.vocab_size
