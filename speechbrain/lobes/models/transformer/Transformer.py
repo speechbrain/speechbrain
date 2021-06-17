@@ -77,6 +77,7 @@ class TransformerInterface(nn.Module):
         linf_method: Optional[str] = "learnable",
         ref_n_hashes: Optional[int] = 8,
         ref_bucket_size: Optional[int] = 64,
+        ref_attn_chunks: Optional[int] = 1,
     ):
         super().__init__()
 
@@ -159,6 +160,7 @@ class TransformerInterface(nn.Module):
                     nhead=nhead,
                     n_hashes=ref_n_hashes,
                     bucket_size=ref_bucket_size,
+                    attn_chunks=ref_attn_chunks,
                     d_model=d_model,
                     dropout=dropout,
                     activation=activation,

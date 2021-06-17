@@ -124,6 +124,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     encoder_module: reformer
     ref_n_hashes: 4
     ref_bucket_size: 64
+    attn_chunks: 1
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM  # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>

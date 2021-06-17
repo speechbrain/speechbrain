@@ -122,6 +122,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     encoder_module: reformer
     ref_n_hashes: 1
     ref_bucket_size: 256
+    attn_chunks: 1
 
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
