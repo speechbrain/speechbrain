@@ -96,7 +96,7 @@ class Pretrained:
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
         if self.HPARAMS_NEEDED and hparams is None:
-            raise ValueError(f"Need to provide hparams dict.")
+            raise ValueError("Need to provide hparams dict.")
         if hparams is not None:
             # Also first check that all required params are found:
             for hp in self.HPARAMS_NEEDED:
