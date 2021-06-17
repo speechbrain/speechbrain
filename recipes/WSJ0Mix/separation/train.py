@@ -58,24 +58,7 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
-                    if "whamr" in self.hparams.data_folder:
-                        targets = self.hparams.reverb(
-                            targets[0].t(), torch.ones(targets.size(-1))
-                        )
-                        targets = targets.t().unsqueeze(0)
-                        mix = targets.sum(-1)
-
-                    if "wham" in self.hparams.data_folder:
-                        noise = noise.to(self.device)
-                        len_noise = noise.shape[1]
-                        len_mix = mix.shape[1]
-                        min_len = min(len_noise, len_mix)
-
-                        # add the noise
-                        mix = mix[:, :min_len] + noise[:, :min_len]
-
-                        # fix the length of targets also
-                        targets = targets[:, :min_len, :]
+                    mix = targets.sum(-1)
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -117,10 +100,6 @@ class Separation(sb.Brain):
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
-        if "wham" in self.hparams.data_folder:
-            noise = batch.noise_sig[0]
-        else:
-            noise = None
 
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
@@ -128,7 +107,7 @@ class Separation(sb.Brain):
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN, noise
+                    mixture, targets, sb.Stage.TRAIN
                 )
                 loss = self.compute_objectives(predictions, targets)
 
@@ -162,7 +141,7 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN, noise
+                mixture, targets, sb.Stage.TRAIN
             )
             loss = self.compute_objectives(predictions, targets)
 
@@ -513,14 +492,6 @@ def dataio_prep(hparams):
             s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             return s3_sig
 
-    if "wham" in hparams["data_folder"]:
-
-        @sb.utils.data_pipeline.takes("noise_wav")
-        @sb.utils.data_pipeline.provides("noise_sig")
-        def audio_pipeline_noise(noise_wav):
-            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
-            return noise_sig
-
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
@@ -530,16 +501,9 @@ def dataio_prep(hparams):
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
         )
     else:
-        if "wham" in hparams["data_folder"]:
-            print("Using the WHAM! dataset")
-            sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
-            sb.dataio.dataset.set_output_keys(
-                datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
-            )
-        else:
-            sb.dataio.dataset.set_output_keys(
-                datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
-            )
+        sb.dataio.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
+        )
 
     return train_data, valid_data, test_data
 
@@ -550,6 +514,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    run_opts["auto_mix_prec"] = hparams["auto_mix_prec"]
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -565,9 +530,11 @@ if __name__ == "__main__":
     )
 
     # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(hparams["wsj0_tr"]):
+    if hparams["dynamic_mixing"] and not os.path.exists(
+        hparams["base_folder_dm"]
+    ):
         print(
-            "Please, specify a valid wsj0_tr folder when using dynamic mixing"
+            "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
         sys.exit(1)
 
@@ -581,27 +548,41 @@ if __name__ == "__main__":
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
+            "fs": hparams["sample_rate"],
         },
     )
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:
+        from dynamic_mixing import dynamic_mix_data_prep
 
-        if hparams["num_spks"] == 2:
-            from dynamic_mixing import dynamic_mix_data_prep  # noqa
-
-            train_data = dynamic_mix_data_prep(hparams)
-        elif hparams["num_spks"] == 3:
-            from dynamic_mixing import dynamic_mix_data_prep_3mix  # noqa
-
-            train_data = dynamic_mix_data_prep_3mix(hparams)
-        else:
-            raise ValueError(
-                "The specified number of speakers is not supported."
+        # if the base_folder for dm is not processed, preprocess them
+        if "processed" not in hparams["base_folder_dm"]:
+            from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
+                resample_folder,
             )
+
+            print("Resampling the base folder")
+            run_on_main(
+                resample_folder,
+                kwargs={
+                    "input_folder": hparams["base_folder_dm"],
+                    "output_folder": hparams["base_folder_dm"] + "_processed",
+                    "fs": hparams["sample_rate"],
+                    "regex": "**/*.wav",
+                },
+            )
+            # adjust the base_folder_dm path
+            hparams["base_folder_dm"] = hparams["base_folder_dm"] + "_processed"
+        train_data = dynamic_mix_data_prep(hparams)
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
+
+    # Load pretrained model if pretrained_separator is present in the yaml
+    if "pretrained_separator" in hparams:
+        run_on_main(hparams["pretrained_separator"].collect_files)
+        hparams["pretrained_separator"].load_collected()
 
     # Brain class initialization
     separator = Separation(
@@ -612,9 +593,10 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # re-initialize the parameters
-    for module in separator.modules.values():
-        separator.reset_layer_recursively(module)
+    # re-initialize the parameters if we don't use a pretrained model
+    if "pretrained_separator" not in hparams:
+        for module in separator.modules.values():
+            separator.reset_layer_recursively(module)
 
     if not hparams["test_only"]:
         # Training
