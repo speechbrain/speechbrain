@@ -1047,14 +1047,14 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     dilation : int
     """
     if stride > 1:
-        n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
-        L_out = stride * (n_steps - 1) + kernel_size * dilation
-        padding = [kernel_size // 2, kernel_size // 2]
+        half_kernel = torch.div(kernel_size, 2, rounding_mode="floor")
+        padding = [half_kernel, half_kernel]
 
     else:
-        L_out = (L_in - dilation * (kernel_size - 1) - 1) // stride + 1
+        tot_padding = dilation * (kernel_size - 1)
+        half_padding = torch.div(tot_padding, 2, rounding_mode="floor")
 
-        padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
+        padding = [half_padding, half_padding]
     return padding
 
 
