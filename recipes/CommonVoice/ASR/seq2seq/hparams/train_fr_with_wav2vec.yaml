@@ -1,5 +1,5 @@
 # ################################
-# Model: wav2vec2 + DNN + CTC/Attention
+# Model: wav2vec2 + DNN + CTC
 # Augmentation: SpecAugment
 # Authors: Titouan Parcollet 2021
 # ################################
@@ -12,9 +12,8 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the biggest Fairseq english wav2vec2 model.
-wav2vec2_hub: facebook/wav2vec2-large-xlsr-53-french
-
+# URL for the biggest HuggingFace LeBenchmarh french w2v2
+wav2vec2_hub: LeBenchmark/wav2vec2-FR-M-large
 # Data files
 data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files

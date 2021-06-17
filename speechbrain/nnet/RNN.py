@@ -153,7 +153,7 @@ class RNN(torch.nn.Module):
         if lengths is not None:
             x = pack_padded_sequence(x, lengths)
 
-        # Support custom inital state
+        # Support custom initial state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
@@ -192,7 +192,7 @@ class LSTM(torch.nn.Module):
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
     bidirectional : bool
-        If True, a bidirectinoal model that scans the sequence both
+        If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
 
     Example
@@ -264,7 +264,7 @@ class LSTM(torch.nn.Module):
         if lengths is not None:
             x = pack_padded_sequence(x, lengths)
 
-        # Support custom inital state
+        # Support custom initial state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
@@ -336,7 +336,7 @@ class GRU(torch.nn.Module):
         if input_size is None:
             if len(input_shape) > 3:
                 self.reshape = True
-            input_size = torch.prod(torch.tensor(input_shape[2:]))
+            input_size = torch.prod(torch.tensor(input_shape[2:])).item()
 
         self.rnn = torch.nn.GRU(
             input_size=input_size,
@@ -375,7 +375,7 @@ class GRU(torch.nn.Module):
         if lengths is not None:
             x = pack_padded_sequence(x, lengths)
 
-        # Support custom inital state
+        # Support custom initial state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
         else:
@@ -961,7 +961,7 @@ class AttentionalRNNDecoder(nn.Module):
 class LiGRU(torch.nn.Module):
     """ This function implements a Light GRU (liGRU).
 
-    Ligru is single-gate GRU model based on batch-norm + relu
+    LiGRU is single-gate GRU model based on batch-norm + relu
     activations + recurrent dropout. For more info see:
 
     "M. Ravanelli, P. Brakel, M. Omologo, Y. Bengio,
@@ -969,8 +969,10 @@ class LiGRU(torch.nn.Module):
     in IEEE Transactions on Emerging Topics in Computational Intelligence,
     2018" (https://arxiv.org/abs/1803.10225)
 
-    To speed it up, it is compiled with the torch just-in-time compiler (jit)
-    right before using it.
+    This is a custm RNN and to speed it up it must be compiled with
+    the torch just-in-time compiler (jit) right before using it.
+    You can compile it with:
+    compiled_model = torch.jit.script(model)
 
     It accepts in input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is

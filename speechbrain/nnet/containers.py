@@ -196,7 +196,7 @@ class LengthsCapableSequential(Sequential):
 class ModuleList(torch.nn.Module):
     """This class implements a wrapper to torch.nn.ModuleList with a forward()
     method to forward all the layers sequentially.
-    For some pretained model with the SpeechBrain older implementation of
+    For some pretrained model with the SpeechBrain older implementation of
     Sequential class, user can use this class to load those pretrained models
 
     Arguments
