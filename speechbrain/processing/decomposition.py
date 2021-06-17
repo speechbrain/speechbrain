@@ -86,7 +86,7 @@ def gevd(a, b=None):
     bsh = f(b)
 
     # Performing the Cholesky decomposition
-    lsh = torch.cholesky(bsh)
+    lsh = torch.linalg.cholesky(bsh)
     lsh_inv = torch.inverse(lsh)
     lsh_inv_T = torch.transpose(lsh_inv, D - 2, D - 1)
 
@@ -94,7 +94,7 @@ def gevd(a, b=None):
     csh = torch.matmul(lsh_inv, torch.matmul(ash, lsh_inv_T))
 
     # Performing the eigenvalue decomposition
-    es, ysh = torch.symeig(csh, eigenvectors=True)
+    es, ysh = torch.linalg.eigh(csh, UPLO="U")
 
     # Collecting the eigenvalues
     dsh = torch.zeros(
@@ -166,7 +166,7 @@ def svdl(a):
     ash_mm_ash_T = torch.matmul(ash, ash_T)
 
     # Finding the eigenvectors and eigenvalues
-    es, ush = torch.symeig(ash_mm_ash_T, eigenvectors=True)
+    es, ush = torch.linalg.eigh(ash_mm_ash_T, UPLO="U")
 
     # Collecting the eigenvalues
     dsh = torch.zeros(ush.shape, dtype=es.dtype, device=es.device)
