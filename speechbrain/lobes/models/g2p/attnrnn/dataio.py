@@ -42,7 +42,8 @@ def clean_pipeline(graphemes, takes="txt", provides="txt_cleaned"):
 
 
 def grapheme_pipeline(
-    graphemes, grapheme_encoder=None, space_separated=False, takes="char"
+    graphemes, grapheme_encoder=None, space_separated=False,
+    uppercase=True, takes="char"
 ):
     """
     Creates a pipeline element for grapheme encoding
@@ -64,13 +65,17 @@ def grapheme_pipeline(
     if grapheme_encoder is None:
         grapheme_encoder = sb.dataio.encoder.TextEncoder()
     grapheme_encoder.update_from_iterable(graphemes)
+    grapheme_set = set(graphemes)
 
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(
         "grapheme_list", "grapheme_encoded_list", "grapheme_encoded"
     )
     def f(char):
+        if uppercase:
+            char = char.upper()
         grapheme_list = char.strip().split(" ") if space_separated else char
+        grapheme_list = [grapheme for grapheme in grapheme_list if grapheme in grapheme_set]
         yield grapheme_list
         grapheme_encoded_list = grapheme_encoder.encode_sequence(grapheme_list)
         yield grapheme_encoded_list
