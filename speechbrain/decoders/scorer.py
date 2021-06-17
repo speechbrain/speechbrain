@@ -1,6 +1,6 @@
 import torch
-import kenlm
 import numpy as np
+import kenlm
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
 import sentencepiece as spm
@@ -217,6 +217,7 @@ class ScorerBuilder:
             )
 
         if ngram_weight > 0.0:
+
             self.scorers["ngram"] = NGramScorer(
                 lm_path, tokenizer, vocab_size, bos_index, eos_index
             )
