@@ -2,6 +2,9 @@
 
 Authors
  * Mirco Ravanelli 2020
+ * Pavithra Parthasarathy 2021
+ * Valliappan Chidambaram 2021
+ * Arka Mukherjee 2021
 """
 import torch
 import torch.nn as nn
