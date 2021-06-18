@@ -1047,18 +1047,14 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     dilation : int
     """
     if stride > 1:
-        # torch.div + casting is needed for jitability
-        half_kernel = torch.div(
-            torch.tensor(kernel_size), 2, rounding_mode="floor"
-        )
-        padding = [int(half_kernel.item()), int(half_kernel.item())]
+        n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
+        L_out = stride * (n_steps - 1) + kernel_size * dilation
+        padding = [kernel_size // 2, kernel_size // 2]
 
     else:
-        tot_padding = dilation * (kernel_size - 1)
-        half_padding = torch.div(
-            torch.tensor(tot_padding), 2, rounding_mode="floor"
-        )
-        padding = [int(half_padding.item()), int(half_padding.item())]
+        L_out = (L_in - dilation * (kernel_size - 1) - 1) // stride + 1
+
+        padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
     return padding
 
 
