@@ -192,7 +192,7 @@ transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
 # NB: It has to match the pre-trained RNNLM!!
 lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
    output_neurons: !ref <output_neurons>
-   embedding_dim: !ref <emb_size>
+   embedding_dim: 128
    activation: !name:torch.nn.LeakyReLU
    dropout: 0.0
    rnn_layers: 2
