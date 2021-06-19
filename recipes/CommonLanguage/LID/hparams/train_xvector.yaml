@@ -95,20 +95,11 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-# # Final classification
-# classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-#     input_shape: [null, null, !ref <emb_dim>]
-#     activation: !name:torch.nn.LeakyReLU
-#     lin_blocks: 1
-#     lin_neurons: !ref <emb_dim>
-#     out_neurons: !ref <n_languages>
-
 # Final classification (only a weight matrix)
 classifier: !new:train.CosClassifier
     input_size: !ref <emb_dim>
     out_neurons: !ref <n_languages>
     dropout: 0
-
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -126,9 +117,6 @@ modules:
     mean_var_norm_input: !ref <mean_var_norm_input>
     mean_var_norm_emb: !ref <mean_var_norm_emb>
     classifier: !ref <classifier>
-
-# # Multi-Class Classification loss
-# compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
 # Additive Angular Margin
 compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
