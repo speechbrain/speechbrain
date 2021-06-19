@@ -150,19 +150,14 @@ class LID(sb.Brain):
 
         predictions, lens = inputs
 
-        targets = batch.language_name_encoded.data
+        targets = batch.language_encoded.data
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
             targets = torch.cat([targets, targets], dim=0)
             lens = torch.cat([lens, lens], dim=0)
 
-        loss = self.hparams.compute_cost(
-            embeddings=embeddings,
-            outputs=predictions,
-            targets=targets,
-            weights=self.modules.classifier.weight
-        )
+        loss = self.hparams.compute_cost(predictions, targets)
 
         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
