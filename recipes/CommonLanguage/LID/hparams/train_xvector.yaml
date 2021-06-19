@@ -1,8 +1,10 @@
 # #################################
-# Training ECAPA-TDNN embeddings for language identification (LID).
+# Training X-vector embeddings for language identification (LID).
 #
-# Author:
-#  * Pavlo Ruban 2021
+# Authors:
+#  * Hwidong Na 
+#  * Mirco Ravanelli
+#  * Pavlo Ruban
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -28,14 +30,14 @@ error_stats: !name:speechbrain.utils.metric_stats.MetricStats
         reduction: batch
 
 # Feature parameters btw: 40 - 80
-n_mels: 80
+n_mels: 24
 
 # Training Parameters
 sample_rate: 16000
 number_of_epochs: 30
-batch_size: 4
+batch_size: 16
 n_languages: 45
-emb_dim: 192 # dimensionality of the embeddings
+emb_dim: 512 # dimensionality of the embeddings
 
 # Dataloaders
 train_dataloader_options:
@@ -79,13 +81,13 @@ mean_var_norm_input: !new:speechbrain.processing.features.InputNormalization
 # pointing to a different file you've defined.
 
 # Embedding Model
-embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-    input_size: !ref <n_mels>
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
-    channels: [1024, 1024, 1024, 1024, 3072]
-    kernel_sizes: [5, 3, 3, 3, 1]
-    dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
 
 # Embedding Normalization
@@ -93,11 +95,13 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-# Final classification (only a weight matrix)
-classifier: !new:train.CosClassifier
-    input_size: !ref <emb_dim>
+# Final classification
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    input_shape: [null, null, !ref <emb_dim>]
+    activation: !name:torch.nn.LeakyReLU
+    lin_blocks: 1
+    lin_neurons: !ref <emb_dim>
     out_neurons: !ref <n_languages>
-    dropout: 0
 
 
 # The first object passed to the Brain class is this "Epoch Counter"
@@ -117,11 +121,8 @@ modules:
     mean_var_norm_emb: !ref <mean_var_norm_emb>
     classifier: !ref <classifier>
 
-# Additive Angular Margin
-compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-        margin: 0.2
-        scale: 30
+# Multi-Class Classification loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
 lr: 0.001
 base_lr: 0.00000001
@@ -151,12 +152,12 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         classifier: !ref <classifier>
         counter: !ref <epoch_counter>
 
-ckpt_interval_minutes: 15 # save checkpoint every N min
+ckpt_interval_minutes: 60 # save checkpoint every N min
 
 # Load pretrained embedding module
-embedding_model_path: speechbrain/spkrec-ecapa-voxceleb/embedding_model.ckpt
+embedding_model_path: speechbrain/spkrec-xvect-voxceleb/embedding_model.ckpt
 
-# Pretrained ECAPA embeddings from SpeakerID on VoxCeleb
+# Pretrained X-vector embeddings from SpeakerID on VoxCeleb
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
