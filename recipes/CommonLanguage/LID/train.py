@@ -7,7 +7,7 @@ import speechbrain as sb
 from tqdm.contrib import tqdm
 import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
-from recipes.CommonLanguage.common_language_prepare import prepare_common_language, dataio_prep # noqa
+from recipes.CommonLanguage.common_language_prepare import prepare_common_language, dataio_prep
 
 """Recipe for training a LID system with CommonLanguage.
 
@@ -78,11 +78,11 @@ class LID(sb.Brain):
         # concatenate the original and the augment batches in a single bigger
         # batch. This is more memory-demanding, but helps to improve the
         # performance. Change it if you run OOM.
-        # if stage == sb.Stage.TRAIN:
-        #     wavs_noise = self.modules.env_corrupt(wavs, lens)
-        #     wavs = torch.cat([wavs, wavs_noise], dim=0)
-        #     lens = torch.cat([lens, lens], dim=0)
-        #     wavs = self.hparams.augmentation(wavs, lens)
+        if stage == sb.Stage.TRAIN:
+            wavs_noise = self.modules.env_corrupt(wavs, lens)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            lens = torch.cat([lens, lens], dim=0)
+            wavs = self.hparams.augmentation(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -123,9 +123,7 @@ class LID(sb.Brain):
 
         # Compute features, embeddings and output
         feats, lens = self.prepare_features(batch.sig, stage)
-
         embeddings = self.compute_embeddings(feats)
-
         outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
@@ -153,9 +151,9 @@ class LID(sb.Brain):
         targets = batch.language_encoded.data
 
         # Concatenate labels (due to data augmentation)
-        # if stage == sb.Stage.TRAIN:
-        #     targets = torch.cat([targets, targets], dim=0)
-        #     lens = torch.cat([lens, lens], dim=0)
+        if stage == sb.Stage.TRAIN:
+            targets = torch.cat([targets, targets], dim=0)
+            lens = torch.cat([lens, lens], dim=0)
 
         loss = self.hparams.compute_cost(predictions, targets)
 
