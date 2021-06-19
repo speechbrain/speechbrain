@@ -85,7 +85,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
-                {"Epoch": epoch},
+                stats_meta={"Epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
