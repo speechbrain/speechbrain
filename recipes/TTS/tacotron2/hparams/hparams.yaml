@@ -15,8 +15,10 @@ epochs: 1501
 #################################
 data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
 data_folder_rirs: !ref <data_folder>
-train_data_path: ../datasets/mockdata/fake_vctk_1ex
-valid_data_path: ../datasets/mockdata/fake_vctk_1ex
+train_data_path: ../datasets/mockdata/lj
+train_filter: null
+valid_data_path: ../datasets/mockdata/lj
+valid_filter: null
 text_cleaners: ['english_cleaners']
 
 ################################
@@ -144,10 +146,12 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 datasets:
     train:
         path: !ref <train_data_path>
-        loader: !name:datasets.vctk.load
+        loader: !name:datasets.lj.load
+        filter: !ref <train_filter>
     valid:
         path: !ref <valid_data_path>
-        loader: !name:datasets.vctk.load
+        loader: !name:datasets.lj.load
+        filter: !ref <valid_filter>
 
 model_output_keys:
     - mel

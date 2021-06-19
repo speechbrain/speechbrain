@@ -226,5 +226,27 @@ def load_datasets(hparams, dataset_prep):
     for name, dataset_params in hparams["datasets"].items():
         loader = dataset_params["loader"]
         dataset = loader(dataset_params["path"])
+        filter_file_name = dataset_params.get('filter')
+        if filter_file_name:
+            dataset = filter_by_id_list(dataset, filter_file_name)
         result[name] = dataset_prep(dataset, hparams)
     return result
+
+
+def filter_by_id_list(dataset, file_name):
+    """
+    Filters a dataset by selecting IDs from a text file - used to
+    "freeze" predetermined splits
+
+    Arguments
+    ---------
+    dataset: DynamicItemDataSet
+        a dataset
+    file_name: str
+        the name of the filter file
+    """
+    with open(file_name) as filter_file:
+        item_ids = set(line.strip() for line in filter_file)
+
+    return dataset.filtered_sorted(
+        key_test={'id': lambda item_id: item_id in item_ids})
