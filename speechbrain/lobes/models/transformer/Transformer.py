@@ -2,9 +2,6 @@
 
 Authors
 * Jianyuan Zhong 2020
-* Pavithra Rajasekar 2021
-* Arka Mukherjee 2021
-* Valliappan CA 2021
 """
 import math
 import torch
@@ -46,8 +43,6 @@ class TransformerInterface(nn.Module):
         Module that processes the src features to expected feature dim.
     custom_tgt_module : torch class
         Module that processes the src features to expected feature dim.
-    use_layer_norm : bool
-        Normalize using layer normalization or Power normalization (optional).
     """
 
     def __init__(
@@ -67,7 +62,6 @@ class TransformerInterface(nn.Module):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
-        use_layer_norm=True,
     ):
         super().__init__()
 
@@ -91,7 +85,6 @@ class TransformerInterface(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
-                    use_layer_norm=use_layer_norm,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -125,7 +118,6 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 normalize_before=normalize_before,
-                use_layer_norm=use_layer_norm,
             )
 
     def forward(self, **kwags):
@@ -198,8 +190,6 @@ class TransformerEncoderLayer(nn.Module):
         Dimension of the value (Optional).
     dropout : float
         Dropout for the encoder (Optional).
-    use_layer_norm : bool
-        Normalize using layer normalization or Power normalization (optional).
 
     Example
     -------
@@ -221,7 +211,6 @@ class TransformerEncoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
-        use_layer_norm=True,
     ):
         super().__init__()
 
@@ -235,19 +224,11 @@ class TransformerEncoderLayer(nn.Module):
             activation=activation,
         )
 
-        if use_layer_norm is True:
-            self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
-            self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
-        else:
-            self.power_norm1 = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=2000
-            )
-            self.power_norm2 = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=2000
-            )
+        self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
-        self.use_layer_norm = use_layer_norm
+
         self.normalize_before = normalize_before
 
     def forward(
@@ -267,10 +248,7 @@ class TransformerEncoderLayer(nn.Module):
             The mask for the src keys per batch (optional).
         """
         if self.normalize_before:
-            if self.use_layer_norm:
-                src1 = self.norm1(src)
-            else:
-                src1 = self.power_norm1(src)
+            src1 = self.norm1(src)
         else:
             src1 = src
 
@@ -285,16 +263,10 @@ class TransformerEncoderLayer(nn.Module):
         # add & norm
         src = src + self.dropout1(output)
         if not self.normalize_before:
-            if self.use_layer_norm:
-                src = self.norm1(src)
-            else:
-                src = self.power_norm1(src)
+            src = self.norm1(src)
 
         if self.normalize_before:
-            if self.use_layer_norm:
-                src1 = self.norm2(src)
-            else:
-                src1 = self.power_norm2(src)
+            src1 = self.norm2(src)
         else:
             src1 = src
         output = self.pos_ffn(src1)
@@ -302,10 +274,7 @@ class TransformerEncoderLayer(nn.Module):
         # add & norm
         output = src + self.dropout2(output)
         if not self.normalize_before:
-            if self.use_layer_norm:
-                output = self.norm2(output)
-            else:
-                output = self.power_norm2(output)
+            output = self.norm2(output)
 
         return output, self_attn
 
@@ -334,8 +303,6 @@ class TransformerEncoder(nn.Module):
     input_module: torch class
         The module to process the source input feature to expected
         feature dimension (Optional).
-    use_layer_norm : bool
-        Normalize using layer normalization or Power normalization (optional).
 
     Example
     -------
@@ -359,7 +326,6 @@ class TransformerEncoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
-        use_layer_norm=True,
     ):
         super().__init__()
 
@@ -387,13 +353,7 @@ class TransformerEncoder(nn.Module):
                 for i in range(num_layers)
             ]
         )
-        self.use_layer_norm = use_layer_norm
-        if use_layer_norm:
-            self.layer_norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
-        else:
-            self.power_norm = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=4000
-            )
+        self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
     def forward(
         self,
@@ -420,10 +380,7 @@ class TransformerEncoder(nn.Module):
                 src_key_padding_mask=src_key_padding_mask,
             )
             attention_lst.append(attention)
-        if self.use_layer_norm:
-            output = self.layer_norm(output)
-        else:
-            output = self.power_norm(output)
+        output = self.norm(output)
 
         return output, attention_lst
 
@@ -445,8 +402,6 @@ class TransformerDecoderLayer(nn.Module):
         Dimension for value (optional).
     dropout : float
         Dropout for the decoder (optional).
-    use_layer_norm : bool
-        Normalize using layer normalization or Power normalization (optional).
 
     Example
     -------
@@ -468,7 +423,6 @@ class TransformerDecoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
-        use_layer_norm=True,
     ):
         super().__init__()
         self.self_attn = sb.nnet.attention.MultiheadAttention(
@@ -485,27 +439,9 @@ class TransformerDecoderLayer(nn.Module):
         )
 
         # normalization layers
-        self.use_layer_norm = use_layer_norm
-        if self.use_layer_norm:
-            self.layer_norm1 = sb.nnet.normalization.LayerNorm(
-                d_model, eps=1e-6
-            )
-            self.layer_norm2 = sb.nnet.normalization.LayerNorm(
-                d_model, eps=1e-6
-            )
-            self.layer_norm3 = sb.nnet.normalization.LayerNorm(
-                d_model, eps=1e-6
-            )
-        else:
-            self.power_norm1 = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=4000
-            )
-            self.power_norm2 = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=4000
-            )
-            self.power_norm3 = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=4000
-            )
+        self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm3 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
         self.dropout3 = torch.nn.Dropout(dropout)
@@ -538,10 +474,7 @@ class TransformerDecoderLayer(nn.Module):
             The mask for the memory keys per batch (optional).
         """
         if self.normalize_before:
-            if self.use_layer_norm:
-                tgt1 = self.layer_norm1(tgt)
-            else:
-                tgt1 = self.power_norm1(tgt)
+            tgt1 = self.norm1(tgt)
         else:
             tgt1 = tgt
 
@@ -557,17 +490,10 @@ class TransformerDecoderLayer(nn.Module):
         # add & norm
         tgt = tgt + self.dropout1(tgt2)
         if not self.normalize_before:
-            if self.use_layer_norm:
-                tgt = self.layer_norm1(tgt)
-            else:
-                tgt = self.power_norm1(tgt)
+            tgt = self.norm1(tgt)
 
-        # Normalizing conditions
         if self.normalize_before:
-            if self.use_layer_norm:
-                tgt1 = self.layer_norm2(tgt)
-            else:
-                tgt1 = self.power_norm2(tgt)
+            tgt1 = self.norm2(tgt)
         else:
             tgt1 = tgt
 
@@ -583,17 +509,10 @@ class TransformerDecoderLayer(nn.Module):
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
         if not self.normalize_before:
-            if self.use_layer_norm:
-                tgt = self.layer_norm2(tgt)
-            else:
-                tgt = self.power_norm2(tgt)
+            tgt = self.norm2(tgt)
 
-        # Normalizing Condition
         if self.normalize_before:
-            if self.use_layer_norm:
-                tgt1 = self.layer_norm3(tgt)
-            else:
-                tgt1 = self.power_norm3(tgt)
+            tgt1 = self.norm3(tgt)
         else:
             tgt1 = tgt
 
@@ -602,10 +521,7 @@ class TransformerDecoderLayer(nn.Module):
         # add & norm
         tgt = tgt + self.dropout3(tgt2)
         if not self.normalize_before:
-            if self.use_layer_norm:
-                tgt = self.layer_norm3(tgt)
-            else:
-                tgt = self.power_norm3(tgt)
+            tgt = self.norm3(tgt)
 
         return tgt, self_attn, multihead_attention
 
@@ -627,8 +543,6 @@ class TransformerDecoder(nn.Module):
         Dimension for value (Optional).
     dropout : float
         Dropout for the decoder (Optional).
-    use_layer_norm : bool
-        Normalize using layer normalization or Power normalization (optional).
 
     Example
     -------
@@ -651,7 +565,6 @@ class TransformerDecoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
-        use_layer_norm=True,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -665,18 +578,11 @@ class TransformerDecoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
-                    use_layer_norm=use_layer_norm,
                 )
                 for _ in range(num_layers)
             ]
         )
-        self.use_layer_norm = use_layer_norm
-        if self.use_layer_norm:
-            self.layer_norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
-        else:
-            self.power_norm = sb.nnet.normalization.PowerNorm(
-                d_model, group_num=nhead, warmup_iters=4000
-            )
+        self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
     def forward(
         self,
@@ -716,10 +622,7 @@ class TransformerDecoder(nn.Module):
             )
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
-        if self.use_layer_norm:
-            output = self.layer_norm(output)
-        else:
-            output = self.power_norm(output)
+        output = self.norm(output)
 
         return output, self_attns, multihead_attns
 

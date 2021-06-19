@@ -2,9 +2,6 @@
 
 Authors
 * Jianyuan Zhong 2020
-* Pavithra Rajasekar 2021
-* Arka Mukherjee 2021
-* Valliappan CA 2021
 """
 
 import torch  # noqa 42
@@ -80,7 +77,6 @@ class TransformerASR(TransformerInterface):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
-        use_layer_norm=True,
     ):
         super().__init__(
             d_model=d_model,
@@ -96,7 +92,6 @@ class TransformerASR(TransformerInterface):
             bias=bias,
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
-            use_layer_norm=use_layer_norm,
         )
 
         self.custom_src_module = ModuleList(
