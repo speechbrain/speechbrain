@@ -16,6 +16,7 @@ data_folder: !PLACEHOLDER
 output_folder: !PLACEHOLDER
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+device: 'cuda:0'
 skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -96,7 +97,7 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
 classifier: !new:train.CosClassifier
     input_size: !ref <emb_dim>
     out_neurons: !ref <n_languages>
-    dropout: 0.1
+    dropout: 0
 
 
 # The first object passed to the Brain class is this "Epoch Counter"
