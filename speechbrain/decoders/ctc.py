@@ -46,6 +46,7 @@ class CTCPrefixScore:
         self.minus_inf = -1e20
         self.last_frame_index = enc_lens - 1
         self.ctc_window_size = ctc_window_size
+        self.prefix_length = 0
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
@@ -68,14 +69,14 @@ class CTCPrefixScore:
         self.batch_index = torch.arange(self.batch_size, device=self.device)
 
     @torch.no_grad()
-    def forward_step(self, g, states, candidates=None, attn=None):
+    def forward_step(self, inp_tokens, states, candidates=None, attn=None):
         """This method if one step of forwarding operation
         for the prefix ctc scorer.
 
         Arguments
         ---------
-        g : torch.Tensor
-            The tensor of prefix label sequences, h = g + c.
+        inp_tokens : torch.Tensor
+            The last chars of prefix label sequences g, where h = g + c.
         states : tuple
             Previous ctc states.
         candidates : torch.Tensor
@@ -83,10 +84,10 @@ class CTCPrefixScore:
             The ctc_beam_size is set as 2 * beam_size. If given, performing partial ctc scoring.
         """
 
-        n_bh = g.size(0)
+        n_bh = inp_tokens.size(0)
         beam_size = n_bh // self.batch_size
-        prefix_length = g.size(1)
-        last_char = [gi[-1] for gi in g] if prefix_length > 0 else [0] * len(g)
+        last_char = inp_tokens
+        self.prefix_length += 1
         self.num_candidates = (
             self.vocab_size if candidates is None else candidates.size(-1)
         )
@@ -152,7 +153,7 @@ class CTCPrefixScore:
         r.fill_(self.minus_inf)
 
         # (Alg.2-6)
-        if prefix_length == 0:
+        if self.prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
         # (Alg.2-10): phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g)
         r_sum = torch.logsumexp(r_prev, 1)
@@ -171,13 +172,13 @@ class CTCPrefixScore:
         # Start, end frames for scoring (|g| < |h|).
         # Scoring based on attn peak if ctc_window_size > 0
         if self.ctc_window_size == 0 or attn is None:
-            start = max(1, prefix_length)
+            start = max(1, self.prefix_length)
             end = self.max_enc_len
         else:
             _, attn_peak = torch.max(attn, dim=1)
             max_frame = torch.max(attn_peak).item() + self.ctc_window_size
             min_frame = torch.min(attn_peak).item() - self.ctc_window_size
-            start = max(max(1, prefix_length), int(min_frame))
+            start = max(max(1, self.prefix_length), int(min_frame))
             end = min(self.max_enc_len, int(max_frame))
 
         # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h)):

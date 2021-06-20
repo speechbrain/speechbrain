@@ -625,8 +625,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 # block blank token
                 log_probs[:, self.blank_index] = self.minus_inf
                 # score with scorers
+                # print(inp_tokens, alived_seq)
                 log_probs, scorer_memory = self.scorer.score(
-                    alived_seq, scorer_memory, attn, log_probs, self.beam_size
+                    inp_tokens, scorer_memory, attn, log_probs, self.beam_size
                 )
 
             # Keep the original value
