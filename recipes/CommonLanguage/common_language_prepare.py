@@ -21,23 +21,55 @@ logger = logging.getLogger(__name__)
 
 
 LANGUAGES = [
-    "Arabic", "Basque", "Breton", "Catalan", "Chinese_China",
-    "Chinese_Hongkong", "Chinese_Taiwan", "Chuvash", "Czech", "Dhivehi",
-    "Dutch", "English", "Esperanto", "Estonian", "French",
-    "Frisian", "Georgian", "German", "Greek", "Hakha_Chin",
-    "Indonesian", "Interlingua", "Italian", "Japanese", "Kabyle",
-    "Kinyarwanda", "Kyrgyz", "Latvian", "Maltese", "Mangolian",
-    "Persian", "Polish", "Portuguese", "Romanian", "Romansh_Sursilvan",
-    "Russian", "Sakha", "Slovenian", "Spanish", "Swedish",
-    "Tamil", "Tatar", "Turkish", "Ukranian", "Welsh"
+    "Arabic",
+    "Basque",
+    "Breton",
+    "Catalan",
+    "Chinese_China",
+    "Chinese_Hongkong",
+    "Chinese_Taiwan",
+    "Chuvash",
+    "Czech",
+    "Dhivehi",
+    "Dutch",
+    "English",
+    "Esperanto",
+    "Estonian",
+    "French",
+    "Frisian",
+    "Georgian",
+    "German",
+    "Greek",
+    "Hakha_Chin",
+    "Indonesian",
+    "Interlingua",
+    "Italian",
+    "Japanese",
+    "Kabyle",
+    "Kinyarwanda",
+    "Kyrgyz",
+    "Latvian",
+    "Maltese",
+    "Mangolian",
+    "Persian",
+    "Polish",
+    "Portuguese",
+    "Romanian",
+    "Romansh_Sursilvan",
+    "Russian",
+    "Sakha",
+    "Slovenian",
+    "Spanish",
+    "Swedish",
+    "Tamil",
+    "Tatar",
+    "Turkish",
+    "Ukranian",
+    "Welsh",
 ]
 
 
-def prepare_common_language(
-    data_folder,
-    save_folder,
-    skip_prep=False
-):
+def prepare_common_language(data_folder, save_folder, skip_prep=False):
     """
     Prepares the csv files for the CommonLanguage dataset for LID.
     Download: https://drive.google.com/uc?id=1Vzgod6NEYO1oZoz_EcgpZkUO9ohQcO1F
@@ -99,12 +131,9 @@ def prepare_common_language(
     data_split = create_sets(data_folder, extension)
 
     # Creating csv files for training, dev and test data
-    create_csv(wav_list=data_split["train"],
-               csv_file=save_csv_train)
-    create_csv(wav_list=data_split["dev"],
-               csv_file=save_csv_dev)
-    create_csv(wav_list=data_split["test"],
-               csv_file=save_csv_test)
+    create_csv(wav_list=data_split["train"], csv_file=save_csv_train)
+    create_csv(wav_list=data_split["dev"], csv_file=save_csv_dev)
+    create_csv(wav_list=data_split["test"], csv_file=save_csv_test)
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -153,7 +182,8 @@ def create_sets(data_folder, extension):
 
     # Get the list of languages from the dataset folder
     languages = [
-        name for name in os.listdir(data_folder)
+        name
+        for name in os.listdir(data_folder)
         if os.path.isdir(os.path.join(data_folder, name))
         and datasets.issubset(os.listdir(os.path.join(data_folder, name)))
     ]
@@ -220,11 +250,11 @@ def create_csv(wav_list, csv_file):
 
         # Create a row with whole utterences
         csv_line = [
-            idx, # ID
-            wav_file, # File name
-            wav_format, # File format
-            str(info.num_frames / info.sample_rate), # Duration (sec)
-            language # Language
+            idx,  # ID
+            wav_file,  # File name
+            wav_format,  # File format
+            str(info.num_frames / info.sample_rate),  # Duration (sec)
+            language,  # Language
         ]
 
         # Adding this line to the csv_lines list
@@ -234,13 +264,7 @@ def create_csv(wav_list, csv_file):
         idx += 1
 
     # CSV column titles
-    csv_header = [
-        "ID",
-        "wav",
-        "wav_format",
-        "duration",
-        "language"
-    ]
+    csv_header = ["ID", "wav", "wav_format", "duration", "language"]
 
     # Add titles to the list at indexx 0
     csv_lines.insert(0, csv_header)
@@ -281,9 +305,7 @@ def check_common_language_folder(data_folder):
 
     # Checking if at least two languages are present in the data
     if len(set(os.listdir(data_folder)) & set(LANGUAGES)) < 2:
-        err_msg = (
-            f"{data_folder} must have at least two languages from CommonLanguage in it."
-        )
+        err_msg = f"{data_folder} must have at least two languages from CommonLanguage in it."
         raise FileNotFoundError(err_msg)
 
 
@@ -335,7 +357,7 @@ def dataio_prep(hparams):
     datasets = {}
     for dataset in ["train", "dev", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=os.path.join(hparams["save_folder"], dataset + '.csv'),
+            csv_path=os.path.join(hparams["save_folder"], dataset + ".csv"),
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "language_encoded"],
@@ -344,11 +366,13 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
     # mappinng.
-    language_encoder_file = os.path.join(hparams["save_folder"], "language_encoder.txt")
+    language_encoder_file = os.path.join(
+        hparams["save_folder"], "language_encoder.txt"
+    )
     language_encoder.load_or_create(
         path=language_encoder_file,
         from_didatasets=[datasets["train"]],
-        output_key="language"
+        output_key="language",
     )
 
     return datasets, language_encoder
