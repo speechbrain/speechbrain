@@ -4,15 +4,17 @@ import torch
 import logging
 from torch import nn
 import speechbrain as sb
-from tqdm.contrib import tqdm
 import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
-from recipes.CommonLanguage.common_language_prepare import prepare_common_language, dataio_prep
+from recipes.CommonLanguage.common_language_prepare import (
+    prepare_common_language,
+    dataio_prep,
+)
 
 """Recipe for training a LID system with CommonLanguage.
 
 To run this recipe, do the following:
-> python train.py hparams/train_ecapa.yaml
+> python train.py hparams/train_ecapa_tdnn.yaml
 > python train.py hparams/train_xvectors.yaml
 
 Author
@@ -25,13 +27,33 @@ logger = logging.getLogger(__name__)
 
 
 class CosClassifier(torch.nn.Module):
-    def __init__(
-        self,
-        input_size,
-        out_neurons,
-        dropout=None,
-        device="cpu"
-    ):
+    """This class implements the the classifier based on cosine similarity of the embeddings.
+    The magnitudes of the input embeddings are discarded as the datapoints are projected on
+    a unit-length hypersphere. This classifier is essentially a weight matrix, with each row
+    representing the center of a corresponding class.
+
+    Arguments
+    ---------
+    input_size : int
+        Dimensionality of the embeddings.
+    out_neurons : int
+        Number of classes.
+    dropout : float
+        Dropout rate is in range [0, 1] can be used a masking mechanism.
+    device : str
+        Device used, e.g., "cpu" or "cuda".
+
+    Example
+    -------
+    >>> clf = CosClassifier(input_size=2, out_neurons=2, dropout=0.2)
+    >>> embs = torch.tensor([[0.7, 1.0], [0.9, 0.8], [1.1, 0.6]])
+    >>> embs = embs.unsqueeze(1)
+    >>> output = clf(embs)
+    >>> ((output < -1.0) | (output > 1.0)).any()
+    tensor(False)
+    """
+
+    def __init__(self, input_size, out_neurons, dropout=None, device="cpu"):
         super().__init__()
         self.weight = nn.Parameter(
             torch.FloatTensor(out_neurons, input_size, device=device)
@@ -43,7 +65,7 @@ class CosClassifier(torch.nn.Module):
             self.dropout = dropout
 
     def forward(self, x):
-        """Returns the output probabilities over languages.
+        """Returns the output probabilities over classes.
 
         Arguments
         ---------
@@ -53,9 +75,7 @@ class CosClassifier(torch.nn.Module):
         if self.dropout is not None:
             x = self.dropout(x)
         # Needs to be normalized to discard magnitudes
-        x = F.linear(
-            F.normalize(x.squeeze(1)), F.normalize(self.weight)
-        )
+        x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
 
         return x.unsqueeze(1)
 
@@ -96,7 +116,7 @@ class LID(sb.Brain):
         # Normalize embeddings
         embeddings = self.modules.mean_var_norm_emb(
             x=embeddings,
-            lengths=torch.ones(embeddings.shape[0], device=embeddings.device)
+            lengths=torch.ones(embeddings.shape[0], device=embeddings.device),
         )
 
         return embeddings
@@ -220,10 +240,7 @@ class LID(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=stats,
-                min_keys=["error"]
-            )
+            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -259,7 +276,7 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
-            "skip_prep": hparams["skip_prep"]
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

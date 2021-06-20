@@ -99,7 +99,6 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
 classifier: !new:train.CosClassifier
     input_size: !ref <emb_dim>
     out_neurons: !ref <n_languages>
-    dropout: 0
 
 
 # The first object passed to the Brain class is this "Epoch Counter"
