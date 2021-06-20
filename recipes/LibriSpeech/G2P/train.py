@@ -157,14 +157,17 @@ def sort_data(data, hparams):
     return data
 
 
-def dataio_prep(hparams):
+def dataio_prep(hparams, train_step=None):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
+
+    if not train_step:
+        train_step = hparams
     data_folder = hparams["data_folder"]
     data_load = hparams["data_load"]
     # 1. Declarations:
     train_data = data_load(
-        hparams["train_data"], replacements={"data_root": data_folder},
+        train_step["train_data"], replacements={"data_root": data_folder},
     )
     if hparams["sorting"] == "ascending":
         # when sorting do not shuffle in dataloader ! otherwise is pointless
@@ -183,12 +186,12 @@ def dataio_prep(hparams):
     train_data = sort_data(train_data, hparams)
 
     valid_data = data_load(
-        hparams["valid_data"], replacements={"data_root": data_folder},
+        train_step["valid_data"], replacements={"data_root": data_folder},
     )
     valid_data = sort_data(valid_data, hparams)
 
     test_data = data_load(
-        hparams["test_data"], replacements={"data_root": data_folder},
+        train_step["test_data"], replacements={"data_root": data_folder},
     )
     test_data = sort_data(test_data, hparams)
 
@@ -251,7 +254,7 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-    if hparams['data_mode'] == 'lexicon':
+    if hparams['build_lexicon']:
         # multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_librispeech,
@@ -263,33 +266,34 @@ if __name__ == "__main__":
                 "select_n_sentences": hparams.get("select_n_sentences"),
             },
         )
+    for train_step in hparams['train_steps']:
+        print(f"Running training step: {train_step['name']}")
+        # Dataset IO prep: creating Dataset objects and proper encodings for phones
+        train_data, valid_data, test_data, phoneme_encoder = dataio_prep(hparams, train_step)
 
-    # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    train_data, valid_data, test_data, phoneme_encoder = dataio_prep(hparams)
+        # Trainer initialization
+        g2p_brain = G2PBrain(
+            modules=hparams["modules"],
+            opt_class=hparams["opt_class"],
+            hparams=hparams,
+            run_opts=run_opts,
+            checkpointer=hparams["checkpointer"],
+        )
+        g2p_brain.phoneme_encoder = phoneme_encoder
 
-    # Trainer initialization
-    g2p_brain = G2PBrain(
-        modules=hparams["modules"],
-        opt_class=hparams["opt_class"],
-        hparams=hparams,
-        run_opts=run_opts,
-        checkpointer=hparams["checkpointer"],
-    )
-    g2p_brain.phoneme_encoder = phoneme_encoder
+        # Training/validation loop
+        g2p_brain.fit(
+            train_step['epoch_counter'],
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["dataloader_opts"],
+            valid_loader_kwargs=hparams["dataloader_opts"],
+        )
 
-    # Training/validation loop
-    g2p_brain.fit(
-        g2p_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["dataloader_opts"],
-        valid_loader_kwargs=hparams["dataloader_opts"],
-    )
+        # Test
+        g2p_brain.evaluate(
+            test_data, min_key="PER", test_loader_kwargs=hparams["dataloader_opts"],
+        )
 
-    # Test
-    g2p_brain.evaluate(
-        test_data, min_key="PER", test_loader_kwargs=hparams["dataloader_opts"],
-    )
-
-    if hparams.get("save_for_pretrained"):
-        g2p_brain.save_for_pretrained()
+        if hparams.get("save_for_pretrained"):
+            g2p_brain.save_for_pretrained()

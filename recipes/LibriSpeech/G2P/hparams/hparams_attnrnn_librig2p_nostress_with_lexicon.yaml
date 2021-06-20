@@ -5,7 +5,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-#__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
 output_folder: !ref results/RNN/<seed>
@@ -22,17 +22,22 @@ pretrained_path: !ref <save_folder>
 # These three files are created from lexicon.csv.
 build_lexicon: false
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
-train_data: !ref <data_folder>/sentence_train.json
-valid_data: !ref <data_folder>/sentence_valid.json
-test_data: !ref <data_folder>/sentence_test.json
+lexicon_train_data: !ref <data_folder>/lexicon_train.json
+lexicon_valid_data: !ref <data_folder>/lexicon_valid.json
+lexicon_test_data: !ref <data_folder>/lexicon_test.json
+sentence_train_data: !ref <data_folder>/sentence_train.json
+sentence_valid_data: !ref <data_folder>/sentence_valid.json
+sentence_test_data: !ref <data_folder>/sentence_test.json
+
 skip_prep: False
 sorting: random #ascending
-graphemes_space_separated: false
-phonemes_space_separated: false
+graphemes_space_separated: False
+phonemes_space_separated: False
 
 
 # Neural Parameters
-N_epochs: 75
+lexicon_epochs: 50
+sentence_epochs: 50
 batch_size: 1024
 lr: 0.002
 save_for_pretrained: true
@@ -55,76 +60,75 @@ eos_index: 0
 select_n_sentences: None
 
 graphemes:
-    - A
-    - B
-    - C
-    - D
-    - E
-    - F
-    - G
-    - H
-    - I
-    - J
-    - K
-    - L
-    - M
-    - N
-    - O
-    - P
-    - Q
-    - R
-    - S
-    - T
-    - U
-    - V
-    - W
-    - X
-    - Y
-    - Z
-    - "'"
-    - " "
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  - G
+  - H
+  - I
+  - J
+  - K
+  - L
+  - M
+  - N
+  - O
+  - P
+  - Q
+  - R
+  - S
+  - T
+  - U
+  - V
+  - W
+  - X
+  - Y
+  - Z
+  - "'"
+  - " "
 
 phonemes:
-    - AA
-    - AE
-    - AH
-    - AO
-    - AW
-    - AY
-    - B
-    - CH
-    - D
-    - DH
-    - EH
-    - ER
-    - EY
-    - F
-    - G
-    - HH
-    - IH
-    - IY
-    - JH
-    - K
-    - L
-    - M
-    - N
-    - NG
-    - OW
-    - OY
-    - P
-    - R
-    - S
-    - SH
-    - T
-    - TH
-    - UH
-    - UW
-    - V
-    - W
-    - Y
-    - Z
-    - ZH
-
+  - AA
+  - AE
+  - AH
+  - AO
+  - AW
+  - AY
+  - B
+  - CH
+  - D
+  - DH
+  - EH
+  - ER
+  - EY
+  - F
+  - G
+  - HH
+  - IH
+  - IY
+  - JH
+  - K
+  - L
+  - M
+  - N
+  - NG
+  - OW
+  - OY
+  - P
+  - R
+  - S
+  - SH
+  - T
+  - TH
+  - UH
+  - UW
+  - V
+  - W
+  - Y
+  - Z
+  - ZH
 
 dataloader_opts:
     batch_size: !ref <batch_size>
@@ -215,8 +219,11 @@ seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <N_epochs>
+lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <lexicon_epochs>
+
+sentence_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <sentence_epochs>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -226,7 +233,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         scheduler: !ref <lr_annealing>
-        counter: !ref <epoch_counter>
+        lexicon_counter: !ref <lexicon_epoch_counter>
+        sentence_counter: !ref <sentence_epoch_counter>
 
 model_output_keys:
     - p_seq
@@ -269,8 +277,15 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     model: !ref <pretrained_path>/model.ckpt
 
 train_steps:
+  - name: lexicon
+    train_data: !ref <lexicon_train_data>
+    valid_data: !ref <lexicon_valid_data>
+    test_data: !ref <lexicon_test_data>
+    epoch_counter: !ref <lexicon_epoch_counter>
   - name: sentence
-    train_data: !ref <train_data>
-    valid_data: !ref <valid_data>
-    test_data: !ref <test_data>
-    epochs: !ref <epoch_counter>
+    train_data: !ref <lexicon_train_data>
+    valid_data: !ref <lexicon_valid_data>
+    test_data: !ref <lexicon_test_data>
+    epochs: !ref <sentence_epoch_counter>
+
+

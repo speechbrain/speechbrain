@@ -20,7 +20,7 @@ pretrained_path: !ref <save_folder>
 
 
 # These three files are created from lexicon.csv.
-data_mode: lexicon
+build_lexicon: true
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_csv
 train_data: !ref <save_folder>/lexicon_tr.csv
 valid_data: !ref <save_folder>/lexicon_dev.csv
@@ -31,7 +31,6 @@ graphemes_space_separated: False
 phonemes_space_separated: False
 
 # Neural Parameters
-N_epochs: 75
 batch_size: 1024
 lr: 0.002
 save_for_pretrained: true
@@ -51,78 +50,88 @@ embedding_dim: 512
 bos_index: 0
 eos_index: 0
 
+# Beam Searcher
+beam_search_min_decode_ratio: 0
+beam_search_max_decode_ratio: 1.35
+beam_search_beam_size: 16
+beam_search_eos_threshold: 10.0
+beam_search_using_max_attn_shift: False
+beam_search_max_attn_shift: 10
+beam_search_coverage_penalty: 5.0
+
+
 select_n_sentences: None
 
 graphemes:
-    - A
-    - B
-    - C
-    - D
-    - E
-    - F
-    - G
-    - H
-    - I
-    - J
-    - K
-    - L
-    - M
-    - N
-    - O
-    - P
-    - Q
-    - R
-    - S
-    - T
-    - U
-    - V
-    - W
-    - X
-    - Y
-    - Z
-    - "'"
-
+- A
+- B
+- C
+- D
+- E
+- F
+- G
+- H
+- I
+- J
+- K
+- L
+- M
+- N
+- O
+- P
+- Q
+- R
+- S
+- T
+- U
+- V
+- W
+- X
+- Y
+- Z
+- "'"
+- " "
 
 phonemes:
-    - AA
-    - AE
-    - AH
-    - AO
-    - AW
-    - AY
-    - B
-    - CH
-    - D
-    - DH
-    - EH
-    - ER
-    - EY
-    - F
-    - G
-    - HH
-    - IH
-    - IY
-    - JH
-    - K
-    - L
-    - M
-    - N
-    - NG
-    - OW
-    - OY
-    - P
-    - R
-    - S
-    - SH
-    - T
-    - TH
-    - UH
-    - UW
-    - V
-    - W
-    - Y
-    - Z
-    - ZH
+- AA
+- AE
+- AH
+- AO
+- AW
+- AY
+- B
+- CH
+- D
+- DH
+- EH
+- ER
+- EY
+- F
+- G
+- HH
+- IH
+- IY
+- JH
+- K
+- L
+- M
+- N
+- NG
+- OW
+- OY
+- P
+- R
+- S
+- SH
+- T
+- TH
+- UH
+- UW
+- V
+- W
+- Y
+- Z
+- ZH
 
 dataloader_opts:
     batch_size: !ref <batch_size>
@@ -187,13 +196,13 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     linear: !ref <lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    min_decode_ratio: 0
-    max_decode_ratio: 1.35
-    beam_size: 16
-    eos_threshold: 10.0
-    using_max_attn_shift: False
-    max_attn_shift: 10
-    coverage_penalty: 5.0
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
@@ -265,3 +274,10 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     model: !ref <model>
   paths:
     model: !ref <pretrained_path>/model.ckpt
+
+train_steps:
+  - name: lexicon
+    train_data: !ref <train_data>
+    valid_data: !ref <valid_data>
+    test_data: !ref <test_data>
+    epoch_counter: !ref <epoch_counter>
