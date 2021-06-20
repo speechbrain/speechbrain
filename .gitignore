@@ -143,3 +143,6 @@ dmypy.json
 
 # Mac OS
 .DS_Store
+
+# IntelliJ IDE idea folder
+.idea/

@@ -7,7 +7,6 @@ Authors
 import torch  # noqa 42
 from torch import nn
 from typing import Optional
-
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -16,8 +15,10 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     NormalizedEmbedding,
 )
+from speechbrain.nnet.attention_utils.longformer_utilities import (
+    longformer_src_mask_padder,
+)
 from speechbrain.nnet.activations import Swish
-
 from speechbrain.dataio.dataio import length_to_mask
 
 
@@ -77,6 +78,14 @@ class TransformerASR(TransformerInterface):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        longf_attention_window: Optional[list] = None,
+        longf_attention_mode: Optional[str] = None,
+        linf_max_seq_len: Optional[int] = 1000,
+        linf_proj_k: Optional[int] = 128,
+        linf_param_sharing: Optional[str] = "none",
+        linf_method: Optional[str] = "learnable",
+        ref_n_hashes: Optional[int] = 8,
+        ref_bucket_size: Optional[int] = 64,
     ):
         super().__init__(
             d_model=d_model,
@@ -92,8 +101,22 @@ class TransformerASR(TransformerInterface):
             bias=bias,
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
+            longf_attention_window=longf_attention_window,
+            longf_attention_mode=longf_attention_mode,
+            linf_max_seq_len=linf_max_seq_len,
+            linf_proj_k=linf_proj_k,
+            linf_param_sharing=linf_param_sharing,
+            linf_method=linf_method,
+            ref_n_hashes=ref_n_hashes,
+            ref_bucket_size=ref_bucket_size,
         )
-
+        self.encoder_module = encoder_module
+        if encoder_module in ["longformer", "reformer"]:
+            self.attention_window = (
+                longf_attention_window
+                if longf_attention_window is not None
+                else ref_bucket_size
+            )
         self.custom_src_module = ModuleList(
             Linear(
                 input_size=input_size,
@@ -143,7 +166,14 @@ class TransformerASR(TransformerInterface):
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
         )
-
+        if src_key_padding_mask is not None and self.encoder_module in [
+            "longformer",
+            "reformer",
+        ]:
+            src_key_padding_mask = longformer_src_mask_padder(
+                src_key_padding_mask=src_key_padding_mask,
+                window_padding_size=self.attention_window,
+            )
         tgt = self.custom_tgt_module(tgt)
         tgt = tgt + self.positional_encoding(tgt)
         decoder_out, _, _ = self.decoder(
@@ -151,6 +181,7 @@ class TransformerASR(TransformerInterface):
             memory=encoder_out,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
         )
 
         return encoder_out, decoder_out

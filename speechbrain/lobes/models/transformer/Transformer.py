@@ -8,8 +8,10 @@ import torch
 import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
-
+from .Longformer import LongformerEncoder
+from .Linformer import LinformerEncoder
 from .conformer import ConformerEncoder
+from .Reformer import ReformerEncoder
 from speechbrain.nnet.activations import Swish
 
 
@@ -43,6 +45,11 @@ class TransformerInterface(nn.Module):
         Module that processes the src features to expected feature dim.
     custom_tgt_module : torch class
         Module that processes the src features to expected feature dim.
+    longf_attention_window : int
+        Size of the attention window size for the Longformer
+    longf_attention_mode : str
+        Type of attention for the Longformer
+
     """
 
     def __init__(
@@ -62,6 +69,15 @@ class TransformerInterface(nn.Module):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        longf_attention_window: Optional[list] = None,
+        longf_attention_mode: Optional[str] = None,
+        linf_max_seq_len: Optional[int] = 1000,
+        linf_proj_k: Optional[int] = 128,
+        linf_param_sharing: Optional[str] = "none",
+        linf_method: Optional[str] = "learnable",
+        ref_n_hashes: Optional[int] = 8,
+        ref_bucket_size: Optional[int] = 64,
+        ref_attn_chunks: Optional[int] = 1,
     ):
         super().__init__()
 
@@ -104,6 +120,52 @@ class TransformerInterface(nn.Module):
                 assert (
                     conformer_activation is not None
                 ), "conformer_activation must not be None"
+            elif encoder_module == "longformer":
+                assert (
+                    longf_attention_window is not None
+                ), "longformer requires an attention window size"
+                assert (
+                    longf_attention_mode is not None
+                ), "longformer requires an attention mode type"
+                self.encoder = LongformerEncoder(
+                    d_ffn=d_ffn,
+                    num_layers=num_encoder_layers,
+                    nhead=nhead,
+                    attention_window=[longf_attention_window]
+                    * num_encoder_layers,
+                    attention_mode=longf_attention_mode,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                )
+            elif encoder_module == "linformer":
+                self.encoder = LinformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                    max_seq_len=linf_max_seq_len,
+                    proj_k=linf_proj_k,
+                    param_sharing=linf_param_sharing,
+                    method=linf_method,
+                )
+            elif encoder_module == "reformer":
+                self.encoder = ReformerEncoder(
+                    d_ffn=d_ffn,
+                    num_layers=num_encoder_layers,
+                    nhead=nhead,
+                    n_hashes=ref_n_hashes,
+                    bucket_size=ref_bucket_size,
+                    attn_chunks=ref_attn_chunks,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                )
 
         # initialize the decoder
         if num_decoder_layers > 0:
