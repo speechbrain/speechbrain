@@ -9,19 +9,24 @@ from typing import Union
 
 import numpy as np
 import torch
-from typeguard import check_argument_types
-from typeguard import check_return_type
 from typing import List
 
 # speechbrain interface
 from speechbrain.pretrained.interfaces import EncoderDecoderASR
 
 # imports for CTC segmentation
-from ctc_segmentation import ctc_segmentation
-from ctc_segmentation import CtcSegmentationParameters
-from ctc_segmentation import determine_utterance_segments
-from ctc_segmentation import prepare_text
-from ctc_segmentation import prepare_token_list
+try:
+    from ctc_segmentation import ctc_segmentation
+    from ctc_segmentation import CtcSegmentationParameters
+    from ctc_segmentation import determine_utterance_segments
+    from ctc_segmentation import prepare_text
+    from ctc_segmentation import prepare_token_list
+except ImportError:
+    print(
+        "ImportError: "
+        "Is the ctc_segmentation module installed "
+        "and in your PYTHONPATH?"
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +99,8 @@ class CTCSegmentationTask:
     def set(self, **kwargs):
         """Update properties.
 
-        Args:
+        Args
+        ----
         **kwargs
             Key-value dict that contains all properties
             with their new values. Unknown properties are ignored.
@@ -230,8 +236,6 @@ class CTCSegmentation:
         **ctc_segmentation_args
             Parameters for CTC segmentation.
         """
-        assert check_argument_types()
-
         # Prepare ASR model
         if not (
             hasattr(asr_model, "modules")
@@ -350,15 +354,13 @@ class CTCSegmentation:
             )
         # Parameters for text preparation
         if "set_blank" in kwargs:
-            assert isinstance(kwargs["set_blank"], int)
-            self.config.blank = kwargs["set_blank"]
+            self.config.blank = int(kwargs["set_blank"])
         if "replace_spaces_with_blanks" in kwargs:
             self.config.replace_spaces_with_blanks = bool(
                 kwargs["replace_spaces_with_blanks"]
             )
         if "kaldi_style_text" in kwargs:
-            assert isinstance(kwargs["kaldi_style_text"], bool)
-            self.kaldi_style_text = kwargs["kaldi_style_text"]
+            self.kaldi_style_text = bool(kwargs["kaldi_style_text"])
         if "text_converter" in kwargs:
             if kwargs["text_converter"] not in self.choices_text_converter:
                 raise NotImplementedError(
@@ -368,11 +370,9 @@ class CTCSegmentation:
             self.text_converter = kwargs["text_converter"]
         # Parameters for alignment
         if "min_window_size" in kwargs:
-            assert isinstance(kwargs["min_window_size"], int)
-            self.config.min_window_size = kwargs["min_window_size"]
+            self.config.min_window_size = int(kwargs["min_window_size"])
         if "max_window_size" in kwargs:
-            assert isinstance(kwargs["max_window_size"], int)
-            self.config.max_window_size = kwargs["max_window_size"]
+            self.config.max_window_size = int(kwargs["max_window_size"])
         if "gratis_blank" in kwargs:
             self.config.blank_transition_cost_zero = bool(
                 kwargs["gratis_blank"]
@@ -389,8 +389,7 @@ class CTCSegmentation:
             self.warned_about_misconfiguration = True
         # Parameter for calculation of confidence score
         if "scoring_length" in kwargs:
-            assert isinstance(kwargs["scoring_length"], int)
-            self.config.score_min_mean_over_L = kwargs["scoring_length"]
+            self.config.score_min_mean_over_L = int(kwargs["scoring_length"])
 
     def get_timing_config(self, speech_len=None, lpz_len=None):
         """Obtain parameters to determine time stamps."""
@@ -591,7 +590,7 @@ class CTCSegmentation:
             Dictionary with alignments. Combine this with the task
             object to obtain a human-readable segments representation.
         """
-        assert check_argument_types()
+        assert type(task) == CTCSegmentationTask
         assert task.config is not None
         config = task.config
         lpz = task.lpz
@@ -641,7 +640,6 @@ class CTCSegmentation:
             Task object with segments. Apply str(·) or print(·) on it
             to obtain the segments list.
         """
-        assert check_argument_types()
         if isinstance(speech, str) or isinstance(speech, Path):
             speech = self.asr_model.load_audio(speech)
         # Get log CTC posterior probabilities
@@ -651,5 +649,4 @@ class CTCSegmentation:
         # Apply CTC segmentation
         segments = self.get_segments(task)
         task.set(**segments)
-        assert check_return_type(task)
         return task
