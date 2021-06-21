@@ -225,17 +225,6 @@ def check_folders(*folders) -> bool:
     return True
 
 
-def get_train_split_list(train_option: TrainOption) -> str:
-    if train_option == TrainOption.ALL:
-        return get_data_list("splits/train_all")
-    elif train_option == TrainOption.MID:
-        return get_data_list("splits/train_mid")
-    elif train_option == TrainOption.LOW:
-        return get_data_list("splits/train_low")
-    else:
-        logger.warning("please checkout the split list")
-
-
 def get_data_list(path: str) -> str:
     with open(path, "r", encoding="utf-8") as data_file:
         return data_file.readlines()
