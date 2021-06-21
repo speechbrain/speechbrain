@@ -422,10 +422,10 @@ class LongformerBlock(nn.Module):
     Example
     ---------
     >>> x = torch.randn(10, 100, 64)
-    >>> block = SBTransformerBlock(1, 64, 8)
+    >>> block = LongformerBlock(1, 64, 8)
     >>> x = block(x)
     >>> x.shape
-    torch.Size([10, 100, 64])
+    torch.Size([10, 120, 64])
     """
 
     def __init__(
@@ -692,13 +692,13 @@ class EfficientSeparator(nn.Module):
 
     Example
     ---------
-    >>> intra_block = SBTransformerBlock(1, 64, 8)
-    >>> inter_block = SBTransformerBlock(1, 64, 8)
-    >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
-    >>> x = torch.randn(10, 64, 2000)
-    >>> x = dual_path_model(x)
-    >>> x.shape
-    torch.Size([2, 10, 64, 2000])
+    #>>> intra_block = SBTransformerBlock(1, 64, 8)
+    #>>> inter_block = SBTransformerBlock(1, 64, 8)
+    #>>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
+    #>>> x = torch.randn(10, 64, 2000)
+    #>>> x = dual_path_model(x)
+    #>>> x.shape
+    #torch.Size([2, 10, 64, 2000])
     """
 
     def __init__(
