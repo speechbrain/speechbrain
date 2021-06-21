@@ -11,7 +11,6 @@ Authors
  * YAO-FEI, CHENG 2021
 """
 
-import enum
 import sys
 import torch
 import logging
@@ -25,12 +24,13 @@ from speechbrain.utils.distributed import run_on_main
 logger = logging.getLogger(__name__)
 en_detoeknizer = MosesDetokenizer(lang="en")
 
+
 class ST(sb.core.Brain):
     def compute_forward(self, batch, stage):
         batch = batch.to(self.device)
 
         wavs, wav_lens = batch.sig
-        
+
         # for translation task
         tokens_bos, _ = batch.tokens_bos
 
@@ -55,7 +55,7 @@ class ST(sb.core.Brain):
                 enc_out,
                 transcription_bos,
                 pad_idx=self.hparams.pad_index,
-            ) 
+            )
             asr_pred = self.hparams.asr_seq_lin(asr_pred)
             asr_p_seq = self.hparams.log_softmax(asr_pred)
 
@@ -103,10 +103,10 @@ class ST(sb.core.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
-        
+
         transcription_eos, transcription_eos_lens = batch.transcription_eos
         transcription_tokens, transcription_lens = batch.transcription_tokens
-        
+
         # loss for different task
         attention_loss = 0
         asr_ctc_loss = 0
@@ -117,13 +117,13 @@ class ST(sb.core.Brain):
         attention_loss = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens,
         )
-        
+
         # asr attention loss
         if self.hparams.ctc_weight < 1 and self.hparams.asr_weight > 0:
             asr_attention_loss = self.hparams.seq_cost(
                 asr_p_seq, transcription_eos, length=transcription_eos_lens,
             )
-        
+
         # asr ctc loss
         if self.hparams.ctc_weight > 0 and self.hparams.asr_weight > 0:
             asr_ctc_loss = self.hparams.ctc_cost(
@@ -307,7 +307,7 @@ class ST(sb.core.Brain):
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
             self.switched = True
-    
+
     def on_fit_start(self):
         """Initialize the right optimizer on the training start"""
         super().on_fit_start()
@@ -345,10 +345,11 @@ class ST(sb.core.Brain):
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
 
+
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
-    
+
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
     @sb.utils.data_pipeline.takes("wav")
@@ -357,7 +358,7 @@ def dataio_prepare(hparams):
         """Load the audio signal. This is done on the CPU in the `collate_fn`."""
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
-    
+
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def sp_audio_pipeline(wav):
@@ -455,7 +456,7 @@ def dataio_prepare(hparams):
             json_path=json_path,
             replacements={"data_root": data_folder},
             dynamic_items=[
-                audio_pipeline_func, 
+                audio_pipeline_func,
                 one_reference_text_pipeline,
                 transcription_text_pipeline,
             ],
@@ -525,7 +526,7 @@ def dataio_prepare(hparams):
         else:
             datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
             datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
-        
+
         hparams["train_dataloader_opts"]["shuffle"] = False
         hparams["valid_dataloader_opts"]["shuffle"] = False
     elif hparams["sorting"] == "descending":
@@ -561,6 +562,7 @@ def dataio_prepare(hparams):
         )
 
     return datasets
+
 
 if __name__ == "__main__":
     # Reading command line arguments

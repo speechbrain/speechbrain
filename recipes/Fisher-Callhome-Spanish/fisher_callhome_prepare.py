@@ -42,6 +42,7 @@ en_tokenizer = MosesTokenizer(lang="en")
 
 SAMPLE_RATE = 16000
 
+
 @dataclass
 class TDF:
     """
@@ -59,6 +60,7 @@ class TDF:
     end: int
     transcript: str
 
+
 @dataclass
 class Data:
     """
@@ -70,6 +72,7 @@ class Data:
     transcription: str = ""
     duration: float = 0
     translations: List[str] = field(default_factory=lambda: [])
+
 
 def prepare_fisher_callhome_spanish(
     data_folder: str, save_folder: str, device: str = "cpu",
@@ -89,7 +92,7 @@ def prepare_fisher_callhome_spanish(
     >>> save_foler = 'data'
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
-    
+
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
@@ -97,7 +100,7 @@ def prepare_fisher_callhome_spanish(
     speech_folder = os.path.join(f"{data_folder}/LDC2010S01/data/speech")
     transcription_folder = os.path.join(f"{data_folder}/LDC2010T04/fisher_spa_tr/data/transcripts")
 
-    if check_folders(speech_folder, transcription_folder) != True:
+    if check_folders(speech_folder, transcription_folder) is not True:
         logger.error(
             "Speech or transcription directories are missing or not properly organised within the speech data dir"
             "Typical format is LDC2010S01/data/speech and LDC2010T04/fisher_spa_tr/data/transcripts"
@@ -148,7 +151,7 @@ def prepare_fisher_callhome_spanish(
 
         # filter out empty or long transcription/translation
         concated_data = list(filter(lambda data: 0 < len(data.transcription) < 400, concated_data))
-        
+
         if dataset != "train":
             for number in range(4):
                 concated_data = list(filter(lambda data: 0 < len(data.translations[number]) < 400, concated_data))
@@ -200,8 +203,9 @@ def prepare_fisher_callhome_spanish(
         json_path = f"{save_folder}/{dataset}/data.json"
         with open(json_path, "w", encoding="utf-8") as data_json:
             json.dump(data_dict, data_json, indent=2, ensure_ascii=False)
-            
+
         logger.info(f"{json_path} successfully created!")
+
 
 def skip(save_folder: str, dataset: str) -> bool:
     """Detect when fisher-callhome data preparation can be skipped"""
@@ -212,12 +216,14 @@ def skip(save_folder: str, dataset: str) -> bool:
 
     return is_skip
 
+
 def check_folders(*folders) -> bool:
     """Returns False if any passed folder does not exist."""
     for folder in folders:
         if not os.path.exists(folder):
             return False
     return True
+
 
 def get_train_split_list(train_option: TrainOption) -> str:
     if train_option == TrainOption.ALL:
@@ -229,9 +235,11 @@ def get_train_split_list(train_option: TrainOption) -> str:
     else:
         logger.warning("please checkout the split list")
 
+
 def get_data_list(path: str) -> str:
     with open(path, "r", encoding="utf-8") as data_file:
         return data_file.readlines()
+
 
 def extract_transcription(transcription_path: str) -> List[TDF]:
     """Extract transcriptions from given file"""
@@ -240,7 +248,7 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
     with open(transcription_path) as transcription_file:
         # get rid of the first three useless headers
         transcriptions = transcription_file.readlines()[3:]
-        
+
         for transcription in transcriptions:
             transcription_fields = transcription.split("\t")
 
@@ -263,8 +271,9 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
                     transcript=cleaned_transcript,
                 )
             )
-    
+
     return extracted_transcriptions
+
 
 def concate_transcriptions_by_mapping_file(
     speech_folder: str,
@@ -292,7 +301,7 @@ def concate_transcriptions_by_mapping_file(
                 concated_transcripts = selected_transcription[need_to_be_concate_lines[0] - 1: need_to_be_concate_lines[-1]]
                 concated_transcripts = list(map(lambda tdf: tdf.transcript, concated_transcripts))
                 concated_transcripts = " ".join(concated_transcripts)
-                
+
                 start = selected_transcription[need_to_be_concate_lines[0] - 1].start
                 end = selected_transcription[need_to_be_concate_lines[-1] - 1].end
             else:
@@ -319,6 +328,7 @@ def concate_transcriptions_by_mapping_file(
 
         return utterances
 
+
 def segment_audio(
     audio_path: str,
     channel: int,
@@ -329,19 +339,20 @@ def segment_audio(
     device: str = "cpu"
 ):
     """segment and resample audio"""
-    
+
     start = int(start / 100 * 8000)
     end = int(end / 100 * 8000)
     num_frames = end - start
 
     data, _ = torchaudio.load(audio_path, frame_offset=start, num_frames=num_frames)
-  
+
     resampler = Resample(orig_freq=8000, new_freq=sample_rate).to(device=device)
 
     data = resampler(data)
     data = torch.unsqueeze(data[channel], 0)
 
     torchaudio.save(save_path, src=data, sample_rate=sample_rate)
+
 
 def get_transcription_files_by_dataset(dataset: str, transcription_folder: str) -> List[str]:
     """return paths of transcriptions from the given data set and the path of all of transcriptions"""
@@ -352,6 +363,7 @@ def get_transcription_files_by_dataset(dataset: str, transcription_folder: str) 
     transcription_files = get_all_files(transcription_folder, match_or=transcription_train_set)
 
     return transcription_files
+
 
 def get_translations_from_path(translation_path: str) -> List[str]:
     """"return translations from the given path"""
@@ -366,7 +378,7 @@ def get_translations_from_path(translation_path: str) -> List[str]:
             translation = clean_translation(translation)
             translation = normalize_punctuation(translation)
             translation = en_normalizer.normalize(translation)
-            translation = remove_punctuation(translation)            
+            translation = remove_punctuation(translation)
             translation = en_tokenizer.tokenize(translation)
 
             translation = " ".join(translation)
@@ -374,24 +386,27 @@ def get_translations_from_path(translation_path: str) -> List[str]:
 
     return extracted_translations
 
+
 def insert_translation_into_existing_dataset(data: List[Data], translations: List[str]) -> List[Data]:
     """insert corresponding translation to given data"""
 
     for index in range(len(data)):
         corresponding_translation = translations[index]
         data[index].translations.append(corresponding_translation)
-        
-    return data 
+
+    return data
+
 
 def download_translations(path: str):
     repo = "https://github.com/joshua-decoder/fisher-callhome-corpus.git"
-    
+
     if not os.path.isdir(path):
         logger.info(
             f"Translation file not found. Downloading from {repo}."
         )
         subprocess.run(["git", "clone", repo])
         subprocess.run(["mv", "fisher-callhome-corpus", f"{path}"])
+
 
 if __name__ == "__main__":
     data_folder = "PATH_TO_YOUR_DATA"

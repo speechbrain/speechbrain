@@ -1,6 +1,7 @@
 import re
 import string
 
+
 def remove_punctuation(text: str) -> str:
     """remove punctuation from given string"""
 
@@ -10,17 +11,18 @@ def remove_punctuation(text: str) -> str:
 
     # based on the definition of [[:punct]]
     punctuation = r"[{}]".format(string.punctuation)
-    
+
     text = re.sub(punctuation, "", text)
     text = text.replace("spacemark", "<space>")
     text = text.replace("apostrophe", "'")
-    
+
     # remove consecutive commas and spaces
     text = re.sub(r"\s+", " ", text)
     text = re.sub(f"^\s+", "", text)
     text = re.sub(r"\s+$", "", text)
 
     return text
+
 
 def normalize_punctuation(text: str) -> str:
     """remove punctuation from given string"""
@@ -31,10 +33,10 @@ def normalize_punctuation(text: str) -> str:
 
     # normalize punctuation
     text = re.sub(r"_", "", text)
-    text = re.sub(r"`", "'", text) # for En
-    text = re.sub(r"´", "'", text) # for En
-    text = re.sub(r"\¨", "'", text) # I¨m -> I'm etc.
-    
+    text = re.sub(r"`", "'", text)  # for En
+    text = re.sub(r"´", "'", text)  # for En
+    text = re.sub(r"\¨", "'", text)  # I¨m -> I'm etc.
+
     # remove noisy parts
     text = re.sub(r"noise", "", text)
     text = re.sub(r"laughter", "", text)
@@ -122,10 +124,10 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"=", " ", text)
     text = re.sub(r"\·", " ", text)
 
-    text = re.sub(r"^\.\s*$", "", text) # only period sentence
-    text = re.sub(r"^\?\s*$", "", text) # only question mark sentence
-    text = re.sub(r"\s+", " ", text) # remove consecutive whitespaces
-    
+    text = re.sub(r"^\.\s*$", "", text)  # only period sentence
+    text = re.sub(r"^\?\s*$", "", text)  # only question mark sentence
+    text = re.sub(r"\s+", " ", text)  # remove consecutive whitespaces
+
     # remove the first and last whitespaces
     text = re.sub(r"^\s+", "", text)
     text = re.sub(r"\s+$", "", text)
@@ -134,24 +136,25 @@ def normalize_punctuation(text: str) -> str:
 
     return text
 
+
 def clean_transcription(transcription: str) -> str:
     """
     original: https://github.com/jamfly/AlloST/blob/main/egs/fisher_callhome_spanish/st1/local/fsp_data_prep.sh
-    
+
     clean a given transcription and return a cleaned transcription
     """
 
     transcription = transcription.replace("</", "lendarrow")
     transcription = transcription.replace("<", "larrow")
     transcription = transcription.replace(">", "rarrow")
-    
+
     punctuation = r"[{}]".format(string.punctuation)
     transcription = re.sub(punctuation, "", transcription)
 
     transcription = transcription.replace("larrow", "<")
     transcription = transcription.replace("rarrow", ">")
     transcription = transcription.replace("lendarrow", "</")
-    
+
     transcription = transcription.replace("Á", "á")
     transcription = transcription.replace("Í", "í")
     transcription = transcription.replace("Ó", "ó")
@@ -169,6 +172,7 @@ def clean_transcription(transcription: str) -> str:
 
     return transcription
 
+
 def clean_translation(translation: str) -> str:
     """clean a given translation and returne a cleaned translation"""
     translation = translation.strip()
@@ -178,6 +182,7 @@ def clean_translation(translation: str) -> str:
     translation = translation.replace("¡", "")
 
     return translation
+
 
 def remove_labels(transcription: str):
     """remove label such as <laugh> from transcript"""
@@ -220,6 +225,7 @@ def remove_labels(transcription: str):
         transcription = re.sub(r"^\s\s*", " ", transcription)
 
     return transcription
+
 
 if __name__ == "__main__":
     tests = [
