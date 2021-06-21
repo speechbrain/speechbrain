@@ -283,9 +283,9 @@ train_steps:
     epoch_counter: !ref <lexicon_epoch_counter>
     wer_file: !ref <save_folder>/wer_lexicon.txt
   - name: sentence
-    train_data: !ref <lexicon_train_data>
-    valid_data: !ref <lexicon_valid_data>
-    test_data: !ref <lexicon_test_data>
+    train_data: !ref <sentence_train_data>
+    valid_data: !ref <sentence_valid_data>
+    test_data: !ref <sentence_test_data>
     epoch_counter: !ref <sentence_epoch_counter>
     wer_file: !ref <save_folder>/wer_sentence.txt
 
