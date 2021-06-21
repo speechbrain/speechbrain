@@ -273,4 +273,5 @@ train_steps:
     train_data: !ref <train_data>
     valid_data: !ref <valid_data>
     test_data: !ref <test_data>
-    epochs: !ref <epoch_counter>
+    epoch_counter: !ref <epoch_counter>
+    wer_file: !ref <wer_file>

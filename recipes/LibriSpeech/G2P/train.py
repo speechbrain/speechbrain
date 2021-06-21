@@ -32,6 +32,14 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import (
 
 # Define training procedure
 class G2PBrain(sb.Brain, PretrainedModelMixin):
+    def __init__(self, train_step_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.train_step_name = train_step_name
+        self.train_step = next(
+            step for step in self.hparams.train_steps
+            if step['name'] == train_step_name)
+        self.epoch_counter = self.train_step["epoch_counter"]
+
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
@@ -126,14 +134,15 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 stats_meta={"Epoch loaded": self.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
+            wer_file = self.train_step['wer_file']
+            with open(wer_file, "w") as w:
                 w.write("\nseq2seq loss stats:\n")
                 self.seq_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
                 print(
                     "seq2seq, and PER stats written to file",
-                    self.hparams.wer_file,
+                    wer_file
                 )
 
 
@@ -273,6 +282,7 @@ if __name__ == "__main__":
 
         # Trainer initialization
         g2p_brain = G2PBrain(
+            train_step_name=train_step["name"],
             modules=hparams["modules"],
             opt_class=hparams["opt_class"],
             hparams=hparams,
@@ -280,7 +290,6 @@ if __name__ == "__main__":
             checkpointer=hparams["checkpointer"],
         )
         g2p_brain.phoneme_encoder = phoneme_encoder
-        g2p_brain.epoch_counter = train_step['epoch_counter']
 
         dataloader_opts = hparams["dataloader_opts"]
         # NOTE: This gets modified after the first run and causes a double

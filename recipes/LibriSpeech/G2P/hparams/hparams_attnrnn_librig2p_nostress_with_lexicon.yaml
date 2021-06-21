@@ -15,7 +15,6 @@ train_log: !ref <output_folder>/train_log.txt
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
-wer_file: !ref <save_folder>/wer.txt
 pretrained_path: !ref <save_folder>
 
 
@@ -282,10 +281,11 @@ train_steps:
     valid_data: !ref <lexicon_valid_data>
     test_data: !ref <lexicon_test_data>
     epoch_counter: !ref <lexicon_epoch_counter>
+    wer_file: !ref <save_folder>/wer_lexicon.txt
   - name: sentence
     train_data: !ref <lexicon_train_data>
     valid_data: !ref <lexicon_valid_data>
     test_data: !ref <lexicon_test_data>
     epoch_counter: !ref <sentence_epoch_counter>
-
+    wer_file: !ref <save_folder>/wer_sentence.txt
 
