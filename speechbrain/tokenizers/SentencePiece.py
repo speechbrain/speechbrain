@@ -38,7 +38,7 @@ class SentencePiece:
     annotation_train : str
         Path of the annotation file which is used to learn the tokenizer. It
         can be in JSON or csv format.
-    annotation_read : str
+    annotation_read : List[str]
         The data entry which contains the word sequence in the annotation file.
     model_type : str
         (bpe, char, unigram).
@@ -209,26 +209,30 @@ class SentencePiece:
         annotation_file = open(self.annotation_train, "r")
         reader = csv.reader(annotation_file)
         headers = next(reader, None)
+        annotation = ",".join(self.annotation_read)
         if self.annotation_read not in headers:
             raise ValueError(
-                self.annotation_read + " must exist in:" + self.annotation_train
+                annotation + " must exist in:" + self.annotation_train
             )
-        index_label = headers.index(self.annotation_read)
+
         text_file = open(self.text_file, "w+")
-        row_idx = 0
-        for row in reader:
-            if self.num_sequences is not None and row_idx > self.num_sequences:
-                print(
-                    "Using %d sequences to train the tokenizer."
-                    % self.num_sequences
-                )
-                break
-            row_idx += 1
-            sent = row[index_label]
-            if self.char_format_input:
-                (sent,) = merge_char([sent.split()])
-                sent = " ".join(sent)
-            text_file.write(sent + "\n")
+        for annotation in self.annotation_read:
+            index_label = headers.index(annotation)
+            row_idx = 0
+            for row in reader:
+                if self.num_sequences is not None and row_idx > self.num_sequences:
+                    print(
+                        "Using %d sequences to train the tokenizer."
+                        % self.num_sequences
+                    )
+                    break
+                row_idx += 1
+                sent = row[index_label]
+                if self.char_format_input:
+                    (sent,) = merge_char([sent.split()])
+                    sent = " ".join(sent)
+                text_file.write(sent + "\n")
+        
         text_file.close()
         annotation_file.close()
         logger.info("Text file created at: " + self.text_file)
@@ -241,9 +245,10 @@ class SentencePiece:
                 self.annotation_train
                 + " is not a file. please provide annotation file for training."
             )
+        annotation = ",".join(self.annotation_read)
         logger.info(
             "Extract "
-            + self.annotation_read
+            + annotation
             + " sequences from:"
             + self.annotation_train
         )
@@ -256,20 +261,22 @@ class SentencePiece:
         text_file = open(self.text_file, "w+")
         row_idx = 0
 
-        for snt_id in out_json.keys():
-            if self.num_sequences is not None and row_idx > self.num_sequences:
-                print(
-                    "Using %d sequences to train the tokenizer."
-                    % self.num_sequences
-                )
-                break
-            row_idx += 1
-            sent = out_json[snt_id][self.annotation_read]
-            if self.char_format_input:
-                (sent,) = merge_char([sent.split()])
-                sent = " ".join(sent)
+        for annotation in self.annotation_read:
+            for snt_id in out_json.keys():
+                if self.num_sequences is not None and row_idx > self.num_sequences:
+                    print(
+                        "Using %d sequences to train the tokenizer."
+                        % self.num_sequences
+                    )
+                    break
+                row_idx += 1
+                sent = out_json[snt_id][annotation]
+                if self.char_format_input:
+                    (sent,) = merge_char([sent.split()])
+                    sent = " ".join(sent)
 
-            text_file.write(sent + "\n")
+                text_file.write(sent + "\n")
+        
         text_file.close()
 
         logger.info("Text file created at: " + self.text_file)
@@ -341,28 +348,29 @@ class SentencePiece:
                         index_label = self.annotation_read
 
                 wrong_recover_list = []
-                for row in reader:
-                    if self.annotation_format == "csv":
-                        row = row[index_label]
-                    else:
-                        row = reader[row][index_label]
-                    if self.char_format_input:
-                        (row,) = merge_char([row.split()])
-                        row = " ".join(row)
-                    row = row.split("\n")[0]
-                    encoded_id = self.sp.encode_as_ids(row)
-                    decode_text = self.sp.decode_ids(encoded_id)
-                    (details,) = edit_distance.wer_details_for_batch(
-                        ["utt1"],
-                        [row.split(" ")],
-                        [decode_text.split(" ")],
-                        compute_alignments=True,
-                    )
-                    if details["WER"] > 0:
-                        for align in details["alignment"]:
-                            if align[0] != "=" and align[1] is not None:
-                                if align[1] not in wrong_recover_list:
-                                    wrong_recover_list.append(align[1])
+                for label in index_label:
+                    for row in reader:
+                        if self.annotation_format == "csv":
+                            row = row[label]
+                        else:
+                            row = reader[row][label]
+                        if self.char_format_input:
+                            (row,) = merge_char([row.split()])
+                            row = " ".join(row)
+                        row = row.split("\n")[0]
+                        encoded_id = self.sp.encode_as_ids(row)
+                        decode_text = self.sp.decode_ids(encoded_id)
+                        (details,) = edit_distance.wer_details_for_batch(
+                            ["utt1"],
+                            [row.split(" ")],
+                            [decode_text.split(" ")],
+                            compute_alignments=True,
+                        )
+                        if details["WER"] > 0:
+                            for align in details["alignment"]:
+                                if align[0] != "=" and align[1] is not None:
+                                    if align[1] not in wrong_recover_list:
+                                        wrong_recover_list.append(align[1])
                 if self.annotation_format == "csv":
                     fannotation_file.close()
                 logger.info("recover words from: " + annotation_file)
