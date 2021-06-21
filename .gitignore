@@ -146,3 +146,7 @@ dmypy.json
 
 # IntelliJ IDE idea folder
 .idea/
+
+# vim
+*.swp
+*.swo
