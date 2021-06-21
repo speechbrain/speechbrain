@@ -280,6 +280,7 @@ if __name__ == "__main__":
             checkpointer=hparams["checkpointer"],
         )
         g2p_brain.phoneme_encoder = phoneme_encoder
+        g2p_brain.epoch_counter = train_step['epoch_counter']
 
         # Training/validation loop
         g2p_brain.fit(
