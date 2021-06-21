@@ -123,7 +123,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                stats_meta={"Epoch loaded": self.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
