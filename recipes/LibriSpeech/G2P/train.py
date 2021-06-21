@@ -282,6 +282,12 @@ if __name__ == "__main__":
         g2p_brain.phoneme_encoder = phoneme_encoder
         g2p_brain.epoch_counter = train_step['epoch_counter']
 
+        dataloader_opts = hparams["dataloader_opts"]
+        # NOTE: This gets modified after the first run and causes a double
+        # agument issue
+        if 'ckpt_prefix' in dataloader_opts and dataloader_opts['ckpt_prefix'] is None:
+            del dataloader_opts['ckpt_prefix']
+
         # Training/validation loop
         g2p_brain.fit(
             train_step['epoch_counter'],
