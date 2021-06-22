@@ -768,7 +768,7 @@ class GccPhat(torch.nn.Module):
 
         # If no tdoa specified, cover the whole frame
         if tdoa_max is None:
-            tdoa_max = n_fft // 2
+            tdoa_max = torch.div(n_fft, 2, rounding_mode="floor")
 
         # Splitting the GCC-PHAT values to search in the range
         slice_1 = xxs[..., 0:tdoa_max, :]
@@ -1496,7 +1496,9 @@ def sphere(levels_count=4):
             (unique_scalar.shape[0], 2), dtype=unique_scalar.dtype
         )
 
-        unique_values[:, 0] = torch.floor_divide(unique_scalar, index_max + 1)
+        unique_values[:, 0] = torch.div(
+            unique_scalar, index_max + 1, rounding_mode="floor"
+        )
         unique_values[:, 1] = unique_scalar - unique_values[:, 0] * (
             index_max + 1
         )
