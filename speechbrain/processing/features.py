@@ -539,6 +539,7 @@ class Filterbank(torch.nn.Module):
 
         # Managing multi-channels case (batch, time, channels)
         if len(sp_shape) == 4:
+            spectrogram = spectrogram.permute(0, 3, 1, 2)
             spectrogram = spectrogram.reshape(
                 sp_shape[0] * sp_shape[3], sp_shape[1], sp_shape[2]
             )
@@ -552,8 +553,9 @@ class Filterbank(torch.nn.Module):
         if len(sp_shape) == 4:
             fb_shape = fbanks.shape
             fbanks = fbanks.reshape(
-                sp_shape[0], fb_shape[1], fb_shape[2], sp_shape[3]
+                sp_shape[0], fb_shape[3], fb_shape[1], sp_shape[2]
             )
+            fbanks = fbanks.permute(0, 2, 3, 1)
 
         return fbanks
 
