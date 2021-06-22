@@ -735,6 +735,7 @@ class IntervalScheduler:
     def __init__(self, intervals):
         self.intervals = intervals
         self.n_steps = 0
+        self.losses = []
         self._compute_next()
 
     def __call__(self, opt):
