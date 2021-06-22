@@ -19,7 +19,7 @@ def test_tokenizer():
         annotation_train=os.path.abspath(
             "tests/unittests/tokenizer_data/dev-clean.csv"
         ),
-        annotation_read="wrd",
+        annotation_read=["wrd"],
         model_type="bpe",
     )
     encoded_seq_ids, encoded_seq_pieces = spm(

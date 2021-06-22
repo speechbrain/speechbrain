@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 import torch
 import torchaudio
 
-from splits.split_train import TrainOption
 from pre_processing import (
     clean_transcription,
     clean_translation,
@@ -55,6 +54,7 @@ class TDF:
     transcript: str
         transcript of utteranc
     """
+
     channel: int
     start: int
     end: int
@@ -67,6 +67,7 @@ class Data:
     each data contains a transcription and a translation for train set
     four translations for dev, dev2, test set
     """
+
     uid: str = ""
     wav: str = ""
     transcription: str = ""
@@ -98,7 +99,9 @@ def prepare_fisher_callhome_spanish(
 
     # If the dataset doesn't exist yet, terminate the whole program
     speech_folder = os.path.join(f"{data_folder}/LDC2010S01/data/speech")
-    transcription_folder = os.path.join(f"{data_folder}/LDC2010T04/fisher_spa_tr/data/transcripts")
+    transcription_folder = os.path.join(
+        f"{data_folder}/LDC2010T04/fisher_spa_tr/data/transcripts"
+    )
 
     if check_folders(speech_folder, transcription_folder) is not True:
         logger.error(
@@ -117,17 +120,23 @@ def prepare_fisher_callhome_spanish(
             os.makedirs(f"{save_folder}/{dataset}/wav")
 
         if skip(save_folder, dataset):
-            logger.info(f"Skipping preparation of {dataset}, completed in previous run.")
+            logger.info(
+                f"Skipping preparation of {dataset}, completed in previous run."
+            )
             continue
 
         # get file lists
-        transcription_files = get_transcription_files_by_dataset(dataset, transcription_folder=transcription_folder)
+        transcription_files = get_transcription_files_by_dataset(
+            dataset, transcription_folder=transcription_folder
+        )
 
         # extract all transcriptions from files
         extracted_transcriptions = {}
         for transcription_file in transcription_files:
             filename = transcription_file.split("/")[-1].split(".")[0]
-            extracted_transcriptions[filename] = extract_transcription(transcription_file)
+            extracted_transcriptions[filename] = extract_transcription(
+                transcription_file
+            )
 
         # concate short utterance via mapping file
         concated_data = concate_transcriptions_by_mapping_file(
@@ -140,26 +149,48 @@ def prepare_fisher_callhome_spanish(
         if dataset != "train":
             # dev, dev2, test got four translations
             for number in range(4):
-                translation_path = f"{corpus_path}/corpus/ldc/fisher_{dataset}.en.{number}"
+                translation_path = (
+                    f"{corpus_path}/corpus/ldc/fisher_{dataset}.en.{number}"
+                )
                 translations = get_translations_from_path(translation_path)
 
-                concated_data = insert_translation_into_existing_dataset(data=concated_data, translations=translations)
+                concated_data = insert_translation_into_existing_dataset(
+                    data=concated_data, translations=translations
+                )
         else:
             translation_path = f"{corpus_path}/corpus/ldc/fisher_{dataset}.en"
             translations = get_translations_from_path(translation_path)
-            concated_data = insert_translation_into_existing_dataset(data=concated_data, translations=translations)
+            concated_data = insert_translation_into_existing_dataset(
+                data=concated_data, translations=translations
+            )
 
         # filter out empty or long transcription/translation
-        concated_data = list(filter(lambda data: 0 < len(data.transcription) < 400, concated_data))
+        concated_data = list(
+            filter(
+                lambda data: 0 < len(data.transcription) < 400, concated_data
+            )
+        )
 
         if dataset != "train":
             for number in range(4):
-                concated_data = list(filter(lambda data: 0 < len(data.translations[number]) < 400, concated_data))
+                concated_data = list(
+                    filter(
+                        lambda data: 0 < len(data.translations[number]) < 400,
+                        concated_data,
+                    )
+                )
         else:
-            concated_data = list(filter(lambda data: 0 < len(data.translations[0]) < 400, concated_data))
+            concated_data = list(
+                filter(
+                    lambda data: 0 < len(data.translations[0]) < 400,
+                    concated_data,
+                )
+            )
 
         # ignore empty or long utterances
-        concated_data = list(filter(lambda data: 0 < data.duration < 30, concated_data))
+        concated_data = list(
+            filter(lambda data: 0 < data.duration < 30, concated_data)
+        )
 
         # sort by utterance id
         concated_data = sorted(concated_data, key=lambda data: data.uid)
@@ -189,7 +220,9 @@ def prepare_fisher_callhome_spanish(
                 }
 
                 for number in range(4):
-                    translation_dict = {f"translation_{number}": data.translations[number]}
+                    translation_dict = {
+                        f"translation_{number}": data.translations[number]
+                    }
                     data_dict[data.uid].update(translation_dict)
             else:
                 data_dict[data.uid] = {
@@ -287,22 +320,39 @@ def concate_transcriptions_by_mapping_file(
             # concate multiple transcripts
             if len(need_to_be_concate_lines) > 1:
                 # index shift one is because id is count from 1 in file however, list start from 0
-                concated_transcripts = selected_transcription[need_to_be_concate_lines[0] - 1: need_to_be_concate_lines[-1]]
-                concated_transcripts = list(map(lambda tdf: tdf.transcript, concated_transcripts))
+                concated_transcripts = selected_transcription[
+                    need_to_be_concate_lines[0]
+                    - 1 : need_to_be_concate_lines[-1]
+                ]
+                concated_transcripts = list(
+                    map(lambda tdf: tdf.transcript, concated_transcripts)
+                )
                 concated_transcripts = " ".join(concated_transcripts)
 
-                start = selected_transcription[need_to_be_concate_lines[0] - 1].start
-                end = selected_transcription[need_to_be_concate_lines[-1] - 1].end
+                start = selected_transcription[
+                    need_to_be_concate_lines[0] - 1
+                ].start
+                end = selected_transcription[
+                    need_to_be_concate_lines[-1] - 1
+                ].end
             else:
-                concated_transcripts = selected_transcription[need_to_be_concate_lines[-1] - 1].transcript
-                start = selected_transcription[need_to_be_concate_lines[-1] - 1].start
-                end = selected_transcription[need_to_be_concate_lines[-1] - 1].end
+                concated_transcripts = selected_transcription[
+                    need_to_be_concate_lines[-1] - 1
+                ].transcript
+                start = selected_transcription[
+                    need_to_be_concate_lines[-1] - 1
+                ].start
+                end = selected_transcription[
+                    need_to_be_concate_lines[-1] - 1
+                ].end
 
             # clean up
             concated_transcripts = normalize_punctuation(concated_transcripts)
             concated_transcripts = es_normalizer.normalize(concated_transcripts)
 
-            channel = selected_transcription[need_to_be_concate_lines[0] - 1].channel
+            channel = selected_transcription[
+                need_to_be_concate_lines[0] - 1
+            ].channel
             channel_symbol = "B" if channel == 1 else "A"
             uttrance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
 
@@ -325,7 +375,7 @@ def segment_audio(
     end: int,
     save_path: str,
     sample_rate: int = 16000,
-    device: str = "cpu"
+    device: str = "cpu",
 ):
     """segment and resample audio"""
 
@@ -333,7 +383,9 @@ def segment_audio(
     end = int(end / 100 * 8000)
     num_frames = end - start
 
-    data, _ = torchaudio.load(audio_path, frame_offset=start, num_frames=num_frames)
+    data, _ = torchaudio.load(
+        audio_path, frame_offset=start, num_frames=num_frames
+    )
 
     resampler = Resample(orig_freq=8000, new_freq=sample_rate).to(device=device)
 
@@ -343,13 +395,21 @@ def segment_audio(
     torchaudio.save(save_path, src=data, sample_rate=sample_rate)
 
 
-def get_transcription_files_by_dataset(dataset: str, transcription_folder: str) -> List[str]:
+def get_transcription_files_by_dataset(
+    dataset: str, transcription_folder: str
+) -> List[str]:
     """return paths of transcriptions from the given data set and the path of all of transcriptions"""
     train_set = get_data_list(f"splits/{dataset}")
-    transcription_train_set = list(map(lambda path: path.split(".")[0], train_set))
-    transcription_train_set = list(map(lambda path: f"{path}.tdf", transcription_train_set))
+    transcription_train_set = list(
+        map(lambda path: path.split(".")[0], train_set)
+    )
+    transcription_train_set = list(
+        map(lambda path: f"{path}.tdf", transcription_train_set)
+    )
 
-    transcription_files = get_all_files(transcription_folder, match_or=transcription_train_set)
+    transcription_files = get_all_files(
+        transcription_folder, match_or=transcription_train_set
+    )
 
     return transcription_files
 
@@ -376,7 +436,9 @@ def get_translations_from_path(translation_path: str) -> List[str]:
     return extracted_translations
 
 
-def insert_translation_into_existing_dataset(data: List[Data], translations: List[str]) -> List[Data]:
+def insert_translation_into_existing_dataset(
+    data: List[Data], translations: List[str]
+) -> List[Data]:
     """insert corresponding translation to given data"""
 
     for index in range(len(data)):
@@ -390,9 +452,7 @@ def download_translations(path: str):
     repo = "https://github.com/joshua-decoder/fisher-callhome-corpus.git"
 
     if not os.path.isdir(path):
-        logger.info(
-            f"Translation file not found. Downloading from {repo}."
-        )
+        logger.info(f"Translation file not found. Downloading from {repo}.")
         subprocess.run(["git", "clone", repo])
         subprocess.run(["mv", "fisher-callhome-corpus", f"{path}"])
 

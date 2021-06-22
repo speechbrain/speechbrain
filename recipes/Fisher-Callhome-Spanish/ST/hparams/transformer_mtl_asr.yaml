@@ -14,7 +14,7 @@ debug: False
 seed: 8886
 num_workers: 8
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer_mtl_asr_0.3_one_stage/<seed>
+output_folder: !ref results/transformer_mtl_asr_0.3/<seed>
 ckpt_interval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt
 save_folder: !ref <output_folder>/save
@@ -70,7 +70,7 @@ loss_reduction: batchmean
 sorting: random
 
 # stages related parameters
-stage_one_epochs: 100
+stage_one_epochs: 20
 lr_adam: 1.0
 lr_sgd: 0.000025
 
