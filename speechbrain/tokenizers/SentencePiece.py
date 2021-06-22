@@ -220,7 +220,10 @@ class SentencePiece:
             index_label = headers.index(annotation)
             row_idx = 0
             for row in reader:
-                if self.num_sequences is not None and row_idx > self.num_sequences:
+                if (
+                    self.num_sequences is not None
+                    and row_idx > self.num_sequences
+                ):
                     print(
                         "Using %d sequences to train the tokenizer."
                         % self.num_sequences
@@ -232,7 +235,7 @@ class SentencePiece:
                     (sent,) = merge_char([sent.split()])
                     sent = " ".join(sent)
                 text_file.write(sent + "\n")
-        
+
         text_file.close()
         annotation_file.close()
         logger.info("Text file created at: " + self.text_file)
@@ -247,10 +250,7 @@ class SentencePiece:
             )
         annotation = ",".join(self.annotation_read)
         logger.info(
-            "Extract "
-            + annotation
-            + " sequences from:"
-            + self.annotation_train
+            "Extract " + annotation + " sequences from:" + self.annotation_train
         )
 
         # Read JSON
@@ -263,7 +263,10 @@ class SentencePiece:
 
         for annotation in self.annotation_read:
             for snt_id in out_json.keys():
-                if self.num_sequences is not None and row_idx > self.num_sequences:
+                if (
+                    self.num_sequences is not None
+                    and row_idx > self.num_sequences
+                ):
                     print(
                         "Using %d sequences to train the tokenizer."
                         % self.num_sequences
@@ -276,7 +279,7 @@ class SentencePiece:
                     sent = " ".join(sent)
 
                 text_file.write(sent + "\n")
-        
+
         text_file.close()
 
         logger.info("Text file created at: " + self.text_file)
