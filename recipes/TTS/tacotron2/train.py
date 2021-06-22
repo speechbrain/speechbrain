@@ -36,6 +36,12 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
         inputs, y, num_items = batch_to_gpu(batch)
         return self.hparams.model(inputs)  # 1#2#
 
+    def fit_batch(self, *args, **kwargs):
+        result = super().fit_batch(*args, **kwargs)
+        self.hparams.lr_annealing(self.optimizer)
+        return result
+
+
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
         Arguments
@@ -80,12 +86,11 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
-            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)  # 1#2#
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            lr = self.optimizer.param_groups[-1]["lr"]
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
-                stats_meta={"Epoch": epoch, "lr": old_lr},
+                stats_meta={"Epoch": epoch, "lr": lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )

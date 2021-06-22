@@ -719,3 +719,75 @@ class CyclicLRScheduler:
         data = torch.load(path)
         self.losses = data["losses"]
         self.clr_iterations = data["clr_iterations"]
+
+
+@checkpoints.register_checkpoint_hooks
+class IntervalScheduler:
+    """
+    A simple scheduler implementation that sets the learning rate to a specific value
+    at specific numbers of steps
+
+    Arguments
+    ---------
+    intervals: list
+        a list of dictionaries: {'steps': <number of steps>, 'lr': the learning rate}
+    """
+    def __init__(self, intervals):
+        self.intervals = intervals
+        self.n_steps = 0
+        self._compute_next()
+
+    def __call__(self, opt):
+        """
+        Arguments
+        ---------
+        opt : optimizer
+            The optimizer to update using this scheduler.
+
+        Returns
+        -------
+        current_lr : float
+            The learning rate before the update.
+        lr : float
+            The learning rate after the update.
+        """
+        self.n_steps += 1
+
+        current_lr = opt.param_groups[0]["lr"]
+
+        lr = self._get_lr(current_lr)
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _compute_next(self):
+        self._next_intervals = [
+            interval for interval in self.intervals
+            if interval['steps'] > self.n_steps]
+
+    def _get_lr(self, current_lr):
+        lr = current_lr
+        if self._next_intervals:
+            next_interval = self._next_intervals[0]
+            if self.n_steps >= next_interval['steps']:
+                lr = next_interval['lr']
+                del self._next_intervals[0]
+        return lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses, "n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        del end_of_epoch  # Unused in this class
+        del device
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.n_steps = data["n_steps"]
+        self._compute_next()

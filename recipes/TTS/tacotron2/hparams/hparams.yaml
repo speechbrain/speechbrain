@@ -128,11 +128,14 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 #annealing_function
-lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <learning_rate>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
+lr_annealing: !new:speechbrain.nnet.schedulers.IntervalScheduler
+    intervals:
+        - steps: 500000
+          lr: 0.0005
+        - steps: 1000000
+          lr: 0.0003
+        - steps: 2000000
+          lr: 0.0001
 
 #checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
