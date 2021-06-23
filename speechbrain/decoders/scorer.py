@@ -1,9 +1,9 @@
 import torch
 import numpy as np
 import kenlm
+import sentencepiece as spm
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
-import sentencepiece as spm
 
 
 class BaseScorer:
@@ -30,9 +30,9 @@ class CTCPrefixScorer(BaseScorer):
         self.eos_index = eos_index
         self.ctc_window_size = ctc_window_size
 
-    def score(self, g, states, candidates, attn):
+    def score(self, inp_tokens, states, candidates, attn):
         scores, states = self.ctc_score.forward_step(
-            g, states, candidates, attn
+            inp_tokens, states, candidates, attn
         )
         return scores, states
 
@@ -49,7 +49,83 @@ class CTCPrefixScorer(BaseScorer):
         return None
 
 
-class NGramScorer(BaseScorer):
+class RNNLMScorer(BaseScorer):
+    def __init__(self, language_model, temperature=1.0):
+        self.lm = language_model
+        self.lm.eval()
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+    def score(self, inp_tokens, states, candidates, attn):
+        with torch.no_grad():
+            logits, hs = self.lm(inp_tokens, hx=states)
+            log_probs = self.softmax(logits / self.temperature)
+
+        return log_probs, hs
+
+    def permute_mem(self, memory, index):
+        """This is to permute lm memory to synchronize with current index
+        during beam search. The order of beams will be shuffled by scores
+        every timestep to allow batched beam search.
+        Further details please refer to speechbrain/decoder/seq2seq.py.
+        """
+        # TODO indexing
+        beam_size = index.size(1)
+        n_bh = index.size(0) * beam_size
+        beam_offset = self.batch_index * beam_size
+        # TODO
+        index = (
+            index // 1000 + beam_offset.unsqueeze(1).expand_as(index)
+        ).view(n_bh)
+
+        if isinstance(memory, tuple):
+            memory_0 = torch.index_select(memory[0], dim=1, index=index)
+            memory_1 = torch.index_select(memory[1], dim=1, index=index)
+            memory = (memory_0, memory_1)
+        else:
+            memory = torch.index_select(memory, dim=1, index=index)
+        return memory
+
+    def reset_mem(self, x, enc_lens):
+        self.batch_index = torch.arange(x.size(0), device=x.device)
+        return None
+
+
+class TransformerLMScorer(BaseScorer):
+    def __init__(self, language_model, temperature=1.0):
+        self.lm = language_model
+        self.lm.eval()
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+    def score(self, inp_tokens, states, candidates, attn):
+        if states is None:
+            states = inp_tokens.unsqueeze(1)
+        # Append the predicted token of the previous step to existing memory.
+        states = torch.cat([states, inp_tokens.unsqueeze(1)], dim=-1)
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(inp_tokens.device)
+        logits = self.lm(states)
+        log_probs = self.softmax(logits / self.temperature)
+        return log_probs[:, -1, :], states
+
+    def permute_mem(self, memory, index):
+        n_bh = memory.size(0)
+        beam_size = index.size(1)
+        beam_offset = self.batch_index * beam_size
+        # TODO
+        predecessors = (
+            index // 5000 + beam_offset.unsqueeze(1).expand_as(index)
+        ).view(n_bh)
+        memory = torch.index_select(memory, dim=0, index=predecessors)
+        return memory
+
+    def reset_mem(self, x, enc_lens):
+        self.batch_index = torch.arange(x.size(0), device=x.device)
+        return None
+
+
+class NGramLMScorer(BaseScorer):
     def __init__(
         self, lm_path, tokenizer_path, vocab_size, bos_index, eos_index
     ):
@@ -68,13 +144,13 @@ class NGramScorer(BaseScorer):
         self.id2char[bos_index] = "<s>"
         self.id2char[eos_index] = "</s>"
 
-    def score(self, g, states, candidates, attn):
+    def score(self, inp_tokens, states, candidates, attn):
         """
         Returns:
         new_memory: [B * Num_hyps, Vocab_size]
 
         """
-        n_bh = g.size(0)
+        n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
 
         if states is None:
@@ -104,7 +180,7 @@ class NGramScorer(BaseScorer):
                 scores[i, token_id] = score
                 new_memory[i, token_id] = out_state
                 new_scoring_table[i, token_id] = 1
-        scores = torch.from_numpy(scores).float().to(g.device)
+        scores = torch.from_numpy(scores).float().to(inp_tokens.device)
         return scores, (new_memory, new_scoring_table)
 
     def permute_mem(self, memory, index):
@@ -141,11 +217,13 @@ class NGramScorer(BaseScorer):
 
 class CoveragePenalty(BaseScorer):
     def __init__(self, vocab_size, threshold=0.5):
-        self.threshold = threshold
         self.vocab_size = vocab_size
+        self.threshold = threshold
+        self.time_step = 0
 
-    def score(self, g, coverage, candidates, attn):
+    def score(self, inp_tokens, coverage, candidates, attn):
         n_bh = attn.size(0)
+        self.time_step += 1
 
         if coverage is None:
             coverage = torch.zeros_like(attn, device=attn.device)
@@ -162,7 +240,7 @@ class CoveragePenalty(BaseScorer):
         ).sum(-1)
         penalty = penalty - coverage.size(-1) * self.threshold
         penalty = penalty.view(n_bh).unsqueeze(1).expand(-1, self.vocab_size)
-        return -1 * penalty, coverage
+        return -1 * penalty / self.time_step, coverage
 
     def permute_mem(self, coverage, index):
         # Update coverage
@@ -176,6 +254,7 @@ class CoveragePenalty(BaseScorer):
         return coverage
 
     def reset_mem(self, x, enc_lens):
+        self.time_step = 0
         self.batch_index = torch.arange(x.size(0), device=x.device)
         return None
 
@@ -190,9 +269,13 @@ class ScorerBuilder:
         ctc_weight=0.0,
         ngram_weight=0.0,
         coverage_weight=0.0,
+        rnnlm_weight=0.0,
+        transformerlm_weight=0.0,
         ctc_score_mode="partial",
         ngram_score_mode="partial",
         ctc_linear=None,
+        rnnlm=None,
+        transformerlm=None,
         lm_path=None,
         tokenizer=None,
     ):
@@ -201,7 +284,11 @@ class ScorerBuilder:
         score_mode: Dict
         """
         self.weights = dict(
-            ctc=ctc_weight, ngram=ngram_weight, coverage=coverage_weight
+            ctc=ctc_weight,
+            ngram=ngram_weight,
+            coverage=coverage_weight,
+            rnnlm=rnnlm_weight,
+            transformerlm=transformerlm_weight,
         )
         self.score_mode = dict(ctc=ctc_score_mode, ngram=ngram_score_mode,)
         self.scorers = {}
@@ -218,7 +305,7 @@ class ScorerBuilder:
 
         if ngram_weight > 0.0:
 
-            self.scorers["ngram"] = NGramScorer(
+            self.scorers["ngram"] = NGramLMScorer(
                 lm_path, tokenizer, vocab_size, bos_index, eos_index
             )
 
@@ -227,13 +314,23 @@ class ScorerBuilder:
             # Must be full scorer model
             self.score_mode["coverage"] = "full"
 
-    def score(self, g, states, attn, log_probs, beam_size):
+        if rnnlm_weight > 0.0:
+            self.scorers["rnnlm"] = RNNLMScorer(rnnlm)
+            # Must be full scorer model
+            self.score_mode["rnnlm"] = "full"
+
+        if transformerlm_weight > 0.0:
+            self.scorers["transformerlm"] = TransformerLMScorer(transformerlm)
+            # Must be full scorer model
+            self.score_mode["transformerlm"] = "full"
+
+    def score(self, inp_tokens, states, attn, log_probs, beam_size):
         new_states = dict()
         # score full candidates
         for k, impl in self.scorers.items():
             if self.score_mode[k] != "full":
                 continue
-            score, new_states[k] = impl.score(g, states[k], None, attn)
+            score, new_states[k] = impl.score(inp_tokens, states[k], None, attn)
             log_probs += score * self.weights[k]
         # select candidates for partial scorers
         _, candidates = log_probs.topk(int(beam_size * 1.5), dim=-1)
@@ -241,7 +338,9 @@ class ScorerBuilder:
         for k, impl in self.scorers.items():
             if self.score_mode[k] != "partial":
                 continue
-            score, new_states[k] = impl.score(g, states[k], candidates, attn)
+            score, new_states[k] = impl.score(
+                inp_tokens, states[k], candidates, attn
+            )
             log_probs += score * self.weights[k]
 
         return log_probs, new_states
