@@ -7,7 +7,6 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-import speechbrain as sb
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -105,47 +104,6 @@ class S2SBaseSearcher(torch.nn.Module):
         """
         raise NotImplementedError
 
-    def lm_forward_step(self, inp_tokens, memory):
-        """This method should implement one step of
-        forwarding operation for language model.
-
-        Arguments
-        ---------
-        inp_tokens : torch.Tensor
-            The input tensor of the current timestep.
-        memory : No limit
-            The momory variables input for this timestep.
-            (e.g., RNN hidden states).
-
-        Return
-        ------
-        log_probs : torch.Tensor
-            Log-probabilities of the current timestep output.
-        memory : No limit
-            The memory variables generated in this timestep.
-            (e.g., RNN hidden states).
-        """
-        raise NotImplementedError
-
-    def reset_lm_mem(self, batch_size, device):
-        """This method should implement the resetting of
-        memory variables in the language model.
-        E.g., initializing zero vector as initial hidden states.
-
-        Arguments
-        ---------
-        batch_size : int
-            The size of the batch.
-        device : torch.device
-            The device to put the initial variables.
-
-        Return
-        ------
-        memory : No limit
-            The initial memory variable.
-        """
-        raise NotImplementedError
-
 
 class S2SGreedySearcher(S2SBaseSearcher):
     """This class implements the general forward-pass of
@@ -203,6 +161,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
 
     Example
     -------
+    >>> import speechbrain as sb
     >>> emb = torch.nn.Embedding(5, 3)
     >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
@@ -278,9 +237,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
     length_rewarding : float
         The coefficient of length rewarding (γ).
         log P(y|x) + λ log P_LM(y) + γ*len(y). (default: 0.0)
-    lm_weight : float
-        The weight of LM when performing beam search (λ).
-        log P(y|x) + λ log P_LM(y). (default: 0.0)
     blank_index : int
         The index of the blank token.
     using_max_attn_shift: bool
@@ -309,8 +265,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
-        lm_weight=0.0,
-        lm_modules=None,
         blank_index=0,
         using_max_attn_shift=False,
         max_attn_shift=60,
@@ -335,8 +289,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.eos_threshold = eos_threshold
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
-        self.lm_weight = lm_weight
-        self.lm_modules = lm_modules
 
         # ctc related
         self.ctc_weight = (
@@ -539,9 +491,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         memory = self.reset_mem(n_bh, device=device)
 
-        if self.lm_weight > 0:
-            lm_memory = self.reset_lm_mem(n_bh, device)
-
         if self.scorer is not None:
             scorer_memory = self.scorer.reset_scorer_mem(enc_states, enc_lens)
 
@@ -613,19 +562,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if t < min_decode_steps:
                 log_probs[:, self.eos_index] = self.minus_inf
 
-            # Adding LM scores to log_prob if lm_weight > 0.0
-            if self.lm_weight > 0.0:
-                lm_log_probs, lm_memory = self.lm_forward_step(
-                    inp_tokens, lm_memory
-                )
-                log_probs = log_probs + self.lm_weight * lm_log_probs
-
             # Adding Scorer scores to log_prob if Scorer is not None.
             if self.scorer is not None:
-                # block blank token
-                log_probs[:, self.blank_index] = self.minus_inf
+                if self.scorer.weights["ctc"] > 0.0:
+                    # block blank token
+                    log_probs[:, self.blank_index] = self.minus_inf
                 # score with scorers
-                # print(inp_tokens, alived_seq)
                 log_probs, scorer_memory = self.scorer.score(
                     inp_tokens, scorer_memory, attn, log_probs, self.beam_size
                 )
@@ -673,9 +615,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Permute the memory to synchoronize with the output.
             if self.attn_weight:
                 memory = self.permute_mem(memory, index=predecessors)
-
-            if self.lm_weight > 0:
-                lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
             if self.scorer is not None:
                 scorer_memory = self.scorer.permute_scorer_mem(
@@ -770,23 +709,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         raise NotImplementedError
 
-    def permute_lm_mem(self, memory, index):
-        """This method permutes the language model memory
-        to synchronize the memory index with the current output.
-
-        Arguments
-        ---------
-        memory : No limit
-            The memory variable to be permuted.
-        index : torch.Tensor
-            The index of the previous path.
-
-        Returns
-        -------
-        The variable of the memory being permuted.
-        """
-        raise NotImplementedError
-
 
 class S2SRNNBeamSearcher(S2SBeamSearcher):
     """
@@ -810,6 +732,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
 
     Example
     -------
+    >>> import speechbrain as sb
     >>> emb = torch.nn.Embedding(5, 3)
     >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
@@ -855,9 +778,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
                 e, hs, c, enc_states, enc_lens
             )
             log_probs = self.softmax(self.fc(dec_out) / self.temperature)
-        # average attn weight of heads when attn_type is multiheadlocation
-        if self.dec.attn_type == "multiheadlocation":
-            w = torch.mean(w, dim=1)
+            # average attn weight of heads when attn_type is multiheadlocation
+            if self.dec.attn_type == "multiheadlocation":
+                w = torch.mean(w, dim=1)
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
@@ -879,182 +802,48 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return (hs, c)
 
 
-class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
+class S2STransformerBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
-    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
-    See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
+    for Transformer.
+    See also S2SBaseSearcher(), S2SBeamSearcher().
 
     Arguments
     ---------
-    embedding : torch.nn.Module
-        An embedding layer.
-    decoder : torch.nn.Module
-        Attentional RNN decoder.
+    model : torch.nn.Module
+        The model to use for decoding.
     linear : torch.nn.Module
         A linear output layer.
-    language_model : torch.nn.Module
-        A language model.
-    temperature_lm : float
-        Temperature factor applied to softmax. It changes the probability
-        distribution, being softer when T>1 and sharper with T<1.
     **kwargs
-        Arguments to pass to S2SBeamSearcher.
+        Arguments to pass to S2SBeamSearcher
 
-    Example
-    -------
-    >>> from speechbrain.lobes.models.RNNLM import RNNLM
-    >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
-    ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
-    ... )
-    >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
-    >>> lm = RNNLM(output_neurons=5, return_hidden=True)
-    >>> searcher = S2SRNNBeamSearchLM(
-    ...     embedding=emb,
-    ...     decoder=dec,
-    ...     linear=lin,
-    ...     language_model=lm,
-    ...     bos_index=4,
-    ...     eos_index=4,
-    ...     blank_index=4,
-    ...     min_decode_ratio=0,
-    ...     max_decode_ratio=1,
-    ...     beam_size=2,
-    ...     lm_weight=0.5,
-    ... )
-    >>> enc = torch.rand([2, 6, 7])
-    >>> wav_len = torch.rand([2])
-    >>> hyps, scores = searcher(enc, wav_len)
+    Example:
+    --------
+    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
     """
 
     def __init__(
-        self,
-        embedding,
-        decoder,
-        linear,
-        language_model,
-        temperature_lm=1.0,
-        **kwargs,
+        self, modules, temperature=1.0, **kwargs,
     ):
-        super(S2SRNNBeamSearchLM, self).__init__(
-            embedding, decoder, linear, **kwargs
-        )
+        super(S2STransformerBeamSearch, self).__init__(**kwargs)
 
-        self.lm = language_model
-        self.lm.eval()
-        self.log_softmax = sb.nnet.activations.Softmax(apply_log=True)
-        self.temperature_lm = temperature_lm
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
 
-    def lm_forward_step(self, inp_tokens, memory):
-        with torch.no_grad():
-            logits, hs = self.lm(inp_tokens, hx=memory)
-            log_probs = self.log_softmax(logits / self.temperature_lm)
+        self.temperature = temperature
 
-        return log_probs, hs
-
-    def permute_lm_mem(self, memory, index):
-        """This is to permute lm memory to synchronize with current index
-        during beam search. The order of beams will be shuffled by scores
-        every timestep to allow batched beam search.
-        Further details please refer to speechbrain/decoder/seq2seq.py.
-        """
-
-        if isinstance(memory, tuple):
-            memory_0 = torch.index_select(memory[0], dim=1, index=index)
-            memory_1 = torch.index_select(memory[1], dim=1, index=index)
-            memory = (memory_0, memory_1)
-        else:
-            memory = torch.index_select(memory, dim=1, index=index)
-        return memory
-
-    def reset_lm_mem(self, batch_size, device):
-        # set hidden_state=None, pytorch RNN will automatically set it to
-        # zero vectors.
+    def reset_mem(self, batch_size, device):
         return None
 
-
-class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
-    """This class implements the beam search decoding
-    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
-    See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
-
-    Arguments
-    ---------
-    embedding : torch.nn.Module
-        An embedding layer.
-    decoder : torch.nn.Module
-        Attentional RNN decoder.
-    linear : torch.nn.Module
-        A linear output layer.
-    language_model : torch.nn.Module
-        A language model.
-    temperature_lm : float
-        Temperature factor applied to softmax. It changes the probability
-        distribution, being softer when T>1 and sharper with T<1.
-    **kwargs
-        Arguments to pass to S2SBeamSearcher.
-
-    Example
-    -------
-    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
-    >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
-    ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
-    ... )
-    >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
-    >>> lm = TransformerLM(5, 512, 8, 1, 0, 1024, activation=torch.nn.GELU)
-    >>> searcher = S2SRNNBeamSearchTransformerLM(
-    ...     embedding=emb,
-    ...     decoder=dec,
-    ...     linear=lin,
-    ...     language_model=lm,
-    ...     bos_index=4,
-    ...     eos_index=4,
-    ...     blank_index=4,
-    ...     min_decode_ratio=0,
-    ...     max_decode_ratio=1,
-    ...     beam_size=2,
-    ...     lm_weight=0.5,
-    ... )
-    >>> enc = torch.rand([2, 6, 7])
-    >>> wav_len = torch.rand([2])
-    >>> hyps, scores = searcher(enc, wav_len)
-    """
-
-    def __init__(
-        self,
-        embedding,
-        decoder,
-        linear,
-        language_model,
-        temperature_lm=1.0,
-        **kwargs,
-    ):
-        super(S2SRNNBeamSearchTransformerLM, self).__init__(
-            embedding, decoder, linear, **kwargs
-        )
-
-        self.lm = language_model
-        self.lm.eval()
-        self.log_softmax = sb.nnet.activations.Softmax(apply_log=True)
-        self.temperature_lm = temperature_lm
-
-    def lm_forward_step(self, inp_tokens, memory):
-        memory = _update_mem(inp_tokens, memory)
-        if not next(self.lm.parameters()).is_cuda:
-            self.lm.to(inp_tokens.device)
-        logits = self.lm(memory)
-        log_probs = self.softmax(logits / self.temperature_lm)
-        return log_probs[:, -1, :], memory
-
-    def permute_lm_mem(self, memory, index):
+    def permute_mem(self, memory, index):
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
-    def reset_lm_mem(self, batch_size, device):
-        # set hidden_state=None, pytorch RNN will automatically set it to
-        # zero vectors.
-        return None
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        memory = _update_mem(inp_tokens, memory)
+        pred, attn = self.model.decode(memory, enc_states)
+        prob_dist = self.softmax(self.fc(pred) / self.temperature)
+        return prob_dist[:, -1, :], memory, attn
 
 
 def inflate_tensor(tensor, times, dim):
@@ -1134,66 +923,6 @@ def _update_mem(inp_tokens, memory):
     if memory is None:
         return inp_tokens.unsqueeze(1)
     return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
-
-
-class S2STransformerBeamSearch(S2SBeamSearcher):
-    """This class implements the beam search decoding
-    for Transformer.
-    See also S2SBaseSearcher(), S2SBeamSearcher().
-
-    Arguments
-    ---------
-    model : torch.nn.Module
-        The model to use for decoding.
-    linear : torch.nn.Module
-        A linear output layer.
-    **kwargs
-        Arguments to pass to S2SBeamSearcher
-
-    Example:
-    --------
-    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
-    """
-
-    def __init__(
-        self, modules, temperature=1.0, temperature_lm=1.0, **kwargs,
-    ):
-        super(S2STransformerBeamSearch, self).__init__(**kwargs)
-
-        self.model = modules[0]
-        self.fc = modules[1]
-        self.softmax = torch.nn.LogSoftmax(dim=-1)
-
-        self.temperature = temperature
-        self.temperature_lm = temperature_lm
-
-    def reset_mem(self, batch_size, device):
-        return None
-
-    def reset_lm_mem(self, batch_size, device):
-        return None
-
-    def permute_mem(self, memory, index):
-        memory = torch.index_select(memory, dim=0, index=index)
-        return memory
-
-    def permute_lm_mem(self, memory, index):
-        memory = torch.index_select(memory, dim=0, index=index)
-        return memory
-
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        memory = _update_mem(inp_tokens, memory)
-        pred, attn = self.model.decode(memory, enc_states)
-        prob_dist = self.softmax(self.fc(pred) / self.temperature)
-        return prob_dist[:, -1, :], memory, attn
-
-    def lm_forward_step(self, inp_tokens, memory):
-        memory = _update_mem(inp_tokens, memory)
-        if not next(self.lm_modules.parameters()).is_cuda:
-            self.lm_modules.to(inp_tokens.device)
-        logits = self.lm_modules(memory)
-        log_probs = self.softmax(logits / self.temperature_lm)
-        return log_probs[:, -1, :], memory
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
