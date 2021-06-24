@@ -24,8 +24,7 @@ csv_train: !ref <output_folder>/train-type=decoupled.csv
 csv_valid: !ref <output_folder>/devel-type=decoupled.csv
 csv_test: !ref <output_folder>/test-type=decoupled.csv
 asr_tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-#slu_tokenizer_file: https://www.dropbox.com/s/w72vtnf273yjwu4/SLURP_51_unigram.model?dl=1
-slu_tokenizer_file: ../Tokenizer/results/tokenizer_bpe58/58_unigram.model
+slu_tokenizer_file: https://www.dropbox.com/s/tmwq12r5vgcsif9/58_unigram.model?dl=1
 skip_prep: False
 
 # Training parameters
