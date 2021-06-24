@@ -79,11 +79,13 @@ class LinearWithConstraint(torch.nn.Linear):
     max_norm : float
         kernel  max-norm constaint
     """
+
     def __init__(self, *args, max_norm=1, **kwargs):
         self.max_norm = max_norm
         super(LinearWithConstraint, self).__init__(*args, **kwargs)
 
     def forward(self, x):
-        self.weight.data = torch.renorm(self.weight.data, p=2, dim=0,
-                                     maxnorm=self.max_norm)
+        self.weight.data = torch.renorm(
+            self.weight.data, p=2, dim=0, maxnorm=self.max_norm
+        )
         return super(LinearWithConstraint, self).forward(x)
