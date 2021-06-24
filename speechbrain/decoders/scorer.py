@@ -100,7 +100,10 @@ class TransformerLMScorer(BaseScorer):
 
     def score(self, inp_tokens, states, candidates, attn):
         if states is None:
-            states = inp_tokens.unsqueeze(1)
+            # states = inp_tokens.unsqueeze(1)
+            states = torch.empty(
+                inp_tokens.size(0), 0, device=inp_tokens.device
+            )
         # Append the predicted token of the previous step to existing memory.
         states = torch.cat([states, inp_tokens.unsqueeze(1)], dim=-1)
         if not next(self.lm.parameters()).is_cuda:
