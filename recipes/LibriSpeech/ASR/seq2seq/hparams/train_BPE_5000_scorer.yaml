@@ -102,19 +102,18 @@ using_eos_threshold: True
 eos_threshold: 1.5
 using_max_attn_shift: False #True
 max_attn_shift: 300
-length_normalization: True
 lm_weight: 0.8
 temperature: 1.0
 temperature_lm: 1.0
 
 # Scoring parameters
-ctc_decode_weight: 1.0 #0.4
+ctc_decode_weight: 0.40 #0.4
 ctc_score_mode: 'partial'
 ctc_window_size: 0
 ngram_weight: 0.3
 ngram_score_mode: 'partial'
 ngram_model: 'n-gram_model/lm_librispeech_kenlm_wp_5k_6gram_pruning_000012.bin'
-coverage_penalty: 0.0 #0.1
+coverage_penalty: 1.0
 
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -232,12 +231,14 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    vocab_size: !ref <output_neurons>
    ctc_weight: !ref <ctc_decode_weight>
    #ngram_weight: !ref <ngram_weight>
-   #coverage_weight: !ref <coverage_penalty>
+   transformerlm_weight: !ref <lm_weight>
+   coverage_weight: !ref <coverage_penalty>
    ctc_score_mode: !ref <ctc_score_mode>
    #ngram_score_mode: !ref <ngram_score_mode>
    ctc_linear: !ref <ctc_lin>
    #lm_path: !ref <ngram_model>
    #tokenizer: !ref <save_folder>/tokenizer.ckpt
+   transformerlm: !ref <lm_model>
 
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
@@ -249,31 +250,29 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    min_decode_ratio: !ref <min_decode_ratio>
    max_decode_ratio: !ref <max_decode_ratio>
    beam_size: !ref <valid_beam_size>
+   vocab_size: !ref <output_neurons>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
    temperature: !ref <temperature>
 
-test_search: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
+test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
    decoder: !ref <dec>
    linear: !ref <seq_lin>
-   language_model: !ref <lm_model>
    bos_index: !ref <bos_index>
    eos_index: !ref <eos_index>
    blank_index: !ref <blank_index>
    min_decode_ratio: !ref <min_decode_ratio>
    max_decode_ratio: !ref <max_decode_ratio>
    beam_size: !ref <test_beam_size>
+   vocab_size: !ref <output_neurons>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    using_eos_threshold: !ref <using_eos_threshold>
    max_attn_shift: !ref <max_attn_shift>
-   length_normalization: !ref <length_normalization>
-   lm_weight: !ref <lm_weight>
    scorer: !ref <scorer>
    temperature: !ref <temperature>
-   temperature_lm: !ref <temperature_lm>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
