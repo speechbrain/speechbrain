@@ -658,6 +658,25 @@ class Conv2d(nn.Module):
         return in_channels
 
 
+class Conv2dWithConstraint(torch.nn.Conv2d):
+    """This function implements 2d convolution with kernel max-norm constaint.
+
+    Build on PyTorch Conv2d class. It accepts the same arguments as PyTorch Conv2d, with an additional parameter:
+
+    max_norm : float
+        kernel  max-norm constaint
+    """
+
+    def __init__(self, *args, max_norm=1, **kwargs):
+        self.max_norm = max_norm
+        super(Conv2dWithConstraint, self).__init__(*args, **kwargs)
+
+    def forward(self, x):
+        self.weight.data = torch.renorm(self.weight.data, p=2, dim=0,
+                                        maxnorm=self.max_norm)
+        return super(Conv2dWithConstraint, self).forward(x)
+
+
 class ConvTranspose1d(nn.Module):
     """This class implements 1d transposed convolution with speechbrain.
     Transpose convolution is normally used to perform upsampling.

@@ -65,3 +65,46 @@ class EpochCounter:
                 self.current = saved_value
             else:
                 self.current = saved_value - 1
+
+
+class Stopper(object):
+    """An early stopper tracking a target metric
+
+    Arguments
+    ---------
+    limit_to_stop : int
+        maximum number of consecutive epochs without improvements in performance
+    limit_warmup : int
+        number of epochs to wait until start checking for early stopping
+    direction : "max" or "min"
+        direction to optimize the target metric
+    ---------
+    Author
+    Davide Borra, 2021
+    """
+    def __init__(self, limit_to_stop, limit_warmup, direction):
+        self.limit_to_stop = limit_to_stop
+        self.limit_warmup = limit_warmup
+        self.direction = direction
+        self.best_limit = 0
+        self.min_delta = 1e-6
+
+        if self.limit_to_stop < 0:
+            raise ValueError("Stopper 'limit_to_stop' must be >= 0")
+        if self.limit_warmup < 0:
+            raise ValueError("Stopper 'limit_warmup' must be >= 0")
+        if self.direction == "min":
+            self.th, self.sign = float('inf'), 1
+        elif self.direction == "max":
+            self.th, self.sign = -float('inf'), -1
+        else:
+            raise ValueError("Stopper 'direction' must be 'min' or 'max'")
+
+    def should_stop(self, current, current_metric):
+        should_stop = False
+        if current > self.limit_warmup:
+            if self.sign * current_metric < self.sign * ((1 - self.min_delta) * self.th):
+                self.best_limit = current
+                self.th = current_metric
+            should_stop = (current - self.best_limit) >= self.limit_to_stop
+        return should_stop

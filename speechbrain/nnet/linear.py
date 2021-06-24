@@ -69,3 +69,21 @@ class Linear(torch.nn.Module):
         wx = self.w(x)
 
         return wx
+
+
+class LinearWithConstraint(torch.nn.Linear):
+    """This function implements a linear transformation with kernel max-norm constaint.
+
+    Build on PyTorch Linear class. It accepts the same arguments as PyTorch Linear, with an additional parameter:
+
+    max_norm : float
+        kernel  max-norm constaint
+    """
+    def __init__(self, *args, max_norm=1, **kwargs):
+        self.max_norm = max_norm
+        super(LinearWithConstraint, self).__init__(*args, **kwargs)
+
+    def forward(self, x):
+        self.weight.data = torch.renorm(self.weight.data, p=2, dim=0,
+                                     maxnorm=self.max_norm)
+        return super(LinearWithConstraint, self).forward(x)
