@@ -82,6 +82,7 @@ class Stopper(object):
     Author
     Davide Borra, 2021
     """
+
     def __init__(self, limit_to_stop, limit_warmup, direction):
         self.limit_to_stop = limit_to_stop
         self.limit_warmup = limit_warmup
@@ -94,16 +95,18 @@ class Stopper(object):
         if self.limit_warmup < 0:
             raise ValueError("Stopper 'limit_warmup' must be >= 0")
         if self.direction == "min":
-            self.th, self.sign = float('inf'), 1
+            self.th, self.sign = float("inf"), 1
         elif self.direction == "max":
-            self.th, self.sign = -float('inf'), -1
+            self.th, self.sign = -float("inf"), -1
         else:
             raise ValueError("Stopper 'direction' must be 'min' or 'max'")
 
     def should_stop(self, current, current_metric):
         should_stop = False
         if current > self.limit_warmup:
-            if self.sign * current_metric < self.sign * ((1 - self.min_delta) * self.th):
+            if self.sign * current_metric < self.sign * (
+                (1 - self.min_delta) * self.th
+            ):
                 self.best_limit = current
                 self.th = current_metric
             should_stop = (current - self.best_limit) >= self.limit_to_stop
