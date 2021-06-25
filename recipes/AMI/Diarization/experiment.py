@@ -467,11 +467,8 @@ def dataio_prep_multi_mic(hparams, json_file):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-
         mics_signals = read_audio_multichannel(wav).unsqueeze(0)
-
         sig = params["multimic_beamformer"](mics_signals)
-
         sig = sig.squeeze()
         return sig
 
@@ -501,7 +498,6 @@ def dataio_prep(hparams, csv_file):
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop):
-
         start = int(start)
         stop = int(stop)
         num_frames = stop - start
