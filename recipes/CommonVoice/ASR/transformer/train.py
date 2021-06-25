@@ -185,7 +185,7 @@ class ASR(sb.core.Brain):
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
 
-            # report different epoch stages acccording current stage
+            # report different epoch stages according current stage
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.stage_one_epochs:
                 lr = self.hparams.noam_annealing.current_lr
@@ -262,7 +262,7 @@ class ASR(sb.core.Brain):
                 device=torch.device(self.device)
             )
 
-        # if the model is resumed from stage two, reinitilaize the optimizer
+        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         if current_epoch > self.hparams.stage_one_epochs:
             self.optimizer = self.hparams.SGD(self.modules.parameters())

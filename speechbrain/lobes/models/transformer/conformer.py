@@ -1,4 +1,4 @@
-"""Conformer implementaion in the SpeechBrain sytle.
+"""Conformer implementation in the SpeechBrain sytle.
 
 Authors
 * Jianyuan Zhong 2020
@@ -230,7 +230,7 @@ class ConformerEncoder(nn.Module):
 
         if input_shape is not None and d_model is None:
             if len(input_shape) == 3:
-                msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
+                msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handle arbitrary shape of input."
                 raise ValueError(msg)
             d_model = input_shape[-1]
 

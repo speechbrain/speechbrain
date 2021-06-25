@@ -477,7 +477,7 @@ class MetricGanBrain(sb.Brain):
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
 
 
-# Define audio piplines
+# Define audio pipelines
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline(noisy_wav, clean_wav):

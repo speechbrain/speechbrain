@@ -1,5 +1,5 @@
 """
-AMI corpus containd 100 hours of meeting recording.
+AMI corpus contained 100 hours of meeting recording.
 This script returns the standard train, dev and eval split for AMI corpus.
 For more information on dataset please refer to http://groups.inf.ed.ac.uk/ami/corpus/datasets.shtml
 """

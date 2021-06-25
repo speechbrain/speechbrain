@@ -45,7 +45,7 @@ class AlignBrain(sb.Brain):
         return pout, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss with the specified alignement algorithm"""
+        """Computes the loss with the specified alignment algorithm"""
         pout, pout_lens = predictions
         ids = batch.id
         phns, phn_lens = batch.phn_encoded
@@ -144,8 +144,8 @@ def dataio_prep(hparams):
     data_folder = hparams["data_folder"]
 
     # 1. Declarations:
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_annotation"],
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_annotation"],
         replacements={"data_root": data_folder},
     )
 
@@ -170,13 +170,13 @@ def dataio_prep(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_annotation"],
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_annotation"],
         replacements={"data_root": data_folder},
     )
 
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_annotation"],
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
         replacements={"data_root": data_folder},
     )
 
@@ -265,8 +265,9 @@ if __name__ == "__main__":
         prepare_timit,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "splits": ["train", "dev", "test"],
-            "save_folder": hparams["data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
             "phn_set": hparams["phn_set"],
             "skip_prep": hparams["skip_prep"],
         },

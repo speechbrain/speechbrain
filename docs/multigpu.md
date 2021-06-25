@@ -7,10 +7,15 @@ The common pattern for using multi-GPU training over a single machine with Data 
 
 ```
 > cd recipes/<dataset>/<task>/
-> python experiment.py params.yaml --data_parallel_backend --data_parallel_count=2
+> python experiment.py params.yaml --data_parallel_backend
+```
+If you want to use a specific set of GPU devices, condiser using `CUDA_VISIBLE_DEVICES` as follow:
+```
+> cd recipes/<dataset>/<task>/
+> CUDA_VISIBLE_DEVICES=1,5 python experiment.py params.yaml --data_parallel_backend
 ```
 
-Important: the batch size for each GPU process will be: `batch_size / data_parallel_count`. So you should consider changing the batch_size value according to you need.
+Important: the batch size for each GPU process will be: `batch_size / Number of GPUs`. So you should consider changing the batch_size value according to you need.
 
 ## Multi-GPU training using Distributed Data Parallel (DDP)
 

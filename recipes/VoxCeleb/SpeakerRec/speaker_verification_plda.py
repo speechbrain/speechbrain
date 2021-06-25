@@ -72,7 +72,7 @@ def emb_computation_loop(split, set_loader, stat_file):
                 modelset = modelset + mod
                 segset = segset + seg
 
-                # Enrolment and test embeddings
+                # Enrollment and test embeddings
                 embs = compute_embeddings(wavs, lens)
                 xv = embs.squeeze().cpu().numpy()
                 embeddings = numpy.concatenate((embeddings, xv), axis=0)
@@ -246,8 +246,7 @@ if __name__ == "__main__":
         verification_pairs_file=veri_file_path,
         splits=["train", "test"],
         split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=params["seed"],
+        seg_dur=3,
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -270,7 +269,7 @@ if __name__ == "__main__":
     params["embedding_model"].eval()
     params["embedding_model"].to(params["device"])
 
-    # Computing training embeddigs (skip it of if already extracted)
+    # Computing training embeddings (skip it of if already extracted)
     if not os.path.exists(xv_file):
         logger.info("Extracting embeddings from Training set..")
         with tqdm(train_dataloader, dynamic_ncols=True) as t:
