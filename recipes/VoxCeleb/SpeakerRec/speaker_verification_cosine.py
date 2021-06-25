@@ -244,8 +244,7 @@ if __name__ == "__main__":
         verification_pairs_file=veri_file_path,
         splits=["train", "dev", "test"],
         split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=params["seed"],
+        seg_dur=3.0,
         source=params["voxceleb_source"]
         if "voxceleb_source" in params
         else None,

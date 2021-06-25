@@ -17,15 +17,14 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
-data_folder_rirs: !ref <data_folder>
+rir_folder: !ref <data_folder> # Change it if needed
 csv_train: !ref <output_folder>/train.csv
 csv_valid: !ref <output_folder>/valid.csv
 csv_test: !ref <output_folder>/test.csv
 tokenizer_file: https://www.dropbox.com/s/hvf2huofnq0sjbn/51_unigram.model?dl=1
 skip_prep: False
-
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 6
 batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
@@ -90,20 +89,61 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
+augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [100]
+
+augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 0.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 0.0
     noise_prob: 1.0
     noise_snr_low: 0
     noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+
+augment_pipeline: [
+    !ref <augment_wavedrop>,
+    !ref <augment_speed>,
+    !ref <add_rev>,
+    !ref <add_noise>,
+    !ref <add_rev_noise>
+]
+
 
 modules:
+    augment_wavedrop: !ref <augment_wavedrop>
+    augment_speed: !ref <augment_speed>
+    add_rev: !ref <add_rev>
+    add_noise: !ref <add_noise>
+    add_rev_noise: !ref <add_rev_noise>
     slu_enc: !ref <slu_enc>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
     - [!ref <slu_enc>, !ref <output_emb>,
@@ -148,10 +188,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

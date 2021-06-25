@@ -40,7 +40,7 @@ dec_att_neurons: 256
 dec_num_layers: 4
 embedding_dim: 512
 
-# Special Token infomation
+# Special Token information
 bos_index: 0
 eos_index: 0
 

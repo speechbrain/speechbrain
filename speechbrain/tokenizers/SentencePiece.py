@@ -23,7 +23,7 @@ class SentencePiece:
 
     Reference: https://github.com/google/sentencepiece
 
-    SetencePiece lib is an unsupervised text tokenizer and detokenizer.
+    SentencePiece lib is an unsupervised text tokenizer and detokenizer.
     It implements subword units like Byte-pair-encoding (BPE),
     Unigram language model and char/word tokenizer.
 
@@ -53,7 +53,7 @@ class SentencePiece:
         (e.g., a p p l e _ i s _ g o o d)
     character_coverage : int
         Amount of characters covered by the model, good defaults
-        are: 0.9995 for languages with a rich character set like Japanse or
+        are: 0.9995 for languages with a rich character set like Japanese or
         Chinese and 1.0 for other languages with small character set.
         (default: 1.0)
     user_defined_symbols : string
@@ -67,8 +67,8 @@ class SentencePiece:
     eos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     split_by_whitespace : bool
-        If False, allow the sentenciepiece to extract piece crossing multiple
-        words. This feature is important for : Chinese/Japenese/Korean.
+        If False, allow the sentencepiece to extract piece crossing multiple
+        words. This feature is important for : Chinese/Japanese/Korean.
         (default: True)
     num_sequences : int
         If not none, use at most this many sequences to train the tokenizer
@@ -402,10 +402,10 @@ class SentencePiece:
             List if ( batch_lens = None and task = "decode_from_list")
             Contains the original labels. Shape: [batch_size, max_length]
         batch_lens : tensor.LongTensor
-            Cotaining the relative length of each label sequences. Must be 1D
+            Containing the relative length of each label sequences. Must be 1D
             tensor of shape: [batch_size]. (default: None)
         ind2lab : dict
-            Dictionnary which map the index from label sequences
+            Dictionary which maps the index from label sequences
             (batch tensor) to string label.
         task : str
             ("encode", "decode", "decode_from_list)
