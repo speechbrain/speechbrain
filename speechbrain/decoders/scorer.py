@@ -27,12 +27,24 @@ class BaseScorer:
             The input tensor of the current timestep.
         memory : No limit
             The memory variables input for this timestep.
+        candidates: torch.Tensor
+            (Batch_size * Beam_size, Scorer_beam_size). The pruned tokens for
+            scoring. If None, scorers will score on full vocabulary set.
+        attn: torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
         """
         raise NotImplementedError
 
     def permute_mem(self, memory, index):
         """This method permutes the scorer memory
         to synchronize the memory index with the current output.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            The index of the previous path.
         """
         return None, None
 
@@ -52,14 +64,29 @@ class BaseScorer:
 
 
 class CTCScorer(BaseScorer):
+    """A wrapper of CTCPrefixScore based on the BaseScorer interface.
+
+    Arguments
+    ---------
+    ctc_fc : torch.nn.Module
+        A output linear layer for ctc.
+    blank_index : int
+        The index of the blank token.
+    eos_index : int
+        The index of the end-of-sequence (eos) token.
+    ctc_window_size: int
+        Compute the ctc scores over the time frames using windowing based on attention peaks.
+        If 0, no windowing applied.
+    """
+
     def __init__(
         self, ctc_fc, blank_index, eos_index, ctc_window_size=0,
     ):
         self.ctc_fc = ctc_fc
-        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
         self.blank_index = blank_index
         self.eos_index = eos_index
         self.ctc_window_size = ctc_window_size
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
         scores, memory = self.ctc_score.forward_step(
@@ -371,11 +398,13 @@ class ScorerBuilder2:
         transformerlm_weight=0.0,
         full_scorers=dict(),
         partial_scorers=dict(),
+        scorer_beam_scale=1.5,
     ):
         """
         weights: Dict
         score_mode: Dict
         """
+        self.scorer_beam_scale = scorer_beam_scale
         self.weights = dict(
             ctc=ctc_weight,
             ngramlm=ngramlm_weight,
@@ -409,7 +438,9 @@ class ScorerBuilder2:
             log_probs += score * self.weights[k]
 
         # select candidates for partial scorers
-        _, candidates = log_probs.topk(int(beam_size * 1.5), dim=-1)
+        _, candidates = log_probs.topk(
+            int(beam_size * self.scorer_beam_scale), dim=-1
+        )
 
         # score patial candidates
         for k, impl in self.partial_scorers.items():
