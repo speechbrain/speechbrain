@@ -369,8 +369,8 @@ class ScorerBuilder2:
         coverage_weight=0.0,
         rnnlm_weight=0.0,
         transformerlm_weight=0.0,
-        full_scorers=None,
-        partial_scorers=None,
+        full_scorers=dict(),
+        partial_scorers=dict(),
     ):
         """
         weights: Dict
@@ -378,7 +378,7 @@ class ScorerBuilder2:
         """
         self.weights = dict(
             ctc=ctc_weight,
-            ngram=ngramlm_weight,
+            ngramlm=ngramlm_weight,
             coverage=coverage_weight,
             rnnlm=rnnlm_weight,
             transformerlm=transformerlm_weight,
@@ -398,6 +398,8 @@ class ScorerBuilder2:
         if "ctc" in full_scorer_names:
             self.weights["ctc"] = 1.0
             self.weights["coverage"] = 0.0
+
+        self.check_scorers()
 
     def score(self, inp_tokens, memory, attn, log_probs, beam_size):
         new_memory = dict()
@@ -420,6 +422,10 @@ class ScorerBuilder2:
 
     def permute_scorer_mem(self, memory, index, candidates):
         for k, impl in self.full_scorers.items():
+            # ctc scorer should always be scored by candidates
+            if k == "ctc":
+                memory[k] = impl.permute_mem(memory[k], candidates)
+                continue
             memory[k] = impl.permute_mem(memory[k], index)
         for k, impl in self.partial_scorers.items():
             memory[k] = impl.permute_mem(memory[k], candidates)
@@ -430,3 +436,24 @@ class ScorerBuilder2:
         for k, impl in {**self.full_scorers, **self.partial_scorers}.items():
             memory[k] = impl.reset_mem(x, enc_lens)
         return memory
+
+    def check_scorers(self):
+        """The error messages indicate scorers are not properly set."""
+
+        for k in {**self.full_scorers, **self.partial_scorers}.keys():
+            if self.weights[k] == 0.0:
+                raise ValueError("The weight of {} scorer is 0.0.".format(k))
+
+        if not 0.0 <= self.weights["ctc"] <= 1.0:
+            raise ValueError("ctc_weight should not > 1.0 and < 0.0")
+
+        if self.weights["ctc"] == 1.0:
+            if "ctc" not in self.full_scorers.keys():
+                raise ValueError(
+                    "CTC scorer should be a full scorer when it's weight is 1.0"
+                )
+
+            if self.weights["coverage"] > 0.0:
+                raise ValueError(
+                    "Pure CTC scorer doesn't have attention weights for coverage scorer"
+                )
