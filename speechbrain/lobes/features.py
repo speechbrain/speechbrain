@@ -207,7 +207,7 @@ class MFCC(torch.nn.Module):
     >>> feature_maker = MFCC()
     >>> feats = feature_maker(inputs)
     >>> feats.shape
-    torch.Size([10, 101, 660])
+    torch.Size([10, 101, 60])
     """
 
     def __init__(
