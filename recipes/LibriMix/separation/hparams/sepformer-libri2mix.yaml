@@ -1,7 +1,7 @@
 # ################################
 # Model: SepFormer for source separation
 # https://arxiv.org/abs/2010.13154
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Dataset : Libri2mix
 # ################################
 #
 # Basic parameters
@@ -12,14 +12,11 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
 
-# e.g. '/yourpath/wsj0-mix/2speakers'
-# end with 2speakers for wsj0-2mix or 3speakers for wsj0-3mix
+# e.g. '/yourpath/Libri2Mix/train-clean-360/'
+# the data folder is needed even if dynamic mixing is applied
 data_folder: !PLACEHOLDER
 
-# the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
-# e.g. /yourpath/wsj0-processed/si_tr_s/
-# you need to convert the original wsj0 to 8k
-# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+# this is the base folder for dynamic mixing
 base_folder_dm: /yourpath/LibriSpeech/train-clean-360/
 
 experiment_name: sepformer-libri2mix
@@ -36,7 +33,7 @@ ckpt_interval_minutes: 60
 # Experiment params
 auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
-num_spks: 2 # set to 3 for wsj0-3mix
+num_spks: 2
 progressbar: True
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
@@ -168,7 +165,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-# For Librimix
+# If you do not want to use the pretrained separator you can simply delete pretrained_separator field.
 pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
