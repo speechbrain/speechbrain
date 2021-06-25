@@ -17,7 +17,7 @@ from speechbrain.processing.multi_mic import (
 
 
 class DelaySum_Beamformer(torch.nn.Module):
-    """Generate features for input to the speech pipeline.
+    """Generate beamformed signal from multi-mic data using DelaySum beamforming.
 
     Arguments
     ---------
