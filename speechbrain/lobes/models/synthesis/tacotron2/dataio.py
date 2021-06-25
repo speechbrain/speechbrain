@@ -52,6 +52,41 @@ def encode_text(
     return f
 
 
+def _dynamic_range_compression(x, C=1, clip_val=1e-5):
+    """
+    Arguments
+    ---------
+    C: int
+        compression factor
+
+    clip_val: float
+        the minimum value below which x values wil be clipped
+
+    return: torch.tensor
+        compressed results
+    """
+    return torch.log(torch.clamp(x, min=clip_val) * C)
+
+
+def _dynamic_range_decompression(x, C=1):
+    """
+    Arguments
+    ----------
+    C: int
+        compression factor used to compress
+    """
+    return torch.exp(x) / C
+
+
+def dynamic_range_decompression(C=1, takes="mel", provides="mel_decompressed"):
+    @sb.utils.data_pipeline.takes(takes)
+    @sb.utils.data_pipeline.provides(provides)
+    def f(x):
+        return _dynamic_range_decompression(x, C)
+    return f
+
+
+#TODO: Decouple this
 def audio_pipeline(hparams):
     """
     A pipeline function that provides text sequences, a mel spectrogram
@@ -75,7 +110,9 @@ def audio_pipeline(hparams):
         n_mels=hparams["n_mel_channels"],
         f_min=hparams["mel_fmin"],
         f_max=hparams["mel_fmax"],
+        power=hparams["power"],
         normalized=hparams["mel_normalized"],
+        norm=hparams["norm"]
     )
 
     @sb.utils.data_pipeline.takes("wav", "label")
@@ -86,6 +123,8 @@ def audio_pipeline(hparams):
         )
         audio = sb.dataio.dataio.read_audio(file_path)
         mel = audio_to_mel(audio)
+        if hparams['dynamic_range_compression']:
+            mel = _dynamic_range_compression(mel)
         len_text = len(text_seq)
         yield text_seq, mel, len_text
 

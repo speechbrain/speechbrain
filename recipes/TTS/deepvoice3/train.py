@@ -32,7 +32,6 @@ import os
 import speechbrain as sb
 import sys
 import torch
-import torchvision
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.lobes.models.synthesis.deepvoice3.dataio import pad_to_length
 from speechbrain.lobes.models.synthesis.dataio import load_datasets
@@ -58,7 +57,7 @@ class DeepVoice3Brain(sb.core.Brain, PretrainedModelMixin):
             dynamic_items=self.hparams.features_pipeline["steps"],
             output_keys=self.hparams.features_pipeline["output_keys"],
         )
-        self.last_outputs = {}
+        self.init_progress_samples()
         self.last_batch = None
 
     def compute_forward(self, batch, stage, incremental=False, single=False):
@@ -185,13 +184,12 @@ class DeepVoice3Brain(sb.core.Brain, PretrainedModelMixin):
         loss_stats = self.hparams.compute_cost(outputs, targets)
 
         self.last_loss_stats[stage] = loss_stats.as_scalar()
-        self._update_last_output(
-            output_linear=output_linear,
-            target_linear=target_linear,
-            output_mel=output_mel,
-            target_mel=target_mel,
+        self.remember_progress_sample(
+            output_linear=output_linear[0],
+            target_linear=target_linear[0],
+            output_mel=output_mel[0],
+            target_mel=target_mel[0],
         )
-
         return loss_stats.loss
 
     def compute_features(self, batch, incremental=False, single=False):
@@ -241,14 +239,6 @@ class DeepVoice3Brain(sb.core.Brain, PretrainedModelMixin):
                 os.makedirs(self.hparams.progress_sample_path)
         self.last_loss_stats = {}
 
-    def _update_last_output(self, **kwargs):
-        """
-        Updates the internal dictionary of output snapshots
-        """
-        self.last_outputs.update(
-            {key: value[0].detach().cpu() for key, value in kwargs.items()}
-        )
-
     def _compute_incremental_outputs(self, batch):
         """
         Computes incremental outputs for the purpose of producing snapshots.
@@ -263,43 +253,6 @@ class DeepVoice3Brain(sb.core.Brain, PretrainedModelMixin):
             output_mel_incremental=output_mel,
             output_linear_incremental=output_linear,
         )
-
-    def _save_progress_sample(self, epoch):
-        """
-        Saves a set of spectrogram samples
-
-        Arguments:
-        ----------
-        epoch: int
-            The epoch number
-        """
-        entries = [
-            (f"{key}.png", value) for key, value in self.last_outputs.items()
-        ]
-        for file_name, data in entries:
-            self._save_sample_image(file_name, data, epoch)
-
-    def _save_sample_image(self, file_name, data, epoch):
-        """
-        Saves a single sample image
-
-        Arguments
-        ---------
-        file_name: str
-            the target file name
-        data: torch.Tensor
-            the image data
-        epoch: int
-            the epoch number (used in file path calculations)
-        """
-        target_path = os.path.join(
-            self.hparams.progress_sample_path, str(epoch)
-        )
-        if not os.path.exists(target_path):
-            os.makedirs(target_path)
-        effective_file_name = os.path.join(target_path, file_name)
-        sample = data.transpose(-1, -2).squeeze()
-        torchvision.utils.save_image(sample, effective_file_name)
 
     def log_stats(self, *args, **kwargs):
         """
@@ -359,7 +312,7 @@ class DeepVoice3Brain(sb.core.Brain, PretrainedModelMixin):
             if output_progress_sample:
                 if self.hparams.progress_samples_incremental:
                     self._compute_incremental_outputs(self.last_batch)
-                self._save_progress_sample(epoch)
+                self.save_progress_sample(epoch)
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:

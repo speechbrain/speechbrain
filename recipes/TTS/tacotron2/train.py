@@ -26,12 +26,16 @@ from speechbrain.lobes.models.synthesis.tacotron2 import dataio_prepare
 
 
 sys.path.append("..")
-from common.utils import PretrainedModelMixin  # noqa
+from common.utils import PretrainedModelMixin, ProgressSampleImageMixin # noqa
 
 logger = logging.getLogger(__name__)
 
 
-class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
+class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.init_progress_samples()
+
     def compute_forward(self, batch, stage):
         inputs, y, num_items = batch_to_gpu(batch)
         return self.hparams.model(inputs)  # 1#2#
@@ -59,7 +63,17 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
         """
 
         inputs, y, num_items = batch_to_gpu(batch)
+        mel_target, _ = y
+        mel_out, mel_out_postnet, gate_out, _ = predictions
+        self.remember_progress_sample(
+            target=self._get_sample_data(mel_target),
+            output=self._get_sample_data(mel_out),
+            output_postnet=self._get_sample_data(mel_out_postnet))
         return criterion(predictions, y)
+
+    def _get_sample_data(self, raw):
+        sample = raw[0]
+        return torch.sqrt(torch.exp(sample))
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -97,6 +111,12 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+            output_progress_sample = (
+                self.hparams.progress_samples
+                and epoch % self.hparams.progress_samples_interval == 0
+            )
+            if output_progress_sample:
+                self.save_progress_sample(epoch)
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
