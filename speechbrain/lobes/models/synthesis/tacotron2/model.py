@@ -45,7 +45,7 @@ from torch.nn import functional as F
 
 class LinearNorm(torch.nn.Module):
     def __init__(self, in_dim, out_dim, bias=True, w_init_gain="linear"):
-        super(LinearNorm, self).__init__()
+        super().__init__()
         self.linear_layer = torch.nn.Linear(in_dim, out_dim, bias=bias)
 
         torch.nn.init.xavier_uniform_(
@@ -69,7 +69,7 @@ class ConvNorm(torch.nn.Module):
         bias=True,
         w_init_gain="linear",
     ):
-        super(ConvNorm, self).__init__()
+        super().__init__()
         if padding is None:
             assert kernel_size % 2 == 1
             padding = int(dilation * (kernel_size - 1) / 2)
@@ -99,7 +99,7 @@ class LocationLayer(nn.Module):
     def __init__(
         self, attention_n_filters, attention_kernel_size, attention_dim
     ):
-        super(LocationLayer, self).__init__()
+        super().__init__()
         padding = int((attention_kernel_size - 1) / 2)
         self.location_conv = ConvNorm(
             2,
@@ -130,7 +130,7 @@ class Attention(nn.Module):
         attention_location_n_filters,
         attention_location_kernel_size,
     ):
-        super(Attention, self).__init__()
+        super().__init__()
         self.query_layer = LinearNorm(
             attention_rnn_dim, attention_dim, bias=False, w_init_gain="tanh"
         )
@@ -212,7 +212,7 @@ class Attention(nn.Module):
 
 class Prenet(nn.Module):
     def __init__(self, in_dim, sizes):
-        super(Prenet, self).__init__()
+        super().__init__()
         in_sizes = [in_dim] + sizes[:-1]
         self.layers = nn.ModuleList(
             [
@@ -239,7 +239,7 @@ class Postnet(nn.Module):
         postnet_kernel_size,
         postnet_n_convolutions,
     ):
-        super(Postnet, self).__init__()
+        super().__init__()
         self.convolutions = nn.ModuleList()
 
         self.convolutions.append(
@@ -310,7 +310,7 @@ class Encoder(nn.Module):
     def __init__(
         self, encoder_n_convolutions, encoder_embedding_dim, encoder_kernel_size
     ):
-        super(Encoder, self).__init__()
+        super().__init__()
 
         convolutions = []
         for _ in range(encoder_n_convolutions):
@@ -394,7 +394,7 @@ class Decoder(nn.Module):
         p_decoder_dropout,
         early_stopping,
     ):
-        super(Decoder, self).__init__()
+        super().__init__()
         self.n_mel_channels = n_mel_channels
         self.n_frames_per_step = n_frames_per_step
         self.encoder_embedding_dim = encoder_embedding_dim
@@ -962,7 +962,7 @@ class Tacotron2(nn.Module):
             number of convolution layers in postnet
 
         """
-        super(Tacotron2, self).__init__()
+        super().__init__()
         self.mask_padding = mask_padding
         self.n_mel_channels = n_mel_channels
         self.n_frames_per_step = n_frames_per_step

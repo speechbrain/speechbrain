@@ -37,7 +37,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         self.init_progress_samples()
 
     def compute_forward(self, batch, stage):
-        inputs, y, num_items = batch_to_gpu(batch)
+        inputs, y, num_items = self.batch_to_gpu(batch)
         return self.hparams.model(inputs)  # 1#2#
 
     def fit_batch(self, *args, **kwargs):
@@ -62,14 +62,43 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        inputs, y, num_items = batch_to_gpu(batch)
+        inputs, y, num_items = self.batch_to_gpu(batch)
         mel_target, _ = y
-        mel_out, mel_out_postnet, gate_out, _ = predictions
+        mel_out, mel_out_postnet, gate_out, alignments = predictions
         self.remember_progress_sample(
             target=self._get_sample_data(mel_target),
             output=self._get_sample_data(mel_out),
-            output_postnet=self._get_sample_data(mel_out_postnet))
+            output_postnet=self._get_sample_data(mel_out_postnet),
+            alignments=alignments[0].T)
         return criterion(predictions, y)
+
+    # some helper functoions
+    def batch_to_gpu(self, batch):
+        (
+            text_padded,
+            input_lengths,
+            mel_padded,
+            gate_padded,
+            output_lengths,
+            len_x,
+        ) = batch
+        text_padded = self.to_device(text_padded).long()
+        input_lengths = self.to_device(input_lengths).long()
+        max_len = torch.max(input_lengths.data).item()
+        mel_padded = self.to_device(mel_padded).float()
+        gate_padded = self.to_device(gate_padded).float()
+        output_lengths = self.to_device(output_lengths).long()
+        x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
+        y = (mel_padded, gate_padded)
+        len_x = torch.sum(output_lengths)
+        return (x, y, len_x)
+
+
+    def to_device(self, x):
+        x = x.contiguous()
+        x = x.to(self.device, non_blocking=True)
+        return x
+
 
     def _get_sample_data(self, raw):
         sample = raw[0]
@@ -126,34 +155,6 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             )
 
 
-# some helper functoions
-def batch_to_gpu(batch):
-    (
-        text_padded,
-        input_lengths,
-        mel_padded,
-        gate_padded,
-        output_lengths,
-        len_x,
-    ) = batch
-    text_padded = to_gpu(text_padded).long()
-    input_lengths = to_gpu(input_lengths).long()
-    max_len = torch.max(input_lengths.data).item()
-    mel_padded = to_gpu(mel_padded).float()
-    gate_padded = to_gpu(gate_padded).float()
-    output_lengths = to_gpu(output_lengths).long()
-    x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
-    y = (mel_padded, gate_padded)
-    len_x = torch.sum(output_lengths)
-    return (x, y, len_x)
-
-
-def to_gpu(x):
-    x = x.contiguous()
-
-    if torch.cuda.is_available():
-        x = x.cuda(non_blocking=True)
-    return x
 
 
 def criterion(model_output, targets):
