@@ -222,7 +222,7 @@ if __name__ == "__main__":
             "verification_pairs_file": veri_file_path,
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
-            "seg_dur": int(hparams["sentence_len"]) * 100,
+            "seg_dur": hparams["sentence_len"],
         },
     )
 

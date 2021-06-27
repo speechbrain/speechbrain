@@ -7,12 +7,12 @@ import torch
 from speechbrain.dataio.dataio import length_to_mask
 
 
-def Accuracy(log_probablities, targets, length=None):
+def Accuracy(log_probabilities, targets, length=None):
     """Calculates the accuracy for predicted log probabilities and targets in a batch.
 
     Arguments
     ----------
-    log_probablities : tensor
+    log_probabilities : tensor
         Predicted log probabilities (batch_size, time, feature).
     targets : tensor
         Target (batch_size, time).
@@ -33,7 +33,7 @@ def Accuracy(log_probablities, targets, length=None):
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-    padded_pred = log_probablities.argmax(-1)
+    padded_pred = log_probabilities.argmax(-1)
 
     if length is not None:
         numerator = torch.sum(
@@ -63,20 +63,20 @@ class AccuracyStats:
         self.correct = 0
         self.total = 0
 
-    def append(self, log_probablities, targets, length=None):
+    def append(self, log_probabilities, targets, length=None):
         """This function is for updating the stats according to the prediction
         and target in the current batch.
 
         Arguments
         ----------
-        log_probablities : tensor
+        log_probabilities : tensor
             Predicted log probabilities (batch_size, time, feature).
         targets : tensor
             Target (batch_size, time).
         length: tensor
             Length of target (batch_size,).
         """
-        numerator, denominator = Accuracy(log_probablities, targets, length)
+        numerator, denominator = Accuracy(log_probabilities, targets, length)
         self.correct += numerator
         self.total += denominator
 

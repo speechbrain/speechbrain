@@ -161,13 +161,13 @@ class LengthsCapableSequential(Sequential):
 
     def __init__(self, *args, **kwargs):
         # Add takes_lengths list here.
-        super().__init__(*args, **kwargs)
         self.takes_lengths = []
+        super().__init__(*args, **kwargs)
 
     def append(self, *args, **kwargs):
         # Add lengths arg inference here.
         super().append(*args, **kwargs)
-        latest_forward_method = self.values()[-1].forward
+        latest_forward_method = list(self.values())[-1].forward
         self.takes_lengths.append(lengths_arg_exists(latest_forward_method))
 
     def forward(self, x, lengths=None):
@@ -196,7 +196,7 @@ class LengthsCapableSequential(Sequential):
 class ModuleList(torch.nn.Module):
     """This class implements a wrapper to torch.nn.ModuleList with a forward()
     method to forward all the layers sequentially.
-    For some pretained model with the SpeechBrain older implementation of
+    For some pretrained model with the SpeechBrain older implementation of
     Sequential class, user can use this class to load those pretrained models
 
     Arguments

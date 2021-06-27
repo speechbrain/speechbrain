@@ -289,7 +289,7 @@ def distribute_overlap(lol):
             # Update the current sub-segment
             sseg = next_sseg
 
-    # Add the remaning last sub-segment
+    # Add the remaining last sub-segment
     new_lol.append(next_sseg)
 
     return new_lol
@@ -357,8 +357,8 @@ def _graph_connected_component(graph, node_id):
     if sparse.issparse(graph):
         # speed up row-wise access to boolean connection mask
         graph = graph.tocsr()
-    connected_nodes = np.zeros(n_node, dtype=np.bool)
-    nodes_to_explore = np.zeros(n_node, dtype=np.bool)
+    connected_nodes = np.zeros(n_node, dtype=bool)
+    nodes_to_explore = np.zeros(n_node, dtype=bool)
     nodes_to_explore[node_id] = True
     for _ in range(n_node):
         last_num_component = connected_nodes.sum()
@@ -952,7 +952,7 @@ class Spec_Clust_unorm:
         Returns
         -------
         eig_vals_gap_list : list
-            List of differences (gaps) between adjancent Eigen values.
+            List of differences (gaps) between adjacent Eigen values.
         """
 
         eig_vals_gap_list = []

@@ -1,4 +1,4 @@
-"""Conformer implementaion in the SpeechBrain sytle.
+"""Conformer implementation.
 
 Authors
 * Jianyuan Zhong 2020
@@ -31,13 +31,13 @@ class ConvolutionModule(nn.Module):
     bias: bool, optional
         Whether to use bias in the non-bottleneck conv layer.
     activation: torch.nn.Module
-         Activation function used after non-bottleneck conv layer. 
+         Activation function used after non-bottleneck conv layer.
     dropout: float, optional
-         Dropout rate. 
+         Dropout rate.
     causal: bool, optional
-         Whether the convolution should be causal or not. 
+         Whether the convolution should be causal or not.
     dilation: int, optional
-         Dilation factor for the non bottleneck conv layer. 
+         Dilation factor for the non bottleneck conv layer.
 
     Example
     -------
@@ -54,9 +54,9 @@ class ConvolutionModule(nn.Module):
             , causal=False, dilation=1
     ):
         super().__init__()
-        
-        self.causal = causal 
-        
+
+        self.causal = causal
+
         if self.causal:
             self.padding = (kernel_size - 1) * 2 ** (dilation -1)
         else:
@@ -81,7 +81,7 @@ class ConvolutionModule(nn.Module):
                 groups=input_size,
                 bias=bias,
             )
-        
+
         self.after_conv = nn.Sequential(
             nn.BatchNorm1d(input_size),
             activation(),
@@ -97,7 +97,7 @@ class ConvolutionModule(nn.Module):
         out = out.transpose(1, 2)
         out = self.bottleneck(out)
         out = self.conv(out)
-        
+
         if self.causal:
             # chomp
             out = out[..., :-self.padding]
@@ -130,7 +130,7 @@ class ConformerEncoderLayer(nn.Module):
     dropout : int, optional
         Dropout for the encoder.
     causal: bool, optional
-        Whether the convolutions should be causal or not. 
+        Whether the convolutions should be causal or not.
     attention_type: str, optional
         type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
 
@@ -416,7 +416,7 @@ class ConformerDecoderLayer(nn.Module):
         attention_type="RelPosMHAXL",
     ):
         super().__init__()
-        
+
         assert causal, "Decoder must be causal"
 
         if attention_type == "regularMHA":
@@ -625,7 +625,7 @@ class ConformerDecoder(nn.Module):
             Module or tensor containing the target sequence positional embeddings for each attention layer.
         pos_embs_src: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the source sequence positional embeddings for each attention layer.
-        
+
         """
         output = tgt
         self_attns, multihead_attns = [], []
@@ -645,5 +645,5 @@ class ConformerDecoder(nn.Module):
         output = self.norm(output)
 
         return output, self_attns, multihead_attns
-    
+
 

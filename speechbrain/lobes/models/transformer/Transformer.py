@@ -1,4 +1,4 @@
-"""Transformer implementation.
+"""Transformer implementaion in the SpeechBrain sytle.
 
 Authors
 * Jianyuan Zhong 2020
@@ -77,7 +77,7 @@ class TransformerInterface(nn.Module):
         num_encoder_layers=6,
         num_decoder_layers=6,
         d_ffn=2048,
-        dropout=0.0,
+        dropout=0.1,
         activation=nn.ReLU,
         custom_src_module=None,
         custom_tgt_module=None,
@@ -165,9 +165,9 @@ class TransformerInterface(nn.Module):
                  activation=activation,
                  normalize_before=normalize_before,
                  causal=True,
-                 attention_type="regularMHA", # always use regular attention in decoder 
+                 attention_type="regularMHA", # always use regular attention in decoder
             )
-                
+
 
     def forward(self, **kwags):
         """Users should modify this function according to their own tasks.
@@ -225,7 +225,7 @@ class PositionalEncoding(nn.Module):
 class TransformerEncoderLayer(nn.Module):
     """This is an implementation of self-attention encoder layer.
 
-    Arguements
+    Arguments
     ----------
     d_ffn: int, optional
         The dimension of the feedforward network model hidden layer.
@@ -310,7 +310,7 @@ class TransformerEncoderLayer(nn.Module):
         pos_embs: Optional[torch.Tensor] = None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         src : torch.Tensor
             The sequence to the encoder layer.
@@ -401,15 +401,6 @@ class TransformerEncoder(nn.Module):
         attention_type="regularMHA",
     ):
         super().__init__()
-
-        if input_shape is None and d_model is None:
-            raise ValueError("Expected one of input_shape or d_model")
-
-        if input_shape is not None and d_model is None:
-            if len(input_shape) == 3:
-                msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
-                raise ValueError(msg)
-            d_model = input_shape[-1]
 
         self.layers = torch.nn.ModuleList(
             [
@@ -559,7 +550,7 @@ class TransformerDecoderLayer(nn.Module):
         pos_embs_src=None,
     ):
         """
-        Arguements
+        Arguments
         ----------
         tgt: tensor
             The sequence to the decoder layer (required).
@@ -602,7 +593,7 @@ class TransformerDecoderLayer(nn.Module):
 
         # multi-head attention over the target sequence and encoder states
 
-        
+
 
         tgt2, multihead_attention = self.mutihead_attn(
             query=tgt1,
@@ -777,7 +768,7 @@ class NormalizedEmbedding(nn.Module):
 def get_key_padding_mask(padded_input, pad_idx):
     """Creates a binary mask to prevent attention to padded locations.
 
-    Arguements
+    Arguments
     ----------
     padded_input: int
         Padded input.

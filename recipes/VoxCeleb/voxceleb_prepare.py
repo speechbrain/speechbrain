@@ -40,9 +40,7 @@ def prepare_voxceleb(
     verification_pairs_file,
     splits=["train", "dev", "test"],
     split_ratio=[90, 10],
-    seg_dur=300,
-    vad=False,  # unused
-    rand_seed=1234,  # unused
+    seg_dur=3.0,
     amp_th=5e-04,
     source=None,
     split_speaker=False,
@@ -61,13 +59,13 @@ def prepare_voxceleb(
     save_folder : str
         The directory where to store the csv files.
     verification_pairs_file : str
-        txt file contaning the verification split.
+        txt file containing the verification split.
     splits : list
         List of splits to prepare from ['train', 'dev']
     split_ratio : list
         List if int for train and validation splits
     seg_dur : int
-        Segment duration of a chunk in milliseconds
+        Segment duration of a chunk in seconds (e.g., 3.0 seconds).
     amp_th : float
         removes segments whose average amplitude is below the
         given threshold.
@@ -311,7 +309,7 @@ def _get_chunks(seg_dur, audio_id, audio_duration):
     """
     Returns list of chunks
     """
-    num_chunks = int(audio_duration * 100 / seg_dur)  # all in milliseconds
+    num_chunks = int(audio_duration / seg_dur)  # all in milliseconds
 
     chunk_lst = [
         audio_id + "_" + str(i * seg_dur) + "_" + str(i * seg_dur + seg_dur)
@@ -347,7 +345,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
     csv_output = [["ID", "duration", "wav", "start", "stop", "spk_id"]]
 
-    # For assiging unique ID to each chunk
+    # For assigning unique ID to each chunk
     my_sep = "--"
     entry = []
     # Processing all the wav files in the list
@@ -385,8 +383,8 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
             uniq_chunks_list = _get_chunks(seg_dur, audio_id, audio_duration)
             for chunk in uniq_chunks_list:
                 s, e = chunk.split("_")[-2:]
-                start_sample = int(int(s) / 100 * SAMPLERATE)
-                end_sample = int(int(e) / 100 * SAMPLERATE)
+                start_sample = int(float(s) * SAMPLERATE)
+                end_sample = int(float(e) * SAMPLERATE)
 
                 #  Avoid chunks with very small energy
                 mean_sig = torch.mean(np.abs(signal[start_sample:end_sample]))
@@ -415,7 +413,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
             csv_writer.writerow(line)
 
     # Final prints
-    msg = "\t%s Sucessfully created!" % (csv_file)
+    msg = "\t%s successfully created!" % (csv_file)
     logger.info(msg)
 
 

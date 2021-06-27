@@ -4,6 +4,7 @@ Authors
  * Peter Plantinga 2020
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
+ * Aku Rouhe 2021
 """
 
 import os
@@ -30,6 +31,7 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
@@ -40,6 +42,8 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
+PYTHON_VERSION_MAJOR = 3
+PYTHON_VERSION_MINOR = 7
 
 
 def create_experiment_directory(
@@ -194,12 +198,6 @@ def parse_arguments(arg_list):
         help="The device to run the experiment on (e.g. 'cuda:0')",
     )
     parser.add_argument(
-        "--data_parallel_count",
-        type=int,
-        default=-1,
-        help="Number of devices that are used for data_parallel computation",
-    )
-    parser.add_argument(
         "--data_parallel_backend",
         default=False,
         action="store_true",
@@ -217,6 +215,12 @@ def parse_arguments(arg_list):
         type=str,
         default="nccl",
         help="One of {nccl, gloo, mpi}",
+    )
+    parser.add_argument(
+        "--find_unused_parameters",
+        default=False,
+        action="store_true",
+        help="This flag disable unused parameters detection",
     )
     parser.add_argument(
         "--jit_module_keys",
@@ -267,17 +271,8 @@ def parse_arguments(arg_list):
 
     # Checking that DataParallel use the right number of GPU
     if run_opts["data_parallel_backend"]:
-        if run_opts["data_parallel_count"] == 0:
-            raise ValueError(
-                "data_parallel_count must be > 1."
-                "if data_parallel_count = -1, then use all gpus."
-            )
-        if run_opts["data_parallel_count"] > torch.cuda.device_count():
-            raise ValueError(
-                "data_parallel_count must be <= "
-                + str(torch.cuda.device_count())
-                + "if data_parallel_count = -1, then use all gpus."
-            )
+        if torch.cuda.device_count() == 0:
+            raise ValueError("You must have at least 1 GPU.")
 
     # For DDP, the device args must equal to local_rank used by
     # torch.distributed.launch. If run_opts["local_rank"] exists,
@@ -428,10 +423,10 @@ class Brain:
             "debug_batches": 2,
             "debug_epochs": 2,
             "device": "cpu",
-            "data_parallel_count": -1,
             "data_parallel_backend": False,
             "distributed_launch": False,
             "distributed_backend": "nccl",
+            "find_unused_parameters": False,
             "jit_module_keys": None,
             "auto_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -457,11 +452,27 @@ class Brain:
                 else:
                     setattr(self, arg, default)
 
+        # Check Python version
+        if not (
+            sys.version_info.major == PYTHON_VERSION_MAJOR
+            and sys.version_info.minor >= PYTHON_VERSION_MINOR
+        ):
+            logger.warn(
+                "Detected Python "
+                + str(sys.version_info.major)
+                + "."
+                + str(sys.version_info.minor)
+                + ". We suggest using SpeechBrain with Python >="
+                + str(PYTHON_VERSION_MAJOR)
+                + "."
+                + str(PYTHON_VERSION_MINOR)
+            )
+
         if self.data_parallel_backend and self.distributed_launch:
             sys.exit(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
-                "--data_parallel_backend=True --data_parallel_count=2"
+                "--data_parallel_backend=True"
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.lunch [args]\n"
                 "experiment.py hyperparams.yaml --distributed_launch=True "
@@ -670,7 +681,10 @@ class Brain:
         if (
             self.checkpointer is not None
             and ckpt_prefix is not None
-            and isinstance(dataloader, SaveableDataLoader)
+            and (
+                isinstance(dataloader, SaveableDataLoader)
+                or isinstance(dataloader, LoopedLoader)
+            )
         ):
             ckpt_key = ckpt_prefix + stage.name
             self.checkpointer.add_recoverable(ckpt_key, dataloader)
@@ -965,11 +979,17 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
 
-        if not isinstance(train_set, DataLoader):
+        if not (
+            isinstance(train_set, DataLoader)
+            or isinstance(train_set, LoopedLoader)
+        ):
             train_set = self.make_dataloader(
                 train_set, stage=sb.Stage.TRAIN, **train_loader_kwargs
             )
-        if valid_set is not None and not isinstance(valid_set, DataLoader):
+        if valid_set is not None and not (
+            isinstance(valid_set, DataLoader)
+            or isinstance(valid_set, LoopedLoader)
+        ):
             valid_set = self.make_dataloader(
                 valid_set,
                 stage=sb.Stage.VALID,
@@ -1094,23 +1114,18 @@ class Brain:
         elif self.distributed_launch:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
-                    # for ddp, all module must run on same GPU
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(module, device_ids=[self.device])
+                    module = DDP(
+                        module,
+                        device_ids=[self.device],
+                        find_unused_parameters=self.find_unused_parameters,
+                    )
                     self.modules[name] = module
         else:
             # data_parallel_backend
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
-                    # if distributed_count = -1 then use all gpus
-                    # otherwise, specify the set of gpu to use
-                    if self.data_parallel_count == -1:
-                        module = DP(module)
-                    else:
-                        module = DP(
-                            module,
-                            [i for i in range(self.data_parallel_count)],
-                        )
+                    module = DP(module)
                     self.modules[name] = module
 
     def evaluate(
@@ -1150,7 +1165,10 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
-        if not isinstance(test_set, DataLoader):
+        if not (
+            isinstance(test_set, DataLoader)
+            or isinstance(test_set, LoopedLoader)
+        ):
             test_loader_kwargs["ckpt_prefix"] = None
             test_set = self.make_dataloader(
                 test_set, Stage.TEST, **test_loader_kwargs

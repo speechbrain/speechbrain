@@ -28,7 +28,7 @@ class BatchNorm1d(_BatchNorm1d):
 class TDNNBlock(nn.Module):
     """An implementation of TDNN.
 
-    Arguements
+    Arguments
     ----------
     in_channels : int
         Number of input channels.
@@ -83,6 +83,8 @@ class Res2NetBlock(torch.nn.Module):
         The number of output channels.
     scale : int
         The scale of the Res2Net block.
+    kernel_size: int
+        The kernel size of the Res2Net block.
     dilation : int
         The dilation of the Res2Net block.
 
@@ -95,7 +97,9 @@ class Res2NetBlock(torch.nn.Module):
     torch.Size([8, 120, 64])
     """
 
-    def __init__(self, in_channels, out_channels, scale=8, dilation=1):
+    def __init__(
+        self, in_channels, out_channels, scale=8, kernel_size=3, dilation=1
+    ):
         super(Res2NetBlock, self).__init__()
         assert in_channels % scale == 0
         assert out_channels % scale == 0
@@ -106,7 +110,10 @@ class Res2NetBlock(torch.nn.Module):
         self.blocks = nn.ModuleList(
             [
                 TDNNBlock(
-                    in_channel, hidden_channel, kernel_size=3, dilation=dilation
+                    in_channel,
+                    hidden_channel,
+                    kernel_size=kernel_size,
+                    dilation=dilation,
                 )
                 for i in range(scale - 1)
             ]
@@ -128,7 +135,7 @@ class Res2NetBlock(torch.nn.Module):
 
 
 class SEBlock(nn.Module):
-    """An implementation of squeeuze-and-excitation block.
+    """An implementation of squeeze-and-excitation block.
 
     Arguments
     ---------
@@ -310,7 +317,7 @@ class SERes2NetBlock(nn.Module):
             activation=activation,
         )
         self.res2net_block = Res2NetBlock(
-            out_channels, out_channels, res2net_scale, dilation
+            out_channels, out_channels, res2net_scale, kernel_size, dilation
         )
         self.tdnn2 = TDNNBlock(
             out_channels,
@@ -426,7 +433,7 @@ class ECAPA_TDNN(torch.nn.Module):
             activation,
         )
 
-        # Attentitve Statistical Pooling
+        # Attentive Statistical Pooling
         self.asp = AttentiveStatisticsPooling(
             channels[-1],
             attention_channels=attention_channels,
