@@ -85,7 +85,10 @@ class Pretrained:
                     setattr(self, arg, default)
 
         # Put modules on the right device, accessible with dot notation
-        self.modules = torch.nn.ModuleDict(modules).to(self.device)
+        self.modules = torch.nn.ModuleDict(modules)
+        for mod in self.modules:
+            self.modules[mod].to(self.device)
+
         for mod in self.MODULES_NEEDED:
             if mod not in modules:
                 raise ValueError(f"Need modules['{mod}']")
@@ -93,7 +96,7 @@ class Pretrained:
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
         if self.HPARAMS_NEEDED and hparams is None:
-            raise ValueError(f"Need to provide hparams dict.")
+            raise ValueError("Need to provide hparams dict.")
         if hparams is not None:
             # Also first check that all required params are found:
             for hp in self.HPARAMS_NEEDED:
@@ -215,11 +218,11 @@ class Pretrained:
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
             Where to put the pretraining material. If not given, will use
-            ./pretrained_checkpoints/<class-name>-hash(source).
+            ./pretrained_models/<class-name>-hash(source).
         """
         if savedir is None:
             clsname = cls.__name__
-            savedir = f"./pretrained_checkpoints/{clsname}-{hash(source)}"
+            savedir = f"./pretrained_models/{clsname}-{hash(source)}"
         hparams_local_path = fetch(hparams_file, source, savedir)
 
         # Load the modules:
@@ -257,7 +260,7 @@ class EndToEndSLU(Pretrained):
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
-    HPARAMS_NEEDED = ["tokenizer", "asr_model"]
+    HPARAMS_NEEDED = ["tokenizer", "asr_model_source"]
     MODULES_NEEDED = [
         "slu_enc",
         "beam_searcher",
@@ -266,6 +269,10 @@ class EndToEndSLU(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
+        self.asr_model = EncoderDecoderASR.from_hparams(
+            source=self.hparams.asr_model_source,
+            run_opts={"device": self.device},
+        )
 
     def decode_file(self, path):
         """Maps the given audio file to a string representing the
@@ -282,6 +289,7 @@ class EndToEndSLU(Pretrained):
             The predicted semantics.
         """
         waveform = self.load_audio(path)
+        waveform = waveform.to(self.device)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -310,10 +318,10 @@ class EndToEndSLU(Pretrained):
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         with torch.no_grad():
-            ASR_encoder_out = self.hparams.asr_model.encode_batch(
+            ASR_encoder_out = self.asr_model.encode_batch(
                 wavs.detach(), wav_lens
             )
-        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
+        encoder_out = self.modules.slu_enc(ASR_encoder_out)
         return encoder_out
 
     def decode_batch(self, wavs, wav_lens):
@@ -338,7 +346,7 @@ class EndToEndSLU(Pretrained):
             Each predicted token id.
         """
         with torch.no_grad():
-            wav_lens = wav_lens.to(self.device)
+            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             predicted_tokens, scores = self.modules.beam_searcher(
                 encoder_out, wav_lens
@@ -355,7 +363,8 @@ class EncoderDecoderASR(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech.
+    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    specified in the *_NEEDED[] lists.
 
     Example
     -------
@@ -371,10 +380,8 @@ class EncoderDecoderASR(Pretrained):
 
     HPARAMS_NEEDED = ["tokenizer"]
     MODULES_NEEDED = [
-        "compute_features",
-        "normalize",
-        "asr_encoder",
-        "beam_searcher",
+        "encoder",
+        "decoder",
     ]
 
     def __init__(self, *args, **kwargs):
@@ -429,9 +436,7 @@ class EncoderDecoderASR(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
-        encoder_out = self.modules.asr_encoder(feats)
+        encoder_out = self.modules.encoder(wavs, wav_lens)
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
@@ -463,122 +468,7 @@ class EncoderDecoderASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.modules.beam_searcher(
-                encoder_out, wav_lens
-            )
-            predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predicted_tokens
-            ]
-        return predicted_words, predicted_tokens
-
-
-class TransformerASR(Pretrained):
-    """A ready-to-use Transformer ASR model.
-    The class can be used either to run only the encoder (encode()) to extract
-    features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech.
-
-    Example
-    -------
-    >>> from speechbrain.pretrained import TransformerASR
-    >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = TransformerASR.from_hparams(
-    ...     source="speechbrain/asr-transformer-transformerlm-librispeech",
-    ...     savedir=tmpdir,
-    ... )
-    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
-    "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.tokenizer = self.hparams.tokenizer
-
-    def transcribe_file(self, path):
-        """Transcribes the given audiofile into a sequence of words.
-
-        Arguments
-        ---------
-        path : str
-            Path to audio file which to transcribe.
-        Returns
-        -------
-        str
-            The audiofile transcription produced by this ASR system.
-        """
-        waveform = self.load_audio(path)
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
-        return predicted_words[0]
-
-    def encode_batch(self, wavs, wav_lens):
-        """Encodes the input audio into a sequence of hidden states
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        tensor
-            The encoded batch
-        """
-        torch.Tensor([self.hparams.bos_index])
-        wavs = wavs.float()
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        feats = self.modules.compute_features(wavs)
-        normalized = self.modules.normalize(feats, wav_lens)
-        pre_trans_out = self.modules.pre_transformer(normalized)
-        transformer_out = self.modules.transformer.encode(
-            pre_trans_out, wav_lens,
-        )
-        return transformer_out
-
-    def transcribe_batch(self, wavs, wav_lens):
-        """Transcribes the input audio into a sequence of words
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = TransformerASR.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        list
-            Each waveform in the batch transcribed.
-        tensor
-            Each predicted token id.
-        """
-        with torch.no_grad():
-            wav_lens = wav_lens.to(self.device)
-            encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.modules.beam_searcher(
+            predicted_tokens, scores = self.modules.decoder(
                 encoder_out, wav_lens
             )
             predicted_words = [
@@ -713,7 +603,36 @@ class EncoderClassifier(Pretrained):
         out_prob = self.modules.classifier(emb).squeeze(1)
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
+        return out_prob, score, index, text_lab
 
+    def classify_file(self, path):
+        """Classifies the given audiofile into the given set of labels.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file to classify.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        emb = self.encode_batch(batch, rel_length)
+        out_prob = self.modules.classifier(emb).squeeze(1)
+        score, index = torch.max(out_prob, dim=-1)
+        text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
 
 
@@ -850,6 +769,7 @@ class SepformerSeparation(Pretrained):
         """
 
         # Separation
+        mix = mix.to(self.device)
         mix_w = self.modules.encoder(mix)
         est_mask = self.modules.masknet(mix_w)
         mix_w = torch.stack([mix_w] * self.hparams.num_spks)
@@ -892,6 +812,7 @@ class SepformerSeparation(Pretrained):
         path = fetch(fl, source=source, savedir=savedir)
 
         batch, fs_file = torchaudio.load(path)
+        batch = batch.to(self.device)
         fs_model = self.hparams.sample_rate
 
         # resample the data if needed
@@ -964,6 +885,7 @@ class SpectralMaskEnhancement(Pretrained):
         torch.tensor
             A batch of enhanced waveforms of the same shape as input.
         """
+        noisy = noisy.to(self.device)
         noisy_features = self.compute_features(noisy)
 
         # Perform masking-based enhancement, multiplying output with input.
@@ -987,6 +909,7 @@ class SpectralMaskEnhancement(Pretrained):
             If provided, writes enhanced data to this file.
         """
         noisy = self.load_audio(filename)
+        noisy = noisy.to(self.device)
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)

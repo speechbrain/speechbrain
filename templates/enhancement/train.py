@@ -44,7 +44,7 @@ class SEBrain(sb.Brain):
         """
 
         # We first move the batch to the appropriate device, and
-        # compute the features necesary for masking.
+        # compute the features necessary for masking.
         batch = batch.to(self.device)
         noisy_wavs, lens = batch.noisy_sig
         noisy_feats = self.compute_feats(noisy_wavs)

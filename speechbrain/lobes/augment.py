@@ -127,7 +127,7 @@ class SpecAugment(torch.nn.Module):
         if time - window <= window:
             return x.view(*original_size)
 
-        # compute center and corepoding window
+        # compute center and corresponding window
         c = torch.randint(window, time - window, (1,))[0]
         w = torch.randint(c - window, c + window, (1,))[0] + 1
 
@@ -291,11 +291,10 @@ class TimeDomainSpecAugment(torch.nn.Module):
             The waveforms to distort
         """
         # Augmentation
-        if self.training:
-            with torch.no_grad():
-                waveforms = self.speed_perturb(waveforms)
-                waveforms = self.drop_freq(waveforms)
-                waveforms = self.drop_chunk(waveforms, lengths)
+        with torch.no_grad():
+            waveforms = self.speed_perturb(waveforms)
+            waveforms = self.drop_freq(waveforms)
+            waveforms = self.drop_chunk(waveforms, lengths)
 
         return waveforms
 
@@ -416,17 +415,16 @@ class EnvCorrupt(torch.nn.Module):
             The waveforms to distort.
         """
         # Augmentation
-        if self.training:
-            with torch.no_grad():
-                if hasattr(self, "add_reverb"):
-                    try:
-                        waveforms = self.add_reverb(waveforms, lengths)
-                    except Exception:
-                        pass
-                if hasattr(self, "add_babble"):
-                    waveforms = self.add_babble(waveforms, lengths)
-                if hasattr(self, "add_noise"):
-                    waveforms = self.add_noise(waveforms, lengths)
+        with torch.no_grad():
+            if hasattr(self, "add_reverb"):
+                try:
+                    waveforms = self.add_reverb(waveforms, lengths)
+                except Exception:
+                    pass
+            if hasattr(self, "add_babble"):
+                waveforms = self.add_babble(waveforms, lengths)
+            if hasattr(self, "add_noise"):
+                waveforms = self.add_noise(waveforms, lengths)
 
         return waveforms
 

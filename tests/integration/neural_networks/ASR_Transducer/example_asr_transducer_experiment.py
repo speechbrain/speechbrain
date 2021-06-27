@@ -147,12 +147,12 @@ def main():
     train_data, valid_data, label_encoder = data_prep(data_folder, hparams)
 
     # Trainer initialization
-    trasducer_brain = TransducerBrain(
+    transducer_brain = TransducerBrain(
         hparams["modules"], hparams["opt_class"], hparams
     )
 
     # Training/validation loop
-    trasducer_brain.fit(
+    transducer_brain.fit(
         range(hparams["N_epochs"]),
         train_data,
         valid_data,
@@ -160,10 +160,10 @@ def main():
         valid_loader_kwargs=hparams["dataloader_options"],
     )
     # Evaluation is run separately (now just evaluating on valid data)
-    trasducer_brain.evaluate(valid_data)
+    transducer_brain.evaluate(valid_data)
 
     # Check that model overfits for integration test
-    assert trasducer_brain.train_loss < 1.0
+    assert transducer_brain.train_loss < 1.0
 
 
 if __name__ == "__main__":
