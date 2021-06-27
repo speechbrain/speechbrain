@@ -172,10 +172,13 @@ def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
 
 
 def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
-    """Diarizes all the recordings in a given dataset.
+    """This function diarizes all the recordings in a given dataset. It performs
+    computation of embedding and clusters them using spectral clustering.
+    The output speaker boundary file stored in the RTTM format.
     """
 
     # Prepare `spkr_info` only once when Oracle num of speakers is selected.
+    # spkr_info is essential to obtain number of speakers from groundtruth.
     if params["oracle_n_spkrs"] is True:
         full_ref_rttm_file = (
             params["ref_rttm_dir"] + "/fullref_ami_" + split_type + ".rttm"
@@ -187,7 +190,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             filter(lambda x: x.startswith("SPKR-INFO"), rttm)
         )
 
-    # Get all recording IDs in this dataset.
+    # Get all the recording IDs in this dataset.
     A = [row[0].rstrip().split("_")[0] for row in full_csv]
     all_rec_ids = list(set(A[1:]))
     all_rec_ids.sort()
@@ -201,7 +204,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     msg = "Diarizing " + split_type + " set"
     logger.info(msg)
     for rec_id in tqdm(all_rec_ids):
-
+        # This tag will be displayed in the log
         tag = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
         i = i + 1
 
@@ -215,7 +218,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             params["embedding_dir"], split, rec_id + "_xv_stat.pkl"
         )
 
-        # Prepare a csv for a recording
+        # Prepare a csv for one recording. This is basically subset of full_csv.
         new_csv_file = os.path.join(
             params["embedding_dir"], split, rec_id + ".csv"
         )
@@ -232,7 +235,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             diary_set_loader = dataio_prep_multi_mic(params, new_json_file)
 
         else:
-            # For rest of audio streams.
+            # For rest of audio streams (Single channel).
             # Setup a dataloader for above one recording (above csv).
             diary_set_loader = dataio_prep(params, new_csv_file)
 
@@ -261,7 +264,8 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
                 # Num of speakers tunned on dev set (only for nn affinity).
                 num_spkrs = n_lambdas
             else:
-                # Will be estimated using max eigen gap for cos based affinity.
+                # Num of speakers will be estimated using max eigen gap for cos based affinity.
+                # So adding None here. Will use this None later-on
                 num_spkrs = None
 
         if params["backend"] == "kmeans":
@@ -282,12 +286,13 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             )
 
         # Maybe used for AHC later.
+        # Likewise one can add different backends here.
         if params["backend"] == "AHC":
             # call AHC
             threshold = pval  # pval for AHC is nothing but threshold.
             diar.do_AHC(diary_obj, out_rttm_file, rec_id, num_spkrs, threshold)
 
-    # Concatenate individual RTTM files.
+    # Once all RTTM outputs are generated, concatenate individual RTTM files to obtain single RTTM file.
     # This is not needed but just staying with the standards.
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
 
