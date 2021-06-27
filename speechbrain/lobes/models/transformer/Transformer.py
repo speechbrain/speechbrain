@@ -175,7 +175,7 @@ class TransformerInterface(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    """This class implements the positional encoding function.
+    """This class implements the absolute sinusoidal positional encoding function.
 
     PE(pos, 2i)   = sin(pos/(10000^(2i/dmodel)))
     PE(pos, 2i+1) = cos(pos/(10000^(2i/dmodel)))
