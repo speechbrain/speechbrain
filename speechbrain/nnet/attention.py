@@ -417,9 +417,7 @@ class RelPosMHAXL(nn.Module):
             self.qk_proj_weight = nn.Parameter(
                 torch.empty(2 * embed_dim, embed_dim)
             )
-            self.v_proj_weight = nn.Parameter(
-                torch.empty(self.vdim, embed_dim)
-            )
+            self.v_proj_weight = nn.Parameter(torch.empty(self.vdim, embed_dim))
         else:
             self.in_proj_weight = nn.Parameter(
                 torch.empty(3 * embed_dim, embed_dim)
@@ -449,7 +447,6 @@ class RelPosMHAXL(nn.Module):
 
         self._reset_parameters()
         self.scale = 1 / math.sqrt(self.embed_dim)
-        # self.pos_emb = RelPosEncXL(self.embed_dim)
 
     def _reset_parameters(self):
         if self._qkv_same_embed_dim:
@@ -580,7 +577,9 @@ class RelPosMHAXL(nn.Module):
                 1, 1, self.num_heads, self.vhead_dim
             )
 
-        p_k = self.linear_pos(pos_embs).view(1, -1, self.num_heads, self.head_dim)
+        p_k = self.linear_pos(pos_embs).view(
+            1, -1, self.num_heads, self.head_dim
+        )
         # (batch, head, klen, d_k)
 
         q_with_bias_u = (
@@ -597,9 +596,9 @@ class RelPosMHAXL(nn.Module):
         matrix_bd = torch.matmul(q_with_bias_v, p_k.permute(0, 2, 3, 1))
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
-        #if klen != qlen:
-         #   import ipdb
-          #  ipdb.set_trace(
+        # if klen != qlen:
+        #   import ipdb
+        #  ipdb.set_trace(
 
         attn_score = (matrix_ac + matrix_bd) * self.scale
 
@@ -611,9 +610,9 @@ class RelPosMHAXL(nn.Module):
                 attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
 
             if attn_mask.dtype == torch.bool:
-                    attn_score = attn_score.masked_fill(
+                attn_score = attn_score.masked_fill(
                     attn_mask, self.attn_fill_value
-                    )
+                )
             else:
                 attn_score += attn_mask
 
@@ -622,7 +621,6 @@ class RelPosMHAXL(nn.Module):
                 key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
-	
         attn_score = F.softmax(attn_score, dim=-1)
         attn_score = self.dropout_att(attn_score)
         x = torch.matmul(
