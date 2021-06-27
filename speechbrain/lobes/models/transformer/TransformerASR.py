@@ -29,22 +29,48 @@ class TransformerASR(TransformerInterface):
 
     Arguments
     ----------
-    d_model : int
-        The number of expected features in the encoder/decoder inputs
+    tgt_vocab: int
+        Size of vocabulary.
+    input_size: int
+        Input feature size.
+    d_model : int, optional
+        Embedding dimension size.
         (default=512).
-    nhead : int
+    nhead : int, optional
         The number of heads in the multi-head attention models (default=8).
-    num_encoder_layers : int
+    num_encoder_layers : int, optional
         The number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers : int
+    num_decoder_layers : int, optional
         The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int
+    dim_ffn : int, optional
         The dimension of the feedforward network model (default=2048).
-    dropout : int
+    dropout : int, optional
         The dropout value (default=0.1).
-    activation : torch class
-        The activation function of encoder/decoder intermediate layer.
+    activation : torch.nn.Module, optional
+        The activation function of FFN layers.
         Recommended: relu or gelu (default=relu).
+    positional_encoding: str, optional
+        Type of positional encoding used. e.g. 'fixed_abs_sine' for fixed absolute positional encodings.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
+    kernel_size: int, optional
+        Kernel size in convolutional layers when Conformer is used.
+    bias: bool, optional
+        Whether to use bias in Conformer convolutional layers.
+    encoder_module: str, optional
+        Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
+    conformer_activation: torch.nn.Module, optional
+        Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
+    attention_type: str, optional
+        Type of attention layer used in all Transformer or Conformer layers.
+        e.g. regularMHA or RelPosMHA.
+    max_length: int, optional
+        Max length for the target and source sequence in input.
+        Used for positional encodings.
+    causal: bool, optional
+        Whether the encoder should be causal or not (the decoder is always causal).
+        If causal the Conformer convolutional layer is causal.
 
     Example
     -------
