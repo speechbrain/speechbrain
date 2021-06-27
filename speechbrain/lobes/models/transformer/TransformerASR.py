@@ -122,11 +122,13 @@ class TransformerASR(TransformerInterface):
         """
         Arguments
         ----------
-        src : tensor
-            The sequence to the encoder (required).
-        tgt : tensor
-            The sequence to the decoder (required).
-        pad_idx : int
+        src : torch.Tensor
+            The sequence to the encoder.
+        tgt : torch.Tensor
+            The sequence to the decoder.
+        wav_len: torch.Tensor, optional
+            Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
+        pad_idx : int, optional
             The index for <pad> token (default=0).
         """
 
@@ -148,8 +150,7 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)  # add the encodings here
-            pos_embs_encoder = None	
-
+            pos_embs_encoder = None
 
         encoder_out, _ = self.encoder(
             src=src,
@@ -161,16 +162,15 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":
-            # use standard sinusoidal pos encoding in decoder 
+            # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
             src = src + self.positional_encoding_decoder(src)
-            pos_embs_encoder = None #self.positional_encoding(src)
+            pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.positional_encoding_type == "fixed_abs_sine":
-            tgt = tgt + self.positional_encoding(tgt)  
+            tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
-
 
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
@@ -212,19 +212,21 @@ class TransformerASR(TransformerInterface):
 
         Arguments
         ---------
-        tgt : tensor
-            The sequence to the decoder (required).
-        encoder_out : tensor
-            Hidden output of the encoder (required).
+        tgt : torch.Tensor
+            The sequence to the decoder.
+        encoder_out : torch.Tensor
+            Hidden output of the encoder.
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
             # we use fixed positional encodings in the decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            encoder_out = encoder_out + self.positional_encoding_decoder(encoder_out)
-            #pos_embs_target = self.positional_encoding(tgt)
-            pos_embs_encoder= None #self.positional_encoding(src)
+            encoder_out = encoder_out + self.positional_encoding_decoder(
+                encoder_out
+            )
+            # pos_embs_target = self.positional_encoding(tgt)
+            pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.positional_encoding_type == "fixed_abs_sine":
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
@@ -237,7 +239,6 @@ class TransformerASR(TransformerInterface):
             tgt_mask=tgt_mask,
             pos_embs_tgt=pos_embs_target,
             pos_embs_src=pos_embs_encoder,
-
         )
         return prediction, multihead_attns[-1]
 
@@ -245,12 +246,14 @@ class TransformerASR(TransformerInterface):
         self, src, wav_len=None,
     ):
         """
-        forward the encoder with source input
+        Encoder forward pass
 
         Arguments
         ----------
-        src : tensor
-            The sequence to the encoder (required).
+        src : torch.Tensor
+            The sequence to the encoder.
+        wav_len: torch.Tensor, optional
+            Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
         """
         # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
         if src.dim() == 4:
@@ -267,7 +270,7 @@ class TransformerASR(TransformerInterface):
             pos_embs_source = self.positional_encoding(src)
 
         elif self.positional_encoding_type == "fixed_abs_sine":
-            src = src + self.positional_encoding(src)  
+            src = src + self.positional_encoding(src)
             pos_embs_source = None
 
         encoder_out, _ = self.encoder(
