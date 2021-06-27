@@ -365,10 +365,16 @@ class RelPosMHAXL(nn.Module):
     embed_dim : int
         Size of the encoder feature vectors from which keys and values are computed.
     num_heads: int
-        Number of parallel attention heads
-    dropout : float
-        The drop probability in dropout
-
+        Number of attention heads.
+    dropout : float, optional
+        Dropout rate.
+    vbias: bool, optional
+        Whether to use bias for computing value.
+    vdim: int, optional
+        Size for value. Default is embed_dim (Note each head is embed_dim // num_heads).
+    mask_pos_future: bool, optional
+        Whether to mask future positional encodings values.
+        Must be true for causal applications e.g. decoder.
     Example
     -------
     >>> inputs = torch.rand([6, 60, 512])
@@ -384,8 +390,7 @@ class RelPosMHAXL(nn.Module):
         embed_dim,
         num_heads,
         dropout=0.0,
-        vbias=None,
-        add_zero_attn=False,
+        vbias=False,
         vdim=None,
         mask_pos_future=False,
     ):
@@ -422,11 +427,12 @@ class RelPosMHAXL(nn.Module):
 
         if vbias:
             self.value_bias_weight = nn.Parameter(torch.empty(self.vdim))
+        else:
+            self.vbias = None
 
         self.dropout_att = nn.Dropout(dropout)
         self.out_proj = nn.Linear(self.vdim, embed_dim)
 
-        self.add_zero_attn = add_zero_attn
         self.linear_pos = nn.Linear(embed_dim, embed_dim, bias=False)
 
         self.pos_bias_u = nn.Parameter(
@@ -569,7 +575,7 @@ class RelPosMHAXL(nn.Module):
                 bsz, -1, self.num_heads, self.vhead_dim
             )
 
-        if self.vbias:
+        if self.vbias is not None:
             value = value + self.value_bias_weight.view(
                 1, 1, self.num_heads, self.vhead_dim
             )
@@ -702,23 +708,23 @@ class MultiheadAttention(nn.Module):
         """
         Arguments
         ----------
-        query : tensor
+        query : torch.Tensor
             (B, L, E) where L is the target sequence length,
             B is the batch size, E is the embedding dimension.
-        key : tensor
+        key : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        value : tensor
+        value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        key_padding_mask : tensor
+        key_padding_mask : torch.Tensor, optional
             (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
             be ignored while the position with the zero positions will be
             unchanged. If a BoolTensor is provided, the positions with the
             value of True will be ignored while the position with the value
             of False will be unchanged.
-        attn_mask : tensor
+        attn_mask : torch.Tensor, optional
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
             3D mask (N*num_heads, L, S) where N is the batch
@@ -729,13 +735,15 @@ class MultiheadAttention(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
+        pos_embs: torch.Tensor, optional
+            Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
 
         Outputs
         -------
-        attn_output : tensor
+        attn_output : torch.Tensor
             (B, L, E) where L is the target sequence length, B is the
             batch size, E is the embedding dimension.
-        attn_output_weights : tensor
+        attn_output_weights : torch.Tensor
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
@@ -751,11 +759,6 @@ class MultiheadAttention(nn.Module):
                 attn_mask += pos_embs
             else:
                 attn_mask = pos_embs
-
-        #if attn_mask is not None and  attn_mask.ndim == 4:
-
-         #   bsz, nheads, qlen, klen = attn_mask.shape
-         #   attn_mask = attn_mask.reshape(bsz*nheads, qlen, klen)
 
         output = self.att(
             query,
@@ -783,15 +786,14 @@ class PositionalwiseFeedForward(nn.Module):
     Arguments
     ----------
     d_ffn: int
-        Dimension of representation space of this positional-wise feed
-        forward module.
-    input_shape : tuple
+        Hidden layer size.
+    input_shape : tuple, optional
         Expected shape of the input. Alternatively use ``input_size``.
-    input_size : int
+    input_size : int, optional
         Expected size of the input. Alternatively use ``input_shape``.
-    dropout: float
-        Fraction of outputs to drop.
-    activation: torch class
+    dropout: float, optional
+        Dropout rate.
+    activation: torch.nn.Module, optional
         activation functions to be applied (Recommendation: ReLU, GELU).
 
     Example
@@ -808,7 +810,7 @@ class PositionalwiseFeedForward(nn.Module):
         d_ffn,
         input_shape=None,
         input_size=None,
-        dropout=0.1,
+        dropout=0.0,
         activation=nn.ReLU,
     ):
         super().__init__()
