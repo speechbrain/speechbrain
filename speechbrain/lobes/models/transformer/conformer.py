@@ -10,6 +10,7 @@ import torch.nn as nn
 from typing import Optional
 import speechbrain as sb
 
+
 from speechbrain.nnet.attention import (
     RelPosMHAXL,
     MultiheadAttention,
@@ -50,18 +51,23 @@ class ConvolutionModule(nn.Module):
     """
 
     def __init__(
-        self, input_size, kernel_size=31, bias=True, activation=Swish, dropout=0.0
-            , causal=False, dilation=1
+        self,
+        input_size,
+        kernel_size=31,
+        bias=True,
+        activation=Swish,
+        dropout=0.0,
+        causal=False,
+        dilation=1,
     ):
         super().__init__()
 
         self.causal = causal
 
         if self.causal:
-            self.padding = (kernel_size - 1) * 2 ** (dilation -1)
+            self.padding = (kernel_size - 1) * 2 ** (dilation - 1)
         else:
-            self.padding = (kernel_size - 1) * 2 ** (dilation-1) // 2
-
+            self.padding = (kernel_size - 1) * 2 ** (dilation - 1) // 2
 
         self.layer_norm = nn.LayerNorm(input_size)
         self.bottleneck = nn.Sequential(
@@ -69,18 +75,19 @@ class ConvolutionModule(nn.Module):
             nn.Conv1d(
                 input_size, 2 * input_size, kernel_size=1, stride=1, bias=bias
             ),
-            nn.GLU(dim=1))
-            # depthwise
+            nn.GLU(dim=1),
+        )
+        # depthwise
         self.conv = nn.Conv1d(
-                input_size,
-                input_size,
-                kernel_size=kernel_size,
-                stride=1,
-                padding=self.padding,
-                dilation=dilation,
-                groups=input_size,
-                bias=bias,
-            )
+            input_size,
+            input_size,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=self.padding,
+            dilation=dilation,
+            groups=input_size,
+            bias=bias,
+        )
 
         self.after_conv = nn.Sequential(
             nn.BatchNorm1d(input_size),
@@ -89,7 +96,7 @@ class ConvolutionModule(nn.Module):
             nn.Conv1d(
                 input_size, input_size, kernel_size=1, stride=1, bias=bias
             ),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
 
     def forward(self, x):
@@ -100,7 +107,7 @@ class ConvolutionModule(nn.Module):
 
         if self.causal:
             # chomp
-            out = out[..., :-self.padding]
+            out = out[..., : -self.padding]
         out = self.after_conv(out)
         out = out.transpose(1, 2)
         return out
@@ -508,7 +515,7 @@ class ConformerDecoderLayer(nn.Module):
             memory,
             attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask,
-            pos_embs=pos_embs_src
+            pos_embs=pos_embs_src,
         )
         x = x + skip
         # convolution module
@@ -645,5 +652,3 @@ class ConformerDecoder(nn.Module):
         output = self.norm(output)
 
         return output, self_attns, multihead_attns
-
-
