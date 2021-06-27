@@ -41,8 +41,7 @@ from pathlib import Path
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-
-
+import numpy as np
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +92,7 @@ class ASR(sb.core.Brain):
             hyps = None
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
-                # for the sake of efficeincy, we only perform beamsearch with limited capacity
+                # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
@@ -236,7 +235,7 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-            # save the averaged checkpoint at the end of the evalation stage
+            # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
             # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
             self.checkpointer.save_and_keep_only(
@@ -265,10 +264,10 @@ class ASR(sb.core.Brain):
             self.switched = True
 
     def on_fit_start(self):
-        """Initilaize the right optimizer on the training start"""
+        """Initialize the right optimizer on the training start"""
         super().on_fit_start()
 
-        # if the model is resumed from stage two, reinitilaize the optimizer
+        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         current_optimizer = self.optimizer
         if current_epoch > self.hparams.stage_one_epochs:
@@ -311,6 +310,26 @@ def dataio_prepare(hparams):
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
