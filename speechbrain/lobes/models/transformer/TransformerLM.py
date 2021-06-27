@@ -2,6 +2,7 @@
 
 Authors
 * Jianyuan Zhong
+* Samuele Cornell
 """
 
 import torch  # noqa 42
