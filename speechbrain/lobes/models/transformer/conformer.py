@@ -2,6 +2,7 @@
 
 Authors
 * Jianyuan Zhong 2020
+* Samuele Cornell 2021
 """
 
 import torch
@@ -24,13 +25,19 @@ class ConvolutionModule(nn.Module):
     Arguments
     ----------
     input_size : int
-        The expected size of the input embedding.
-    dropout : int
-        Dropout for the encoder (Optional).
-    bias: bool
-        Bias to convolution module.
-    kernel_size: int
-        Kernel size of convolution model.
+        The expected size of the input embedding dimension.
+    kernel_size: int, optional
+        Kernel size of non-bottleneck convolutional layer.
+    bias: bool, optional
+        Whether to use bias in the non-bottleneck conv layer.
+    activation: torch.nn.Module
+         Activation function used after non-bottleneck conv layer. 
+    dropout: float, optional
+         Dropout rate. 
+    causal: bool, optional
+         Whether the convolution should be causal or not. 
+    dilation: int, optional
+         Dilation factor for the non bottleneck conv layer. 
 
     Example
     -------
@@ -43,7 +50,8 @@ class ConvolutionModule(nn.Module):
     """
 
     def __init__(
-        self, input_size, kernel_size, bias=True, activation=Swish, dropout=0.1, causal=False, dilation=1
+        self, input_size, kernel_size=31, bias=True, activation=Swish, dropout=0.0
+            , causal=False, dilation=1
     ):
         super().__init__()
         
@@ -54,8 +62,7 @@ class ConvolutionModule(nn.Module):
         else:
             self.padding = (kernel_size - 1) * 2 ** (dilation-1) // 2
 
-        
-        
+
         self.layer_norm = nn.LayerNorm(input_size)
         self.bottleneck = nn.Sequential(
             # pointwise
@@ -104,24 +111,28 @@ class ConformerEncoderLayer(nn.Module):
 
     Arguments
     ----------
+    d_model : int
+        The expected size of the input embedding.
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
     nhead : int
         Number of attention heads.
-    d_model : int
-        The expected size of the input embedding.
-    reshape : bool
-        Whether to automatically shape 4-d input to 3-d.
-    kdim : int
-        Dimension of the key (Optional).
-    vdim : int
-        Dimension of the value (Optional).
-    dropout : int
-        Dropout for the encoder (Optional).
-    bias : bool
-        Bias to convolution module.
-    kernel_size : int
+    kernel_size : int, optional
         Kernel size of convolution model.
+    kdim : int, optional
+        Dimension of the key.
+    vdim : int, optional
+        Dimension of the value.
+    activation: torch.nn.Module
+         Activation function used in each Conformer layer.
+    bias : bool, optional
+        Whether  convolution module.
+    dropout : int, optional
+        Dropout for the encoder.
+    causal: bool, optional
+        Whether the convolutions should be causal or not. 
+    attention_type: str, optional
+        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
 
     Example
     -------
@@ -139,12 +150,12 @@ class ConformerEncoderLayer(nn.Module):
         d_model,
         d_ffn,
         nhead,
-        kernel_size,
+        kernel_size=31,
         kdim=None,
         vdim=None,
         activation=Swish,
         bias=True,
-        dropout=0.1,
+        dropout=0.0,
         causal=False,
         attention_type="RelPosMHAXL",
     ):
@@ -204,6 +215,19 @@ class ConformerEncoderLayer(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
     ):
+
+        """
+                Arguments
+                ----------
+                src : torch.Tensor
+                    The sequence to the encoder layer.
+                src_mask : torch.Tensor, optional
+                    The mask for the src sequence.
+                src_key_padding_mask : torch.Tensor, optional
+                    The mask for the src keys per batch.
+                pos_embs: torch.Tensor, torch.nn.Module, optional
+                    Module or tensor containing the input sequence positional embeddings
+                """
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
         # muti-head attention module
@@ -231,24 +255,30 @@ class ConformerEncoder(nn.Module):
     Arguments
     ---------
     num_layers : int
-        Number of Conformer layers to include.
-    nhead : int
-        Number of attention heads.
+        Number of layers.
+    d_model : int
+        Embedding dimension size.
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
-    input_shape : tuple
-        Expected shape of an example input.
-    d_model : int
-        The dimension of the input embedding.
-    kdim : int
-        Dimension for key (Optional).
-    vdim : int
-        Dimension for value (Optional).
-    dropout : float
-        Dropout for the encoder (Optional).
-    input_module : torch class
-        The module to process the source input feature to expected
-        feature dimension (Optional).
+    nhead : int
+        Number of attention heads.
+    kernel_size : int, optional
+        Kernel size of convolution model.
+    kdim : int, optional
+        Dimension of the key.
+    vdim : int, optional
+        Dimension of the value.
+    activation: torch.nn.Module
+         Activation function used in each Confomer layer.
+    bias : bool, optional
+        Whether  convolution module.
+    dropout : int, optional
+        Dropout for the encoder.
+    causal: bool, optional
+        Whether the convolutions should be causal or not.
+    attention_type: str, optional
+        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+
 
     Example
     -------
@@ -264,29 +294,19 @@ class ConformerEncoder(nn.Module):
     def __init__(
         self,
         num_layers,
-        nhead,
+        d_model,
         d_ffn,
-        input_shape=None,
-        d_model=None,
+        nhead,
+        kernel_size=31,
         kdim=None,
         vdim=None,
-        dropout=0.1,
         activation=Swish,
-        kernel_size=31,
         bias=True,
+        dropout=0.0,
         causal=False,
         attention_type="RelPosMHAXL",
     ):
         super().__init__()
-
-        if input_shape is None and d_model is None:
-            raise ValueError("Expected one of input_shape or d_model")
-
-        if input_shape is not None and d_model is None:
-            if len(input_shape) == 3:
-                msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
-                raise ValueError(msg)
-            d_model = input_shape[-1]
 
         self.layers = torch.nn.ModuleList(
             [
@@ -318,12 +338,14 @@ class ConformerEncoder(nn.Module):
         """
         Arguments
         ----------
-        src : tensor
-            The sequence to the encoder layer (required).
-        src_mask : tensor
-            The mask for the src sequence (optional).
-        src_key_padding_mask : tensor
-            The mask for the src keys per batch (optional).
+        src : torch.Tensor
+            The sequence to the encoder layer.
+        src_mask : torch.Tensor, optional
+            The mask for the src sequence.
+        src_key_padding_mask : torch.Tensor, optional
+            The mask for the src keys per batch.
+        pos_embs: torch.Tensor, torch.nn.Module, optional
+            Module or tensor containing the input sequence positional embeddings
         """
         output = src
         attention_lst = []
@@ -340,31 +362,33 @@ class ConformerEncoder(nn.Module):
         return output, attention_lst
 
 
-
-
 class ConformerDecoderLayer(nn.Module):
     """This is an implementation of Conformer encoder layer.
 
     Arguments
     ----------
+    d_model : int
+        The expected size of the input embedding.
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
     nhead : int
         Number of attention heads.
-    d_model : int
-        The expected size of the input embedding.
-    reshape : bool
-        Whether to automatically shape 4-d input to 3-d.
-    kdim : int
-        Dimension of the key (Optional).
-    vdim : int
-        Dimension of the value (Optional).
-    dropout : int
-        Dropout for the encoder (Optional).
-    bias : bool
-        Bias to convolution module.
-    kernel_size : int
+    kernel_size : int, optional
         Kernel size of convolution model.
+    kdim : int, optional
+        Dimension of the key.
+    vdim : int, optional
+        Dimension of the value.
+    activation: torch.nn.Module, optional
+         Activation function used in each Conformer layer.
+    bias : bool, optional
+        Whether  convolution module.
+    dropout : int, optional
+        Dropout for the encoder.
+    causal: bool, optional
+        Whether the convolutions should be causal or not.
+    attention_type: str, optional
+        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
 
     Example
     -------
@@ -387,7 +411,7 @@ class ConformerDecoderLayer(nn.Module):
         vdim=None,
         activation=Swish,
         bias=True,
-        dropout=0.1,
+        dropout=0.0,
         causal=True,
         attention_type="RelPosMHAXL",
     ):
@@ -453,6 +477,26 @@ class ConformerDecoderLayer(nn.Module):
         pos_embs_tgt=None,
         pos_embs_src=None,
     ):
+        """
+        Arguments
+        ----------
+            tgt: torch.Tensor
+                The sequence to the decoder layer.
+            memory: torch.Tensor
+                The sequence from the last layer of the encoder.
+            tgt_mask: torch.Tensor, optional, optional
+                The mask for the tgt sequence.
+            memory_mask: torch.Tensor, optional
+                The mask for the memory sequence.
+            tgt_key_padding_mask : torch.Tensor, optional
+                The mask for the tgt keys per batch.
+            memory_key_padding_mask : torch.Tensor, optional
+                The mask for the memory keys per batch.
+            pos_emb_tgt: torch.Tensor, torch.nn.Module, optional
+                Module or tensor containing the target sequence positional embeddings for each attention layer.
+            pos_embs_src: torch.Tensor, torch.nn.Module, optional
+                Module or tensor containing the source sequence positional embeddings for each attention layer.
+        """
         # ffn module
         tgt = tgt + 0.5 * self.ffn_module1(tgt)
         # muti-head attention module
@@ -474,24 +518,36 @@ class ConformerDecoderLayer(nn.Module):
         return x, self_attn, self_attn
 
 
-
 class ConformerDecoder(nn.Module):
     """This class implements the Transformer decoder.
 
     Arguments
     ----------
-    d_ffn : int
-        Hidden size of self-attention Feed Forward layer.
-    nhead : int
+    num_layers: int
+        Number of layers.
+    nhead: int
         Number of attention heads.
-    d_model : int
-        Dimension of the model.
-    kdim : int
-        Dimension for key (Optional).
-    vdim : int
-        Dimension for value (Optional).
-    dropout : float
-        Dropout for the decoder (Optional).
+     d_ffn: int
+        Hidden size of self-attention Feed Forward layer.
+    d_model: int
+        Embedding dimension size.
+    kdim: int, optional
+        Dimension for key.
+    vdim: int, optional
+        Dimension for value.
+    dropout: float, optional
+        Dropout rate.
+    activation: torch.nn.Module, optional
+         Activation function used after non-bottleneck conv layer.
+    kernel_size : int, optional
+        Kernel size of convolutional layer.
+    bias : bool, optional
+        Whether  convolution module.
+    causal: bool, optional
+        Whether the convolutions should be causal or not.
+    attention_type: str, optional
+        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+
 
     Example
     -------
@@ -508,13 +564,12 @@ class ConformerDecoder(nn.Module):
         num_layers,
         nhead,
         d_ffn,
-        input_shape=None,
-        d_model=None,
+        d_model,
         kdim=None,
         vdim=None,
-        dropout=0.1,
+        dropout=0.0,
         activation=Swish,
-        kernel_size=31,
+        kernel_size=3,
         bias=True,
         causal=False,
         attention_type="RelPosMHAXL",
@@ -554,18 +609,23 @@ class ConformerDecoder(nn.Module):
         """
         Arguments
         ----------
-        tgt : tensor
-            The sequence to the decoder layer (required).
-        memory : tensor
-            The sequence from the last layer of the encoder (required).
-        tgt_mask : tensor
-            The mask for the tgt sequence (optional).
-        memory_mask : tensor
-            The mask for the memory sequence (optional).
-        tgt_key_padding_mask : tensor
-            The mask for the tgt keys per batch (optional).
-        memory_key_padding_mask : tensor
-            The mask for the memory keys per batch (optional).
+        tgt: torch.Tensor
+            The sequence to the decoder layer.
+        memory: torch.Tensor
+            The sequence from the last layer of the encoder.
+        tgt_mask: torch.Tensor, optional, optional
+            The mask for the tgt sequence.
+        memory_mask: torch.Tensor, optional
+            The mask for the memory sequence.
+        tgt_key_padding_mask : torch.Tensor, optional
+            The mask for the tgt keys per batch.
+        memory_key_padding_mask : torch.Tensor, optional
+            The mask for the memory keys per batch.
+        pos_emb_tgt: torch.Tensor, torch.nn.Module, optional
+            Module or tensor containing the target sequence positional embeddings for each attention layer.
+        pos_embs_src: torch.Tensor, torch.nn.Module, optional
+            Module or tensor containing the source sequence positional embeddings for each attention layer.
+        
         """
         output = tgt
         self_attns, multihead_attns = [], []
