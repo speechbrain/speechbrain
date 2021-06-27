@@ -50,7 +50,7 @@ ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
-sorting: random
+sorting: ascending
 
 # stages related parameters
 stage_one_epochs: 90
@@ -87,7 +87,7 @@ vocab_size: 5000
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.1
+label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2
