@@ -10,7 +10,7 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
-from .conformer import ConformerEncoder, ConformerDecoder
+from .conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 
@@ -67,7 +67,6 @@ class TransformerInterface(nn.Module):
     causal: bool, optional
         Whether the encoder should be causal or not (the decoder is always causal).
         If causal the Conformer convolutional layer is causal.
-
     """
 
     def __init__(
@@ -112,8 +111,9 @@ class TransformerInterface(nn.Module):
         # overrides any other pos_embedding
         if attention_type == "RelPosMHAXL":
             self.positional_encoding = RelPosEncXL(d_model)
-            self.positional_encoding_decoder = PositionalEncoding(d_model, max_length)
-
+            self.positional_encoding_decoder = PositionalEncoding(
+                d_model, max_length
+            )
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -157,17 +157,16 @@ class TransformerInterface(nn.Module):
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
             self.decoder = TransformerDecoder(
-                 num_layers=num_decoder_layers,
-                 nhead=nhead,
-                 d_ffn=d_ffn,
-                 d_model=d_model,
-                 dropout=dropout,
-                 activation=activation,
-                 normalize_before=normalize_before,
-                 causal=True,
-                 attention_type="regularMHA", # always use regular attention in decoder
+                num_layers=num_decoder_layers,
+                nhead=nhead,
+                d_ffn=d_ffn,
+                d_model=d_model,
+                dropout=dropout,
+                activation=activation,
+                normalize_before=normalize_before,
+                causal=True,
+                attention_type="regularMHA",  # always use regular attention in decoder
             )
-
 
     def forward(self, **kwags):
         """Users should modify this function according to their own tasks.
@@ -590,10 +589,7 @@ class TransformerDecoderLayer(nn.Module):
         else:
             tgt1 = tgt
 
-
         # multi-head attention over the target sequence and encoder states
-
-
 
         tgt2, multihead_attention = self.mutihead_attn(
             query=tgt1,
