@@ -10,6 +10,7 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
+
 from .conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
