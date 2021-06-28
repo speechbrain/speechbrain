@@ -375,6 +375,7 @@ class ScorerBuilder:
         ctc_weight=0.0,
         ngramlm_weight=0.0,
         coverage_weight=0.0,
+        length_weight=0.0,
         rnnlm_weight=0.0,
         transformerlm_weight=0.0,
         full_scorers=dict(),
@@ -390,6 +391,7 @@ class ScorerBuilder:
             ctc=ctc_weight,
             ngramlm=ngramlm_weight,
             coverage=coverage_weight,
+            length=length_weight,
             rnnlm=rnnlm_weight,
             transformerlm=transformerlm_weight,
         )
@@ -452,9 +454,9 @@ class ScorerBuilder:
     def check_scorers(self):
         """The error messages indicate scorers are not properly set."""
 
-        for k in {**self.full_scorers, **self.partial_scorers}.keys():
-            if self.weights[k] == 0.0:
-                raise ValueError("The weight of {} scorer is 0.0.".format(k))
+        # for k in {**self.full_scorers, **self.partial_scorers}.keys():
+        #    if self.weights[k] == 0.0:
+        #        raise ValueError("The weight of {} scorer is 0.0.".format(k))
 
         if not 0.0 <= self.weights["ctc"] <= 1.0:
             raise ValueError("ctc_weight should not > 1.0 and < 0.0")

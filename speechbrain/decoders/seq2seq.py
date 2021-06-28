@@ -223,6 +223,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The ratio of maximum decoding steps to length of encoder states.
     beam_size : int
         The width of beam.
+    vocab_size : int
+        The size of vocabulary.
+    scorer: speechbrain.decoders.scorers.ScorerBuilder
+        Scorer instance.
     topk : int
         The number of hypothesis to return. (default: 1)
     return_log_probs : bool
@@ -234,9 +238,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         reference: https://arxiv.org/abs/1904.02619
     length_normalization : bool
         Whether to divide the scores by the length. (default: True)
-    length_rewarding : float
-        The coefficient of length rewarding (γ).
-        log P(y|x) + λ log P_LM(y) + γ*len(y). (default: 0.0)
     blank_index : int
         The index of the blank token.
     using_max_attn_shift: bool
@@ -258,13 +259,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
-        scorer=None,  # scorer instance
+        vocab_size,
+        scorer=None,
         topk=1,
         return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
-        length_rewarding=0,
         blank_index=0,
         using_max_attn_shift=False,
         max_attn_shift=60,
@@ -274,32 +275,24 @@ class S2SBeamSearcher(S2SBaseSearcher):
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
+        self.vocab_size = vocab_size
         self.scorer = scorer
         self.topk = topk
         self.return_log_probs = return_log_probs
         self.length_normalization = length_normalization
-        self.length_rewarding = length_rewarding
-
-        if self.length_normalization and self.length_rewarding > 0:
-            raise ValueError(
-                "length normalization is not compatible with length rewarding."
-            )
-
         self.using_eos_threshold = using_eos_threshold
         self.eos_threshold = eos_threshold
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
+        self.blank_index = blank_index
+        self.length_rewarding = 0.0
+        self.ctc_weight = 0.0
 
         # ctc related
-        self.ctc_weight = (
-            0.0 if self.scorer is None else self.scorer.weights["ctc"]
-        )
-        self.blank_index = blank_index
-        self.attn_weight = 1.0 - self.ctc_weight
-
-        assert (
-            0.0 <= self.ctc_weight <= 1.0
-        ), "ctc_weight should not > 1.0 and < 0.0"
+        if self.scorer is not None:
+            self.ctc_weight = self.scorer.weights["ctc"]
+            self.attn_weight = 1.0 - self.ctc_weight
+            self.length_rewarding = self.scorer.weights["length"]
 
         if (
             self.ctc_weight > 0.0
@@ -309,7 +302,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 "To perform joint ATT/CTC or CTC decoding, set blank, eos and bos to different indexes."
             )
 
-        # ctc already initialized
+        if self.length_normalization and self.length_rewarding > 0.0:
+            raise ValueError(
+                "length normalization is not compatible with length rewarding."
+            )
+
         self.minus_inf = minus_inf
 
     def _check_full_beams(self, hyps, beam_size):
@@ -332,8 +329,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_size = [self.beam_size for _ in range(len(hyps_len))]
         if hyps_len == beam_size:
             return True
-        else:
-            return False
+
+        return False
 
     def _check_attn_shift(self, attn, prev_attn_peak):
         """This method checks whether attention shift is more than attn_shift.
@@ -425,9 +422,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     continue
                 hyp = alived_seq[index, :]
                 log_probs = alived_log_probs[index, :]
-                final_scores = scores[index] + self.length_rewarding * (
-                    timesteps + 1
-                )
+                final_scores = scores[index]
                 hyps_and_scores[batch_id].append((hyp, log_probs, final_scores))
         return is_eos
 
@@ -532,9 +527,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         prev_attn_peak = torch.zeros(n_bh, device=device)
         attn = None
 
-        log_probs = torch.full(
-            (n_bh, 5000), 0.0, device=device
-        )  # TODO (SLin): replace 5000 with vocab size
+        log_probs = torch.full((n_bh, self.vocab_size), 0.0, device=device)
 
         for t in range(max_decode_steps):
             # terminate condition
@@ -546,9 +539,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     inp_tokens, memory, enc_states, enc_lens
                 )
             log_probs = self.attn_weight * log_probs
-
-            ## Keep the original value
-            vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
                 # Block the candidates that exceed the max shift
@@ -564,9 +554,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # Adding Scorer scores to log_prob if Scorer is not None.
             if self.scorer is not None:
-                if self.scorer.weights["ctc"] > 0.0:
-                    # block blank token
-                    log_probs[:, self.blank_index] = self.minus_inf
+                # block blank token
+                # if self.scorer.weights["ctc"] > 0.0:
+                #    log_probs[:, self.blank_index] = self.minus_inf
                 # score with scorers
                 log_probs, scorer_memory = self.scorer.score(
                     inp_tokens, scorer_memory, attn, log_probs, self.beam_size
@@ -584,7 +574,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     fill_value=self.minus_inf,
                 )
 
-            scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
+            scores = sequence_scores.unsqueeze(1).expand(-1, self.vocab_size)
             scores = scores + log_probs
 
             # length normalization
@@ -597,7 +587,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
             # The input for the next step, also the output of current step.
-            inp_tokens = (candidates % vocab_size).view(n_bh)
+            inp_tokens = (candidates % self.vocab_size).view(n_bh)
 
             scores = scores.view(n_bh)
             sequence_scores = scores
@@ -608,7 +598,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # The index of which beam the current top-K output came from in (t-1) timesteps.
             predecessors = (
-                candidates // vocab_size
+                candidates // self.vocab_size
                 + self.beam_offset.unsqueeze(1).expand_as(candidates)
             ).view(n_bh)
 
@@ -618,7 +608,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             if self.scorer is not None:
                 scorer_memory = self.scorer.permute_scorer_mem(
-                    scorer_memory, index=candidates
+                    scorer_memory, index=predecessors, candidates=candidates
                 )
 
             # If using_max_attn_shift, then the previous attn peak has to be permuted too.
