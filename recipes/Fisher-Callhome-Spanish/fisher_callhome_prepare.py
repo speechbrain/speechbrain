@@ -25,10 +25,18 @@ from pre_processing import (
 )
 
 from tqdm import tqdm
-from sacremoses import MosesPunctNormalizer, MosesTokenizer
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 from speechbrain.processing.speech_augmentation import Resample
+
+try:
+    from sacremoses import MosesPunctNormalizer, MosesTokenizer
+except ImportError:
+    err_msg = (
+        "The optional dependency pandas must be installed to run this recipe.\n"
+    )
+    err_msg += "Install using `pip install sacremoses`.\n"
+    raise ImportError(err_msg)
 
 logger = logging.getLogger(__name__)
 torchaudio_backend = get_torchaudio_backend()
