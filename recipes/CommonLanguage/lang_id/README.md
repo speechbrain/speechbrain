@@ -1,15 +1,5 @@
 # Language Identification experiments with CommonLanguage.
-This folder contains scripts for running language identificationexperiments with the [CommonLanguage](https://drive.google.com/uc?id=1Vzgod6NEYO1oZoz_EcgpZkUO9ohQcO1F) dataset. These experiments were highly inspired by Speaker Identification tasks on VoxCeleb and follow a similar path.
-
-# Training [X-Vectors](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf)
-Run the following command to train xvectors:
-
-`python train.py hparams/train_xvectors.yaml`
-
-The experiment is fine-tuning of the trained speaker embeddings done for Speaker Identification task on VoxCeleb, which can be found on [HuggingFace](https://huggingface.co/speechbrain/spkrec-xvect-voxceleb). Therefore, most of the architecture choices come from that task.
-
-Data augmentation and environmental corruption are done by concatenating waveforms, dropout, speed change, reverberation, noise, and noise+rev. The batch is double size of the original one. This may lead to
-better performance, at the cost of longer training time and higher compute resourses.
+This folder contains scripts for running language identificationexperiments with the [CommonLanguage](https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1) dataset. These experiments were highly inspired by Speaker Identification tasks on VoxCeleb and follow a similar path.
 
 # Training [ECAPA-TDNN](https://arxiv.org/abs/2005.07143)
 Similar to the X-Vector a bigger and more powerful ECAPA-TDNN model can be used.
@@ -20,6 +10,16 @@ The experiment is also fine-tuning of the trained speaker embeddings done for Sp
 
 Data augmentation and environmental corruption are done by concatenating waveforms, dropout, speed change, reverberation, noise, and noise+rev. The batch is double size of the original one. This may lead to
 better performance, at the cost of longer training time and higher compute resourses.
+
+# Performance
+| Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
+|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
+| 21-06-28 | train.yaml |  14.9 | https://drive.google.com/drive/folders/1btxc_H27AP_f6u4X47FM0LSteUdzhfFR?usp=sharing | 1xV100 16GB |
+
+Each epoch takes approximately 14 minutes on an NVIDIA V100.
+
+# Inference
+
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

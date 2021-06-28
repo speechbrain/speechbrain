@@ -1,7 +1,7 @@
 """
 Data preparation of CommonLangauge dataset for LID.
 
-Download: https://drive.google.com/uc?id=1Vzgod6NEYO1oZoz_EcgpZkUO9ohQcO1F
+Download: https://zenodo.org/record/5036977#.YNo1mHVKg5k
 
 Author
 ------
@@ -12,10 +12,8 @@ import os
 import csv
 import logging
 import torchaudio
-import speechbrain as sb
 from tqdm.contrib import tzip
 from speechbrain.utils.data_utils import get_all_files
-
 
 logger = logging.getLogger(__name__)
 
@@ -307,72 +305,3 @@ def check_common_language_folder(data_folder):
     if len(set(os.listdir(data_folder)) & set(LANGUAGES)) < 2:
         err_msg = f"{data_folder} must have at least two languages from CommonLanguage in it."
         raise FileNotFoundError(err_msg)
-
-
-def dataio_prep(hparams):
-    """ This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions.
-    We expect `prepare_common_language` to have been called before this,
-    so that the `train.csv`, `dev.csv`,  and `test.csv` manifest files
-    are available.
-
-    Arguments
-    ---------
-    hparams : dict
-        This dictionary is loaded from the `train.yaml` file, and it includes
-        all the hyperparameters needed for dataset construction and loading.
-
-    Returns
-    -------
-    datasets : dict
-        Contains two keys, "train" and "dev" that correspond
-        to the appropriate DynamicItemDataset object.
-    """
-
-    # Initialization of the label encoder. The label encoder assignes to each
-    # of the observed label a unique index (e.g, 'lang01': 0, 'lang02': 1, ..)
-    language_encoder = sb.dataio.encoder.CategoricalEncoder()
-
-    # Define audio pipeline
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
-        sig, _ = torchaudio.load(wav)
-        sig = sig.transpose(0, 1).squeeze(1)
-
-        return sig
-
-    # Define label pipeline:
-    @sb.utils.data_pipeline.takes("language")
-    @sb.utils.data_pipeline.provides("language", "language_encoded")
-    def label_pipeline(language):
-        yield language
-        language_encoded = language_encoder.encode_label_torch(language)
-        yield language_encoded
-
-    # Define datasets. We also connect the dataset with the data processing
-    # functions defined above.
-    datasets = {}
-    for dataset in ["train", "dev", "test"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=os.path.join(hparams["save_folder"], dataset + ".csv"),
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline, label_pipeline],
-            output_keys=["id", "sig", "language_encoded"],
-        )
-
-    # Load or compute the label encoder (with multi-GPU DDP support)
-    # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
-    language_encoder_file = os.path.join(
-        hparams["save_folder"], "language_encoder.txt"
-    )
-    language_encoder.load_or_create(
-        path=language_encoder_file,
-        from_didatasets=[datasets["train"]],
-        output_key="language",
-    )
-
-    return datasets, language_encoder
