@@ -238,8 +238,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         reference: https://arxiv.org/abs/1904.02619
     length_normalization : bool
         Whether to divide the scores by the length. (default: True)
-    blank_index : int
-        The index of the blank token.
     using_max_attn_shift: bool
         Whether using the max_attn_shift constraint. (default: False)
     max_attn_shift: int
@@ -266,7 +264,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
-        blank_index=0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -284,30 +281,29 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.eos_threshold = eos_threshold
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
-        self.blank_index = blank_index
-        self.length_rewarding = 0.0
         self.ctc_weight = 0.0
+        self.minus_inf = minus_inf
 
-        # ctc related
         if self.scorer is not None:
+            # Check indices for ctc
+            all_scorers = {
+                **self.scorer.full_scorers,
+                **self.scorer.partial_scorers,
+            }
+            blank_index = all_scorers["ctc"].blank_index
+            if len({bos_index, eos_index, blank_index}) < 3:
+                raise ValueError(
+                    "Set blank, eos and bos to different indexes for joint ATT/CTC or CTC decoding"
+                )
+
             self.ctc_weight = self.scorer.weights["ctc"]
             self.attn_weight = 1.0 - self.ctc_weight
-            self.length_rewarding = self.scorer.weights["length"]
 
-        if (
-            self.ctc_weight > 0.0
-            and len({self.bos_index, self.eos_index, self.blank_index}) < 3
-        ):
-            raise ValueError(
-                "To perform joint ATT/CTC or CTC decoding, set blank, eos and bos to different indexes."
-            )
-
-        if self.length_normalization and self.length_rewarding > 0.0:
-            raise ValueError(
-                "length normalization is not compatible with length rewarding."
-            )
-
-        self.minus_inf = minus_inf
+            # Check length normalization
+            if length_normalization and self.scorer.weights["length"] > 0.0:
+                raise ValueError(
+                    "Length normalization is not compatible with length rewarding."
+                )
 
     def _check_full_beams(self, hyps, beam_size):
         """This method checks whether hyps has been full.
@@ -554,9 +550,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # Adding Scorer scores to log_prob if Scorer is not None.
             if self.scorer is not None:
-                # block blank token
-                # if self.scorer.weights["ctc"] > 0.0:
-                #    log_probs[:, self.blank_index] = self.minus_inf
                 # score with scorers
                 log_probs, scorer_memory = self.scorer.score(
                     inp_tokens, scorer_memory, attn, log_probs, self.beam_size
@@ -734,7 +727,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     linear=lin,
     ...     bos_index=4,
     ...     eos_index=4,
-    ...     blank_index=4,
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ...     beam_size=2,

@@ -411,7 +411,7 @@ class ScorerBuilder:
             self.weights["ctc"] = 1.0
             self.weights["coverage"] = 0.0
 
-        self.check_scorers()
+        self._validate_scorer()
 
     def score(self, inp_tokens, memory, attn, log_probs, beam_size):
         new_memory = dict()
@@ -451,12 +451,8 @@ class ScorerBuilder:
             memory[k] = impl.reset_mem(x, enc_lens)
         return memory
 
-    def check_scorers(self):
-        """The error messages indicate scorers are not properly set."""
-
-        # for k in {**self.full_scorers, **self.partial_scorers}.keys():
-        #    if self.weights[k] == 0.0:
-        #        raise ValueError("The weight of {} scorer is 0.0.".format(k))
+    def _validate_scorer(self):
+        """These error messages indicate scorers are not properly set."""
 
         if not 0.0 <= self.weights["ctc"] <= 1.0:
             raise ValueError("ctc_weight should not > 1.0 and < 0.0")
@@ -466,7 +462,6 @@ class ScorerBuilder:
                 raise ValueError(
                     "CTC scorer should be a full scorer when it's weight is 1.0"
                 )
-
             if self.weights["coverage"] > 0.0:
                 raise ValueError(
                     "Pure CTC scorer doesn't have attention weights for coverage scorer"
