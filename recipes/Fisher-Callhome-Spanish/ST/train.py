@@ -31,11 +31,9 @@ class ST(sb.core.Brain):
 
         wavs, wav_lens = batch.sig
 
-        # for translation task
-        tokens_bos, _ = batch.tokens_bos
-
-        # for asr task
-        transcription_bos, _ = batch.transcription_bos
+        tokens_bos, _ = batch.tokens_bos  # for translation task
+        transcription_bos, _ = batch.transcription_bos  # for asr task
+        transcription_tokens, _ = batch.transcription_tokens  # for mt task
 
         # compute features
         feats = self.hparams.compute_features(wavs)
@@ -52,9 +50,7 @@ class ST(sb.core.Brain):
         # asr output layer for seq2seq log-probabilities
         if self.hparams.asr_weight > 0 and self.hparams.ctc_weight < 1:
             asr_pred = self.hparams.Transformer.forward_asr(
-                enc_out,
-                transcription_bos,
-                pad_idx=self.hparams.pad_index,
+                enc_out, transcription_bos, pad_idx=self.hparams.pad_index,
             )
             asr_pred = self.hparams.asr_seq_lin(asr_pred)
             asr_p_seq = self.hparams.log_softmax(asr_pred)
@@ -73,7 +69,7 @@ class ST(sb.core.Brain):
         mt_p_seq = None
         if self.hparams.mt_weight > 0:
             _, mt_pred = self.hparams.Transformer.forward_mt(
-                transcription_bos,
+                transcription_tokens,
                 tokens_bos,
                 pad_idx=self.hparams.pad_index,
             )
@@ -101,13 +97,12 @@ class ST(sb.core.Brain):
         (p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps,) = predictions
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
 
+        tokens_eos, tokens_eos_lens = batch.tokens_eos
         transcription_eos, transcription_eos_lens = batch.transcription_eos
         transcription_tokens, transcription_lens = batch.transcription_tokens
 
-        # loss for different task
+        # loss for different tasks
         attention_loss = 0
         asr_ctc_loss = 0
         asr_attention_loss = 0
@@ -127,21 +122,21 @@ class ST(sb.core.Brain):
         # asr ctc loss
         if self.hparams.ctc_weight > 0 and self.hparams.asr_weight > 0:
             asr_ctc_loss = self.hparams.ctc_cost(
-                p_ctc,
-                transcription_tokens,
-                wav_lens,
-                transcription_lens,
+                p_ctc, transcription_tokens, wav_lens, transcription_lens,
             )
 
         # mt attention loss
         if self.hparams.mt_weight > 0:
             mt_loss = self.hparams.seq_cost(
-                mt_p_seq, tokens_eos, length=tokens_lens,
+                mt_p_seq, tokens_eos, length=tokens_eos_lens,
             )
 
-        asr_loss = (self.hparams.ctc_weight * asr_ctc_loss) + (1 - self.hparams.ctc_weight) * asr_attention_loss
+        asr_loss = (self.hparams.ctc_weight * asr_ctc_loss) + (
+            1 - self.hparams.ctc_weight
+        ) * asr_attention_loss
         loss = (
-            (1 - self.hparams.asr_weight - self.hparams.mt_weight) * attention_loss
+            (1 - self.hparams.asr_weight - self.hparams.mt_weight)
+            * attention_loss
             + self.hparams.asr_weight * asr_loss
             + self.hparams.mt_weight * mt_loss
         )
@@ -153,7 +148,10 @@ class ST(sb.core.Brain):
             if stage == sb.Stage.TEST:
                 # 4 references bleu score
                 predictions = [
-                    en_detoeknizer.detokenize(hparams["tokenizer"].decode_ids(utt_seq).split(" ")) for utt_seq in hyps
+                    en_detoeknizer.detokenize(
+                        hparams["tokenizer"].decode_ids(utt_seq).split(" ")
+                    )
+                    for utt_seq in hyps
                 ]
 
                 four_references = [
@@ -166,19 +164,26 @@ class ST(sb.core.Brain):
                 targets = []
                 for reference in four_references:
                     detokenized_translation = [
-                        en_detoeknizer.detokenize(translation.split(" ")) for translation in reference
+                        en_detoeknizer.detokenize(translation.split(" "))
+                        for translation in reference
                     ]
                     targets.append(detokenized_translation)
 
                 self.bleu_metric.append(ids, predictions, targets)
-            elif current_epoch % valid_search_interval == 0 and stage == sb.Stage.VALID:
-                # Decode token terms to words
+            elif (
+                current_epoch % valid_search_interval == 0
+                and stage == sb.Stage.VALID
+            ):
                 predictions = [
-                    en_detoeknizer.detokenize(hparams["tokenizer"].decode_ids(utt_seq).split(" ")) for utt_seq in hyps
+                    en_detoeknizer.detokenize(
+                        hparams["tokenizer"].decode_ids(utt_seq).split(" ")
+                    )
+                    for utt_seq in hyps
                 ]
 
                 targets = [
-                    en_detoeknizer.detokenize(translation.split(" ")) for translation in batch.translation_0
+                    en_detoeknizer.detokenize(translation.split(" "))
+                    for translation in batch.translation_0
                 ]
                 self.bleu_metric.append(ids, predictions, [targets])
 
@@ -236,7 +241,10 @@ class ST(sb.core.Brain):
 
             if stage == sb.Stage.TEST:
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
-            elif current_epoch % valid_search_interval == 0 and stage == sb.Stage.VALID:
+            elif (
+                current_epoch % valid_search_interval == 0
+                and stage == sb.Stage.VALID
+            ):
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
 
         # log stats and save checkpoint at end-of-epoch
@@ -375,11 +383,7 @@ def dataio_prepare(hparams):
     # The tokens without BOS or EOS is for computing CTC loss.
     @sb.utils.data_pipeline.takes("translation_0")
     @sb.utils.data_pipeline.provides(
-        "translation_0",
-        "tokens_list",
-        "tokens_bos",
-        "tokens_eos",
-        "tokens",
+        "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens",
     )
     def one_reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
@@ -394,10 +398,7 @@ def dataio_prepare(hparams):
         yield tokens
 
     @sb.utils.data_pipeline.takes(
-        "translation_0",
-        "translation_1",
-        "translation_2",
-        "translation_3",
+        "translation_0", "translation_1", "translation_2", "translation_3",
     )
     @sb.utils.data_pipeline.provides(
         "translation_0",
@@ -509,7 +510,7 @@ def dataio_prepare(hparams):
     # faster  because we minimize zero-padding. In most of the cases, this
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
-        # use smaller dataset to debug model
+        # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
                 key_min_value={"duration": 1},
@@ -524,23 +525,27 @@ def dataio_prepare(hparams):
                 reverse=True,
             )
         else:
-            datasets["train"] = datasets["train"].filtered_sorted(sort_key="duration")
-            datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="duration")
+            datasets["train"] = datasets["train"].filtered_sorted(
+                sort_key="duration"
+            )
+            datasets["valid"] = datasets["valid"].filtered_sorted(
+                sort_key="duration"
+            )
 
         hparams["train_dataloader_opts"]["shuffle"] = False
         hparams["valid_dataloader_opts"]["shuffle"] = False
     elif hparams["sorting"] == "descending":
-        # use smaller dataset to debug model
+        # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
                 key_min_value={"duration": 1},
-                key_max_value={"duration": 6},
+                key_max_value={"duration": 5},
                 sort_key="duration",
                 reverse=True,
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
                 key_min_value={"duration": 1},
-                key_max_value={"duration": 6},
+                key_max_value={"duration": 5},
                 sort_key="duration",
                 reverse=True,
             )
@@ -555,6 +560,17 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
         hparams["valid_dataloader_opts"]["shuffle"] = False
     elif hparams["sorting"] == "random":
+        # use smaller dataset to debug the model
+        if hparams["debug"]:
+            datasets["train"] = datasets["train"].filtered_sorted(
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 5},
+                sort_key="duration",
+            )
+            datasets["valid"] = datasets["valid"].filtered_sorted(
+                key_min_value={"duration": 1}, key_max_value={"duration": 5},
+            )
+
         hparams["train_dataloader_opts"]["shuffle"] = True
     else:
         raise NotImplementedError(
@@ -594,7 +610,7 @@ if __name__ == "__main__":
         opt_class=hparams["Adam"],
         hparams=hparams,
         run_opts=run_opts,
-        checkpointer=hparams["checkpointer"]
+        checkpointer=hparams["checkpointer"],
     )
 
     st_brain.fit(
@@ -607,5 +623,6 @@ if __name__ == "__main__":
 
     for dataset in ["dev", "dev2", "test"]:
         st_brain.evaluate(
-            datasets[dataset], test_loader_kwargs=hparams["test_dataloader_opts"],
+            datasets[dataset],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
         )
