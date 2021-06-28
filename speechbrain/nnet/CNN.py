@@ -265,9 +265,7 @@ class SincConv(nn.Module):
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _manage_padding(
-        self, x, kernel_size: int, dilation: int, stride: int,
-    ):
+    def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -293,6 +291,244 @@ class SincConv(nn.Module):
         x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
+
+
+class GaussConv1d(nn.Module):
+    """This function implements 1d gaussian convolution.
+    
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    kernel_size : int
+        Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
+    stride : int
+        Stride factor of the convolutional filters. When the stride factor > 1,
+        a decimation in time is performed.
+    dilation : int
+        Dilation factor of the convolutional filters.
+    padding : str
+        (same, valid, causal). If "valid", no padding is performed.
+        If "same" and stride is 1, output shape is the same as the input shape.
+        "causal" results in causal (dilated) convolutions.
+    padding_mode : str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    skip_transpose : bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 40, 16])
+    >>> gauss_cnn = GaussConv1d(
+    ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=5
+    ... )
+    >>> out_tensor = gauss_cnn(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 40, 8])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        kernel_size,
+        input_shape=None,
+        in_channels=None,
+        stride=1,
+        dilation=1,
+        padding="same",
+        groups=1,
+        bias=True,
+        padding_mode="reflect",
+        skip_transpose=False,
+    ):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.out_channels = out_channels
+        self.in_channels = in_channels
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.padding_mode = padding_mode
+        self.unsqueeze = False
+        self.skip_transpose = skip_transpose
+
+        if input_shape is None and self.in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if self.in_channels is None:
+            self.in_channels = self._check_input_shape(input_shape)
+
+        # Initialize Gaussian filters
+        self._init_gauss_conv(
+            self.in_channels, self.out_channels, self.kernel_size
+        )
+
+    def _init_gauss_conv(self, in_channels, out_channels, kernel_size):
+        """Initializes the parameters of the gaussian conv layer."""
+
+        # Parameter initialization
+        mean = torch.zeros(in_channels * out_channels)
+        variance = torch.rand(in_channels * out_channels)
+        amplitude = torch.rand(out_channels, in_channels)
+
+        # Parameter cast
+        self.mean = nn.Parameter(mean)
+        self.variance = nn.Parameter(variance)
+        self.amplitude = nn.Parameter(amplitude)
+
+        self.points = self._compute_kernel_points(
+            in_channels, out_channels, kernel_size
+        )
+
+        # Base matrix used for diagonal covariance matrix
+        self.diag_matrix = torch.eye(in_channels * out_channels)
+
+    def _compute_kernel_points(self, in_channels, out_channels, kernel_size):
+        """Computes the grid points where to evaluate the gaussians."""
+        bound = (kernel_size - 1) / 2
+        n_dim = in_channels * out_channels
+        points = torch.zeros(n_dim * kernel_size, n_dim)
+        kernel_points = torch.linspace(-bound, bound, steps=kernel_size)
+        for i in range(n_dim):
+            beg_index = i * kernel_size
+            end_index = beg_index + kernel_size
+            points[beg_index:end_index, i] = kernel_points
+        return points
+
+    def _compute_gaussians(self, mean, covariance_matrix, x):
+        """Computes the gaussians. To compute in parallel multiple gaussian
+        with different varinces and means, we here rely on a multivariate 
+        gaussian distribution coupled with a diagonal covariance matrix."""
+        sigma = covariance_matrix.diag()
+        out = torch.exp(-0.5 * ((x - mean) ** 2 / sigma).sum(1))
+        return out
+
+    def _get_gauss_filters(self):
+        """Computes the kernels given the currrent mean, variance, and amplitude."""
+        covariance_matrix = self.diag_matrix * self.variance
+        kernels = self._compute_gaussians(
+            self.mean, covariance_matrix, self.points
+        )
+
+        # Separate input and output channels
+        kernels = kernels.reshape(
+            self.out_channels, self.in_channels, self.kernel_size
+        )
+
+        # sum of filters always one
+        kernels = kernels / (kernels.sum(-1).unsqueeze(-1))
+
+        # Different amplitude for each filter
+        kernels = kernels * self.amplitude.unsqueeze(-1)
+
+        # Re-Normalize such that all inout filters sums to one
+        kernels = kernels / kernels.sum(-1).sum(-1).unsqueeze(1).unsqueeze(1)
+        return kernels
+
+    def forward(self, x):
+        """Returns the output of the convolution.
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel)
+            input to convolve. 2d or 4d tensors are expected.
+        """
+
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
+        if self.unsqueeze:
+            x = x.unsqueeze(1)
+
+        if self.padding == "same":
+            x = self._manage_padding(
+                x, self.kernel_size, self.dilation, self.stride
+            )
+
+        elif self.padding == "causal":
+            num_pad = (self.kernel_size - 1) * self.dilation
+            x = F.pad(x, (num_pad, 0))
+
+        elif self.padding == "valid":
+            pass
+
+        else:
+            raise ValueError(
+                "Padding must be 'same', 'valid' or 'causal'. Got "
+                + self.padding
+            )
+
+        gauss_filters = self._get_gauss_filters()
+
+        wx = F.conv1d(
+            x,
+            gauss_filters,
+            stride=self.stride,
+            padding=0,
+            dilation=self.dilation,
+        )
+
+        if self.unsqueeze:
+            wx = wx.squeeze(1)
+
+        if not self.skip_transpose:
+            wx = wx.transpose(1, -1)
+
+        return wx
+
+    def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
+        """This function performs zero-padding on the time axis
+        such that their lengths is unchanged after the convolution.
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+        kernel_size : int
+            Size of kernel.
+        dilation : int
+            Dilation used.
+        stride : int
+            Stride.
+        """
+
+        # Detecting input shape
+        L_in = x.shape[-1]
+
+        # Time padding
+        padding = get_padding_elem(L_in, stride, kernel_size, dilation)
+
+        # Applying padding
+        x = F.pad(x, padding, mode=self.padding_mode)
+
+        return x
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            self.unsqueeze = True
+            in_channels = 1
+        elif self.skip_transpose:
+            in_channels = shape[1]
+        elif len(shape) == 3:
+            in_channels = shape[2]
+        else:
+            raise ValueError(
+                "conv1d expects 2d, 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
 
 
 class Conv1d(nn.Module):
@@ -418,9 +654,7 @@ class Conv1d(nn.Module):
 
         return wx
 
-    def _manage_padding(
-        self, x, kernel_size: int, dilation: int, stride: int,
-    ):
+    def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -927,7 +1161,7 @@ class DepthwiseSeparableConv1d(nn.Module):
         )
 
         self.pointwise = Conv1d(
-            out_channels, kernel_size=1, input_shape=input_shape,
+            out_channels, kernel_size=1, input_shape=input_shape
         )
 
     def forward(self, x):
@@ -1014,7 +1248,7 @@ class DepthwiseSeparableConv2d(nn.Module):
         )
 
         self.pointwise = Conv2d(
-            out_channels, kernel_size=(1, 1), input_shape=input_shape,
+            out_channels, kernel_size=(1, 1), input_shape=input_shape
         )
 
     def forward(self, x):
