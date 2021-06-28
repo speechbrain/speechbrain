@@ -26,12 +26,18 @@ class BaseScorer:
         inp_tokens : torch.Tensor
             The input tensor of the current timestep.
         memory : No limit
-            The memory variables input for this timestep.
+            The scorer states for this timestep.
         candidates : torch.Tensor
-            (Batch_size x Beam_size, Scorer_beam_size). The pruned tokens for
+            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
             scoring. If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        ---------
+        torch.Tensor
+            (batch_size x beam_size, vocab_size), Scores for the next tokens.
+
         """
         raise NotImplementedError
 
@@ -45,9 +51,9 @@ class BaseScorer:
         memory : No limit
             The memory variables input for this timestep.
         index : torch.Tensor
-            (Batch_size, Beam_size). The index of the previous path.
+            (batch_size, beam_size). The index of the previous path.
         """
-        return None, None
+        return None
 
     def reset_mem(self, x, enc_lens):
         """This method should implement the resetting of
@@ -333,6 +339,27 @@ class CoverageScorer(BaseScorer):
     def reset_mem(self, x, enc_lens):
         self.time_step = 0
         return None
+
+
+class LengthScorer(BaseScorer):
+    """A length rewarding scorer.
+
+    Arguments
+    ---------
+    vocab_size: int
+        The total number of tokens.
+    """
+
+    def __init__(self, vocab_size):
+        self.vocab_size = vocab_size
+
+    def score(self, inp_tokens, memory, candidates, attn):
+        return (
+            torch.tensor(
+                [1.0], device=inp_tokens.device, dtype=inp_tokens.dtype
+            ).expand(inp_tokens.size(0), self.vocab_size),
+            None,
+        )
 
 
 class ScorerBuilder:
