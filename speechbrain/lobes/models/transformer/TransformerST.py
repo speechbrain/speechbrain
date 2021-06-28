@@ -9,7 +9,6 @@ import torch  # noqa 42
 from torch import nn
 from typing import Optional
 
-from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
     get_lookahead_mask,
@@ -22,6 +21,7 @@ from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
 from speechbrain.nnet.activations import Swish
 
 logger = logging.getLogger(__name__)
+
 
 class TransformerST(TransformerASR):
     """This is an implementation of transformer model for ST.
@@ -152,7 +152,7 @@ class TransformerST(TransformerASR):
 
     def forward_mt(self, src, tgt, pad_idx=0):
         """This method implements a forward step for mt task
-        
+
         Arguments
         ----------
         src (transcription): tensor
@@ -188,7 +188,6 @@ class TransformerST(TransformerASR):
         )
 
         return encoder_out, decoder_out
-        
 
     def decode_asr(self, tgt, encoder_out):
         """This method implements a decoding step for the transformer model.
