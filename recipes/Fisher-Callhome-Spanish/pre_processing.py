@@ -18,7 +18,7 @@ def remove_punctuation(text: str) -> str:
 
     # remove consecutive commas and spaces
     text = re.sub(r"\s+", " ", text)
-    text = re.sub(f"^\s+", "", text)
+    text = re.sub(f"^\\s+", "", text)
     text = re.sub(r"\s+$", "", text)
 
     return text
@@ -46,7 +46,7 @@ def normalize_punctuation(text: str) -> str:
     # fisher_train
     text = re.sub(r"i\/he", "i", text)
     text = re.sub(r"i\/she", "i", text)
-    text = re.sub(r" \/\?", "\?", text)
+    text = re.sub(r" \/\?", "\\?", text)
     text = re.sub(r" \/ ", " ", text)
     text = re.sub(r"a\/c", "", text)
     text = re.sub(r"stay\/", "stay", text)
@@ -55,7 +55,7 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"follow\/", "follow", text)
     text = re.sub(r"Jose\/Josefina", "Jose", text)
     text = re.sub(r"welfare\/foreign", "welfare", text)
-    text = re.sub(r'\<foreign lang=\"English\"', "", text)
+    text = re.sub(r"\<foreign lang=\"English\"", "", text)
     text = re.sub(r"\/foreign/", "", text)
     text = re.sub(r"\<plural\>", "", text)
     text = re.sub(r"\<barely makes any sense\>", "", text)
@@ -63,7 +63,11 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"\<last word does not fit there\>", "", text)
     text = re.sub(r"\<players with the meaning of singers\>", "", text)
     text = re.sub(r"\<this phrase barely made any sense whatsoever\>", "", text)
-    text = re.sub(r"\<colorcito does not exist as a word so I have no ideea what he means about that\>", "", text)
+    text = re.sub(
+        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>",
+        "",
+        text,
+    )
     text = re.sub(r"\<foreign", "", text)
     text = re.sub(r"foreign\>", "", text)
 
@@ -90,7 +94,11 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"\<\?\>", "", text)
     text = re.sub(r"\<metaphoric meaning\>", "", text)
     text = re.sub(r"\<missing text \? \>", "", text)
-    text = re.sub(r"\<broken phrase but I tried to guess what would it mean if it was complete\>", "", text)
+    text = re.sub(
+        r"\<broken phrase but I tried to guess what would it mean if it was complete\>",
+        "",
+        text,
+    )
 
     # fisher_test
     text = re.sub(r"she\/he", "she", text)
@@ -105,7 +113,11 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"\<very bad phrase\>", "", text)
     text = re.sub(r"\<poorly written phrase\>", "", text)
     text = re.sub(r"\<this phrase barely even made sense\>", "", text)
-    text = re.sub(r"\<very poorly written phrase but I think this is what was supposed to mean\>", "", text)
+    text = re.sub(
+        r"\<very poorly written phrase but I think this is what was supposed to mean\>",
+        "",
+        text,
+    )
     text = re.sub(r"what\)\)", "what", text)
 
     # remove noisy punctuation
@@ -187,7 +199,9 @@ def clean_translation(translation: str) -> str:
 def remove_labels(transcription: str):
     """remove label such as <laugh> from transcript"""
 
-    transcription = re.sub(r"<\s*[/]*\s*\s*for[ei][ei]g[nh]\s*\w*>", "", transcription)
+    transcription = re.sub(
+        r"<\s*[/]*\s*\s*for[ei][ei]g[nh]\s*\w*>", "", transcription
+    )
     transcriptions = re.findall(r"<lname>\([^<]*\)<\/lname>", transcription)
 
     if len(transcriptions) > 0:
@@ -225,14 +239,3 @@ def remove_labels(transcription: str):
         transcription = re.sub(r"^\s\s*", " ", transcription)
 
     return transcription
-
-
-if __name__ == "__main__":
-    tests = [
-        "i'm test.",
-        "hello world",
-        "i don't like it at all.        "
-    ]
-
-    for test in tests:
-        print(remove_punctuation(test))
