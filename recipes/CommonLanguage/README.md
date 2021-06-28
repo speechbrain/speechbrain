@@ -1,4 +1,4 @@
-# CommonLanguage Dataset [[download]](https://drive.google.com/uc?id=1Vzgod6NEYO1oZoz_EcgpZkUO9ohQcO1F)
+# CommonLanguage Dataset [[download]](https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1)
 
 This dataset is composed of speakers of 45 languages that were carefully selected from [CommonVoice](https://commonvoice.mozilla.org/) database. The total duration of audio recordings is 45.1 hours. The data is already split into train, dev (validation) and test sets.
 

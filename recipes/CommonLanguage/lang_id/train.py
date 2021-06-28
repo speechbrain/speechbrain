@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
+import os
 import sys
 import torch
 import logging
-from torch import nn
+import torchaudio
 import speechbrain as sb
-import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
-from recipes.CommonLanguage.common_language_prepare import (
-    prepare_common_language,
-    dataio_prep,
-)
+from common_language_prepare import prepare_common_language
 
 """Recipe for training a LID system with CommonLanguage.
 
 To run this recipe, do the following:
 > python train.py hparams/train_ecapa_tdnn.yaml
-> python train.py hparams/train_xvectors.yaml
 
 Author
 ------
@@ -24,60 +20,6 @@ Author
 """
 
 logger = logging.getLogger(__name__)
-
-
-class CosClassifier(torch.nn.Module):
-    """This class implements the the classifier based on cosine similarity of the embeddings.
-    The magnitudes of the input embeddings are discarded as the datapoints are projected on
-    a unit-length hypersphere. This classifier is essentially a weight matrix, with each row
-    representing the center of a corresponding class.
-
-    Arguments
-    ---------
-    input_size : int
-        Dimensionality of the embeddings.
-    out_neurons : int
-        Number of classes.
-    dropout : float
-        Dropout rate is in range [0, 1] can be used a masking mechanism.
-    device : str
-        Device used, e.g., "cpu" or "cuda".
-
-    Example
-    -------
-    >>> clf = CosClassifier(input_size=2, out_neurons=2, dropout=0.2)
-    >>> embs = torch.tensor([[0.7, 1.0], [0.9, 0.8], [1.1, 0.6]])
-    >>> embs = embs.unsqueeze(1)
-    >>> output = clf(embs)
-    >>> ((output < -1.0) | (output > 1.0)).any()
-    tensor(False)
-    """
-
-    def __init__(self, input_size, out_neurons, dropout=None, device="cpu"):
-        super().__init__()
-        self.weight = nn.Parameter(
-            torch.FloatTensor(out_neurons, input_size, device=device)
-        )
-        nn.init.xavier_uniform_(self.weight)
-        if dropout is not None:
-            self.dropout = torch.nn.Dropout(p=dropout)
-        else:
-            self.dropout = dropout
-
-    def forward(self, x):
-        """Returns the output probabilities over classes.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            Torch tensor.
-        """
-        if self.dropout is not None:
-            x = self.dropout(x)
-        # Needs to be normalized to discard magnitudes
-        x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
-
-        return x.unsqueeze(1)
 
 
 # Brain class for Language ID training
@@ -248,6 +190,75 @@ class LID(sb.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
+
+
+def dataio_prep(hparams):
+    """ This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions.
+    We expect `prepare_common_language` to have been called before this,
+    so that the `train.csv`, `dev.csv`,  and `test.csv` manifest files
+    are available.
+
+    Arguments
+    ---------
+    hparams : dict
+        This dictionary is loaded from the `train.yaml` file, and it includes
+        all the hyperparameters needed for dataset construction and loading.
+
+    Returns
+    -------
+    datasets : dict
+        Contains two keys, "train" and "dev" that correspond
+        to the appropriate DynamicItemDataset object.
+    """
+
+    # Initialization of the label encoder. The label encoder assignes to each
+    # of the observed label a unique index (e.g, 'lang01': 0, 'lang02': 1, ..)
+    language_encoder = sb.dataio.encoder.CategoricalEncoder()
+
+    # Define audio pipeline
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        """Load the signal, and pass it and its length to the corruption class.
+        This is done on the CPU in the `collate_fn`."""
+        sig, _ = torchaudio.load(wav)
+        sig = sig.transpose(0, 1).squeeze(1)
+
+        return sig
+
+    # Define label pipeline:
+    @sb.utils.data_pipeline.takes("language")
+    @sb.utils.data_pipeline.provides("language", "language_encoded")
+    def label_pipeline(language):
+        yield language
+        language_encoded = language_encoder.encode_label_torch(language)
+        yield language_encoded
+
+    # Define datasets. We also connect the dataset with the data processing
+    # functions defined above.
+    datasets = {}
+    for dataset in ["train", "dev", "test"]:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=os.path.join(hparams["save_folder"], dataset + ".csv"),
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline, label_pipeline],
+            output_keys=["id", "sig", "language_encoded"],
+        )
+
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    # Please, take a look into the lab_enc_file to see the label to index
+    # mappinng.
+    language_encoder_file = os.path.join(
+        hparams["save_folder"], "language_encoder.txt"
+    )
+    language_encoder.load_or_create(
+        path=language_encoder_file,
+        from_didatasets=[datasets["train"]],
+        output_key="language",
+    )
+
+    return datasets, language_encoder
 
 
 # Recipe begins!

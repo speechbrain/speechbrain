@@ -9,13 +9,12 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset will be downloaded to the `data_folder`
-
-data_folder: !PLACEHOLDER
-output_folder: !PLACEHOLDER
+data_folder: !PLACEHOLDER # e.g. /localscratch/common_voice_kpd/
+output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 device: 'cuda:0'
@@ -95,11 +94,10 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-# Final classification (only a weight matrix)
-classifier: !new:train.CosClassifier
+# Classifier baseed on cosine distance
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: !ref <emb_dim>
     out_neurons: !ref <n_languages>
-
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -124,6 +122,7 @@ compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
         margin: 0.2
         scale: 30
 
+# Learning rates
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
@@ -152,9 +151,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         classifier: !ref <classifier>
         counter: !ref <epoch_counter>
 
-ckpt_interval_minutes: 60 # save checkpoint every N min
-
 # Load pretrained embedding module
+# Note: in this case, we pre-train with the ECAPA-TDNN model trained on voxceleb
+# for speaker-id (this leads to a performance improvement).
 embedding_model_path: speechbrain/spkrec-ecapa-voxceleb/embedding_model.ckpt
 
 # Pretrained ECAPA embeddings from SpeakerID on VoxCeleb
