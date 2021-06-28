@@ -5,6 +5,7 @@ Authors
 * Artem Ploujnikov 2021
 """
 import os
+import torch
 import torchvision
 
 from speechbrain.utils.checkpoints import torch_save
@@ -26,6 +27,20 @@ class PretrainedModelMixin:
             torch_save(value, path)
 
 class ProgressSampleImageMixin:
+    _FORMATS = {
+        'raw': {
+            'extension': 'pth',
+            'saver': torch.save,
+        },
+        'image': {
+            'extension': 'png',
+            'saver': torchvision.utils.save_image
+        }
+    }
+    DEFAULT_FORMAT = 'image'
+    PROGRESS_SAMPLE_FORMATS = {}
+
+
     """
     A brain mixin that provides a function to save progress sample
     images
@@ -42,8 +57,17 @@ class ProgressSampleImageMixin:
         Updates the internal dictionary of snapshots
         """
         self.progress_samples.update(
-            {key: value.detach().cpu() for key, value in kwargs.items()}
+            {key: _detach(value) for key, value in kwargs.items()}
         )
+
+    def get_batch_sample(self, value):
+        if isinstance(value, dict):
+            result = {key: self.get_batch_sample(item_value) for key, item_value in value.items()}
+        elif isinstance(value, (torch.Tensor, list)):
+            result = value[:self.hparams.progress_batch_sample_size]
+        else:
+            result = value
+        return result
 
     def save_progress_sample(self, epoch):
         """
@@ -54,22 +78,19 @@ class ProgressSampleImageMixin:
         epoch: int
             The epoch number
         """
-        entries = [
-            (f"{key}.png", value) for key, value in self.progress_samples.items()
-        ]
-        for file_name, data in entries:
-            self.save_sample_image(file_name, data, epoch)
+        for key, data in self.progress_samples.items():
+            self.save_progress_sample_item(key, data, epoch)
 
-    def save_sample_image(self, file_name, data, epoch):
+    def save_progress_sample_item(self, key, data, epoch):
         """
-        Saves a single sample image
+        Saves a single sample item
 
         Arguments
         ---------
-        file_name: str
-            the target file name
+        key: str
+            the key/identifier of tthe item
         data: torch.Tensor
-            the image data
+            the  data to save
         epoch: int
             the epoch number (used in file path calculations)
         """
@@ -78,5 +99,18 @@ class ProgressSampleImageMixin:
         )
         if not os.path.exists(target_path):
             os.makedirs(target_path)
+        sample_formats = getattr(self, 'PROGRESS_SAMPLE_FORMATS', {})
+        format = self._FORMATS[sample_formats.get(key, self.DEFAULT_FORMAT)]
+        file_name = f"{key}.{format['extension']}"
         effective_file_name = os.path.join(target_path, file_name)
-        torchvision.utils.save_image(data, effective_file_name)
+        format['saver'](data, effective_file_name)
+
+
+def _detach(value):
+    if isinstance(value, torch.Tensor):
+        result = value.detach().cpu()
+    elif isinstance(value, dict):
+        result = {key: _detach(item_value) for key, item_value in value.items()}
+    else:
+        result = value
+    return result

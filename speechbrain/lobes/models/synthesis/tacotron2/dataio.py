@@ -147,7 +147,7 @@ def dataset_prep(dataset, hparams):
         a data loader
     """
     dataset.add_dynamic_item(audio_pipeline(hparams))
-    dataset.set_output_keys(["mel_text_pair"])
+    dataset.set_output_keys(["mel_text_pair", "wav", "label"])
     return SaveableDataLoader(
         dataset,
         batch_size=hparams["batch_size"],
@@ -199,6 +199,7 @@ class TextMelCollate:
     def __init__(self, n_frames_per_step=1):
         self.n_frames_per_step = n_frames_per_step
 
+    # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
         Arguments
@@ -206,10 +207,13 @@ class TextMelCollate:
         batch: list
             [text_normalized, mel_normalized]
         """
+
+        # TODO: Remove for loops and this dirty hack
+        raw_batch = list(batch)
         for i in range(
             len(batch)
         ):  # the pipline return a dictionary wiht one elemnent
-            batch[i] = list(batch[i].values())[0]
+            batch[i] = batch[i]['mel_text_pair']
 
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
@@ -238,11 +242,15 @@ class TextMelCollate:
         gate_padded = torch.FloatTensor(len(batch), max_target_len)
         gate_padded.zero_()
         output_lengths = torch.LongTensor(len(batch))
+        labels, wavs = [], []
         for i in range(len(ids_sorted_decreasing)):
-            mel = batch[ids_sorted_decreasing[i]][1]
+            idx = ids_sorted_decreasing[i]
+            mel = batch[idx][1]
             mel_padded[i, :, : mel.size(1)] = mel
             gate_padded[i, mel.size(1) - 1 :] = 1
             output_lengths[i] = mel.size(1)
+            labels.append(raw_batch[idx]['label'])
+            wavs.append(raw_batch[idx]['wav'])
 
         # count number of items - characters in text
         len_x = [x[2] for x in batch]
@@ -254,4 +262,6 @@ class TextMelCollate:
             gate_padded,
             output_lengths,
             len_x,
+            labels,
+            wavs
         )

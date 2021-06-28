@@ -32,16 +32,50 @@ logger = logging.getLogger(__name__)
 
 
 class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
+    PROGRESS_SAMPLE_FORMATS = {
+        'raw_batch': 'raw'
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_progress_samples()
+        self.last_batch = None
 
     def compute_forward(self, batch, stage):
-        inputs, y, num_items = self.batch_to_gpu(batch)
-        return self.hparams.model(inputs)  # 1#2#
+        """
+        Computes the forward pass
 
-    def fit_batch(self, *args, **kwargs):
-        result = super().fit_batch(*args, **kwargs)
+        Arguments
+        ---------
+        batch: str
+            a single batch
+        stage: speechbrain.Stage
+            the training stage
+
+        Returns
+        -------
+        the model output
+        """
+        inputs, y, num_items, _, _ = self.batch_to_device(batch)
+        _, input_lengths, _, _, _ = inputs
+        max_input_length = input_lengths.max().item()
+        return self.modules.model(inputs, alignments_dim=max_input_length)  # 1#2#
+
+    def fit_batch(self, batch):
+        """
+        Fits a single batch and applies annealing
+
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+
+        Returns
+        -------
+        loss: torch.Tensor
+            detached loss
+        """
+        result = super().fit_batch(batch)
         self.hparams.lr_annealing(self.optimizer)
         return result
 
@@ -62,18 +96,43 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        inputs, y, num_items = self.batch_to_gpu(batch)
+        effective_batch = self.batch_to_device(batch)
+        self.last_batch = effective_batch
+        inputs, y, num_items, labels, wavs = effective_batch
+        text_padded, input_lengths, _, max_len, output_lengths = inputs
         mel_target, _ = y
         mel_out, mel_out_postnet, gate_out, alignments = predictions
         self.remember_progress_sample(
             target=self._get_sample_data(mel_target),
             output=self._get_sample_data(mel_out),
             output_postnet=self._get_sample_data(mel_out_postnet),
-            alignments=alignments[0].T)
+            alignments=alignments[0].T,
+            raw_batch = self.get_batch_sample({
+                'text_padded': text_padded,
+                'input_lengths': input_lengths,
+                'mel_target': mel_target,
+                'mel_out': mel_out,
+                'mel_out_postnet': mel_out_postnet,
+                'max_len': max_len,
+                'output_lengths': output_lengths,
+                'gate_out': gate_out,
+                'alignments': alignments,
+                'labels': labels,
+                'wavs': wavs
+            })
+        )
         return criterion(predictions, y)
 
     # some helper functoions
-    def batch_to_gpu(self, batch):
+    def batch_to_device(self, batch):
+        """
+        Trnasfers the batch to the target device
+
+        Arguments
+        ---------
+        batch: tuple
+            the batch to use
+        """
         (
             text_padded,
             input_lengths,
@@ -81,6 +140,8 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             gate_padded,
             output_lengths,
             len_x,
+            labels,
+            wavs
         ) = batch
         text_padded = self.to_device(text_padded).long()
         input_lengths = self.to_device(input_lengths).long()
@@ -91,14 +152,25 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
         y = (mel_padded, gate_padded)
         len_x = torch.sum(output_lengths)
-        return (x, y, len_x)
-
+        return (x, y, len_x, labels, wavs)
 
     def to_device(self, x):
+        """
+        Transfers a single tensor to the target device
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor to transfer
+
+        Returns
+        -------
+        result: tensor
+            the same tensor, on the target device
+        """
         x = x.contiguous()
         x = x.to(self.device, non_blocking=True)
         return x
-
 
     def _get_sample_data(self, raw):
         sample = raw[0]
@@ -139,12 +211,19 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             )
 
             # Save the current checkpoint and delete previous checkpoints.
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+            epoch_metadata = {**{"epoch": epoch}, **stats}
+            self.checkpointer.save_and_keep_only(
+                meta=epoch_metadata,
+                min_keys=["loss"],
+                ckpt_predicate=lambda ckpt: (
+                    ckpt.meta["epoch"]
+                    % self.hparams.keep_checkpoint_interval == 0))
             output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0
             )
             if output_progress_sample:
+                self.run_inference_sample()
                 self.save_progress_sample(epoch)
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -153,6 +232,16 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
+
+    def run_inference_sample(self):
+        if self.last_batch is None:
+            return
+        inputs, _, _, _, _ = self.last_batch
+        text_padded, input_lengths, _, _, _ = inputs
+        mel_out, _, _ = self.hparams.model.infer(text_padded[:1], input_lengths[:1])
+        self.remember_progress_sample(inference_mel_out=mel_out)
+
+
 
 
 

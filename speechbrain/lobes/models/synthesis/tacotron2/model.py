@@ -996,28 +996,7 @@ class Tacotron2(nn.Module):
             postnet_n_convolutions,
         )
 
-    def parse_batch(self, batch):
-        # parsses batch object to gpu
-        (
-            text_padded,
-            input_lengths,
-            mel_padded,
-            gate_padded,
-            output_lengths,
-        ) = batch
-        text_padded = to_gpu(text_padded).long()
-        input_lengths = to_gpu(input_lengths).long()
-        max_len = torch.max(input_lengths.data).item()
-        mel_padded = to_gpu(mel_padded).float()
-        gate_padded = to_gpu(gate_padded).float()
-        output_lengths = to_gpu(output_lengths).long()
-
-        return (
-            (text_padded, input_lengths, mel_padded, max_len, output_lengths),
-            (mel_padded, gate_padded),
-        )
-
-    def parse_output(self, outputs, output_lengths):
+    def parse_output(self, outputs, output_lengths, alignments_dim=None):
         """
         Masks the padded part of output
 
@@ -1027,30 +1006,41 @@ class Tacotron2(nn.Module):
             a list of tensors - raw outputs
         outputs_lengths: torch.Tensor
             a tensor representing the lengths of all outputs
+        alignments_dim: int
+            the desired dimension of the alignments along the last axis
+            Optional but needed for data-parallel training
+
 
         Returns
         -------
         result: torch.Tensor
             the original outputs - with the mask applied
         """
+        mel_outputs, mel_outputs_postnet, gate_outputs, alignments = outputs
         if self.mask_padding and output_lengths is not None:
-            mask = get_mask_from_lengths(output_lengths)
+            mask = get_mask_from_lengths(output_lengths, max_len=mel_outputs.size(-1))
             mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
             mask = mask.permute(1, 0, 2)
 
-            outputs[0].masked_fill_(mask, 0.0)
-            outputs[1].masked_fill_(mask, 0.0)
-            outputs[2].masked_fill_(mask[:, 0, :], 1e3)  # gate energies
+            mel_outputs.masked_fill_(mask, 0.0)
+            mel_outputs_postnet.masked_fill_(mask, 0.0)
+            gate_outputs.masked_fill_(mask[:, 0, :], 1e3)  # gate energies
+        if alignments_dim is not None:
+            alignments = F.pad(alignments, (0, alignments_dim - alignments.size(-1)))
 
-        return outputs
+        return mel_outputs, mel_outputs_postnet, gate_outputs, alignments
 
-    def forward(self, inputs):
+    def forward(self, inputs, alignments_dim=None):
         """ Decoder forward pass for training
         Arguments
         ---------
-        inputs: batch object
+        inputs: torch.Tensor
+            batch object
+        alignments_dim: int
+            the desired dimension of the alignments along the last axis
+            Optional but needed for data-parallel training
 
-        Arguments
+        Returns
         ---------
         mel_outputs: torch.Tensor
             mel outputs from the decoder
@@ -1081,6 +1071,7 @@ class Tacotron2(nn.Module):
         return self.parse_output(
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
             output_lengths,
+            alignments_dim
         )
 
     def infer(self, inputs, input_lengths):
@@ -1117,31 +1108,8 @@ class Tacotron2(nn.Module):
         return mel_outputs_postnet, mel_lengths, alignments
 
 
-# helper functions
 
-
-def to_gpu(x):
-    """
-    Transfers a tensor to the GPU
-
-    Arguments
-    ---------
-    x: torch.Tensor
-        a tensor
-
-    Returns
-    -------
-    result: torch.Tensor
-        the same tensor, on the GPU
-    """
-    x = x.contiguous()
-
-    if torch.cuda.is_available():
-        x = x.cuda(non_blocking=True)
-    return x
-
-
-def get_mask_from_lengths(lengths):
+def get_mask_from_lengths(lengths, max_len=None):
     """
     Creates a mask from a tensor of lengths
 
@@ -1154,8 +1122,13 @@ def get_mask_from_lengths(lengths):
     -------
     mask: torch.Tensor
         the mask
+    max_len: int
+        The maximum length, i.e. the last dimension of
+        the mask tensor. If not provided, it will be
+        calculated automatically
     """
-    max_len = torch.max(lengths).item()
+    if max_len is None:
+        max_len = torch.max(lengths).item()
     ids = torch.arange(0, max_len, device=lengths.device, dtype=lengths.dtype)
     mask = (ids < lengths.unsqueeze(1)).byte()
     mask = torch.le(mask, 0)
