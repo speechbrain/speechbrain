@@ -200,20 +200,19 @@ class SentencePiece:
                 self.annotation_train
                 + " is not a file. please provide annotation file for training."
             )
+        annotation = ",".join(self.annotation_read)
         logger.info(
-            "Extract "
-            + self.annotation_read
-            + " sequences from:"
-            + self.annotation_train
+            "Extract " + annotation + " sequences from:" + self.annotation_train
         )
         annotation_file = open(self.annotation_train, "r")
         reader = csv.reader(annotation_file)
         headers = next(reader, None)
-        annotation = ",".join(self.annotation_read)
-        if self.annotation_read not in headers:
-            raise ValueError(
-                annotation + " must exist in:" + self.annotation_train
-            )
+
+        for annotation in self.annotation_read:
+            if annotation not in headers:
+                raise ValueError(
+                    annotation + " must exist in:" + self.annotation_train
+                )
 
         text_file = open(self.text_file, "w+")
         for annotation in self.annotation_read:
