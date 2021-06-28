@@ -102,7 +102,7 @@ activation: !name:torch.nn.GELU
 output_neurons: 1000
 vocab_size: 1000
 
-# Multi task
+# Multi-task
 ctc_weight: 1.0
 asr_weight: 0.2
 mt_weight: 0.2

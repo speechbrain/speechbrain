@@ -1,4 +1,3 @@
-
 # ############################################################################
 # Tokenizer: subword BPE tokenizer with BPE 1K
 # Training: Fisher-Callhome 160h
@@ -7,14 +6,14 @@
 
 
 # Set up folders for reading from and writing to
-original_data_folder: !PLACEHOLDER # i.e., path to your data
+original_data_folder: "/mnt/md0/user_jamfly/CORPUS" # i.e., path to your data
 data_folder: ../data
 output_folder: ./save
 device: 'cuda:0' # for resample audio
 
 # Tokenizer parameters
 token_type: bpe  # ["unigram", "bpe", "char"]
-token_output: 1000  # index(blank/eos/bos/unk) = 0
+token_output: 1000
 annotation_read: ["translation_0", "transcription"] # field to read
 
 # Tokenizer object
