@@ -26,7 +26,7 @@ from speechbrain.lobes.models.synthesis.tacotron2 import dataio_prepare
 
 
 sys.path.append("..")
-from common.utils import PretrainedModelMixin, ProgressSampleImageMixin # noqa
+from common.utils import PretrainedModelMixin, ProgressSampleImageMixin, scalarize # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         super().__init__(*args, **kwargs)
         self.init_progress_samples()
         self.last_batch = None
+        self.last_loss_stats = {}
 
     def compute_forward(self, batch, stage):
         """
@@ -121,7 +122,9 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
                 'wavs': wavs
             })
         )
-        return criterion(predictions, y)
+        loss_stats = self.hparams.criterion(predictions, y)
+        self.last_loss_stats[stage] = scalarize(loss_stats)
+        return loss_stats.loss
 
     # some helper functoions
     def batch_to_device(self, batch):
@@ -190,13 +193,6 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         """
 
         # Store the train loss until the validation stage.
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-        # Summarize the statistics from the stage for record-keeping.
-        else:
-            stats = {
-                "loss": stage_loss,
-            }
 
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
@@ -206,12 +202,12 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
                 stats_meta={"Epoch": epoch, "lr": lr},
-                train_stats={"loss": self.train_loss},
-                valid_stats=stats,
+                train_stats=self.last_loss_stats[sb.Stage.TRAIN],
+                valid_stats=self.last_loss_stats[sb.Stage.VALID],
             )
 
             # Save the current checkpoint and delete previous checkpoints.
-            epoch_metadata = {**{"epoch": epoch}, **stats}
+            epoch_metadata = {**{"epoch": epoch}, **self.last_loss_stats[sb.Stage.VALID]}
             self.checkpointer.save_and_keep_only(
                 meta=epoch_metadata,
                 min_keys=["loss"],
@@ -230,7 +226,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stats,
+                test_stats=self.last_loss_stats[sb.Stage.VALID],
             )
 
     def run_inference_sample(self):
@@ -239,26 +235,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         inputs, _, _, _, _ = self.last_batch
         text_padded, input_lengths, _, _, _ = inputs
         mel_out, _, _ = self.hparams.model.infer(text_padded[:1], input_lengths[:1])
-        self.remember_progress_sample(inference_mel_out=mel_out)
-
-
-
-
-
-
-def criterion(model_output, targets):
-    mel_target, gate_target = targets[0], targets[1]
-    mel_target.requires_grad = False
-    gate_target.requires_grad = False
-    gate_target = gate_target.view(-1, 1)
-
-    mel_out, mel_out_postnet, gate_out, _ = model_output
-    gate_out = gate_out.view(-1, 1)
-    mel_loss = torch.nn.MSELoss()(mel_out, mel_target) + torch.nn.MSELoss()(
-        mel_out_postnet, mel_target
-    )
-    gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
-    return mel_loss + gate_loss
+        self.remember_progress_sample(inference_mel_out=self._get_sample_data(mel_out))
 
 
 if __name__ == "__main__":

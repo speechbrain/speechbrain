@@ -114,3 +114,25 @@ def _detach(value):
     else:
         result = value
     return result
+
+
+def scalarize(value):
+    """
+    Converts a namedtuple or dictionary containing tensors
+    to their scalar value
+
+    Arguments:
+    ----------
+    value: dict or namedtuple
+        a dictionary or named tuple of tensors
+
+    Returns
+    -------
+    result: dict
+        a result dictionary
+    """
+    if hasattr(value, '_asdict'):
+        value_dict = value._asdict()
+    else:
+        value_dict = value
+    return {key: item_value.item() for key, item_value in value_dict.items()}
