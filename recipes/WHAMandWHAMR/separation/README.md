@@ -40,6 +40,7 @@ Here are the SI - SNRi results (in dB) on the test set of WHAM!, WHAMR! datasets
 | |SepFormer, WHAM! |
 |--- | ---|
 |SpeedAugment | 16.3 |
+|DynamicMixing | 16.5 |
 
 
 | | SepFormer. WHAMR! |
