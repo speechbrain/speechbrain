@@ -81,3 +81,16 @@ def test_input_normalization():
     out_norm = norm(inputs, inp_len).squeeze()
     target = torch.FloatTensor([-1, 0, 1, -2, -2, -2])
     assert torch.equal(out_norm, target)
+
+
+def test_features_multimic():
+
+    from speechbrain.processing.features import Filterbank
+
+    compute_fbanks = Filterbank()
+    inputs = torch.rand([10, 101, 201])
+    output = compute_fbanks(inputs)
+    inputs_ch2 = torch.stack((inputs, inputs), -1)
+    output_ch2 = compute_fbanks(inputs_ch2)
+    output_ch2 = output_ch2[..., 0]
+    assert torch.sum(output - output_ch2) < 1e-05
