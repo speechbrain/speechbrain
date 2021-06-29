@@ -87,6 +87,7 @@ def prepare_timit(
     logger.info(msg)
 
     # Creating json files
+    # NOTE: TIMIT has the DEV files in the test directory.
     splits = ["train", "test", "test"]
     annotations = [save_json_train, save_json_valid, save_json_test]
     match_or = [None, dev_spk, test_spk]
