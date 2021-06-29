@@ -9,8 +9,8 @@ from torch import nn
 from typing import Optional
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
-from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerInterface,
+from speechbrain.lobes.models.transformer.Transformer import TransformerInterface
+from speechbrain.lobes.models.transformer.TransformerUtilities import (
     get_lookahead_mask,
     get_key_padding_mask,
     NormalizedEmbedding,
@@ -74,18 +74,8 @@ class TransformerASR(TransformerInterface):
         activation=nn.ReLU,
         positional_encoding=True,
         normalize_before=False,
-        kernel_size: Optional[int] = 31,
-        bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
-        conformer_activation: Optional[nn.Module] = Swish,
-        longf_attention_window: Optional[list] = None,
-        longf_attention_mode: Optional[str] = None,
-        linf_max_seq_len: Optional[int] = 1000,
-        linf_proj_k: Optional[int] = 128,
-        linf_param_sharing: Optional[str] = "none",
-        linf_method: Optional[str] = "learnable",
-        ref_n_hashes: Optional[int] = 8,
-        ref_bucket_size: Optional[int] = 64,
+        **encoder_arguments
     ):
         super().__init__(
             d_model=d_model,
@@ -97,18 +87,8 @@ class TransformerASR(TransformerInterface):
             activation=activation,
             positional_encoding=positional_encoding,
             normalize_before=normalize_before,
-            kernel_size=kernel_size,
-            bias=bias,
             encoder_module=encoder_module,
-            conformer_activation=conformer_activation,
-            longf_attention_window=longf_attention_window,
-            longf_attention_mode=longf_attention_mode,
-            linf_max_seq_len=linf_max_seq_len,
-            linf_proj_k=linf_proj_k,
-            linf_param_sharing=linf_param_sharing,
-            linf_method=linf_method,
-            ref_n_hashes=ref_n_hashes,
-            ref_bucket_size=ref_bucket_size,
+            **encoder_arguments
         )
         self.encoder_module = encoder_module
         if encoder_module in ["longformer", "reformer"]:
