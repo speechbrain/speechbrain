@@ -211,9 +211,11 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             self.checkpointer.save_and_keep_only(
                 meta=epoch_metadata,
                 min_keys=["loss"],
-                ckpt_predicate=lambda ckpt: (
+                ckpt_predicate=(lambda ckpt: (
                     ckpt.meta["epoch"]
                     % self.hparams.keep_checkpoint_interval == 0))
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None)
             output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0

@@ -14,7 +14,7 @@ progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 1
 progress_batch_sample_size: 3
-keep_checkpoint_interval: 20
+keep_checkpoint_interval: null
 
 
 #################################
