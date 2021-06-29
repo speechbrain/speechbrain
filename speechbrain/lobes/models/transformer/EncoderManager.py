@@ -2,9 +2,6 @@
 Transformer Encoder Manager
 """
 from speechbrain.lobes.models.transformer.TransformerUtilities import TransformerEncoder
-from .Longformer import LongformerEncoder
-from .Linformer import LinformerEncoder
-from .conformer import ConformerEncoder
 from .Reformer import ReformerEncoder
 
 class EncoderManager:
