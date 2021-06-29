@@ -219,11 +219,6 @@ class NGramLMScorer(BaseScorer):
         ]
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """
-        Returns:
-        new_memory: [B * Num_hyps, Vocab_size]
-
-        """
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
 
@@ -258,11 +253,6 @@ class NGramLMScorer(BaseScorer):
         return scores, (new_memory, new_scoring_table)
 
     def permute_mem(self, memory, index):
-        """
-        Returns:
-        new_memory: [B, Num_hyps]
-
-        """
         state, scoring_table = memory
 
         index = index.cpu().numpy()
@@ -382,10 +372,6 @@ class ScorerBuilder:
         partial_scorers=dict(),
         scorer_beam_scale=1.5,
     ):
-        """
-        weights: Dict
-        score_mode: Dict
-        """
         self.scorer_beam_scale = scorer_beam_scale
         self.weights = dict(
             ctc=ctc_weight,
@@ -414,18 +400,39 @@ class ScorerBuilder:
         self._validate_scorer()
 
     def score(self, inp_tokens, memory, attn, log_probs, beam_size):
+        """This method scores tokens in vocabulary based on defined full scorers
+        and partial scorers. Scores will be added to the log probs for beamsearch.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            See BaseScorer().
+        memory : dict[str, scorer memory]
+            The states of scorers for this timestep.
+        attn : torch.Tensor
+            See BaseScorer().
+        log_probs : torch.Tensor
+            (batch_size x beam_size, vocab_size). The log probs at this timestep.
+
+        Returns
+        ---------
+        log_probs : torch.Tensor
+            (batch_size x beam_size, vocab_size). Log probs updated by scorers.
+        new_memory : dict[str, scorer memory]
+            The updated states of scorers.
+        """
         new_memory = dict()
         # score full candidates
         for k, impl in self.full_scorers.items():
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 
-        # select candidates for partial scorers
+        # select candidates from the results of full scorers for partial scorers
         _, candidates = log_probs.topk(
             int(beam_size * self.scorer_beam_scale), dim=-1
         )
 
-        # score patial candidates
+        # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
             score, new_memory[k] = impl.score(
                 inp_tokens, memory[k], candidates, attn
@@ -435,6 +442,19 @@ class ScorerBuilder:
         return log_probs, new_memory
 
     def permute_scorer_mem(self, memory, index, candidates):
+        """Update memory variables of scorers to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : dict[str, scorer memory]
+            The states of scorers for this timestep.
+        index : torch.Tensor
+            (batch_size x beam_size). The index of the previous path.
+        candidates : torch.Tensor
+            (batch_size, beam_size). The index of the topk candidates.
+        """
         for k, impl in self.full_scorers.items():
             # ctc scorer should always be scored by candidates
             if k == "ctc":
@@ -446,6 +466,15 @@ class ScorerBuilder:
         return memory
 
     def reset_scorer_mem(self, x, enc_lens):
+        """Reset memory variables for scorers.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            See BaseScorer().
+        wav_len : torch.Tensor
+            See BaseScorer().
+        """
         memory = dict()
         for k, impl in {**self.full_scorers, **self.partial_scorers}.items():
             memory[k] = impl.reset_mem(x, enc_lens)
