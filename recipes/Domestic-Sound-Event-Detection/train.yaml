@@ -1,0 +1,282 @@
+# #################################
+# Basic training parameters for Event Detection DCASE 2019. 
+#
+# Author:
+#  * Vishal Ghorpade 
+#  * Julien Bouvier Tremblay 2021
+# #################################
+
+########## variables to set before the start of the experiment! ##########
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 50007
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Flag to download dataset or not, 0->no download, 1->download
+download: 0
+
+# by default the models train with only Weakly annotated data (Srtong:0, Unlabel:0)
+# if Flag Strong is set, strongly labels are used 
+# if Flag Unlabel is set, unlabelled data + weakly + strongly are used, independently of Flag of Strong
+# 1-> True,0->False
+Strong: 1
+Unlabel: 0
+
+# gpu available or not
+GPUAvailable: False
+
+#** Change the root here**
+RootFolder: !ref C:\Users\Ashish Ghorpade\Documents\Speech\speechbrain\recipes\Event_Detection_DCASE #/content/Event_Detection_DCASE_copie
+#/Users/julienbouviertremblay/sb_proj/Event_Detection_DCASE_copie
+#/content/Event_Detection_DCASE_8_avril
+
+##############################################################################
+
+# Folder Paths to audio and metadata from download
+# make sure it's right and structure should be similar to the one from README.md file
+DataFolder: !ref <RootFolder>/dataset
+AudioPath:  !ref <DataFolder>/audio
+AudioPath_Unlabel:  null # Add path if unlabel in other directory ~/audio/unlabel_in_domain #### put null if already inside dataset/audio/train/
+MetaDataPath: !ref <DataFolder>/metadata
+MissingFilesPath: !ref <RootFolder>/missing_files
+
+# Folder Paths to automatically created json files
+JsonOutput: !ref <DataFolder>/metadata_json
+JsonMetaData:
+    train:
+        synthetic: !ref <JsonOutput>/train/synthetic.json
+        weak: !ref <JsonOutput>/train/weak.json
+        unlabel_in_domain: !ref <JsonOutput>/train/unlabel_in_domain.json
+    validation:
+        eval_dcase2018: !ref <JsonOutput>/validation/eval_dcase2018.json
+        test_dcase2018: !ref <JsonOutput>/validation/test_dcase2018.json
+        validation: !ref <JsonOutput>/validation/validation.json
+    eval: !ref <JsonOutput>/eval/public.json
+    toy:
+        weak: !ref <JsonOutput>/toy/weak.json
+        synthetic: !ref <JsonOutput>/toy/synthetic.json
+        unlabel: !ref <JsonOutput>/toy/unlabel_in_domain.json
+        validation: !ref <JsonOutput>/toy/validation.json
+        test: !ref <JsonOutput>/toy/public.json
+
+# Folder Paths to save experiment directory and Logs
+output_folder: !ref ./results/<seed>
+save_folder: !ref <output_folder>/save
+Log: !ref <output_folder>/logs.txt
+
+# File where train log will be saved
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <Log>
+
+# File where final evaluation metrics will be saved
+evaluation_metric: !ref <output_folder>/eval_metric_public_eval_set.txt
+
+# save checkpoint every N min
+ckpt_interval_minutes: 15 
+
+# number of classes and names of classes from DCASE2019 Task 4
+n_classes: 10
+classes:
+    - Alarm_bell_ringing
+    - Speech
+    - Dog
+    - Cat
+    - Vacuum_cleaner
+    - Dishes
+    - Frying
+    - Electric_shaver_toothbrush
+    - Blender
+    - Running_water
+
+# trainning variable and utils
+
+# losses
+loss: !new:torch.nn.BCELoss
+consistency_loss: !new:torch.nn.MSELoss
+
+# Variables init for training
+train_total_loss: []
+train_weak_loss: 0
+train_strong_loss: 0
+train_consistency: 0
+
+weak_loss: 0.0
+strong_loss: 0.0
+
+weak_ema_loss: 0.0
+strong_ema_loss: 0.0
+
+consistency_loss_strong: 0.0
+consistency_loss_weak: 0.0
+
+# Training Parameters
+number_of_epochs: 100
+# batch size must be minimum 4 if using unlabel (sampling from 3 subsets)
+batch_size: 24
+max_consistency_cost: 5
+lr: 0.001
+betas: !!python/tuple [0.9, 0.999]
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: !ref <betas>
+
+# the shortest of the subsets --> weakly annotated at 1315 --> 1315%6
+# find a way to make it auto
+len_train_loader: 219
+
+# empty lists for evaluation
+ref_event_list: []
+est_event_list: []
+
+
+# FEATURES EXTRACTION PARAMTERS
+#feature extraction params
+sample_rate: 44100
+n_window: 2048
+hop_length: 511
+n_mels: 64
+max_len_seconds: 10.
+
+#STFT args
+STFTArgs: {sample_rate: !ref <sample_rate>,
+win_length: !ref <n_window> / <sample_rate> * 1000.0,  #46.439
+n_fft: !ref <n_window>,
+hop_length: !ref <hop_length> / <sample_rate> * 1000.0, #11.587
+center: True,
+pad_mode: reflect}
+
+#FilterBank args
+FBArgs: {sample_rate: !ref <sample_rate>,
+n_fft: !ref <n_window>,
+n_mels: !ref <n_mels>,
+log_mel: True,
+f_min: 0,
+f_max: !ref <sample_rate> / 2,
+power_spectrogram: 2}
+
+#DCT args
+DCTArgs: {input_size: !ref <n_mels>,
+n_out: !ref <n_mels>}
+
+compute_features: !new:utils_dcase2019.ComputeFbank
+    stft_args: !ref <STFTArgs>
+    fb_args: !ref  <FBArgs>
+
+env_corrupt_10: !new:speechbrain.lobes.augment.EnvCorrupt
+    babble_prob: 0.0
+    reverb_prob: 0.7
+    noise_prob: 0.9
+    noise_snr_low: 1
+    noise_snr_high: 10
+
+env_corrupt_5: !new:speechbrain.lobes.augment.EnvCorrupt
+    babble_prob: 0.0
+    reverb_prob: 0.25
+    noise_prob: 0.25
+    noise_snr_low: 0
+    noise_snr_high: 5
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+  norm_type: global
+
+# Dataloader options
+dataloader_train_options:
+    batch_size: !ref <batch_size>
+    shuffle: True
+dataloader_valid_options:
+    batch_size: !ref <batch_size>
+dataloader_test_options:
+    batch_size: !ref <batch_size>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Models
+AvgPool: !!python/tuple [2,4]
+pooling_time_ratio: 8
+
+# uncomment if want to use CRNN
+
+# crnn: !new:models.CRNN_baseline.CRNN
+#     n_in_channel: 1
+#     nclass: !ref <n_classes>
+#     attention: True
+#     n_RNN_cell: 64
+#     n_layers_RNN: 2
+#     activation: glu
+#     dropout: 0.5
+#     kernel_size: [3, 3, 3]
+#     padding: [1, 1, 1]
+#     stride:  [1, 1, 1]
+#     nb_filters: [64, 64, 64]
+#     pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]
+
+# crnn_ema: !new:models.CRNN_baseline.CRNN
+#     n_in_channel: 1
+#     nclass: !ref <n_classes>
+#     attention: True
+#     n_RNN_cell: 64
+#     n_layers_RNN: 2
+#     activation: glu
+#     dropout: 0.5
+#     kernel_size: [3, 3, 3]
+#     padding: [1, 1, 1]
+#     stride:  [1, 1, 1]
+#     nb_filters: [64, 64, 64]
+#     pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]
+
+crdnn: !new:models.CRDNN_custom.CRDNN_C
+    nclass: !ref <n_classes>
+    input_size: !ref <n_mels>
+    activation: !new:torch.nn.modules.activation.LeakyReLU 
+    dropout: 0.5
+    cnn_blocks: 2
+    cnn_channels: !!python/tuple [64, 64]
+    cnn_kernelsize: !!python/tuple [3, 3]
+    time_pooling: True
+    time_pooling_size: 2
+    using_2d_pooling: True
+    inter_layer_pooling_size: [2,2]
+    stride: [1,1,1]
+    rnn_layers: 2
+    rnn_neurons: 64
+    dnn_blocks: 2
+    dnn_neurons: 128
+
+crdnn_ema: !new:models.CRDNN_custom.CRDNN_C
+    nclass: !ref <n_classes>
+    input_size: !ref <n_mels>
+    activation: !new:torch.nn.modules.activation.LeakyReLU 
+    dropout: 0.5
+    cnn_blocks: 2
+    cnn_channels: !!python/tuple [64, 64]
+    cnn_kernelsize: !!python/tuple [3, 3]
+    time_pooling: True
+    time_pooling_size: 2
+    using_2d_pooling: True
+    inter_layer_pooling_size: [2,2]
+    stride: [1,1,1]
+    rnn_layers: 2
+    rnn_neurons: 64
+    dnn_blocks: 2
+    dnn_neurons: 128
+
+modules:
+    compute_features: !ref <compute_features>
+    crdnn: !ref <crdnn>
+    crdnn_ema: !ref <crdnn_ema>
+    # crnn: !ref <crnn>
+    # crnn_ema: !ref <crnn>
+    mean_var_norm: !ref <mean_var_norm>
+    env_corrupt_5: !ref <env_corrupt_5>
+    env_corrupt_10: !ref <env_corrupt_10>
+    
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        crdnn: !ref <crdnn>
+        crdnn_ema: !ref <crdnn_ema>
+        #crnn: !ref <crnn>
+        #crnn_ema: !ref <crnn_ema>
+        normalizer: !ref <mean_var_norm>
+        counter: !ref <epoch_counter>

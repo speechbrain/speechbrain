@@ -1,0 +1,293 @@
+# #################################
+# Basic training parameters for Event Detection DCASE 2019. 
+# We employ baseline CRNN model here for baseline on Speechbrain
+#
+# Author:
+#  * Vishal Ghorpade 
+#  * Julien T Bouvier 2021
+# #################################
+
+########## variables to set before the start of the experiment! ##########
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 40000
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+#Flag to download dataset or not, 0->no download, 1->download
+download: 0
+
+#Flag to set if strong, weak or unlabel data will be use, 1-> True,0->False
+Strong: 1
+Weak: 1
+Unlabel: 0
+
+# gpu available or not
+GPUAvailable: True
+
+#** Change the root here**
+RootFolder: !ref /content/Event_Detection_DCASE
+#/Users/julienbouviertremblay/sb_proj/Event_Detection_DCASE_copie
+#/content/Event_Detection_DCASE_8_avril
+
+##############################################################################
+
+#Folder Paths:
+DataFolder: !ref <RootFolder>/dataset
+AudioPath:  !ref <DataFolder>/audio
+MetaDataPath: !ref <DataFolder>/metadata
+MissingFilesPath: !ref <RootFolder>/missing_files
+
+JsonOutput: !ref <DataFolder>/metadata_json
+
+JsonMetaData:
+    train:
+        synthetic: !ref <JsonOutput>/train/synthetic.json
+        weak: !ref <JsonOutput>/train/weak.json
+        unlabel_in_domain: !ref <JsonOutput>/unlabel_in_domain.json
+    validation:
+        eval_dcase2018: !ref <JsonOutput>/validation/eval_dcase2018.json
+        test_dcase2018: !ref <JsonOutput>/validation/test_dcase2018.json
+        validation: !ref <JsonOutput>/validation/validation.json
+    eval: !ref <JsonOutput>/eval/public.json
+    toy:
+        weak: !ref <JsonOutput>/toy/weak.json
+        synthetic: !ref <JsonOutput>/toy/synthetic.json
+        unlabel: !ref <JsonOutput>/toy/unlabel_in_domain.json
+        validation: !ref <JsonOutput>/toy/validation.json
+        test: !ref <JsonOutput>/toy/public.json
+
+output_folder: !ref /content/gdrive/MyDrive/Speechbrain/results/<seed>
+save_folder: !ref <output_folder>/save
+
+#save  and log folder
+# SaveFolder: !ref <RootFolder>/checkpoint
+Log: !ref <output_folder>/logs.txt
+
+# File where train log will be saved
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <Log>
+
+# File where final evaluation metrics will be saved
+evaluation_metric: !ref <output_folder>/eval_metric_eval_2.txt
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+
+loss: !new:torch.nn.BCELoss
+consistency_loss: !new:torch.nn.MSELoss
+# loss: !name:speechbrain.nnet.losses.bce_loss
+n_classes: 10
+classes:
+    - Alarm_bell_ringing
+    - Speech
+    - Dog
+    - Cat
+    - Vacuum_cleaner
+    - Dishes
+    - Frying
+    - Electric_shaver_toothbrush
+    - Blender
+    - Running_water
+
+# trainning
+train_total_loss: []
+train_weak_loss: 0
+train_strong_loss: 0
+train_consistency: 0
+
+#Augmentation
+augmentall: False
+augment: False
+rev: True
+noise: False
+rev_noise: False
+add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_max_noise_len: 3.0 #seconds
+    reverb_prob: 1.0
+    noise_prob: 0.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_max_noise_len: 3.0 #seconds
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_max_noise_len: 3.0 #seconds
+    reverb_prob: 1.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+#augmentation pipeline
+aument_pipeline: [
+    !ref <add_noise>
+    ]
+
+
+# total_loss: !new:speechbrain.utils.metric_stats.MetricStats
+#     metric: !ref <loss>
+# total_loss: []
+weak_loss: 0.0
+strong_loss: 0.0
+
+weak_ema_loss: 0.0
+strong_ema_loss: 0.0
+
+max_consistency_cost: 2
+consistency_loss_strong: 0.0
+consistency_loss_weak: 0.0
+batch_idx: 0
+global_step: 0
+len_train_loader: 635 ########
+# weak_loss: !new:speechbrain.utils.metric_stats.MetricStats
+#     metric: !ref <loss>
+# strong_loss: !new:speechbrain.utils.metric_stats.MetricStats
+#     metric: !ref <loss>
+
+#evaluation
+# real_label: False
+# label_result: !new:dict
+ref_event_list: []
+est_event_list: []
+
+
+#feature extraction params
+sample_rate: 44100
+n_window: 2048
+hop_length: 511
+n_mels: 64
+max_len_seconds: 10.
+
+
+#STFT args
+STFTArgs: {sample_rate: 44100,
+win_length: 46.439,
+n_fft: 2048,
+hop_length: 11.587,
+center: True,
+pad_mode: reflect}
+
+#FilterBank args
+FBArgs: {sample_rate: 44100,
+n_fft: 2048,
+n_mels: 64,
+log_mel: True,
+f_min: 0,
+f_max: 22050,
+power_spectrogram: 2}
+
+#DCT args
+DCTArgs: {input_size: 64,
+n_out: 64}
+
+compute_features: !name:utils_dcase2019.compute_fbanks
+    # stft_args: !ref <STFTArgs>
+    # fb_args: !ref  <FBArgs>
+
+# Training Parameters
+number_of_epochs: 100
+batch_size: 24
+batch_size_train: 24
+batch_size_valid: 24
+batch_size_test: 24
+
+# lr_final: 0.0001
+#n_classes: 10# In this case, we have 28 speakers
+dataloader_train_options:
+    batch_size: !ref <batch_size_train>
+    shuffle: True
+dataloader_valid_options:
+    batch_size: !ref <batch_size_valid>
+dataloader_test_options:
+    batch_size: !ref <batch_size_test>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+lr: 0.001
+betas: !!python/tuple [0.9, 0.999]
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: !ref <betas>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+#   norm_type: global
+  norm_type: sentence
+  std_norm: False
+
+#CRNN Model params
+AvgPool: !!python/tuple [2,4]
+# CRNNArgs: {n_in_channel: 1,
+# nclass: !ref <n_classes>,
+# attention: True,
+# n_RNN_cell: 64,
+# n_layers_RNN: 2,
+# activation: glu,
+# dropout: 0.5,
+# kernel_size: [3, 3, 3],
+# padding: [1, 1, 1],
+# stride:  [1, 1, 1],
+# nb_filters: [64, 64, 64],
+# pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]}
+
+
+pooling_time_ratio: 8
+
+crdnn: !new:models.CRDNN_custom.CRDNN_C
+    nclass: !ref <n_classes>
+    input_size: 64 #!!python/tuple [24, 864, 64]
+    activation: !new:torch.nn.modules.activation.LeakyReLU 
+    dropout: 0.5
+    cnn_blocks: 2
+    cnn_channels: !!python/tuple [64, 64]
+    cnn_kernelsize: !!python/tuple [3, 3]
+    time_pooling: True
+    time_pooling_size: 2
+    # freq_pooling_size: 4
+    using_2d_pooling: True
+    inter_layer_pooling_size: [2,2]
+    stride: [1,1,1]
+    rnn_layers: 2
+    rnn_neurons: 64
+    # rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: 2
+    dnn_neurons: 128
+
+# depooling: "{{ pooling_time_ratio*hop_length/sample_rate }}"
+# depooling: !ref <pooling_time_ratio> * !ref <hop_leanth> / !ref <sample_rate> 
+modules:
+    # compute_features: !ref <compute_features>
+    crdnn: !ref <crdnn>
+    # crnn: !ref <crnn>
+    # crnn_ema: !ref <crnn>
+    # mean_var_norm: !ref <mean_var_norm>
+    # env_corrupt: !ref <env_corrupt>
+    # augmentation: !ref <augmentation>
+    
+# This function manages learning rate annealing over the epochs.
+# We here use the simple lr annealing method that linearly decreases
+# the lr from the initial value to the final one.
+# lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+#     initial_value: !ref <lr_start>
+#     final_value: !ref <lr_final>
+#     epoch_count: !ref <number_of_epochs>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        crdnn: !ref <crdnn>
+        # crnn: !ref <crnn>
+        # crnn_ema: !ref <crnn>
+        counter: !ref <epoch_counter>
