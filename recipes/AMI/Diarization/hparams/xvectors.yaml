@@ -60,7 +60,7 @@ overlap: 1.5
 backend: 'SC'
 
 # Spectral Clustering parameters
-affinity: 'cos' 
+affinity: 'cos'
 max_num_spkrs: 10
 oracle_n_spkrs: True
 
