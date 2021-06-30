@@ -13,9 +13,6 @@ Use your own hyperparameter file or the provided files.
 The different losses can be turned on and off, and pre-trained models
 can be used for enhancement or ASR models.
 
-The logging is set to work with wandb by default.
-To turn it off, it is possible to toggle it in the main routine further down.
-
 Authors
  * Sreeramadas Sai Aravind 2021
  * Émile Dimas 2021
@@ -597,37 +594,11 @@ def change_yaml_values(input, new_config):
 # Begin Recipe!
 if __name__ == "__main__":
 
-    wandb = True  # change to False to use other logger
-    sweep = False
-    if wandb:
-        # Load wandb logger for sweep
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        with open(dir_path + "/hparams/logger.yaml", "r") as yf:
-            train_params = load_hyperpyyaml(yf)
-        sweep = train_params.get("sweep", False)
-        wandb_run = train_params["train_logger"].run
-        if sweep:
-            params = train_params.get("sweep_params", False)
-            if params:
-                sweep_params = {}
-                for param in params:
-                    sweep_params[param] = wandb_run.config.get(param)
-                sweep_params[
-                    "output_folder"
-                ] = f"/content/saved_runs/{wandb_run.name}"
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    if sweep:
-        change_yaml_values(
-            hparams_file, sweep_params
-        )  # Change values affected by sweep
+
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    # Overwrite logger to be wandb
-    if wandb:
-        hparams["train_logger"] = train_params["train_logger"]
-        hparams["sweep"] = sweep
 
     # Create experiment directory
     sb.create_experiment_directory(

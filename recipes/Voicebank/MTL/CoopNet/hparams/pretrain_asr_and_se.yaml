@@ -6,7 +6,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1991
-output_root: output
+output_root: results
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref <output_root>/pretrain/clean
 stats_file: !ref <output_folder>/stats.txt
@@ -188,10 +188,10 @@ enhance_stats: !name:speechbrain.utils.metric_stats.MetricStats
         reduction: batch
 estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.estoi_eval
-    n_jobs: !apply:multiprocessing.cpu_count
+    n_jobs: 2
 pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.pesq_eval
-    n_jobs: !apply:multiprocessing.cpu_count
+    n_jobs: 2
 err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
