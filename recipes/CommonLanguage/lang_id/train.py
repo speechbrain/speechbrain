@@ -52,17 +52,6 @@ class LID(sb.Brain):
 
         return feats, lens
 
-    def compute_embeddings(self, feats):
-        # Compute embeddings
-        embeddings = self.modules.embedding_model(feats)
-        # Normalize embeddings
-        embeddings = self.modules.mean_var_norm_emb(
-            x=embeddings,
-            lengths=torch.ones(embeddings.shape[0], device=embeddings.device),
-        )
-
-        return embeddings
-
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
         output probabilities over the N classes.
@@ -85,7 +74,7 @@ class LID(sb.Brain):
 
         # Compute features, embeddings and output
         feats, lens = self.prepare_features(batch.sig, stage)
-        embeddings = self.compute_embeddings(feats)
+        embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
@@ -117,10 +106,10 @@ class LID(sb.Brain):
             targets = torch.cat([targets, targets], dim=0)
             lens = torch.cat([lens, lens], dim=0)
 
-        loss = self.hparams.compute_cost(predictions, targets)
+            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+                self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-            self.hparams.lr_annealing.on_batch_end(self.optimizer)
+        loss = self.hparams.compute_cost(predictions, targets)
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(batch.id, predictions, targets, lens)
