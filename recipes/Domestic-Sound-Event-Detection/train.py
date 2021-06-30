@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 '''
- * Basic training parameters for Event Detection DCASE 2019. 
-Author:
+ * Basic training parameters for Event Detection DCASE 2019.
+ Author:
  * Vishal Ghorpade 
  * Julien Bouvier Tremblay 2021
 '''
 from __future__ import print_function, absolute_import
 
-import os
 import sys
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from download_data import *
-import torch.nn as nn
 from utils_dcase2019 import *
 import data_label_pipeline
 import scipy
@@ -21,7 +18,6 @@ import sed_eval
 import dcase_util
 import numpy as np
 import logging
-# import pickle
 
 logger = logging.getLogger(__name__)
 
