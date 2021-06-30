@@ -6,7 +6,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1991
-output_root: output
+output_root: results
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref <output_root>/3layer/<seed>
 stats_file: !ref <output_folder>/stats.txt
@@ -35,7 +35,7 @@ n_layers: 3
 number_of_epochs: 30
 ctc_epochs: 30
 batch_size: 8
-lr_asr: 1
+lr_asr: 1.0
 lr_se: 0.00001
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
@@ -227,10 +227,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 # and it will be loaded into "lm" which is pointing to the <lm_model> defined
 # before.
 p_root: !ref "https://www.dropbox.com/sh/v7myj7wc06z31rw/"
-model_path: !ref "<p_root>/AACa83zGaWCOLS4Pw8FEojL3a/\
-    3ll-mask_weight/vctk/model.ckpt?dl=0"
-norm_path: !ref "<p_root>/AAAlAHDoHvbdZC76-oRajQlla/\
-    3ll-mask_weight/vctk/normalizer.ckpt?dl=0"
+model_path: !ref "<p_root>/AACa83zGaWCOLS4Pw8FEojL3a/3ll-mask_weight/vctk/model.ckpt?dl=1"
+norm_path: !ref "<p_root>/AAAlAHDoHvbdZC76-oRajQlla/3ll-mask_weight/vctk/normalizer.ckpt?dl=1"
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
@@ -249,10 +247,10 @@ enhance_stats: !name:speechbrain.utils.metric_stats.MetricStats
         reduction: batch
 estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.estoi_eval
-    n_jobs: !apply:multiprocessing.cpu_count
+    n_jobs: 2
 pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.pesq_eval
-    n_jobs: !apply:multiprocessing.cpu_count
+    n_jobs: 2
 err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
