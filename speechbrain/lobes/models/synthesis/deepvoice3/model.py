@@ -1982,6 +1982,7 @@ class Loss(nn.Module):
         value = 1.0 - torch.exp(-((n / N - t / T) ** 2) / (2 * g * g))
         return value
 
+    # TODO: Use the common implementation
     def guided_attentions(
         self, input_lengths, target_lengths, max_target_len, g=0.2
     ):

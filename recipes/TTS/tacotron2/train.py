@@ -99,15 +99,21 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
 
         effective_batch = self.batch_to_device(batch)
         self.last_batch = effective_batch
-        inputs, y, num_items, labels, wavs = effective_batch
+        inputs, targets, num_items, labels, wavs = effective_batch
         text_padded, input_lengths, _, max_len, output_lengths = inputs
-        mel_target, _ = y
+        mel_target, _ = targets
         mel_out, mel_out_postnet, gate_out, alignments = predictions
+        alignments_max = (alignments[0]
+            .max(dim=-1).values
+            .max(dim=-1).values
+            .unsqueeze(-1)
+            .unsqueeze(-1))
+        alignments_output = (alignments[0].T.flip(dims=(1,)) / alignments_max)
         self.remember_progress_sample(
             target=self._get_sample_data(mel_target),
             output=self._get_sample_data(mel_out),
             output_postnet=self._get_sample_data(mel_out_postnet),
-            alignments=alignments[0].T,
+            alignments=alignments_output,
             raw_batch = self.get_batch_sample({
                 'text_padded': text_padded,
                 'input_lengths': input_lengths,
@@ -122,7 +128,11 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
                 'wavs': wavs
             })
         )
-        loss_stats = self.hparams.criterion(predictions, y)
+        loss_stats = self.hparams.criterion(
+            predictions,
+            targets,
+            input_lengths,
+            output_lengths)
         self.last_loss_stats[stage] = scalarize(loss_stats)
         return loss_stats.loss
 

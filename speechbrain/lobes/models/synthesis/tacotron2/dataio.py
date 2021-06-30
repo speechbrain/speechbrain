@@ -114,7 +114,6 @@ def audio_pipeline(hparams):
         normalized=hparams["mel_normalized"],
         norm=hparams["norm"]
     )
-
     @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def f(file_path, words):
@@ -122,6 +121,7 @@ def audio_pipeline(hparams):
             text_to_sequence(words, hparams["text_cleaners"])
         )
         audio = sb.dataio.dataio.read_audio(file_path)
+
         mel = audio_to_mel(audio)
         if hparams['dynamic_range_compression']:
             mel = _dynamic_range_compression(mel)

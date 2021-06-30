@@ -8,7 +8,7 @@ save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
-epochs: 1501
+epochs: 500
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
@@ -52,6 +52,9 @@ weight_decay: 0.000006
 grad_clip_thresh: 1.0
 batch_size: 64 #minimum 2
 mask_padding: True
+guided_attention_weight: 0.2
+guided_attention_multiplier: 50.0
+gate_loss_multiplier: 1.0
 
 ################################
 # Model Parameters and model   #
@@ -91,6 +94,7 @@ postnet_n_convolutions: 5
 inverse_spectrogram_n_iter: 1024
 
 
+
 #model
 model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
     mask_padding: !ref <mask_padding>
@@ -124,6 +128,9 @@ model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
 
 
 criterion: !new:speechbrain.lobes.models.synthesis.tacotron2.Loss
+    gate_loss_multiplier: !ref <gate_loss_multiplier>
+    guided_attention_multiplier: !ref <guided_attention_multiplier>
+    guided_attention_weight: !ref <guided_attention_weight>
 
 modules:
     model: !ref <model>

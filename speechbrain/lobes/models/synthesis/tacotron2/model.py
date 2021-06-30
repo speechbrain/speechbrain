@@ -35,6 +35,7 @@ Authors
 # *****************************************************************************
 
 from math import sqrt
+from speechbrain.lobes.models.synthesis.common import GuidedAttentionLoss
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -1158,7 +1159,7 @@ def infer(model, text_sequences, input_lengths):
     return model.infer(text_sequences, input_lengths)
 
 
-LossStats = namedtuple('TacotronLoss', 'loss mel_loss gate_loss')
+LossStats = namedtuple('TacotronLoss', 'loss mel_loss gate_loss attn_loss')
 
 class Loss(nn.Module):
     """
@@ -1166,28 +1167,63 @@ class Loss(nn.Module):
 
     Arguments
     ---------
-    model_output: tuple
-        the output of the model's forward():
-        (mel_outputs, mel_outputs_postnet, gate_outputs, alignments)
-    targets: tuple
-        the targets
-
-    Returns
-    -------
-    result: LossStats
-        the total loss - and individual losses (mel and gate)
+    guided_attention_weight: float
+        The guided attention loss weitht
     """
-    def forward(self, model_output, targets):
+    def __init__(
+            self,
+            guided_attention_weight=None,
+            gate_loss_multiplier=1.0,
+            guided_attention_multiplier=1.0
+        ):
+        super().__init__()
+        if guided_attention_weight == 0:
+            guided_attention_weight = None
+        self.guided_attention_weight = guided_attention_weight
+        self.mse_loss = nn.MSELoss()
+        self.bce_loss = nn.BCEWithLogitsLoss()
+        self.guided_attention_loss = GuidedAttentionLoss(
+            weight=guided_attention_weight)
+        self.gate_loss_multiplier = gate_loss_multiplier
+        self.guided_attention_multiplier = guided_attention_multiplier
+
+
+    def forward(self, model_output, targets, input_lengths, target_lengths):
+        """
+        Computes the loss
+
+        Arguments
+        ---------
+        model_output: tuple
+            the output of the model's forward():
+            (mel_outputs, mel_outputs_postnet, gate_outputs, alignments)
+        targets: tuple
+            the targets
+        input_lengths: torch.tensor
+            a (batch, length) tensor of input lengths
+        target_lengths:
+            a (batch, length) tensor of target (spectrogram) lengths
+
+        Returns
+        -------
+        result: LossStats
+            the total loss - and individual losses (mel and gate)
+
+        """
         mel_target, gate_target = targets[0], targets[1]
         mel_target.requires_grad = False
         gate_target.requires_grad = False
         gate_target = gate_target.view(-1, 1)
 
-        mel_out, mel_out_postnet, gate_out, _ = model_output
+        mel_out, mel_out_postnet, gate_out, alignments = model_output
         gate_out = gate_out.view(-1, 1)
-        mel_loss = torch.nn.MSELoss()(mel_out, mel_target) + torch.nn.MSELoss()(
+        mel_loss = self.mse_loss(mel_out, mel_target) + self.mse_loss(
             mel_out_postnet, mel_target
         )
-        gate_loss = torch.nn.BCEWithLogitsLoss()(gate_out, gate_target)
-        total_loss = mel_loss + gate_loss
-        return LossStats(total_loss, mel_loss, gate_loss)
+        gate_loss = self.gate_loss_multiplier * self.bce_loss(gate_out, gate_target)
+        attn_loss = self.guided_attention_multiplier * (
+            0. if self.guided_attention_weight is None
+            else self.guided_attention_loss(
+                alignments, input_lengths, target_lengths))
+        total_loss = mel_loss + gate_loss + attn_loss
+        return LossStats(total_loss, mel_loss, gate_loss, attn_loss)
