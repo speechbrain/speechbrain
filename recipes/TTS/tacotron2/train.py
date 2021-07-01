@@ -39,6 +39,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_progress_samples()
+        self.last_epoch = 0
         self.last_batch = None
         self.last_loss_stats = {}
 
@@ -96,7 +97,6 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-
         effective_batch = self.batch_to_device(batch)
         self.last_batch = effective_batch
         inputs, targets, num_items, labels, wavs = effective_batch
@@ -132,7 +132,8 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             predictions,
             targets,
             input_lengths,
-            output_lengths)
+            output_lengths,
+            self.last_epoch)
         self.last_loss_stats[stage] = scalarize(loss_stats)
         return loss_stats.loss
 
@@ -208,6 +209,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         if stage == sb.Stage.VALID:
             # Update learning rate
             lr = self.optimizer.param_groups[-1]["lr"]
+            self.last_epoch = epoch
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
@@ -222,10 +224,10 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
                 meta=epoch_metadata,
                 min_keys=["loss"],
                 ckpt_predicate=(lambda ckpt: (
-                    ckpt.meta["epoch"]
-                    % self.hparams.keep_checkpoint_interval == 0))
-                    if self.hparams.keep_checkpoint_interval is not None
-                    else None)
+                   ckpt.meta["epoch"]
+                   % self.hparams.keep_checkpoint_interval != 0))
+                   if self.hparams.keep_checkpoint_interval is not None
+                   else None)
             output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0

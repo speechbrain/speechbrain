@@ -42,7 +42,9 @@ mel_fmax: 8000.0
 mel_normalized: null
 power: 1
 norm: "slaney"
+mel_scale: "slaney"
 dynamic_range_compression: True
+
 
 ################################
 # Optimization Hyperparameters #
@@ -52,14 +54,16 @@ weight_decay: 0.000006
 grad_clip_thresh: 1.0
 batch_size: 64 #minimum 2
 mask_padding: True
-guided_attention_weight: 0.2
-guided_attention_multiplier: 50.0
-gate_loss_multiplier: 1.0
+guided_attention_sigma: 0.2
+guided_attention_weight: 50.0
+guided_attention_weight_half_life: 10.
+guided_attention_hard_stop: 50
+gate_loss_weight: 1.0
 
 ################################
 # Model Parameters and model   #
 ################################
-n_symbols: 148 #fixed deppending on symbols in textToSequence
+n_symbols: 148 #fixed depending on symbols in textToSequence
 symbols_embedding_dim: 512
 
 # Encoder parameters
@@ -127,10 +131,16 @@ model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
     decoder_no_early_stopping: !ref <decoder_no_early_stopping>
 
 
+guided_attention_scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+    initial_value: !ref <guided_attention_weight>
+    half_life: !ref <guided_attention_weight_half_life>
+
 criterion: !new:speechbrain.lobes.models.synthesis.tacotron2.Loss
-    gate_loss_multiplier: !ref <gate_loss_multiplier>
-    guided_attention_multiplier: !ref <guided_attention_multiplier>
+    gate_loss_weight: !ref <gate_loss_weight>
     guided_attention_weight: !ref <guided_attention_weight>
+    guided_attention_sigma: !ref <guided_attention_sigma>
+    guided_attention_scheduler: !ref <guided_attention_scheduler>
+    guided_attention_hard_stop: !ref <guided_attention_hard_stop>
 
 modules:
     model: !ref <model>

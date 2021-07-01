@@ -112,7 +112,8 @@ def audio_pipeline(hparams):
         f_max=hparams["mel_fmax"],
         power=hparams["power"],
         normalized=hparams["mel_normalized"],
-        norm=hparams["norm"]
+        norm=hparams["norm"],
+        mel_scale=hparams["mel_scale"]
     )
     @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")

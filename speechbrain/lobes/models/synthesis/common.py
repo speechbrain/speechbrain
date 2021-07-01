@@ -20,13 +20,13 @@ class GuidedAttentionLoss(nn.Module):
 
     Arguments
     ---------
-    weight:
+    sigma:
         the guided attention weight
     """
-    def __init__(self, weight):
+    def __init__(self, sigma):
         super().__init__()
-        self.weight = weight
-        self.weight_factor = 2 * (weight ** 2)
+        self.sigma = sigma
+        self.weight_factor = 2 * (sigma ** 2)
 
     def forward(self, attention, input_lengths, target_lengths):
         """
