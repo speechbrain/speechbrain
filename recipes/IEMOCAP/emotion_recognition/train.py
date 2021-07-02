@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
-from iemocap_prepare import prepare_data
 
 
 # PREPARE MODEL
@@ -299,6 +298,8 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+    
+    from iemocap_prepare import prepare_data  # noqa E402
 
     # Data preparation, to be run on only one process.
     sb.utils.distributed.run_on_main(
