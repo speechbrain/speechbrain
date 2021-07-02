@@ -52,6 +52,23 @@ embedding_dim: 512
 bos_index: 0
 eos_index: 0
 
+# Beam Searcher
+beam_search_min_decode_ratio: 0
+beam_search_max_decode_ratio: 1.35
+beam_search_beam_size: 16
+beam_search_eos_threshold: 10.0
+beam_search_using_max_attn_shift: False
+beam_search_max_attn_shift: 10
+beam_search_coverage_penalty: 5.0
+
+# Evaluation parameters
+eval_dataset: train
+eval_train_step: sentence
+eval_batch_size: 256
+eval_batch_count: 1
+eval_reporting: raw
+
+
 select_n_sentences: None
 
 graphemes:
@@ -189,13 +206,13 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     linear: !ref <lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    min_decode_ratio: 0
-    max_decode_ratio: 1.35
-    beam_size: 16
-    eos_threshold: 10.0
-    using_max_attn_shift: False
-    max_attn_shift: 10
-    coverage_penalty: 5.0
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

@@ -59,6 +59,13 @@ beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
 beam_search_coverage_penalty: 5.0
 
+# Evaluation parameters
+eval_dataset: train
+eval_train_step: lexicon
+eval_batch_size: 256
+eval_batch_count: 1
+eval_reporting: raw
+
 
 select_n_sentences: None
 
