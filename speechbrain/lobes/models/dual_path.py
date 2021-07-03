@@ -16,9 +16,7 @@ import copy
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.lobes.models.transformer.conformer import ConformerEncoder
 import speechbrain.nnet.RNN as SBRNN
-from speechbrain.nnet.activations import Swish
 
 
 EPS = 1e-8
