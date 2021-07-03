@@ -103,6 +103,7 @@ def _init_phoneme_encoder(phonemes, phoneme_encoder, bos_index, eos_index):
             bos_index=bos_index,
             eos_index=eos_index,
         )
+    phoneme_encoder.add_unk()
     return phoneme_encoder
 
 
