@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain sytle.
+"""Transformer implementaion in the SpeechBrain style.
 
 Authors
 * Jianyuan Zhong 2020
@@ -11,7 +11,7 @@ import speechbrain as sb
 from typing import Optional
 
 
-from .conformer import ConformerEncoder
+from .Conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 
