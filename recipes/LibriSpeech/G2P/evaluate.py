@@ -46,8 +46,10 @@ class G2PEvaluator:
         self.hparams = SimpleNamespace(**hparams)
         self.overrides = overrides
         self.device = device
+        self.modules = torch.nn.ModuleDict(self.hparams.modules).to(self.device)
+        self.beam_searcher = self.hparams.beam_searcher.to(self.device)
         if model_state:
-            self.modules.model.load_state_dict(model_state)
+            self.hparams.model.load_state_dict(model_state)
         else:
             self.load()
 
@@ -70,13 +72,14 @@ class G2PEvaluator:
             A single batch of data, same as the kind of batch used
             for G2P training
         """
+        batch = batch.to(self.device)
         p_seq, char_lens, encoder_out = self.hparams.model(
             grapheme_encoded=batch.grapheme_encoded,
             phn_encoded=batch.phn_encoded_bos,
         )
         ids = batch.id
 
-        hyps, scores = self.hparams.beam_searcher(encoder_out, char_lens)
+        hyps, scores = self.beam_searcher(encoder_out, char_lens)
         phns, phn_lens = batch.phn_encoded
 
         self.per_metrics.append(
