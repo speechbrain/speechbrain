@@ -40,8 +40,7 @@ Here are the SI - SNRi results (in dB) on the test set of LibriMix dataset with 
 | | SepFormer. Libri3Mix |
 | --- | --- |
 |SpeedAugment | 18.4|
-
-
+|DynamicMixing | 19.0|
 
 
 # Example calls for running the training scripts

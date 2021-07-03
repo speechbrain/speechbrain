@@ -9,13 +9,6 @@ Run the following command to train xvectors:
 You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponding number of speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
 For voxceleb1 + voxceleb2, see preparation instructions below).
 
-It is possible to train embeddings with more augmentation with the following command:
-
-`python train_speaker_embeddings.py hparams/train_ecapa_tdnn_big.yaml`
-
-In this case, we concatenate waveform dropout, speed change, reverberation, noise, and noise+rev. The batch is 6 times larger than the original one. This normally leads to
-a performance improvement at the cost of longer training time.
-
 The system trains a TDNN for speaker embeddings coupled with a speaker-id classifier. The speaker-id accuracy should be around 97-98% for both voxceleb1 and voceleb2.
 
 # Speaker verification with PLDA
@@ -38,7 +31,7 @@ The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
 
 After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
 
-`python speaker_verification_cosine.py hparams/verification_ecapa_tdnn.yaml`
+`python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
 
 This system achieves an EER = 0.69 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
@@ -68,7 +61,7 @@ Go to the voxceleb2 folder and run `unzip vox1_test_wav.zip`.
 6. Now everything is ready and you can run voxceleb2 experiments:
 - training embeddings:
 
-`python train_speaker_embeddings.py hparams/train_xvector_voxceleb2.yaml`
+`python train_speaker_embeddings.py hparams/train_xvectors.yaml`
 
 Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack vox1_dev_wav.zip for the voxceleb1 dataset.
 
