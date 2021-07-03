@@ -526,7 +526,7 @@ class ConformerDecoderLayer(nn.Module):
 
 
 class ConformerDecoder(nn.Module):
-    """This class implements the Transformer decoder.
+    """This class implements the Conformer decoder.
 
     Arguments
     ----------
@@ -560,7 +560,7 @@ class ConformerDecoder(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoder(1, 8, 1024, d_model=512)
+    >>> net = ConformerDecoder(1, 8, 1024, d_model=512, causal=True)
     >>> output, _, _ = net(src, tgt)
     >>> output.shape
     torch.Size([8, 60, 512])
