@@ -228,21 +228,30 @@ class WavenetBrain(sb.core.Brain):
         target_mel = self.sample_mel(
             last_target_audio.squeeze()).detach().cpu()
         self.save_sample_audio(
-            "target_audio.wav", last_target_audio.squeeze().unsqueeze(0),
+            "target_audio.wav",
+            last_target_audio
+                .squeeze().unsqueeze(0),
             epoch
         )
         self.save_sample_audio(
-            "predicted_audio.wav", last_predicted_audio.squeeze().unsqueeze(0),
+            "predicted_audio.wav",
+            last_predicted_audio
+                .squeeze().unsqueeze(0),
             epoch
         )
         self.save_sample_image(
-            "target_mel.png", target_mel.unsqueeze(0),
+            "target_mel.png",
+            self._get_sample_data(target_mel),
             epoch
         )
         self.save_sample_image(
-            "predicted_mel.png", predicted_mel.unsqueeze(0),
+            "predicted_mel.png",
+            self._get_sample_data(predicted_mel),
             epoch
         )
+
+    def _get_sample_data(self, raw):
+        return (raw / raw.max()).transpose(-1, -2)
 
     def _get_effective_file_name(self, file_name, epoch):
         path = os.path.join(
