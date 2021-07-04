@@ -237,10 +237,10 @@ class WavenetBrain(sb.core.Brain):
             last_predicted_mel = self.last_predicted_mel
 
         self.save_sample_audio(
-            "target_audio.wav", last_target_audio.unsqueeze(0)
+            "target_audio.wav", last_target_audio
         )
         self.save_sample_audio(
-            "predicted_audio.wav", last_predicted_audio.unsqueeze(0)
+            "predicted_audio.wav", last_predicted_audio
         )
         self.save_sample_image("target_mel.png", last_target_mel.unsqueeze(0))
         self.save_sample_image(
