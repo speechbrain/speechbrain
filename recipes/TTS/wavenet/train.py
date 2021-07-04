@@ -120,13 +120,8 @@ class WavenetBrain(sb.core.Brain):
 
         # creating progress samples
         if self.hparams.progress_samples:
-            predicted_mel = self.sample_mel(predicted_audio.squeeze())
-            target_mel = self.sample_mel(target_audio.squeeze())
-
             self.last_predicted_audio = predicted_audio.detach().cpu()
             self.last_target_audio = target_audio.detach().cpu()
-            self.last_predicted_mel = predicted_mel.detach().cpu()
-            self.last_target_mel = target_mel.detach().cpu()
 
         return loss
 
@@ -180,14 +175,6 @@ class WavenetBrain(sb.core.Brain):
                     meta=stats, min_keys=["loss"]
                 )
 
-            # Output samples
-            output_progress_sample = (
-                self.hparams.progress_samples
-                and epoch % self.hparams.progress_samples_interval == 0
-            )
-            if output_progress_sample:
-                self.save_progress_sample()
-
         # Summarize the statistics from the stage for record-keeping.
         else:
             stats = {
@@ -219,35 +206,55 @@ class WavenetBrain(sb.core.Brain):
                 and epoch % self.hparams.progress_samples_interval == 0
             )
             if output_progress_sample:
-                self.save_progress_sample()
+                self.save_progress_sample(epoch)
 
-    def save_progress_sample(self):
+    # TODO: Refactor to use the mixin
+    def save_progress_sample(self, epoch):
         """
         Function gets called to save progress samples, depending on chosen output interval
         """
-        if len(self.last_target_mel.size()) == 3:  # batch
+
+        #TODO: Is this really needed? Couldn't one create
+        #a 1-example batch with a batch dimension?
+        if len(self.last_target_audio.size()) == 3:  # batch
             last_target_audio = self.last_target_audio[0, :, :]
-            last_target_mel = self.last_target_mel[0, :, :]
             last_predicted_audio = self.last_predicted_audio[0, :, :]
-            last_predicted_mel = self.last_predicted_mel[0, :, :]
         else:  # overfit with 1 ex
             last_target_audio = self.last_target_audio.squeeze()
-            last_target_mel = self.last_target_mel
             last_predicted_audio = self.last_predicted_audio.squeeze()
-            last_predicted_mel = self.last_predicted_mel
 
+        predicted_mel = self.sample_mel(
+            last_predicted_audio.squeeze()).detach().cpu()
+        target_mel = self.sample_mel(
+            last_target_audio.squeeze()).detach().cpu()
         self.save_sample_audio(
-            "target_audio.wav", last_target_audio
+            "target_audio.wav", last_target_audio.squeeze().unsqueeze(0),
+            epoch
         )
         self.save_sample_audio(
-            "predicted_audio.wav", last_predicted_audio
+            "predicted_audio.wav", last_predicted_audio.squeeze().unsqueeze(0),
+            epoch
         )
-        self.save_sample_image("target_mel.png", last_target_mel.unsqueeze(0))
         self.save_sample_image(
-            "predicted_mel.png", last_predicted_mel.unsqueeze(0)
+            "target_mel.png", target_mel.unsqueeze(0),
+            epoch
+        )
+        self.save_sample_image(
+            "predicted_mel.png", predicted_mel.unsqueeze(0),
+            epoch
         )
 
-    def save_sample_image(self, file_name, data):
+    def _get_effective_file_name(self, file_name, epoch):
+        path = os.path.join(
+            self.hparams.progress_sample_path,
+            str(epoch)
+        )
+        if not os.path.exists(path):
+            os.makedirs(path)
+        return os.path.join(path, file_name)
+
+    # TODO: Use ProgressSampleImageMixin
+    def save_sample_image(self, file_name, data, epoch):
         """
         Save a sample image
 
@@ -259,14 +266,14 @@ class WavenetBrain(sb.core.Brain):
             sample image to be saved
         """
 
-        effective_file_name = os.path.join(
-            self.hparams.progress_sample_path, file_name
-        )
+        effective_file_name = self._get_effective_file_name(
+            file_name, epoch)
         torchvision.utils.save_image(data, effective_file_name)
 
-    def save_sample_audio(self, file_name, data):
+    # TODO: Use ProgressSampleImageMixin
+    def save_sample_audio(self, file_name, data, epoch):
         """
-        Save a sample image
+        Save a sample audio file
 
         Arguments
         ---------
@@ -275,9 +282,8 @@ class WavenetBrain(sb.core.Brain):
         data: torch.Tensor, (B x T)
             sample audio to be saved
         """
-        effective_file_name = os.path.join(
-            self.hparams.progress_sample_path, file_name
-        )
+        effective_file_name = self._get_effective_file_name(
+            file_name, epoch)
         torchaudio.save(
             effective_file_name, data, sample_rate=self.hparams.sample_rate
         )

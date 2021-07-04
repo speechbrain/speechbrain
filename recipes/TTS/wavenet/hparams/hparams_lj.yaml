@@ -23,15 +23,19 @@ mel_fmin: 0.0
 mel_fmax: 8000.0
 mel_normalized: null
 max_time_sec: null
-max_time_steps: 1500
+max_time_steps: 10240
 
 
 number_of_epochs: 500
 checkpoint_every_epoch: False
-checkpoint_frequency: 10
+checkpoint_frequency: 1
+
+output_folder: !ref ./results/tts/wavenet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
 
 progress_samples: True
-progress_sample_path: samples
+progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 10
 
 layers: 50
@@ -86,10 +90,6 @@ lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <number_of_epochs>
-
-output_folder: !ref ./results/tts/wavenet/<seed>
-save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   checkpoints_dir: !ref <save_folder>
