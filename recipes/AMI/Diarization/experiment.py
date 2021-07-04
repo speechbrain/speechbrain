@@ -141,7 +141,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
 def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
     """Simple trick to convert csv to json for multi-mic processing.
-    Process multiple mics is easier in json.
+    Processing multiple mics is easier in json.
     """
 
     # Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
@@ -313,8 +313,8 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     return concate_rttm_file
 
 
-def dev_p_tuner(full_csv, split_type):
-    """Tuning p_value affinity matrix.
+def dev_pval_tuner(full_csv, split_type):
+    """Tuning p_value for affinity matrix.
     The p_value used so that only p% of the values in each row is retained.
     """
 
@@ -350,7 +350,7 @@ def dev_p_tuner(full_csv, split_type):
     return tuned_p_val
 
 
-def dev_threshold_tuner(full_csv, split_type):
+def dev_ahc_threshold_tuner(full_csv, split_type):
     """Tuning threshold for affinity matrix. This function is called when AHC is used as backend.
     """
 
@@ -578,7 +578,7 @@ if __name__ == "__main__":  # noqa: C901
     params["embedding_model"].eval()
     params["embedding_model"].to(params["device"])
 
-    # AMI Dev Set
+    # AMI Dev Set: Tune hyperparams on dev set.
     full_csv = []
     with open(params["csv_diary_dev"], "r") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
@@ -601,11 +601,11 @@ if __name__ == "__main__":  # noqa: C901
         logger.info(
             "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
         )
-        best_pval = dev_p_tuner(full_csv, "dev")
+        best_pval = dev_pval_tuner(full_csv, "dev")
 
     elif params["backend"] == "AHC":
         logger.info("Tuning for threshold-value for AHC")
-        best_threshold = dev_threshold_tuner(full_csv, "dev")
+        best_threshold = dev_ahc_threshold_tuner(full_csv, "dev")
         best_pval = best_threshold
     else:
         # This part (NN for unknown num of speakers) is WIP
@@ -617,7 +617,7 @@ if __name__ == "__main__":  # noqa: C901
             # dev_tuner is WIP (used for tuning num of components in NN)
             n_lambdas = dev_tuner(full_csv, "dev")
 
-    # Running once more of dev set (optional).
+    # Running once more on dev set (optional).
     out_boundaries = diarize_dataset(
         full_csv,
         "dev",
@@ -626,7 +626,7 @@ if __name__ == "__main__":  # noqa: C901
         n_neighbors=best_nn,
     )
 
-    # Evaluating on DEV set.
+    # Computing DER for DEV set.
     logger.info("Evaluating for AMI Dev. set")
     ref_rttm_dev = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
     sys_rttm_dev = out_boundaries
@@ -642,7 +642,7 @@ if __name__ == "__main__":  # noqa: C901
     )
     logger.info(msg)
 
-    # AMI Eval Set.
+    # Diarizing AMI Eval Set.
     full_csv = []
     with open(params["csv_diary_eval"], "r") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
@@ -657,7 +657,7 @@ if __name__ == "__main__":  # noqa: C901
         n_neighbors=best_nn,
     )
 
-    # Evaluating AMI EVAL set.
+    # Computing DER for AMI Eval set.
     logger.info("Evaluating for AMI Eval. set")
     ref_rttm_eval = os.path.join(
         params["ref_rttm_dir"], "fullref_ami_eval.rttm"
