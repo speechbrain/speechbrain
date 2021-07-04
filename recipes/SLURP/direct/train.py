@@ -142,7 +142,7 @@ class SLU(sb.Brain):
         return loss
 
     def log_outputs(self, predicted_semantics, target_semantics):
-        """ TODO: log these to a file instead of stdout """
+        """TODO: log these to a file instead of stdout"""
         for i in range(len(target_semantics)):
             print(" ".join(predicted_semantics[i]).replace("|", ","))
             print(" ".join(target_semantics[i]).replace("|", ","))

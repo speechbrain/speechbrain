@@ -121,7 +121,7 @@ class Covariance(torch.nn.Module):
         self.average = average
 
     def forward(self, Xs):
-        """ This method uses the utility function _cov to compute covariance
+        """This method uses the utility function _cov to compute covariance
         matrices. Therefore, the result has the following format:
         (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
@@ -144,7 +144,7 @@ class Covariance(torch.nn.Module):
 
     @staticmethod
     def _cov(Xs, average=True):
-        """ Computes the covariance matrices (XXs) of the signals. The result will
+        """Computes the covariance matrices (XXs) of the signals. The result will
         have the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
         Arguments:
@@ -195,37 +195,37 @@ class Covariance(torch.nn.Module):
 
 class DelaySum(torch.nn.Module):
     """Performs delay and sum beamforming by using the TDOAs and
-        the first channel as a reference.
+    the first channel as a reference.
 
-        Example
-        -------
-        >>> import torch
+    Example
+    -------
+    >>> import torch
 
-        >>> from speechbrain.dataio.dataio import read_audio
-        >>> from speechbrain.processing.features import STFT, ISTFT
-        >>> from speechbrain.processing.multi_mic import Covariance
-        >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
-        >>>
-        >>> xs_speech = read_audio(
-        ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
-        ... )
-        >>> xs_speech = xs_speech. unsqueeze(0) # [batch, time, channel]
-        >>> xs_noise  = read_audio('samples/audio_samples/multi_mic/noise_diffuse.flac')
-        >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
-        >>> fs = 16000
-        >>> xs = xs_speech + 0.05 * xs_noise
-        >>>
-        >>> stft = STFT(sample_rate=fs)
-        >>> cov = Covariance()
-        >>> gccphat = GccPhat()
-        >>> delaysum = DelaySum()
-        >>> istft = ISTFT(sample_rate=fs)
-        >>>
-        >>> Xs = stft(xs)
-        >>> XXs = cov(Xs)
-        >>> tdoas = gccphat(XXs)
-        >>> Ys = delaysum(Xs, tdoas)
-        >>> ys = istft(Ys)
+    >>> from speechbrain.dataio.dataio import read_audio
+    >>> from speechbrain.processing.features import STFT, ISTFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
+    >>>
+    >>> xs_speech = read_audio(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_speech = xs_speech. unsqueeze(0) # [batch, time, channel]
+    >>> xs_noise  = read_audio('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
+    >>> fs = 16000
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> gccphat = GccPhat()
+    >>> delaysum = DelaySum()
+    >>> istft = ISTFT(sample_rate=fs)
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> tdoas = gccphat(XXs)
+    >>> Ys = delaysum(Xs, tdoas)
+    >>> ys = istft(Ys)
     """
 
     def __init__(self):
@@ -546,7 +546,7 @@ class Gev(torch.nn.Module):
         super().__init__()
 
     def forward(self, Xs, SSs, NNs):
-        """ This method uses the utility function _gev to perform generalized
+        """This method uses the utility function _gev to perform generalized
         eigenvalue decomposition beamforming. Therefore, the result has
         the following format: (batch, time_step, n_fft, 2, 1).
 
@@ -570,7 +570,7 @@ class Gev(torch.nn.Module):
 
     @staticmethod
     def _gev(Xs, SSs, NNs):
-        """ Perform generalized eigenvalue decomposition beamforming. The result
+        """Perform generalized eigenvalue decomposition beamforming. The result
         has the following format: (batch, time_step, n_fft, 2, 1).
 
         Arguments
@@ -676,7 +676,7 @@ class GccPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
-        """ Perform generalized cross-correlation with phase transform localization
+        """Perform generalized cross-correlation with phase transform localization
         by using the utility function _gcc_phat and by extracting the delays (in samples)
         before performing a quadratic interpolation to improve the accuracy.
         The result has the format: (batch, time_steps, n_mics + n_pairs).
@@ -701,7 +701,7 @@ class GccPhat(torch.nn.Module):
 
     @staticmethod
     def _gcc_phat(XXs, eps=1e-20):
-        """ Evaluate GCC-PHAT for each timestamp. It returns the result in the time
+        """Evaluate GCC-PHAT for each timestamp. It returns the result in the time
         domain. The result has the format: (batch, time_steps, n_fft, n_mics + n_pairs).
 
         Arguments
@@ -747,7 +747,7 @@ class GccPhat(torch.nn.Module):
 
     @staticmethod
     def _extract_delays(xxs, tdoa_max=None):
-        """ Extract the rounded delays from the cross-correlation for each timestamp.
+        """Extract the rounded delays from the cross-correlation for each timestamp.
         The result has the format: (batch, time_steps, n_mics + n_pairs).
 
         Arguments
@@ -917,7 +917,7 @@ class SrpPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
-        """ Perform SRP-PHAT localization on a signal by computing a steering
+        """Perform SRP-PHAT localization on a signal by computing a steering
         vector and then by using the utility function _srp_phat to extract the doas.
         The result is a tensor containing the directions of arrival (xyz coordinates
         (in meters) in the direction of the sound source). The output tensor
@@ -1250,7 +1250,7 @@ def doas2taus(doas, mics, fs, c=343.0):
 
 
 def tdoas2taus(tdoas):
-    """ This function selects the tdoas of each channel and put them
+    """This function selects the tdoas of each channel and put them
     in a tensor. The result has the following format:
     (batch, time_steps, n_mics).
 
@@ -1295,7 +1295,7 @@ def tdoas2taus(tdoas):
 
 
 def steering(taus, n_fft):
-    """ This function computes a steering vector by using the time differences
+    """This function computes a steering vector by using the time differences
     of arrival for each channel (in samples) and the number of bins (n_fft).
     The result has the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics).
 
@@ -1361,7 +1361,7 @@ def steering(taus, n_fft):
 
 
 def sphere(levels_count=4):
-    """ This function generates cartesian coordinates (xyz) for a set
+    """This function generates cartesian coordinates (xyz) for a set
     of points forming a 3D sphere. The coordinates are expressed in
     meters and can be used as doas. The result has the format:
     (n_points, 3).

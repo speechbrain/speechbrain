@@ -73,8 +73,7 @@ def compute_embedding_loop(data_loader):
 
 
 def get_verification_scores(veri_test):
-    """ Computes positive and negative scores given the verification split.
-    """
+    """Computes positive and negative scores given the verification split."""
     scores = []
     positive_scores = []
     negative_scores = []

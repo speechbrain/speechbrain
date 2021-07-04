@@ -102,7 +102,7 @@ class GumbelSoftmax(torch.nn.Module):
 
 
 class Swish(torch.nn.Module):
-    """ The class implements the Swish activation function from
+    """The class implements the Swish activation function from
     https://arxiv.org/pdf/2005.03191.pdf
 
     given input x. Swish(x) = x / (1 + exp(beta * x))

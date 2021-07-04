@@ -123,14 +123,13 @@ class StatObject_SB:
         return self.stop[self.modelset == mod_id]
 
     def get_mean_stat1(self):
-        """Return the mean of first order statistics.
-        """
+        """Return the mean of first order statistics."""
         mu = numpy.mean(self.stat1, axis=0)
         return mu
 
     def get_total_covariance_stat1(self):
         """Compute and return the total covariance matrix of the first-order
-            statistics.
+        statistics.
         """
         C = self.stat1 - self.stat1.mean(axis=0)
         return numpy.dot(C.transpose(), C) / self.stat1.shape[0]
@@ -212,8 +211,7 @@ class StatObject_SB:
         )
 
     def norm_stat1(self):
-        """Divide all first-order statistics by their Euclidean norm.
-        """
+        """Divide all first-order statistics by their Euclidean norm."""
 
         vect_norm = numpy.clip(
             numpy.linalg.norm(self.stat1, axis=1), 1e-08, numpy.inf
@@ -549,7 +547,7 @@ class Scores:
     """
 
     def __init__(self, scores_file_name=""):
-        """ Initialize a Scores object by loading information from a file HDF5 format.
+        """Initialize a Scores object by loading information from a file HDF5 format.
 
         Arguments
         ---------

@@ -193,8 +193,7 @@ class SentencePiece:
             sb.utils.distributed.ddp_barrier()
 
     def _csv2text(self):
-        """Read CSV file and convert specific data entries into text file.
-        """
+        """Read CSV file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -234,8 +233,7 @@ class SentencePiece:
         logger.info("Text file created at: " + self.text_file)
 
     def _json2text(self):
-        """Read JSON file and convert specific data entries into text file.
-        """
+        """Read JSON file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train

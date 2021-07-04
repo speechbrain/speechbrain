@@ -121,8 +121,7 @@ class TransformerInterface(nn.Module):
             )
 
     def forward(self, **kwags):
-        """Users should modify this function according to their own tasks.
-        """
+        """Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
 

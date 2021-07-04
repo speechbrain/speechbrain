@@ -146,8 +146,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape):
-    """Just a wrapper to select the normalization type.
-    """
+    """Just a wrapper to select the normalization type."""
 
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True)
@@ -847,8 +846,7 @@ class DPTNetBlock(nn.Module):
 
 
 def _get_activation_fn(activation):
-    """Just a wrapper to get the activation functions.
-    """
+    """Just a wrapper to get the activation functions."""
 
     if activation == "relu":
         return F.relu

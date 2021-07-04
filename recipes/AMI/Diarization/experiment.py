@@ -58,8 +58,7 @@ except ImportError:
 
 
 def compute_embeddings(wavs, lens):
-    """Definition of the steps for computation of embeddings from the waveforms
-    """
+    """Definition of the steps for computation of embeddings from the waveforms"""
     with torch.no_grad():
         wavs = wavs.to(params["device"])
         feats = params["compute_features"](wavs)
@@ -73,8 +72,7 @@ def compute_embeddings(wavs, lens):
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
-    """Extracts embeddings for a given dataset loader
-    """
+    """Extracts embeddings for a given dataset loader"""
 
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
@@ -134,8 +132,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
 
 def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
-    """Diarizes all the recordings in a given dataset
-    """
+    """Diarizes all the recordings in a given dataset"""
 
     # Prepare `spkr_info` only once when Oracle num of speakers is selected
     if params["oracle_n_spkrs"] is True:
@@ -246,8 +243,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
 
 
 def dev_p_tuner(full_csv, split_type):
-    """Tuning p_value affinity matrix
-    """
+    """Tuning p_value affinity matrix"""
 
     DER_list = []
     prange = np.arange(0.002, 0.015, 0.001)

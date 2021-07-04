@@ -193,7 +193,7 @@ class LID(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """ This function prepares the datasets to be used in the brain class.
+    """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
     We expect `prepare_common_language` to have been called before this,
     so that the `train.csv`, `dev.csv`,  and `test.csv` manifest files

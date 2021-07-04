@@ -189,7 +189,7 @@ class STFT(torch.nn.Module):
 
 
 class ISTFT(torch.nn.Module):
-    """ Computes the Inverse Short-Term Fourier Transform (ISTFT)
+    """Computes the Inverse Short-Term Fourier Transform (ISTFT)
 
     This class computes the Inverse Short-Term Fourier Transform of
     an audio signal. It supports multi-channel audio inputs
@@ -271,7 +271,7 @@ class ISTFT(torch.nn.Module):
         self.window = window_fn(self.win_length)
 
     def forward(self, x, sig_length=None):
-        """ Returns the ISTFT generated from the input signal.
+        """Returns the ISTFT generated from the input signal.
 
         Arguments
         ---------
@@ -1127,8 +1127,7 @@ class InputNormalization(torch.nn.Module):
         return current_mean, current_std
 
     def _statistics_dict(self):
-        """Fills the dictionary containing the normalization statistics.
-        """
+        """Fills the dictionary containing the normalization statistics."""
         state = {}
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
@@ -1174,8 +1173,7 @@ class InputNormalization(torch.nn.Module):
         return state
 
     def to(self, device):
-        """Puts the needed tensors in the right device.
-        """
+        """Puts the needed tensors in the right device."""
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)

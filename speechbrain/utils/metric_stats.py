@@ -281,8 +281,7 @@ class ErrorRateStats(MetricStats):
 
 
 class BinaryMetricStats(MetricStats):
-    """Tracks binary metrics, such as precision, recall, F1, EER, etc.
-    """
+    """Tracks binary metrics, such as precision, recall, F1, EER, etc."""
 
     def __init__(self, positive_label=1):
         self.clear()

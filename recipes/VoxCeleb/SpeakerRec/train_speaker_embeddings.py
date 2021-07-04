@@ -26,8 +26,7 @@ from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training"
-    """
+    """Class for speaker embedding training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
@@ -76,8 +75,7 @@ class SpeakerBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         spkid, _ = batch.spk_id_encoded
