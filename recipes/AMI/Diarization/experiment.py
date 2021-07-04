@@ -525,28 +525,6 @@ def dataio_prep(hparams, csv_file):
     return dataloader
 
 
-def check_dirs():
-    """Check if directories are present"""
-
-    # Only these 3 directories are important
-    if os.path.isdir(params["data_folder"]) is False:
-        msg = "Can't find data_folder:  %s \n" % (params["data_folder"])
-        logger.error(msg)
-        sys.exit()
-
-    if os.path.isdir(params["manual_annot_folder"]) is False:
-        msg = "Can't find manual_annot_folder:  %s \n" % (
-            params["manual_annot_folder"]
-        )
-        logger.error(msg)
-        sys.exit()
-
-    if os.path.isdir(params["output_folder"]) is False:
-        msg = "Can't find output_folder:  %s \n" % (params["output_folder"])
-        logger.error(msg)
-        sys.exit()
-
-
 # Begin experiment!
 if __name__ == "__main__":  # noqa: C901
 
@@ -592,9 +570,6 @@ if __name__ == "__main__":  # noqa: C901
     for dir_ in exp_dirs:
         if not os.path.exists(dir_):
             os.makedirs(dir_)
-
-    # Checking for 3 important directories.
-    check_dirs()
 
     # We download the pretrained Model from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
