@@ -8,7 +8,7 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Folders
+# Directories: Replace !PLACEHOLDER with full path of the directory. 
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus/
 
@@ -29,13 +29,13 @@ device: 'cuda:0'
 pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
 # Some more exp folders (for cleaner structure).
-embedding_dir: !ref <save_folder>/emb
+embedding_dir: !ref <save_folder>/emb 
 csv_dir: !ref <save_folder>/csv
 ref_rttm_dir: !ref <save_folder>/ref_rttms
 sys_rttm_dir: !ref <save_folder>/sys_rttms
 der_dir: !ref <save_folder>/DER
 
-# AMI: csv files
+# AMI: csv files. These are meta-data files.
 csv_diary_dev: !ref <csv_dir>/ami_dev.subsegments.csv
 csv_diary_eval: !ref <csv_dir>/ami_eval.subsegments.csv
 
