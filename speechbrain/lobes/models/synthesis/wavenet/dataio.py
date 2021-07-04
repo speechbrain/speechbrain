@@ -188,6 +188,7 @@ def prepare_features(
     provides,
     fs,
     n_mels,
+    win_length,
     hop_length,
     n_fft,
     min_level_db,
@@ -197,6 +198,12 @@ def prepare_features(
     max_t_sec,
     max_t_steps,
     num_classes,
+    power=1,
+    norm="slaney",
+    mel_scale="slaney",
+    mel_fmin=0.,
+    mel_fmax=8000.,
+    mel_normalized=None
 ):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
@@ -212,6 +219,8 @@ def prepare_features(
             Resampled sample rate
         n_mels: int
             number of mel filterbanks
+        win_length: int
+            the STFT window length
         hop_length: int
             length of hop between STFT windows
         n_fft: int
@@ -230,6 +239,19 @@ def prepare_features(
             maximum amount of timesteps for the signal
         num_classes: int
             number of quantized channels
+        power: float
+            the spectrogram power
+        norm: str
+            the norm to use for the MEL spectrogram
+        mel_scale: str
+            the scale to use for the MEL spectrogram
+        mel_fmin: int
+            the minimum frequency
+        mel_fmax: int
+            the maximum frequency
+        mel_normalized
+            whether the MEL spectrogram should be normalized
+
 
         Returns
         ---------
@@ -239,9 +261,15 @@ def prepare_features(
         mel_raw = transforms.MelSpectrogram(
             sample_rate=fs,
             n_mels=n_mels,
+            win_length=win_length,
             hop_length=hop_length,
             n_fft=n_fft,
-            power=1,
+            power=power,
+            norm=norm,
+            mel_scale=mel_scale,
+            f_min=mel_fmin,
+            f_max=mel_fmax,
+            normalized=mel_normalized
         )(sig)
 
         sig_mulaw = mulaw_quantize(sig, 255)
@@ -465,6 +493,7 @@ def dataset_prep(dataset: DynamicItemDataset, hparams, tokens=None):
             provides="data",
             fs=hparams["sample_rate"],
             n_mels=hparams["num_mels"],
+            win_length=hparams["win_length"],
             hop_length=hparams["hop_length"],
             n_fft=hparams["n_fft"],
             min_level_db=hparams["min_level_db"],
@@ -474,6 +503,12 @@ def dataset_prep(dataset: DynamicItemDataset, hparams, tokens=None):
             max_t_sec=hparams["max_time_sec"],
             max_t_steps=hparams["max_time_steps"],
             num_classes=hparams["quantize_channels"],
+            norm=hparams["norm"],
+            mel_scale=hparams["mel_scale"],
+            mel_fmin=hparams["mel_fmin"],
+            mel_fmax=hparams["mel_fmax"],
+            power=hparams["power"],
+            mel_normalized=hparams["mel_normalized"]
         ),
         get_x(takes="data", provides="x"),
         get_mel(

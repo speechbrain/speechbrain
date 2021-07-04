@@ -6,8 +6,8 @@ dropout: 0.1
 
 # preprocessing pipeline
 num_mels: 80
-source_sample_rate: 48000
-sample_rate: 8000
+source_sample_rate: 22050
+sample_rate: 22050
 min_level_db: -100
 ref_level_db: 20
 highpass_cutoff: 70.0 # remove DC
@@ -97,19 +97,19 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     model: !ref <model>
     counter: !ref <epoch_counter>
 
-train_data_path: ../datasets/mockdata/fake_vctk_1ex/
+train_data_path: ../datasets/mockdata/lj
 train_filter: null
-valid_data_path: ../datasets/mockdata/fake_vctk_1ex/
+valid_data_path: ../datasets/mockdata/lj
 valid_filter: null
 
 datasets:
     train:
         path: !ref <train_data_path>
-        loader: !name:datasets.vctk.load
+        loader: !name:datasets.lj.load
         filter: !ref <train_filter>
     valid:
         path: !ref <valid_data_path>
-        loader: !name:datasets.vctk.load
+        loader: !name:datasets.lj.load
         filter: !ref <valid_filter>
 
 opt_class: !name:torch.optim.Adam

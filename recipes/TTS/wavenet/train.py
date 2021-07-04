@@ -37,6 +37,20 @@ class WavenetBrain(sb.core.Brain):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        #TODO: Move this to GPU and outside of the brain
+        self.sample_mel = torchaudio.transforms.MelSpectrogram(
+            sample_rate=self.hparams.sample_rate,
+            n_mels=self.hparams.num_mels,
+            win_length=self.hparams.win_length,
+            hop_length=self.hparams.hop_length,
+            n_fft=self.hparams.n_fft,
+            power=self.hparams.power,
+            norm=self.hparams.norm,
+            mel_scale=self.hparams.mel_scale,
+            f_min=self.hparams.mel_fmin,
+            f_max=self.hparams.mel_fmax,
+            normalized=self.hparams.mel_normalized
+        )
 
     def compute_forward(self, batch, stage):
         """
@@ -106,12 +120,8 @@ class WavenetBrain(sb.core.Brain):
 
         # creating progress samples
         if self.hparams.progress_samples:
-            predicted_mel = torchaudio.transforms.MelSpectrogram(
-                self.hparams.sample_rate
-            )(predicted_audio.squeeze())
-            target_mel = torchaudio.transforms.MelSpectrogram(
-                self.hparams.sample_rate
-            )(target_audio.squeeze())
+            predicted_mel = self.sample_mel(predicted_audio.squeeze())
+            target_mel = self.sample_mel(target_audio.squeeze())
 
             self.last_predicted_audio = predicted_audio.detach().cpu()
             self.last_target_audio = target_audio.detach().cpu()
