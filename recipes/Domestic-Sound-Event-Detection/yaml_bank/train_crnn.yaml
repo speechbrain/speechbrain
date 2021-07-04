@@ -1,9 +1,9 @@
 # #################################
-# Basic training parameters for Event Detection DCASE 2019. 
+# Basic training parameters for Event Detection DCASE 2019.
 # We employ baseline CRNN model here for baseline on Speechbrain
 #
 # Author:
-#  * Vishal Ghorpade 
+#  * Vishal Ghorpade
 #  * Julien T Bouvier 2021
 # #################################
 
@@ -29,11 +29,11 @@ RootFolder: !ref /content/Event_Detection_DCASE_copie
 #/Users/julienbouviertremblay/sb_proj/Event_Detection_DCASE_copie
 #/content/Event_Detection_DCASE_8_avril
 
-##############################################################################
+###########################################################################
 
 #Folder Paths:
 DataFolder: !ref <RootFolder>/dataset
-AudioPath:  !ref <DataFolder>/audio
+AudioPath: !ref <DataFolder>/audio
 MetaDataPath: !ref <DataFolder>/metadata
 MissingFilesPath: !ref <RootFolder>/missing_files
 
@@ -112,7 +112,6 @@ add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
     rir_scale_factor: 1.0
-
 add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_max_noise_len: 3.0 #seconds
     reverb_prob: 0.0
@@ -130,10 +129,7 @@ add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     rir_scale_factor: 1.0
 #augmentation pipeline
 aument_pipeline: [
-    !ref <add_noise>
-    ]
-
-
+    !ref <add_noise>]
 # total_loss: !new:speechbrain.utils.metric_stats.MetricStats
 #     metric: !ref <loss>
 # total_loss: []
@@ -171,29 +167,25 @@ max_len_seconds: 10.
 
 #STFT args
 STFTArgs: {sample_rate: 44100,
-win_length: 46.439,
-n_fft: 2048,
-hop_length: 11.587,
-center: True,
-pad_mode: reflect}
-
+           win_length: 46.439,
+           n_fft: 2048,
+           hop_length: 11.587,
+           center: True,
+           pad_mode: reflect}
 #FilterBank args
 FBArgs: {sample_rate: 44100,
-n_fft: 2048,
-n_mels: 64,
-log_mel: True,
-f_min: 0,
-f_max: 22050,
-power_spectrogram: 2}
-
+         n_fft: 2048,
+         n_mels: 64,
+         log_mel: True,
+         f_min: 0,
+         f_max: 22050,
+         power_spectrogram: 2}
 #DCT args
 DCTArgs: {input_size: 64,
-n_out: 64}
-
+          n_out: 64}
 compute_features: !name:utils_dcase2019.compute_fbanks
     # stft_args: !ref <STFTArgs>
     # fb_args: !ref  <FBArgs>
-
 # Training Parameters
 number_of_epochs: 100
 batch_size: 24
@@ -221,11 +213,10 @@ opt_class: !name:torch.optim.Adam
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 #   norm_type: global
-  norm_type: sentence
-  std_norm: False
-
+    norm_type: sentence
+    std_norm: False
 #CRNN Model params
-AvgPool: !!python/tuple [2,4]
+AvgPool: !!python/tuple [2, 4]
 # CRNNArgs: {n_in_channel: 1,
 # nclass: !ref <n_classes>,
 # attention: True,
@@ -249,19 +240,17 @@ crnn: !new:models.CRNN_baseline.CRNN
     dropout: 0.5
     kernel_size: [3, 3, 3]
     padding: [1, 1, 1]
-    stride:  [1, 1, 1]
+    stride: [1, 1, 1]
     nb_filters: [64, 64, 64]
     pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]
 
 pooling_time_ratio: 8
 # depooling: "{{ pooling_time_ratio*hop_length/sample_rate }}"
-# depooling: !ref <pooling_time_ratio> * !ref <hop_leanth> / !ref <sample_rate> 
+# depooling: !ref <pooling_time_ratio> * !ref <hop_leanth> / !ref <sample_rate>
 modules:
-    
     crnn: !ref <crnn>
     mean_var_norm: !ref <mean_var_norm>
     # augmentation: !ref <augmentation>
-    
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
 # the lr from the initial value to the final one.
