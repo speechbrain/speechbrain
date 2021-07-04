@@ -22,8 +22,14 @@ GarbageConditioningLoss = namedtuple(
 
 class GarbageConditioner:
     """
-    A conditioning approach that attempts to penalize a model for doing no better
-    on the true input for a given feature than on a distorted version of it.
+    A conditioning approach that attempts to penalize a model for
+    learning a function that ignores key inputs because it is much
+    "easier" to achieve good performance by focusing on the other
+    inputs. One notable example is the training of an autoregressive
+    Text-to-Speech model that is given both the input text sequences
+    and the target spectrogram and learns to simply predict the
+    the next step in a spectrogram based on previous steps, thus
+    learning a generative model for speech instead of TTS.
 
     It is based on computing a surrogate loss as follows:
 
