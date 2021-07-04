@@ -1,8 +1,8 @@
 # #################################
-# Basic training parameters for Event Detection DCASE 2019. 
+# Basic training parameters for Event Detection DCASE 2019.
 #
 # Author:
-#  * Vishal Ghorpade 
+#  * Vishal Ghorpade
 #  * Julien Bouvier Tremblay 2021
 # #################################
 
@@ -15,9 +15,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Flag to download dataset or not, 0->no download, 1->download
 download: 0
 
-# by default the models train with only Weakly annotated data (Srtong:0, Unlabel:0)
-# if Flag Strong is set, strongly labels are used 
-# if Flag Unlabel is set, unlabelled data + weakly + strongly are used, independently of Flag of Strong
+# by default the models train with only Weakly annotated data
+# (Srtong:0, Unlabel:0)
+# if Flag Strong is set, strongly labels are used
+# if Flag Unlabel is set, unlabelled data + weakly + strongly are used,
+# independently of Flag of Strong
 # 1-> True,0->False
 Strong: 1
 Unlabel: 0
@@ -26,17 +28,19 @@ Unlabel: 0
 GPUAvailable: False
 
 #** Change the root here**
-RootFolder: !ref C:\Users\Ashish Ghorpade\Documents\Speech\speechbrain\recipes\Event_Detection_DCASE #/content/Event_Detection_DCASE_copie
+RootFolder: !ref \speechbrain\recipes\Event_Detection_DCASE
 #/Users/julienbouviertremblay/sb_proj/Event_Detection_DCASE_copie
 #/content/Event_Detection_DCASE_8_avril
 
 ##############################################################################
 
 # Folder Paths to audio and metadata from download
-# make sure it's right and structure should be similar to the one from README.md file
+# check if it's right and structure should be similar to the one from README.md
 DataFolder: !ref <RootFolder>/dataset
-AudioPath:  !ref <DataFolder>/audio
-AudioPath_Unlabel:  null # Add path if unlabel in other directory ~/audio/unlabel_in_domain #### put null if already inside dataset/audio/train/
+AudioPath: !ref <DataFolder>/audio
+AudioPath_Unlabel: null
+# Add path if unlabel in other directory ~/audio/unlabel_in_domain
+#### put null if already inside dataset/audio/train/
 MetaDataPath: !ref <DataFolder>/metadata
 MissingFilesPath: !ref <RootFolder>/missing_files
 
@@ -72,7 +76,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 evaluation_metric: !ref <output_folder>/eval_metric_public_eval_set.txt
 
 # save checkpoint every N min
-ckpt_interval_minutes: 15 
+ckpt_interval_minutes: 15
 
 # number of classes and names of classes from DCASE2019 Task 4
 n_classes: 10
@@ -139,29 +143,25 @@ max_len_seconds: 10.
 
 #STFT args
 STFTArgs: {sample_rate: !ref <sample_rate>,
-win_length: !ref <n_window> / <sample_rate> * 1000.0,  #46.439
-n_fft: !ref <n_window>,
-hop_length: !ref <hop_length> / <sample_rate> * 1000.0, #11.587
-center: True,
-pad_mode: reflect}
-
+           win_length: !ref <n_window> / <sample_rate> * 1000.0,  #46.439
+           n_fft: !ref <n_window>,
+           hop_length: !ref <hop_length> / <sample_rate> * 1000.0, #11.587
+           center: True,
+           pad_mode: reflect}
 #FilterBank args
 FBArgs: {sample_rate: !ref <sample_rate>,
-n_fft: !ref <n_window>,
-n_mels: !ref <n_mels>,
-log_mel: True,
-f_min: 0,
-f_max: !ref <sample_rate> / 2,
-power_spectrogram: 2}
-
+         n_fft: !ref <n_window>,
+         n_mels: !ref <n_mels>,
+         log_mel: True,
+         f_min: 0,
+         f_max: !ref <sample_rate> / 2,
+         power_spectrogram: 2}
 #DCT args
 DCTArgs: {input_size: !ref <n_mels>,
-n_out: !ref <n_mels>}
-
+          n_out: !ref <n_mels>}
 compute_features: !new:utils_dcase2019.ComputeFbank
     stft_args: !ref <STFTArgs>
     fb_args: !ref  <FBArgs>
-
 env_corrupt_10: !new:speechbrain.lobes.augment.EnvCorrupt
     babble_prob: 0.0
     reverb_prob: 0.7
@@ -177,7 +177,7 @@ env_corrupt_5: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_high: 5
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-  norm_type: global
+    norm_type: global
 
 # Dataloader options
 dataloader_train_options:
@@ -191,7 +191,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-AvgPool: !!python/tuple [2,4]
+AvgPool: !!python/tuple [2, 4]
 pooling_time_ratio: 8
 
 # uncomment if want to use CRNN
@@ -227,7 +227,7 @@ pooling_time_ratio: 8
 crdnn: !new:models.CRDNN_custom.CRDNN_C
     nclass: !ref <n_classes>
     input_size: !ref <n_mels>
-    activation: !new:torch.nn.modules.activation.LeakyReLU 
+    activation: !new:torch.nn.modules.activation.LeakyReLU
     dropout: 0.5
     cnn_blocks: 2
     cnn_channels: !!python/tuple [64, 64]
@@ -235,17 +235,16 @@ crdnn: !new:models.CRDNN_custom.CRDNN_C
     time_pooling: True
     time_pooling_size: 2
     using_2d_pooling: True
-    inter_layer_pooling_size: [2,2]
-    stride: [1,1,1]
+    inter_layer_pooling_size: [2, 2]
+    stride: [1, 1, 1]
     rnn_layers: 2
     rnn_neurons: 64
     dnn_blocks: 2
     dnn_neurons: 128
-
 crdnn_ema: !new:models.CRDNN_custom.CRDNN_C
     nclass: !ref <n_classes>
     input_size: !ref <n_mels>
-    activation: !new:torch.nn.modules.activation.LeakyReLU 
+    activation: !new:torch.nn.modules.activation.LeakyReLU
     dropout: 0.5
     cnn_blocks: 2
     cnn_channels: !!python/tuple [64, 64]
@@ -253,13 +252,12 @@ crdnn_ema: !new:models.CRDNN_custom.CRDNN_C
     time_pooling: True
     time_pooling_size: 2
     using_2d_pooling: True
-    inter_layer_pooling_size: [2,2]
-    stride: [1,1,1]
+    inter_layer_pooling_size: [2, 2]
+    stride: [1, 1, 1]
     rnn_layers: 2
     rnn_neurons: 64
     dnn_blocks: 2
     dnn_neurons: 128
-
 modules:
     compute_features: !ref <compute_features>
     crdnn: !ref <crdnn>
@@ -269,8 +267,6 @@ modules:
     mean_var_norm: !ref <mean_var_norm>
     env_corrupt_5: !ref <env_corrupt_5>
     env_corrupt_10: !ref <env_corrupt_10>
-    
-
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
