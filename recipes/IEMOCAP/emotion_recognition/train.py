@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+"""Recipe for training an emotion recognition system from speech data only using IEMOCAP.
+The system classifies 4 emotions ( anger, happiness, sadness, neutrality)
+with an ECAPA-TDNN model.
+
+To run this recipe, do the following:
+
+> python train.py hparams/train.yaml --data_folder /path/to/IEMOCAP
+
+Authors
+ * Pierre-Yves Yanni 2021
+"""
+
 import os
 import sys
 import csv
@@ -9,14 +22,9 @@ from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 
 
-# PREPARE MODEL
-
-class SpkIdBrain(sb.Brain):
-
+class EmoIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + speaker classifier.
-        Data augmentation and environmental corruption are applied to the
-        input speech.
+        """Computation pipeline based on a encoder + emotion classifier.
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
@@ -32,7 +40,7 @@ class SpkIdBrain(sb.Brain):
         return outputs
 
     def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
+        """Trains the parameters given a single batch in input"""
 
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
@@ -127,8 +135,7 @@ class SpkIdBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=stats,
-                                                 min_keys=["error"])
+            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
 
         # We also write statistics about test data to stdout and to logfile.
         if stage == sb.Stage.TEST:
@@ -175,11 +182,12 @@ class SpkIdBrain(sb.Brain):
                 test_set, Stage.TEST, **test_loader_kwargs
             )
 
-            save_file = os.path.join(self.hparams.output_folder,
-                                     "predictions.csv")
-            with open(save_file, 'w', newline='') as csvfile:
-                outwriter = csv.writer(csvfile, delimiter=',')
-                outwriter.writerow(['id', 'prediction', 'true_value'])
+            save_file = os.path.join(
+                self.hparams.output_folder, "predictions.csv"
+            )
+            with open(save_file, "w", newline="") as csvfile:
+                outwriter = csv.writer(csvfile, delimiter=",")
+                outwriter.writerow(["id", "prediction", "true_value"])
 
         self.on_evaluate_start(max_key=max_key, min_key=min_key)  # done before
         self.modules.eval()
@@ -194,10 +202,11 @@ class SpkIdBrain(sb.Brain):
                 output = self.compute_forward(batch, stage=Stage.TEST)
                 predictions = torch.argmax(output, dim=-1).squeeze().tolist()
 
-                with open(save_file, 'a', newline='') as csvfile:
-                    outwriter = csv.writer(csvfile, delimiter=',')
+                with open(save_file, "a", newline="") as csvfile:
+                    outwriter = csv.writer(csvfile, delimiter=",")
                     for emo_id, prediction, true_val in zip(
-                            emo_ids, predictions, true_vals):
+                        emo_ids, predictions, true_vals
+                    ):
                         outwriter.writerow([emo_id, prediction, true_val])
 
                 # Debug mode only runs a few batches
@@ -260,8 +269,8 @@ def dataio_prep(hparams):
     datasets = {}
     for dataset in ["train", "valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=f"{dataset}.json",
-            replacements={"data_root": './data'},
+            json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "emo_encoded"],
         )
@@ -269,7 +278,7 @@ def dataio_prep(hparams):
     # Please, take a look into the lab_enc_file to see the label to index
     # mappinng.
 
-    lab_enc_file = os.path.join(hparams['save_folder'], "label_encoder.txt")
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
         from_didatasets=[datasets["train"]],
@@ -298,7 +307,7 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-    
+
     from iemocap_prepare import prepare_data  # noqa E402
 
     # Data preparation, to be run on only one process.
@@ -319,7 +328,7 @@ if __name__ == "__main__":
     datasets = dataio_prep(hparams)
 
     # Initialize the Brain object to prepare for mask training.
-    spk_id_brain = SpkIdBrain(
+    emo_id_brain = EmoIdBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
@@ -331,8 +340,8 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    spk_id_brain.fit(
-        epoch_counter=spk_id_brain.hparams.epoch_counter,
+    emo_id_brain.fit(
+        epoch_counter=emo_id_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
@@ -340,14 +349,14 @@ if __name__ == "__main__":
     )
 
     # Load the best checkpoint for evaluation
-    test_stats = spk_id_brain.evaluate(
+    test_stats = emo_id_brain.evaluate(
         test_set=datasets["test"],
         min_key="error",
         test_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Create output file with predictions
-    spk_id_brain.output_predictions_test_set(
+    emo_id_brain.output_predictions_test_set(
         test_set=datasets["test"],
         min_key="error",
         test_loader_kwargs=hparams["dataloader_options"],

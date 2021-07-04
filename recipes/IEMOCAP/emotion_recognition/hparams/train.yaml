@@ -1,6 +1,6 @@
 # ########################################
-# Emotion recognition using ECAPA-TDNN
-# (smaller version with layer sizes and number 
+# Emotion recognition from speech using ECAPA-TDNN
+# (smaller version with layer sizes and number
 # of attention heads divided by 2 compared to original)
 #
 #  * Authors: Hwidong Na & Mirco Ravanelli
@@ -9,12 +9,12 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1968
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset will be downloaded to the `data_folder`
-data_folder: ./data
-output_folder: !ref ./results
+data_folder: !PLACEHOLDER # e.g., /localscratch/IEMOCAP_ahsn_leave-two-speaker-out/
+output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -24,9 +24,9 @@ train_log: !ref <output_folder>/train_log.txt
 different_speakers: False
 
 # Path where data manifest files will be stored
-train_annotation: train.json
-valid_annotation: valid.json
-test_annotation: test.json
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/valid.json
+test_annotation: !ref <output_folder>/test.json
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -47,7 +47,7 @@ weight_decay: 0.00002
 base_lr: 0.000001
 max_lr: !ref <lr>
 step_size: 1088  # 4 times number of iterations/epoch (2 to 10 is suggested)
-mode: exp_range
+mode: exp_range # mode of learning rate schedule (triangular, triangular2, exp_range)
 gamma: 0.9998  # divides learning rate by 3 over the first 20 epochs
 sample_rate: 16000
 shuffle: True
@@ -61,7 +61,7 @@ right_frames: 0
 deltas: False
 
 # Number of emotions
-out_n_neurons: 4 # 3 + neutral
+out_n_neurons: 4 # (anger, happiness, sadness, neutral)
 
 dataloader_options:
     batch_size: !ref <batch_size>
@@ -118,7 +118,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
     base_lr: !ref <base_lr>
     max_lr: !ref <max_lr>
     step_size: !ref <step_size>
-    
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:

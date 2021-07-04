@@ -1,9 +1,6 @@
 """
 Downloads and creates data manifest files for IEMOCAP
 (https://sail.usc.edu/iemocap/).
-For speaker-id, different sentences of the same speaker must appear in train,
-validation, and test sets. In this case, these sets are thus derived from
-splitting the orginal training set into three chunks.
 
 Authors:
  * Mirco Ravanelli, 2021
@@ -12,7 +9,6 @@ Authors:
 
 import os
 import json
-import shutil
 import random
 import logging
 from speechbrain.utils.data_utils import get_all_files
@@ -29,12 +25,22 @@ def prepare_data(
     save_json_test,
     split_ratio=[80, 10, 10],
     different_speakers=False,
-    seed=12
+    seed=12,
 ):
     """
     Prepares the json files for the IEMOCAP dataset.
 
-    Downloads the dataset if it is not found in the `data_folder`.
+    We here use only the audio part of the dataset. The assumpion is
+    that the data folder is structured as:
+
+    <session_id>/<emotion>/<file:name>.wav
+
+    e.g.
+    session1/ang/psno1_ang_s084_orgn.wav
+
+    Please, process the original IEMOCAP folder to match the expected
+    folder structure.
+
 
     Arguments
     ---------
@@ -69,12 +75,10 @@ def prepare_data(
         logger.info("Preparation completed in previous run, skipping.")
         return
 
-    # If the dataset doesn't exist yet, download it
-    train_folder = os.path.join(
-        data_folder, "IEMOCAP_ahsn_leave-two-speaker-out"
-    )
-    if not check_folders(train_folder):
-        unpack_iemocap(data_folder)
+    if not check_folders(data_folder + "session1/ang/psno1_ang_s084_orgn.wav"):
+        logger.info(
+            "The data folder is not in the expected format. Expected <session_id>/<emo_id>/<file_name>.wav (e.g., session1/ang/psno1_ang_s084_orgn.wav)"
+        )
 
     # List files and create manifest from list
     logger.info(
@@ -83,7 +87,7 @@ def prepare_data(
     extension = [".wav"]
 
     # Randomly split the signal list into train, valid, and test sets.
-    wav_list = get_all_files(train_folder, match_and=extension)
+    wav_list = get_all_files(data_folder, match_and=extension)
     if different_speakers:
         data_split = split_different_speakers(wav_list)
     else:
@@ -118,7 +122,7 @@ def create_json(wav_list, json_file):
         # Manipulate path to get relative path and uttid
         path_parts = wav_file.split(os.path.sep)
         uttid, _ = os.path.splitext(path_parts[-1])
-        relative_path = os.path.join("{data_root}", *path_parts[-4:])
+        relative_path = os.path.join("{data_root}", *path_parts[-3:])
 
         # Getting emotion
         emo = path_parts[-2]
@@ -177,7 +181,7 @@ def split_different_speakers(wav_list):
     ------
     dictionary containing train, valid, and test splits.
     """
-    data_split = {k: [] for k in ['train', 'valid', 'test']}
+    data_split = {k: [] for k in ["train", "valid", "test"]}
     sessions = list(range(1, 6))
     random.shuffle(sessions)
     random.shuffle(wav_list)
@@ -185,11 +189,11 @@ def split_different_speakers(wav_list):
     for path_wav in wav_list:
         session = int(os.path.split(path_wav)[-1][4])
         if session in sessions[:3]:
-            data_split['train'].append(path_wav)
+            data_split["train"].append(path_wav)
         elif session == sessions[3]:
-            data_split['valid'].append(path_wav)
+            data_split["valid"].append(path_wav)
         else:
-            data_split['test'].append(path_wav)
+            data_split["test"].append(path_wav)
     return data_split
 
 
@@ -230,14 +234,3 @@ def split_sets(wav_list, split_ratio):
     data_split["test"] = wav_list
 
     return data_split
-
-
-def unpack_iemocap(destination):
-    """unpacks file.
-
-    Arguments
-    ---------
-    destination : str
-        Place to put dataset.
-    """
-    shutil.unpack_archive("IEMOCAP_processed.tar.gz", destination)
