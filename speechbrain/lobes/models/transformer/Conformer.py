@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from typing import Optional
 import speechbrain as sb
+import warnings
 
 
 from speechbrain.nnet.attention import (
@@ -292,7 +293,7 @@ class ConformerEncoder(nn.Module):
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
     >>> pos_emb = torch.rand((1, 2*60-1, 512))
-    >>> net = ConformerEncoder(num_layers=1, nhead=8, d_ffn=512, d_model=512)
+    >>> net = ConformerEncoder(1, 512, 512, 8)
     >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -424,7 +425,10 @@ class ConformerDecoderLayer(nn.Module):
     ):
         super().__init__()
 
-        assert causal, "Decoder must be causal"
+        if not causal:
+            warnings.warn(
+                "Decoder is not causal, in most applications it should be causal, you have been warned !"
+            )
 
         if attention_type == "regularMHA":
             self.mha_layer = MultiheadAttention(
@@ -526,7 +530,7 @@ class ConformerDecoderLayer(nn.Module):
 
 
 class ConformerDecoder(nn.Module):
-    """This class implements the Conformer decoder.
+    """This class implements the Transformer decoder.
 
     Arguments
     ----------
@@ -534,7 +538,7 @@ class ConformerDecoder(nn.Module):
         Number of layers.
     nhead: int
         Number of attention heads.
-     d_ffn: int
+    d_ffn: int
         Hidden size of self-attention Feed Forward layer.
     d_model: int
         Embedding dimension size.
@@ -560,8 +564,8 @@ class ConformerDecoder(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = ConformerDecoder(1, 8, 1024, d_model=512, causal=True)
-    >>> output, _, _ = net(src, tgt)
+    >>> net = ConformerDecoder(1, 8, 1024, 512, attention_type="regularMHA")
+    >>> output, _, _ = net(tgt, src)
     >>> output.shape
     torch.Size([8, 60, 512])
     """
@@ -578,7 +582,7 @@ class ConformerDecoder(nn.Module):
         activation=Swish,
         kernel_size=3,
         bias=True,
-        causal=False,
+        causal=True,
         attention_type="RelPosMHAXL",
     ):
         super().__init__()
