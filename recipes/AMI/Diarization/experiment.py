@@ -203,6 +203,12 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     params["embedding_model"].eval()
     msg = "Diarizing " + split_type + " set"
     logger.info(msg)
+
+    if len(all_rec_ids) <= 0:
+        msg = "No recording IDs found! Please check if CSV is properly generated."
+        logger.error(msg)
+        sys.exit()
+
     for rec_id in tqdm(all_rec_ids):
         # This tag will be displayed in the log
         tag = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
@@ -218,7 +224,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             params["embedding_dir"], split, rec_id + "_xv_stat.pkl"
         )
 
-        # Prepare a csv for one recording. This is basically subset of full_csv.
+        # Prepare a csv for one recording. This is basically a subset of full_csv.
         new_csv_file = os.path.join(
             params["embedding_dir"], split, rec_id + ".csv"
         )
