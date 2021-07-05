@@ -623,9 +623,8 @@ if __name__ == "__main__":  # noqa: C901
             # dev_tuner used for tuning num of components in NN. Can be used in future.
             n_lambdas = dev_tuner(full_csv, "dev")
 
-
     # Load 'dev' and 'eval' csv files.
-    full_csv_dev = full_csv # current full_csv is for 'dev'
+    full_csv_dev = full_csv  # current full_csv is for 'dev'
 
     full_csv_eval = []
     with open(params["csv_diary_eval"], "r") as csv_file:
@@ -639,7 +638,7 @@ if __name__ == "__main__":  # noqa: C901
 
     final_DERs = {}
     # Perform diarization on 'dev' and 'eval' with best hyperparams.
-    for split_type in ['dev','eval']:
+    for split_type in ['dev', 'eval']:
 
         if split_type == 'dev':
             full_csv = full_csv_dev
@@ -660,7 +659,7 @@ if __name__ == "__main__":  # noqa: C901
         # Computing DER.
         msg = "Computing DERs for " + split_type + " set"
         logger.info(msg)
-        ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_"+split_type+".rttm")
+        ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_" + split_type + ".rttm")
         sys_rttm = out_boundaries
         [MS, FA, SER, DER_vals] = DER(
             ref_rttm,
@@ -671,12 +670,12 @@ if __name__ == "__main__":  # noqa: C901
         )
 
         # Writing DER values to a file. Append tag.
-        out_der_file = os.path.join(params["der_dir"], split_type +"_DER_" + tag)
-        msg = "Writing DER file to: "+ out_der_file
+        out_der_file = os.path.join(params["der_dir"], split_type + "_DER_" + tag)
+        msg = "Writing DER file to: " + out_der_file
         logger.info(msg)
         diar.write_ders_file(ref_rttm, DER_vals, out_der_file)
 
-        msg = "AMI "+ split_type + " set DER = %s %%\n" % (
+        msg = "AMI " + split_type + " set DER = %s %%\n" % (
             str(round(DER_vals[-1], 2))
         )
         logger.info(msg)
