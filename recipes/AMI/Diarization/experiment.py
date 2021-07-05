@@ -641,7 +641,7 @@ if __name__ == "__main__":  # noqa: C901
             full_csv = full_csv_eval
 
         # Performing diarization.
-        msg = "\nDiarizing (with best hyperparams): " + split_type + " set"
+        msg = "Diarizing using best hyperparams: " + split_type + " set"
         logger.info(msg)
         out_boundaries = diarize_dataset(
             full_csv,
@@ -664,7 +664,6 @@ if __name__ == "__main__":  # noqa: C901
             individual_file_scores=True,
         )
 
-
         # Writing DER values to a file. Append tag.
         out_der_file = os.path.join(params["der_dir"], split_type +"_DER_" + tag)
         msg = "Writing DER file to: "+ out_der_file
@@ -677,94 +676,9 @@ if __name__ == "__main__":  # noqa: C901
         logger.info(msg)
         final_DERs[split_type] = round(DER_vals[-1], 2)
 
-    # Finally print DERs
+    # Final print DERs
     msg = (
         "Final Diarization Error Rate (%%) on AMI corpus: Dev = %s %% | Eval = %s %%\n"
         % (str(final_DERs["dev"]), str(final_DERs["eval"]))
     )
     logger.info(msg)
-
-
-    print ("New one")
-
-    sys.exit()
-
-
-   ####################################
-
-
-    # Running once more on dev set (optional).
-    out_boundaries = diarize_dataset(
-        full_csv,
-        "dev",
-        n_lambdas=n_lambdas,
-        pval=best_pval,
-        n_neighbors=best_nn,
-    )
-
-    # Computing DER for DEV set.
-    logger.info("Evaluating for AMI Dev. set")
-    ref_rttm_dev = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
-    sys_rttm_dev = out_boundaries
-    [MS_dev, FA_dev, SER_dev, DER_dev] = DER(
-        ref_rttm_dev,
-        sys_rttm_dev,
-        params["ignore_overlap"],
-        params["forgiveness_collar"],
-        individual_file_scores=True,
-    )
-    msg = "AMI Dev set: Diarization Error Rate = %s %%\n" % (
-        str(round(DER_dev[-1], 2))
-    )
-    logger.info(msg)
-
-    # Diarizing AMI Eval Set.
-    full_csv = []
-    with open(params["csv_diary_eval"], "r") as csv_file:
-        reader = csv.reader(csv_file, delimiter=",")
-        for row in reader:
-            full_csv.append(row)
-
-    out_boundaries = diarize_dataset(
-        full_csv,
-        "eval",
-        n_lambdas=n_lambdas,
-        pval=best_pval,
-        n_neighbors=best_nn,
-    )
-
-    # Computing DER for AMI Eval set.
-    logger.info("Evaluating for AMI Eval. set")
-    ref_rttm_eval = os.path.join(
-        params["ref_rttm_dir"], "fullref_ami_eval.rttm"
-    )
-    sys_rttm_eval = out_boundaries
-    [MS_eval, FA_eval, SER_eval, DER_eval] = DER(
-        ref_rttm_eval,
-        sys_rttm_eval,
-        params["ignore_overlap"],
-        params["forgiveness_collar"],
-        individual_file_scores=True,
-    )
-    msg = "AMI Eval set: Diarization Error Rate = %s %%\n" % (
-        str(round(DER_eval[-1], 2))
-    )
-    logger.info(msg)
-
-
-
-    msg = (
-        "Final Diarization Error Rate (%%) on AMI corpus: Dev = %s %% | Eval = %s %%\n"
-        % (str(round(DER_dev[-1], 2)), str(round(DER_eval[-1], 2)))
-    )
-    logger.info(msg)
-
-    # Writing DER for individual files.
-    t0 = "oracle" if params["oracle_n_spkrs"] else "est"
-    tag = t0 + "_" + str(params["affinity"]) + ".txt"
-
-    out_der_file = os.path.join(params["der_dir"], "dev_DER_" + tag)
-    diar.write_ders_file(ref_rttm_dev, DER_dev, out_der_file)
-
-    out_der_file = os.path.join(params["der_dir"], "eval_DER_" + tag)
-    diar.write_ders_file(ref_rttm_eval, DER_eval, out_der_file)
