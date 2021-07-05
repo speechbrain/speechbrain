@@ -953,6 +953,9 @@ class Dual_Computation_Block(nn.Module):
 
         intra = self.intra_mdl(intra)
 
+        # cutting the length incase the intra model changes things
+        intra = intra[:, :K, :]
+
         # [BS, K, N]
         if self.linear_layer_after_inter_intra:
             intra = self.intra_linear(intra)
@@ -973,6 +976,9 @@ class Dual_Computation_Block(nn.Module):
         inter = intra.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
         # [BK, S, H]
         inter = self.inter_mdl(inter)
+
+        # cutting the length incase the inter model changes things
+        inter = inter[:, :S, :]
 
         # [BK, S, N]
         if self.linear_layer_after_inter_intra:

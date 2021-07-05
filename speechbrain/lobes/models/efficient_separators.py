@@ -17,6 +17,7 @@ from speechbrain.lobes.models.transformer.conformer import ConformerEncoder
 import speechbrain.nnet.RNN as SBRNN
 from speechbrain.nnet.activations import Swish
 from speechbrain.lobes.models.transformer.Longformer import LongformerEncoder
+from speechbrain.lobes.models.transformer.Linformer import LinformerEncoder
 
 
 EPS = 1e-8
@@ -486,6 +487,102 @@ class LongformerBlock(nn.Module):
             return self.mdl(x)[0]
 
 
+class LinformerBlock(nn.Module):
+    """A wrapper for the SpeechBrain implementation of the linformer encoder.
+
+    Arguments
+    ---------
+    num_layers : int
+        Number of layers.
+    d_model : int
+        Dimensionality of the representation.
+    nhead : int
+        Number of attention heads.
+    d_ffn : int
+        Dimensionality of positional feed forward.
+    input_shape : tuple
+        Shape of input.
+    kdim : int
+        Dimension of the key (Optional).
+    vdim : int
+        Dimension of the value (Optional).
+    dropout : float
+        Dropout rate.
+    activation : str
+        Activation function.
+    use_positional_encoding : bool
+        If true we use a positional encoding.
+    norm_before: bool
+        Use normalization before transformations.
+
+    Example
+    ---------
+    >>> x = torch.randn(10, 100, 64)
+    >>> block = LinformerBlock(1, 64, 8)
+    >>> x = block(x)
+    >>> x.shape
+    torch.Size([10, 120, 64])
+    """
+
+    def __init__(
+        self,
+        num_layers,
+        d_model,
+        nhead,
+        d_ffn=2048,
+        input_shape=None,
+        dropout=0.1,
+        activation="relu",
+        use_positional_encoding=False,
+        norm_before=False,
+        proj_k=128,
+    ):
+        super(LinformerBlock, self).__init__()
+        self.use_positional_encoding = use_positional_encoding
+
+        if activation == "relu":
+            activation = nn.ReLU
+        elif activation == "gelu":
+            activation = nn.GELU
+        else:
+            raise ValueError("unknown activation")
+
+        self.mdl = LinformerEncoder(
+            num_layers=num_layers,
+            nhead=nhead,
+            d_ffn=d_ffn,
+            input_shape=input_shape,
+            d_model=d_model,
+            dropout=dropout,
+            activation=activation,
+            normalize_before=norm_before,
+            proj_k=proj_k,
+        )
+
+        if use_positional_encoding:
+            self.pos_enc = PositionalEncoding(
+                input_size=d_model, max_len=100000
+            )
+
+    def forward(self, x):
+        """Returns the transformed output.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Tensor shape [B, L, N],
+            where, B = Batchsize,
+                   L = time points
+                   N = number of filters
+
+        """
+        if self.use_positional_encoding:
+            pos_enc = self.pos_enc(x)
+            return self.mdl(x + pos_enc)[0]
+        else:
+            return self.mdl(x)[0]
+
+
 class SBConformerEncoderBlock(nn.Module):
     """A wrapper for the SpeechBrain implementation of the ConformerEncoder.
 
@@ -705,7 +802,8 @@ class EfficientSeparator(nn.Module):
         self,
         in_channels,
         out_channels,
-        tf_encoder,
+        tf_encoder1,
+        tf_encoder2,
         num_layers=1,
         norm="ln",
         K=200,
@@ -726,7 +824,8 @@ class EfficientSeparator(nn.Module):
         if self.use_global_pos_enc:
             self.pos_enc = PositionalEncoding(max_length)
 
-        self.tf_encoder = tf_encoder
+        self.tf_encoder1 = tf_encoder1
+        self.tf_encoder2 = tf_encoder2
 
         self.conv1d_2 = nn.Conv1d(
             out_channels, out_channels * num_spks, kernel_size=1
@@ -777,7 +876,9 @@ class EfficientSeparator(nn.Module):
 
         # [B, L, N]
         L = x.shape[1]
-        x = self.tf_encoder(x)[:, :L, :] + x
+        x = self.tf_encoder1(x)[:, :L, :] + x
+        x = self.tf_encoder2(x)[:, :L, :] + x
+
         # x = x[:, :L, :]
 
         # [B, N, L]
