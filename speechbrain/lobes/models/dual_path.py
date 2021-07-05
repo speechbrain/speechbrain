@@ -16,9 +16,7 @@ import copy
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.lobes.models.transformer.conformer import ConformerEncoder
 import speechbrain.nnet.RNN as SBRNN
-from speechbrain.nnet.activations import Swish
 
 
 EPS = 1e-8
@@ -553,6 +551,7 @@ class SBTransformerBlock(nn.Module):
         activation="relu",
         use_positional_encoding=False,
         norm_before=False,
+        attention_type="regularMHA",
     ):
         super(SBTransformerBlock, self).__init__()
         self.use_positional_encoding = use_positional_encoding
@@ -575,109 +574,7 @@ class SBTransformerBlock(nn.Module):
             dropout=dropout,
             activation=activation,
             normalize_before=norm_before,
-        )
-
-        if use_positional_encoding:
-            self.pos_enc = PositionalEncoding(input_size=d_model)
-
-    def forward(self, x):
-        """Returns the transformed output.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            Tensor shape [B, L, N],
-            where, B = Batchsize,
-                   L = time points
-                   N = number of filters
-
-        """
-        if self.use_positional_encoding:
-            pos_enc = self.pos_enc(x)
-            return self.mdl(x + pos_enc)[0]
-        else:
-            return self.mdl(x)[0]
-
-
-class SBConformerEncoderBlock(nn.Module):
-    """A wrapper for the SpeechBrain implementation of the ConformerEncoder.
-
-    Arguments
-    ---------
-    num_layers : int
-        Number of layers.
-    d_model : int
-        Dimensionality of the representation.
-    nhead : int
-        Number of attention heads.
-    d_ffn : int
-        Dimensionality of positional feed forward.
-    input_shape : tuple
-        Shape of input.
-    kdim : int
-        Dimension of the key (Optional).
-    vdim : int
-        Dimension of the value (Optional).
-    dropout : float
-        Dropout rate.
-    activation : str
-        Activation function.
-    kernel_size: int
-        Kernel size in the conformer encoder
-    bias: bool
-        Use bias or not in the convolution part of conformer encoder
-    use_positional_encoding : bool
-        If true we use a positional encoding.
-
-
-    Example
-    ---------
-    >>> x = torch.randn(10, 100, 64)
-    >>> block = SBConformerEncoderBlock(1, 64, 8)
-    >>> x = block(x)
-    >>> x.shape
-    torch.Size([10, 100, 64])
-    """
-
-    def __init__(
-        self,
-        num_layers,
-        d_model,
-        nhead,
-        d_ffn=2048,
-        input_shape=None,
-        kdim=None,
-        vdim=None,
-        dropout=0.1,
-        activation="swish",
-        kernel_size=31,
-        bias=True,
-        use_positional_encoding=False,
-    ):
-        super(SBConformerEncoderBlock, self).__init__()
-        self.use_positional_encoding = use_positional_encoding
-
-        if activation == "relu":
-            activation = nn.ReLU
-        elif activation == "gelu":
-            activation = nn.GELU
-        elif activation == "swish":
-            activation = Swish
-        else:
-            raise ValueError("unknown activation")
-
-        self.mdl = ConformerEncoder(
-            num_layers=num_layers,
-            nhead=nhead,
-            d_ffn=d_ffn,
-            input_shape=input_shape,
-            d_model=d_model,
-            kdim=kdim,
-            vdim=vdim,
-            dropout=dropout,
-            activation=activation,
-            kernel_size=kernel_size,
-            bias=bias,
+            attention_type=attention_type,
         )
 
         if use_positional_encoding:
