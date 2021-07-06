@@ -63,15 +63,15 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
 # Trainer settings
 number_of_epochs: 50
 valid_search_eopch: 10
-batch_size: 8
-gradient_accumulation: 4
+batch_size: 8 # this works for 2 GPUs with 11GB
+gradient_accumulation: 8
 gradient_clipping: 5.0
 loss_reduction: batchmean
 sorting: random
 
 # stages related parameters
-stage_one_epochs: 40
-lr_adam: 1.0
+stage_one_epochs: 100 # not gonna changing optimizer in this recipe
+lr_adam: 2.5
 lr_sgd: 0.000025
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -101,6 +101,7 @@ transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
 vocab_size: 1000
+attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 
 # Multi-task
 ctc_weight: 0
@@ -142,11 +143,13 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.Transformer
     d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
-    normalize_before: True
     ctc_weight: !ref <ctc_weight>
     asr_weight: !ref <asr_weight>
     mt_weight: !ref <mt_weight>
     asr_tgt_vocab: !ref <output_neurons>
+    attention_type: !ref <attention_type>
+    normalize_before: True
+    causal: False
 
 # only when multi-task setting is used
 ctc_lin: !new:speechbrain.nnet.linear.Linear

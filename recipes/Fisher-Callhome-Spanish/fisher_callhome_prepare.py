@@ -32,9 +32,7 @@ from speechbrain.processing.speech_augmentation import Resample
 try:
     from sacremoses import MosesPunctNormalizer, MosesTokenizer
 except ImportError:
-    err_msg = (
-        "The optional dependency pandas must be installed to run this recipe.\n"
-    )
+    err_msg = "The optional dependency sacremoses must be installed to run this recipe.\n"
     err_msg += "Install using `pip install sacremoses`.\n"
     raise ImportError(err_msg)
 
@@ -179,7 +177,14 @@ def prepare_fisher_callhome_spanish(
             )
         )
 
-        if dataset != "train":
+        if dataset == "train":
+            concated_data = list(
+                filter(
+                    lambda data: 0 < len(data.translations[0]) < 400,
+                    concated_data,
+                )
+            )
+        else:
             for number in range(4):
                 concated_data = list(
                     filter(
@@ -187,13 +192,6 @@ def prepare_fisher_callhome_spanish(
                         concated_data,
                     )
                 )
-        else:
-            concated_data = list(
-                filter(
-                    lambda data: 0 < len(data.translations[0]) < 400,
-                    concated_data,
-                )
-            )
 
         # ignore empty or long utterances
         concated_data = list(
@@ -291,8 +289,6 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
             transcript = transcription_fields[7]
 
             cleaned_transcript = clean_transcription(transcript)
-
-            # cleaned_transcript = transcript
             extracted_transcriptions.append(
                 TDF(
                     channel=channel,
