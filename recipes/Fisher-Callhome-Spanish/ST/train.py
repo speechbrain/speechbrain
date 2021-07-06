@@ -50,7 +50,11 @@ class ST(sb.core.Brain):
         # asr output layer for seq2seq log-probabilities
         if self.hparams.asr_weight > 0 and self.hparams.ctc_weight < 1:
             asr_pred = self.hparams.Transformer.forward_asr(
-                enc_out, transcription_bos, pad_idx=self.hparams.pad_index,
+                enc_out,
+                src,
+                transcription_bos,
+                wav_lens,
+                pad_idx=self.hparams.pad_index,
             )
             asr_pred = self.hparams.asr_seq_lin(asr_pred)
             asr_p_seq = self.hparams.log_softmax(asr_pred)
@@ -563,7 +567,7 @@ def dataio_prepare(hparams):
         # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": 1},
+                key_min_value={"duration": 3},
                 key_max_value={"duration": 5},
                 sort_key="duration",
             )

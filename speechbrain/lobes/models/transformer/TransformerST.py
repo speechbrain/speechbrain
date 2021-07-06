@@ -5,7 +5,6 @@ Authors
 """
 
 import logging
-import torch  # noqa 42
 from torch import nn
 from typing import Optional
 
@@ -17,6 +16,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
     TransformerDecoder,
     TransformerEncoder,
 )
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
 from speechbrain.nnet.activations import Swish
 
@@ -31,23 +31,58 @@ class TransformerST(TransformerASR):
 
     Arguments
     ----------
-    d_model : int
-        The number of expected features in the encoder/decoder inputs
+    tgt_vocab: int
+        Size of vocabulary.
+    input_size: int
+        Input feature size.
+    d_model : int, optional
+        Embedding dimension size.
         (default=512).
-    nhead : int
+    nhead : int, optional
         The number of heads in the multi-head attention models (default=8).
-    num_encoder_layers : int
+    num_encoder_layers : int, optional
         The number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers : int
+    num_decoder_layers : int, optional
         The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int
+    dim_ffn : int, optional
         The dimension of the feedforward network model (default=2048).
-    dropout : int
+    dropout : int, optional
         The dropout value (default=0.1).
-    activation : torch class
-        The activation function of encoder/decoder intermediate layer.
+    activation : torch.nn.Module, optional
+        The activation function of FFN layers.
         Recommended: relu or gelu (default=relu).
-
+    positional_encoding: str, optional
+        Type of positional encoding used. e.g. 'fixed_abs_sine' for fixed absolute positional encodings.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
+    kernel_size: int, optional
+        Kernel size in convolutional layers when Conformer is used.
+    bias: bool, optional
+        Whether to use bias in Conformer convolutional layers.
+    encoder_module: str, optional
+        Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
+    conformer_activation: torch.nn.Module, optional
+        Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
+    attention_type: str, optional
+        Type of attention layer used in all Transformer or Conformer layers.
+        e.g. regularMHA or RelPosMHA.
+    max_length: int, optional
+        Max length for the target and source sequence in input.
+        Used for positional encodings.
+    causal: bool, optional
+        Whether the encoder should be causal or not (the decoder is always causal).
+        If causal the Conformer convolutional layer is causal.
+    ctc_weight: float
+        The weight of ctc for asr task
+    asr_weight: float
+        The weight of asr task for calculating loss
+    mt_weight: float
+        The weight of mt task for calculating loss
+    asr_tgt_vocab: int
+        The size of the asr target language
+    mt_src_vocab: int
+        The size of the mt source language
     Example
     -------
     """
@@ -63,12 +98,15 @@ class TransformerST(TransformerASR):
         d_ffn=2048,
         dropout=0.1,
         activation=nn.ReLU,
-        positional_encoding=True,
+        positional_encoding="fixed_abs_sine",
         normalize_before=False,
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        attention_type: Optional[str] = "regularMHA",
+        max_length: Optional[int] = 2500,
+        causal: Optional[bool] = True,
         ctc_weight: float = 0.0,
         asr_weight: float = 0.0,
         mt_weight: float = 0.0,
@@ -91,6 +129,9 @@ class TransformerST(TransformerASR):
             bias=bias,
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
+            attention_type=attention_type,
+            max_length=max_length,
+            causal=causal,
         )
 
         if ctc_weight < 1 and asr_weight > 0:
@@ -102,6 +143,8 @@ class TransformerST(TransformerASR):
                 dropout=dropout,
                 activation=activation,
                 normalize_before=normalize_before,
+                causal=True,
+                attention_type="regularMHA",  # always use regular attention in decoder
             )
             self.custom_asr_tgt_module = ModuleList(
                 NormalizedEmbedding(d_model, asr_tgt_vocab)
@@ -111,20 +154,43 @@ class TransformerST(TransformerASR):
             self.custom_mt_src_module = ModuleList(
                 NormalizedEmbedding(d_model, mt_src_vocab)
             )
-            self.mt_encoder = TransformerEncoder(
-                nhead=nhead,
-                num_layers=num_encoder_layers,
-                d_ffn=d_ffn,
-                d_model=d_model,
-                dropout=dropout,
-                activation=activation,
-                normalize_before=normalize_before,
-            )
+            if encoder_module == "transformer":
+                self.mt_encoder = TransformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=activation,
+                    normalize_before=normalize_before,
+                    causal=self.causal,
+                    attention_type=self.attention_type,
+                )
+            elif encoder_module == "conforemr":
+                self.mt_encoder = ConformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_ffn=d_ffn,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=conformer_activation,
+                    kernel_size=kernel_size,
+                    bias=bias,
+                    causal=self.causal,
+                    attention_type=self.attention_type,
+                )
+                assert (
+                    normalize_before
+                ), "normalize_before must be True for Conformer"
+
+                assert (
+                    conformer_activation is not None
+                ), "conformer_activation must not be None"
 
         # reset parameters using xavier_normal_
         self._init_params()
 
-    def forward_asr(self, encoder_out, tgt, pad_idx):
+    def forward_asr(self, encoder_out, src, tgt, wav_len, pad_idx=0):
         """This method implements a decoding step for asr task
 
         Arguments
@@ -136,16 +202,36 @@ class TransformerST(TransformerASR):
         pad_idx : int
             The index for <pad> token (default=0).
         """
-        tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
-        tgt_mask = get_lookahead_mask(tgt)
+        # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
+        if src.dim() == 4:
+            bz, t, ch1, ch2 = src.shape
+            src = src.reshape(bz, t, ch1 * ch2)
+
+        (
+            src_key_padding_mask,
+            tgt_key_padding_mask,
+            src_mask,
+            tgt_mask,
+        ) = self.make_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         transcription = self.custom_asr_tgt_module(tgt)
-        transcription = transcription + self.positional_encoding(transcription)
+
+        if self.attention_type == "RelPosMHAXL":
+            transcription = transcription + self.positional_encoding_decoder(
+                transcription
+            )
+        elif self.attention_type == "fixed_abs_sine":
+            transcription = transcription + self.positional_encoding(
+                transcription
+            )
+
         asr_decoder_out, _, _ = self.asr_decoder(
             tgt=transcription,
             memory=encoder_out,
+            memory_mask=src_mask,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
         )
 
         return asr_decoder_out
@@ -171,20 +257,36 @@ class TransformerST(TransformerASR):
         ) = self.make_masks_for_mt(src, tgt, pad_idx=pad_idx)
 
         src = self.custom_mt_src_module(src)
-        src = src + self.positional_encoding(src)
+
+        if self.attention_type == "RelPosMHAXL":
+            pos_embs_encoder = self.positional_encoding(src)
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            src = src + self.positional_encoding(src)
+            pos_embs_encoder = None
+
         encoder_out, _ = self.mt_encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs_encoder,
         )
 
         tgt = self.custom_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
+
+        if self.attention_type == "RelPosMHAXL":
+            # use standard sinusoidal pos encoding in decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            src = src + self.positional_encoding_decoder(src)
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)
+
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
+            memory_mask=src_mask,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
         )
 
         return encoder_out, decoder_out
@@ -194,17 +296,26 @@ class TransformerST(TransformerASR):
 
         Arguments
         ---------
-        tgt : tensor
-            The sequence to the decoder (required).
-        encoder_out : tensor
-            Hidden output of the encoder (required).
+        tgt : torch.Tensor
+            The sequence to the decoder.
+        encoder_out : torch.Tensor
+            Hidden output of the encoder.
         """
         tgt_mask = get_lookahead_mask(tgt)
-        tgt = self.custom_asr_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
-        prediction, self_attns, multihead_attns = self.decoder(
-            tgt, encoder_out, tgt_mask=tgt_mask
+        tgt = self.custom_tgt_module(tgt)
+        if self.attention_type == "RelPosMHAXL":
+            # we use fixed positional encodings in the decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            encoder_out = encoder_out + self.positional_encoding_decoder(
+                encoder_out
+            )
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+
+        prediction, _, multihead_attns = self.asr_decoder(
+            tgt, encoder_out, tgt_mask=tgt_mask,
         )
+
         return prediction, multihead_attns[-1]
 
     def make_masks_for_mt(self, src, tgt, pad_idx=0):
@@ -226,4 +337,5 @@ class TransformerST(TransformerASR):
 
         src_mask = None
         tgt_mask = get_lookahead_mask(tgt)
+
         return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
