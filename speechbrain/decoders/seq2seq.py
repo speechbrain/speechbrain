@@ -722,8 +722,8 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> lin = sb.nnet.linear.Linear(n_neurons=vocab_size, input_size=3)
     >>> coverage_scorer = sb.decoders.scorer.CoverageScorer(vocab_size)
     >>> scorer = sb.decoders.scorer.ScorerBuilder(
-    ...     full_scorer = [coverage_scorer],
-    ...     partial_scorer = [],
+    ...     full_scorers = [coverage_scorer],
+    ...     partial_scorers = [],
     ... )
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
