@@ -6,7 +6,7 @@ import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
 
 
-class BaseScorer:
+class BaseScorerInterface:
     """A scorer abstraction to be inherited by other
     scoring approaches for beam search.
 
@@ -70,8 +70,8 @@ class BaseScorer:
         return None
 
 
-class CTCScorer(BaseScorer):
-    """A wrapper of CTCPrefixScore based on the BaseScorer interface.
+class CTCScorer(BaseScorerInterface):
+    """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
     Arguments
     ---------
@@ -114,8 +114,8 @@ class CTCScorer(BaseScorer):
         return None
 
 
-class RNNLMScorer(BaseScorer):
-    """A wrapper of RNNLM based on BaseScorer the interface.
+class RNNLMScorer(BaseScorerInterface):
+    """A wrapper of RNNLM based on BaseScorerInterface.
 
     Arguments
     ---------
@@ -152,8 +152,8 @@ class RNNLMScorer(BaseScorer):
         return None
 
 
-class TransformerLMScorer(BaseScorer):
-    """A wrapper of TransformerLM based on BaseScorer the interface.
+class TransformerLMScorer(BaseScorerInterface):
+    """A wrapper of TransformerLM based on BaseScorerInterface.
 
     Arguments
     ---------
@@ -191,7 +191,7 @@ class TransformerLMScorer(BaseScorer):
         return None
 
 
-class NGramLMScorer(BaseScorer):
+class NGramLMScorer(BaseScorerInterface):
     """A word-piece ngram LM scorer.
 
     Arguments
@@ -279,7 +279,7 @@ class NGramLMScorer(BaseScorer):
         return None
 
 
-class CoverageScorer(BaseScorer):
+class CoverageScorer(BaseScorerInterface):
     """A coverage penalty scorer to prevent looping of hyps,
     where ```coverage``` is the cumulative attention probability vector.
     Reference: https://arxiv.org/pdf/1612.02695.pdf,
@@ -307,12 +307,13 @@ class CoverageScorer(BaseScorer):
         if coverage is None:
             coverage = torch.zeros_like(attn, device=attn.device)
 
-        # the attn of transformer is [batch_size x beam_size, current_step, source_len]
-        if len(attn.size()) > 2:
-            coverage = torch.sum(attn, dim=1)
-
         # Current coverage
-        coverage = coverage + attn
+        if len(attn.size()) > 2:
+            # the attn of transformer is [batch_size x beam_size, current_step, source_len]
+            coverage = torch.sum(attn, dim=1)
+        else:
+            coverage = coverage + attn
+
         # Compute coverage penalty and add it to scores
         penalty = torch.max(
             coverage, coverage.clone().fill_(self.threshold)
@@ -331,7 +332,7 @@ class CoverageScorer(BaseScorer):
         return None
 
 
-class LengthScorer(BaseScorer):
+class LengthScorer(BaseScorerInterface):
     """A length rewarding scorer.
 
     Arguments
@@ -358,29 +359,35 @@ class ScorerBuilder:
 
     Arguments
     ---------
+    weights : dict
+        Weights of full/partial scorers specified.
+    full_scorers : list
+        Scorers that score on full vocabulary set.
+    partial_scorers : list
+        Scorers that score on pruned tokens to prevent computation overhead.
+        Partial scoring is performed after full scorers.
+    scorer_beam_scale : float
+        The scale decides the number of pruned tokens for partial scorers:
+        int(beam_size * scorer_beam_scale).
     """
 
     def __init__(
         self,
-        ctc_weight=0.0,
-        ngramlm_weight=0.0,
-        coverage_weight=0.0,
-        length_weight=0.0,
-        rnnlm_weight=0.0,
-        transformerlm_weight=0.0,
-        full_scorers=dict(),
-        partial_scorers=dict(),
+        weights=dict(),
+        full_scorers=list(),
+        partial_scorers=list(),
         scorer_beam_scale=1.5,
     ):
+        assert len(weights) == len(full_scorers) + len(
+            partial_scorers
+        ), "Weights and scorers are not matched."
+
         self.scorer_beam_scale = scorer_beam_scale
-        self.weights = dict(
-            ctc=ctc_weight,
-            ngramlm=ngramlm_weight,
-            coverage=coverage_weight,
-            length=length_weight,
-            rnnlm=rnnlm_weight,
-            transformerlm=transformerlm_weight,
-        )
+        all_scorer_names = [
+            k.lower().split("scorer")[0]
+            for k in globals().keys()
+            if k.endswith("Scorer")
+        ]
         full_scorer_names = [
             impl.__class__.__name__.lower().split("scorer")[0]
             for impl in full_scorers
@@ -390,14 +397,14 @@ class ScorerBuilder:
             for impl in partial_scorers
         ]
 
+        # Have a default 0.0 weight for scorers not specified
+        init_weights = {k: 0.0 for k in all_scorer_names}
+        self.weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
 
-        if "ctc" in full_scorer_names:
-            self.weights["ctc"] = 1.0
-            self.weights["coverage"] = 0.0
-
-        self._validate_scorer()
+        # Check if scorers are valid
+        self._validate_scorer(all_scorer_names)
 
     def score(self, inp_tokens, memory, attn, log_probs, beam_size):
         """This method scores tokens in vocabulary based on defined full scorers
@@ -406,11 +413,11 @@ class ScorerBuilder:
         Arguments
         ---------
         inp_tokens : torch.Tensor
-            See BaseScorer().
+            See BaseScorerInterface().
         memory : dict[str, scorer memory]
             The states of scorers for this timestep.
         attn : torch.Tensor
-            See BaseScorer().
+            See BaseScorerInterface().
         log_probs : torch.Tensor
             (batch_size x beam_size, vocab_size). The log probs at this timestep.
 
@@ -471,17 +478,27 @@ class ScorerBuilder:
         Arguments
         ---------
         x : torch.Tensor
-            See BaseScorer().
+            See BaseScorerInterface().
         wav_len : torch.Tensor
-            See BaseScorer().
+            See BaseScorerInterface().
         """
         memory = dict()
         for k, impl in {**self.full_scorers, **self.partial_scorers}.items():
             memory[k] = impl.reset_mem(x, enc_lens)
         return memory
 
-    def _validate_scorer(self):
-        """These error messages indicate scorers are not properly set."""
+    def _validate_scorer(self, scorer_names):
+        """These error messages indicate scorers are not properly set.
+
+        Arguments
+        ---------
+        scorer_names : list
+            Prefix of scorers defined in speechbrain.decoders.scorer.
+        """
+        if len(self.weights) > len(scorer_names):
+            raise ValueError(
+                "The keys of weights should be named in {}".format(scorer_names)
+            )
 
         if not 0.0 <= self.weights["ctc"] <= 1.0:
             raise ValueError("ctc_weight should not > 1.0 and < 0.0")
