@@ -45,7 +45,7 @@ class LM(sb.core.Brain):
         batch = batch.to(self.device)
         tokens_bos, _ = batch.phn_encoded_bos
         pred = self.hparams.model(tokens_bos)
-        return pred
+        return self.hparams.log_softmax(pred)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
