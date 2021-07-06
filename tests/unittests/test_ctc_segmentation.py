@@ -12,7 +12,6 @@ def asr_model():
     return asr_model
 
 
-@pytest.mark.execution_timeout(5)
 def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     """Test CTC segmentation.
 
