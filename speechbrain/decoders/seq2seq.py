@@ -245,9 +245,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         than max_attn_shift.
         Reference: https://arxiv.org/abs/1904.02619
     minus_inf : float
-        DefaultL -1e20
         The value of minus infinity to block some path
-        of the search.
+        of the search. (default: -1e20)
     """
 
     def __init__(
@@ -285,25 +284,24 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.minus_inf = minus_inf
 
         if self.scorer is not None:
-            # Check indices for ctc
-            all_scorers = {
-                **self.scorer.full_scorers,
-                **self.scorer.partial_scorers,
-            }
-            blank_index = all_scorers["ctc"].blank_index
-            if len({bos_index, eos_index, blank_index}) < 3:
-                raise ValueError(
-                    "Set blank, eos and bos to different indexes for joint ATT/CTC or CTC decoding"
-                )
-
-            self.ctc_weight = self.scorer.weights["ctc"]
-            self.attn_weight = 1.0 - self.ctc_weight
-
             # Check length normalization
             if length_normalization and self.scorer.weights["length"] > 0.0:
                 raise ValueError(
                     "Length normalization is not compatible with length rewarding."
                 )
+            if self.scorer.weights["ctc"] > 0.0:
+                # Check indices for ctc
+                all_scorers = {
+                    **self.scorer.full_scorers,
+                    **self.scorer.partial_scorers,
+                }
+                blank_index = all_scorers["ctc"].blank_index
+                if len({bos_index, eos_index, blank_index}) < 3:
+                    raise ValueError(
+                        "Set blank, eos and bos to different indexes for joint ATT/CTC or CTC decoding"
+                    )
+            self.ctc_weight = self.scorer.weights["ctc"]
+            self.attn_weight = 1.0 - self.ctc_weight
 
     def _check_full_beams(self, hyps, beam_size):
         """This method checks whether hyps has been full.
@@ -716,11 +714,17 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     Example
     -------
     >>> import speechbrain as sb
-    >>> emb = torch.nn.Embedding(5, 3)
+    >>> vocab_size = 5
+    >>> emb = torch.nn.Embedding(vocab_size, 3)
     >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
-    >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
+    >>> lin = sb.nnet.linear.Linear(n_neurons=vocab_size, input_size=3)
+    >>> coverage_scorer = sb.decoders.scorer.CoverageScorer(vocab_size)
+    >>> scorer = sb.decoders.scorer.ScorerBuilder(
+    ...     full_scorer = [coverage_scorer],
+    ...     partial_scorer = [],
+    ... )
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -730,6 +734,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ...     beam_size=2,
+    ...     scorer=scorer,
     ... )
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
