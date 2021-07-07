@@ -43,7 +43,8 @@ jobs:
             - name: Full dependencies
               run: |
                   pip install -r requirements.txt
-                  pip install --editable .[full]
+                  pip install --editable .
+                  pip install ctc-segmentation
             - name: Unittests with pytest
               run: |
                   pytest tests/unittests
