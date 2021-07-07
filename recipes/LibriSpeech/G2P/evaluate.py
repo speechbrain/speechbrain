@@ -4,6 +4,7 @@ hyperparameters that do not require model retraining (e.g. Beam Search)
 """
 
 
+from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from train import dataio_prep
 from hyperpyyaml import load_hyperpyyaml
@@ -132,6 +133,15 @@ if __name__ == "__main__":
 
     # Run the evaluation
     evaluator = G2PEvaluator(hparams, device)
+
+    #Load the pretrained language model, if available:
+    # We download and pretrain the tokenizer
+    deps_pretrainer = hparams.get("deps_pretrainer")
+    if deps_pretrainer:
+        run_on_main(deps_pretrainer.collect_files)
+        deps_pretrainer.load_collected(device=run_opts["device"])
+
+
     train_step = next(
         train_step for train_step in hparams['train_steps']
         if train_step['name'] == hparams["eval_train_step"])
