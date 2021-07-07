@@ -789,7 +789,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return (hs, c)
 
 
-class S2STransformerBeamSearch(S2SBeamSearcher):
+class S2STransformerBeamSearcher(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Transformer.
     See also S2SBaseSearcher(), S2SBeamSearcher().
@@ -811,7 +811,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     def __init__(
         self, modules, temperature=1.0, **kwargs,
     ):
-        super(S2STransformerBeamSearch, self).__init__(**kwargs)
+        super(S2STransformerBeamSearcher, self).__init__(**kwargs)
 
         self.model = modules[0]
         self.fc = modules[1]
@@ -827,7 +827,12 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         return memory
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        memory = _update_mem(inp_tokens, memory)
+        if memory is None:
+            memory = torch.empty(
+                inp_tokens.size(0), 0, device=inp_tokens.device
+            )
+        # Append the predicted token of the previous step to existing memory.
+        memory = torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
@@ -893,23 +898,6 @@ def mask_by_condition(tensor, cond, fill_value):
         cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
     )
     return tensor
-
-
-def _update_mem(inp_tokens, memory):
-    """This function is for updating the memory for transformer searches.
-    it is called at each decoding step. When being called, it appends the
-    predicted token of the previous step to existing memory.
-
-    Arguments:
-    -----------
-    inp_tokens : tensor
-        Predicted token of the previous decoding step.
-    memory : tensor
-        Contains all the predicted tokens.
-    """
-    if memory is None:
-        return inp_tokens.unsqueeze(1)
-    return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
