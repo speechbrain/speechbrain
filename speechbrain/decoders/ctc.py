@@ -81,7 +81,7 @@ class CTCPrefixScore:
             Previous ctc states.
         candidates : torch.Tensor
             (batch_size * beam_size, ctc_beam_size), The topk candidates for rescoring.
-            The ctc_beam_size is set as 2 * beam_size. If given, performing partial ctc scoring.
+            If given, performing partial ctc scoring.
         """
 
         n_bh = inp_tokens.size(0)
