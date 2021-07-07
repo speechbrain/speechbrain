@@ -12,16 +12,17 @@ output_folder: !ref results/RNNLM/<pickle>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-data: !ref data/<pickle>.pickle
+data: !ref <pickle>.pickle
+data_path: !ref data/<pickle>
 midi_file: !ref <output_folder>/<pickle>.MIDI
 resolution: 15
 time_scale: 9
 velocity: 80
 note_duration: 15
 
-train_csv: data/train.csv
-valid_csv: data/valid.csv
-test_csv: data/test.csv
+train_csv: !ref <data_path>/train.csv
+valid_csv: !ref <data_path>/valid.csv
+test_csv: !ref <data_path>/test.csv
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

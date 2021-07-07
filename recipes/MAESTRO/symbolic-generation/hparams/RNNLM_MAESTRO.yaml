@@ -7,23 +7,24 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
 pickle: MAESTRO
-path_name: data/maestro-v2.0.0
+path_name: maestro-v2.0.0
 file_name: maestro-v2.0.0.csv
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNNLM/<pickle>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-data: !ref data/<pickle>.pickle
+data: !ref <pickle>.pickle
+data_path: !ref data/<pickle>
 midi_file: !ref <output_folder>/<pickle>.MIDI
 resolution: 25
 time_scale: 9
 velocity: 80
 note_duration: 15
 
-train_csv: data/train.csv
-valid_csv: data/valid.csv
-test_csv: data/test.csv
+train_csv: !ref <data_path>/train.csv
+valid_csv: !ref <data_path>/valid.csv
+test_csv: !ref <data_path>/test.csv
 
 # When MAESTRO used, these are the number of midi files to picked up
 MAESTRO:
