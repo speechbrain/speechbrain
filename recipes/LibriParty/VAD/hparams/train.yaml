@@ -1,43 +1,46 @@
 # ################################
-# Model: VAD on LibriSpeech with LiGRU
+# Model: VAD on LibriSpeech with GRU
 # Authors: Mohamed Kleit & Arjun V 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-sample_rate: 16000
-example_length: 5
-output_folder: !ref results/<seed>
+output_folder: !ref results/VAD_RNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/dataset
 open_rir_folder: !ref <data_folder> # where to store noisy data for augment (change it if needed)
-annotation: !ref <data_folder>/specification_files/
+annotation_train: !ref <save_folder>/train.json
+annotation_valid: !ref <save_folder>/valid.json
+annotation_test: !ref <save_folder>/test.json
 skip_prep: False # Skip data preparation
 
 # Training params
 N_epochs: 10
 lr: 0.001
 batch_size: 32
+example_length: 5 # in seconds
+sample_rate: 16000
+time_resolution: 0.01 # in seconds
 train_dataloader_opts:
     batch_size: !ref <batch_size>
 valid_dataloader_opts:
-    batch_size: !ref <batch_size> 
+    batch_size: !ref <batch_size>
 test_dataloader_opts:
     batch_size: !ref <batch_size>
 
 # Feature parameters
 n_fft: 400
-n_mels: 80
+n_mels: 40
 
 # Model parameters
 rnn_layers: 2
-rnn_neurons: 128
-lin_in_features: 256
-emb_size: 23
+rnn_neurons: 64
+lin_in_features: 128
+emb_size: 16
 dropout: 0.5
 output_neurons: 1
 
@@ -45,12 +48,13 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+    hop_length: !ref <time_resolution> * 1000 # in ms
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-rnn: !new:speechbrain.nnet.RNN.LiGRU
-    input_shape: (64, 1, 80)  # d & dd = *3, 5 left & 5 right = *11
+rnn: !new:speechbrain.nnet.RNN.GRU
+    input_shape: [!ref <batch_size>, null, !ref <n_mels>] # [batch, time, features]
     hidden_size: !ref <rnn_neurons>
     num_layers: !ref <rnn_layers>
     dropout: !ref <dropout>
@@ -61,7 +65,7 @@ lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <lin_in_features>
     n_neurons: !ref <output_neurons>
     bias: False
-    
+
 model: !new:torch.nn.ModuleList
     - [!ref <rnn>, !ref <lin>]
 
@@ -72,7 +76,7 @@ modules:
 
 opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
-    
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
 
@@ -81,7 +85,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
-     
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
