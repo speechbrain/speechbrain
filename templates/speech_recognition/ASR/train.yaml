@@ -257,12 +257,16 @@ rnnlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
     language_model: !ref <lm_model>
     temperature: !ref <temperature_lm>
 
-# Gathering all scorers in a scorer instance for beamsearch.
-# For some scorers like ctc_scorer, ngramlm_scorer, putting them
+# Gathering all scorers in a scorer instance for beamsearch:
+# - full_scorers are scorers which score on full vocab set, while partial_scorers
+# are scorers which score on pruned tokens.
+# - The number of pruned tokens is decided by scorer_beam_scale * beam_size.
+# - For some scorers like ctc_scorer, ngramlm_scorer, putting them
 # into full_scorers list would be too heavy. partial_scorers are more
 # efficient because they score on pruned tokens at little cost of
 # performance drop. For other scorers, please see the speechbrain.decoders.scorer.
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    scorer_beam_scale: 1.5
     full_scorers: [
         !ref <transformerlm_scorer>,
         !ref <coverage_scorer>]
@@ -272,7 +276,7 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
         coverage: !ref <coverage_penalty>
         ctc: !ref <ctc_decode_weight>
 
-# Beamsearch is applied on the top of the decoder.  For a description of
+# Beamsearch is applied on the top of the decoder. For a description of
 # the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearcher.
 
 # It makes sense to have a lighter search during validation. In this case,
