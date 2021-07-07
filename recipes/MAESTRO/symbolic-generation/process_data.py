@@ -8,6 +8,7 @@ import speechbrain as sb
 import sys
 import logging
 from more_itertools import locate
+from tqdm import tqdm
 
 
 def piano_roll_to_csv(piano_roll, dataset):
@@ -72,8 +73,12 @@ def midi_to_pianoroll(split, num_of_songs):
     # Song selection
     df = pd.read_csv(os.path.join(hparams["path_name"], hparams["file_name"]))
     song_set = []
-    for song in df[df.split == split].sample(num_of_songs)["midi_filename"]:
-        song_set.append(parse_song(os.path.join(hparams["path_name"], song)))
+    print("Processing data")
+    for i in tqdm(range(num_of_songs)):
+        for song in df[df.split == split].sample(num_of_songs)["midi_filename"]:
+            song_set.append(
+                parse_song(os.path.join(hparams["path_name"], song))
+            )
     return song_set
 
 
