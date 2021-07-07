@@ -2,7 +2,7 @@
 This folder contains recipes for training a language model for the JSB Chorales, Muse, Nottingham, Piano-midi and MAESTRO datasets.
 It converts Midi or pickle based files into useable CSV files split into train, test and validation sets.
 
-You can download MAESTRO at https://magenta.tensorflow.org/datasets/maestro#v300 (maestro-v3.0.0-midi.zip)
+You can download MAESTRO at https://magenta.tensorflow.org/datasets/maestro#v200 (maestro-v2.0.0-midi.zip)
 You can download the other 4 pickle files at http://www-etud.iro.umontreal.ca/~boulanni/icml2012 (Piano-roll)
 
 # Extra Dependency:

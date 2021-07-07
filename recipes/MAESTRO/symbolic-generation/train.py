@@ -13,7 +13,7 @@ from more_itertools import locate
 
 
 # Brain class for language model training
-class LM(sb.core.Brain):
+class MusicLM(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Predicts the next word given the previous ones.
         Arguments
@@ -364,15 +364,14 @@ def midi_to_pianoroll(split, num_of_songs):
         return sequence_list
 
     # Parameters definition
-    dir = "data/maestro-v2.0.0"
     if split == "valid":
         split = "validation"
 
     # Song selection
-    df = pd.read_csv(os.path.join(dir, "maestro-v2.0.0.csv"))
+    df = pd.read_csv(os.path.join(hparams["path_name"], hparams["file_name"]))
     song_set = []
     for song in df[df.split == split].sample(num_of_songs)["midi_filename"]:
-        song_set.append(parse_song(os.path.join(dir, song)))
+        song_set.append(parse_song(os.path.join(hparams["path_name"], song)))
     return song_set
 
 
@@ -399,7 +398,7 @@ if __name__ == "__main__":
     train_data, valid_data, test_data = dataio_prepare(hparams)
 
     # Initialize the Brain object to prepare for LM training.
-    lm_brain = LM(
+    lm_brain = MusicLM(
         modules=hparams["modules"],
         opt_class=hparams["optimizer"],
         hparams=hparams,

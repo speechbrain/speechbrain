@@ -1,12 +1,12 @@
 # ############################################################################
 # Model: Language model with a LSTM
-# Training: MAESTRO dataset
+# Training: MUSE dataset
 # Authors:  Edward Son 2021, Gabriel Kreplak 2021
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
+pickle: MuseData
 seed: 2602
-pickle: MAESTRO
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNNLM/<pickle>/
 save_folder: !ref <output_folder>/save
@@ -14,7 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 data: !ref data/<pickle>.pickle
 midi_file: !ref <output_folder>/<pickle>.MIDI
-resolution: 25
+resolution: 13
 time_scale: 9
 velocity: 80
 note_duration: 15
@@ -23,22 +23,16 @@ train_csv: data/train.csv
 valid_csv: data/valid.csv
 test_csv: data/test.csv
 
-# When MAESTRO used, these are the number of midi files to picked up
-MAESTRO:
-  num_train_files: 962
-  num_valid_files: 137
-  num_test_files: 177
-
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>
 
 # Training parameters
-number_of_epochs: 60
-batch_size: 128
-sequence_length: 300
+number_of_epochs: 800
+batch_size: 80
+sequence_length: 100
 lr: 0.001
-dropout: 0.2
+dropout: 0
 accu_steps: 1 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -56,7 +50,7 @@ test_dataloader_opts:
 # Model parameters
 emb_dim: 88 # dimension of the embeddings
 rnn_size: 200 # dimension of hidden layers
-layers: 3 # number of hidden layers
+layers: 1 # number of hidden layers
 
 # Outputs
 output_neurons: 88 # index(blank/eos/bos) = 0
@@ -64,7 +58,7 @@ output_neurons: 88 # index(blank/eos/bos) = 0
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined..
-model: !new:recipes.SymbolicMusic.LSTM.custom_model.CustomModel
+model: !new:speechbrain.lobes.music_generation_models.custom_model.CustomModel
   embedding_dim: !ref <emb_dim>
   rnn_size: !ref <rnn_size>
   layers: !ref <layers>
@@ -81,7 +75,7 @@ optimizer: !name:torch.optim.Adam
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
   initial_value: !ref <lr>
   improvement_threshold: 0.0003
-  annealing_factor: 0.95
+  annealing_factor: 0.85
   patient: 5
 
 # The first object passed to the Brain class is this "Epoch Counter"
@@ -94,7 +88,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
   model: !ref <model>
-
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
