@@ -397,7 +397,7 @@ class ScorerBuilder:
             for impl in partial_scorers
         ]
 
-        # Have a default 0.0 weight for scorers not specified
+        # Have a default 0.0 weight for scorer not specified
         init_weights = {k: 0.0 for k in all_scorer_names}
         self.weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
