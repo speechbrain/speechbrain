@@ -74,6 +74,7 @@ beam_search_coverage_penalty: 5.0
 beam_search_lm_weight: 0.50
 beam_search_ctc_weight_decode: 0.0
 beam_search_temperature: 1.25
+beam_search_temperature_lm: 1.0
 
 
 # Evaluation parameters
@@ -239,6 +240,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     coverage_penalty: !ref <beam_search_coverage_penalty>
     lm_weight: !ref <beam_search_lm_weight>
     temperature: !ref <beam_search_temperature>
+    temperature_lm: !ref <beam_search_temperature_lm>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
