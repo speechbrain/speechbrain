@@ -31,7 +31,6 @@ setup(
         "tqdm",
         "huggingface_hub",
     ],
-    extras_require={"full": ["ctc-segmentation<1.8,>=1.6.6"],},  # noqa: E231
     python_requires=">=3.7",
     url="https://speechbrain.github.io/",
 )

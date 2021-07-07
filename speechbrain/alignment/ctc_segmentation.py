@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 # 2021, Technische Universität München, Ludwig Kürzinger
-"""Perform CTC segmentation to align utterances within audio files."""
+"""Perform CTC segmentation to align utterances within audio files.
+
+This uses the ctc-segmentation Python package.
+Install it with pip or see the installing instructions in
+https://github.com/lumaku/ctc-segmentation
+"""
 
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
 from typing import Union
 
@@ -27,12 +33,16 @@ except ImportError:
         "Is the ctc_segmentation module installed "
         "and in your PYTHONPATH?"
     )
+    raise ImportError("The ctc_segmentation module is missing.")
 
 logger = logging.getLogger(__name__)
 
 
-class CTCSegmentationTask:
+class CTCSegmentationTask(SimpleNamespace):
     """Task object for CTC segmentation.
+
+    This object is automatically generated and acts as
+    a container for results of a CTCSegmentation object.
 
     When formatted with str(·), this object returns
     results in a kaldi-style segments file formatting.
@@ -40,38 +50,40 @@ class CTCSegmentationTask:
     the printing options.
 
     Properties
-    ----------
+    ---------
     text : list
         Utterance texts, separated by line. But without the utterance
             name at the beginning of the line (as in kaldi-style text).
-    ground_truth_mat
+    ground_truth_mat : array
         Ground truth matrix (CTC segmentation).
-    utt_begin_indices
+    utt_begin_indices : np.ndarray
         Utterance separator for the Ground truth matrix.
-    timings
+    timings : np.ndarray
         Time marks of the corresponding chars.
-    state_list
+    state_list : list
         Estimated alignment of chars/tokens.
-    segments
+    segments : list
         Calculated segments as: (start, end, confidence score).
-    config
+    config : CtcSegmentationParameters
         CTC Segmentation configuration object.
-    name
+    name : str
         Name of aligned audio file (Optional). If given, name is
         considered when generating the text.
-    utt_ids
+        Default: "utt".
+    utt_ids : list
         The list of utterance names (Optional). This list should
         have the same length as the number of utterances.
-    lpz
+    lpz : np.ndarray
         CTC posterior log probabilities (Optional).
 
     Properties for printing
-    -----------------------
-    print_confidence_score
-        Includes the confidence score.
-    print_utterance_text
-        Includes utterance text.
-
+    ----------------------
+    print_confidence_score : bool
+        Include the confidence score.
+        Default: True.
+    print_utterance_text : bool
+        Include utterance text.
+        Default: True.
 
     """
 
@@ -92,26 +104,9 @@ class CTCSegmentationTask:
     print_confidence_score = True
     print_utterance_text = True
 
-    def __init__(self, **kwargs):
-        """Initialize the module."""
-        self.set(**kwargs)
-
     def set(self, **kwargs):
-        """Update properties.
-
-        Args
-        ----
-        **kwargs
-            Key-value dict that contains all properties
-            with their new values. Unknown properties are ignored.
-        """
-        for key in kwargs:
-            if (
-                not key.startswith("_")
-                and hasattr(self, key)
-                and kwargs[key] is not None
-            ):
-                setattr(self, key, kwargs[key])
+        """Update object attributes."""
+        self.__dict__.update(kwargs)
 
     def __str__(self):
         """Return a kaldi-style ``segments`` file (string)."""
@@ -146,6 +141,39 @@ class CTCSegmentation:
     Initialize with given ASR model and parameters.
     If needed, parameters for CTC segmentation can be set with ``set_config(·)``.
     Then call the instance as function to align text within an audio file.
+
+    Arguments
+    ---------
+    asr_model : EncoderDecoderASR
+        Speechbrain ASR interface. This requires a model that has a
+        trained CTC layer for inference. It is better to use a model with
+        single-character tokens to get a better time resolution.
+        Please note that the inference complexity with Transformer models
+        usually increases quadratically with audio length.
+        It is therefore recommended to use RNN-based models, if available.
+    kaldi_style_text : bool
+        A kaldi-style text file includes the name of the
+        utterance at the start of the line. If True, the utterance name
+        is expected as first word at each line. If False, utterance
+        names are automatically generated. Set this option according to
+        your input data. Default: True.
+    text_converter : str
+        How CTC segmentation handles text.
+        "tokenize": Use the ASR model tokenizer to tokenize the text.
+        "classic": The text is preprocessed as text pieces which takes
+        token length into account. If the ASR model has longer tokens,
+        this option may yield better results. Default: "tokenize".
+    time_stamps : str
+        Choose the method how the time stamps are
+        calculated. While "fixed" and "auto" use both the sample rate,
+        the ratio of samples to one frame is either automatically
+        determined for each inference or fixed at a certain ratio that
+        is initially determined by the module, but can be changed via
+        the parameter ``samples_to_frames_ratio``. Recommended for
+        longer audio files: "auto".
+    **ctc_segmentation_args
+        Parameters for CTC segmentation.
+        The full list of parameters is found in ``set_config``.
 
     Example
     -------
@@ -186,6 +214,8 @@ class CTCSegmentation:
 
     """
 
+    fs = 16000
+    kaldi_style_text = True
     samples_to_frames_ratio = None
     time_stamps = "auto"
     choices_time_stamps = ["auto", "fixed"]
@@ -202,46 +232,12 @@ class CTCSegmentation:
         time_stamps: str = "auto",
         **ctc_segmentation_args,
     ):
-        """Initialize the CTCSegmentation module.
-
-        Args
-        ----
-        asr_model : EncoderDecoderASR
-            Speechbrain ASR interface. This requires a model that has a
-            trained CTC layer for inference. It is better to use a model with
-            single-character tokens to get a better time resolution.
-            Please note that the inference complexity with Transformer models
-            usually increases quadratically with audio length.
-            It is therefore recommended to use RNN-based models, if available.
-        kaldi_style_text : bool
-            A kaldi-style text file includes the name of the
-            utterance at the start of the line. If True, the utterance name
-            is expected as first word at each line. If False, utterance
-            names are automatically generated. Set this option according to
-            your input data. Default: True.
-        text_converter : str
-            How CTC segmentation handles text.
-            "tokenize": Use the ASR model tokenizer to tokenize the text.
-            "classic": The text is preprocessed as text pieces which takes
-            token length into account. If the ASR model has longer tokens,
-            this option may yield better results. Default: "tokenize".
-        time_stamps : str
-            Choose the method how the time stamps are
-            calculated. While "fixed" and "auto" use both the sample rate,
-            the ratio of samples to one frame is either automatically
-            determined for each inference or fixed at a certain ratio that
-            is initially determined by the module, but can be changed via
-            the parameter ``samples_to_frames_ratio``. Recommended for
-            longer audio files: "auto".
-        **ctc_segmentation_args
-            Parameters for CTC segmentation.
-        """
+        """Initialize the CTCSegmentation module."""
         # Prepare ASR model
         if not (
             hasattr(asr_model, "modules")
             and hasattr(asr_model.modules, "decoder")
             and hasattr(asr_model.modules.decoder, "ctc_weight")
-            and asr_model.modules.decoder.ctc_weight != 0.0
         ):
             raise AttributeError(
                 "The given asr_model has no CTC decoder in asr_model.modules.decoder!"
@@ -268,7 +264,7 @@ class CTCSegmentation:
         # determine token or character list
         char_list = [
             asr_model.tokenizer.id_to_piece(i)
-            for i in range(asr_model.hparams.vocab_size)
+            for i in range(asr_model.tokenizer.vocab_size())
         ]
         self.config.char_list = char_list
 
@@ -281,7 +277,20 @@ class CTCSegmentation:
                 f"to low alignment performance and low accuracy."
             )
 
-    def set_config(self, **kwargs):
+    def set_config(
+        self,
+        time_stamps: Optional[str] = None,
+        fs: Optional[int] = None,
+        samples_to_frames_ratio: Optional[float] = None,
+        set_blank: Optional[int] = None,
+        replace_spaces_with_blanks: Optional[bool] = None,
+        kaldi_style_text: Optional[bool] = None,
+        text_converter: Optional[str] = None,
+        gratis_blank: Optional[bool] = None,
+        min_window_size: Optional[int] = None,
+        max_window_size: Optional[int] = None,
+        scoring_length: Optional[int] = None,
+    ):
         """Set CTC segmentation parameters.
 
         Parameters for timing
@@ -292,7 +301,7 @@ class CTCSegmentation:
         fs : int
             Sample rate. Usually derived from ASR model; use this parameter
             to overwrite the setting.
-        samples_to_frames_ratio : int
+        samples_to_frames_ratio : float
             If you want to directly determine the
             ratio of samples to CTC frames, set this parameter, and
             set ``time_stamps`` to "fixed".
@@ -339,44 +348,40 @@ class CTCSegmentation:
             30 corresponds to roughly 1-2s of audio.
         """
         # Parameters for timing
-        if "time_stamps" in kwargs:
-            if kwargs["time_stamps"] not in self.choices_time_stamps:
+        if time_stamps is not None:
+            if time_stamps not in self.choices_time_stamps:
                 raise NotImplementedError(
                     f"Parameter ´time_stamps´ has to be one of "
                     f"{list(self.choices_time_stamps)}",
                 )
-            self.time_stamps = kwargs["time_stamps"]
-        if "fs" in kwargs:
-            self.fs = float(kwargs["fs"])
-        if "samples_to_frames_ratio" in kwargs:
-            self.samples_to_frames_ratio = float(
-                kwargs["samples_to_frames_ratio"]
-            )
+            self.time_stamps = time_stamps
+        if fs is not None:
+            self.fs = float(fs)
+        if samples_to_frames_ratio is not None:
+            self.samples_to_frames_ratio = float(samples_to_frames_ratio)
         # Parameters for text preparation
-        if "set_blank" in kwargs:
-            self.config.blank = int(kwargs["set_blank"])
-        if "replace_spaces_with_blanks" in kwargs:
+        if set_blank is not None:
+            self.config.blank = int(set_blank)
+        if replace_spaces_with_blanks is not None:
             self.config.replace_spaces_with_blanks = bool(
-                kwargs["replace_spaces_with_blanks"]
+                replace_spaces_with_blanks
             )
-        if "kaldi_style_text" in kwargs:
-            self.kaldi_style_text = bool(kwargs["kaldi_style_text"])
-        if "text_converter" in kwargs:
-            if kwargs["text_converter"] not in self.choices_text_converter:
+        if kaldi_style_text is not None:
+            self.kaldi_style_text = bool(kaldi_style_text)
+        if text_converter is not None:
+            if text_converter not in self.choices_text_converter:
                 raise NotImplementedError(
                     f"Parameter ´text_converter´ has to be one of "
                     f"{list(self.choices_text_converter)}",
                 )
-            self.text_converter = kwargs["text_converter"]
+            self.text_converter = text_converter
         # Parameters for alignment
-        if "min_window_size" in kwargs:
-            self.config.min_window_size = int(kwargs["min_window_size"])
-        if "max_window_size" in kwargs:
-            self.config.max_window_size = int(kwargs["max_window_size"])
-        if "gratis_blank" in kwargs:
-            self.config.blank_transition_cost_zero = bool(
-                kwargs["gratis_blank"]
-            )
+        if min_window_size is not None:
+            self.config.min_window_size = int(min_window_size)
+        if max_window_size is not None:
+            self.config.max_window_size = int(max_window_size)
+        if gratis_blank is not None:
+            self.config.blank_transition_cost_zero = bool(gratis_blank)
         if (
             self.config.blank_transition_cost_zero
             and self.config.replace_spaces_with_blanks
@@ -388,8 +393,8 @@ class CTCSegmentation:
             )
             self.warned_about_misconfiguration = True
         # Parameter for calculation of confidence score
-        if "scoring_length" in kwargs:
-            self.config.score_min_mean_over_L = int(kwargs["scoring_length"])
+        if scoring_length is not None:
+            self.config.score_min_mean_over_L = int(scoring_length)
 
     def get_timing_config(self, speech_len=None, lpz_len=None):
         """Obtain parameters to determine time stamps."""
@@ -433,7 +438,7 @@ class CTCSegmentation:
         lpz = self.get_lpz(random_input)
         lpz_len = lpz.shape[0]
         # CAVEAT assumption: Frontend does not discard trailing data!
-        samples_to_frames_ratio = speech_len // lpz_len
+        samples_to_frames_ratio = speech_len / lpz_len
         return samples_to_frames_ratio
 
     @torch.no_grad()
