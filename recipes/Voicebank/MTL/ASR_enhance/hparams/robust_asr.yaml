@@ -164,23 +164,35 @@ fbank: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     sample_rate: !ref <sample_rate>
 
-beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
+    language_model: !ref <asr_model[lm_model]>
+    temperature: !ref <temperature_lm>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <rnnlm_scorer>,
+                   !ref <coverage_scorer>]
+    weights:
+        rnnlm: !ref <lm_weight>
+        coverage: !ref <coverage_penalty>
+
+beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <asr_model[tgt_embedding]>
     decoder: !ref <asr_model[recognizer]>
     linear: !ref <asr_model[seq_output]>
-    language_model: !ref <asr_model[lm_model]>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
+    vocab_size: !ref <output_neurons>
     eos_threshold: !ref <eos_threshold>
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
-    coverage_penalty: !ref <coverage_penalty>
-    lm_weight: !ref <lm_weight>
     temperature: !ref <temperature>
-    temperature_lm: !ref <temperature_lm>
+    scorer: !ref <scorer>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

@@ -95,6 +95,7 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     min_decode_ratio: 0
     max_decode_ratio: 1
     beam_size: 16
+    vocab_size: !ref <output_neurons>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
