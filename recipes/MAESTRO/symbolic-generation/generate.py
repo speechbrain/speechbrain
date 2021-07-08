@@ -5,6 +5,7 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 import muspy as mp
 import random
+from speechbrain.pretrained.interfaces import SymbolicGeneration
 
 
 def generate_sequence(N):
@@ -18,6 +19,9 @@ def generate_sequence(N):
     sequence: nd.array (N,128)
         binarized piano roll ready for MIDI generation
     """
+
+    inferer = SymbolicGeneration.from_hparams(source="test/",)
+
     notes_len = hparams["emb_dim"]
     zeros = 85
     midi_len = 128
@@ -31,21 +35,12 @@ def generate_sequence(N):
     # Sequence to return for MIDI processing
     sequence = np.zeros((N, midi_len))
 
-    # Recover best checkpoint for evaluation using loss min_key
-    checkpointer = hparams["checkpointer"]
-    if checkpointer is not None:
-        checkpointer.recover_if_possible(
-            min_key="loss", device=torch.device(run_opts["device"])
-        )
-    model = checkpointer.recoverables["model"]
-    model = model.eval()
-
     # Generate N timesteps
     for i in range(N):
         if i == 0:
-            out, h = model(inp)
+            out, h = inferer.generate_timestep(inp)
         else:
-            out, h = model(inp, h)
+            out, h = inferer.generate_timestep(inp, h)
 
         out = torch.squeeze(out)
 
@@ -56,9 +51,9 @@ def generate_sequence(N):
 
         # Store and pad vectors to match MIDI size
         sequence[i] = np.pad(
-            out.cpu().detach().numpy(),
-            (20, 20),
-            "constant",
+            array=out.cpu().detach().numpy(),
+            pad_width=(20, 20),
+            mode="constant",
             constant_values=(0, 0),
         )
         inp = torch.unsqueeze(out, dim=0)

@@ -919,3 +919,43 @@ class SpectralMaskEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+
+class SymbolicGeneration(Pretrained):
+    """A end-to-end SLU model.
+
+    The class can be used to run a language model to predict the next timestep in a series.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import SymbolicGeneration
+    >>> tmpdir = getfixture("tmpdir")
+    >>> inferer = SymbolicGeneration.from_hparams(
+    ...     source="test/",
+    ...     savedir=tmpdir,
+    ... )
+    >>> out, h = inferer.generate_timestep(inp)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = self.hparams.model
+
+    def generate_timestep(self, inp, h=None):
+        """Generates one timestep
+        Arguments
+        ---------
+        inp : torch.tensor
+            Initial input to the model.
+        h : torch.tensor
+            Hidden state from previous forward pass.
+        Returns
+        -------
+        out: torch.tensor.
+            Predicted output
+        h: torch.tensor
+            Hidden state.
+        """
+
+        out, h = self.model(inp, h)
+        return out, h
