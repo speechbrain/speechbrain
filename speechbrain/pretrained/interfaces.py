@@ -925,16 +925,6 @@ class SymbolicGeneration(Pretrained):
     """A model for symbolic generation.
 
     The class can be used to run a language model to predict the next timestep in a series.
-
-    Example
-    -------
-    >>> from speechbrain.pretrained import SymbolicGeneration
-    >>> tmpdir = getfixture("tmpdir")
-    >>> inferer = SymbolicGeneration.from_hparams(
-    ...     source="test/",
-    ...     savedir=tmpdir,
-    ... )
-    >>> out, h = inferer.generate_timestep(inp)
     """
 
     def __init__(self, *args, **kwargs):
