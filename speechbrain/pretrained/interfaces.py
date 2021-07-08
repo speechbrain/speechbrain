@@ -922,7 +922,7 @@ class SpectralMaskEnhancement(Pretrained):
 
 
 class SymbolicGeneration(Pretrained):
-    """A end-to-end SLU model.
+    """A model for symbolic generation.
 
     The class can be used to run a language model to predict the next timestep in a series.
 
