@@ -361,8 +361,8 @@ class BinaryMetricStats(MetricStats):
         FP = self.summary["FP"] = float(pred.mul(1.0 - true).sum())
         FN = self.summary["FN"] = float((1.0 - pred).mul(true).sum())
 
-        self.summary["FAR"] = FP / (TP + TN + eps)
-        self.summary["FRR"] = FN / (TP + TN + eps)
+        self.summary["FAR"] = FP / (FP + TN + eps)
+        self.summary["FRR"] = FN / (TP + FN + eps)
         self.summary["DER"] = (FP + FN) / (TP + TN + eps)
 
         self.summary["precision"] = TP / (TP + FP + eps)
