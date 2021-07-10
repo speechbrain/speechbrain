@@ -1,0 +1,234 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# If you plan to train a system on an HPC cluster with a big dataset,
+# we strongly suggest doing the following:
+# 1- Compress the dataset in a single tar or zip file.
+# 2- Copy your dataset locally (i.e., the local disk of the computing node).
+# 3- Uncompress the dataset in the local folder.
+# 4- Set data_folder with the local path.
+# Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
+# It allows you to read the data much faster without slowing down the shared filesystem.
+data_folder: ./data
+output_folder: !ref ./results/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Path where data manifest files will be stored
+# The data manifest files are created by the data preparation script.
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+ckpt_save_interval: 1 # save checkpoint every N epochs
+num_ckpts_keep: 5 # number of ckpts to keep, delete other old ones
+
+# FFT parameters
+sample_rate: 16000
+win_length: 25
+hop_length: 10
+n_fft: 2048
+
+# Training Parameters
+chunk_size: 16000   # number of samples in one training point
+number_of_epochs: 200
+batch_size: 32
+
+encoder_lr_start: 0.0005
+worker_lr_start: 0.0005
+decay_factor: 0.5
+lr_update_interval: 40  # epochs
+
+ # dimensionality of the embeddings
+emb_dim: 100
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+
+# Added noise and reverb come from OpenRIR dataset, automatically
+# downloaded and prepared with this Environmental Corruption class.
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    reverb_prob: 0.3
+    noise_prob: 1.0
+    noise_snr_low: 10
+    noise_snr_high: 30
+
+#STFT for LPS
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+    n_fft: !ref <n_fft>
+
+# Models definition
+encoder_model: !new:models.encoders.PASEEncoder
+    use_sincnet: True
+    use_qrnn: True
+    use_skip_conns: True
+    in_channels: 1
+    blocks_channels: [64, 64, 128, 128, 256, 256, 512, 512, !ref <emb_dim>]
+    blocks_kernel_sizes: [251, 21, 11, 11, 11, 11, 11, 11, 1]
+    blocks_strides: [1, 10, 2, 1, 2, 1, 2, 2, 1]
+
+decoder_worker: !new:models.workers.WaveformWorker
+    in_channels: !ref <emb_dim>
+    decoder_blocks: 3
+    decoder_channels: [512, 256, 128]
+    decoder_kernel_sizes: [30, 30, 30]
+    decoder_strides: [4, 4, 10]
+    lin_neurons: 256
+
+mfcc_worker: !new:models.workers.MFCCWorker
+    in_channels: !ref <emb_dim>
+    hidden_blocks: 1
+    hidden_kernel_size: 1
+    hidden_channels: 256
+    out_channels: 20
+
+prosody_worker: !new:models.workers.ProsodyWorker
+    in_channels: !ref <emb_dim>
+    hidden_blocks: 1
+    hidden_kernel_size: 1
+    hidden_channels: 256
+    out_channels: 4
+
+lps_worker: !new:models.workers.LPSWorker
+    in_channels: !ref <emb_dim>
+    hidden_blocks: 1
+    hidden_kernel_size: 1
+    hidden_channels: 256
+    out_channels: 1025
+
+lim_worker: !new:models.workers.LIMWorker
+    in_channels: !ref <emb_dim> * 2
+    hidden_blocks: 1
+    hidden_kernel_size: 1
+    hidden_channels: 256
+
+gim_worker: !new:models.workers.GIMWorker
+    in_channels: !ref <emb_dim> * 2
+    hidden_blocks: 1
+    hidden_kernel_size: 1
+    hidden_channels: 256
+
+spc_worker: !new:models.workers.SPCWorker
+    in_channels: !ref <emb_dim> * 6
+    hidden_blocks: 1
+    hidden_kernel_size: 1
+    hidden_channels: 256
+
+decoder_labeller: !new:labellers.DecoderLabeller
+
+mfcc_labeller: !new:speechbrain.lobes.features.MFCC
+    deltas: False
+    context: False
+    n_mfcc: 20
+    n_mels: 40
+    n_fft: 2048
+
+prosody_labeller: !new:labellers.ProsodyLabeller
+    hop: 160
+    win: 320
+    f0_min: 60
+    f0_max: 300
+    sr: 16000
+
+lps_labeller: !new:labellers.LPSLabeller
+
+lim_labeller: !new:labellers.LIMLabeller
+
+gim_labeller: !new:labellers.GIMLabeller
+
+spc_labeller: !new:labellers.SPCLabeller
+
+# Encoder and worker config
+encoder_config:
+    model: !ref <encoder_model>
+    optimizer: !name:torch.optim.Adam
+        lr: !ref <encoder_lr_start>
+
+workers_config:
+    regressor:
+        decoder:
+            model: !ref <decoder_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.L1Loss
+                reduction: 'mean'
+            labeller: !ref <decoder_labeller>
+        mfcc:
+            model: !ref <mfcc_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.MSELoss
+            labeller: !ref <mfcc_labeller>
+        prosody:
+            model: !ref <prosody_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.MSELoss
+            labeller: !ref <prosody_labeller>
+        lps:
+            model: !ref <lps_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.MSELoss
+            labeller: !ref <lps_labeller>
+    classifier:
+        lim:
+            model: !ref <lim_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.BCEWithLogitsLoss
+            labeller: !ref <lim_labeller>
+        gim:
+            model: !ref <gim_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.BCEWithLogitsLoss
+            labeller: !ref <gim_labeller>
+        spc:
+            model: !ref <spc_worker>
+            optimizer: !name:torch.optim.Adam
+                lr: !ref <worker_lr_start>
+            loss: !name:torch.nn.BCEWithLogitsLoss
+            labeller: !ref <spc_labeller>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# The encoder and worker models will be added dynamically to modules from config
+modules:
+    env_corrupt: !ref <env_corrupt>
+
+lr_annealing:
+    encoder: !new:speechbrain.nnet.schedulers.StepScheduler
+        initial_value: !ref <encoder_lr_start>
+        decay_factor: !ref <decay_factor>
+        decay_drop: !ref <lr_update_interval> + 1
+    workers: !new:speechbrain.nnet.schedulers.StepScheduler
+        initial_value: !ref <worker_lr_start>
+        decay_factor: !ref <decay_factor>
+        decay_drop: !ref <lr_update_interval> + 1
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        encoder: !ref <encoder_model>
+        decoder_worker: !ref <decoder_worker>
+        mfcc_worker: !ref <mfcc_worker>
+        prosody_worker: !ref <prosody_worker>
+        lps_worker: !ref <lps_worker>
+        lim_worker: !ref <lim_worker>
+        gim_worker: !ref <gim_worker>
+        spc_worker: !ref <spc_worker>
+        counter: !ref <epoch_counter>
