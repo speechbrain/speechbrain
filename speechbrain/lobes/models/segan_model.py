@@ -1,10 +1,3 @@
-import torch
-import torch.nn as nn
-import torch.utils.data
-import torch.nn.functional as F
-from math import floor
-
-
 """
 This file contains two PyTorch modules which together consist of the SEGAN model architecture
 (based on the paper: Pascual et al. https://arxiv.org/pdf/1703.09452.pdf).
@@ -16,6 +9,12 @@ Loss functions for training SEGAN are also defined in this file.
 Authors
  * Francis Carter 2021
 """
+
+import torch
+import torch.nn as nn
+import torch.utils.data
+import torch.nn.functional as F
+from math import floor
 
 
 class Generator(torch.nn.Module):
@@ -103,15 +102,13 @@ class Generator(torch.nn.Module):
         if self.latent_vae:
             z_mean, z_logvar = x.chunk(2, dim=1)
             x = z_mean + torch.exp(z_logvar / 2.0) * torch.randn_like(
-                z_logvar
+                z_logvar, device=x.device
             )  # sampling from latent var probability distribution
         elif self.z_prob:
-            z = torch.normal(torch.zeros(x.shape), torch.ones(x.shape))
-            z = z.to(x.device)
+            z = torch.normal(torch.zeros_like(x), torch.ones_like(x))
             x = torch.cat((x, z), 1)
         else:
-            z = torch.zeros(x.shape)
-            z = z.to(x.device)
+            z = torch.zeros_like(x)
             x = torch.cat((x, z), 1)
 
         # decode
@@ -231,7 +228,7 @@ def g3_loss(
     if not (
         z_mean is None
     ):  # This will determine if model is being trained as a vae
-        ZERO = torch.zeros(z_mean.size()).to(z_mean.device)
+        ZERO = torch.zeros_like(z_mean)
         distq = torch.distributions.normal.Normal(
             z_mean, torch.exp(z_logvar) ** (1 / 2)
         )
