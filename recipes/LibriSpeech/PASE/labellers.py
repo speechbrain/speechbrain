@@ -1,4 +1,4 @@
-"""Basic feature pipelines.
+""" Generate target labels
 
 Authors
  * Ge Li 2021
