@@ -1,8 +1,7 @@
 """Basic feature pipelines.
 
 Authors
- * Mirco Ravanelli 2020
- * Peter Plantinga 2020
+ * Ge Li 2021
 """
 import numpy as np
 import torch
