@@ -1,5 +1,5 @@
 # Language Model with Symbolic Music Datasets
-This folder contains recipes for training a language model for the JSB Chorales, Muse, Nottingham, Piano-midi and MAESTRO datasets.
+This folder contains recipes for training an autoregressive model for modeling symbolic music. We support JSB Chorales, Muse, Nottingham, Piano-midi and MAESTRO datasets.
 It converts Midi or pickle based files into useable CSV files split into train, test and validation sets.
 
 You can download MAESTRO at https://magenta.tensorflow.org/datasets/maestro#v200 (maestro-v2.0.0-midi.zip)
