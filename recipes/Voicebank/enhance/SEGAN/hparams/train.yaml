@@ -33,11 +33,11 @@ skip_prep: False
 
 # Model and loss parameters
 sample_rate: 16000
-kernelSize: 5
-latentVAE: False
-zProb: False
-l1LossCoeff: 100
-klLossCoeff: 1
+kernelSize: 5 # For both generator and discriminator
+latentVAE: False # Whether or not to convert the autoencoder to a vae
+zProb: False  # Whether to remove the latent variable concatenation
+l1LossCoeff: 100 # Weight of the l1 loss 
+klLossCoeff: 1 # Weight of the kl loss
 
 # Training Parameters
 number_of_epochs: 86

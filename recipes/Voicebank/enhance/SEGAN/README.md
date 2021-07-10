@@ -24,6 +24,8 @@ About 1 min and 30 sec for each epoch with a TESLA V100.
 
 
 # ***Citing SEGAN**
+
+```bibtex
 @inproceedings{DBLP:conf/interspeech/PascualBS17,
   author    = {Santiago Pascual and
                Antonio Bonafonte and
@@ -33,6 +35,7 @@ About 1 min and 30 sec for each epoch with a TESLA V100.
   pages     = {3642--3646},
   year      = {2017},
 }
+```
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
@@ -47,3 +50,4 @@ Please, cite SpeechBrain if you use it for your research or business.
   primaryClass={eess.AS},
   note={arXiv:2106.04624}
 }
+```
