@@ -3,23 +3,23 @@
 (based on the paper: Pascual et al. https://arxiv.org/pdf/1703.09452.pdf).
 
 To run this recipe, do the following:
-> python train.py hparams/{hyperparam_file}.yaml
+> python train.py hparams/train.yaml
 
 Authors
  * Francis Carter 2021
 """
+
 import os
 import sys
 import torch
 import torchaudio
 import speechbrain as sb
+from math import ceil
 from pesq import pesq
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
-
-from math import ceil
 
 
 # Brain class for speech enhancement training
@@ -28,7 +28,6 @@ class SEBrain(sb.Brain):
         """Forward computations of the generator. Input noisy signal, output clean signal"""
         noisy_wavs = noisy_wavs.to(self.device)
         predict_wavs = self.modules["model_g"](noisy_wavs)
-
         return predict_wavs
 
     def compute_forward_d(self, noisy_wavs, clean_wavs):
@@ -37,14 +36,12 @@ class SEBrain(sb.Brain):
         clean_wavs = clean_wavs.to(self.device)
         inpt = torch.cat((noisy_wavs, clean_wavs), -1)
         out = self.modules["model_d"](inpt)
-
         return out
 
     def compute_objectives_d1(self, d_outs, batch):
         """Computes the loss of a discriminator given predicted and targeted outputs, with target being clean"""
         loss = self.hparams.compute_cost["d1"](d_outs)
         self.loss_metric_d1.append(batch.id, d_outs, reduction="batch")
-
         return loss
 
     def compute_objectives_d2(self, d_outs, batch):
@@ -119,7 +116,7 @@ class SEBrain(sb.Brain):
                     torchaudio.save(
                         enhance_path,
                         torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
-                        16000,
+                        hparams["sample_rate"],
                     )
         return loss
 
@@ -328,14 +325,14 @@ class SEBrain(sb.Brain):
         def pesq_eval(pred_wav, target_wav):
             """Computes the PESQ evaluation metric"""
             return pesq(
-                fs=16000,
+                fs=hparams["sample_rate"],
                 ref=target_wav.numpy(),
                 deg=pred_wav.numpy(),
                 mode="wb",
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
+            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=5)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
