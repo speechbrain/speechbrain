@@ -6,9 +6,11 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
+# this field is just a self reminder for the particular experiment
 experiment_name: MAESTRO_default
-dataset_name: MAESTRO
 
+# this needs to be set according to the dataset name
+dataset_name: MAESTRO_v2
 
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/<experiment_name>

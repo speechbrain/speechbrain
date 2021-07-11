@@ -1,20 +1,27 @@
 # ############################################################################
 # Model: Language model with a LSTM
 # Training: JSB dataset
-# Authors:  Edward Son 2021, Gabriel Kreplak 2021
+# Authors:  Edward Son 2021,
+#           Gabriel Kreplak 2021,
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
-pickle: JSB Chorales
+# this field is just a self reminder for the particular experiment
+experiment_name: JSB_chorales_default
+
+# this needs to be set according to the dataset name
+dataset_name: JSB_chorales
+
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/RNNLM/<pickle>/
+output_folder: !ref results/<experiment_name>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-data: !ref <pickle>.pickle
-data_path: !ref data/<pickle>
-midi_file: !ref <output_folder>/<pickle>.MIDI
+# this points to the dataset file
+data_path: !PLACEHOLDER
+
+midi_file: !ref <output_folder>/<experiment_name>.MIDI
 resolution: 25
 time_scale: 9
 velocity: 80

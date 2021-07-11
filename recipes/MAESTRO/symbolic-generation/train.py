@@ -7,6 +7,7 @@ import speechbrain as sb
 import ast
 from process_data import midi_to_pianoroll, piano_roll_to_csv
 import pickle
+from speechbrain.utils.data_utils import download_file
 
 
 # Brain class for language model training
@@ -288,6 +289,31 @@ def dataio_prepare(hparams):
     return train_data, valid_data, test_data
 
 
+def return_DL_link(dataset_name):
+    if dataset_name == "MAESTRO_v2":
+        DL_link = "https://magenta.tensorflow.org/datasets/maestro#v200"
+    elif dataset_name == "MAESTRO_v3":
+        DL_link = "https://magenta.tensorflow.org/datasets/maestro#v300"
+    elif dataset_name == "JSB_chorales":
+        DL_link = (
+            "http://www-ens.iro.umontreal.ca/~boulanni/JSB%20Chorales.pickle"
+        )
+    elif dataset_name == "Piano-Midi":
+        DL_link = (
+            "http://www-ens.iro.umontreal.ca/~boulanni/Piano-midi.de.pickle"
+        )
+    elif dataset_name == "Nottingham":
+        DL_link = "http://www-ens.iro.umontreal.ca/~boulanni/Nottingham.pickle"
+    elif dataset_name == "MuseData":
+        DL_link = "http://www-ens.iro.umontreal.ca/~boulanni/MuseData.pickle"
+    else:
+        raise ValueError(
+            "The dataset name you entered is not supported. Supported datasetnames are: MAESTRO_v2, MAESTRO_v3, JSB_chorales, Piano-Midi, Nottingham, MuseData"
+        )
+
+    return DL_link
+
+
 # Recipe begins!
 if __name__ == "__main__":
 
@@ -308,6 +334,10 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # download the dataset in original format if it doesn't exist on data_path
+    DL_link = return_DL_link(hparams["dataset_name"])
+    download_file(DL_link, hparams["data_path"])
+
     # check if the csv files exist, and if not create new ones
     train_csv_exists = True if os.path.isfile(hparams["train_csv"]) else False
     valid_csv_exists = True if os.path.isfile(hparams["valid_csv"]) else False
@@ -325,7 +355,7 @@ if __name__ == "__main__":
             for split, songs in split_songs:
                 datasets[split] = midi_to_pianoroll(split, songs, hparams)
         else:
-            datasets = pickle.load(open(hparams["data"], "rb"))
+            datasets = pickle.load(open(hparams["data_path"], "rb"))
 
         for dataset in datasets:
             piano_roll_to_csv(datasets[dataset], dataset, hparams)
