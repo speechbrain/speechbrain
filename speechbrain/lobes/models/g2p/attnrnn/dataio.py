@@ -82,6 +82,7 @@ def grapheme_pipeline(
         grapheme_encoded = torch.LongTensor(grapheme_encoded_list)
         yield grapheme_encoded
 
+
     return f
 
 
@@ -91,7 +92,6 @@ def _init_phoneme_encoder(phonemes, phoneme_encoder, bos_index, eos_index):
     """
     if phoneme_encoder is None:
         phoneme_encoder = sb.dataio.encoder.TextEncoder()
-    phoneme_encoder.update_from_iterable(phonemes, sequence_input=False)
     if bos_index == eos_index:
         phoneme_encoder.insert_bos_eos(
             bos_label="<eos-bos>", eos_label="<eos-bos>", bos_index=bos_index,
@@ -104,6 +104,7 @@ def _init_phoneme_encoder(phonemes, phoneme_encoder, bos_index, eos_index):
             eos_index=eos_index,
         )
     phoneme_encoder.add_unk()
+    phoneme_encoder.update_from_iterable(phonemes, sequence_input=False)
     return phoneme_encoder
 
 
@@ -129,7 +130,6 @@ def phoneme_pipeline(phonemes, phoneme_encoder=None, bos_index=0, eos_index=0,
     result: DymamicItem
         a pipeline element
     """
-
     phoneme_encoder = _init_phoneme_encoder(
         phonemes, phoneme_encoder, bos_index, eos_index
     )

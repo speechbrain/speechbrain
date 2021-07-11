@@ -21,6 +21,7 @@ Authors
 """
 import sys
 import speechbrain as sb
+from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.pretrained.training import PretrainedModelMixin
@@ -29,6 +30,9 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import (
     phoneme_pipeline,
 )
 
+
+G2PPredictions = namedtuple(
+    "G2PPredictions", "p_seq char_lens hyps ctc_logprobs", defaults=[None] * 4)
 
 # Define training procedure
 class G2PBrain(sb.Brain, PretrainedModelMixin):
@@ -44,36 +48,45 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
 
+        graphemes, grapheme_lens = batch.grapheme_encoded
         p_seq, char_lens, encoder_out = self.hparams.model(
-            grapheme_encoded=batch.grapheme_encoded,
+            grapheme_encoded=(graphemes.detach(), grapheme_lens),
             phn_encoded=batch.phn_encoded_bos,
         )
 
+        hyps = None
+        ctc_logprobs = None
+        if stage == sb.Stage.TRAIN and self.is_ctc_active(stage):
+                # Output layer for ctc log-probabilities
+                ctc_logits = self.modules.ctc_lin(encoder_out)
+                ctc_logprobs = self.hparams.log_softmax(ctc_logits)
+
         if stage != sb.Stage.TRAIN:
             hyps, scores = self.hparams.beam_searcher(encoder_out, char_lens)
-            return p_seq, char_lens, hyps
 
-        return p_seq, char_lens
+        return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
-        if stage == sb.Stage.TRAIN:
-            p_seq, char_lens = predictions
-        else:
-            p_seq, char_lens, hyps = predictions
-
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
-
-        loss = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)
+        graphemes, grapheme_lens = batch.grapheme_encoded
+        loss_seq = self.hparams.seq_cost(predictions.p_seq, phns_eos, phn_lens_eos)
+        if self.is_ctc_active(stage):
+            seq_weight = 1 - self.hparams.ctc_weight
+            loss_ctc = self.hparams.ctc_cost(
+                predictions.ctc_logprobs,
+                phns_eos, predictions.char_lens, phn_lens_eos
+            )
+            loss = seq_weight + loss_seq + self.hparams.ctc_weight * loss_ctc
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
-            self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens)
+            self.seq_metrics.append(ids, predictions.p_seq, phns_eos, phn_lens)
             self.per_metrics.append(
                 ids,
-                hyps,
+                predictions.hyps,
                 phns,
                 None,
                 phn_lens,
@@ -81,6 +94,12 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             )
 
         return loss
+
+    def is_ctc_active(self, stage):
+        if stage != sb.Stage.TRAIN:
+            return False
+        current_epoch = self.epoch_counter.current
+        return current_epoch <= self.train_step["ctc_epochs"]
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -216,7 +235,6 @@ def dataio_prep(hparams, train_step=None):
             graphemes=hparams["graphemes"],
             space_separated=hparams['graphemes_space_separated']),
     )
-
     # 3. Define phoneme pipeline:
     sb.dataio.dataset.add_dynamic_item(
         datasets,

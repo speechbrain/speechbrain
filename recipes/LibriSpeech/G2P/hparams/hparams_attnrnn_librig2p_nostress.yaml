@@ -34,6 +34,7 @@ phonemes_space_separated: false
 # Neural Parameters
 N_epochs: 75
 batch_size: 1024
+ctc_weight: 0.5
 lr: 0.002
 save_for_pretrained: true
 
@@ -50,7 +51,8 @@ embedding_dim: 512
 
 # Special Token information
 bos_index: 0
-eos_index: 0
+eos_index: 1
+blank_index: 2
 
 # Beam Searcher
 beam_search_min_decode_ratio: 0
@@ -206,6 +208,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     linear: !ref <lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
     beam_size: !ref <beam_search_beam_size>
