@@ -11,7 +11,7 @@ from more_itertools import locate
 from tqdm import tqdm
 
 
-def piano_roll_to_csv(piano_roll, dataset):
+def piano_roll_to_csv(piano_roll, dataset, hparams):
     """This function takes a piano roll and creates an input csv file usable by Speechbrain
     Arguments
     ---------
@@ -19,9 +19,11 @@ def piano_roll_to_csv(piano_roll, dataset):
         Multidimensional list of notes
     dataset : string
         Name of dataset (train, test, valid)
+    hparams : dictionary
+        The experiment hparams file
     """
     # Flatten roll and cast to string
-    if hparams["data"] == "data/Piano-midi.de.pickle":
+    if hparams["dataset_name"] == "data/Piano-midi.de.pickle":
         flat_data = list(np.concatenate(piano_roll).flat)
     else:
         flat_data = list(sum(piano_roll, []))
@@ -40,11 +42,13 @@ def piano_roll_to_csv(piano_roll, dataset):
     return None
 
 
-def midi_to_pianoroll(split, num_of_songs):
+def midi_to_pianoroll(split, num_of_songs, hparams):
     """
     This function creates CSV from random selected files in MAESTRO dataset
     :param  set: "validation", "train", "test"
             num_of_songs: # of songs to select in the set (int)
+            hparams: the hparams dictionary for the experiment defined by the .yaml file
+
     :return: Nothing
             Produces <data>/train.csv, valid.csv, test.csv
 
@@ -71,13 +75,13 @@ def midi_to_pianoroll(split, num_of_songs):
         split = "validation"
 
     # Song selection
-    df = pd.read_csv(os.path.join(hparams["path_name"], hparams["file_name"]))
+    df = pd.read_csv(os.path.join(hparams["data_path"], hparams["maestro_csv"]))
     song_set = []
     print("Processing data")
     for i in tqdm(range(num_of_songs)):
         for song in df[df.split == split].sample(num_of_songs)["midi_filename"]:
             song_set.append(
-                parse_song(os.path.join(hparams["path_name"], song))
+                parse_song(os.path.join(hparams["data_path"], song))
             )
     return song_set
 
@@ -96,17 +100,18 @@ if __name__ == "__main__":
     if not os.path.isdir(hparams["data_path"]):
         os.makedirs(hparams["data_path"])
 
-    if hparams["pickle"] == "MAESTRO":
+    # If MAESTRO_params field is given in hparams, we know that we should on the MAESTRO dataset
+    if 'MAESTRO_params' in hparams:
         split_songs = [
-            ("train", hparams["MAESTRO"]["num_train_files"]),
-            ("valid", hparams["MAESTRO"]["num_valid_files"]),
-            ("test", hparams["MAESTRO"]["num_test_files"]),
+            ("train", hparams["MAESTRO_params"]["num_train_files"]),
+            ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
+            ("test", hparams["MAESTRO_params"]["num_test_files"]),
         ]
         datasets = {}
         for split, songs in split_songs:
-            datasets[split] = midi_to_pianoroll(split, songs)
+            datasets[split] = midi_to_pianoroll(split, songs, hparams)
     else:
         datasets = pickle.load(open(hparams["data"], "rb"))
 
     for dataset in datasets:
-        piano_roll_to_csv(datasets[dataset], dataset)
+        piano_roll_to_csv(datasets[dataset], dataset, hparams)

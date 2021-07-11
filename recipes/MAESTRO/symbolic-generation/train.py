@@ -1,9 +1,12 @@
 import numpy as np
 import torch
 import sys
+import os
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 import ast
+from process_data import midi_to_pianoroll, piano_roll_to_csv
+import pickle
 
 
 # Brain class for language model training
@@ -304,6 +307,29 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    # check if the csv files exist, and if not create new ones
+    train_csv_exists = True if os.path.isfile(hparams['train_csv']) else False
+    valid_csv_exists = True if os.path.isfile(hparams['valid_csv']) else False
+    test_csv_exists = True if os.path.isfile(hparams['test_csv']) else False
+
+    if not (train_csv_exists and valid_csv_exists and test_csv_exists):
+        # if we work with MAESTRO
+        if 'MAESTRO_params' in hparams:
+            split_songs = [
+                ("train", hparams["MAESTRO_params"]["num_train_files"]),
+                ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
+                ("test", hparams["MAESTRO_params"]["num_test_files"]),
+            ]
+            datasets = {}
+            for split, songs in split_songs:
+                datasets[split] = midi_to_pianoroll(split, songs, hparams)
+        else:
+            datasets = pickle.load(open(hparams["data"], "rb"))
+
+        for dataset in datasets:
+            piano_roll_to_csv(datasets[dataset], dataset, hparams)
+
     # Create dataset objects "train", "valid", and "test"
     train_data, valid_data, test_data = dataio_prepare(hparams)
 
