@@ -101,7 +101,7 @@ if __name__ == "__main__":
         os.makedirs(hparams["data_path"])
 
     # If MAESTRO_params field is given in hparams, we know that we should on the MAESTRO dataset
-    if 'MAESTRO_params' in hparams:
+    if "MAESTRO_params" in hparams:
         split_songs = [
             ("train", hparams["MAESTRO_params"]["num_train_files"]),
             ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
