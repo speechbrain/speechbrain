@@ -309,13 +309,13 @@ if __name__ == "__main__":
     )
 
     # check if the csv files exist, and if not create new ones
-    train_csv_exists = True if os.path.isfile(hparams['train_csv']) else False
-    valid_csv_exists = True if os.path.isfile(hparams['valid_csv']) else False
-    test_csv_exists = True if os.path.isfile(hparams['test_csv']) else False
+    train_csv_exists = True if os.path.isfile(hparams["train_csv"]) else False
+    valid_csv_exists = True if os.path.isfile(hparams["valid_csv"]) else False
+    test_csv_exists = True if os.path.isfile(hparams["test_csv"]) else False
 
     if not (train_csv_exists and valid_csv_exists and test_csv_exists):
         # if we work with MAESTRO
-        if 'MAESTRO_params' in hparams:
+        if "MAESTRO_params" in hparams:
             split_songs = [
                 ("train", hparams["MAESTRO_params"]["num_train_files"]),
                 ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
