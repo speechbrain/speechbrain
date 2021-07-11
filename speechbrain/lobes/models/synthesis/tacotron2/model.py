@@ -1269,20 +1269,23 @@ class Loss(nn.Module):
             the attention loss value
         """
         zero_tensor = torch.tensor(0., device=alignments.device)
-        hard_stop_reached = (
-            self.guided_attention_hard_stop is not None
-            and epoch > self.guided_attention_hard_stop)
-        if hard_stop_reached:
+        if (self.guided_attention_weight is None
+            or self.guided_attention_weight == 0
+        ):
             attn_weight, attn_loss = zero_tensor, zero_tensor
         else:
-            attn_weight = self.guided_attention_weight
-            if self.guided_attention_scheduler is not None:
-                _, attn_weight = self.guided_attention_scheduler(epoch)
-        attn_weight = torch.tensor(attn_weight, device=alignments.device)
-        attn_loss = attn_weight * (
-            0. if self.guided_attention_weight is None
-            else self.guided_attention_loss(
-                alignments, input_lengths, target_lengths))
+            hard_stop_reached = (
+                self.guided_attention_hard_stop is not None
+                and epoch > self.guided_attention_hard_stop)
+            if hard_stop_reached:
+                attn_weight, attn_loss = zero_tensor, zero_tensor
+            else:
+                attn_weight = self.guided_attention_weight
+                if self.guided_attention_scheduler is not None:
+                    _, attn_weight = self.guided_attention_scheduler(epoch)
+            attn_weight = torch.tensor(attn_weight, device=alignments.device)
+            attn_loss = attn_weight *  self.guided_attention_loss(
+                    alignments, input_lengths, target_lengths)
         return attn_loss, attn_weight
 
 

@@ -164,11 +164,11 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 #annealing_function
 lr_annealing: !new:speechbrain.nnet.schedulers.IntervalScheduler
     intervals:
-        - steps: 500000
+        - steps: 6000
           lr: 0.0005
-        - steps: 1000000
+        - steps: 8000
           lr: 0.0003
-        - steps: 2000000
+        - steps: 10000
           lr: 0.0001
 
 #checkpointer
