@@ -50,14 +50,14 @@ loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
 limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
-training_signal_len: 32000000
+training_signal_len: 32000
 
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
 
 # Parameters for data augmentation
 use_wavedrop: False
-use_speedperturb: True
+use_speedperturb: False
 use_speedperturb_sameforeachsource: False
 use_rand_shift: False
 min_shift: -8000
