@@ -15,10 +15,16 @@ class FakeModel(nn.Module):
             dim=1
         )
 
-
 class FakeLoss(nn.Module):
     def forward(self, predicted, actual):
         return torch.sum(torch.abs(predicted - actual))
+
+
+class FakeComplexLoss(nn.Module):
+    def forward(self, predicted, actual):
+        return {
+            'loss': torch.sum(torch.abs(predicted - actual)),
+            'bogus_value': torch.sum(predicted)}
 
 
 def get_sample_batch():
@@ -41,9 +47,10 @@ def x2_to_zero(batch):
     x1, x2 = batch
     return x1, torch.zeros_like(x2)
 
-def get_conditioner():
+def get_conditioner(loss=None, **kwargs):
     model = FakeModel()
-    loss = FakeLoss()
+    if not loss:
+        loss = FakeLoss()
     return GarbageConditioner(
         model=lambda batch: model(*batch),
         criterion=loss,
@@ -52,7 +59,8 @@ def get_conditioner():
                 name="x1", weight=0.2, distortion=x1_flip_sequence),
             ConditioningFeature(
                 name="x2", weight=0.1, distortion=x2_to_zero)
-        ]
+        ],
+        **kwargs
     )
 
 
@@ -104,3 +112,34 @@ def test_compute_objectives():
 
     loss = conditioner.compute_objectives(predictions, targets)
     assert loss == pytest.approx(1.0)
+
+
+def test_compute_objectives_complex_loss():
+    conditioner = get_conditioner(
+        loss=FakeComplexLoss(),
+        loss_fn=lambda x: x['loss'])
+    batch = get_sample_batch()
+    predictions = conditioner.compute_forward(batch)
+    targets = torch.tensor(
+        [[ 6.,  7.],
+         [12., 21.]])
+    loss = conditioner.compute_objectives_detailed(
+        predictions, targets)
+    assert loss.raw_loss == 4
+    assert loss.feature_loss['x1'].raw_loss == pytest.approx(6.)
+    assert loss.feature_loss['x1'].difference_loss == pytest.approx(-2.)
+    assert loss.feature_loss['x1'].weighted_difference_loss == (
+        pytest.approx(-0.4))
+    assert loss.feature_loss['x1'].criterion_out['loss'] == pytest.approx(6.)
+
+    assert loss.feature_loss['x2'].raw_loss == pytest.approx(30.)
+    assert loss.feature_loss['x2'].difference_loss == pytest.approx(-26.)
+    assert loss.feature_loss['x2'].weighted_difference_loss == (
+        pytest.approx(-2.6))
+    assert loss.feature_loss['x2'].criterion_out['loss'] == pytest.approx(30.)
+
+    assert loss.effective_loss == pytest.approx(1.0)
+    assert loss.garbage_loss == pytest.approx(-3.0)
+
+    assert loss.criterion_out['loss'] == 4
+

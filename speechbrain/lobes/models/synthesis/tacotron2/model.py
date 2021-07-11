@@ -3,7 +3,8 @@ Neural network modules for the Tacotron2 end-to-end neural
 Text-to-Speech (TTS) model
 
 Authors
-* Georges Abous-Rjeili 2020
+* Georges Abous-Rjeili 2021
+* Artem Ploujnikov 2021
 """
 
 # https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
@@ -35,7 +36,7 @@ Authors
 # *****************************************************************************
 
 from math import sqrt
-from speechbrain.lobes.models.synthesis.common import GuidedAttentionLoss
+from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -1284,3 +1285,10 @@ class Loss(nn.Module):
                 alignments, input_lengths, target_lengths))
         return attn_loss, attn_weight
 
+
+def loss_fn(loss_stats):
+    """
+    An adaptor function that returns the total loss (can be used
+    as loss_fn for the garbage conditioner)
+    """
+    return loss_stats.loss

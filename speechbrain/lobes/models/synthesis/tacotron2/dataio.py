@@ -14,6 +14,7 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.lobes.models.synthesis.tacotron2.text_to_sequence import (
     text_to_sequence,
 )
+from speechbrain.nnet.conditioning import shuffle_padded_sequences
 
 DEFAULT_TEXT_CLEANERS = ["english_cleaners"]
 
@@ -266,3 +267,26 @@ class TextMelCollate:
             labels,
             wavs
         )
+
+
+def shuffle_inputs(raw_inputs):
+    """
+    Shuffles the text/phoneme inputs and leaves other model inputs intact,
+    intended to be used with garbage conditioning
+
+    Arguments
+    ---------
+    raw_inputs: tuple
+        A tuple of (inputs, input_lengths, targets, max_len, output_lengths),
+        same as the inputs to Tacotron
+
+    Returns
+    -------
+    result: tuple
+
+    """
+    inputs, input_lengths, targets, max_len, output_lengths = raw_inputs
+    inputs_shuffled = shuffle_padded_sequences(
+        inputs, input_lengths)
+    return (inputs_shuffled, input_lengths, targets,
+            max_len, output_lengths)

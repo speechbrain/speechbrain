@@ -97,6 +97,10 @@ postnet_n_convolutions: 5
 # Inverse spectrogram parameters
 inverse_spectrogram_n_iter: 1024
 
+# Garbage conditioning
+garbage_conditioning_enabled: false
+garbage_conditioning_weight: 0.2
+
 
 
 #model
@@ -174,6 +178,16 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
         scheduler: !ref <lr_annealing>
+
+garbage_conditioner: !new:speechbrain.nnet.conditioning.GarbageConditioner
+    criterion: !ref <criterion>
+    model: !ref <model>
+    features:
+    - name: inputs
+      weight: !ref <garbage_conditioning_weight>
+      distortion: !name:speechbrain.lobes.models.synthesis.tacotron2.dataio.shuffle_inputs
+    loss_fn: !name:speechbrain.lobes.models.synthesis.tacotron2.model.loss_fn
+
 
 
 datasets:

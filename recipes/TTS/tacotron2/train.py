@@ -58,10 +58,17 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         -------
         the model output
         """
-        inputs, y, num_items, _, _ = self.batch_to_device(batch)
+        effective_batch = self.batch_to_device(batch)
+        if self.hparams.garbage_conditioning_enabled and stage == sb.Stage.TRAIN:
+            return self._compute_forward_garbage(effective_batch)
+        inputs, y, num_items, _, _ = effective_batch
         _, input_lengths, _, _, _ = inputs
         max_input_length = input_lengths.max().item()
         return self.modules.model(inputs, alignments_dim=max_input_length)  # 1#2#
+
+    def _compute_forward_garbage(self, batch):
+        inputs, _, _, _, _ = batch
+        return self.hparams.garbage_conditioner.compute_forward(inputs)
 
     def fit_batch(self, batch):
         """
@@ -99,7 +106,50 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         """
         effective_batch = self.batch_to_device(batch)
         self.last_batch = effective_batch
-        inputs, targets, num_items, labels, wavs = effective_batch
+        if self.hparams.garbage_conditioning_enabled and stage == sb.Stage.TRAIN:
+            self._remember_sample(effective_batch, predictions.actual)
+            loss = self._compute_objectives_garbage(predictions, effective_batch, stage)
+        else:
+            self._remember_sample(effective_batch, predictions)
+            loss = self._compute_objectives_regular(predictions, effective_batch, stage)
+        return loss
+
+    def _compute_objectives_regular(self, predictions, batch, stage):
+        inputs, targets, num_items, labels, wavs = batch
+        text_padded, input_lengths, _, max_len, output_lengths = inputs
+        loss_stats = self.hparams.criterion(
+            predictions,
+            targets,
+            input_lengths,
+            output_lengths,
+            self.last_epoch)
+        self.last_loss_stats[stage] = scalarize(loss_stats)
+        return loss_stats.loss
+
+    def _compute_objectives_garbage(self, predictions, batch, stage):
+        garbage_conditioner = self.hparams.garbage_conditioner
+        inputs, targets, num_items, labels, wavs = batch
+        text_padded, input_lengths, _, max_len, output_lengths = inputs
+
+        gc_loss = garbage_conditioner.compute_objectives_detailed(
+            predictions,
+            targets,
+            criterion_kwargs={
+                "input_lengths": input_lengths,
+                "target_lengths": output_lengths,
+                "epoch": self.last_epoch,
+            })
+
+        loss_stats = scalarize(gc_loss.criterion_out)
+        loss_stats.update({
+            'loss': gc_loss.effective_loss,
+            'raw_loss': gc_loss.raw_loss,
+            'garbage_loss': gc_loss.garbage_loss})
+        self.last_loss_stats[stage] = loss_stats
+        return gc_loss.raw_loss
+
+    def _remember_sample(self, batch, predictions):
+        inputs, targets, num_items, labels, wavs = batch
         text_padded, input_lengths, _, max_len, output_lengths = inputs
         mel_target, _ = targets
         mel_out, mel_out_postnet, gate_out, alignments = predictions
@@ -128,14 +178,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
                 'wavs': wavs
             })
         )
-        loss_stats = self.hparams.criterion(
-            predictions,
-            targets,
-            input_lengths,
-            output_lengths,
-            self.last_epoch)
-        self.last_loss_stats[stage] = scalarize(loss_stats)
-        return loss_stats.loss
+
 
     # some helper functoions
     def batch_to_device(self, batch):

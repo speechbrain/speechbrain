@@ -12,11 +12,11 @@ ConditioningFeature = namedtuple('ConditioningFeature', 'name weight distortion'
 ConditioningPredictions = namedtuple('ConditioingPredictions', 'actual distorted')
 FeatureLoss = namedtuple(
     "FeatureLoss",
-    "name raw_loss difference_loss weighted_difference_loss")
+    "name raw_loss difference_loss weighted_difference_loss criterion_out")
 
 GarbageConditioningLoss = namedtuple(
-    'ConditioningLoss',
-    'effective_loss raw_loss garbage_loss feature_loss'
+    'GarbageConditioningLoss',
+    'effective_loss raw_loss garbage_loss feature_loss criterion_out'
 )
 
 
@@ -37,12 +37,38 @@ class GarbageConditioner:
         Run the model with the input for that feature distored in the specified way
         Compute the difference between the "raw" loss (with all featurs intact) and the loss with the distortion
         Multiply the difference by the weight provided
+
+    Arguments
+    ---------
+    features: list
+        a list of ConditioningFeature named tuples or equivalent dictionaries
+        describing each feature
+    criterion: callable
+        the loss function
+    model: callable
+        the model (usually a Torch model)
+    loss_fn: callable
+        a function to convert the output of the criterion function
+        to a numeric value - useful when the criterion function
+        outputs a broken-down loss with components
     """
 
-    def __init__(self, features, criterion, model):
-        self.features = {feature.name: feature for feature in features}
+    def __init__(self, features, criterion, model, loss_fn=None):
+        normalized_features = [self._normalize_feature(feature)
+                               for feature in features]
+        self.features = {feature.name: feature for feature in normalized_features}
         self.criterion = criterion
         self.model = model
+        self.loss_fn = loss_fn or (lambda x: x)
+
+    def _normalize_feature(self, feature):
+        """
+        Returns a ConditioningFeature regardless of whether
+        a ConditioningFeature or an equivalent dict is given
+        """
+        return (
+            feature if isinstance(feature, ConditioningFeature)
+            else ConditioningFeature(**feature))
 
     def compute_forward(self, batch):
         """
@@ -91,7 +117,6 @@ class GarbageConditioner:
         distorted_features = feature.distortion(batch)
         return self.model(distorted_features)
 
-
     def compute_objectives(self, predictions, targets):
         """
         Computes the "garbage-conditioned" surrogate loss.
@@ -116,15 +141,36 @@ class GarbageConditioner:
         objectives = self.compute_objectives_detailed(predictions, targets)
         return objectives.effective_loss
 
-    def compute_objectives_detailed(self, predictions, targets):
+    def compute_objectives_detailed(self, predictions, targets,
+                                    criterion_kwargs=None):
         """
         Computes the "garbage-conditioned" surrogate loss and
-        returns a GarbageConditioningLoss ejctiob
+        returns a GarbageConditioningLoss object
+
+        Arguments
+        ---------
+        predictions: ConditioningPredictions
+            Predictions based on the true input and distored
+            inputs for each feature, as computed in compute_forward
+        targets: object
+            the true targets. The type may vary per model
+        criterion_kwargs: dict
+            Additional arguments to the loss function, if applicable
+
+        Returns
+        -------
+        loss: GarbageConditioningLoss
+            a complete breakdown of the losses
         """
-        raw_loss = self.criterion(predictions.actual, targets)
+        if criterion_kwargs is None:
+            criterion_kwargs = {}
+        criterion_out = self.criterion(
+            predictions.actual, targets, **criterion_kwargs)
+        raw_loss = self.loss_fn(criterion_out)
         feature_losses = {
             feature_name: self.get_feature_loss(
-                feature_name, predictions, targets, raw_loss)
+                feature_name, predictions, targets, raw_loss,
+                criterion_kwargs)
             for feature_name in self.features}
         garbage_loss = torch.sum(
             torch.tensor(
@@ -134,10 +180,18 @@ class GarbageConditioner:
             raw_loss=raw_loss,
             effective_loss=raw_loss + garbage_loss,
             garbage_loss=garbage_loss,
-            feature_loss=feature_losses
+            feature_loss=feature_losses,
+            criterion_out=criterion_out
         )
 
-    def get_feature_loss(self, feature_name, predictions, targets, raw_loss):
+    def get_feature_loss(
+        self,
+        feature_name,
+        predictions,
+        targets,
+        raw_loss,
+        criterion_kwargs=None
+    ):
         """
         Calculates the loss for a specific feature
 
@@ -152,15 +206,22 @@ class GarbageConditioner:
             the targets (ground truth data)
         raw_loss: tensor
             the raw loss without any distortion applied
+        criterion_kwargs: dict
+            Additional arguments to the loss function, if applicable
 
         Returns
         -------
         loss: FeatrueLoss
             the detailed breakdown of the loss for the feature
         """
+        if criterion_kwargs is None:
+            criterion_kwargs = {}
         feature = self.features[feature_name]
-        loss_with_distortion = self.criterion(
-            predictions.distorted[feature_name], targets)
+        criterion_out = self.criterion(
+            predictions.distorted[feature_name],
+            targets,
+            **criterion_kwargs)
+        loss_with_distortion = self.loss_fn(criterion_out)
 
         difference_loss = raw_loss - loss_with_distortion
 
@@ -168,5 +229,32 @@ class GarbageConditioner:
             name=feature.name,
             raw_loss=loss_with_distortion,
             difference_loss=difference_loss,
-            weighted_difference_loss=feature.weight * difference_loss
+            weighted_difference_loss=feature.weight * difference_loss,
+            criterion_out=criterion_out
         )
+
+
+def shuffle_padded_sequences(sequences, sequence_lengths):
+    """
+    A distortion that can be used to shuffle a batch of padded
+    sequences
+
+    Arguments
+    ---------
+    sequences: torch.Tensor
+        a tensor of (batch, sequence, ...)
+    sequence_lengths: torch.tensor
+        a tensor of (batch, length) indicating the length of each
+        sequence
+
+    Returns
+    -------
+    result: torch.Tensor
+
+    """
+    result = torch.zeros_like(sequences)
+    #TODO: Find a way to vectorize along the batch dimension
+    for idx, (sequence, sequence_length) in enumerate(zip(sequences, sequence_lengths)):
+        new_indexes = torch.randperm(sequence_length)
+        result[idx, :sequence_length] = sequence[new_indexes]
+    return result
