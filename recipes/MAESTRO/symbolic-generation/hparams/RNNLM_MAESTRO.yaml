@@ -15,7 +15,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # this points to the maestro folder
-data_path: !PLACEHOLDER 
+data_path: !PLACEHOLDER
 
 # this csv file comes with the dataset, and defines the dataset
 maestro_csv: maestro-v2.0.0.csv
