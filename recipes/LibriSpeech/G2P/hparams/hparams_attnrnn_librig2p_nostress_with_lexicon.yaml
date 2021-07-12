@@ -62,7 +62,7 @@ blank_index: 2
 
 # Beam Searcher
 beam_search_min_decode_ratio: 0
-beam_search_max_decode_ratio: 1.35
+beam_search_max_decode_ratio: 1.0
 beam_search_beam_size: 16
 beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
@@ -168,7 +168,7 @@ lin: !new:speechbrain.nnet.linear.Linear
     bias: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <enc_neurons>
+    input_size: !ref 2 * <enc_neurons>
     n_neurons: !ref <output_neurons>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding

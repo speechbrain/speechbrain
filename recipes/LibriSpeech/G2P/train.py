@@ -80,6 +80,8 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 phns_eos, predictions.char_lens, phn_lens_eos
             )
             loss = seq_weight + loss_seq + self.hparams.ctc_weight * loss_ctc
+        else:
+            loss = loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
