@@ -334,10 +334,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # download the dataset in original format if it doesn't exist on data_path
-    DL_link = return_DL_link(hparams["dataset_name"])
-    download_file(DL_link, hparams["data_path"])
-
     # check if the csv files exist, and if not create new ones
     train_csv_exists = True if os.path.isfile(hparams["train_csv"]) else False
     valid_csv_exists = True if os.path.isfile(hparams["valid_csv"]) else False
@@ -355,7 +351,16 @@ if __name__ == "__main__":
             for split, songs in split_songs:
                 datasets[split] = midi_to_pianoroll(split, songs, hparams)
         else:
-            datasets = pickle.load(open(hparams["data_path"], "rb"))
+            # download the dataset in original format if it doesn't exist on data_path
+            pickle_savename = hparams["data_path"].split("/")[-1] + ".pickle"
+            pickle_save_path = os.path.join(
+                hparams["data_path"], pickle_savename
+            )
+            if not os.path.exists(pickle_save_path):
+                DL_link = return_DL_link(hparams["dataset_name"])
+                download_file(DL_link, pickle_save_path)
+
+            datasets = pickle.load(open(pickle_save_path, "rb"))
 
         for dataset in datasets:
             piano_roll_to_csv(datasets[dataset], dataset, hparams)
