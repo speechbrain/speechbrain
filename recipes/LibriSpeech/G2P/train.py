@@ -297,6 +297,10 @@ if __name__ == "__main__":
             },
         )
     for train_step in hparams['train_steps']:
+        epochs = train_step['epoch_counter'].limit
+        if epochs < 1:
+            print(f"Skipping training step: {train_step['name']}")
+            continue
         print(f"Running training step: {train_step['name']}")
         # Dataset IO prep: creating Dataset objects and proper encodings for phones
         train_data, valid_data, test_data, phoneme_encoder = dataio_prep(hparams, train_step)
@@ -330,7 +334,7 @@ if __name__ == "__main__":
 
         # Test
         g2p_brain.evaluate(
-            test_data, min_key="PER", test_loader_kwargs=hparams["dataloader_opts"],
+            test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
         )
 
         if hparams.get("save_for_pretrained"):

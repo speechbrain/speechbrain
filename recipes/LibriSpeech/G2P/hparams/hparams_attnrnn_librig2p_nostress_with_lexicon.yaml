@@ -39,7 +39,8 @@ lexicon_epochs: 50
 lexicon_ctc_epochs: 10
 sentence_epochs: 50
 sentence_ctc_epochs: 10
-batch_size: 1024
+lexicon_batch_size: 1024
+sentence_batch_size: 64
 ctc_weight: 0.5
 lr: 0.002
 save_for_pretrained: true
@@ -264,6 +265,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
+        ctc_lin: !ref <ctc_lin>
         scheduler: !ref <lr_annealing>
         lexicon_counter: !ref <lexicon_epoch_counter>
         sentence_counter: !ref <sentence_epoch_counter>
@@ -316,6 +318,9 @@ train_steps:
     epoch_counter: !ref <lexicon_epoch_counter>
     ctc_epochs: !ref <lexicon_ctc_epochs>
     wer_file: !ref <save_folder>/wer_lexicon.txt
+    dataloader_opts:
+        batch_size: !ref <lexicon_batch_size>
+
   - name: sentence
     train_data: !ref <sentence_train_data>
     valid_data: !ref <sentence_valid_data>
@@ -323,3 +328,5 @@ train_steps:
     epoch_counter: !ref <sentence_epoch_counter>
     ctc_epochs: !ref <sentence_ctc_epochs>
     wer_file: !ref <save_folder>/wer_sentence.txt
+    dataloader_opts:
+        batch_size: !ref <sentence_batch_size>

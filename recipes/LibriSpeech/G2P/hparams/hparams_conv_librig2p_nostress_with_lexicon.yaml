@@ -36,14 +36,17 @@ phonemes_space_separated: False
 
 # Neural Parameters
 lexicon_epochs: 50
+lexicon_ctc_epochs: 10
 sentence_epochs: 50
+sentence_ctc_epochs: 10
 lexicon_batch_size: 1024
 sentence_batch_size: 64
+ctc_weight: 0.5
 lr: 0.002
 save_for_pretrained: true
 
 # Model parameters
-output_neurons: 41
+output_neurons: 42
 enc_neurons: 512
 dec_dropout: 0.5
 dec_neurons: 512
@@ -56,11 +59,12 @@ enc_dilation: 1
 
 # Special Token information
 bos_index: 0
-eos_index: 0
+eos_index: 1
+blank_index: 2
 
 # Beam Searcher
 beam_search_min_decode_ratio: 0
-beam_search_max_decode_ratio: 1.35
+beam_search_max_decode_ratio: 1.0
 beam_search_beam_size: 16
 beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
@@ -184,6 +188,13 @@ lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
     bias: False
 
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <enc_neurons>
+    n_neurons: !ref <output_neurons>
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: 28  # 27 chars + 1 bos
     embedding_dim: !ref <embedding_dim>
@@ -211,6 +222,7 @@ modules:
     emb: !ref <emb>
     dec: !ref <dec>
     lin: !ref <lin>
+    ctc_lin: !ref <ctc_lin>
     out: !ref <log_softmax>
 
 model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
@@ -229,6 +241,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
+    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
@@ -270,6 +283,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
+        ctc_lin: !ref <ctc_lin>
         scheduler: !ref <lr_annealing>
         lexicon_counter: !ref <lexicon_epoch_counter>
         sentence_counter: !ref <sentence_epoch_counter>
@@ -320,6 +334,7 @@ train_steps:
     valid_data: !ref <lexicon_valid_data>
     test_data: !ref <lexicon_test_data>
     epoch_counter: !ref <lexicon_epoch_counter>
+    ctc_epochs: !ref <lexicon_ctc_epochs>
     wer_file: !ref <save_folder>/wer_lexicon.txt
     dataloader_opts:
         batch_size: !ref <lexicon_batch_size>
@@ -329,6 +344,7 @@ train_steps:
     valid_data: !ref <sentence_valid_data>
     test_data: !ref <sentence_test_data>
     epoch_counter: !ref <sentence_epoch_counter>
+    ctc_epochs: !ref <sentence_ctc_epochs>
     wer_file: !ref <save_folder>/wer_sentence.txt
     dataloader_opts:
         batch_size: !ref <sentence_batch_size>
