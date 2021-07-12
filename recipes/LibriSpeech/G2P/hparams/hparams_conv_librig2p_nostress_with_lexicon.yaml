@@ -36,40 +36,36 @@ phonemes_space_separated: False
 
 # Neural Parameters
 lexicon_epochs: 50
-lexicon_ctc_epochs: 10
 sentence_epochs: 50
-sentence_ctc_epochs: 10
-batch_size: 1024
-ctc_weight: 0.5
+lexicon_batch_size: 1024
+sentence_batch_size: 64
 lr: 0.002
 save_for_pretrained: true
 
 # Model parameters
-output_neurons: 42
-enc_dropout: 0.5
+output_neurons: 41
 enc_neurons: 512
-enc_num_layers: 4
 dec_dropout: 0.5
 dec_neurons: 512
 dec_att_neurons: 256
-dec_num_layers: 4
+dec_num_layers: 3
 embedding_dim: 512
+
+# Convolutional encoder parameters
+enc_dilation: 1
 
 # Special Token information
 bos_index: 0
-eos_index: 1
-blank_index: 2
+eos_index: 0
 
 # Beam Searcher
 beam_search_min_decode_ratio: 0
-beam_search_max_decode_ratio: 1.0
+beam_search_max_decode_ratio: 1.35
 beam_search_beam_size: 16
 beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
 beam_search_coverage_penalty: 5.0
-beam_search_ctc_weight_decode: 0.4
-
 
 # Evaluation parameters
 eval_dataset: train
@@ -151,25 +147,42 @@ phonemes:
   - Z
   - ZH
 
-dataloader_opts:
-    batch_size: !ref <batch_size>
 
 # Models
-enc: !new:speechbrain.nnet.RNN.LSTM
+enc: !new:speechbrain.lobes.models.g2p.conv.Encoder
     input_shape: [null, null, !ref <embedding_dim>]
-    bidirectional: True
-    hidden_size: !ref <enc_neurons>
-    num_layers: !ref <enc_num_layers>
-    dropout: !ref <enc_dropout>
+    conv_layers:
+    - !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: !ref <embedding_dim>
+      kernel_size: 3
+      out_channels: 64
+      dilation: !ref <enc_dilation>
+      stride: 1
+      padding: same
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock &residual_conv
+      in_channels: 64
+      out_channels: 64
+      kernel_size: 3
+      stride: 1
+      padding: same
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock
+      <<: *residual_conv
+      in_channels: 64
+      out_channels: 128
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock
+      <<: *residual_conv
+      in_channels: 128
+      out_channels: 256
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock
+      <<: *residual_conv
+      in_channels: 256
+      out_channels: 512
+
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
     bias: False
-
-ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref 2 * <enc_neurons>
-    n_neurons: !ref <output_neurons>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: 28  # 27 chars + 1 bos
@@ -180,9 +193,9 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <embedding_dim>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <enc_neurons> * 2
+    enc_dim: !ref <enc_neurons>
     input_size: !ref <embedding_dim>
-    rnn_type: gru
+    rnn_type: lstm
     attn_type: content
     dropout: !ref <dec_dropout>
     hidden_size: !ref <dec_neurons>
@@ -198,7 +211,6 @@ modules:
     emb: !ref <emb>
     dec: !ref <dec>
     lin: !ref <lin>
-    ctc_lin: !ref <ctc_lin>
     out: !ref <log_softmax>
 
 model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
@@ -217,10 +229,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
     beam_size: !ref <beam_search_beam_size>
@@ -228,7 +238,6 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
     max_attn_shift: !ref <beam_search_max_attn_shift>
     coverage_penalty: !ref <beam_search_coverage_penalty>
-    ctc_weight: !ref <beam_search_ctc_weight_decode>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
@@ -239,9 +248,6 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
-
-ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
 
 seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.nll_loss
@@ -314,12 +320,16 @@ train_steps:
     valid_data: !ref <lexicon_valid_data>
     test_data: !ref <lexicon_test_data>
     epoch_counter: !ref <lexicon_epoch_counter>
-    ctc_epochs: !ref <lexicon_ctc_epochs>
     wer_file: !ref <save_folder>/wer_lexicon.txt
+    dataloader_opts:
+        batch_size: !ref <lexicon_batch_size>
+
   - name: sentence
     train_data: !ref <sentence_train_data>
     valid_data: !ref <sentence_valid_data>
     test_data: !ref <sentence_test_data>
     epoch_counter: !ref <sentence_epoch_counter>
-    ctc_epochs: !ref <sentence_ctc_epochs>
     wer_file: !ref <save_folder>/wer_sentence.txt
+    dataloader_opts:
+        batch_size: !ref <sentence_batch_size>
+

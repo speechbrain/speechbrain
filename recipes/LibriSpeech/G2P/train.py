@@ -43,6 +43,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             step for step in self.hparams.train_steps
             if step['name'] == train_step_name)
         self.epoch_counter = self.train_step["epoch_counter"]
+        self.has_ctc = hasattr(self.hparams, 'ctc_lin')
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
@@ -98,7 +99,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         return loss
 
     def is_ctc_active(self, stage):
-        if stage != sb.Stage.TRAIN:
+        if not self.has_ctc or stage != sb.Stage.TRAIN:
             return False
         current_epoch = self.epoch_counter.current
         return current_epoch <= self.train_step["ctc_epochs"]
@@ -311,19 +312,20 @@ if __name__ == "__main__":
         )
         g2p_brain.phoneme_encoder = phoneme_encoder
 
-        dataloader_opts = hparams["dataloader_opts"]
         # NOTE: This gets modified after the first run and causes a double
         # agument issue
+        dataloader_opts = train_step.get(
+            "dataloader_opts",
+            hparams.get("dataloader_opts", {}))
         if 'ckpt_prefix' in dataloader_opts and dataloader_opts['ckpt_prefix'] is None:
             del dataloader_opts['ckpt_prefix']
-
         # Training/validation loop
         g2p_brain.fit(
             train_step['epoch_counter'],
             train_data,
             valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
+            train_loader_kwargs=dataloader_opts,
+            valid_loader_kwargs=dataloader_opts,
         )
 
         # Test

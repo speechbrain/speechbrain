@@ -190,7 +190,7 @@ modules:
     lin: !ref <lin>
     out: !ref <log_softmax>
 
-model: !new:speechbrain.lobes.models.g2p.attnrnn.Model
+model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
     enc: !ref <enc>
     encoder_emb: !ref <encoder_emb>
     emb: !ref <emb>
