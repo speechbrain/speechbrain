@@ -8,9 +8,11 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
 # this field is just a self reminder for the particular experiment
-experiment_name: JSB_chorales_default
+experiment_name: JSB_chorales_RNN_LM
 
 # this needs to be set according to the dataset name
+# options are: JSB_chorales, MuseData, Nottingham,
+#              Piano-Midi, MAESTRO_v2, MAESTRO_v3
 dataset_name: JSB_chorales
 
 __set_seed: !apply:torch.manual_seed [!ref <seed>]

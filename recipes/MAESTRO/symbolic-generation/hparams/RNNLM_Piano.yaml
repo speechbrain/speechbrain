@@ -5,16 +5,25 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-pickle: Piano-midi.de
 seed: 2602
+
+# this field is just a self reminder for the particular experiment
+experiment_name: Piano-Midi_RNN_LM
+
+# this needs to be set according to the dataset name
+# options are: JSB_chorales, MuseData, Nottingham,
+#              Piano-Midi, MAESTRO_v2, MAESTRO_v3
+dataset_name: Piano-Midi
+
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/RNNLM/<pickle>/
+output_folder: !ref results/<experiment_name>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-data: !ref <pickle>.pickle
-data_path: !ref data/<pickle>
-midi_file: !ref <output_folder>/<pickle>.MIDI
+# this points to the dataset file
+data_path: !PLACEHOLDER
+
+midi_file: !ref <output_folder>/<experiment_name>.MIDI
 resolution: 13
 time_scale: 9
 velocity: 80
