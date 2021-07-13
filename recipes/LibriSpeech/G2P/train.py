@@ -301,8 +301,6 @@ def dataio_prep(hparams, train_step=None):
 
 
     datasets = [train_data, valid_data, test_data]
-    for dataset in datasets:
-        dataset.data_ids = dataset.data_ids[:5]
 
     phoneme_encoder = sb.dataio.encoder.TextEncoder()
 
