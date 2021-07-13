@@ -339,17 +339,19 @@ if __name__ == "__main__":
     valid_csv_exists = True if os.path.isfile(hparams["valid_csv"]) else False
     test_csv_exists = True if os.path.isfile(hparams["test_csv"]) else False
 
-    if "MAESTRO_params" in hparams:
+    # set the names to name the downloaded file
+    if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
         data_savepath = hparams["data_path"] + ".zip"
     else:
         data_savename = hparams["data_path"].split("/")[-1] + ".pickle"
         data_savepath = os.path.join(hparams["data_path"], data_savename)
 
+    # download the data
     if not os.path.exists(hparams["data_path"]):
         DL_link = return_DL_link(hparams["dataset_name"])
         download_file(DL_link, data_savepath)
 
-        if "MAESTRO_params" in hparams:
+        if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
             os.system(
                 "unzip {} -d {}".format(data_savepath, hparams["data_path"])
             )
@@ -377,7 +379,7 @@ if __name__ == "__main__":
 
     if not (train_csv_exists and valid_csv_exists and test_csv_exists):
         # if we work with MAESTRO
-        if "MAESTRO_params" in hparams:
+        if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
             split_songs = [
                 ("train", hparams["MAESTRO_params"]["num_train_files"]),
                 ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
