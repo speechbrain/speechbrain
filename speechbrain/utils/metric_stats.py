@@ -13,18 +13,6 @@ from speechbrain.dataio.dataio import merge_char, split_word
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
-def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=30):
-    if lengths is not None:
-        lengths = (lengths * predict.size(1)).int().cpu()
-        predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
-        target = [t[:length].cpu() for t, length in zip(target, lengths)]
-
-    scores = Parallel(n_jobs=n_jobs)(
-        delayed(metric)(p, t) for p, t in zip(predict, target)
-    )
-    return scores
-
-
 class MetricStats:
     """A default class for storing and summarizing arbitrary metrics.
 
@@ -37,6 +25,11 @@ class MetricStats:
         at least two arguments (predictions and targets) and can
         optionally take the relative lengths of either or both arguments.
         Not usually used in sub-classes.
+    batch_eval: bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
     n_jobs : int
         The number of jobs to use for computing the metric. If this is
         more than one, every sample is processed individually, otherwise
@@ -61,9 +54,10 @@ class MetricStats:
     'utterance2'
     """
 
-    def __init__(self, metric, n_jobs=1):
+    def __init__(self, metric, n_jobs=1, batch_eval=True):
         self.metric = metric
         self.n_jobs = n_jobs
+        self.batch_eval = batch_eval
         self.clear()
 
     def clear(self):
@@ -84,17 +78,23 @@ class MetricStats:
         """
         self.ids.extend(ids)
 
-        # Compute metric, in parallel if requested.
-        if self.n_jobs > 1:
+        # Batch evaluation
+        if self.batch_eval:
+            scores = self.metric(*args, **kwargs).detach()
+
+        else:
             if "predict" not in kwargs or "target" not in kwargs:
                 raise ValueError(
-                    "Must pass 'predict' and 'target' as kwargs if n_jobs > 1"
+                    "Must pass 'predict' and 'target' as kwargs if batch_eval=False"
                 )
-            scores = multiprocess_evaluation(
-                metric=self.metric, n_jobs=self.n_jobs, **kwargs
-            )
-        else:
-            scores = self.metric(*args, **kwargs).detach()
+            if self.n_jobs == 1:
+                # Sequence evaluation (loop over inputs)
+                scores = sequence_evaluation(metric=self.metric, **kwargs)
+            else:
+                # Multiprocess evaluation
+                scores = multiprocess_evaluation(
+                    metric=self.metric, n_jobs=self.n_jobs, **kwargs
+                )
 
         self.scores.extend(scores)
 
@@ -150,6 +150,33 @@ class MetricStats:
         filestream.write(message)
         if verbose:
             print(message)
+
+
+def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=8):
+    """Runs metric evaluation if parallel over multiple jobs."""
+    if lengths is not None:
+        lengths = (lengths * predict.size(1)).int().cpu()
+        predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
+        target = [t[:length].cpu() for t, length in zip(target, lengths)]
+
+    scores = Parallel(n_jobs=n_jobs)(
+        delayed(metric)(p, t) for p, t in zip(predict, target)
+    )
+    return scores
+
+
+def sequence_evaluation(metric, predict, target, lengths=None):
+    """Runs metric evaluation sequentially over the inputs."""
+    if lengths is not None:
+        lengths = (lengths * predict.size(1)).int().cpu()
+        predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
+        target = [t[:length].cpu() for t, length in zip(target, lengths)]
+
+    scores = []
+    for p, t in zip(predict, target):
+        score = metric(p, t)
+        scores.append(score)
+    return scores
 
 
 class ErrorRateStats(MetricStats):
