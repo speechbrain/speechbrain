@@ -1,17 +1,15 @@
 """
-Data preparation.
+Data preparation for Multi-Speaker Counting.
 
 Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
+Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch, Matteo Esposito 2020-2021
 """
 
 import os
 import csv
-import random
-from collections import Counter
 import logging
 import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
@@ -140,123 +138,17 @@ def prepare_librispeech(
             data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
         )
 
-    # Create lexicon.csv and oov.csv
-    if create_lexicon:
-        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
-
     # saving options
     save_pkl(conf, save_opt)
 
 
-def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
-    """
-    Creates lexicon csv files useful for training and testing a
-    grapheme-to-phoneme (G2P) model.
-
-    Arguments
-    ---------
-    all_text : dict
-        Dictionary containing text from the librispeech transcriptions
-    data_folder : str
-        Path to the folder where the original LibriSpeech dataset is stored.
-    save_folder : str
-        The directory where to store the csv files.
-    Returns
-    -------
-    None
-    """
-    # If the lexicon file does not exist, download it
-    lexicon_url = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
-    lexicon_path = os.path.join(save_folder, "librispeech-lexicon.txt")
-
-    if not os.path.isfile(lexicon_path):
-        logger.info(
-            "Lexicon file not found. Downloading from %s." % lexicon_url
-        )
-        download_file(lexicon_url, lexicon_path)
-
-    # Get list of all words in the transcripts
-    transcript_words = Counter()
-    for key in all_texts:
-        transcript_words.update(all_texts[key].split("_"))
-
-    # Get list of all words in the lexicon
-    lexicon_words = []
-    lexicon_pronunciations = []
-    with open(lexicon_path, "r") as f:
-        lines = f.readlines()
-        for line in lines:
-            word = line.split()[0]
-            pronunciation = line.split()[1:]
-            lexicon_words.append(word)
-            lexicon_pronunciations.append(pronunciation)
-
-    # Create lexicon.csv
-    header = "ID,duration,char,phn\n"
-    lexicon_csv_path = os.path.join(save_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "w") as f:
-        f.write(header)
-        for idx in range(len(lexicon_words)):
-            separated_graphemes = [c for c in lexicon_words[idx]]
-            duration = len(separated_graphemes)
-            graphemes = " ".join(separated_graphemes)
-            pronunciation_no_numbers = [
-                p.strip("0123456789") for p in lexicon_pronunciations[idx]
-            ]
-            phonemes = " ".join(pronunciation_no_numbers)
-            line = (
-                ",".join([str(idx), str(duration), graphemes, phonemes]) + "\n"
-            )
-            f.write(line)
-    logger.info("Lexicon written to %s." % lexicon_csv_path)
-
-    # Split lexicon.csv in train, validation, and test splits
-    split_lexicon(save_folder, [98, 1, 1])
-
-
-def split_lexicon(data_folder, split_ratio):
-    """
-    Splits the lexicon.csv file into train, validation, and test csv files
-
-    Arguments
-    ---------
-    data_folder : str
-        Path to the folder containing the lexicon.csv file to split.
-    split_ratio : list
-        List containing the training, validation, and test split ratio. Set it
-        to [80, 10, 10] for having 80% of material for training, 10% for valid,
-        and 10 for test.
-
-    Returns
-    -------
-    None
-    """
-    # Reading lexicon.csv
-    lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "r") as f:
-        lexicon_lines = f.readlines()
-    # Remove header
-    lexicon_lines = lexicon_lines[1:]
-
-    # Shuffle entries
-    random.shuffle(lexicon_lines)
-
-    # Selecting lines
-    header = "ID,duration,char,phn\n"
-
-    tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
-    train_lines = [header] + lexicon_lines[0:tr_snts]
-    valid_snts = int(0.01 * split_ratio[1] * len(lexicon_lines))
-    valid_lines = [header] + lexicon_lines[tr_snts : tr_snts + valid_snts]
-    test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
-
-    # Saving files
-    with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
-        f.writelines(train_lines)
-    with open(os.path.join(data_folder, "lexicon_dev.csv"), "w") as f:
-        f.writelines(valid_lines)
-    with open(os.path.join(data_folder, "lexicon_test.csv"), "w") as f:
-        f.writelines(test_lines)
+# Prepare librispeech >> csv file
+# Modify the create_csv method
+# Output: Id, duration, wav, number speakers
+# Then dataio_prep reads it and creates info for the forward method.
+# Data_pipeline.provides
+# Wav
+# New pipeline that takes speaker_count instead of id, provides speaker count encoded
 
 
 def create_csv(
@@ -289,26 +181,25 @@ def create_csv(
     msg = "Creating csv lists in  %s..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
+    csv_lines = [["ID", "duration", "wav", "nb_speakers"]]
 
     snt_cnt = 0
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
 
         snt_id = wav_file.split("/")[-1].replace(".flac", "")
-        spk_id = "-".join(snt_id.split("-")[0:2])
-        wrds = text_dict[snt_id]
-
         signal, fs = torchaudio.load(wav_file)
         signal = signal.squeeze(0)
-        duration = signal.shape[0] / SAMPLERATE
+        duration = (
+            signal.shape[0] / SAMPLERATE
+        )  # Should always be 5 seconds due to preprocessing.
+        nb_speakers = snt_id[-1:]
 
         csv_line = [
             snt_id,
-            str(duration),
+            duration,
             wav_file,
-            spk_id,
-            str(" ".join(wrds.split("_"))),
+            nb_speakers,
         ]
 
         #  Appending current file to the csv_lines list

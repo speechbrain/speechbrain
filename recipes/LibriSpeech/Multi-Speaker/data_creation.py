@@ -100,11 +100,6 @@ def make_data(
     audio_files = []
     for folder in audio_folders:
         temp_path = os.path.join(hparams["new_data_folder"], folder)
-
-        # Remove problematic flac file
-        if folder == "dev-clean":
-            os.remove(os.path.join(temp_path, "TEMP.flac"))
-
         audio_files.append(glob.glob(f"{temp_path}/*.flac"))
 
     nb_folders = len(audio_folders)
@@ -225,6 +220,8 @@ def make_data(
                     "-".join(speaker_indices)
                     + "-id-"
                     + str(random.randint(0, 1000000))
+                    + "-nbspeakers-"
+                    + str(nb_speakers)
                     + ".flac"
                 )
                 write_audio(
@@ -233,6 +230,32 @@ def make_data(
                     16000,
                 )
 
+        # Move all original single speaker files and transcripts into single folder.
+        raw_padding_audio_files = []
+        temp_path = os.path.join(
+            hparams["new_data_folder"],
+            audio_folders[folder_id],
+            "padded-audio-and-transcripts",
+        )
+        if os.path.exists(temp_path):
+            shutil.rmtree(temp_path)
+        os.makedirs(temp_path)
+
+        raw_padding_audio_files = glob.glob(
+            os.path.join(
+                hparams["new_data_folder"], audio_folders[folder_id], "*.txt"
+            )
+        ) + glob.glob(
+            os.path.join(hparams["new_data_folder"], audio_folders[folder_id],
+            "*.flac")
+        )
+
+        # Move to temp dir
+        for src_file in raw_padding_audio_files:
+            shutil.copy(src_file, temp_path)
+            os.remove(src_file)
+
+        # Print final count 1-5 speaker mixtures.
         print("Speaker mixture counts: ", nb_speakers_log)
 
 

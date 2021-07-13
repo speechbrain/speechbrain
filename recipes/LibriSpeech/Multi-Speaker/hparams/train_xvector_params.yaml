@@ -4,30 +4,27 @@
 # #######################################
 
 # Basic parameters
-seed: 1986
+seed: 1997
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/xvect_augment/<seed>
+output_folder: !ref results/xvect/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
-train_annotation: !ref <save_folder>/train.csv
-valid_annotation: !ref <save_folder>/dev.csv
+train_data: <data_folder>/train-clean-100
+test_data: <data_folder>/test-clean
+data_folder_rirs: !ref <data_folder> # where to store noisy data for augment (change it if needed)
 
-# Folder to extract data augmentation files
-# rir_folder: !ref <data_folder> # Change it if needed
-
-# Use the following links for the official voxceleb splits:
-# VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
-# VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
-# VoxCeleb1-E (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_all2.txt.
-# VoxCeleb1-E and VoxCeleb1-H lists are drawn from the VoxCeleb1 training set.
-# Therefore you cannot use any files in VoxCeleb1 for training if you are using these lists for testing.
-# verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
-
+train_splits: ["train-clean-100"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
+train_csv: !ref <save_folder>/train.csv
+valid_csv: !ref <save_folder>/dev-clean.csv
+test_csv:
+   - !ref <save_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 20
@@ -138,9 +135,9 @@ modules:
     compute_features: !ref <compute_features>
     # augment_wavedrop: !ref <augment_wavedrop>
     # augment_speed: !ref <augment_speed>
-    add_rev: !ref <add_rev>
-    add_noise: !ref <add_noise>
-    add_rev_noise: !ref <add_rev_noise>
+    # add_rev: !ref <add_rev>
+    # add_noise: !ref <add_noise>
+    # add_rev_noise: !ref <add_rev_noise>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
