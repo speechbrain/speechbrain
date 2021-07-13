@@ -354,22 +354,26 @@ if __name__ == "__main__":
                 "unzip {} -d {}".format(data_savepath, hparams["data_path"])
             )
 
-        if hparams["dataset_name"] == "MAESTRO_v2":
-            os.system(
-                "mv {} {}".format(
-                    os.path.join(hparams["data_path"], "maestro-v2.0.0", "*"),
-                    hparams["data_path"],
+            if hparams["dataset_name"] == "MAESTRO_v2":
+                os.system(
+                    "mv {} {}".format(
+                        os.path.join(
+                            hparams["data_path"], "maestro-v2.0.0", "*"
+                        ),
+                        hparams["data_path"],
+                    )
                 )
-            )
-        elif hparams["dataset_name"] == "MAESTRO_v3":
-            os.system(
-                "mv {} {}".format(
-                    os.path.join(hparams["data_path"], "maestro-v3.0.0", "*"),
-                    hparams["data_path"],
+            elif hparams["dataset_name"] == "MAESTRO_v3":
+                os.system(
+                    "mv {} {}".format(
+                        os.path.join(
+                            hparams["data_path"], "maestro-v3.0.0", "*"
+                        ),
+                        hparams["data_path"],
+                    )
                 )
-            )
-        else:
-            raise ValueError("Unsupported MAESTRO dataset name")
+            else:
+                raise ValueError("Unsupported MAESTRO dataset name")
 
     if not (train_csv_exists and valid_csv_exists and test_csv_exists):
         # if we work with MAESTRO
