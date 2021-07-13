@@ -19,6 +19,8 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+import numpy as np
+import random
 
 
 class Pretrained:
@@ -937,21 +939,52 @@ class SymbolicGeneration(Pretrained):
         super().__init__(*args, **kwargs)
         self.model = self.hparams.model
 
-    def generate_timestep(self, inp, h=None):
-        """Generates one timestep
+    def generate_timestep(self, N):
+        """Generates a sequence of N timesteps
         Arguments
         ---------
-        inp : torch.tensor
-            Initial input to the model.
-        h : torch.tensor
-            Hidden state from previous forward pass.
+        N : int
+            Number of sequences to generate using the model.
         Returns
         -------
-        out: torch.tensor.
-            Predicted output
-        h: torch.tensor
-            Hidden state.
+        sequence: nd.array (N,128)
+        binarized piano roll ready for MIDI generation
         """
 
-        out, h = self.model(inp, h)
-        return out, h
+        notes_len = self.hparams.emb_dim
+        zeros = 85
+        midi_len = 128
+
+        # Initial input to the sequence is a randomized binary vector with 4 ones
+        inp = np.array([0] * zeros + [1] * (notes_len - zeros))
+        np.random.shuffle(inp)
+        inp = torch.tensor(inp, dtype=torch.float32).to(self.device)
+        inp = inp.view((1, notes_len))
+
+        # Sequence to return for MIDI processing
+        sequence = np.zeros((N, midi_len))
+
+        # Generate N timesteps
+        for i in range(N):
+            if i == 0:
+                out, h = self.model(inp)
+            else:
+                out, h = self.model(inp, h)
+
+            out = torch.squeeze(out)
+
+            # Convert probabilities to binary vector
+            for j in range(len(out)):
+                thresh = random.random()
+                out[j] = (thresh < out[j] and out[j] > 0.05).type(torch.int32)
+
+            # Store and pad vectors to match MIDI size
+            sequence[i] = np.pad(
+                array=out.cpu().detach().numpy(),
+                pad_width=(20, 20),
+                mode="constant",
+                constant_values=(0, 0),
+            )
+            inp = torch.unsqueeze(out, dim=0)
+
+        return sequence

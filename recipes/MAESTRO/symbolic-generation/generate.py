@@ -1,15 +1,12 @@
-import numpy as np
-import torch
 import sys
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 import muspy as mp
-import random
 from speechbrain.pretrained.interfaces import SymbolicGeneration
 
 
 def generate_sequence(N):
-    """Generates a sequence of N timesteps
+    """ Call inference class that generates a sequence of N timesteps
     Arguments
     ---------
     N : int
@@ -21,42 +18,7 @@ def generate_sequence(N):
     """
 
     inferer = SymbolicGeneration.from_hparams(source="test/",)
-
-    notes_len = hparams["emb_dim"]
-    zeros = 85
-    midi_len = 128
-
-    # Initial input to the sequence is a randomized binary vector with 4 ones
-    inp = np.array([0] * zeros + [1] * (notes_len - zeros))
-    np.random.shuffle(inp)
-    inp = torch.tensor(inp, dtype=torch.float32).to(run_opts["device"])
-    inp = inp.view((1, notes_len))
-
-    # Sequence to return for MIDI processing
-    sequence = np.zeros((N, midi_len))
-
-    # Generate N timesteps
-    for i in range(N):
-        if i == 0:
-            out, h = inferer.generate_timestep(inp)
-        else:
-            out, h = inferer.generate_timestep(inp, h)
-
-        out = torch.squeeze(out)
-
-        # Convert probabilities to binary vector
-        for j in range(len(out)):
-            thresh = random.random()
-            out[j] = (thresh < out[j] and out[j] > 0.05).type(torch.int32)
-
-        # Store and pad vectors to match MIDI size
-        sequence[i] = np.pad(
-            array=out.cpu().detach().numpy(),
-            pad_width=(20, 20),
-            mode="constant",
-            constant_values=(0, 0),
-        )
-        inp = torch.unsqueeze(out, dim=0)
+    sequence = inferer.generate_timestep(N)
 
     return sequence
 
@@ -80,7 +42,6 @@ if __name__ == "__main__":
 
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    run_opts["device"] = "cpu"
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
