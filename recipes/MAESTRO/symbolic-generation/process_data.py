@@ -46,7 +46,7 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
     """
     This function creates CSV from random selected files in MAESTRO dataset
     :param  set: "validation", "train", "test"
-            num_of_songs: # of songs to select in the set (int)
+            num_of_songs: number of songs to select in the set (int)
             hparams: the hparams dictionary for the experiment defined by the .yaml file
 
     :return: Nothing

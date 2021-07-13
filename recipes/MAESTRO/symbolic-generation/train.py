@@ -291,9 +291,9 @@ def dataio_prepare(hparams):
 
 def return_DL_link(dataset_name):
     if dataset_name == "MAESTRO_v2":
-        DL_link = "https://magenta.tensorflow.org/datasets/maestro#v200"
+        DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v2.0.0/maestro-v2.0.0-midi.zip"
     elif dataset_name == "MAESTRO_v3":
-        DL_link = "https://magenta.tensorflow.org/datasets/maestro#v300"
+        DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0.csv"
     elif dataset_name == "JSB_chorales":
         DL_link = (
             "http://www-ens.iro.umontreal.ca/~boulanni/JSB%20Chorales.pickle"
@@ -339,6 +339,38 @@ if __name__ == "__main__":
     valid_csv_exists = True if os.path.isfile(hparams["valid_csv"]) else False
     test_csv_exists = True if os.path.isfile(hparams["test_csv"]) else False
 
+    if "MAESTRO_params" in hparams:
+        data_savepath = hparams["data_path"] + ".zip"
+    else:
+        data_savename = hparams["data_path"].split("/")[-1] + ".pickle"
+        data_savepath = os.path.join(hparams["data_path"], data_savename)
+
+    if not os.path.exists(hparams["data_path"]):
+        DL_link = return_DL_link(hparams["dataset_name"])
+        download_file(DL_link, data_savepath)
+
+        if "MAESTRO_params" in hparams:
+            os.system(
+                "unzip {} -d {}".format(data_savepath, hparams["data_path"])
+            )
+
+        if hparams["dataset_name"] == "MAESTRO_v2":
+            os.system(
+                "mv {} {}".format(
+                    os.path.join(hparams["data_path"], "maestro-v2.0.0", "*"),
+                    hparams["data_path"],
+                )
+            )
+        elif hparams["dataset_name"] == "MAESTRO_v3":
+            os.system(
+                "mv {} {}".format(
+                    os.path.join(hparams["data_path"], "maestro-v3.0.0", "*"),
+                    hparams["data_path"],
+                )
+            )
+        else:
+            raise ValueError("Unsupported MAESTRO dataset name")
+
     if not (train_csv_exists and valid_csv_exists and test_csv_exists):
         # if we work with MAESTRO
         if "MAESTRO_params" in hparams:
@@ -352,15 +384,7 @@ if __name__ == "__main__":
                 datasets[split] = midi_to_pianoroll(split, songs, hparams)
         else:
             # download the dataset in original format if it doesn't exist on data_path
-            pickle_savename = hparams["data_path"].split("/")[-1] + ".pickle"
-            pickle_save_path = os.path.join(
-                hparams["data_path"], pickle_savename
-            )
-            if not os.path.exists(pickle_save_path):
-                DL_link = return_DL_link(hparams["dataset_name"])
-                download_file(DL_link, pickle_save_path)
-
-            datasets = pickle.load(open(pickle_save_path, "rb"))
+            datasets = pickle.load(open(data_savepath, "rb"))
 
         for dataset in datasets:
             piano_roll_to_csv(datasets[dataset], dataset, hparams)
