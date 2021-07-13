@@ -29,10 +29,13 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import (
     grapheme_pipeline,
     phoneme_pipeline,
 )
+from speechbrain.dataio.wer import print_alignments
+from io import StringIO
+import numpy as np
 
 
 G2PPredictions = namedtuple(
-    "G2PPredictions", "p_seq char_lens hyps ctc_logprobs", defaults=[None] * 4)
+    "G2PPredictions", "p_seq char_lens hyps ctc_logprobs attn", defaults=[None] * 4)
 
 # Define training procedure
 class G2PBrain(sb.Brain, PretrainedModelMixin):
@@ -44,16 +47,18 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             if step['name'] == train_step_name)
         self.epoch_counter = self.train_step["epoch_counter"]
         self.has_ctc = hasattr(self.hparams, 'ctc_lin')
+        self.last_attn = None
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
 
         graphemes, grapheme_lens = batch.grapheme_encoded
-        p_seq, char_lens, encoder_out = self.hparams.model(
+        p_seq, char_lens, encoder_out, attn = self.modules["model"](
             grapheme_encoded=(graphemes.detach(), grapheme_lens),
             phn_encoded=batch.phn_encoded_bos,
         )
+        self.last_attn = attn
 
         hyps = None
         ctc_logprobs = None
@@ -65,7 +70,8 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         if stage != sb.Stage.TRAIN:
             hyps, scores = self.hparams.beam_searcher(encoder_out, char_lens)
 
-        return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs)
+
+        return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
@@ -138,15 +144,20 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats={"loss": self.train_loss},
-                valid_stats={
+            stats = {
+                "stats_meta": {"epoch": epoch, "lr": old_lr},
+                "train_stats": {"loss": self.train_loss},
+                "valid_stats": {
                     "loss": stage_loss,
                     "seq_loss": self.seq_metrics.summarize("average"),
                     "PER": per,
                 },
-            )
+            }
+            self.hparams.train_logger.log_stats(**stats)
+            if self.hparams.use_tensorboard:
+                self.hparams.tensorboard_train_logger.log_stats(**stats)
+                self.save_samples()
+
             self.checkpointer.save_and_keep_only(
                 meta={"PER": per}, min_keys=["PER"]
             )
@@ -166,6 +177,68 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                     "seq2seq, and PER stats written to file",
                     wer_file
                 )
+
+    @property
+    def tb_writer(self):
+        return self.hparams.tensorboard_train_logger.writer
+
+    @property
+    def tb_global_step(self):
+        global_step = self.hparams.tensorboard_train_logger.global_step
+        return global_step["valid"]["loss"]
+
+    def save_samples(self):
+        self._save_attention_alignment()
+        self._save_text_alignments()
+
+    def _save_text_alignments(self):
+        last_batch_sample = self.per_metrics.scores[
+            -self.hparams.eval_prediction_sample_size:]
+        metrics_by_wer = sorted(
+            self.per_metrics.scores,
+            key=lambda item: item["WER"],
+            reverse=True)
+        worst_sample = metrics_by_wer[:self.hparams.eval_prediction_sample_size]
+        sample_size = min(
+            self.hparams.eval_prediction_sample_size,
+            len(self.per_metrics.scores))
+        random_sample = np.random.choice(
+            self.per_metrics.scores, sample_size,
+            replace=False)
+        text_alignment_samples = {
+            "last_batch": last_batch_sample,
+            "worst": worst_sample,
+            "random": random_sample
+        }
+        for key, sample in text_alignment_samples.items():
+            self._save_text_alignment(
+                tag=f"valid/{key}",
+                metrics_sample=sample)
+
+    def _save_attention_alignment(self):
+        attention = self.last_attn[0]
+        alignments_max = (
+            attention
+                .max(dim=-1).values
+                .max(dim=-1).values
+                .unsqueeze(-1)
+                .unsqueeze(-1))
+        alignments_output = (
+            attention.T.flip(dims=(1,)) / alignments_max).unsqueeze(0)
+        self.tb_writer.add_image(
+            "valid/attention_alignments",
+            alignments_output, self.tb_global_step)
+
+    def _save_text_alignment(self, tag, metrics_sample):
+        with StringIO() as text_alignments_io:
+            print_alignments(metrics_sample, file=text_alignments_io,
+                             print_header=False)
+            text_alignments_io.seek(0)
+            alignments_sample = text_alignments_io.read()
+            alignments_sample_md = f"```\n{alignments_sample}\n```"
+        self.tb_writer.add_text(
+            tag, alignments_sample_md, self.tb_global_step)
+
 
 
 def sort_data(data, hparams):
@@ -228,6 +301,8 @@ def dataio_prep(hparams, train_step=None):
 
 
     datasets = [train_data, valid_data, test_data]
+    for dataset in datasets:
+        dataset.data_ids = dataset.data_ids[:5]
 
     phoneme_encoder = sb.dataio.encoder.TextEncoder()
 
@@ -265,6 +340,33 @@ def dataio_prep(hparams, train_step=None):
     return train_data, valid_data, test_data, phoneme_encoder
 
 
+def check_language_model(hparams):
+    """Checks whether or not the language
+       model is being used and makes the necessary
+       adjustments"""
+
+    if hparams.get("use_language_model"):
+        hparams["beam_searcher"] = hparams["beam_searcher_lm"]
+    else:
+        if "beam_searcher_lm" in hparams:
+            del hparams["beam_searcher_lm"]
+
+def load_dependencies(hparams):
+    deps_pretrainer = hparams.get("deps_pretrainer")
+    if deps_pretrainer:
+        run_on_main(deps_pretrainer.collect_files)
+        deps_pretrainer.load_collected(device=run_opts["device"])
+
+
+def check_tensorboard(hparams):
+    if hparams["use_tensorboard"]:
+        from speechbrain.utils.train_logger import TensorboardLogger
+
+        hparams["tensorboard_train_logger"] = TensorboardLogger(
+            hparams["tensorboard_logs"]
+        )
+
+
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -275,6 +377,10 @@ if __name__ == "__main__":
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
+
+    check_language_model(hparams)
+    load_dependencies(hparams)
+    check_tensorboard(hparams)
 
     from librispeech_prepare import prepare_librispeech  # noqa
 

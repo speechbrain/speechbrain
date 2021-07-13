@@ -5,41 +5,51 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-#__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
 output_folder: !ref results/RNN/<seed>
 data_folder: /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
-wer_file: !ref <save_folder>/wer.txt
 pretrained_path: !ref <save_folder>
 
 
 # These three files are created from lexicon.csv.
 build_lexicon: false
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
-train_data: !ref <data_folder>/sentence_train.json
-valid_data: !ref <data_folder>/sentence_valid.json
-test_data: !ref <data_folder>/sentence_test.json
+lexicon_train_data: !ref <data_folder>/lexicon_train.json
+lexicon_valid_data: !ref <data_folder>/lexicon_valid.json
+lexicon_test_data: !ref <data_folder>/lexicon_test.json
+sentence_train_data: !ref <data_folder>/sentence_train.json
+sentence_valid_data: !ref <data_folder>/sentence_valid.json
+sentence_test_data: !ref <data_folder>/sentence_test.json
+
 skip_prep: False
 sorting: random #ascending
-graphemes_space_separated: false
-phonemes_space_separated: false
+graphemes_space_separated: False
+phonemes_space_separated: False
 
 
 # Neural Parameters
-N_epochs: 75
-batch_size: 1024
+lexicon_epochs: 50
+lexicon_ctc_epochs: 10
+sentence_epochs: 50
+sentence_ctc_epochs: 10
+lexicon_batch_size: 1024
+sentence_batch_size: 64
 ctc_weight: 0.5
 lr: 0.002
 save_for_pretrained: true
 
 # Model parameters
-output_neurons: 41
+output_neurons: 42
 enc_dropout: 0.5
 enc_neurons: 512
 enc_num_layers: 4
@@ -54,14 +64,25 @@ bos_index: 0
 eos_index: 1
 blank_index: 2
 
+# Language Model
+lm_emb_dim: 256 # dimension of the embeddings
+lm_rnn_size: 512 # dimension of hidden layers
+lm_layers: 2 # number of hidden layers
+lm_output_neurons: 42
+
 # Beam Searcher
 beam_search_min_decode_ratio: 0
-beam_search_max_decode_ratio: 1.35
+beam_search_max_decode_ratio: 1.0
 beam_search_beam_size: 16
 beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
 beam_search_coverage_penalty: 5.0
+beam_search_lm_weight: 0.5
+beam_search_ctc_weight_decode: 0.4
+beam_search_temperature: 1.25
+beam_search_temperature_lm: 1.0
+
 
 # Evaluation parameters
 eval_dataset: train
@@ -69,84 +90,80 @@ eval_train_step: sentence
 eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
-
+eval_prediction_sample_size: 10
 
 select_n_sentences: None
 
 graphemes:
-    - A
-    - B
-    - C
-    - D
-    - E
-    - F
-    - G
-    - H
-    - I
-    - J
-    - K
-    - L
-    - M
-    - N
-    - O
-    - P
-    - Q
-    - R
-    - S
-    - T
-    - U
-    - V
-    - W
-    - X
-    - Y
-    - Z
-    - "'"
-    - " "
+  - A
+  - B
+  - C
+  - D
+  - E
+  - F
+  - G
+  - H
+  - I
+  - J
+  - K
+  - L
+  - M
+  - N
+  - O
+  - P
+  - Q
+  - R
+  - S
+  - T
+  - U
+  - V
+  - W
+  - X
+  - Y
+  - Z
+  - "'"
+  - " "
 
 phonemes:
-    - AA
-    - AE
-    - AH
-    - AO
-    - AW
-    - AY
-    - B
-    - CH
-    - D
-    - DH
-    - EH
-    - ER
-    - EY
-    - F
-    - G
-    - HH
-    - IH
-    - IY
-    - JH
-    - K
-    - L
-    - M
-    - N
-    - NG
-    - OW
-    - OY
-    - P
-    - R
-    - S
-    - SH
-    - T
-    - TH
-    - UH
-    - UW
-    - V
-    - W
-    - Y
-    - Z
-    - ZH
-
-
-dataloader_opts:
-    batch_size: !ref <batch_size>
+  - AA
+  - AE
+  - AH
+  - AO
+  - AW
+  - AY
+  - B
+  - CH
+  - D
+  - DH
+  - EH
+  - ER
+  - EY
+  - F
+  - G
+  - HH
+  - IH
+  - IY
+  - JH
+  - K
+  - L
+  - M
+  - N
+  - NG
+  - OW
+  - OY
+  - P
+  - R
+  - S
+  - SH
+  - T
+  - TH
+  - UH
+  - UW
+  - V
+  - W
+  - Y
+  - Z
+  - ZH
 
 # Models
 enc: !new:speechbrain.nnet.RNN.LSTM
@@ -160,6 +177,10 @@ lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
     bias: False
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref 2 * <enc_neurons>
+    n_neurons: !ref <output_neurons>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: 28  # 27 chars + 1 bos
@@ -188,9 +209,11 @@ modules:
     emb: !ref <emb>
     dec: !ref <dec>
     lin: !ref <lin>
+    ctc_lin: !ref <ctc_lin>
     out: !ref <log_softmax>
 
 model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
+    model: !ref <model>
     enc: !ref <enc>
     encoder_emb: !ref <encoder_emb>
     emb: !ref <emb>
@@ -198,6 +221,12 @@ model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
     lin: !ref <lin>
     out: !ref <log_softmax>
 
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    embedding_dim: !ref <lm_emb_dim>
+    rnn_layers: !ref <lm_layers>
+    rnn_neurons: !ref <lm_rnn_size>
+    output_neurons: !ref <lm_output_neurons>
+    return_hidden: true
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -206,6 +235,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
+    ctc_linear: !ref <ctc_lin>
+    language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -216,6 +247,29 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
     max_attn_shift: !ref <beam_search_max_attn_shift>
     coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+
+
+beam_searcher_lm: !new:speechbrain.decoders.S2SRNNBeamSearcherLM
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    ctc_linear: !ref <ctc_lin>
+    language_model: !ref <lm_model>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    lm_weight: !ref <beam_search_lm_weight>
+    temperature: !ref <beam_search_temperature>
+    temperature_lm: !ref <beam_search_temperature_lm>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
@@ -227,6 +281,9 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
 
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
 seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.nll_loss
         label_smoothing: 0.1
@@ -235,8 +292,11 @@ seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <N_epochs>
+lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <lexicon_epochs>
+
+sentence_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <sentence_epochs>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -245,8 +305,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
+        ctc_lin: !ref <ctc_lin>
         scheduler: !ref <lr_annealing>
-        counter: !ref <epoch_counter>
+        lexicon_counter: !ref <lexicon_epoch_counter>
+        sentence_counter: !ref <sentence_epoch_counter>
 
 model_output_keys:
     - p_seq
@@ -289,9 +351,29 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     model: !ref <pretrained_path>/model.ckpt
 
 train_steps:
+  - name: lexicon
+    train_data: !ref <lexicon_train_data>
+    valid_data: !ref <lexicon_valid_data>
+    test_data: !ref <lexicon_test_data>
+    epoch_counter: !ref <lexicon_epoch_counter>
+    ctc_epochs: !ref <lexicon_ctc_epochs>
+    wer_file: !ref <save_folder>/wer_lexicon.txt
+    dataloader_opts:
+        batch_size: !ref <lexicon_batch_size>
+
   - name: sentence
-    train_data: !ref <train_data>
-    valid_data: !ref <valid_data>
-    test_data: !ref <test_data>
-    epoch_counter: !ref <epoch_counter>
-    wer_file: !ref <wer_file>
+    train_data: !ref <sentence_train_data>
+    valid_data: !ref <sentence_valid_data>
+    test_data: !ref <sentence_test_data>
+    epoch_counter: !ref <sentence_epoch_counter>
+    ctc_epochs: !ref <sentence_ctc_epochs>
+    wer_file: !ref <save_folder>/wer_sentence.txt
+    dataloader_opts:
+        batch_size: !ref <sentence_batch_size>
+
+deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        lm: !ref <lm_model>
+    paths:
+        lm: !ref <pretrained_path>/lm.ckpt

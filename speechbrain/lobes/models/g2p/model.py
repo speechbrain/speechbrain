@@ -84,7 +84,7 @@ class AttentionSeq2Seq(nn.Module):
         logits = self.lin(h)
         p_seq = self.out(logits)
 
-        return p_seq, char_lens, encoder_out
+        return p_seq, char_lens, encoder_out, w
 
     def _get_dummy_phonemes(self, batch_size, device):
         return torch.tensor([0], device=device).expand(batch_size, 1)

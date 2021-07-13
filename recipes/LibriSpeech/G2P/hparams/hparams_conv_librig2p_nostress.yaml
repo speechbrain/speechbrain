@@ -1,6 +1,6 @@
 # ################################
-# Model: LSTM (encoder) + GRU (decoder)
-# Authors: Loren Lugosch & Mirco Ravanelli 2020
+# Model: Convolutional + GRU (decoder)
+# Authors: Loren Lugosch & Mirco Ravanelli & Artem Ploujnikov 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -12,6 +12,9 @@ output_folder: !ref results/RNN/<seed>
 data_folder: /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
@@ -47,14 +50,15 @@ save_for_pretrained: true
 
 # Model parameters
 output_neurons: 42
-enc_dropout: 0.5
 enc_neurons: 512
-enc_num_layers: 4
 dec_dropout: 0.5
 dec_neurons: 512
 dec_att_neurons: 256
-dec_num_layers: 4
+dec_num_layers: 3
 embedding_dim: 512
+
+# Convolutional encoder parameters
+enc_dilation: 1
 
 # Special Token information
 bos_index: 0
@@ -62,6 +66,7 @@ eos_index: 1
 blank_index: 2
 
 # Beam Searcher
+use_language_model: False
 beam_search_min_decode_ratio: 0
 beam_search_max_decode_ratio: 1.0
 beam_search_beam_size: 16
@@ -69,8 +74,6 @@ beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
 beam_search_coverage_penalty: 5.0
-beam_search_ctc_weight_decode: 0.4
-
 
 # Evaluation parameters
 eval_dataset: train
@@ -78,6 +81,8 @@ eval_train_step: sentence
 eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
+eval_prediction_sample_size: 10
+
 
 select_n_sentences: None
 
@@ -152,13 +157,37 @@ phonemes:
   - Z
   - ZH
 
+
 # Models
-enc: !new:speechbrain.nnet.RNN.LSTM
+enc: !new:speechbrain.lobes.models.g2p.conv.Encoder
     input_shape: [null, null, !ref <embedding_dim>]
-    bidirectional: True
-    hidden_size: !ref <enc_neurons>
-    num_layers: !ref <enc_num_layers>
-    dropout: !ref <enc_dropout>
+    conv_layers:
+    - !new:speechbrain.nnet.CNN.Conv1d
+      in_channels: !ref <embedding_dim>
+      kernel_size: 3
+      out_channels: 64
+      dilation: !ref <enc_dilation>
+      stride: 1
+      padding: same
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock &residual_conv
+      in_channels: 64
+      out_channels: 64
+      kernel_size: 3
+      stride: 1
+      padding: same
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock
+      <<: *residual_conv
+      in_channels: 64
+      out_channels: 128
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock
+      <<: *residual_conv
+      in_channels: 128
+      out_channels: 256
+    - !new:speechbrain.lobes.models.g2p.conv.ResidualConvBlock
+      <<: *residual_conv
+      in_channels: 256
+      out_channels: 512
+
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
@@ -166,8 +195,11 @@ lin: !new:speechbrain.nnet.linear.Linear
     bias: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref 2 * <enc_neurons>
+    input_size: !ref <enc_neurons>
     n_neurons: !ref <output_neurons>
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: 28  # 27 chars + 1 bos
@@ -178,9 +210,9 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <embedding_dim>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <enc_neurons> * 2
+    enc_dim: !ref <enc_neurons>
     input_size: !ref <embedding_dim>
-    rnn_type: gru
+    rnn_type: lstm
     attn_type: content
     dropout: !ref <dec_dropout>
     hidden_size: !ref <dec_neurons>
@@ -191,6 +223,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
+    model: !ref <model>
     enc: !ref <enc>
     encoder_emb: !ref <encoder_emb>
     emb: !ref <emb>
@@ -207,6 +240,12 @@ model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
     lin: !ref <lin>
     out: !ref <log_softmax>
 
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    embedding_dim: !ref <lm_emb_dim>
+    rnn_layers: !ref <lm_layers>
+    rnn_neurons: !ref <lm_rnn_size>
+    output_neurons: !ref <lm_output_neurons>
+    return_hidden: true
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -218,6 +257,23 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+
+
+beam_searcher_lm: !new:speechbrain.decoders.S2SRNNBeamSearcherLM
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    ctc_linear: !ref <ctc_lin>
+    language_model: !ref <lm_model>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
@@ -227,6 +283,9 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     max_attn_shift: !ref <beam_search_max_attn_shift>
     coverage_penalty: !ref <beam_search_coverage_penalty>
     ctc_weight: !ref <beam_search_ctc_weight_decode>
+    lm_weight: !ref <beam_search_lm_weight>
+    temperature: !ref <beam_search_temperature>
+    temperature_lm: !ref <beam_search_temperature_lm>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
@@ -237,9 +296,6 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
-
-ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
 
 seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.nll_loss
@@ -327,3 +383,10 @@ train_steps:
     wer_file: !ref <save_folder>/wer_sentence.txt
     dataloader_opts:
         batch_size: !ref <sentence_batch_size>
+
+deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        lm: !ref <lm_model>
+    paths:
+        lm: !ref <pretrained_path>/lm.ckpt
