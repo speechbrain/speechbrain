@@ -70,7 +70,6 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         if stage != sb.Stage.TRAIN:
             hyps, scores = self.hparams.beam_searcher(encoder_out, char_lens)
 
-
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 
     def compute_objectives(self, predictions, batch, stage):
@@ -345,6 +344,7 @@ def check_language_model(hparams):
 
     if hparams.get("use_language_model"):
         hparams["beam_searcher"] = hparams["beam_searcher_lm"]
+        load_dependencies(hparams)
     else:
         if "beam_searcher_lm" in hparams:
             del hparams["beam_searcher_lm"]
@@ -377,7 +377,6 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     check_language_model(hparams)
-    load_dependencies(hparams)
     check_tensorboard(hparams)
 
     from librispeech_prepare import prepare_librispeech  # noqa

@@ -18,7 +18,7 @@ tensorboard_logs: !ref <output_folder>/logs/
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
-pretrained_path: !ref <save_folder>
+pretrained_path: !ref <save_folder>/pretrained
 
 
 # These three files are created from lexicon.csv.
@@ -91,6 +91,7 @@ eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
 eval_prediction_sample_size: 10
+eval_mode: sentence
 
 select_n_sentences: None
 
@@ -204,6 +205,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
+    model: !ref <model>
     enc: !ref <enc>
     encoder_emb: !ref <encoder_emb>
     emb: !ref <emb>
@@ -213,7 +215,6 @@ modules:
     out: !ref <log_softmax>
 
 model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
-    model: !ref <model>
     enc: !ref <enc>
     encoder_emb: !ref <encoder_emb>
     emb: !ref <emb>
@@ -236,7 +237,6 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     decoder: !ref <dec>
     linear: !ref <lin>
     ctc_linear: !ref <ctc_lin>
-    language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -250,7 +250,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     ctc_weight: !ref <beam_search_ctc_weight_decode>
 
 
-beam_searcher_lm: !new:speechbrain.decoders.S2SRNNBeamSearcherLM
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>

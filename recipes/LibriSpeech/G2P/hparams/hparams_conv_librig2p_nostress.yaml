@@ -65,6 +65,13 @@ bos_index: 0
 eos_index: 1
 blank_index: 2
 
+# Language Model
+lm_emb_dim: 256 # dimension of the embeddings
+lm_rnn_size: 512 # dimension of hidden layers
+lm_layers: 2 # number of hidden layers
+lm_output_neurons: 42
+
+
 # Beam Searcher
 use_language_model: False
 beam_search_min_decode_ratio: 0
@@ -74,6 +81,10 @@ beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
 beam_search_coverage_penalty: 5.0
+beam_search_lm_weight: 0.5
+beam_search_ctc_weight_decode: 0.4
+beam_search_temperature: 1.25
+beam_search_temperature_lm: 1.0
 
 # Evaluation parameters
 eval_dataset: train
@@ -81,6 +92,7 @@ eval_train_step: sentence
 eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
+eval_mode: sentence
 eval_prediction_sample_size: 10
 
 
@@ -266,7 +278,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     coverage_penalty: !ref <beam_search_coverage_penalty>
 
 
-beam_searcher_lm: !new:speechbrain.decoders.S2SRNNBeamSearcherLM
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
