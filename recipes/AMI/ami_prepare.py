@@ -437,33 +437,17 @@ def prepare_metadata(
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
 
-    # Create CSV from subsegments
-    #csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
-
-    entry = []
+    # Create JSON from subsegments
     json_dict = {}
     for row in SUBSEGMENTS:
         rec_id = row[1]
         strt = str(round(float(row[3]), 4))
         end = str(round((float(row[3]) + float(row[4])), 4))
-
         subsegment_ID = rec_id + "_" + strt + "_" + end
         dur = row[4]
-        """
-        wav_file_path = (
-            data_dir
-            + "/"
-            + rec_id
-            + "/audio/"
-            + rec_id
-            + ".Mix-"
-            + mic_type
-            + ".wav"
-        )
-        """
-
         start_sample = int(float(strt) * SAMPLERATE)
         end_sample = int(float(end) * SAMPLERATE)
+
         # If multi-mic audio is selected
         if mic_type == "Array1":
             wav_file_base_path = (
@@ -503,7 +487,6 @@ def prepare_metadata(
                 + mic_type
                 + ".wav"
             )
-            #audio_files_path_list = [wav_file_path]
 
             # Note: key "file" without 's' is used for single-mic
             json_dict[subsegment_ID] = {
@@ -515,30 +498,9 @@ def prepare_metadata(
                   },
               }
 
-        # Composition of the csv_line
-        #csv_line = [
-        #    subsegment_ID,
-        #    dur,
-        #    wav_file_path,
-        #    str(start_sample),
-        #    str(end_sample),
-        #]
-
-        #entry.append(csv_line)
-
-    #csv_output = csv_output_head + entry
     out_json_file = save_dir + "/" + filename + ".subsegments.json"
     with open(out_json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
-
-    # Write csv file only for subsegments
-    #csv_file = save_dir + "/" + filename + ".subsegments.csv"
-    #with open(csv_file, mode="w") as csv_f:
-    #    csv_writer = csv.writer(
-    #        csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-    #    )
-    #    for line in csv_output:
-    #        csv_writer.writerow(line)
 
     msg = "%s JSON prepared" % (out_json_file)
     logger.debug(msg)
