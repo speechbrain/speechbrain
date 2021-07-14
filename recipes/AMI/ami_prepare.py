@@ -467,13 +467,13 @@ def prepare_metadata(
 
             # Note: key "files" with 's' is used for multi-mic
             json_dict[subsegment_ID] = {
-                 "wav": {
-                     "files": audio_files_path_list,
-                     "duration": float(dur),
-                      "start": int(start_sample),
-                      "stop": int(end_sample),
-                  },
-              }
+                "wav": {
+                    "files": audio_files_path_list,
+                    "duration": float(dur),
+                    "start": int(start_sample),
+                    "stop": int(end_sample),
+                },
+            }
         else:
             # Single mic audio
             wav_file_path = (
@@ -489,13 +489,13 @@ def prepare_metadata(
 
             # Note: key "file" without 's' is used for single-mic
             json_dict[subsegment_ID] = {
-                 "wav": {
-                     "file": wav_file_path,
-                     "duration": float(dur),
-                      "start": int(start_sample),
-                      "stop": int(end_sample),
-                  },
-              }
+                "wav": {
+                    "file": wav_file_path,
+                    "duration": float(dur),
+                    "start": int(start_sample),
+                    "stop": int(end_sample),
+                },
+            }
 
     out_json_file = save_dir + "/" + filename + ".subsegments.json"
     with open(out_json_file, mode="w") as json_f:
