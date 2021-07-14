@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 """
 Recipe for training a compact CNN to decode the P300 event from single EEG trials.
 The CNN is based on EEGNet and the dataset is ERPCore-P3.
@@ -9,7 +9,7 @@ To run this recipe, at first you should download the dataset:
 > python3 download_required_data.py --data_folder /path/to/ERPCore_P3
 
 Finally, you can train a subject-specific decoder (e.g., for subject 4) to decode the P3 event from single EEG trials:
-> python3 train.py p3_decoding.yaml --sbj_id 'sub-004' --data_folder '/path/to/ERPCore_P3' --output_folder '/path/to/ERPCore_P3_results'
+> python3 train.py train.yaml --sbj_id 'sub-004' --data_folder '/path/to/ERPCore_P3'
 
 Author
 ------
@@ -18,7 +18,8 @@ Davide Borra, 2021
 
 import pickle
 import os
-import torch as th
+import sys
+import torch
 import logging
 from hyperpyyaml import load_hyperpyyaml
 from torch.nn import init
@@ -28,22 +29,25 @@ from sklearn.model_selection import StratifiedKFold
 from itertools import islice
 from sklearn.metrics import f1_score, roc_auc_score
 from prepare import load_and_preprocess_p3_erp_core
-import sys
 import speechbrain as sb
 
 
 def nth(iterable, n, default=None):
+    """This function returns cross-validation train and test indices of the i-th fold."""
     return next(islice(iterable, n, None), default)
 
 
 def standardize(x, m, s):
+    """This function standardizes input EEG signals (x) using mean value (m) and standard deviation (s)."""
     demeaned = x - m.reshape((1, m.shape[0], 1))
     standardized = demeaned / (1e-14 + s.reshape((1, s.shape[0], 1)))
     return standardized
 
 
 def dataio_prepare(hparams):
-    # loading subject-specific dataset
+    """This function prepares the datasets to be used in the brain class.
+    Subject-specific dataset are loaded entirely in RAM as the adopted EEG dataset is small."""
+    # loading subject-specific data
     x, y = load_and_preprocess_p3_erp_core(hparams)
     np.random.seed(hparams["seed"])
     skf = StratifiedKFold(n_splits=hparams["nfolds"])
@@ -53,10 +57,12 @@ def dataio_prepare(hparams):
         skf.split(np.arange(y.shape[0]), y), hparams["sel_fold"]
     )
 
-    # extraction of the validation set (equal proportion for 0: non-P300 and 1: P300 classes)
+    # validation set definition (equal proportion for 0: non-P300 and 1: P300 classes)
+    # getting class 0 and class 1 indices
     to_select_class0 = idx_train[np.where(y[idx_train] == 0)[0]]
     to_select_class1 = idx_train[np.where(y[idx_train] == 1)[0]]
 
+    # randomly selection of 20% of class 0 and class 1, separately as the dataset is highly unbalanced
     tmp_idx_valid0 = np.random.choice(
         to_select_class0, round(0.2 * to_select_class0.shape[0]), replace=False
     )
@@ -64,7 +70,10 @@ def dataio_prepare(hparams):
         to_select_class1, round(0.2 * to_select_class1.shape[0]), replace=False
     )
 
+    # concatenation of validation set indices (both for classes 0 and 1)
     idx_valid = np.concatenate((tmp_idx_valid0, tmp_idx_valid1))
+
+    # definition of training indices
     idx_train = np.setdiff1d(idx_train, idx_valid)
 
     x_train = x[idx_train, ...]
@@ -84,32 +93,33 @@ def dataio_prepare(hparams):
     x_test = standardize(x_test, m, s)
 
     # dataloaders
-    inps = th.Tensor(
+    inps = torch.Tensor(
         x_train.reshape(
-            (x_train.shape[0], 1, x_train.shape[1], x_train.shape[2])
+            (x_train.shape[0], x_train.shape[1], x_train.shape[2], 1,)
         )
     )
-    tgts = th.tensor(y_train, dtype=th.long)
+    print(inps.shape)
+    tgts = torch.tensor(y_train, dtype=torch.long)
     dataset = TensorDataset(inps, tgts)
     train_loader = DataLoader(
         dataset, batch_size=hparams["batch_size"], pin_memory=True
     )
 
-    inps = th.Tensor(
+    inps = torch.Tensor(
         x_valid.reshape(
-            (x_valid.shape[0], 1, x_valid.shape[1], x_valid.shape[2])
+            (x_valid.shape[0], x_valid.shape[1], x_valid.shape[2], 1,)
         )
     )
-    tgts = th.tensor(y_valid, dtype=th.long)
+    tgts = torch.tensor(y_valid, dtype=torch.long)
     dataset = TensorDataset(inps, tgts)
     valid_loader = DataLoader(
         dataset, batch_size=hparams["batch_size"], pin_memory=True
     )
 
-    inps = th.Tensor(
-        x_test.reshape((x_test.shape[0], 1, x_test.shape[1], x_test.shape[2]))
+    inps = torch.Tensor(
+        x_test.reshape((x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,))
     )
-    tgts = th.tensor(y_test, dtype=th.long)
+    tgts = torch.tensor(y_test, dtype=torch.long)
     dataset = TensorDataset(inps, tgts)
     test_loader = DataLoader(
         dataset, batch_size=hparams["batch_size"], pin_memory=True
@@ -122,6 +132,7 @@ def dataio_prepare(hparams):
 
 
 def initialize_module(module):
+    """Function to initialize neural network modules"""
     for mod in module.modules():
         if hasattr(mod, "weight"):
             if not ("BatchNorm" in mod.__class__.__name__):
@@ -141,10 +152,10 @@ class P3Brain(sb.Brain):
         loss = self.hparams.loss(
             predictions,
             batch[1].cuda(),
-            weight=th.Tensor(self.hparams.class_weight).cuda(),
+            weight=torch.Tensor(self.hparams.class_weight).cuda(),
         )
         if stage != sb.Stage.TRAIN:
-            tmp_preds = th.exp(predictions)
+            tmp_preds = torch.exp(predictions)
             self.preds.extend(tmp_preds.detach().cpu().numpy())
             self.targets.extend(batch[1].detach().cpu().numpy())
         return loss
@@ -165,7 +176,8 @@ class P3Brain(sb.Brain):
     def on_stage_end(self, stage, stage_loss, epoch=None):
         logger = logging.getLogger(__name__)
         if stage == sb.Stage.TRAIN:
-            logger.info("Train loss:%.4f" % (stage_loss))
+            self.train_loss = stage_loss
+            logger.info("Train loss:%.4f" % (self.train_loss))
         else:
             preds = np.array(self.preds)
             y_pred = np.argmax(preds, axis=-1)
@@ -175,57 +187,78 @@ class P3Brain(sb.Brain):
             self.last_eval_loss = stage_loss
             self.last_eval_f1 = float(f1)
             self.last_eval_auc = float(auc)
-            set_info = "Valid " if epoch is not None else ""
+        if stage == sb.Stage.VALID:
             logger.info(
-                set_info
-                + "loss:%.4f; f-score:%.4f; auc: %.4f"
+                "Valid loss:%.4f; f-score:%.4f; auc: %.4f"
                 % (self.last_eval_loss, self.last_eval_f1, self.last_eval_auc)
             )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch},
+                train_stats={"loss": self.train_loss},
+                valid_stats={
+                    "loss": self.last_eval_loss,
+                    "f1": self.last_eval_f1,
+                    "auc": self.last_eval_auc,
+                },
+            )
+            # track valid metric history
+            self.metrics["loss"].append(self.last_eval_loss)
+            self.metrics["f1"].append(self.last_eval_f1)
+            self.metrics["auc"].append(self.last_eval_auc)
+            min_key, max_key = None, None
+            if self.hparams.direction == "max":
+                min_key = None
+                max_key = self.hparams.target_valid_metric
+            elif self.hparams.direction == "min":
+                min_key = self.hparams.target_valid_metric
+                max_key = None
 
-            if epoch is not None:
-                # track valid metric history
-                self.metrics["loss"].append(self.last_eval_loss)
-                self.metrics["f1"].append(self.last_eval_f1)
-                self.metrics["auc"].append(self.last_eval_auc)
-                min_key, max_key = None, None
-                if self.hparams.direction == "max":
-                    min_key = None
-                    max_key = self.hparams.target_valid_metric
-                elif self.hparams.direction == "min":
-                    min_key = self.hparams.target_valid_metric
-                    max_key = None
+            self.checkpointer.save_and_keep_only(
+                meta={
+                    "loss": self.metrics["loss"][-1],
+                    "f1": self.metrics["f1"][-1],
+                    "auc": self.metrics["auc"][-1],
+                },
+                min_keys=[min_key],
+                max_keys=[max_key],
+            )
 
-                self.checkpointer.save_and_keep_only(
-                    meta={
-                        "loss": self.metrics["loss"][-1],
-                        "f1": self.metrics["f1"][-1],
-                        "auc": self.metrics["auc"][-1],
-                    },
-                    min_keys=[min_key],
-                    max_keys=[max_key],
+            # early stopping
+            current_metric = self.metrics[self.hparams.target_valid_metric][-1]
+            if self.hparams.epoch_counter.should_stop(
+                current=epoch, current_metric=current_metric,
+            ):
+                self.hparams.epoch_counter.current = (
+                    self.hparams.epoch_counter.limit
                 )
-
-                # early stopping
-                if self.hparams.stopper.should_stop(
-                    current=epoch,
-                    current_metric=self.metrics[
-                        self.hparams.target_valid_metric
-                    ][-1],
-                ):
-                    self.hparams.epoch_counter.current = (
-                        self.hparams.epoch_counter.limit
-                    )
+        elif stage == sb.Stage.TEST:
+            logger.info(
+                "loss:%.4f; f-score:%.4f; auc: %.4f"
+                % (self.last_eval_loss, self.last_eval_f1, self.last_eval_auc)
+            )
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch loaded": self.hparams.epoch_counter.current},
+                test_stats={
+                    "loss": self.last_eval_loss,
+                    "f1": self.last_eval_f1,
+                    "auc": self.last_eval_auc,
+                },
+            )
 
 
 def run_single_fold(hparams, run_opts):
-    # preparing dataset (loading all sets in RAM)
+    """This function performs a single cross-validation fold."""
+    # preparing dataset
     datasets = dataio_prepare(hparams)
     checkpointer = sb.utils.checkpoints.Checkpointer(
-        checkpoints_dir=hparams["exp_dir"],
+        checkpoints_dir=os.path.join(hparams["exp_dir"], "save"),
         recoverables={
             "model": hparams["model"],
             "counter": hparams["epoch_counter"],
         },
+    )
+    hparams["train_logger"] = sb.utils.train_logger.FileTrainLogger(
+        save_file=os.path.join(hparams["exp_dir"], "train_log.txt")
     )
     brain = P3Brain(
         modules={"model": hparams["model"]},
@@ -251,24 +284,6 @@ def run_single_fold(hparams, run_opts):
         max_key = None
 
     brain.evaluate(
-        datasets["train"], progressbar=False, min_key=min_key, max_key=max_key
-    )
-    train_loss, train_f1, train_auc = (
-        brain.last_eval_loss,
-        brain.last_eval_f1,
-        brain.last_eval_auc,
-    )
-
-    brain.evaluate(
-        datasets["valid"], progressbar=False, min_key=min_key, max_key=max_key
-    )
-    valid_loss, valid_f1, valid_auc = (
-        brain.last_eval_loss,
-        brain.last_eval_f1,
-        brain.last_eval_auc,
-    )
-
-    brain.evaluate(
         datasets["test"], progressbar=False, min_key=min_key, max_key=max_key
     )
     test_loss, test_f1, test_auc = (
@@ -278,12 +293,6 @@ def run_single_fold(hparams, run_opts):
     )
 
     return [
-        train_loss,
-        train_f1,
-        train_auc,
-        valid_loss,
-        valid_f1,
-        valid_auc,
         test_loss,
         test_f1,
         test_auc,
@@ -292,7 +301,7 @@ def run_single_fold(hparams, run_opts):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    NFOLDS = 5
+    NFOLDS = 10
 
     fold_metrics = []
     # Within-subject training: cross-validation loop
@@ -317,13 +326,11 @@ if __name__ == "__main__":
         tmp_metrics = run_single_fold(hparams, run_opts)
         fold_metrics.append(tmp_metrics)
     fold_metrics = np.array(fold_metrics)
-    # saving cv results
-    with open(
-        os.path.join(
-            hparams["output_folder"], hparams["sbj_id"], "metrics.pkl"
-        ),
-        "wb",
-    ) as handle:
+    # saving cv results on the test set in a pickle file
+    metrics_fpath = os.path.join(
+        hparams["output_folder"], hparams["sbj_id"], "metrics.pkl"
+    )
+    with open(metrics_fpath, "wb",) as handle:
         pickle.dump(
             {"metrics": fold_metrics}, handle, protocol=pickle.HIGHEST_PROTOCOL
         )

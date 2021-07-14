@@ -2,6 +2,7 @@
 
 Authors
  * Mirco Ravanelli 2020
+ * Davide Borra 2021
 """
 
 import torch
@@ -19,6 +20,10 @@ class Linear(torch.nn.Module):
     n_neurons : int
         It is the number of output neurons (i.e, the dimensionality of the
         output).
+    input_shape: tuple
+        It is the shape of the input tensor.
+    input_size: int
+        Size of the input tensor.
     bias : bool
         If True, the additive bias b is adopted.
     combine_dims : bool
@@ -71,13 +76,34 @@ class Linear(torch.nn.Module):
         return wx
 
 
-class LinearWithConstraint(torch.nn.Linear):
-    """This function implements a linear transformation with kernel max-norm constaint.
+class LinearWithConstraint(Linear):
+    """Computes a linear transformation y = wx + b with kernel max-norm constaint.
+    This corresponds to set an upper bound for the kernel norm.
 
-    Build on PyTorch Linear class. It accepts the same arguments as PyTorch Linear, with an additional parameter:
-
+    Arguments
+    ---------
+    n_neurons : int
+        It is the number of output neurons (i.e, the dimensionality of the
+        output).
+    input_shape: tuple
+        It is the shape of the input tensor.
+    input_size: int
+        Size of the input tensor.
+    bias : bool
+        If True, the additive bias b is adopted.
+    combine_dims : bool
+        If True and the input is 4D, combine 3rd and 4th dimensions of input.
     max_norm : float
-        kernel  max-norm constaint
+        Kernel max-norm
+
+    Example
+    -------
+    >>> inputs = torch.rand(100,)
+    >>> max_norm = 1.
+    >>> lin_t_contrained = LinearWithConstraint(input_size=inputs.shape[0], n_neurons=2, max_norm=max_norm)
+    >>> output = lin_t_contrained(inputs)
+    >>> torch.any(torch.norm(lin_t_contrained.w.weight.data, p=2, dim=0)>max_norm)
+    tensor(False)
     """
 
     def __init__(self, *args, max_norm=1, **kwargs):
@@ -85,7 +111,14 @@ class LinearWithConstraint(torch.nn.Linear):
         super(LinearWithConstraint, self).__init__(*args, **kwargs)
 
     def forward(self, x):
-        self.weight.data = torch.renorm(
-            self.weight.data, p=2, dim=0, maxnorm=self.max_norm
+        """Returns the linear transformation of input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input to transform linearly.
+        """
+        self.w.weight.data = torch.renorm(
+            self.w.weight.data, p=2, dim=0, maxnorm=self.max_norm
         )
         return super(LinearWithConstraint, self).forward(x)
