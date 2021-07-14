@@ -1,7 +1,8 @@
-"""Implements a checkpointable epoch counter (loop).
+"""Implements a checkpointable epoch counter (loop), optionally integrating early stopping.
 
 Authors
  * Aku Rouhe 2020
+ * Davide Borra 2021
 """
 from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
@@ -67,26 +68,41 @@ class EpochCounter:
                 self.current = saved_value - 1
 
 
-class Stopper(object):
-    """An early stopper tracking a target metric
+class EpochCounterWithStopper(EpochCounter):
+    """An epoch counter which can save and recall its state, integrating an early stopper by tracking a target metric.
 
     Arguments
     ---------
+    limit: int
+        maximum number of epochs
     limit_to_stop : int
         maximum number of consecutive epochs without improvements in performance
     limit_warmup : int
         number of epochs to wait until start checking for early stopping
     direction : "max" or "min"
         direction to optimize the target metric
-    ---------
-    Author
-    Davide Borra, 2021
+
+    Example
+    -------
+    >>> limit = 10
+    >>> limit_to_stop = 5
+    >>> limit_warmup = 2
+    >>> direction: "min"
+    >>> epoch_counter = EpochCounterWithStopper(limit, limit_to_stop, limit_warmup, direction)
+    >>> for epoch in epoch_counter:
+    ...     # Run training...
+    ...     # Track a validation metric, get current_valid_metric
+    ...     if epoch_counter.should_stop(current=epoch,
+    ...                                  current_metric=current_valid_metric,):
+    ...         epoch_counter.current = epoch_counter.limit  # skipping unpromising epochs
     """
 
-    def __init__(self, limit_to_stop, limit_warmup, direction):
+    def __init__(self, limit, limit_to_stop, limit_warmup, direction):
+        super().__init__(limit)
         self.limit_to_stop = limit_to_stop
         self.limit_warmup = limit_warmup
         self.direction = direction
+
         self.best_limit = 0
         self.min_delta = 1e-6
 

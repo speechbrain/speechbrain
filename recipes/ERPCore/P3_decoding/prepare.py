@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_and_preprocess_p3_erp_core(hparams):
+    """This function performs the data loading and pre-processing of each subject-specific EEG dataset."""
     # definition of the event IDs
     event_id = {
         "11.0": 1,
