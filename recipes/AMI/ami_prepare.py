@@ -3,14 +3,13 @@ Data preparation.
 
 Download: http://groups.inf.ed.ac.uk/ami/download/
 
-Prepares csv from manual annotations "segments/" using RTTM format (Oracle VAD).
+Prepares JSON from manual annotations "segments/" using RTTM format (Oracle VAD).
 """
 
 import os
 import logging
 import xml.etree.ElementTree as et
 import glob
-import csv
 import json
 from ami_splits import get_AMI_split
 
@@ -21,9 +20,9 @@ from speechbrain.dataio.dataio import (
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ami_prepare.pkl"
-TRAIN_CSV = "ami_train.subsegments.csv"
-DEV_CSV = "ami_dev.subsegments.csv"
-EVAL_CSV = "ami_eval.subsegments.csv"
+TRAIN_META = "ami_train.subsegments.json"
+DEV_META = "ami_dev.subsegments.json"
+EVAL_META = "ami_eval.subsegments.json"
 SAMPLERATE = 16000
 
 
@@ -39,7 +38,7 @@ def prepare_ami(
     overlap=1.5,
 ):
     """
-    Prepares reference RTTM and CSV files for the AMI dataset.
+    Prepares reference RTTM and JSON files for the AMI dataset.
 
     Arguments
     ---------
@@ -100,7 +99,7 @@ def prepare_ami(
         )
         return
 
-    msg = "\tCreating csv file for the AMI Dataset.."
+    msg = "\tCreating meta-data file for the AMI Dataset.."
     logger.debug(msg)
 
     # Get the split
@@ -143,19 +142,19 @@ def prepare_ami(
                 skip_TNO,
             )
 
-    # Create csv_files for splits
-    csv_folder = os.path.join(save_folder, "csv")
-    if not os.path.exists(csv_folder):
-        os.makedirs(csv_folder)
+    # Create meta_files for splits
+    meta_folder = os.path.join(save_folder, "metadata")
+    if not os.path.exists(meta_folder):
+        os.makedirs(meta_folder)
 
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
-        csv_filename_prefix = "ami_" + i
+        meta_filename_prefix = "ami_" + i
         prepare_metadata(
             rttm_file,
-            csv_folder,
+            meta_folder,
             data_folder,
-            csv_filename_prefix,
+            meta_filename_prefix,
             max_subseg_dur,
             overlap,
             mic_type,
@@ -391,7 +390,7 @@ def prepare_metadata(
     rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap, mic_type
 ):
     # Read RTTM, get unique meeting_IDs (from RTTM headers)
-    # For each MeetingID. select that meetID -> merge -> subsegment -> csv -> append
+    # For each MeetingID. select that meetID -> merge -> subsegment -> json -> append
 
     # Read RTTM
     RTTM = []
@@ -402,7 +401,7 @@ def prepare_metadata(
 
     spkr_info = filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
     rec_ids = list(set([row.split(" ")[1] for row in spkr_info]))
-    rec_ids.sort()  # sorting just to make CSV look in proper sequence
+    rec_ids.sort()  # sorting just to make JSON look in proper sequence
 
     # For each recording merge segments and then perform subsegmentation
     MERGED_SEGMENTS = []
@@ -413,7 +412,7 @@ def prepare_metadata(
         )
         gt_rttm_segs = [row.split(" ") for row in segs_iter]
 
-        # Merge, subsegment and convert to csv format.
+        # Merge, subsegment and then convert to json format.
         merged_segs = merge_rttm_intervals(
             gt_rttm_segs
         )  # We lose speaker_ID after merging
@@ -517,17 +516,17 @@ def skip(splits, save_folder, conf):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    # Checking csv files
+    # Checking json files
     skip = True
 
     split_files = {
-        "train": TRAIN_CSV,
-        "dev": DEV_CSV,
-        "eval": EVAL_CSV,
+        "train": TRAIN_META,
+        "dev": DEV_META,
+        "eval": EVAL_META,
     }
     for split in splits:
         if not os.path.isfile(
-            os.path.join(save_folder, "csv", split_files[split])
+            os.path.join(save_folder, "metadata", split_files[split])
         ):
             skip = False
 
