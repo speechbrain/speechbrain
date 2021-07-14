@@ -1,26 +1,28 @@
 # #######################################
-# Recipe for training a speech enhancement system with the Voicebank dataset based on the SEGAN model architecture.
+# Recipe for training a speech enhancement system with the Voicebank dataset
+# based on the SEGAN model architecture.
 # (based on the paper: Pascual et al. https://arxiv.org/pdf/1703.09452.pdf).
 #
 # To run this recipe, do the following:
-# > python train.py hparams/{hyperparam_file}.yaml
+# > python train.py hparams/train.yaml
 #
 # Authors
 #  * Francis Carter 2021
+# #######################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 3234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-data_folder: /localscratch/noisy-vctk-16k
+data_folder: !PLACEHOLDED #e.g., /localscratch/noisy-vctk-16k
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/waveform_map/<seed>
+output_folder: !ref results/SEGAN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced
 
-# Basic parameters
+# Tensorboar (optional)
 use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
@@ -31,32 +33,41 @@ test_annotation: !ref <data_folder>/test.json
 skip_prep: False
 
 # Model and loss parameters
-kernelSize: 5
-latentVAE: False
-zProb: False
-l1LossCoeff: 100
-klLossCoeff: 1
+sample_rate: 16000
+chunk_size: 16384
+chunk_stride: 8192
+kernelSize: 5 # For both generator and discriminator
+latentVAE: False # Whether or not to convert the autoencoder to a vae
+zProb: False  # Whether to remove the latent variable concatenation
+l1LossCoeff: 100 # Weight of the l1 loss
+klLossCoeff: 1 # Weight of the kl loss
 
 # Training Parameters
-number_of_epochs: 86
-N_batch: 1
-lr: 0.0002 # 0.001
-device: 'cuda:0'
-# device: 'cpu'
+number_of_epochs: 120
+batch_size: 8
+lr: 0.0002
 sorting: ascending
-dataloader_options:
-    batch_size: !ref <N_batch>
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 modules:
     model_d: !new:speechbrain.lobes.models.segan_model.Discriminator
-      kernel_size: !ref <kernelSize>
+        kernel_size: !ref <kernelSize>
     model_g: !new:speechbrain.lobes.models.segan_model.Generator
-      kernel_size: !ref <kernelSize>
-      latent_vae: !ref <latentVAE>
-      z_prob: !ref <zProb>
+        kernel_size: !ref <kernelSize>
+        latent_vae: !ref <latentVAE>
+        z_prob: !ref <zProb>
 
 opt_class: !name:torch.optim.RMSprop
     lr: !ref <lr>
