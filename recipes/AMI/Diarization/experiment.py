@@ -138,7 +138,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     return stat_obj
 
-
+# Update this with json data_prep
 def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
     """Simple trick to convert csv to json for multi-mic processing.
     Processing multiple mics is easier in json.
@@ -231,6 +231,9 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             params["embedding_dir"], split, rec_id + ".csv"
         )
         diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
+
+        # write subset for json metadata
+        #diar.prepare_subset_json(full_csv, rec_id, new_csv_file)
 
         # If mic_array then convert into json.
         # It's easier to handle multi-mics in json.

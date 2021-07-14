@@ -11,6 +11,7 @@ import logging
 import xml.etree.ElementTree as et
 import glob
 import csv
+import json
 from ami_splits import get_AMI_split
 
 from speechbrain.dataio.dataio import (
@@ -437,9 +438,10 @@ def prepare_csv(
             f.write("%s\n" % line_str)
 
     # Create CSV from subsegments
-    csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
+    #csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
 
     entry = []
+    json_dict = {}
     for row in SUBSEGMENTS:
         rec_id = row[1]
         strt = str(round(float(row[3]), 4))
@@ -460,43 +462,85 @@ def prepare_csv(
         )
         """
 
-        wav_file_path = (
-            data_dir
-            + "/"
-            + rec_id
-            + "/audio/"
-            + rec_id
-            + "."
-            + mic_type
-            + ".wav"
-        )
-
         start_sample = int(float(strt) * SAMPLERATE)
         end_sample = int(float(end) * SAMPLERATE)
+        # If multi-mic audio is selected
+        if mic_type == "Array1":
+            wav_file_base_path = (
+                data_dir
+                + "/"
+                + rec_id
+                + "/audio/"
+                + rec_id
+                + "."
+                + mic_type
+                + "-"
+            )
+
+            f = []  # adding all 8 mics
+            for i in range(8):
+                f.append(wav_file_base_path + str(i + 1).zfill(2) + ".wav")
+            audio_files_path_list = f
+
+            # Note: key "files" with 's' is used for multi-mic
+            json_dict[subsegment_ID] = {
+                 "wav": {
+                     "files": audio_files_path_list,
+                     "duration": float(dur),
+                      "start": int(start_sample),
+                      "stop": int(end_sample),
+                  },
+              }
+        else:
+            # Single mic audio
+            wav_file_path = (
+                data_dir
+                + "/"
+                + rec_id
+                + "/audio/"
+                + rec_id
+                + "."
+                + mic_type
+                + ".wav"
+            )
+            #audio_files_path_list = [wav_file_path]
+
+            # Note: key "file" without 's' is used for single-mic
+            json_dict[subsegment_ID] = {
+                 "wav": {
+                     "file": wav_file_path,
+                     "duration": float(dur),
+                      "start": int(start_sample),
+                      "stop": int(end_sample),
+                  },
+              }
 
         # Composition of the csv_line
-        csv_line = [
-            subsegment_ID,
-            dur,
-            wav_file_path,
-            str(start_sample),
-            str(end_sample),
-        ]
+        #csv_line = [
+        #    subsegment_ID,
+        #    dur,
+        #    wav_file_path,
+        #    str(start_sample),
+        #    str(end_sample),
+        #]
 
-        entry.append(csv_line)
+        #entry.append(csv_line)
 
-    csv_output = csv_output_head + entry
+    #csv_output = csv_output_head + entry
+    out_json_file = save_dir + "/" + filename + ".subsegments.json"
+    with open(out_json_file, mode="w") as json_f:
+        json.dump(json_dict, json_f, indent=2)
 
     # Write csv file only for subsegments
-    csv_file = save_dir + "/" + filename + ".subsegments.csv"
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-        for line in csv_output:
-            csv_writer.writerow(line)
+    #csv_file = save_dir + "/" + filename + ".subsegments.csv"
+    #with open(csv_file, mode="w") as csv_f:
+    #    csv_writer = csv.writer(
+    #        csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+    #    )
+    #    for line in csv_output:
+    #        csv_writer.writerow(line)
 
-    msg = "%s csv prepared" % (csv_file)
+    msg = "%s JSON prepared" % (out_json_file)
     logger.debug(msg)
 
 
