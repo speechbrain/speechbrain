@@ -87,11 +87,16 @@ class EpochCounterWithStopper(EpochCounter):
     >>> limit = 10
     >>> limit_to_stop = 5
     >>> limit_warmup = 2
-    >>> direction: "min"
+    >>> direction = "min"
+    >>> def get_current_valid_metric():
+    ...     metric = None
+    ...     # get the current valid metric
+    ...     return metric
     >>> epoch_counter = EpochCounterWithStopper(limit, limit_to_stop, limit_warmup, direction)
     >>> for epoch in epoch_counter:
     ...     # Run training...
-    ...     # Track a validation metric, get current_valid_metric
+    ...     # Track a validation metric,
+    ...     current_valid_metric = get_current_valid_metric()
     ...     if epoch_counter.should_stop(current=epoch,
     ...                                  current_metric=current_valid_metric,):
     ...         epoch_counter.current = epoch_counter.limit  # skipping unpromising epochs
