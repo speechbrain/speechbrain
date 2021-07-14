@@ -151,7 +151,7 @@ def prepare_ami(
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         csv_filename_prefix = "ami_" + i
-        prepare_csv(
+        prepare_metadata(
             rttm_file,
             csv_folder,
             data_folder,
@@ -387,7 +387,7 @@ def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
     return subsegments
 
 
-def prepare_csv(
+def prepare_metadata(
     rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap, mic_type
 ):
     # Read RTTM, get unique meeting_IDs (from RTTM headers)
