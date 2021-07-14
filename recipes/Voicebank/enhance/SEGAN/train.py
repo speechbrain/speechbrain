@@ -3,11 +3,13 @@
 (based on the paper: Pascual et al. https://arxiv.org/pdf/1703.09452.pdf).
 
 To run this recipe, do the following:
-> python train.py hparams/{hyperparam_file}.yaml
+> python train.py hparams/train.yaml
 
 Authors
  * Francis Carter 2021
+ * Mirco Ravanelli 2021
 """
+
 import os
 import sys
 import torch
@@ -19,36 +21,36 @@ from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
 
-from math import ceil
-
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
     def compute_forward_g(self, noisy_wavs):
-        """Forward computations of the generator. Input noisy signal, output clean signal"""
+        """Forward computations of the generator. Input noisy signal,
+        output clean signal"""
         noisy_wavs = noisy_wavs.to(self.device)
         predict_wavs = self.modules["model_g"](noisy_wavs)
-
         return predict_wavs
 
     def compute_forward_d(self, noisy_wavs, clean_wavs):
-        """Forward computations from discriminator. Input denoised-noisy pair, output whether denoising was properly acheived"""
+        """Forward computations from discriminator. Input denoised-noisy pair,
+        output whether denoising was properly acheived"""
         noisy_wavs = noisy_wavs.to(self.device)
         clean_wavs = clean_wavs.to(self.device)
+
         inpt = torch.cat((noisy_wavs, clean_wavs), -1)
         out = self.modules["model_d"](inpt)
-
         return out
 
     def compute_objectives_d1(self, d_outs, batch):
-        """Computes the loss of a discriminator given predicted and targeted outputs, with target being clean"""
+        """Computes the loss of a discriminator given predicted and
+        targeted outputs, with target being clean"""
         loss = self.hparams.compute_cost["d1"](d_outs)
         self.loss_metric_d1.append(batch.id, d_outs, reduction="batch")
-
         return loss
 
     def compute_objectives_d2(self, d_outs, batch):
-        """Computes the loss of a discriminator given predicted and targeted outputs, with target being noisy"""
+        """Computes the loss of a discriminator given predicted and targeted outputs,
+        with target being noisy"""
         loss = self.hparams.compute_cost["d2"](d_outs)
         self.loss_metric_d2.append(batch.id, d_outs, reduction="batch")
         return loss
@@ -60,7 +62,6 @@ class SEBrain(sb.Brain):
         clean_wavs,
         batch,
         stage,
-        data_sizes,
         z_mean=None,
         z_logvar=None,
     ):
@@ -92,22 +93,23 @@ class SEBrain(sb.Brain):
             reduction="batch",
         )
 
-        # un-blocking the predicted wavs for stoi and pesq evaluation
-        num_blocks, wav_size = data_sizes
-        clean_wavs = clean_wavs_orig
-        predict_wavs = predict_wavs.reshape(
-            clean_wavs.shape[0], num_blocks * 16384
-        )[:, : clean_wavs.shape[1]]
-
         if stage != sb.Stage.TRAIN:
+
             # Evaluate speech quality/intelligibility
+            predict_wavs = predict_wavs.reshape(self.batch_current, -1)
+            clean_wavs = clean_wavs.reshape(self.batch_current, -1)
+
+            predict_wavs = predict_wavs[:, 0 : self.original_len]
+            clean_wavs = clean_wavs[:, 0 : self.original_len]
+
             self.stoi_metric.append(
                 batch.id, predict_wavs, clean_wavs, lens, reduction="batch"
             )
             self.pesq_metric.append(
-                batch.id, predict=predict_wavs, target=clean_wavs, lengths=lens
+                batch.id, predict=predict_wavs.cpu(), target=clean_wavs.cpu()
             )
-            # Write wavs to file
+
+            # Write enhanced test wavs to file
             if stage == sb.Stage.TEST:
                 lens = lens * clean_wavs.shape[1]
                 for name, pred_wav, length in zip(batch.id, predict_wavs, lens):
@@ -115,11 +117,13 @@ class SEBrain(sb.Brain):
                     enhance_path = os.path.join(
                         self.hparams.enhanced_folder, name
                     )
+                    print(enhance_path)
+
                     pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
                     torchaudio.save(
                         enhance_path,
-                        torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
-                        16000,
+                        pred_wav[: int(length)].cpu().unsqueeze(0),
+                        hparams["sample_rate"],
                     )
         return loss
 
@@ -145,25 +149,18 @@ class SEBrain(sb.Brain):
         detached loss
         """
         noisy_wavs, lens = batch.noisy_sig
-        noisy_wavs = torch.unsqueeze(noisy_wavs, -1)
         clean_wavs, lens = batch.clean_sig
-        clean_wavs = torch.unsqueeze(clean_wavs, -1)
 
-        # cutting data into ~1 sec blocks (16384 samples - like in segan paper)
-        batch_size = noisy_wavs.shape[0]
-        wav_size = noisy_wavs.shape[1]
-        num_blocks = ceil(wav_size / 16384)
-        zeros = torch.zeros(batch_size, num_blocks * 16384, 1)
-        zeros[:, :wav_size, :] = noisy_wavs
-        noisy_wavs = zeros.clone()
-        noisy_wavs = torch.reshape(
-            noisy_wavs, (batch_size * num_blocks, 16384, 1)
+        # split sentences in smaller chunks
+        noisy_wavs = create_chunks(
+            noisy_wavs,
+            chunk_size=hparams["chunk_size"],
+            chunk_stride=hparams["chunk_stride"],
         )
-        zeros2 = torch.zeros(batch_size, num_blocks * 16384, 1)
-        zeros2[:, :wav_size, :] = clean_wavs
-        clean_wavs = zeros2.clone()
-        clean_wavs = torch.reshape(
-            clean_wavs, (batch_size * num_blocks, 16384, 1)
+        clean_wavs = create_chunks(
+            clean_wavs,
+            chunk_size=hparams["chunk_size"],
+            chunk_stride=hparams["chunk_stride"],
         )
 
         # first of three step training process detailed in SEGAN paper
@@ -197,7 +194,6 @@ class SEBrain(sb.Brain):
             clean_wavs,
             batch,
             sb.Stage.TRAIN,
-            (num_blocks, wav_size),
             z_mean=z_mean,
             z_logvar=z_logvar,
         )
@@ -235,26 +231,30 @@ class SEBrain(sb.Brain):
         detached loss
         """
         noisy_wavs, lens = batch.noisy_sig
-        noisy_wavs = torch.unsqueeze(noisy_wavs, -1)
         clean_wavs, lens = batch.clean_sig
-        clean_wavs = torch.unsqueeze(clean_wavs, -1)
-        # cutting data into ~1 sec blocks (16384 samples - like in segan paper)
-        batch_size = noisy_wavs.shape[0]
-        wav_size = noisy_wavs.shape[1]
-        num_blocks = ceil(wav_size / 16384)
-        zeros = torch.zeros(batch_size, num_blocks * 16384, 1)
-        zeros[:, :wav_size, :] = noisy_wavs
-        noisy_wavs = zeros.clone()
-        noisy_wavs = torch.reshape(
-            noisy_wavs, (batch_size * num_blocks, 16384, 1)
+        self.batch_current = clean_wavs.shape[0]
+        self.original_len = clean_wavs.shape[1]
+
+        # Add padding to make sure all the signal will be processed.
+        padding_elements = torch.zeros(
+            clean_wavs.shape[0], hparams["chunk_size"], device=clean_wavs.device
         )
-        zeros = torch.zeros(batch_size, num_blocks * 16384, 1)
-        zeros[:, :wav_size, :] = clean_wavs
-        clean_wavs = zeros.clone()
-        clean_wavs = torch.reshape(
-            clean_wavs, (batch_size * num_blocks, 16384, 1)
+        clean_wavs = torch.cat([clean_wavs, padding_elements], dim=1)
+        noisy_wavs = torch.cat([noisy_wavs, padding_elements], dim=1)
+
+        # Split sentences in smaller chunks
+        noisy_wavs = create_chunks(
+            noisy_wavs,
+            chunk_size=hparams["chunk_size"],
+            chunk_stride=hparams["chunk_size"],
+        )
+        clean_wavs = create_chunks(
+            clean_wavs,
+            chunk_size=hparams["chunk_size"],
+            chunk_stride=hparams["chunk_size"],
         )
 
+        # Perform speech enhancement with the current model
         out_d1 = self.compute_forward_d(noisy_wavs, clean_wavs)
         loss_d1 = self.compute_objectives_d1(out_d1, batch)
 
@@ -273,7 +273,6 @@ class SEBrain(sb.Brain):
             clean_wavs,
             batch,
             stage=stage,
-            data_sizes=(num_blocks, wav_size),
             z_mean=z_mean,
             z_logvar=z_logvar,
         )
@@ -328,14 +327,16 @@ class SEBrain(sb.Brain):
         def pesq_eval(pred_wav, target_wav):
             """Computes the PESQ evaluation metric"""
             return pesq(
-                fs=16000,
-                ref=target_wav.numpy(),
-                deg=pred_wav.numpy(),
+                fs=hparams["sample_rate"],
+                ref=target_wav.numpy().squeeze(),
+                deg=pred_wav.numpy().squeeze(),
                 mode="wb",
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, batch_eval=False, n_jobs=1
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -380,6 +381,15 @@ class SEBrain(sb.Brain):
             )
 
 
+def create_chunks(x, chunk_size=16384, chunk_stride=16384):
+    """Splits the input into smaller chunks of size chunk_size with
+    an overlap chunk_stride. The chunks are concatenated over
+    the batch axis."""
+    x = x.unfold(1, chunk_size, chunk_stride)
+    x = x.reshape(x.shape[0] * x.shape[1], -1, 1)
+    return x
+
+
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -388,12 +398,14 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_sig")
     def noisy_pipeline(noisy_wav):
-        return sb.dataio.dataio.read_audio(noisy_wav)
+        noisy_wav = sb.dataio.dataio.read_audio(noisy_wav)
+        return noisy_wav
 
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_sig")
     def clean_pipeline(clean_wav):
-        return sb.dataio.dataio.read_audio(clean_wav)
+        clean_wav = sb.dataio.dataio.read_audio(clean_wav)
+        return clean_wav
 
     # Define datasets
     datasets = {}
@@ -410,7 +422,7 @@ def dataio_prep(hparams):
         datasets["train"] = datasets["train"].filtered_sorted(
             sort_key="length", reverse=hparams["sorting"] == "descending"
         )
-        hparams["dataloader_options"]["shuffle"] = False
+        hparams["train_dataloader_opts"]["shuffle"] = False
     elif hparams["sorting"] != "random":
         raise NotImplementedError(
             "Sorting must be random, ascending, or descending"
@@ -420,6 +432,7 @@ def dataio_prep(hparams):
 
 
 def create_folder(folder):
+    """Creates a new folder (where to store enhanced wavs)"""
     if not os.path.isdir(folder):
         os.makedirs(folder)
 
@@ -480,13 +493,13 @@ if __name__ == "__main__":
         epoch_counter=se_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # Load best checkpoint for evaluation
     test_stats = se_brain.evaluate(
         test_set=datasets["test"],
         max_key="pesq",
-        test_loader_kwargs=hparams["dataloader_options"],
+        test_loader_kwargs=hparams["test_dataloader_opts"],
     )
