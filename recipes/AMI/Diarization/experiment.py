@@ -217,8 +217,9 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             os.makedirs(os.path.join(params["embedding_dir"], split))
 
         # File to store embeddings.
-        diary_stat_file = os.path.join(
-            params["embedding_dir"], split, rec_id + "_emb_stat.pkl"
+        emb_file_name = rec_id + '.' + param["mic_type"] + ".emb_stat.pkl"
+        diary_stat_emb_file = os.path.join(
+            params["embedding_dir"], split, emb_file_name
         )
 
         # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
@@ -246,7 +247,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         # Compute Embeddings.
         diary_obj = embedding_computation_loop(
-            "diary", diary_set_loader, diary_stat_file
+            "diary", diary_set_loader, diary_stat_emb_file
         )
 
         # Perform spectral clustering.
