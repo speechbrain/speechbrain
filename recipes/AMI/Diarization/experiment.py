@@ -190,9 +190,6 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     A = [word.rstrip().split("_")[0] for word in all_keys]
     all_rec_ids = list(set(A[1:]))
     all_rec_ids.sort()
-
-
-    #N = len(all_rec_ids)
     split = "AMI_" + split_type
     i = 1
 
@@ -208,50 +205,40 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         logger.error(msg)
         sys.exit()
 
-    #if split_type == 'dev':
-    #    full_meta_file = params["csv_diary_dev"]
-    #else:
-    #    full_meta_file = params["csv_diary_eval"]
-
+    # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):
         # This tag will be displayed in the log
         tag = "[" + str(split_type) + ": " + str(i) + "/" + str(len(all_rec_ids)) + "]"
         i = i + 1
 
+        # Log message.
         msg = "Diarizing %s : %s " % (tag, rec_id)
         logger.debug(msg)
 
+        # Embedding directory.
         if not os.path.exists(os.path.join(params["embedding_dir"], split)):
             os.makedirs(os.path.join(params["embedding_dir"], split))
 
+        # File to store embeddings.
         diary_stat_file = os.path.join(
-            params["embedding_dir"], split, rec_id + "_xv_stat.pkl"
+            params["embedding_dir"], split, rec_id + "_emb_stat.pkl"
         )
 
-        # Prepare a csv for one recording. This is basically a subset of full_meta.
+        # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
         # Lets keep this meta-info in embedding directory itself.
         meta_per_rec_file = os.path.join(
             params["embedding_dir"], split, rec_id + ".json"
         )
-        prepare_subset_json( full_meta , rec_id, meta_per_rec_file)
 
-        # write subset for json metadata (update data_prep)
-        #diar.prepare_subset_json(full_meta, rec_id, meta_per_rec_file)
+        # Write subset (meta for one recording) json metadata.
+        prepare_subset_json(full_meta, rec_id, meta_per_rec_file)
 
-        # If mic_array then convert into json.
-        # It's easier to handle multi-mics in json.
         if params["mic_type"] == "Array1":
-            #new_json_file = os.path.join(
-            #    params["embedding_dir"], split, rec_id + ".json"
-            #)
-            #csv_to_json(meta_per_rec_file, new_json_file)
-
-            new_json_file = meta_per_rec_file
-            diary_set_loader = dataio_prep_multi_mic(params, new_json_file)
-
+            # For multi-mic audio stream
+            diary_set_loader = dataio_prep_multi_mic(params, meta_per_rec_file)
         else:
             # For rest of audio streams (Single channel).
-            # Setup a dataloader for above one recording (above csv).
+            # Setup a dataloader for above one recording.
             diary_set_loader = dataio_prep(params, meta_per_rec_file)
 
         # Putting modules on the device.
@@ -300,8 +287,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
                 n_neighbors,
             )
 
-        # Maybe used for AHC later.
-        # Likewise one can add different backends here.
+        # Can used for AHC later. Likewise one can add different backends here.
         if params["backend"] == "AHC":
             # call AHC
             threshold = pval  # pval for AHC is nothing but threshold.
@@ -310,7 +296,6 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     # Once all RTTM outputs are generated, concatenate individual RTTM files to obtain single RTTM file.
     # This is not needed but just staying with the standards.
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
-
     logger.debug("Concatenating individual RTTM files...")
     with open(concate_rttm_file, "w") as cat_file:
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
@@ -536,8 +521,6 @@ def dataio_prep_multi_mic(hparams, json_file):
     )
 
     return dataloader
-
-
 
 
 # Begin experiment!
