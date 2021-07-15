@@ -224,8 +224,9 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
         # Lets keep this meta-info in embedding directory itself.
+        json_file_name = rec_id + '.' + param["mic_type"] + ".json"
         meta_per_rec_file = os.path.join(
-            params["embedding_dir"], split, rec_id + ".json"
+            params["embedding_dir"], split, json_file_name
         )
 
         # Write subset (meta for one recording) json metadata.
