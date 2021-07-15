@@ -497,7 +497,7 @@ def prepare_metadata(
                 },
             }
 
-    out_json_file = save_dir + "/" + filename + ".subsegments.json"
+    out_json_file = save_dir + "/" + filename + "." + mic_type + ".subsegs.json"
     with open(out_json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
