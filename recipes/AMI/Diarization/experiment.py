@@ -217,14 +217,14 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             os.makedirs(os.path.join(params["embedding_dir"], split))
 
         # File to store embeddings.
-        emb_file_name = rec_id + '.' + param["mic_type"] + ".emb_stat.pkl"
+        emb_file_name = rec_id + '.' + params["mic_type"] + ".emb_stat.pkl"
         diary_stat_emb_file = os.path.join(
             params["embedding_dir"], split, emb_file_name
         )
 
         # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
         # Lets keep this meta-info in embedding directory itself.
-        json_file_name = rec_id + '.' + param["mic_type"] + ".json"
+        json_file_name = rec_id + '.' + params["mic_type"] + ".json"
         meta_per_rec_file = os.path.join(
             params["embedding_dir"], split, json_file_name
         )
@@ -251,12 +251,15 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             "diary", diary_set_loader, diary_stat_emb_file
         )
 
-        # Perform spectral clustering.
-        out_rttm_dir = os.path.join(params["sys_rttm_dir"], split)
+        # Adding tag for directory path.
+        type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
+        tag = type_of_num_spkr + "_" + str(params["affinity"]) + "_" + params["backend"]
+        out_rttm_dir = os.path.join(params["sys_rttm_dir"], params["mic_type"], split, tag)
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
         out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
 
+        # Processing starts from here.
         if params["oracle_n_spkrs"] is True:
             # Oracle num of speakers
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
@@ -577,8 +580,8 @@ if __name__ == "__main__":  # noqa: C901
 
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
-    with open(params["csv_diary_dev"], "r") as f:
-        #f = open(full_diary_csv,)
+    dev_meta_file = os.path.join( params["csv_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json")
+    with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)
 
     # Update this variable later
@@ -620,7 +623,8 @@ if __name__ == "__main__":  # noqa: C901
 
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
-    with open(params["csv_diary_eval"], "r") as f:
+    eval_meta_file = os.path.join( params["csv_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json" )
+    with open(eval_meta_file, "r") as f:
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.
