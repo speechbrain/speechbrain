@@ -624,8 +624,8 @@ if __name__ == "__main__":  # noqa: C901
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.
-    t0 = "oracle" if params["oracle_n_spkrs"] else "est"
-    tag = t0 + "_" + str(params["affinity"]) + ".txt"
+    type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
+    tag = type_of_num_spkr + "_" + str(params["affinity"]) + "." + params["mic_type"]
 
     # Perform final diarization on 'dev' and 'eval' with best hyperparams.
     final_DERs = {}
@@ -662,8 +662,9 @@ if __name__ == "__main__":  # noqa: C901
         )
 
         # Writing DER values to a file. Append tag.
+        der_file_name = split_type + "_DER_" + tag
         out_der_file = os.path.join(
-            params["der_dir"], split_type + "_DER_" + tag
+            params["der_dir"], der_file_name
         )
         msg = "Writing DER file to: " + out_der_file
         logger.info(msg)
