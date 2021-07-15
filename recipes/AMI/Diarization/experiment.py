@@ -36,6 +36,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing import diarization as diar
 from speechbrain.utils.DER import DER
+from speechbrain.dataio.dataio import read_audio
 from speechbrain.dataio.dataio import read_audio_multichannel
 
 np.random.seed(1234)
@@ -171,7 +172,37 @@ def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
             json.dump(json_dict, json_f, indent=2)
 
 
-def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
+
+def prepare_subset_json(full_meta_data, rec_id, out_csv_file):
+    """Prepares csv for a given recording ID.
+
+    Arguments
+    ---------
+    full_diary_csv : csv
+        Full csv containing all the recordings
+    rec_id : str
+        The recording ID for which csv has to be prepared
+    out_csv_file : str
+        Path of the output csv file.
+    """
+
+    #full_meta_data = full_diary_csv
+
+    subset = {}
+    #for row in full_diary_csv:
+    for key in full_meta_data:  #full_diary_csv:
+        #print (key)
+        k = str(key)
+        if k.startswith(rec_id):
+            #entry.append(row)
+            subset[key] = full_meta_data[key]
+
+    with open(out_csv_file, mode="w") as json_f:
+        json.dump(subset , json_f, indent=2)
+
+
+
+def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     """This function diarizes all the recordings in a given dataset. It performs
     computation of embedding and clusters them using spectral clustering.
     The output speaker boundary file stored in the RTTM format.
@@ -191,11 +222,13 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
         )
 
     # Get all the recording IDs in this dataset.
-    A = [row[0].rstrip().split("_")[0] for row in full_csv]
+    all_keys = full_meta.keys()
+    A = [word.rstrip().split("_")[0] for word in all_keys]
     all_rec_ids = list(set(A[1:]))
     all_rec_ids.sort()
 
-    N = str(len(all_rec_ids))
+
+    #N = len(all_rec_ids)
     split = "AMI_" + split_type
     i = 1
 
@@ -206,14 +239,19 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
 
     if len(all_rec_ids) <= 0:
         msg = (
-            "No recording IDs found! Please check if CSV is properly generated."
+            "No recording IDs found! Please check if meta_data json file is properly generated."
         )
         logger.error(msg)
         sys.exit()
 
+    #if split_type == 'dev':
+    #    full_meta_file = params["csv_diary_dev"]
+    #else:
+    #    full_meta_file = params["csv_diary_eval"]
+
     for rec_id in tqdm(all_rec_ids):
         # This tag will be displayed in the log
-        tag = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
+        tag = "[" + str(split_type) + ": " + str(i) + "/" + str(len(all_rec_ids)) + "]"
         i = i + 1
 
         msg = "Diarizing %s : %s " % (tag, rec_id)
@@ -226,29 +264,31 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
             params["embedding_dir"], split, rec_id + "_xv_stat.pkl"
         )
 
-        # Prepare a csv for one recording. This is basically a subset of full_csv.
-        new_csv_file = os.path.join(
-            params["embedding_dir"], split, rec_id + ".csv"
+        # Prepare a csv for one recording. This is basically a subset of full_meta.
+        # Lets keep this meta-info in embedding directory itself.
+        meta_per_rec_file = os.path.join(
+            params["embedding_dir"], split, rec_id + ".json"
         )
-        diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
+        prepare_subset_json( full_meta , rec_id, meta_per_rec_file)
 
-        # write subset for json metadata
-        #diar.prepare_subset_json(full_csv, rec_id, new_csv_file)
+        # write subset for json metadata (update data_prep)
+        #diar.prepare_subset_json(full_meta, rec_id, meta_per_rec_file)
 
         # If mic_array then convert into json.
         # It's easier to handle multi-mics in json.
         if params["mic_type"] == "Array1":
-            new_json_file = os.path.join(
-                params["embedding_dir"], split, rec_id + ".json"
-            )
-            csv_to_json(new_csv_file, new_json_file)
+            #new_json_file = os.path.join(
+            #    params["embedding_dir"], split, rec_id + ".json"
+            #)
+            #csv_to_json(meta_per_rec_file, new_json_file)
 
+            new_json_file = meta_per_rec_file
             diary_set_loader = dataio_prep_multi_mic(params, new_json_file)
 
         else:
             # For rest of audio streams (Single channel).
             # Setup a dataloader for above one recording (above csv).
-            diary_set_loader = dataio_prep(params, new_csv_file)
+            diary_set_loader = dataio_prep(params, meta_per_rec_file)
 
         # Putting modules on the device.
         params["compute_features"].to(params["device"])
@@ -324,7 +364,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval, n_neighbors=10):
     return concate_rttm_file
 
 
-def dev_pval_tuner(full_csv, split_type):
+def dev_pval_tuner(full_meta, split_type):
     """Tuning p_value for affinity matrix.
     The p_value used so that only p% of the values in each row is retained.
     """
@@ -336,7 +376,7 @@ def dev_pval_tuner(full_csv, split_type):
     for p_v in prange:
         # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(
-            full_csv, split_type, n_lambdas, p_v
+            full_meta, split_type, n_lambdas, p_v
         )
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
@@ -361,7 +401,7 @@ def dev_pval_tuner(full_csv, split_type):
     return tuned_p_val
 
 
-def dev_ahc_threshold_tuner(full_csv, split_type):
+def dev_ahc_threshold_tuner(full_meta, split_type):
     """Tuning threshold for affinity matrix. This function is called when AHC is used as backend.
     """
 
@@ -374,7 +414,7 @@ def dev_ahc_threshold_tuner(full_csv, split_type):
     for p_v in prange:
         # Process whole dataset for value of p_v.
         concate_rttm_file = diarize_dataset(
-            full_csv, split_type, n_lambdas, p_v
+            full_meta, split_type, n_lambdas, p_v
         )
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
@@ -397,7 +437,7 @@ def dev_ahc_threshold_tuner(full_csv, split_type):
     return tuned_p_val
 
 
-def dev_nn_tuner(full_csv, split_type):
+def dev_nn_tuner(full_meta, split_type):
     """Tuning n_neighbors on dev set. Assuming oracle num of speakers.
     This is used when nn based affinity is selected.
     """
@@ -412,7 +452,7 @@ def dev_nn_tuner(full_csv, split_type):
 
         # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
-            full_csv, split_type, n_lambdas, pval, nn
+            full_meta, split_type, n_lambdas, pval, nn
         )
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
@@ -435,7 +475,7 @@ def dev_nn_tuner(full_csv, split_type):
     return tunned_nn[0]
 
 
-def dev_tuner(full_csv, split_type):
+def dev_tuner(full_meta, split_type):
     """Tuning n_components on dev set. Used for nn based affinity matrix.
     Note: This is a very basic tunning for nn based affinity.
     This is work in progress till we find a better way.
@@ -447,7 +487,7 @@ def dev_tuner(full_csv, split_type):
 
         # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
-            full_csv, split_type, n_lambdas, pval
+            full_meta, split_type, n_lambdas, pval
         )
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
@@ -467,6 +507,45 @@ def dev_tuner(full_csv, split_type):
     return tuned_n_lambdas
 
 
+
+
+
+
+
+def dataio_prep(hparams, json_file):
+    """Creates the datasets and their data processing pipelines.
+    This is used for multi-mic processing.
+    """
+
+    # 1. Datasets
+    data_folder = hparams["data_folder"]
+    dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=json_file, replacements={"data_root": data_folder},
+    )
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        sig = read_audio(wav)
+        #sig = params["multimic_beamformer"](mics_signals)
+        #sig = signal.squeeze()
+        return sig
+
+    sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
+
+    # 3. Set output:
+    sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
+
+    # 4. Create dataloader:
+    dataloader = sb.dataio.dataloader.make_dataloader(
+        dataset, **params["dataloader_opts"]
+    )
+
+    return dataloader
+
+
+
 def dataio_prep_multi_mic(hparams, json_file):
     """Creates the datasets and their data processing pipelines.
     This is used for multi-mic processing.
@@ -479,7 +558,6 @@ def dataio_prep_multi_mic(hparams, json_file):
     )
 
     # 2. Define audio pipeline:
-    # @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
@@ -501,7 +579,7 @@ def dataio_prep_multi_mic(hparams, json_file):
     return dataloader
 
 
-def dataio_prep(hparams, csv_file):
+def dataio_prep_old(hparams, csv_file):
     """Creates the datasets and their data processing pipelines."""
 
     # 1. Datasets
@@ -570,7 +648,7 @@ if __name__ == "__main__":  # noqa: C901
         overrides=overrides,
     )
 
-    # Few more experiment directories inside results/ (to have cleaner structure).
+    # Few more experiment directories inside results/ (to maintain cleaner structure).
     exp_dirs = [
         params["embedding_dir"],
         params["csv_dir"],
@@ -590,16 +668,20 @@ if __name__ == "__main__":  # noqa: C901
     params["embedding_model"].to(params["device"])
 
     # AMI Dev Set: Tune hyperparams on dev set.
-    full_csv = []
-    with open(params["csv_diary_dev"], "r") as csv_file:
-        reader = csv.reader(csv_file, delimiter=",")
-        for row in reader:
-            full_csv.append(row)
+    # Read the meta-data file for dev set generated during data_prep
+    with open(params["csv_diary_dev"], "r") as f:
+        #f = open(full_diary_csv,)
+        meta_dev = json.load(f)
 
+    # Update this variable later
+    full_meta = meta_dev
+
+    # Processing starts from here
+    # Following few lines selects option for different backend and affinity matrices. Finds best values for hyperameters using dev set.
     best_nn = None
     if params["affinity"] == "nn":
         logger.info("Tuning for nn (Multiple iterations over AMI Dev set)")
-        best_nn = dev_nn_tuner(full_csv, "dev")
+        best_nn = dev_nn_tuner(full_meta, "dev")
 
     n_lambdas = None
     best_pval = None
@@ -612,11 +694,11 @@ if __name__ == "__main__":  # noqa: C901
         logger.info(
             "Tuning for p-value for SC (Multiple iterations over AMI Dev set)"
         )
-        best_pval = dev_pval_tuner(full_csv, "dev")
+        best_pval = dev_pval_tuner(full_meta, "dev")
 
     elif params["backend"] == "AHC":
         logger.info("Tuning for threshold-value for AHC")
-        best_threshold = dev_ahc_threshold_tuner(full_csv, "dev")
+        best_threshold = dev_ahc_threshold_tuner(full_meta, "dev")
         best_pval = best_threshold
     else:
         # NN for unknown num of speakers (can be used in future)
@@ -626,35 +708,30 @@ if __name__ == "__main__":  # noqa: C901
                 "Tuning for number of eigen components for NN (Multiple iterations over AMI Dev set)"
             )
             # dev_tuner used for tuning num of components in NN. Can be used in future.
-            n_lambdas = dev_tuner(full_csv, "dev")
+            n_lambdas = dev_tuner(full_meta, "dev")
 
-    # Load 'dev' and 'eval' csv files.
-    full_csv_dev = full_csv  # current full_csv is for 'dev'
-
-    full_csv_eval = []
-    with open(params["csv_diary_eval"], "r") as csv_file:
-        reader = csv.reader(csv_file, delimiter=",")
-        for row in reader:
-            full_csv_eval.append(row)
+    # Load 'dev' and 'eval' metadata files.
+    full_meta_dev = full_meta  # current full_meta is for 'dev'
+    with open(params["csv_diary_eval"], "r") as f:
+        full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.
     t0 = "oracle" if params["oracle_n_spkrs"] else "est"
     tag = t0 + "_" + str(params["affinity"]) + ".txt"
 
+    # Perform final diarization on 'dev' and 'eval' with best hyperparams.
     final_DERs = {}
-    # Perform diarization on 'dev' and 'eval' with best hyperparams.
     for split_type in ["dev", "eval"]:
-
         if split_type == "dev":
-            full_csv = full_csv_dev
+            full_meta = full_meta_dev
         else:
-            full_csv = full_csv_eval
+            full_meta = full_meta_eval
 
         # Performing diarization.
         msg = "Diarizing using best hyperparams: " + split_type + " set"
         logger.info(msg)
         out_boundaries = diarize_dataset(
-            full_csv,
+            full_meta,
             split_type,
             n_lambdas=n_lambdas,
             pval=best_pval,
