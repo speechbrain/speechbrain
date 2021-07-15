@@ -139,42 +139,8 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     return stat_obj
 
-# Update this with json data_prep
-def csv_to_json(in_csv_file, out_json_file, array_type="Array1"):
-    """Simple trick to convert csv to json for multi-mic processing.
-    Processing multiple mics is easier in json.
-    """
-
-    # Sample: "ex1": {"files": ["{ROOT}/mic1/ex1.wav", "{ROOT}/mic2/ex1.wav"], "id": 1},
-
-    json_dict = {}
-    with open(in_csv_file, mode="r") as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-
-        for row in csv_reader:
-            chunk_id = row["ID"]
-            p = row["wav"].rsplit(".", 2)[0] + "." + array_type + "-"
-
-            f = []
-            for i in range(8):
-                f.append(p + str(i + 1).zfill(2) + ".wav")
-
-            json_dict[chunk_id] = {
-                "wav": {
-                    "files": f,
-                    "duration": float(row["duration"]),
-                    "start": int(row["start"]),
-                    "stop": int(row["stop"]),
-                },
-            }
-
-        with open(out_json_file, mode="w") as json_f:
-            json.dump(json_dict, json_f, indent=2)
-
-
-
 def prepare_subset_json(full_meta_data, rec_id, out_csv_file):
-    """Prepares csv for a given recording ID.
+    """Prepares metadata for a given recording ID.
 
     Arguments
     ---------
@@ -185,8 +151,6 @@ def prepare_subset_json(full_meta_data, rec_id, out_csv_file):
     out_csv_file : str
         Path of the output csv file.
     """
-
-    #full_meta_data = full_diary_csv
 
     subset = {}
     #for row in full_diary_csv:
@@ -507,11 +471,6 @@ def dev_tuner(full_meta, split_type):
     return tuned_n_lambdas
 
 
-
-
-
-
-
 def dataio_prep(hparams, json_file):
     """Creates the datasets and their data processing pipelines.
     This is used for multi-mic processing.
@@ -579,39 +538,6 @@ def dataio_prep_multi_mic(hparams, json_file):
     return dataloader
 
 
-def dataio_prep_old(hparams, csv_file):
-    """Creates the datasets and their data processing pipelines."""
-
-    # 1. Datasets
-    data_folder = hparams["data_folder"]
-    dataset = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=csv_file, replacements={"data_root": data_folder},
-    )
-
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav", "start", "stop")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav, start, stop):
-        start = int(start)
-        stop = int(stop)
-        num_frames = stop - start
-        sig, fs = torchaudio.load(
-            wav, num_frames=num_frames, frame_offset=start
-        )
-        sig = sig.transpose(0, 1).squeeze(1)
-        return sig
-
-    sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
-
-    # 3. Set output:
-    sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
-
-    # 4. Create dataloader:
-    dataloader = sb.dataio.dataloader.make_dataloader(
-        dataset, **params["dataloader_opts"]
-    )
-
-    return dataloader
 
 
 # Begin experiment!
