@@ -24,7 +24,7 @@ data_path: !PLACEHOLDER
 maestro_csv: maestro-v2.0.0.csv
 
 # this file is needed to save the generated music in a MIDI file
-midi_file: !ref <output_folder>/<experiment_name>.MIDI
+midi_file: !ref <experiment_name>.MIDI
 resolution: 25
 time_scale: 9
 velocity: 80

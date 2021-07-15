@@ -1,26 +1,6 @@
 import sys
-from hyperpyyaml import load_hyperpyyaml
-import speechbrain as sb
 import muspy as mp
 from speechbrain.pretrained.interfaces import SymbolicGeneration
-
-
-def generate_sequence(N):
-    """ Call inference class that generates a sequence of N timesteps
-    Arguments
-    ---------
-    N : int
-        Number of sequences to generate using the model.
-    Returns
-    -------
-    sequence: nd.array (N,128)
-        binarized piano roll ready for MIDI generation
-    """
-
-    inferer = SymbolicGeneration.from_hparams(source="test/",)
-    sequence = inferer.generate_timestep(N)
-
-    return sequence
 
 
 def scale_time(old_time):
@@ -37,21 +17,24 @@ def scale_time(old_time):
     return old_time * hparams["time_scale"]
 
 
-# Recipe begins!
+# Generation begins!
 if __name__ == "__main__":
 
-    # Reading command line arguments
-    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    if len(sys.argv) > 1:
+        model_path = sys.argv[1]
+    else:
+        print(
+            "Please provide the model path in the first argument which includes hyperparams.yaml"
+        )
 
-    # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.utils.distributed.ddp_init_group(run_opts)
+    # Load the model
+    inferer = SymbolicGeneration.from_hparams(source=model_path)
 
-    # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+    # get the hyperparameter file
+    hparams = inferer.hparams.__dict__
 
     # Generate sequence of specified length
-    gen_notes = generate_sequence(hparams["sequence_length"])
+    gen_notes = inferer.generate_timestep(hparams["sequence_length"])
 
     # Create Music object from binary piano roll
     music = mp.from_pianoroll_representation(

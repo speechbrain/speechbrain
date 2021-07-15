@@ -2,18 +2,37 @@
 This folder contains recipes for training an autoregressive model for modeling symbolic music. We support JSB Chorales, Muse, Nottingham, Piano-midi and MAESTRO datasets.
 It converts Midi or pickle based files into useable CSV files split into train, test and validation sets.
 
-You can download MAESTRO at https://magenta.tensorflow.org/datasets/maestro#v200 (maestro-v2.0.0-midi.zip)
-You can download the other 4 pickle files at http://www-etud.iro.umontreal.ca/~boulanni/icml2012 (Piano-roll)
+The code automatically downloads the datasets. However, you can also do this manually from the links below.
+
+* You can download MAESTRO at `https://magenta.tensorflow.org/datasets/maestro#v200` (maestro-v2.0.0-midi.zip)
+* You can download the other 4 pickle files at `http://www-etud.iro.umontreal.ca/~boulanni/icml2012` (Piano-roll)
+
 
 # Extra Dependency:
 Make sure you have the MusPy library installed. If not, type:
+```
 pip install -r extra_dependencies.txt
+```
 
 Hao-Wen Dong, Ke Chen, Julian McAuley, and Taylor Berg-Kirkpatrick, “MusPy: A Toolkit for Symbolic Music Generation,” in Proceedings of the 21st International Society for Music Information Retrieval Conference (ISMIR), 2020.
 
-# How to run:
-python train.py hparams/RNNLM_{dataset}.yaml
-python generate.py hparams/RNNLM_{dataset}.yaml
+# How to train a model:
+```
+python train.py hparams/RNNLM_{dataset}.yaml --data_path yourpath/dataset
+```
+For example for JSB chorales dataset, you can call:
+```
+python train.py hparams/RNNLM_JSB.yaml --data_path yourpath/JSB
+```
+The code will automatically download the dataset to the specified path.
+
+# How to generate from a trained model
+
+```
+python generate.py yourpath/trained_model_CKPT
+```
+You need to specify the path to the model checkpoint to be able to generate. You need to copy the corresponding `hyperparams.yaml` inside the checkpoint folder to be able to run this script.
+
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.

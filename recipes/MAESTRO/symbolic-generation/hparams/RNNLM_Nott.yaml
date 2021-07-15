@@ -23,7 +23,7 @@ train_log: !ref <output_folder>/train_log.txt
 # this points to the dataset file
 data_path: !PLACEHOLDER
 
-midi_file: !ref <output_folder>/<experiment_name>.MIDI
+midi_file: !ref <experiment_name>.MIDI
 resolution: 15
 time_scale: 9
 velocity: 80
