@@ -153,12 +153,9 @@ def prepare_subset_json(full_meta_data, rec_id, out_csv_file):
     """
 
     subset = {}
-    #for row in full_diary_csv:
-    for key in full_meta_data:  #full_diary_csv:
-        #print (key)
+    for key in full_meta_data:
         k = str(key)
         if k.startswith(rec_id):
-            #entry.append(row)
             subset[key] = full_meta_data[key]
 
     with open(out_csv_file, mode="w") as json_f:
