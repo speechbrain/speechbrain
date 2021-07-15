@@ -14,6 +14,9 @@ This is necessary due to the high subject-to-subject variability in the EEG.
 Therefore, subject-specific decoders are trained and due to the resulting compact dataset (consisting of 200 EEG trials per subject using a 10-fold cross-validation scheme is adopted).
 
 # How to run
+Before running an experiment, make sure the extra-dependencies reported in the file `extra_requirements.txt` are installed in your environment.
+Note that this code requires mne==0.20.7.
+
 Download the dataset with: \
 \>>> python download_required_data.py --data_folder /path/to/ERPCore_P3 
 

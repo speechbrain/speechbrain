@@ -304,6 +304,11 @@ if __name__ == "__main__":
     argv = sys.argv[1:]
     NFOLDS = 10
 
+    # Temporary switching off deprecation warning from mni
+    import warnings  # noqa
+
+    warnings.filterwarnings("ignore")
+
     fold_metrics = []
     # Within-subject training: cross-validation loop
     for sel_fold in range(NFOLDS):
