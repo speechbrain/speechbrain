@@ -146,7 +146,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             'raw_loss': gc_loss.raw_loss,
             'garbage_loss': gc_loss.garbage_loss})
         self.last_loss_stats[stage] = loss_stats
-        return gc_loss.raw_loss
+        return gc_loss.effective_loss
 
     def _remember_sample(self, batch, predictions):
         inputs, targets, num_items, labels, wavs = batch
