@@ -172,10 +172,9 @@ class GarbageConditioner:
                 feature_name, predictions, targets, raw_loss,
                 criterion_kwargs)
             for feature_name in self.features}
-        garbage_loss = torch.sum(
-            torch.tensor(
-                [feature.weighted_difference_loss
-                for feature in feature_losses.values()]))
+        garbage_loss = torch.tensor(0., device=raw_loss.device)
+        for feature in feature_losses.values():
+            garbage_loss += feature.weighted_difference_loss
         return GarbageConditioningLoss(
             raw_loss=raw_loss,
             effective_loss=raw_loss + garbage_loss,
