@@ -233,7 +233,11 @@ class GarbageConditioner:
         )
 
 
-def shuffle_padded_sequences(sequences, sequence_lengths):
+def shuffle_padded_sequences(
+    sequences,
+    sequence_lengths,
+    left_offset=0,
+    right_offset=0):
     """
     A distortion that can be used to shuffle a batch of padded
     sequences
@@ -245,15 +249,24 @@ def shuffle_padded_sequences(sequences, sequence_lengths):
     sequence_lengths: torch.tensor
         a tensor of (batch, length) indicating the length of each
         sequence
+    left_offset: int
+        the number of characters to skip at the beginning
+        of a sequence
+    right_offset: int
+        the number of characters to skip at the end of
+        the sequence
+
 
     Returns
     -------
     result: torch.Tensor
 
     """
-    result = torch.zeros_like(sequences)
+    result = sequences.clone()
     #TODO: Find a way to vectorize along the batch dimension
     for idx, (sequence, sequence_length) in enumerate(zip(sequences, sequence_lengths)):
-        new_indexes = torch.randperm(sequence_length)
-        result[idx, :sequence_length] = sequence[new_indexes]
+        effective_sequence_length = sequence_length - left_offset-right_offset
+        if effective_sequence_length > 1:
+            new_indexes = torch.randperm(effective_sequence_length) + left_offset
+            result[idx, left_offset:sequence_length-right_offset] = sequence[new_indexes]
     return result

@@ -287,6 +287,6 @@ def shuffle_inputs(raw_inputs):
     """
     inputs, input_lengths, targets, max_len, output_lengths = raw_inputs
     inputs_shuffled = shuffle_padded_sequences(
-        inputs, input_lengths)
+        inputs, input_lengths, left_offset=1, right_offset=1)
     return (inputs_shuffled, input_lengths, targets,
             max_len, output_lengths)
