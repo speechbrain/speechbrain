@@ -4,6 +4,7 @@ hyperparameters that do not require model retraining (e.g. Beam Search)
 """
 
 
+from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from train import dataio_prep
@@ -53,6 +54,7 @@ class G2PEvaluator:
             self.hparams.model.load_state_dict(model_state)
         else:
             self.load()
+        self.modules["model"].eval()
 
     def load(self):
         """
@@ -74,13 +76,19 @@ class G2PEvaluator:
             for G2P training
         """
         batch = batch.to(self.device)
-        p_seq, char_lens, encoder_out = self.hparams.model(
-            grapheme_encoded=batch.grapheme_encoded,
-            phn_encoded=batch.phn_encoded_bos,
-        )
+        if self.hparams.eval_mode == "sentence":
+            hyps, scores = self._get_phonemes(
+                batch.grapheme_encoded,
+                batch.phoneme_encoded_bos
+            )
+        elif self.hparams.eval_mode == "word":
+            hyps, scores = self._get_phonemes_wordwise(
+                batch.grapheme_encoded,
+                batch.phoneme_encoded_bos
+            )
+
         ids = batch.id
 
-        hyps, scores = self.beam_searcher(encoder_out, char_lens)
         phns, phn_lens = batch.phn_encoded
 
         self.per_metrics.append(
@@ -92,7 +100,45 @@ class G2PEvaluator:
             self.hparams.phoneme_encoder.decode_ndim,
         )
 
-    def evaluate_epoch(self, dataset):
+    def _get_phonemes(self, grapheme_encoded, phn_encoded_bos=None):
+        if not phn_encoded_bos:
+            phn_encoded_bos = (
+                torch.zeros(
+                    len(grapheme_encoded), 1
+                ).to(self.device),
+                torch.ones(len(grapheme_encoded))
+            )
+        p_seq, char_lens, encoder_out = self.hparams.model(
+            grapheme_encoded=grapheme_encoded,
+            phn_encoded=phn_encoded_bos,
+        )
+        return self.beam_searcher(encoder_out, char_lens)
+
+    def _get_phonemes_wordwise(self, grapheme_encoded, phn_encoded_bos):
+        for grapheme_item, phn_item, grapheme_len, phoneme_len in zip(
+            grapheme_encoded, phn_encoded_bos
+        ):
+            words_batch = self._split_words_batch(grapheme_item, grapheme_len)
+            hyps, scores = self._get_phonemes(words_batch)
+
+    def _split_words_batch(self, graphemes, length):
+        return PaddedBatch(
+            {"grapheme_encoded": word}
+            for word in self._split_words_seq(graphemes, length))
+
+    def _split_words_seq(self, graphemes, length):
+        space_index = self.hparams.graphemes.index(" ")
+        word_boundaries = torch.where(graphemes == space_index)
+        last_word_boundary = 0
+        for word_boundary in word_boundaries:
+            yield graphemes[last_word_boundary:word_boundary]
+            last_word_boundary = word_boundary
+
+        if last_word_boundary < length:
+            yield graphemes[last_word_boundary:word_boundary]
+
+
+    def evaluate_epoch(self, dataset, dataloader_opts=None):
         """
         Evaluates a single epoch
 
@@ -110,7 +156,7 @@ class G2PEvaluator:
         self.per_metrics = self.hparams.per_stats()
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset,
-            **dict(hparams["dataloader_opts"], shuffle=True,
+            **dict(dataloader_opts or {}, shuffle=True,
                    batch_size=self.hparams.eval_batch_size)
         )
         dataloader_it = iter(dataloader)
@@ -148,7 +194,10 @@ if __name__ == "__main__":
     train, valid, test, _ = dataio_prep(hparams, train_step)
     datasets = {"train": train, "valid": valid, "test": test}
     dataset = datasets[hparams["eval_dataset"]]
-    result = evaluator.evaluate_epoch(dataset)
+    dataloader_opts = train_step.get(
+            "dataloader_opts",
+            hparams.get("dataloader_opts", {}))
+    result = evaluator.evaluate_epoch(dataset, dataloader_opts)
 
     # Report the results
     if orion_is_available and hparams["eval_reporting"] == "orion":
