@@ -35,7 +35,7 @@ class SpeakerBrain(sb.core.Brain):
             # Applying the augmentation pipeline
             wavs_aug_tot = []
             wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
+            for count, augment in enumerate(self.hparams.augment_pipeline): # Augmentation not used for now but we'll leave this.
 
                 # Apply augment
                 wavs_aug = augment(wavs, lens)
@@ -73,19 +73,19 @@ class SpeakerBrain(sb.core.Brain):
         """
         predictions, lens = predictions
         uttid = batch.id
-        spkid, _ = batch.spk_id_encoded
+        num_spk, _ = batch.nb_speakers_encoded
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
-            spkid = torch.cat([spkid] * 1, dim=0)
+            num_spk = torch.cat([num_spk] * 1, dim=0)
 
-        loss = self.hparams.compute_cost(predictions, spkid, lens)
+        loss = self.hparams.compute_cost(predictions, num_spk, lens)
 
         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(uttid, predictions, spkid, lens)
+            self.error_metrics.append(uttid, predictions, num_spk, lens)
 
         return loss
 
@@ -136,8 +136,6 @@ def dataio_prep(hparams):
 
     datasets = [train_data, valid_data]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
-
-    snt_len_sample = int(hparams["sample_rate"] * hparams["sentence_len"])
 
     # 2. Define audio pipeline:
     # @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
