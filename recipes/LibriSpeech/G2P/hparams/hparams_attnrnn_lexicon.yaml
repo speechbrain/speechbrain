@@ -65,6 +65,7 @@ eval_train_step: lexicon
 eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
+eval_mode: sentence
 
 
 select_n_sentences: None

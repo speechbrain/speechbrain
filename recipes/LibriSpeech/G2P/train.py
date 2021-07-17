@@ -152,6 +152,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                     "PER": per,
                 },
             }
+            stats = self._add_stats_prefix(stats)
             self.hparams.train_logger.log_stats(**stats)
             if self.hparams.use_tensorboard:
                 self.hparams.tensorboard_train_logger.log_stats(**stats)
@@ -176,6 +177,14 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                     "seq2seq, and PER stats written to file",
                     wer_file
                 )
+
+    def _add_stats_prefix(self, stats):
+        prefix = self.train_step["name"]
+        return {
+            stage: {f"{prefix}_{key}": value
+                    for key, value in stage_stats.items()}
+            for stage, stage_stats in stats.items()
+        }
 
     @property
     def tb_writer(self):
