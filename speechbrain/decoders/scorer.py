@@ -136,7 +136,6 @@ class RNNLMScorer(BaseScorerInterface):
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
             log_probs = self.softmax(logits / self.temperature)
-
         return log_probs, hs
 
     def permute_mem(self, memory, index):
@@ -171,16 +170,17 @@ class TransformerLMScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
-        if memory is None:
-            memory = torch.empty(
-                inp_tokens.size(0), 0, device=inp_tokens.device
-            )
-        # Append the predicted token of the previous step to existing memory.
-        memory = torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
-        if not next(self.lm.parameters()).is_cuda:
-            self.lm.to(inp_tokens.device)
-        logits = self.lm(memory)
-        log_probs = self.softmax(logits / self.temperature)
+        with torch.no_grad():
+            if memory is None:
+                memory = torch.empty(
+                    inp_tokens.size(0), 0, device=inp_tokens.device
+                )
+            # Append the predicted token of the previous step to existing memory.
+            memory = torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
+            if not next(self.lm.parameters()).is_cuda:
+                self.lm.to(inp_tokens.device)
+            logits = self.lm(memory)
+            log_probs = self.softmax(logits / self.temperature)
         return log_probs[:, -1, :], memory
 
     def permute_mem(self, memory, index):
