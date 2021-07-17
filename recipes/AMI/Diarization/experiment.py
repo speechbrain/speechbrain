@@ -23,7 +23,6 @@ import sys
 import torch
 import logging
 import pickle
-import csv
 import json
 import glob
 import shutil
@@ -139,17 +138,17 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     return stat_obj
 
-def prepare_subset_json(full_meta_data, rec_id, out_csv_file):
+def prepare_subset_json(full_meta_data, rec_id, out_meta_file):
     """Prepares metadata for a given recording ID.
 
     Arguments
     ---------
-    full_diary_csv : csv
-        Full csv containing all the recordings
+    full_meta_data : json
+        Full meta (json) containing all the recordings
     rec_id : str
-        The recording ID for which csv has to be prepared
-    out_csv_file : str
-        Path of the output csv file.
+        The recording ID for which meta (json) has to be prepared
+    out_meta_file : str
+        Path of the output meta (json) file.
     """
 
     subset = {}
@@ -158,7 +157,7 @@ def prepare_subset_json(full_meta_data, rec_id, out_csv_file):
         if k.startswith(rec_id):
             subset[key] = full_meta_data[key]
 
-    with open(out_csv_file, mode="w") as json_f:
+    with open(out_meta_file, mode="w") as json_f:
         json.dump(subset , json_f, indent=2)
 
 
@@ -474,8 +473,6 @@ def dataio_prep(hparams, json_file):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = read_audio(wav)
-        #sig = params["multimic_beamformer"](mics_signals)
-        #sig = signal.squeeze()
         return sig
 
     sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
@@ -534,7 +531,7 @@ if __name__ == "__main__":  # noqa: C901
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Dataset prep (parsing AMI and annotation into csv files).
+    # Dataset prep (peparing metadata files)
     from ami_prepare import prepare_ami  # noqa
 
     run_on_main(
@@ -562,7 +559,7 @@ if __name__ == "__main__":  # noqa: C901
     # Few more experiment directories inside results/ (to maintain cleaner structure).
     exp_dirs = [
         params["embedding_dir"],
-        params["csv_dir"],
+        params["meta_dir"],
         params["ref_rttm_dir"],
         params["sys_rttm_dir"],
         params["der_dir"],
@@ -580,7 +577,7 @@ if __name__ == "__main__":  # noqa: C901
 
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
-    dev_meta_file = os.path.join( params["csv_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json")
+    dev_meta_file = os.path.join( params["meta_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json")
     with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)
 
@@ -623,7 +620,7 @@ if __name__ == "__main__":  # noqa: C901
 
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
-    eval_meta_file = os.path.join( params["csv_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json" )
+    eval_meta_file = os.path.join( params["meta_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json" )
     with open(eval_meta_file, "r") as f:
         full_meta_eval = json.load(f)
 
