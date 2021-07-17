@@ -69,12 +69,11 @@ def prepare_ami(
     >>> prepare_ami(data_folder, manual_annot_folder, save_folder, split_type, mic_type)
     """
 
-
     # Meta files
     meta_files = [
         "ami_train." + mic_type + ".subsegs.json",
         "ami_dev." + mic_type + ".subsegs.json",
-        "ami_eval." + mic_type + ".subsegs.json"
+        "ami_eval." + mic_type + ".subsegs.json",
     ]
 
     # Create configuration for easily skipping data_preparation stage
@@ -525,9 +524,7 @@ def skip(save_folder, conf, meta_files, opt_file):
     # Checking if meta (json) files are available
     skip = True
     for file_ in meta_files:
-        if not os.path.isfile(
-            os.path.join(save_folder, "metadata", file_)
-        ):
+        if not os.path.isfile(os.path.join(save_folder, "metadata", file_)):
             skip = False
 
     # Checking saved options
