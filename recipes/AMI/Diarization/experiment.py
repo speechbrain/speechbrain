@@ -1,18 +1,18 @@
 #!/usr/bin/python3
 """This recipe implements diarization system using deep embedding extraction followed by spectral clustering.
 
-Reference: This recipe is based on the following paper,
- N. Dawalatabad, M. Ravanelli, F. Grondin, J. Thienpondt, B. Desplanques, H. Na,
- "ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
-
 To run this recipe:
 > python experiment.py hparams/<your_hyperparams_file.yaml>
  e.g., python experiment.py hparams/ecapa_tdnn.yaml
 
-Condition: Oracle VAD (speech regions taken from the goundtruth).
+Condition: Oracle VAD (speech regions taken from the groundtruth).
 
 Note: There are multiple ways to write this recipe. We iterate over individual recordings.
  This approach is less GPU memory demanding and also makes code easy to understand.
+
+Citation: This recipe is based on the following paper,
+ N. Dawalatabad, M. Ravanelli, F. Grondin, J. Thienpondt, B. Desplanques, H. Na,
+ "ECAPA-TDNN Embeddings for Speaker Diarization," arXiv:2104.01466, 2021.
 
 Authors
  * Nauman Dawalatabad 2020
@@ -200,7 +200,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
     # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):
-        # This tag will be displayed in the log
+        # This tag will be displayed in the log.
         tag = (
             "["
             + str(split_type)
@@ -236,7 +236,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         # Write subset (meta for one recording) json metadata.
         prepare_subset_json(full_meta, rec_id, meta_per_rec_file)
 
-        # Prepare data loader
+        # Prepare data loader.
         diary_set_loader = dataio_prep(params, meta_per_rec_file)
 
         # Putting modules on the device.
@@ -268,7 +268,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         # Processing starts from here.
         if params["oracle_n_spkrs"] is True:
-            # Oracle num of speakers
+            # Oracle num of speakers.
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             if params["affinity"] == "nn":
@@ -276,7 +276,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
                 num_spkrs = n_lambdas
             else:
                 # Num of speakers will be estimated using max eigen gap for cos based affinity.
-                # So adding None here. Will use this None later-on
+                # So adding None here. Will use this None later-on.
                 num_spkrs = None
 
         if params["backend"] == "kmeans":
@@ -332,7 +332,7 @@ def dev_pval_tuner(full_meta, split_type):
 
     n_lambdas = None  # using it as flag later.
     for p_v in prange:
-        # Process whole dataset for value of p_v
+        # Process whole dataset for value of p_v.
         concate_rttm_file = diarize_dataset(
             full_meta, split_type, n_lambdas, p_v
         )
@@ -350,7 +350,7 @@ def dev_pval_tuner(full_meta, split_type):
 
         if params["oracle_n_spkrs"] is True and params["backend"] == "kmeans":
             # no need of p_val search. Note p_val is needed for SC for both oracle and est num of speakers.
-            # p_val is needed in oracle_n_spkr=False when using kmeans backend
+            # p_val is needed in oracle_n_spkr=False when using kmeans backend.
             break
 
     # Take p_val that gave minmum DER on Dev dataset.
@@ -387,9 +387,9 @@ def dev_ahc_threshold_tuner(full_meta, split_type):
         DER_list.append(DER_)
 
         if params["oracle_n_spkrs"] is True:
-            break  # no need of threshold search
+            break  # no need of threshold search.
 
-    # Take p_val that gave minmum DER on Dev dataset
+    # Take p_val that gave minmum DER on Dev dataset.
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -476,7 +476,7 @@ def dataio_prep(hparams, json_file):
         json_path=json_file, replacements={"data_root": data_folder},
     )
 
-    # 2. Define audio pipeline:
+    # 2. Define audio pipeline.
     if params["mic_type"] == "Array1":
         # Multi-mic (Microphone Array)
         @sb.utils.data_pipeline.takes("wav")
@@ -486,6 +486,7 @@ def dataio_prep(hparams, json_file):
             sig = params["multimic_beamformer"](mics_signals)
             sig = sig.squeeze()
             return sig
+
     else:
         # Single microphone
         @sb.utils.data_pipeline.takes("wav")
@@ -563,12 +564,12 @@ if __name__ == "__main__":  # noqa: C901
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
     dev_meta_file = os.path.join(
-        params["meta_data_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json"
+        params["meta_data_dir"],
+        "ami_dev." + params["mic_type"] + ".subsegs.json",
     )
     with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)
 
-    # Update this variable later
     full_meta = meta_dev
 
     # Processing starts from here
@@ -608,7 +609,8 @@ if __name__ == "__main__":  # noqa: C901
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
     eval_meta_file = os.path.join(
-        params["meta_data_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json"
+        params["meta_data_dir"],
+        "ami_eval." + params["mic_type"] + ".subsegs.json",
     )
     with open(eval_meta_file, "r") as f:
         full_meta_eval = json.load(f)
