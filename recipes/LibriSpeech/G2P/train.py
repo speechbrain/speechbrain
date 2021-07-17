@@ -246,7 +246,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                              print_header=False)
             text_alignments_io.seek(0)
             alignments_sample = text_alignments_io.read()
-            alignments_sample_md = f"```\n{alignments_sample}\n```"
+            alignments_sample_md = f"```\n{alignments_sample}\n```  \n  \n"
         self.tb_writer.add_text(
             tag, alignments_sample_md, self.tb_global_step)
 
