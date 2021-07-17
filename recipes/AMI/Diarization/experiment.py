@@ -563,9 +563,6 @@ if __name__ == "__main__":  # noqa: C901
         },
     )
 
-    print ("Done data_prep")
-    sys.exit()
-
     # Create experiment directory.
     sb.core.create_experiment_directory(
         experiment_directory=params["output_folder"],

@@ -527,7 +527,6 @@ def skip(save_folder, conf, meta_files, opt_file):
     # Checking if meta (json) files are available
     skip = True
     for file_path in meta_files:
-        #if not os.path.isfile(os.path.join(save_folder, "metadata", file_)):
         if not os.path.isfile(file_path):
             skip = False
 
