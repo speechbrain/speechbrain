@@ -3,7 +3,7 @@ Data preparation.
 
 Download: http://groups.inf.ed.ac.uk/ami/download/
 
-Prepares JSON from manual annotations "segments/" using RTTM format (Oracle VAD).
+Prepares metadata files (JSON) from manual annotations "segments/" using RTTM format (Oracle VAD).
 """
 
 import os
@@ -19,10 +19,6 @@ from speechbrain.dataio.dataio import (
 )
 
 logger = logging.getLogger(__name__)
-OPT_FILE = "opt_ami_prepare.pkl"
-TRAIN_META = "ami_train.subsegments.json"
-DEV_META = "ami_dev.subsegments.json"
-EVAL_META = "ami_eval.subsegments.json"
 SAMPLERATE = 16000
 
 
@@ -73,6 +69,14 @@ def prepare_ami(
     >>> prepare_ami(data_folder, manual_annot_folder, save_folder, split_type, mic_type)
     """
 
+
+    # Meta files
+    meta_files = [
+        "ami_train." + mic_type + ".subsegs.json",
+        "ami_dev." + mic_type + ".subsegs.json",
+        "ami_eval." + mic_type + ".subsegs.json"
+    ]
+
     # Create configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,
@@ -83,17 +87,17 @@ def prepare_ami(
         "vad": vad_type,
         "max_subseg_dur": max_subseg_dur,
         "overlap": overlap,
+        "meta_files": meta_files,
     }
 
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput opt files
-    save_opt = os.path.join(save_folder, OPT_FILE)
+    # Setting output option files.
+    opt_file = "opt_ami_prepare." + mic_type + ".pkl"
 
     # Check if this phase is already done (if so, skip it)
-    splits = ["train", "dev", "eval"]
-    if skip(splits, save_folder, conf):
+    if skip(save_folder, conf, meta_files, opt_file):
         logger.info(
             "Skipping data preparation, as it was completed in previous run."
         )
@@ -112,6 +116,7 @@ def prepare_ami(
         os.makedirs(ref_dir)
 
     # Create reference RTTM files
+    splits = ["train", "dev", "eval"]
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
@@ -160,7 +165,8 @@ def prepare_ami(
             mic_type,
         )
 
-    save_pkl(conf, save_opt)
+    save_opt_file = os.path.join(save_folder, opt_file)
+    save_pkl(conf, save_opt_file)
 
 
 def get_RTTM_per_rec(segs, spkrs_list, rec_id):
@@ -505,7 +511,7 @@ def prepare_metadata(
     logger.debug(msg)
 
 
-def skip(splits, save_folder, conf):
+def skip(save_folder, conf, meta_files, opt_file):
     """
     Detects if the AMI data_preparation has been already done.
     If the preparation has been done, we can skip it.
@@ -516,25 +522,19 @@ def skip(splits, save_folder, conf):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    # Checking json files
+    # Checking if meta (json) files are available
     skip = True
-
-    split_files = {
-        "train": TRAIN_META,
-        "dev": DEV_META,
-        "eval": EVAL_META,
-    }
-    for split in splits:
+    for file_ in meta_files:
         if not os.path.isfile(
-            os.path.join(save_folder, "metadata", split_files[split])
+            os.path.join(save_folder, "metadata", file_)
         ):
             skip = False
 
-    #  Checking saved options
-    save_opt = os.path.join(save_folder, OPT_FILE)
+    # Checking saved options
+    save_opt_file = os.path.join(save_folder, opt_file)
     if skip is True:
-        if os.path.isfile(save_opt):
-            opts_old = load_pkl(save_opt)
+        if os.path.isfile(save_opt_file):
+            opts_old = load_pkl(save_opt_file)
             if opts_old == conf:
                 skip = True
             else:
