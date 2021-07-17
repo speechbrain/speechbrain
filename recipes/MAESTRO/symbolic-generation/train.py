@@ -293,7 +293,7 @@ def return_DL_link(dataset_name):
     if dataset_name == "MAESTRO_v2":
         DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v2.0.0/maestro-v2.0.0-midi.zip"
     elif dataset_name == "MAESTRO_v3":
-        DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0.csv"
+        DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0-midi.zip"
     elif dataset_name == "JSB_chorales":
         DL_link = (
             "http://www-ens.iro.umontreal.ca/~boulanni/JSB%20Chorales.pickle"

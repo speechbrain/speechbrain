@@ -7,13 +7,14 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
 # this field is just a self reminder for the particular experiment
-experiment_name: MAESTRO_default
+experiment_name: MAESTRO_RNN_LM
 
 # this needs to be set according to the dataset name
+# For the MAESTRO dataset, we support MAESTRO_v2, and MAESTRO_v3
 dataset_name: MAESTRO_v2
 
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/<experiment_name>
+output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -21,6 +22,7 @@ train_log: !ref <output_folder>/train_log.txt
 data_path: !PLACEHOLDER
 
 # this csv file comes with the dataset, and defines the dataset
+# For MAESTRO_v3, you need to update the file below to maestro-v3.0.0.csv
 maestro_csv: maestro-v2.0.0.csv
 
 # this file is needed to save the generated music in a MIDI file
