@@ -10,15 +10,13 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Directories: Replace !PLACEHOLDER with full path of the directory. 
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/
-#data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus/
-data_folder: /network/datasets/ami/amicorpus/
+data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus/
 
 # Download manual annotations from: http://groups.inf.ed.ac.uk/ami/download/
-#manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
-manual_annot_folder: /miniscratch/nauman/ami_public_manual/  
+manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
 
 #output_folder: results/ami/ecapa_NewModel/
-output_folder: results/ami/ecapa_TEST_4/
+output_folder: results/ami/ecapa/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -33,7 +31,7 @@ pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
 # Some more exp folders (for cleaner structure).
 embedding_dir: !ref <save_folder>/emb 
-meta_dir: !ref <save_folder>/metadata
+meta_data_dir: !ref <save_folder>/metadata
 ref_rttm_dir: !ref <save_folder>/ref_rttms
 sys_rttm_dir: !ref <save_folder>/sys_rttms
 der_dir: !ref <save_folder>/DER
@@ -52,7 +50,7 @@ batch_size: 512
 split_type: 'full_corpus_asr'
 skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
-mic_type: 'Array1' #'Mix-Headset'
+mic_type: 'Mix-Headset'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
