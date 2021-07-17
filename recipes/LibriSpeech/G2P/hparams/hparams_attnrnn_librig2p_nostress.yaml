@@ -71,6 +71,7 @@ lm_layers: 2 # number of hidden layers
 lm_output_neurons: 42
 
 # Beam Searcher
+use_language_model: False
 beam_search_min_decode_ratio: 0
 beam_search_max_decode_ratio: 1.0
 beam_search_beam_size: 16
@@ -92,6 +93,9 @@ eval_batch_count: 1
 eval_reporting: raw
 eval_prediction_sample_size: 10
 eval_mode: sentence
+eval_output_wer_file: false
+eval_wer_file: !ref <save_folder>/wer_eval.txt
+
 
 select_n_sentences: None
 
@@ -343,6 +347,8 @@ decode_pipeline:
         - !apply:speechbrain.lobes.models.g2p.attnrnn.phoneme_decoder_pipeline
           phoneme_encoder: !ref <phoneme_encoder>
           phonemes: !ref <phonemes>
+          bos_index: !ref <bos_index>
+          eos_index: !ref <eos_index>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
   loadables:

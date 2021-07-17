@@ -352,19 +352,19 @@ def dataio_prep(hparams, train_step=None):
     return train_data, valid_data, test_data, phoneme_encoder
 
 
-def check_language_model(hparams):
+def check_language_model(hparams, run_opts):
     """Checks whether or not the language
        model is being used and makes the necessary
        adjustments"""
 
     if hparams.get("use_language_model"):
         hparams["beam_searcher"] = hparams["beam_searcher_lm"]
-        load_dependencies(hparams)
+        load_dependencies(hparams, run_opts)
     else:
         if "beam_searcher_lm" in hparams:
             del hparams["beam_searcher_lm"]
 
-def load_dependencies(hparams):
+def load_dependencies(hparams, run_opts):
     deps_pretrainer = hparams.get("deps_pretrainer")
     if deps_pretrainer:
         run_on_main(deps_pretrainer.collect_files)

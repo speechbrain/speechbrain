@@ -7,10 +7,12 @@ hyperparameters that do not require model retraining (e.g. Beam Search)
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
-from train import dataio_prep
+from train import dataio_prep, check_language_model
 from hyperpyyaml import load_hyperpyyaml
 from functools import partial
 from types import SimpleNamespace
+from tqdm.auto import tqdm
+import math
 import itertools
 import speechbrain as sb
 import torch
@@ -79,12 +81,12 @@ class G2PEvaluator:
         if self.hparams.eval_mode == "sentence":
             hyps, scores = self._get_phonemes(
                 batch.grapheme_encoded,
-                batch.phoneme_encoded_bos
+                batch.phn_encoded_bos
             )
         elif self.hparams.eval_mode == "word":
             hyps, scores = self._get_phonemes_wordwise(
                 batch.grapheme_encoded,
-                batch.phoneme_encoded_bos
+                batch.phn_encoded_bos
             )
 
         ids = batch.id
@@ -102,41 +104,59 @@ class G2PEvaluator:
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded_bos=None):
         if not phn_encoded_bos:
+            grapheme_encoded_data, _ = grapheme_encoded
             phn_encoded_bos = (
-                torch.zeros(
-                    len(grapheme_encoded), 1
-                ).to(self.device),
-                torch.ones(len(grapheme_encoded))
+                torch.ones(
+                    len(grapheme_encoded_data), 1
+                ).to(grapheme_encoded_data.device) * self.hparams.bos_index,
+                torch.ones(
+                    len(grapheme_encoded_data)
+                ).to(grapheme_encoded_data.device)
             )
-        p_seq, char_lens, encoder_out = self.hparams.model(
+        p_seq, char_lens, encoder_out, _ = self.modules.model(
             grapheme_encoded=grapheme_encoded,
             phn_encoded=phn_encoded_bos,
         )
         return self.beam_searcher(encoder_out, char_lens)
 
     def _get_phonemes_wordwise(self, grapheme_encoded, phn_encoded_bos):
-        for grapheme_item, phn_item, grapheme_len, phoneme_len in zip(
-            grapheme_encoded, phn_encoded_bos
+        hyps, scores = [], []
+        for grapheme_item, grapheme_len in zip(
+            grapheme_encoded.data,
+            grapheme_encoded.lengths
         ):
             words_batch = self._split_words_batch(grapheme_item, grapheme_len)
-            hyps, scores = self._get_phonemes(words_batch)
+            item_hyps, item_scores = self._get_phonemes(words_batch.grapheme_encoded)
+            hyps.append(self._flatten_results(item_hyps))
+            scores.append(self._flatten_scores(item_hyps, item_scores))
+        return hyps, scores
+
+    def _flatten_results(self, results):
+        return [token for item_result in results for token in item_result]
+
+    def _flatten_scores(self, hyps, scores):
+        seq_len = sum(len(word_hyp) for word_hyp in hyps)
+        return sum(
+            word_score * len(word_hyp)
+            for word_hyp, word_score
+            in zip(hyps, scores)) / seq_len
 
     def _split_words_batch(self, graphemes, length):
-        return PaddedBatch(
+        return PaddedBatch([
             {"grapheme_encoded": word}
-            for word in self._split_words_seq(graphemes, length))
+            for word in self._split_words_seq(graphemes, length)]
+        ).to(self.device)
 
     def _split_words_seq(self, graphemes, length):
         space_index = self.hparams.graphemes.index(" ")
-        word_boundaries = torch.where(graphemes == space_index)
+        word_boundaries, = torch.where(graphemes == space_index)
         last_word_boundary = 0
         for word_boundary in word_boundaries:
             yield graphemes[last_word_boundary:word_boundary]
             last_word_boundary = word_boundary
-
-        if last_word_boundary < length:
-            yield graphemes[last_word_boundary:word_boundary]
-
+        char_length = math.ceil(len(graphemes) * length)
+        if last_word_boundary < char_length:
+            yield graphemes[last_word_boundary:char_length]
 
     def evaluate_epoch(self, dataset, dataloader_opts=None):
         """
@@ -153,18 +173,34 @@ class G2PEvaluator:
             Raw PER metrics
         """
         logger.info("Beginning evaluation")
-        self.per_metrics = self.hparams.per_stats()
-        dataloader = sb.dataio.dataloader.make_dataloader(
-            dataset,
-            **dict(dataloader_opts or {}, shuffle=True,
-                   batch_size=self.hparams.eval_batch_size)
-        )
-        dataloader_it = iter(dataloader)
-        if self.hparams.eval_batch_count is not None:
-            dataloader_it = itertools.islice(dataloader_it, 0, self.hparams.eval_batch_count)
-        for batch in dataloader_it:
-            self.evaluate_batch(batch)
-        return self.per_metrics.summarize()
+        with torch.no_grad():
+            self.per_metrics = self.hparams.per_stats()
+            dataloader = sb.dataio.dataloader.make_dataloader(
+                dataset,
+                **dict(dataloader_opts or {}, shuffle=True,
+                    batch_size=self.hparams.eval_batch_size)
+            )
+            dataloader_it = iter(dataloader)
+            if self.hparams.eval_batch_count is not None:
+                dataloader_it = itertools.islice(dataloader_it, 0, self.hparams.eval_batch_count)
+                batch_count = self.hparams.eval_batch_count
+            else:
+                batch_count = math.ceil(len(dataset) / self.hparams.eval_batch_count)
+            for batch in tqdm(dataloader_it, total=batch_count):
+                self.evaluate_batch(batch)
+            if self.hparams.eval_output_wer_file:
+                self._output_wer_file()
+            return self.per_metrics.summarize()
+
+    def _output_wer_file(self):
+        with open(self.hparams.eval_wer_file, "w") as w:
+            w.write("\nPER stats:\n")
+            self.per_metrics.write_stats(w)
+            print(
+                "seq2seq, and PER stats written to file",
+                self.hparams.eval_wer_file
+            )
+
 
 
 if __name__ == "__main__":
@@ -177,17 +213,16 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    # Check if a language model is available
+    check_language_model(hparams, run_opts)
+
     # Run the evaluation
     evaluator = G2PEvaluator(hparams, device)
 
-    #Load the pretrained language model, if available:
-    # We download and pretrain the tokenizer
-    deps_pretrainer = hparams.get("deps_pretrainer")
-    if deps_pretrainer:
-        run_on_main(deps_pretrainer.collect_files)
-        deps_pretrainer.load_collected(device=run_opts["device"])
-
-
+    # Some configurations involve curriculum training on
+    # multiple steps. Load the dataset configuration for the
+    # step specified in the eval_training_step hyperparameter
+    # (or command-line argument)
     train_step = next(
         train_step for train_step in hparams['train_steps']
         if train_step['name'] == hparams["eval_train_step"])
