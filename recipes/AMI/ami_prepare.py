@@ -26,6 +26,8 @@ def prepare_ami(
     data_folder,
     manual_annot_folder,
     save_folder,
+    ref_rttm_dir,
+    meta_data_dir,
     split_type="full_corpus_asr",
     skip_TNO=True,
     mic_type="Lapel",
@@ -71,15 +73,17 @@ def prepare_ami(
 
     # Meta files
     meta_files = [
-        "ami_train." + mic_type + ".subsegs.json",
-        "ami_dev." + mic_type + ".subsegs.json",
-        "ami_eval." + mic_type + ".subsegs.json",
+        os.path.join(meta_data_dir, "ami_train." + mic_type + ".subsegs.json"),
+        os.path.join(meta_data_dir, "ami_dev." + mic_type + ".subsegs.json"),
+        os.path.join(meta_data_dir, "ami_eval." + mic_type + ".subsegs.json"),
     ]
 
     # Create configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,
         "save_folder": save_folder,
+        "ref_rttm_dir": ref_rttm_dir,
+        "meta_data_dir": meta_data_dir,
         "split_type": split_type,
         "skip_TNO": skip_TNO,
         "mic_type": mic_type,
@@ -110,14 +114,13 @@ def prepare_ami(
 
     # Prepare RTTM from XML(manual annot) and store are groundtruth
     # Create ref_RTTM directory
-    ref_dir = save_folder + "/ref_rttms/"
-    if not os.path.exists(ref_dir):
-        os.makedirs(ref_dir)
+    if not os.path.exists(ref_rttm_dir):
+        os.makedirs(ref_rttm_dir)
 
     # Create reference RTTM files
     splits = ["train", "dev", "eval"]
     for i in splits:
-        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        rttm_file = ref_rttm_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
             prepare_segs_for_RTTM(
                 train_set,
@@ -147,16 +150,16 @@ def prepare_ami(
             )
 
     # Create meta_files for splits
-    meta_folder = os.path.join(save_folder, "metadata")
-    if not os.path.exists(meta_folder):
-        os.makedirs(meta_folder)
+    meta_data_dir = meta_data_dir
+    if not os.path.exists(meta_data_dir):
+        os.makedirs(meta_data_dir)
 
     for i in splits:
-        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        rttm_file = ref_rttm_dir + "/fullref_ami_" + i + ".rttm"
         meta_filename_prefix = "ami_" + i
         prepare_metadata(
             rttm_file,
-            meta_folder,
+            meta_data_dir,
             data_folder,
             meta_filename_prefix,
             max_subseg_dur,
@@ -523,8 +526,9 @@ def skip(save_folder, conf, meta_files, opt_file):
     """
     # Checking if meta (json) files are available
     skip = True
-    for file_ in meta_files:
-        if not os.path.isfile(os.path.join(save_folder, "metadata", file_)):
+    for file_path in meta_files:
+        #if not os.path.isfile(os.path.join(save_folder, "metadata", file_)):
+        if not os.path.isfile(file_path):
             skip = False
 
     # Checking saved options
