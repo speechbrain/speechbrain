@@ -46,6 +46,10 @@ def prepare_ami(
         Directory where the manual annotations are stored.
     save_folder : str
         The save directory in results.
+    ref_rttm_dir : str
+        Directory to store reference RTTM files.
+    meta_data_dir : str
+        Directory to store the meta data (json) files.
     split_type : str
         Standard dataset split. See ami_splits.py for more information.
         Allowed split_type: "scenario_only", "full_corpus" or "full_corpus_asr"
