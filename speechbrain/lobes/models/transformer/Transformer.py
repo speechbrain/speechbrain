@@ -1,7 +1,8 @@
-"""Transformer implementation in the SpeechBrain sytle.
+"""Transformer implementaion in the SpeechBrain style.
 
 Authors
 * Jianyuan Zhong 2020
+* Samuele Cornell 2021
 """
 import math
 import torch
@@ -9,8 +10,10 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
-from .conformer import ConformerEncoder
+
+from .Conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
+from speechbrain.nnet.attention import RelPosEncXL
 
 
 class TransformerInterface(nn.Module):
@@ -24,25 +27,47 @@ class TransformerInterface(nn.Module):
 
     Arguments
     ----------
-    d_model : int
+    d_model: int
         The number of expected features in the encoder/decoder inputs (default=512).
-    nhead : int
+    nhead: int
         The number of heads in the multi-head attention models (default=8).
-    num_encoder_layers : int
-        The number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers : int
-        The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int
-        The dimension of the feedforward network model (default=2048).
-    dropout : int
-        The dropout value (default=0.1).
-    activation : torch class
-        The activation function of encoder/decoder intermediate layer,
-        e.g., relu or gelu (default=relu)
-    custom_src_module : torch class
+    num_encoder_layers: int, optional
+        The number of encoder layers in1ì the encoder.
+    num_decoder_layers: int, optional
+        The number of decoder layers in the decoder.
+    dim_ffn: int, optional
+        The dimension of the feedforward network model hidden layer.
+    dropout: int, optional
+        The dropout value.
+    activation: torch.nn.Module, optional
+        The activation function for Feed-Forward Netowrk layer,
+        e.g., relu or gelu or swish.
+    custom_src_module: torch.nn.Module, optional
         Module that processes the src features to expected feature dim.
-    custom_tgt_module : torch class
+    custom_tgt_module: torch.nn.Module, optional
         Module that processes the src features to expected feature dim.
+    positional_encoding: str, optional
+        Type of positional encoding used. e.g. 'fixed_abs_sine' for fixed absolute positional encodings.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
+    kernel_size: int, optional
+        Kernel size in convolutional layers when Conformer is used.
+    bias: bool, optional
+        Whether to use bias in Conformer convolutional layers.
+    encoder_module: str, optional
+        Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
+    conformer_activation: torch.nn.Module, optional
+        Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
+    attention_type: str, optional
+        Type of attention layer used in all Transformer or Conformer layers.
+        e.g. regularMHA or RelPosMHA.
+    max_length: int, optional
+        Max length for the target and source sequence in input.
+        Used for positional encodings.
+    causal: bool, optional
+        Whether the encoder should be causal or not (the decoder is always causal).
+        If causal the Conformer convolutional layer is causal.
     """
 
     def __init__(
@@ -56,21 +81,40 @@ class TransformerInterface(nn.Module):
         activation=nn.ReLU,
         custom_src_module=None,
         custom_tgt_module=None,
-        positional_encoding=True,
-        normalize_before=False,
+        positional_encoding="fixed_abs_sine",
+        normalize_before=True,
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        attention_type: Optional[str] = "regularMHA",
+        max_length: Optional[int] = 2500,
+        causal: Optional[bool] = False,
     ):
         super().__init__()
+        self.causal = causal
+        self.attention_type = attention_type
+        self.positional_encoding_type = positional_encoding
+
+        assert attention_type in ["regularMHA", "RelPosMHAXL"]
+        assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
             num_encoder_layers + num_decoder_layers > 0
         ), "number of encoder layers and number of decoder layers cannot both be 0!"
 
-        if positional_encoding:
-            self.positional_encoding = PositionalEncoding(d_model)
+        if positional_encoding == "fixed_abs_sine":
+            self.positional_encoding = PositionalEncoding(d_model, max_length)
+        elif positional_encoding is None:
+            pass
+            # no positional encodings
+
+        # overrides any other pos_embedding
+        if attention_type == "RelPosMHAXL":
+            self.positional_encoding = RelPosEncXL(d_model)
+            self.positional_encoding_decoder = PositionalEncoding(
+                d_model, max_length
+            )
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -85,6 +129,8 @@ class TransformerInterface(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    causal=self.causal,
+                    attention_type=self.attention_type,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -96,6 +142,8 @@ class TransformerInterface(nn.Module):
                     activation=conformer_activation,
                     kernel_size=kernel_size,
                     bias=bias,
+                    causal=self.causal,
+                    attention_type=self.attention_type,
                 )
                 assert (
                     normalize_before
@@ -109,7 +157,6 @@ class TransformerInterface(nn.Module):
         if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
-
             self.decoder = TransformerDecoder(
                 num_layers=num_decoder_layers,
                 nhead=nhead,
@@ -118,6 +165,8 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 normalize_before=normalize_before,
+                causal=True,
+                attention_type="regularMHA",  # always use regular attention in decoder
             )
 
     def forward(self, **kwags):
@@ -127,14 +176,16 @@ class TransformerInterface(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    """This class implements the positional encoding function.
+    """This class implements the absolute sinusoidal positional encoding function.
 
     PE(pos, 2i)   = sin(pos/(10000^(2i/dmodel)))
     PE(pos, 2i+1) = cos(pos/(10000^(2i/dmodel)))
 
     Arguments
     ---------
-    max_len : int
+    input_size: int
+        Embedding dimension.
+    max_len : int, optional
         Max length of the input sequences (default 2500).
 
     Example
@@ -176,20 +227,27 @@ class TransformerEncoderLayer(nn.Module):
 
     Arguments
     ----------
-    d_ffn : int
-        Hidden size of self-attention Feed Forward layer.
-    nhead : int
-        Number of attention heads.
-    d_model : int
-        The expected size of the input embedding.
-    reshape : bool
-        Whether to automatically shape 4-d input to 3-d.
-    kdim : int
-        Dimension of the key (Optional).
-    vdim : int
-        Dimension of the value (Optional).
-    dropout : float
-        Dropout for the encoder (Optional).
+    d_ffn: int, optional
+        The dimension of the feedforward network model hidden layer.
+    nhead: int
+        The number of heads in the multi-head attention models (default=8).
+    d_model: int
+        The number of expected features in the encoder/decoder inputs (default=512).
+    kdim: int, optional
+        Dimension of the key.
+    vdim: int, optional
+        Dimension of the value.
+    dropout: int, optional
+        The dropout value.
+    activation: torch.nn.Module, optional
+        The activation function for Feed-Forward Netowrk layer,
+        e.g., relu or gelu or swish.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
+    attention_type: str, optional
+        Type of attention layer used in all Transformer or Conformer layers.
+        e.g. regularMHA or RelPosMHA.
 
     Example
     -------
@@ -205,18 +263,31 @@ class TransformerEncoderLayer(nn.Module):
         self,
         d_ffn,
         nhead,
-        d_model=None,
+        d_model,
         kdim=None,
         vdim=None,
-        dropout=0.1,
+        dropout=0.0,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
+        causal=False,
     ):
         super().__init__()
 
-        self.self_att = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
-        )
+        if attention_type == "regularMHA":
+            self.self_att = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                dropout=dropout,
+                kdim=kdim,
+                vdim=vdim,
+            )
+
+        elif attention_type == "RelPosMHAXL":
+            self.self_att = sb.nnet.attention.RelPosMHAXL(
+                d_model, nhead, dropout, mask_pos_future=causal
+            )
+
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
@@ -236,16 +307,17 @@ class TransformerEncoderLayer(nn.Module):
         src,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
         ----------
-        src : tensor
-            The sequence to the encoder layer (required).
-        src_mask : tensor
-            The mask for the src sequence (optional).
-        src_key_padding_mask : tensor
-            The mask for the src keys per batch (optional).
+        src : torch.Tensor
+            The sequence to the encoder layer.
+        src_mask : torch.Tensor
+            The mask for the src query for each example in the batch.
+        src_key_padding_mask : torch.Tensor, optional
+            The mask for the src keys for each example in the batch.
         """
         if self.normalize_before:
             src1 = self.norm1(src)
@@ -258,6 +330,7 @@ class TransformerEncoderLayer(nn.Module):
             src1,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs,
         )
 
         # add & norm
@@ -290,8 +363,6 @@ class TransformerEncoder(nn.Module):
         Number of attention heads.
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
-    input_shape : tuple
-        Expected shape of an example input.
     d_model : int
         The dimension of the input embedding.
     kdim : int
@@ -323,20 +394,13 @@ class TransformerEncoder(nn.Module):
         d_model=None,
         kdim=None,
         vdim=None,
-        dropout=0.1,
+        dropout=0.0,
         activation=nn.ReLU,
         normalize_before=False,
+        causal=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
-
-        if input_shape is None and d_model is None:
-            raise ValueError("Expected one of input_shape or d_model")
-
-        if input_shape is not None and d_model is None:
-            if len(input_shape) == 3:
-                msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handle arbitrary shape of input."
-                raise ValueError(msg)
-            d_model = input_shape[-1]
 
         self.layers = torch.nn.ModuleList(
             [
@@ -349,6 +413,8 @@ class TransformerEncoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    causal=causal,
+                    attention_type=attention_type,
                 )
                 for i in range(num_layers)
             ]
@@ -360,6 +426,7 @@ class TransformerEncoder(nn.Module):
         src,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
@@ -378,6 +445,7 @@ class TransformerEncoder(nn.Module):
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
+                pos_embs=pos_embs,
             )
             attention_lst.append(attention)
         output = self.norm(output)
@@ -420,17 +488,39 @@ class TransformerDecoderLayer(nn.Module):
         d_model,
         kdim=None,
         vdim=None,
-        dropout=0.1,
+        dropout=0.0,
         activation=nn.ReLU,
         normalize_before=False,
+        attention_type="regularMHA",
+        causal=None,
     ):
         super().__init__()
-        self.self_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
-        )
-        self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
-        )
+        self.nhead = nhead
+
+        if attention_type == "regularMHA":
+            self.self_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
+            )
+            self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
+            )
+
+        elif attention_type == "RelPosMHAXL":
+            self.self_attn = sb.nnet.attention.RelPosMHAXL(
+                d_model, nhead, dropout, mask_pos_future=causal
+            )
+            self.mutihead_attn = sb.nnet.attention.RelPosMHAXL(
+                d_model, nhead, dropout, mask_pos_future=causal
+            )
+
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
@@ -456,6 +546,8 @@ class TransformerDecoderLayer(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
+        pos_embs_tgt=None,
+        pos_embs_src=None,
     ):
         """
         Arguments
@@ -485,6 +577,7 @@ class TransformerDecoderLayer(nn.Module):
             value=tgt1,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
+            pos_embs=pos_embs_tgt,
         )
 
         # add & norm
@@ -498,12 +591,14 @@ class TransformerDecoderLayer(nn.Module):
             tgt1 = tgt
 
         # multi-head attention over the target sequence and encoder states
+
         tgt2, multihead_attention = self.mutihead_attn(
             query=tgt1,
             key=memory,
             value=memory,
             attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask,
+            pos_embs=pos_embs_src,
         )
 
         # add & norm
@@ -531,17 +626,17 @@ class TransformerDecoder(nn.Module):
 
     Arguments
     ----------
-    d_ffn : int
-        Hidden size of self-attention Feed Forward layer.
     nhead : int
         Number of attention heads.
+    d_ffn : int
+        Hidden size of self-attention Feed Forward layer.
     d_model : int
         Dimension of the model.
-    kdim : int
+    kdim : int, optional
         Dimension for key (Optional).
-    vdim : int
+    vdim : int, optional
         Dimension for value (Optional).
-    dropout : float
+    dropout : float, optional
         Dropout for the decoder (Optional).
 
     Example
@@ -562,9 +657,11 @@ class TransformerDecoder(nn.Module):
         d_model,
         kdim=None,
         vdim=None,
-        dropout=0.1,
+        dropout=0.0,
         activation=nn.ReLU,
         normalize_before=False,
+        causal=False,
+        attention_type="regularMHA",
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -578,6 +675,8 @@ class TransformerDecoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    causal=causal,
+                    attention_type=attention_type,
                 )
                 for _ in range(num_layers)
             ]
@@ -592,6 +691,8 @@ class TransformerDecoder(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
+        pos_embs_tgt=None,
+        pos_embs_src=None,
     ):
         """
         Arguments
@@ -619,6 +720,8 @@ class TransformerDecoder(nn.Module):
                 memory_mask=memory_mask,
                 tgt_key_padding_mask=tgt_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,
+                pos_embs_tgt=pos_embs_tgt,
+                pos_embs_src=pos_embs_src,
             )
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
@@ -693,11 +796,11 @@ def get_key_padding_mask(padded_input, pad_idx):
 
 
 def get_lookahead_mask(padded_input):
-    """Creates a binary mask for each sequence.
+    """Creates a binary mask for each sequence which maskes future frames.
 
     Arguments
     ---------
-    padded_input : tensor
+    padded_input: torch.Tensor
         Padded input tensor.
 
     Example
