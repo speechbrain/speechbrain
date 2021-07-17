@@ -242,11 +242,14 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
 
     def _save_text_alignment(self, tag, metrics_sample):
         with StringIO() as text_alignments_io:
-            print_alignments(metrics_sample, file=text_alignments_io,
-                             print_header=False)
+            print_alignments(
+                metrics_sample,
+                file=text_alignments_io,
+                print_header=False,
+                sample_separator='\n  ---  \n')
             text_alignments_io.seek(0)
             alignments_sample = text_alignments_io.read()
-            alignments_sample_md = f"```\n{alignments_sample}\n---  \n```  \n  \n"
+            alignments_sample_md = f"```\n{alignments_sample}\n```"
         self.tb_writer.add_text(
             tag, alignments_sample_md, self.tb_global_step)
 
