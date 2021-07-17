@@ -138,6 +138,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     return stat_obj
 
+
 def prepare_subset_json(full_meta_data, rec_id, out_meta_file):
     """Prepares metadata for a given recording ID.
 
@@ -158,14 +159,13 @@ def prepare_subset_json(full_meta_data, rec_id, out_meta_file):
             subset[key] = full_meta_data[key]
 
     with open(out_meta_file, mode="w") as json_f:
-        json.dump(subset , json_f, indent=2)
-
+        json.dump(subset, json_f, indent=2)
 
 
 def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     """This function diarizes all the recordings in a given dataset. It performs
-    computation of embedding and clusters them using spectral clustering.
-    The output speaker boundary file stored in the RTTM format.
+    computation of embedding and clusters them using spectral clustering (or other backends).
+    The output speaker boundary file is stored in the RTTM format.
     """
 
     # Prepare `spkr_info` only once when Oracle num of speakers is selected.
@@ -195,16 +195,22 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     logger.info(msg)
 
     if len(all_rec_ids) <= 0:
-        msg = (
-            "No recording IDs found! Please check if meta_data json file is properly generated."
-        )
+        msg = "No recording IDs found! Please check if meta_data json file is properly generated."
         logger.error(msg)
         sys.exit()
 
     # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):
         # This tag will be displayed in the log
-        tag = "[" + str(split_type) + ": " + str(i) + "/" + str(len(all_rec_ids)) + "]"
+        tag = (
+            "["
+            + str(split_type)
+            + ": "
+            + str(i)
+            + "/"
+            + str(len(all_rec_ids))
+            + "]"
+        )
         i = i + 1
 
         # Log message.
@@ -216,14 +222,14 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             os.makedirs(os.path.join(params["embedding_dir"], split))
 
         # File to store embeddings.
-        emb_file_name = rec_id + '.' + params["mic_type"] + ".emb_stat.pkl"
+        emb_file_name = rec_id + "." + params["mic_type"] + ".emb_stat.pkl"
         diary_stat_emb_file = os.path.join(
             params["embedding_dir"], split, emb_file_name
         )
 
         # Prepare a metadata (json) for one recording. This is basically a subset of full_meta.
         # Lets keep this meta-info in embedding directory itself.
-        json_file_name = rec_id + '.' + params["mic_type"] + ".json"
+        json_file_name = rec_id + "." + params["mic_type"] + ".json"
         meta_per_rec_file = os.path.join(
             params["embedding_dir"], split, json_file_name
         )
@@ -252,8 +258,16 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         # Adding tag for directory path.
         type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
-        tag = type_of_num_spkr + "_" + str(params["affinity"]) + "_" + params["backend"]
-        out_rttm_dir = os.path.join(params["sys_rttm_dir"], params["mic_type"], split, tag)
+        tag = (
+            type_of_num_spkr
+            + "_"
+            + str(params["affinity"])
+            + "_"
+            + params["backend"]
+        )
+        out_rttm_dir = os.path.join(
+            params["sys_rttm_dir"], params["mic_type"], split, tag
+        )
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
         out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
@@ -488,7 +502,6 @@ def dataio_prep(hparams, json_file):
     return dataloader
 
 
-
 def dataio_prep_multi_mic(hparams, json_file):
     """Creates the datasets and their data processing pipelines.
     This is used for multi-mic processing.
@@ -577,7 +590,9 @@ if __name__ == "__main__":  # noqa: C901
 
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
-    dev_meta_file = os.path.join( params["meta_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json")
+    dev_meta_file = os.path.join(
+        params["meta_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json"
+    )
     with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)
 
@@ -620,13 +635,21 @@ if __name__ == "__main__":  # noqa: C901
 
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
-    eval_meta_file = os.path.join( params["meta_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json" )
+    eval_meta_file = os.path.join(
+        params["meta_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json"
+    )
     with open(eval_meta_file, "r") as f:
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.
     type_of_num_spkr = "oracle" if params["oracle_n_spkrs"] else "est"
-    tag = type_of_num_spkr + "_" + str(params["affinity"]) + "." + params["mic_type"]
+    tag = (
+        type_of_num_spkr
+        + "_"
+        + str(params["affinity"])
+        + "."
+        + params["mic_type"]
+    )
 
     # Perform final diarization on 'dev' and 'eval' with best hyperparams.
     final_DERs = {}
@@ -664,9 +687,7 @@ if __name__ == "__main__":  # noqa: C901
 
         # Writing DER values to a file. Append tag.
         der_file_name = split_type + "_DER_" + tag
-        out_der_file = os.path.join(
-            params["der_dir"], der_file_name
-        )
+        out_der_file = os.path.join(params["der_dir"], der_file_name)
         msg = "Writing DER file to: " + out_der_file
         logger.info(msg)
         diar.write_ders_file(ref_rttm, DER_vals, out_der_file)
