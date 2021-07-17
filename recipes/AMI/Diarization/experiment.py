@@ -27,7 +27,6 @@ import json
 import glob
 import shutil
 import numpy as np
-import torchaudio
 import speechbrain as sb
 from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
