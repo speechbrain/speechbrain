@@ -1,12 +1,7 @@
-import pickle
 import numpy as np
 import pandas as pd
-from hyperpyyaml import load_hyperpyyaml
 import muspy as mp
 import os
-import speechbrain as sb
-import sys
-import logging
 from more_itertools import locate
 from tqdm import tqdm
 
@@ -84,34 +79,3 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
                 parse_song(os.path.join(hparams["data_path"], song))
             )
     return song_set
-
-
-if __name__ == "__main__":
-
-    # Reading command line arguments
-    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
-
-    logging.info("generating datasets...")
-
-    if not os.path.isdir(hparams["data_path"]):
-        os.makedirs(hparams["data_path"])
-
-    # If MAESTRO_params field is given in hparams, we know that we should on the MAESTRO dataset
-    if "MAESTRO_params" in hparams:
-        split_songs = [
-            ("train", hparams["MAESTRO_params"]["num_train_files"]),
-            ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
-            ("test", hparams["MAESTRO_params"]["num_test_files"]),
-        ]
-        datasets = {}
-        for split, songs in split_songs:
-            datasets[split] = midi_to_pianoroll(split, songs, hparams)
-    else:
-        datasets = pickle.load(open(hparams["data"], "rb"))
-
-    for dataset in datasets:
-        piano_roll_to_csv(datasets[dataset], dataset, hparams)
