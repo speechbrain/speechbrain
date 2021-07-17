@@ -551,6 +551,8 @@ if __name__ == "__main__":  # noqa: C901
         kwargs={
             "data_folder": params["data_folder"],
             "save_folder": params["save_folder"],
+            "ref_rttm_dir": params["ref_rttm_dir"],
+            "meta_data_dir": params["meta_data_dir"],
             "manual_annot_folder": params["manual_annot_folder"],
             "split_type": params["split_type"],
             "skip_TNO": params["skip_TNO"],
@@ -560,6 +562,9 @@ if __name__ == "__main__":  # noqa: C901
             "overlap": params["overlap"],
         },
     )
+
+    print ("Done data_prep")
+    sys.exit()
 
     # Create experiment directory.
     sb.core.create_experiment_directory(
@@ -571,8 +576,6 @@ if __name__ == "__main__":  # noqa: C901
     # Few more experiment directories inside results/ (to maintain cleaner structure).
     exp_dirs = [
         params["embedding_dir"],
-        params["meta_dir"],
-        params["ref_rttm_dir"],
         params["sys_rttm_dir"],
         params["der_dir"],
     ]
@@ -590,7 +593,7 @@ if __name__ == "__main__":  # noqa: C901
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
     dev_meta_file = os.path.join(
-        params["meta_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json"
+        params["meta_data_dir"], "ami_dev." + params["mic_type"] + ".subsegs.json"
     )
     with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)
@@ -635,7 +638,7 @@ if __name__ == "__main__":  # noqa: C901
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
     eval_meta_file = os.path.join(
-        params["meta_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json"
+        params["meta_data_dir"], "ami_eval." + params["mic_type"] + ".subsegs.json"
     )
     with open(eval_meta_file, "r") as f:
         full_meta_eval = json.load(f)
