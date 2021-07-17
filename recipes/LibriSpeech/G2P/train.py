@@ -193,7 +193,8 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
     @property
     def tb_global_step(self):
         global_step = self.hparams.tensorboard_train_logger.global_step
-        return global_step["valid"]["loss"]
+        prefix = self.train_step["name"]
+        return global_step["valid"][f"{prefix}_loss"]
 
     def save_samples(self):
         self._save_attention_alignment()
@@ -218,9 +219,10 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             "worst": worst_sample,
             "random": random_sample
         }
+        prefix = self.train_step["name"]
         for key, sample in text_alignment_samples.items():
             self._save_text_alignment(
-                tag=f"valid/{key}",
+                tag=f"valid/{prefix}_{key}",
                 metrics_sample=sample)
 
     def _save_attention_alignment(self):
@@ -233,8 +235,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 .unsqueeze(-1))
         alignments_output = (
             attention.T.flip(dims=(1,)) / alignments_max).unsqueeze(0)
+        prefix = self.train_step["name"]
         self.tb_writer.add_image(
-            "valid/attention_alignments",
+            f"valid/{prefix}_attention_alignments",
             alignments_output, self.tb_global_step)
 
     def _save_text_alignment(self, tag, metrics_sample):
