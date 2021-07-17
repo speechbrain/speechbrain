@@ -236,13 +236,8 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         # Write subset (meta for one recording) json metadata.
         prepare_subset_json(full_meta, rec_id, meta_per_rec_file)
 
-        if params["mic_type"] == "Array1":
-            # For multi-mic audio stream
-            diary_set_loader = dataio_prep_multi_mic(params, meta_per_rec_file)
-        else:
-            # For rest of audio streams (Single channel).
-            # Setup a dataloader for above one recording.
-            diary_set_loader = dataio_prep(params, meta_per_rec_file)
+        # Prepare data loader
+        diary_set_loader = dataio_prep(params, meta_per_rec_file)
 
         # Putting modules on the device.
         params["compute_features"].to(params["device"])
@@ -482,44 +477,22 @@ def dataio_prep(hparams, json_file):
     )
 
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        sig = read_audio(wav)
-        return sig
-
-    sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
-
-    # 3. Set output:
-    sb.dataio.dataset.set_output_keys([dataset], ["id", "sig"])
-
-    # 4. Create dataloader:
-    dataloader = sb.dataio.dataloader.make_dataloader(
-        dataset, **params["dataloader_opts"]
-    )
-
-    return dataloader
-
-
-def dataio_prep_multi_mic(hparams, json_file):
-    """Creates the datasets and their data processing pipelines.
-    This is used for multi-mic processing.
-    """
-
-    # 1. Datasets
-    data_folder = hparams["data_folder"]
-    dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=json_file, replacements={"data_root": data_folder},
-    )
-
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        mics_signals = read_audio_multichannel(wav).unsqueeze(0)
-        sig = params["multimic_beamformer"](mics_signals)
-        sig = sig.squeeze()
-        return sig
+    if params["mic_type"] == "Array1":
+        # Multi-mic (Microphone Array)
+        @sb.utils.data_pipeline.takes("wav")
+        @sb.utils.data_pipeline.provides("sig")
+        def audio_pipeline(wav):
+            mics_signals = read_audio_multichannel(wav).unsqueeze(0)
+            sig = params["multimic_beamformer"](mics_signals)
+            sig = sig.squeeze()
+            return sig
+    else:
+        # Single microphone
+        @sb.utils.data_pipeline.takes("wav")
+        @sb.utils.data_pipeline.provides("sig")
+        def audio_pipeline(wav):
+            sig = read_audio(wav)
+            return sig
 
     sb.dataio.dataset.add_dynamic_item([dataset], audio_pipeline)
 
