@@ -1,0 +1,6 @@
+dcase-util>=0.2.17
+googledrivedownloader>=0.4
+pandas>=1.2.4
+requests>=2.26.0
+sed-eval>=0.2.1
+youtube-dl>=2021.3.25

@@ -1,6 +1,6 @@
 # #################################
 # Basic training parameters for Event Detection DCASE 2019.
-# We employ baseline CRNN model here for baseline on Speechbrain
+# We employ CRDNN model here on Speechbrain
 #
 # Author:
 #  * Vishal Ghorpade
@@ -25,11 +25,11 @@ Unlabel: 0
 GPUAvailable: True
 
 #** Change the root here**
-RootFolder: !ref /content/Event_Detection_DCASE_copie
+RootFolder: !ref /content/Event_Detection_DCASE
 #/Users/julienbouviertremblay/sb_proj/Event_Detection_DCASE_copie
 #/content/Event_Detection_DCASE_8_avril
 
-###########################################################################
+##############################################################################
 
 #Folder Paths:
 DataFolder: !ref <RootFolder>/dataset
@@ -68,7 +68,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <Log>
 
 # File where final evaluation metrics will be saved
-evaluation_metric: !ref <output_folder>/eval_metric_eval.txt
+evaluation_metric: !ref <output_folder>/eval_metric_eval_2.txt
 
 error_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.classification_error
@@ -76,7 +76,6 @@ error_stats: !name:speechbrain.utils.metric_stats.MetricStats
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-meters: !new:utils_dcase2019.AverageMeterSet
 loss: !new:torch.nn.BCELoss
 consistency_loss: !new:torch.nn.MSELoss
 # loss: !name:speechbrain.nnet.losses.bce_loss
@@ -101,7 +100,7 @@ train_consistency: 0
 
 #Augmentation
 augmentall: False
-augment: True
+augment: False
 rev: True
 noise: False
 rev_noise: False
@@ -112,6 +111,7 @@ add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
     rir_scale_factor: 1.0
+
 add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_max_noise_len: 3.0 #seconds
     reverb_prob: 0.0
@@ -183,9 +183,11 @@ FBArgs: {sample_rate: 44100,
 #DCT args
 DCTArgs: {input_size: 64,
           n_out: 64}
+
 compute_features: !name:utils_dcase2019.compute_fbanks
     # stft_args: !ref <STFTArgs>
     # fb_args: !ref  <FBArgs>
+
 # Training Parameters
 number_of_epochs: 100
 batch_size: 24
@@ -204,7 +206,6 @@ dataloader_test_options:
     batch_size: !ref <batch_size_test>
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
 lr: 0.001
 betas: !!python/tuple [0.9, 0.999]
 opt_class: !name:torch.optim.Adam
@@ -217,40 +218,40 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     std_norm: False
 #CRNN Model params
 AvgPool: !!python/tuple [2, 4]
-# CRNNArgs: {n_in_channel: 1,
-# nclass: !ref <n_classes>,
-# attention: True,
-# n_RNN_cell: 64,
-# n_layers_RNN: 2,
-# activation: glu,
-# dropout: 0.5,
-# kernel_size: [3, 3, 3],
-# padding: [1, 1, 1],
-# stride:  [1, 1, 1],
-# nb_filters: [64, 64, 64],
-# pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]}
-
-crnn: !new:models.CRNN_baseline.CRNN
-    n_in_channel: 1
-    nclass: !ref <n_classes>
-    attention: True
-    n_RNN_cell: 64
-    n_layers_RNN: 2
-    activation: glu
-    dropout: 0.5
-    kernel_size: [3, 3, 3]
-    padding: [1, 1, 1]
-    stride: [1, 1, 1]
-    nb_filters: [64, 64, 64]
-    pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]
 
 pooling_time_ratio: 8
+
+crdnn: !new:speechbrain.models.dcase_task4_CRDNN_custom.CRDNN_C
+    nclass: !ref <n_classes>
+    input_size: 64 #!!python/tuple [24, 864, 64]
+    activation: !new:torch.nn.modules.activation.LeakyReLU
+    dropout: 0.5
+    cnn_blocks: 2
+    cnn_channels: !!python/tuple [64, 64]
+    cnn_kernelsize: !!python/tuple [3, 3]
+    time_pooling: True
+    time_pooling_size: 2
+    # freq_pooling_size: 4
+    using_2d_pooling: True
+    inter_layer_pooling_size: [2, 2]
+    stride: [1, 1, 1]
+    rnn_layers: 2
+    rnn_neurons: 64
+    # rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: 2
+    dnn_neurons: 128
+
 # depooling: "{{ pooling_time_ratio*hop_length/sample_rate }}"
 # depooling: !ref <pooling_time_ratio> * !ref <hop_leanth> / !ref <sample_rate>
 modules:
-    crnn: !ref <crnn>
-    mean_var_norm: !ref <mean_var_norm>
+    # compute_features: !ref <compute_features>
+    crdnn: !ref <crdnn>
+    # crnn: !ref <crnn>
+    # crnn_ema: !ref <crnn>
+    # mean_var_norm: !ref <mean_var_norm>
+    # env_corrupt: !ref <env_corrupt>
     # augmentation: !ref <augmentation>
+
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
 # the lr from the initial value to the final one.
@@ -265,5 +266,7 @@ modules:
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        crnn: !ref <crnn>
+        crdnn: !ref <crdnn>
+        # crnn: !ref <crnn>
+        # crnn_ema: !ref <crnn>
         counter: !ref <epoch_counter>

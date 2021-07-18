@@ -1,8 +1,8 @@
 # Sound Event Detection DCASE2019 Task4
-  
+
 This folder is an attempt to solve the Task4 of the DCASE2019 using SpeechBrain toolkit.
 The system is based on the baseline from 2019, created by Nicolas Turpault, Romain Serizel, Justin Salamon, Ankit Parag Shah [1] but with much better performance.
-The system uses a CRDNN model + a Mean Teacher self-supervised technique proposed by Curious AI Company [2] 
+The system uses a CRDNN model + a Mean Teacher self-supervised technique proposed by Curious AI Company [2]
 
 These are the results achieved with this code with the configuration set in `train.yaml` compare to the baseline from the year 2019. System performance should be somewhat reproducible (although not guarantee with GPU). F-scores reported are macro averaged. Event-based F-score are computed with a 200ms collar for onsets and max(200ms, 0.2* event_length) for offsets. Segment-based F-scores are computed with a time resolution of 1 sec.
 
@@ -46,8 +46,8 @@ These are the results achieved with this code with the configuration set in `tra
 Given that speechbrain is already installed and you run this on a Python Environment (Python 3.8+),
 these are the missing dependencies
 
-youtube-dl >= 2019.4.30, dcase_util >= 0.2.5, sed-eval >= 0.2.1, pandas > =1.2.4
-*pandas and youtube-dl for data download only*
+youtube-dl >= 2019.4.30, dcase_util >= 0.2.5, sed-eval >= 0.2.1, pandas > =1.2.4, requests>=2.26.0, googledrivedownloader>=0.4
+*pandas, requests, youtube-dl and googledrivedownloader for data download only*
 
 `requirements.txt` contains the correct dependencies. To install the dependencies execute the following on the command-line:
 ```
@@ -58,10 +58,10 @@ pip install -r requirements.txt
 
 The Domestic Environment Sound Event Detection dataset is composed of multiple subsets. Here is the step to download:
 
-1. **(Public evaluation set: Youtube subset)** download at: [evaluation dataset](https://zenodo.org/record/3588172).(Real recordings) 
+1. **(Public evaluation set: Youtube subset)** download at: [evaluation dataset](https://zenodo.org/record/3588172).(Real recordings)
 [ Need to run the download script more than once if the all the files are not downloaded to video not existing on Youtube]
 2. (Synthetic clips) download at : [synthetic_dataset](https://doi.org/10.5281/zenodo.2583796).
-3. (Weak + Unlabel extraction) run 
+3. (Weak + Unlabel extraction) run
 ```
 python train.py train.yaml
 ```
@@ -85,17 +85,17 @@ dataset root
 │   │     eval_2018.tsv                (eval set list with strong labels - DCASE 2018)
 │   │
 │   └───eval			              (annotations for the public eval set (Youtube in papers))
-│         public.tsv  
+│         public.tsv
 └───audio					          (directories where the audio files will be downloaded)
     └───train			              (audio files for the training sets)
     │   └───weak                      (weakly labeled training set)
     │   └───unlabel_in_domain         (unlabeled in domain training set)
     │   └───synthetic                 (synthetic data training set)
     │
-    └───validation			                 
-    └───eval		
-        └───public   
-```       
+    └───validation
+    └───eval
+        └───public
+```
 
 ## Training + Evaluation
 There are four files here:

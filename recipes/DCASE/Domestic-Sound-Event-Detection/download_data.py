@@ -14,6 +14,7 @@ from dcase_util.containers import AudioContainer
 from tqdm import tqdm
 import youtube_dl
 from youtube_dl.utils import ExtractorError, DownloadError
+from google_drive_downloader import GoogleDriveDownloader as gdd
 import pandas as pd
 import glob
 from contextlib import closing
@@ -235,7 +236,11 @@ def run_download(hparams):
     # LOG.info("You can change N_JOBS and CHUNK_SIZE to increase the download with more processes.")
     # Modify it with the number of process you want, but be careful, youtube can block you if you put too many.
     N_JOBS = 3
-
+    gdd.download_file_from_google_drive(
+        file_id="1Q6xTMh28ZJhjDOo_t1mfpzp7TBA_mqJQ",
+        dest_path="./dataset/metadata.zip",
+        unzip=True,
+    )
     # Only useful when multiprocessing,
     # if chunk_size is high, download is faster. Be careful, progress bar only update after each chunk.
     CHUNK_SIZE = 10

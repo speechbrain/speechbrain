@@ -224,7 +224,7 @@ pooling_time_ratio: 8
 #     nb_filters: [64, 64, 64]
 #     pooling: [!ref <AvgPool>, !ref <AvgPool>, !ref <AvgPool>]
 
-crdnn: !new:models.CRDNN_custom.CRDNN_C
+crdnn: !new:speechbrain.models.dcase_task4_CRDNN_custom.CRDNN_C
     nclass: !ref <n_classes>
     input_size: !ref <n_mels>
     activation: !new:torch.nn.modules.activation.LeakyReLU
@@ -241,7 +241,7 @@ crdnn: !new:models.CRDNN_custom.CRDNN_C
     rnn_neurons: 64
     dnn_blocks: 2
     dnn_neurons: 128
-crdnn_ema: !new:models.CRDNN_custom.CRDNN_C
+crdnn_ema: !new:speechbrain.models.dcase_task4_CRDNN_custom.CRDNN_C
     nclass: !ref <n_classes>
     input_size: !ref <n_mels>
     activation: !new:torch.nn.modules.activation.LeakyReLU
