@@ -272,7 +272,18 @@ def sort_data(data, hparams):
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+
     return data
+
+
+def filter_origins(data, hparams):
+    origins = hparams.get("origins")
+    if origins and origins != "*":
+        origins = set(origins.split(","))
+        data = data.filtered_sorted(
+            key_test={"origin": lambda origin: origin in origins})
+    return data
+
 
 
 def dataio_prep(hparams, train_step=None):
@@ -301,6 +312,8 @@ def dataio_prep(hparams, train_step=None):
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+
+
     train_data = sort_data(train_data, hparams)
 
     valid_data = data_load(
@@ -312,7 +325,6 @@ def dataio_prep(hparams, train_step=None):
         train_step["test_data"], replacements={"data_root": data_folder},
     )
     test_data = sort_data(test_data, hparams)
-
 
     datasets = [train_data, valid_data, test_data]
 
@@ -338,16 +350,20 @@ def dataio_prep(hparams, train_step=None):
     )
 
     # 4. Set output:
+    output_keys = [
+        "id",
+        "grapheme_encoded",
+        "phn_encoded",
+        "phn_encoded_eos",
+        "phn_encoded_bos",
+    ]
     sb.dataio.dataset.set_output_keys(
         datasets,
-        [
-            "id",
-            "grapheme_encoded",
-            "phn_encoded",
-            "phn_encoded_eos",
-            "phn_encoded_bos",
-        ],
+        output_keys,
     )
+    if "origins" in hparams:
+        datasets = [filter_origins(dataset, hparams) for dataset in datasets]
+        train_data, valid_data, test_data = datasets
 
     return train_data, valid_data, test_data, phoneme_encoder
 
@@ -391,7 +407,7 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    check_language_model(hparams)
+    check_language_model(hparams, run_opts)
     check_tensorboard(hparams)
 
     from librispeech_prepare import prepare_librispeech  # noqa

@@ -33,6 +33,7 @@ sentence_test_data: !ref <data_folder>/sentence_test.json
 
 skip_prep: False
 sorting: random #ascending
+origins: "*"
 graphemes_space_separated: False
 phonemes_space_separated: False
 
@@ -94,6 +95,8 @@ eval_batch_count: 1
 eval_reporting: raw
 eval_mode: sentence
 eval_prediction_sample_size: 10
+eval_output_wer_file: false
+eval_wer_file: !ref <save_folder>/wer_eval.txt
 
 
 select_n_sentences: None
@@ -368,6 +371,8 @@ decode_pipeline:
         - !apply:speechbrain.lobes.models.g2p.attnrnn.phoneme_decoder_pipeline
           phoneme_encoder: !ref <phoneme_encoder>
           phonemes: !ref <phonemes>
+          bos_index: !ref <bos_index>
+          eos_index: !ref <eos_index>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
   loadables:

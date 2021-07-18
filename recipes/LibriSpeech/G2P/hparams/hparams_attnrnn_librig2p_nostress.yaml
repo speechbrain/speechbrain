@@ -33,6 +33,7 @@ sentence_test_data: !ref <data_folder>/sentence_test.json
 
 skip_prep: False
 sorting: random #ascending
+origins: "*"
 graphemes_space_separated: False
 phonemes_space_separated: False
 
