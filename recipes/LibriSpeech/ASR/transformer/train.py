@@ -432,7 +432,6 @@ if __name__ == "__main__":
     # adding objects to trainer:
     asr_brain.tokenizer = hparams["tokenizer"]
 
-    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -441,7 +440,6 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
-    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
