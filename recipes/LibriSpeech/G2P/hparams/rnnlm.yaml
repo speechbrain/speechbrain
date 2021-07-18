@@ -26,6 +26,9 @@ valid_data: !ref <data_folder>/sentence_valid.json
 test_data: !ref <data_folder>/sentence_test.json
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 sorting: random
+origins: "*"
+graphemes_space_separated: False
+phonemes_space_separated: False
 
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -59,10 +62,10 @@ rnn_size: 512 # dimension of hidden layers
 layers: 2 # number of hidden layers
 
 # Outputs
-output_neurons: 1000 # index(blank/eos/bos) = 0
+output_neurons: 42 # index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 0
-eos_index: 0
+eos_index: 1
 
 
 graphemes:
@@ -137,10 +140,6 @@ phonemes:
   - ZH
 
 
-graphemes_space_separated: false
-phonemes_space_separated: false
-
-
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined..
@@ -176,6 +175,9 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
 # if it gets interrupted at any point.
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
 
 # Objects in "modules" dict will have their parameters moved to the correct
 # device, as well as having train()/eval() called on them by the Brain class.
