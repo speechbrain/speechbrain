@@ -3,37 +3,28 @@
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch coupled with a neural
 language model.
-
 To run this recipe, do the following:
 > python train.py hparams/train_BPE1000.yaml
-
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
 language model is used  on the top of decoder probabilities.
-
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
-
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, train-clean 100 rather than the full one), and many
 other possible variations.
-
 This recipe assumes that the tokenizer and the LM are already trained.
 To avoid token mismatches, the tokenizer used for the acoustic model is
 the same use for the LM.  The recipe downloads the pre-trained tokenizer
 and LM.
-
 If you would like to train a full system from scratch do the following:
 1- Train a tokenizer (see ../../Tokenizer)
 2- Train a language model (see ../../LM)
 3- Train the acoustic model (with this code).
-
-
-
 Authors
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
@@ -48,6 +39,7 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -79,40 +71,42 @@ class ASR(sb.Brain):
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
+        h, _ = self.modules.dec(e_in, x, wav_lens)
 
-        p_seq, p_ctc, p_tokens = None, None, None
-        if self.hparams.ctc_weight != 1:
-            # Output layer for seq2seq log-probabilities
-            h, _ = self.modules.dec(e_in, x, wav_lens)
-            logits = self.modules.seq_lin(h)
-            p_seq = self.hparams.log_softmax(logits)
+        # Output layer for seq2seq log-probabilities
+        logits = self.modules.seq_lin(h)
+        p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        current_epoch = self.hparams.epoch_counter.current
-        if (
-            stage == sb.Stage.TRAIN
-            and current_epoch <= self.hparams.number_of_ctc_epochs
-        ) or self.hparams.ctc_weight == 1:
-            # Output layer for ctc log-probabilities
-            logits = self.modules.ctc_lin(x)
-            p_ctc = self.hparams.log_softmax(logits)
+        p_ctc, p_tokens = None, None
+        if stage == sb.Stage.TRAIN:
+            current_epoch = self.hparams.epoch_counter.current
+            if current_epoch <= self.hparams.number_of_ctc_epochs:
+                # Output layer for ctc log-probabilities
+                logits = self.modules.ctc_lin(x)
+                p_ctc = self.hparams.log_softmax(logits)
+        else:
+            # Access searcher for inference: valid or test search
+            search = getattr(self.hparams, f"{stage.name}_search".lower())
+            topk_tokens, topk_lens, _, _ = search(x, wav_lens)
 
-        if stage == sb.Stage.VALID:
-            p_tokens, scores = self.hparams.valid_search(x, wav_lens)
-        elif stage == sb.Stage.TEST:
-            p_tokens, scores = self.hparams.test_search(x, wav_lens)
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
 
-        return p_seq, p_ctc, wav_lens, p_tokens
+            # Convert best hypothesis to list
+            p_tokens = undo_padding(best_hyps, best_lens)
+
+        return p_ctc, p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        p_seq, p_ctc, wav_lens, predicted_tokens = predictions
+        current_epoch = self.hparams.epoch_counter.current
+        p_ctc, p_seq, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
-        loss, loss_seq, loss_ctc = 0.0, 0.0, 0.0
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
@@ -122,19 +116,22 @@ class ASR(sb.Brain):
             tokens = torch.cat([tokens, tokens], dim=0)
             tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
 
-        if self.hparams.ctc_weight != 1:
-            loss_seq = self.hparams.seq_cost(
-                p_seq, tokens_eos, length=tokens_eos_lens
-            )
-            loss = loss_seq
+        loss_seq = self.hparams.seq_cost(
+            p_seq, tokens_eos, length=tokens_eos_lens
+        )
 
         # Add ctc loss if necessary
-        if p_ctc is not None:
+        if (
+            stage == sb.Stage.TRAIN
+            and current_epoch <= self.hparams.number_of_ctc_epochs
+        ):
             loss_ctc = self.hparams.ctc_cost(
                 p_ctc, tokens, wav_lens, tokens_lens
             )
             loss = self.hparams.ctc_weight * loss_ctc
             loss += (1 - self.hparams.ctc_weight) * loss_seq
+        else:
+            loss = loss_seq
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
@@ -145,6 +142,7 @@ class ASR(sb.Brain):
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
+
         return loss
 
     def fit_batch(self, batch):
