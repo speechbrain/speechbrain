@@ -89,11 +89,6 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     attention_channels: 128
     lin_neurons: !ref <emb_dim>
 
-# Embedding Normalization
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
-
 # Classifier baseed on cosine distance
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: !ref <emb_dim>
@@ -113,7 +108,6 @@ modules:
     augmentation: !ref <augmentation>
     embedding_model: !ref <embedding_model>
     mean_var_norm_input: !ref <mean_var_norm_input>
-    mean_var_norm_emb: !ref <mean_var_norm_emb>
     classifier: !ref <classifier>
 
 # Additive Angular Margin
@@ -123,10 +117,9 @@ compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
         scale: 30
 
 # Learning rates
-lr: 0.001
-base_lr: 0.00000001
-max_lr: !ref <lr>
-step_size: 65000
+lr: 0.0001
+lr_final: 0.00001
+
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -134,10 +127,12 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
 
-lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
+
+# Linear lr decay
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
@@ -147,7 +142,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         normalizer_input: !ref <mean_var_norm_input>
         embedding_model: !ref <embedding_model>
-        normalizer_emb: !ref <mean_var_norm_emb>
         classifier: !ref <classifier>
         counter: !ref <epoch_counter>
 

@@ -29,22 +29,48 @@ class TransformerASR(TransformerInterface):
 
     Arguments
     ----------
-    d_model : int
-        The number of expected features in the encoder/decoder inputs
+    tgt_vocab: int
+        Size of vocabulary.
+    input_size: int
+        Input feature size.
+    d_model : int, optional
+        Embedding dimension size.
         (default=512).
-    nhead : int
+    nhead : int, optional
         The number of heads in the multi-head attention models (default=8).
-    num_encoder_layers : int
+    num_encoder_layers : int, optional
         The number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers : int
+    num_decoder_layers : int, optional
         The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int
+    dim_ffn : int, optional
         The dimension of the feedforward network model (default=2048).
-    dropout : int
+    dropout : int, optional
         The dropout value (default=0.1).
-    activation : torch class
-        The activation function of encoder/decoder intermediate layer.
+    activation : torch.nn.Module, optional
+        The activation function of FFN layers.
         Recommended: relu or gelu (default=relu).
+    positional_encoding: str, optional
+        Type of positional encoding used. e.g. 'fixed_abs_sine' for fixed absolute positional encodings.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
+    kernel_size: int, optional
+        Kernel size in convolutional layers when Conformer is used.
+    bias: bool, optional
+        Whether to use bias in Conformer convolutional layers.
+    encoder_module: str, optional
+        Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
+    conformer_activation: torch.nn.Module, optional
+        Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
+    attention_type: str, optional
+        Type of attention layer used in all Transformer or Conformer layers.
+        e.g. regularMHA or RelPosMHA.
+    max_length: int, optional
+        Max length for the target and source sequence in input.
+        Used for positional encodings.
+    causal: bool, optional
+        Whether the encoder should be causal or not (the decoder is always causal).
+        If causal the Conformer convolutional layer is causal.
 
     Example
     -------
@@ -71,12 +97,15 @@ class TransformerASR(TransformerInterface):
         d_ffn=2048,
         dropout=0.1,
         activation=nn.ReLU,
-        positional_encoding=True,
+        positional_encoding="fixed_abs_sine",
         normalize_before=False,
         kernel_size: Optional[int] = 31,
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        attention_type: Optional[str] = "regularMHA",
+        max_length: Optional[int] = 2500,
+        causal: Optional[bool] = True,
     ):
         super().__init__(
             d_model=d_model,
@@ -92,6 +121,9 @@ class TransformerASR(TransformerInterface):
             bias=bias,
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
+            attention_type=attention_type,
+            max_length=max_length,
+            causal=causal,
         )
 
         self.custom_src_module = ModuleList(
@@ -116,11 +148,13 @@ class TransformerASR(TransformerInterface):
         """
         Arguments
         ----------
-        src : tensor
-            The sequence to the encoder (required).
-        tgt : tensor
-            The sequence to the decoder (required).
-        pad_idx : int
+        src : torch.Tensor
+            The sequence to the encoder.
+        tgt : torch.Tensor
+            The sequence to the decoder.
+        wav_len: torch.Tensor, optional
+            Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
+        pad_idx : int, optional
             The index for <pad> token (default=0).
         """
 
@@ -137,20 +171,42 @@ class TransformerASR(TransformerInterface):
         ) = self.make_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         src = self.custom_src_module(src)
-        src = src + self.positional_encoding(src)
+        # add pos encoding to queries if are sinusoidal ones else
+        if self.attention_type == "RelPosMHAXL":
+            pos_embs_encoder = self.positional_encoding(src)
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            src = src + self.positional_encoding(src)  # add the encodings here
+            pos_embs_encoder = None
+
         encoder_out, _ = self.encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs_encoder,
         )
 
         tgt = self.custom_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
+
+        if self.attention_type == "RelPosMHAXL":
+            # use standard sinusoidal pos encoding in decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            src = src + self.positional_encoding_decoder(src)
+            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_target = None
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)
+            pos_embs_target = None
+            pos_embs_encoder = None
+
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
+            memory_mask=src_mask,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
+            pos_embs_tgt=pos_embs_target,
+            pos_embs_src=pos_embs_encoder,
         )
 
         return encoder_out, decoder_out
@@ -182,16 +238,33 @@ class TransformerASR(TransformerInterface):
 
         Arguments
         ---------
-        tgt : tensor
-            The sequence to the decoder (required).
-        encoder_out : tensor
-            Hidden output of the encoder (required).
+        tgt : torch.Tensor
+            The sequence to the decoder.
+        encoder_out : torch.Tensor
+            Hidden output of the encoder.
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
+        if self.attention_type == "RelPosMHAXL":
+            # we use fixed positional encodings in the decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            encoder_out = encoder_out + self.positional_encoding_decoder(
+                encoder_out
+            )
+            # pos_embs_target = self.positional_encoding(tgt)
+            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_target = None
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+            pos_embs_target = None
+            pos_embs_encoder = None
+
         prediction, self_attns, multihead_attns = self.decoder(
-            tgt, encoder_out, tgt_mask=tgt_mask
+            tgt,
+            encoder_out,
+            tgt_mask=tgt_mask,
+            pos_embs_tgt=pos_embs_target,
+            pos_embs_src=pos_embs_encoder,
         )
         return prediction, multihead_attns[-1]
 
@@ -199,12 +272,14 @@ class TransformerASR(TransformerInterface):
         self, src, wav_len=None,
     ):
         """
-        forward the encoder with source input
+        Encoder forward pass
 
         Arguments
         ----------
-        src : tensor
-            The sequence to the encoder (required).
+        src : torch.Tensor
+            The sequence to the encoder.
+        wav_len: torch.Tensor, optional
+            Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
         """
         # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
         if src.dim() == 4:
@@ -217,9 +292,17 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
 
         src = self.custom_src_module(src)
-        src = src + self.positional_encoding(src)
+        if self.attention_type == "RelPosMHAXL":
+            pos_embs_source = self.positional_encoding(src)
+
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            src = src + self.positional_encoding(src)
+            pos_embs_source = None
+
         encoder_out, _ = self.encoder(
-            src=src, src_key_padding_mask=src_key_padding_mask
+            src=src,
+            src_key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs_source,
         )
         return encoder_out
 

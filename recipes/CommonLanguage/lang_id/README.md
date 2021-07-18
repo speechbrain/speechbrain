@@ -14,11 +14,29 @@ better performance, at the cost of longer training time and higher compute resou
 # Performance
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 21-06-28 | train.yaml |  14.9 | https://drive.google.com/drive/folders/1btxc_H27AP_f6u4X47FM0LSteUdzhfFR?usp=sharing | 1xV100 16GB |
+| 21-06-28 | train.yaml |  13. 5 | 15.1 | https://drive.google.com/drive/folders/1btxc_H27AP_f6u4X47FM0LSteUdzhfFR?usp=sharing | 1xV100 16GB |
 
 Each epoch takes approximately 14 minutes on an NVIDIA V100.
 
 # Inference
+The pre-trained model + easy inference is available on HuggingFace:
+- https://huggingface.co/speechbrain/lang-id-commonlanguage_ecapa/
+
+Basically, you can run inference with only few lines of code:
+
+```python
+import torchaudio
+from speechbrain.pretrained import EncoderClassifier
+classifier = EncoderClassifier.from_hparams(source="speechbrain/lang-id-commonlanguage_ecapa", savedir="pretrained_models/lang-id-commonlanguage_ecapa")
+
+# Italian Example
+out_prob, score, index, text_lab = classifier.classify_file('speechbrain/lang-id-commonlanguage_ecapa/example-it.wav')
+print(text_lab)
+
+# French Example
+out_prob, score, index, text_lab = classifier.classify_file('speechbrain/lang-id-commonlanguage_ecapa/example-fr.wav')
+print(text_lab)
+```
 
 
 # **About SpeechBrain**
