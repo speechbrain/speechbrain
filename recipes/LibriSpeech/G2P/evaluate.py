@@ -88,6 +88,8 @@ class G2PEvaluator:
                 batch.grapheme_encoded,
                 batch.phn_encoded_bos
             )
+        else:
+            raise ValueError(f"unsupported eval_mode {self.hparams.eval_mode}")
 
         ids = batch.id
 
@@ -185,7 +187,7 @@ class G2PEvaluator:
                 dataloader_it = itertools.islice(dataloader_it, 0, self.hparams.eval_batch_count)
                 batch_count = self.hparams.eval_batch_count
             else:
-                batch_count = math.ceil(len(dataset) / self.hparams.eval_batch_count)
+                batch_count = math.ceil(len(dataset) / self.hparams.eval_batch_size)
             for batch in tqdm(dataloader_it, total=batch_count):
                 self.evaluate_batch(batch)
             if self.hparams.eval_output_wer_file:
