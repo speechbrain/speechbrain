@@ -374,14 +374,14 @@ class EncoderDecoderASR(Pretrained):
 
     Example
     -------
-    >>> from speechbrain.pretrained import EncoderDecoderASR
-    >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = EncoderDecoderASR.from_hparams(
-    ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
-    ...     savedir=tmpdir,
-    ... )
-    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
-    "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
+    #>>> from speechbrain.pretrained import EncoderDecoderASR
+    #>>> tmpdir = getfixture("tmpdir")
+    #>>> asr_model = EncoderDecoderASR.from_hparams(
+    #...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
+    #...     savedir=tmpdir,
+    #... )
+    #>>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
+    #"MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
     HPARAMS_NEEDED = ["tokenizer"]
