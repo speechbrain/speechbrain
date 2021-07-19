@@ -1,6 +1,6 @@
 # ############################################################################
-# Model: E2E ST with Transformer
-# Encoder: Transformer Encoder
+# Model: E2E ST with Conformer
+# Encoder: Conformer Encoder
 # Decoder: Transformer Decoder beamsearch
 # Tokens: BPE
 # losses: CTC + KLdiv (Label Smoothing loss)
@@ -8,24 +8,23 @@
 # Authors: YAO-FEI, CHENG
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-
+# The original recipe is from ESPnet:
+# https://github.com/espnet/espnet/blob/master/egs/fisher_callhome_spanish/st1/conf/tuning/train_pytorch_conformer.yaml
 
 debug: False
 seed: 8886
 num_workers: 8
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/conformer/<seed>
 ckpt_interval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-use_speed_perturb: True
-
 # Data files
-data_folder: ../data
+data_folder: ../../data
 
-tokenizer_file: ../Tokenizer/save/1000_bpe.model
+tokenizer_file: ../../Tokenizer/save/1000_bpe.model
 
 # Tokenier initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
@@ -61,17 +60,17 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     speeds: [90, 100, 110]
 
 # Trainer settings
-number_of_epochs: 50
+number_of_epochs: 30
 valid_search_eopch: 10
-batch_size: 8 # this works for 2 GPUs with 11GB
-gradient_accumulation: 8
+batch_size: 4 # this works for 2 GPUs with 11GB
+gradient_accumulation: 16
 gradient_clipping: 5.0
 loss_reduction: batchmean
 sorting: random
 
 # stages related parameters
 stage_one_epochs: 100 # not gonna changing optimizer in this recipe
-lr_adam: 2.5
+lr_adam: 2.0
 lr_sgd: 0.000025
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -102,8 +101,22 @@ activation: !name:torch.nn.GELU
 output_neurons: 1000
 vocab_size: 1000
 attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
+kernel_size: 15
+encoder_module: conformer
 
 # Multi-task
+# ctc_weight: 1 means only CTC Loss is applied to ASR task
+# ctc_weight: 0 means only Attention Loss is applied to ASR task
+# ctc_weight: between 0 and 1 means hybrid CTC and Attention
+
+# asr_weight controls the degree of the auxiliary ASR task, which contributes to loss
+# mt_weight controls the degree of the auxiliary MT task, which contribute to loss
+# ST Loss =
+# (1 - asr_weight - mt_weight) * ST Attention Loss +
+# asr_weight * ASR Loss +
+# mt_weight * MT Loss
+# ASR Loss = ctc_weight * CTC Loss + (1 - ctc_weight) * ASR Attention Loss
+# MT Loss = MT Attention Loss
 ctc_weight: 0
 asr_weight: 0
 mt_weight: 0
@@ -148,6 +161,8 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.Transformer
     mt_weight: !ref <mt_weight>
     asr_tgt_vocab: !ref <output_neurons>
     attention_type: !ref <attention_type>
+    kernel_size: !ref <kernel_size>
+    encoder_module: !ref <encoder_module>
     normalize_before: True
     causal: False
 
