@@ -86,7 +86,7 @@ class MusicLM(sb.core.Brain):
             )
             self.accuracy = TP / (TP + FN + FP)
 
-        loss = torch.nn.functional.binary_cross_entropy(predictions, truth)
+        loss = self.hparams.compute_cost(predictions, truth)
 
         return loss
 

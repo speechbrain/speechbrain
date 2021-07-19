@@ -82,6 +82,9 @@ model: !new:speechbrain.lobes.music_generation_models.custom_model.CustomModel
   rnn_size: !ref <rnn_size>
   layers: !ref <layers>
 
+# Cost function used for training the model
+compute_cost: !name:torch.nn.functional.binary_cross_entropy
+
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
 optimizer: !name:torch.optim.Adam
