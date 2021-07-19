@@ -2,7 +2,9 @@
 
 Authors
 * Jianyuan Zhong
+* Samuele Cornell
 """
+
 
 import torch  # noqa 42
 from torch import nn
@@ -59,9 +61,12 @@ class TransformerLM(TransformerInterface):
         d_ffn=2048,
         dropout=0.1,
         activation=nn.ReLU,
-        positional_encoding=True,
+        positional_encoding="fixed_abs_sine",
         normalize_before=False,
         d_embedding=None,
+        max_length=2500,
+        causal=True,
+        attention_type="regularMHA",
     ):
         super().__init__(
             d_model=d_model,
@@ -73,6 +78,9 @@ class TransformerLM(TransformerInterface):
             activation=activation,
             positional_encoding=positional_encoding,
             normalize_before=normalize_before,
+            max_length=max_length,
+            causal=causal,
+            attention_type=attention_type,
         )
 
         self.d_embedding = d_embedding
