@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/BPE51/<seed>
+output_folder: !ref results/better_tokenizer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -24,11 +24,11 @@ csv_train: !ref <output_folder>/train-type=decoupled.csv
 csv_valid: !ref <output_folder>/devel-type=decoupled.csv
 csv_test: !ref <output_folder>/test-type=decoupled.csv
 asr_tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-slu_tokenizer_file: https://www.dropbox.com/s/w72vtnf273yjwu4/SLURP_51_unigram.model?dl=1
+slu_tokenizer_file: https://www.dropbox.com/s/tmwq12r5vgcsif9/58_unigram.model?dl=1
 skip_prep: False
 
 # Training parameters
-number_of_epochs: 10
+number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
 token_type: unigram # ["unigram", "bpe", "char"]
@@ -38,7 +38,7 @@ sorting: random
 sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
-output_neurons: 51 # index(eos/bos) = 0
+output_neurons: 58 # index(eos/bos) = 0
 encoder_dim: 256
 num_asr_tokens: 1000
 

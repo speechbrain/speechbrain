@@ -38,6 +38,7 @@ valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
     - !ref <data_folder>/test-clean.csv
     - !ref <data_folder>/test-other.csv
+ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
