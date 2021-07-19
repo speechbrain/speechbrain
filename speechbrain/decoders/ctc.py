@@ -260,7 +260,8 @@ class CTCPrefixScore:
         )
         # The index of top-K vocab came from in (t-1) timesteps at batch * beam dimension.
         hyp_index = (
-            index // self.vocab_size + beam_offset.unsqueeze(1).expand_as(index)
+            torch.div(index, self.vocab_size, rounding_mode="floor")
+            + beam_offset.unsqueeze(1).expand_as(index)
         ).view(n_bh)
         # synchronize ctc states
         if scoring_table is not None:
