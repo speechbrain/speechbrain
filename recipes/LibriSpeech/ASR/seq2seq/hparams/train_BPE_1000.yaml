@@ -10,9 +10,11 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters
-seed: 2602
+#seed: 2602
+seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
+#output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
+output_folder: !ref results/asr_bpe_1000_converted/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -212,15 +214,7 @@ model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
 # Scorer
-ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
-   eos_index: !ref <eos_index>
-   blank_index: !ref <blank_index>
-   ctc_fc: !ref <ctc_lin>
-
 coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
-   vocab_size: !ref <output_neurons>
-
-length_scorer: !new:speechbrain.decoders.scorer.LengthScorer
    vocab_size: !ref <output_neurons>
 
 rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
