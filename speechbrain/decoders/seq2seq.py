@@ -507,7 +507,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             top_log_probs, batch_first=True, padding_value=0
         )
         top_lengths = torch.tensor(
-            top_lengths, dtype=torch.float, device=top_scores.device
+            top_lengths, dtype=torch.float, device=top_hyps.device
         )
         top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
 
