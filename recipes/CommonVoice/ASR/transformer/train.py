@@ -73,15 +73,22 @@ class ASR(sb.core.Brain):
 
         # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                hyps, _ = self.hparams.beam_searcher(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.beam_searcher(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_every == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
+        if any([is_valid_search, is_test_search]):
+            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
+                enc_out.detach(), wav_lens
+            )
+
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -105,8 +112,8 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
+            valid_search_every = self.hparams.valid_search_every
+            if current_epoch % valid_search_every == 0 or (
                 stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
@@ -174,9 +181,9 @@ class ASR(sb.core.Brain):
         else:
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_interval = self.hparams.valid_search_interval
+            valid_search_every = self.hparams.valid_search_every
             if (
-                current_epoch % valid_search_interval == 0
+                current_epoch % valid_search_every == 0
                 or stage == sb.Stage.TEST
             ):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")

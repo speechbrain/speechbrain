@@ -89,7 +89,7 @@ beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 140
-ctc_weight_decode: 0.0
+ctc_decode_weight: 0.0
 temperature: 1.50
 
 #
