@@ -139,8 +139,8 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
+            valid_search_every = self.hparams.valid_search_every
+            if current_epoch % valid_search_every == 0 or (
                 stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
