@@ -1,4 +1,5 @@
 -r lint-requirements.txt
+https://github.com/kpu/kenlm/archive/master.zip
 huggingface_hub>=0.0.6
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
