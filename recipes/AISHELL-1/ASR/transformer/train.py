@@ -10,6 +10,7 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
@@ -56,17 +57,26 @@ class ASR(sb.core.Brain):
 
         # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                # for the sake of efficiency, we only perform beamsearch with limited capacity
-                # and no LM to give user some idea of how the AM is doing
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_every == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
+
+        if any([is_valid_search, is_test_search]):
+            # Note: For valid_search, for the sake of efficiency, we only perform beamsearch with
+            # limited capacity and no LM to give user some idea of how the AM is doing
+
+            # Decide searcher for inference: valid or test search
+            search = getattr(self.hparams, f"{stage.name}_search".lower())
+            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
+
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
