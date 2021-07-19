@@ -780,6 +780,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> scorer = sb.decoders.scorer.ScorerBuilder(
     ...     full_scorers = [coverage_scorer],
     ...     partial_scorers = [],
+    ...     weights= dict(coverage=1.5)
     ... )
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
