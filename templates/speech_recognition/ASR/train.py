@@ -95,6 +95,7 @@ class ASR(sb.Brain):
         predictions = {"seq_logprobs": self.hparams.log_softmax(logits)}
 
         if self.is_ctc_active(stage):
+
             # Output layer for ctc log-probabilities
             ctc_logits = self.modules.ctc_lin(encoded_signal)
             predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
