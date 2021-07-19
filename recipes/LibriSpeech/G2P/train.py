@@ -24,6 +24,7 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.data_utils import undo_padding
 
 
 # Define training procedure
@@ -43,18 +44,23 @@ class ASR(sb.Brain):
         logits = self.modules.lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
+        hyps = None
         if stage != sb.Stage.TRAIN:
-            hyps, scores = self.hparams.beam_searcher(x, char_lens)
-            return p_seq, char_lens, hyps
+            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
+                x, char_lens
+            )
 
-        return p_seq, char_lens
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
+
+        return p_seq, char_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
-        if stage == sb.Stage.TRAIN:
-            p_seq, char_lens = predictions
-        else:
-            p_seq, char_lens, hyps = predictions
+        p_seq, char_lens, hyps = predictions
 
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos

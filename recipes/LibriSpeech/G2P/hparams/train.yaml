@@ -95,6 +95,15 @@ model: !new:torch.nn.ModuleList
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
+# Scorer
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <coverage_scorer>]
+    weights:
+        coverage: 5.0
+
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
@@ -104,10 +113,10 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     min_decode_ratio: 0
     max_decode_ratio: 1.35
     beam_size: 16
+    vocab_size: !ref <output_neurons>
     eos_threshold: 10.0
     using_max_attn_shift: False
-    max_attn_shift: 10
-    coverage_penalty: 5.0
+    scorer: !ref <scorer>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
