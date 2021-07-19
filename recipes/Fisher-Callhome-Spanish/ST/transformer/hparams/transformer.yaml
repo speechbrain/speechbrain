@@ -8,24 +8,23 @@
 # Authors: YAO-FEI, CHENG
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-
+# The original recipe is from ESPnet:
+# https://github.com/espnet/espnet/blob/master/egs/fisher_callhome_spanish/st1/conf/tuning/train_pytorch_transformer.yaml
 
 debug: False
 seed: 8886
 num_workers: 8
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer_mtl_asr_0.3/<seed>
+output_folder: !ref results/transformer/<seed>
 ckpt_interval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-use_speed_perturb: True
-
 # Data files
-data_folder: ../data
+data_folder: ../../data
 
-tokenizer_file: ../Tokenizer/save/1000_bpe.model
+tokenizer_file: ../../Tokenizer/save/1000_bpe.model
 
 # Tokenier initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
@@ -104,8 +103,19 @@ vocab_size: 1000
 attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 
 # Multi-task
-ctc_weight: 1.0
-asr_weight: 0.3
+# ctc_weight controls the type of auxiliary ASR decoder
+# ctc_weight: 1 means only CTC Loss is applied to ASR task
+# ctc_weight: 0 means only Attention Loss is applied to ASR task
+# ctc_weight: between 0 and 1 means hybrid CTC and Attention
+
+# asr_weight controls the degree of the auxiliary ASR task, which contributes to loss
+# mt_weight controls the degree of the auxiliary MT task, which contribute to loss
+# ST Loss =
+# (1 - asr_weight - mt_weight) * ST Attention Loss +
+# asr_weight * ASR Loss +
+# mt_weight * MT Loss
+ctc_weight: 0
+asr_weight: 0
 mt_weight: 0
 
 # Outputs
@@ -169,10 +179,9 @@ modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
-    ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+    - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>]
 
 # define two optimizers here for two-stage training
 Adam: !name:torch.optim.Adam
@@ -194,7 +203,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
-    length_normalization: True
+    length_normalization: False
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, null]

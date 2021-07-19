@@ -1,11 +1,11 @@
 #!/usr/bin/env/python3
-"""Recipe for training a sequence-to-sequence ST system with Fisher-Callhome.
+"""Recipe for training a Transformer based ST system with Fisher-Callhome.
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beam search coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train.py hparams/train_bpe_10k.yaml
+> python train.py hparams/conformer.yaml
 
 Authors
  * YAO-FEI, CHENG 2021
@@ -107,6 +107,12 @@ class ST(sb.core.Brain):
         transcription_tokens, transcription_lens = batch.transcription_tokens
 
         # loss for different tasks
+        # asr loss = ctc_weight * ctc loss + (1 - ctc_weight) * asr attention loss
+        # mt loss = mt attention loss
+        # st loss =
+        # (1 - asr_weight - mt_weight) * st attention loss +
+        # asr_weight * asr loss +
+        # mt_weight * mt loss
         attention_loss = 0
         asr_ctc_loss = 0
         asr_attention_loss = 0
@@ -217,13 +223,6 @@ class ST(sb.core.Brain):
             # anneal lr every update
             self.hparams.noam_annealing(self.optimizer)
 
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
@@ -454,7 +453,7 @@ def dataio_prepare(hparams):
         json_path = f"{data_folder}/{dataset}/data.json"
         dataset = dataset if dataset == "train" else "valid"
 
-        is_use_sp = dataset == "train" and hparams["use_speed_perturb"]
+        is_use_sp = dataset == "train" and "speed_perturb" in hparams
         audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
 
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
@@ -625,8 +624,8 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    for dataset in ["dev", "dev2", "test"]:
-        st_brain.evaluate(
-            datasets[dataset],
-            test_loader_kwargs=hparams["test_dataloader_opts"],
-        )
+    # for dataset in ["dev", "dev2", "test"]:
+    #     st_brain.evaluate(
+    #         datasets[dataset],
+    #         test_loader_kwargs=hparams["test_dataloader_opts"],
+    #     )
