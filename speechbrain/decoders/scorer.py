@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import kenlm
+import kenlm  # noqa
 import sentencepiece as spm
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
