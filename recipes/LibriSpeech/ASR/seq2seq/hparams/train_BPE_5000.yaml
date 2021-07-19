@@ -11,9 +11,11 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters
 # are instantiated
-seed: 1986
+#seed: 1986
+seed: 16
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_960h_5k_LM/<seed>
+#output_folder: !ref results/CRDNN_BPE_960h_5k_LM/<seed>
+output_folder: !ref results/LSTMP_BPE_5000_NO_ENV_COVERAGE_1/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -67,7 +69,7 @@ valid_dataloader_opts:
    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: 1
+   batch_size: !ref <batch_size>
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -267,9 +269,8 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    using_eos_threshold: !ref <using_eos_threshold>
-   max_attn_shift: !ref <max_attn_shift>
-   scorer: !ref <scorer>
    temperature: !ref <temperature>
+   scorer: !ref <scorer>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
