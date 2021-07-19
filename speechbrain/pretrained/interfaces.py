@@ -256,14 +256,14 @@ class EndToEndSLU(Pretrained):
 
     Example
     -------
-    >>> from speechbrain.pretrained import EndToEndSLU
-    >>> tmpdir = getfixture("tmpdir")
-    >>> slu_model = EndToEndSLU.from_hparams(
-    ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
-    ...     savedir=tmpdir,
-    ... )
-    >>> slu_model.decode_file("samples/audio_samples/example6.wav")
-    "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
+    #>>> from speechbrain.pretrained import EndToEndSLU
+    #>>> tmpdir = getfixture("tmpdir")
+    #>>> slu_model = EndToEndSLU.from_hparams(
+    #...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
+    #...     savedir=tmpdir,
+    #... )
+    #>>> slu_model.decode_file("samples/audio_samples/example6.wav")
+    #"{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
     HPARAMS_NEEDED = ["tokenizer", "asr_model_source"]
