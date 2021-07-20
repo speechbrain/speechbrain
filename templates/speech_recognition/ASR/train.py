@@ -52,6 +52,7 @@ from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -95,18 +96,22 @@ class ASR(sb.Brain):
         predictions = {"seq_logprobs": self.hparams.log_softmax(logits)}
 
         if self.is_ctc_active(stage):
-
             # Output layer for ctc log-probabilities
             ctc_logits = self.modules.ctc_lin(encoded_signal)
             predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
-        elif stage == sb.Stage.VALID:
-            predictions["tokens"], _ = self.hparams.valid_search(
+
+        elif stage != sb.Stage.TRAIN:
+            # Decide searcher for inference: valid or test search
+            search = getattr(self.hparams, f"{stage.name}_search".lower())
+
+            topk_tokens, topk_lens, _, _ = search(
                 encoded_signal, self.feat_lens
             )
-        elif stage == sb.Stage.TEST:
-            predictions["tokens"], _ = self.hparams.test_search(
-                encoded_signal, self.feat_lens
-            )
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            predictions["tokens"] = undo_padding(best_hyps, best_lens)
 
         return predictions
 
