@@ -8,7 +8,7 @@ the same tokenizer. Otherwise, a token mismatch is introduced
 and beamsearch will produce bas results when combining AM and LM.
 
 To run this recipe, do the following:
-> python train.py hparams/train_bpe_10k.yaml
+> python train.py hparams/train_bpe_1k.yaml
 Authors
  * YAO-FEI, CHENG 2021
 """
