@@ -10,11 +10,9 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters
-#seed: 2602
-seed: 1234
+seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-#output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
-output_folder: !ref results/asr_bpe_1000_converted/<seed>
+output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -35,7 +33,7 @@ data_folder_rirs: !ref <data_folder> # where to store noisy data for augment (ch
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-skip_prep: True
+skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
