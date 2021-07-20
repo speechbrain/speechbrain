@@ -459,7 +459,7 @@ def download_translations(path: str):
 
 
 def make_data_splits(
-    mapping_folder: str = "./data/fisher-callhome-corpus/mapping",
+    mapping_folder: str = "../data/fisher-callhome-corpus/mapping",
 ):
     """make data split from mapping file"""
     fisher_splits = ["dev", "dev2", "test", "train"]
