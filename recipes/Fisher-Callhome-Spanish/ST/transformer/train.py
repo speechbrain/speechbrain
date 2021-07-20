@@ -624,8 +624,8 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    # for dataset in ["dev", "dev2", "test"]:
-    #     st_brain.evaluate(
-    #         datasets[dataset],
-    #         test_loader_kwargs=hparams["test_dataloader_opts"],
-    #     )
+    for dataset in ["dev", "dev2", "test"]:
+        st_brain.evaluate(
+            datasets[dataset],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+        )
