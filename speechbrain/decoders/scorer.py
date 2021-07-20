@@ -16,6 +16,7 @@ class BaseScorerInterface:
         - speechbrain.decoders.scorer.TransformerLMScorer
         - speechbrain.decoders.scorer.NGramLMScoer
         - speechbrain.decoders.scorer.CoverageScorer
+        - speechbrain.decoders.scorer.LengthScorer
     """
 
     def score(self, inp_tokens, memory, candidates, attn):
@@ -192,31 +193,46 @@ class TransformerLMScorer(BaseScorerInterface):
 
 
 class NGramLMScorer(BaseScorerInterface):
-    """A word-piece ngram LM scorer.
+    """A ngram LM scorer. Please make sure the tokenizer or token_list
+    matches the tokenizer of the ASR model.
 
     Arguments
     ---------
     lm_path : str
         The path of ngram model.
-    tokenizer_path : str
-        The path of pre-trained sentencepiece tokenizer.
     vocab_size: int
         The total number of tokens.
+    tokenizer_path : str
+        The path of pre-trained sentencepiece tokenizer.
+    token_list : list
+        The tokens set.
     """
 
-    def __init__(self, lm_path, tokenizer_path, vocab_size):
+    def __init__(self, lm_path, vocab_size, tokenizer_path=None, token_list=[]):
         self.lm = kenlm.Model(lm_path)
         self.vocab_size = vocab_size
         self.full_candidates = np.arange(self.vocab_size)
         self.minus_inf = -1e20
 
-        # Create token list
-        tokenizer = spm.SentencePieceProcessor()
-        tokenizer.load(tokenizer_path)
-        self.id2char = [
-            tokenizer.id_to_piece([i])[0].replace("\u2581", "_")
-            for i in range(vocab_size)
-        ]
+        if len(token_list) > 0:
+            assert (
+                len(token_list) == vocab_size
+            ), "The size of the token_list and vocab_size are not matched."
+            self.id2char = token_list
+
+        elif tokenizer_path is not None:
+            # Create token list
+            tokenizer = spm.SentencePieceProcessor()
+            tokenizer.load(tokenizer_path)
+            self.id2char = [
+                tokenizer.id_to_piece([i])[0].replace("\u2581", "_")
+                for i in range(vocab_size)
+            ]
+
+        else:
+            raise ValueError(
+                "Please specify the token list or the path to the spm tokenizer."
+            )
 
     def score(self, inp_tokens, memory, candidates, attn):
         n_bh = inp_tokens.size(0)
