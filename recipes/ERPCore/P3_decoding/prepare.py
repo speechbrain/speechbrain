@@ -1,6 +1,7 @@
 """
 Data preparation and pre-processing.
-Python-based implementation of the pre-processing adopted by E. S. Kappenman et al., Neuroimage 2021 (https://doi.org/10.1016/j.neuroimage.2020.117465).
+Python-based implementation of the pre-processing adopted by
+E. S. Kappenman et al., Neuroimage 2021 (https://doi.org/10.1016/j.neuroimage.2020.117465).
 
 Author
 ------
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def load_and_preprocess_p3_erp_core(hparams):
-    """This function performs the data loading and pre-processing of each subject-specific EEG dataset."""
+    """This function performs the data loading and pre-processing of
+    each subject-specific EEG dataset."""
     # definition of the event IDs
     event_id = {
         "11": 1,
@@ -71,7 +73,8 @@ def load_and_preprocess_p3_erp_core(hparams):
     baseline_tmax = 0.0
     tmin = hparams["tmin"]
     tmax = hparams["tmax"]
-    # epoching EEG signals between tmin and tmax (included) and applying baseline correction from -0.2 to 0. respect to stimulus onset
+    # epoching EEG signals between tmin and tmax (included) and applying baseline
+    # correction from -0.2 to 0. respect to stimulus onset
     evoked = mne.Epochs(
         raw,
         events=events_from_annot,
@@ -81,7 +84,8 @@ def load_and_preprocess_p3_erp_core(hparams):
         baseline=(baseline_tmin, baseline_tmax),
         preload=True,
     )
-    # shift in time to account for the LCD monitor delay, as performed in the reference paper
+    # shift in time to account for the LCD monitor delay, as performed in the
+    # reference paper
     evoked = evoked.shift_time(0.026, relative=True)
 
     # getting EEG epochs
@@ -97,7 +101,8 @@ def load_and_preprocess_p3_erp_core(hparams):
         tmp_idx = np.where(evoked.events[..., -1] == id)[0]
         idx_deviant.extend(tmp_idx)
     idx_deviant = np.array(idx_deviant)
-    # getting labels (0: non P300 class, associated to standard stimuli; 1: P300 class, associated to deviant stimuli)
+    # getting labels (0: non P300 class, associated to standard stimuli;
+    # 1: P300 class, associated to deviant stimuli)
     y = np.zeros(x.shape[0]).astype(np.int)
     y[idx_deviant] = 1
     # 32*5=160 (standard) vs. 8*5=40 (deviant) --> 200 trials for each subject
