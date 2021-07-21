@@ -15,16 +15,6 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-#data_folder: /home/john/Desktop/mila-cluster/common  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
-#train_tsv_file: /home/john/Desktop/mila-cluster/common/train.tsv # Standard CommonVoice .tsv files
-#dev_tsv_file: /home/john/Desktop/mila-cluster/common/dev.tsv # Standard CommonVoice .tsv files
-#test_tsv_file: /home/john/Desktop/mila-cluster/common/test.tsv # Standard CommonVoice .tsv files
-#accented_letters: true
-#language: fr # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
-#train_csv: results/transformer/1234/save/train.csv
-#valid_csv: results/transformer/1234/save/dev.csv
-#test_csv: results/transformer/1234/save/test.csv
-#skip_prep: false # Skip data preparation
 data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
