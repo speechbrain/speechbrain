@@ -94,16 +94,16 @@ class TransformerASR(TransformerInterface):
         input_size,
         d_model,
         dropout,
-        encoder_refact,
-        decoder_refact,
-        positional_encoding_refact: Optional[object] = None,
-        positional_encoding_decoder_refact: Optional[object] = None
+        encoder,
+        decoder,
+        positional_encoding_encoder: Optional[object] = None,
+        positional_encoding_decoder: Optional[object] = None
     ):
         super().__init__(
-            encoder_refact=encoder_refact,
-            decoder_refact=decoder_refact,
-            positional_encoding_refact=positional_encoding_refact,
-            positional_encoding_decoder_refact=positional_encoding_decoder_refact)
+            encoder=encoder,
+            decoder=decoder,
+            positional_encoding_encoder=positional_encoding_encoder,
+            positional_encoding_decoder=positional_encoding_decoder)
 
         self.custom_src_module = ModuleList(
             Linear(

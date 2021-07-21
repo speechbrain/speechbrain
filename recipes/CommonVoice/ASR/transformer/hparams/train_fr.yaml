@@ -149,9 +149,9 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     dropout: !ref <transformer_dropout>
-    encoder_refact: !ref <TransformerEncoder>
-    decoder_refact: !ref <TransformerDecoder>
-    positional_encoding_refact: !ref <PositionalEncoding>
+    encoder: !ref <TransformerEncoder>
+    decoder: !ref <TransformerDecoder>
+    positional_encoding_encoder: !ref <PositionalEncoding>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>

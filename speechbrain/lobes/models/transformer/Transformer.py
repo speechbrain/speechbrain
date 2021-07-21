@@ -72,16 +72,16 @@ class TransformerInterface(nn.Module):
 
     def __init__(
         self,
-        encoder_refact,
-        decoder_refact,
-        positional_encoding_refact: Optional[object] = None,
-        positional_encoding_decoder_refact: Optional[object] = None
+        encoder,
+        decoder,
+        positional_encoding_encoder: Optional[object] = None,
+        positional_encoding_decoder: Optional[object] = None
     ):
         super().__init__()
-        self.positional_encoding = positional_encoding_refact
-        self.positional_encoding_decoder = positional_encoding_decoder_refact
-        self.encoder = encoder_refact
-        self.decoder = decoder_refact if decoder_refact is not None else None
+        self.positional_encoding = positional_encoding_encoder
+        self.positional_encoding_decoder = positional_encoding_decoder
+        self.encoder = encoder
+        self.decoder = decoder if decoder is not None else None
 
     def forward(self, **kwags):
         """Users should modify this function according to their own tasks.

@@ -162,10 +162,10 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     dropout: !ref <transformer_dropout>
-    encoder_refact: !ref <ConformerEncoder>
-    decoder_refact: !ref <TransformerDecoder>
-    positional_encoding_refact: !ref <PositionalEncoding>
-    positional_encoding_decoder_refact: !ref <PositionalEncodingDecoder>
+    encoder: !ref <ConformerEncoder>
+    decoder: !ref <TransformerDecoder>
+    positional_encoding_encoder: !ref <PositionalEncoding>
+    positional_encoding_decoder: !ref <PositionalEncodingDecoder>
 
 # This is the TransformerLM that is used according to the Huggingface repository
 # Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
@@ -191,8 +191,8 @@ TransformerEncoderLM: !new:speechbrain.lobes.models.transformer.Transformer.Tran
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
     d_model: 768
-    encoder_refact: !ref <TransformerEncoderLM>
-    decoder_refact: None
+    encoder: !ref <TransformerEncoderLM>
+    decoder: None
     num_encoder_layers: 12
     num_decoder_layers: 0
 

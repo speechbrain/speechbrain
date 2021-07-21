@@ -157,9 +157,9 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     dropout: !ref <transformer_dropout>
-    encoder_refact: !ref <TransformerEncoder>
-    decoder_refact: !ref <TransformerDecoder>
-    positional_encoding_refact: !ref <PositionalEncoding>
+    encoder: !ref <TransformerEncoder>
+    decoder: !ref <TransformerDecoder>
+    positional_encoding_encoder: !ref <PositionalEncoding>
 
 # This is the TransformerLM that is used according to the Huggingface repository
 # Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
