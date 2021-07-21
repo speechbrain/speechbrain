@@ -21,31 +21,31 @@ def load_and_preprocess_p3_erp_core(hparams):
     """This function performs the data loading and pre-processing of each subject-specific EEG dataset."""
     # definition of the event IDs
     event_id = {
-        "11.0": 1,
-        "12.0": 2,
-        "13.0": 3,
-        "14.0": 4,
-        "15.0": 5,
-        "21.0": 6,
-        "22.0": 7,
-        "23.0": 8,
-        "24.0": 9,
-        "25.0": 10,
-        "31.0": 11,
-        "32.0": 12,
-        "33.0": 13,
-        "34.0": 14,
-        "35.0": 15,
-        "41.0": 16,
-        "42.0": 17,
-        "43.0": 18,
-        "44.0": 19,
-        "45.0": 20,
-        "51.0": 21,
-        "52.0": 22,
-        "53.0": 23,
-        "54.0": 24,
-        "55.0": 25,
+        "11": 1,
+        "12": 2,
+        "13": 3,
+        "14": 4,
+        "15": 5,
+        "21": 6,
+        "22": 7,
+        "23": 8,
+        "24": 9,
+        "25": 10,
+        "31": 11,
+        "32": 12,
+        "33": 13,
+        "34": 14,
+        "35": 15,
+        "41": 16,
+        "42": 17,
+        "43": 18,
+        "44": 19,
+        "45": 20,
+        "51": 21,
+        "52": 22,
+        "53": 23,
+        "54": 24,
+        "55": 25,
     }
     data_fpath = glob.glob(
         os.path.join(hparams["data_folder"], hparams["sbj_id"], "eeg", "*.set")
@@ -89,7 +89,7 @@ def load_and_preprocess_p3_erp_core(hparams):
 
     # event IDs associated to deviant stimuli
     deviant_ids = [
-        evoked.event_id[key] for key in ["11.0", "22.0", "33.0", "44.0", "55.0"]
+        evoked.event_id[key] for key in ["11", "22", "33", "44", "55"]
     ]
 
     idx_deviant = []
