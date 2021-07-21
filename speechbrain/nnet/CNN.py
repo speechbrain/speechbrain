@@ -657,7 +657,7 @@ class Conv2d(nn.Module):
 
 
 class Conv2dWithConstraint(Conv2d):
-    """This function implements 2d convolution. with kernel max-norm constaint.
+    """This function implements 2d convolution with kernel max-norm constaint.
     This corresponds to set an upper bound for the kernel norm.
 
     Arguments
