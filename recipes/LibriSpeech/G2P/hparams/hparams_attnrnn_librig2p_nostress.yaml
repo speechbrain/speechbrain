@@ -36,7 +36,7 @@ sorting: random #ascending
 origins: "*"
 graphemes_space_separated: False
 phonemes_space_separated: False
-
+phonemes_count: 43
 
 # Neural Parameters
 lexicon_epochs: 50
@@ -50,7 +50,7 @@ lr: 0.002
 save_for_pretrained: true
 
 # Model parameters
-output_neurons: 42
+output_neurons: !ref <phonemes_count>
 enc_dropout: 0.5
 enc_neurons: 512
 enc_num_layers: 4
@@ -69,7 +69,7 @@ blank_index: 2
 lm_emb_dim: 256 # dimension of the embeddings
 lm_rnn_size: 512 # dimension of hidden layers
 lm_layers: 2 # number of hidden layers
-lm_output_neurons: 42
+lm_output_neurons: !ref <phonemes_count>
 
 # Beam Searcher
 use_language_model: False
@@ -170,6 +170,8 @@ phonemes:
   - Y
   - Z
   - ZH
+  - " "
+
 
 # Models
 enc: !new:speechbrain.nnet.RNN.LSTM

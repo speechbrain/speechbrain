@@ -29,6 +29,7 @@ sorting: random
 origins: "*"
 graphemes_space_separated: False
 phonemes_space_separated: False
+phonemes_count: 43
 
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -62,7 +63,7 @@ rnn_size: 512 # dimension of hidden layers
 layers: 2 # number of hidden layers
 
 # Outputs
-output_neurons: 42 # index(blank/eos/bos) = 0
+output_neurons: !ref <phonemes_count> # index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 0
 eos_index: 1
@@ -138,6 +139,7 @@ phonemes:
   - Y
   - Z
   - ZH
+  - " "
 
 
 # To design a custom model, either just edit the simple CustomModel
