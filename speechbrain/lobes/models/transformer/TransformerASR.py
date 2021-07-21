@@ -15,8 +15,10 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_lookahead_mask,
     get_key_padding_mask,
     NormalizedEmbedding,
+    PositionalEncoding
 )
 from speechbrain.nnet.activations import Swish
+from speechbrain.nnet.attention import RelPosEncXL
 
 from speechbrain.dataio.dataio import length_to_mask
 
@@ -90,41 +92,18 @@ class TransformerASR(TransformerInterface):
         self,
         tgt_vocab,
         input_size,
-        d_model=512,
-        nhead=8,
-        num_encoder_layers=6,
-        num_decoder_layers=6,
-        d_ffn=2048,
-        dropout=0.1,
-        activation=nn.ReLU,
-        positional_encoding="fixed_abs_sine",
-        normalize_before=False,
-        kernel_size: Optional[int] = 31,
-        bias: Optional[bool] = True,
-        encoder_module: Optional[str] = "transformer",
-        conformer_activation: Optional[nn.Module] = Swish,
-        attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 2500,
-        causal: Optional[bool] = True,
+        d_model,
+        dropout,
+        encoder_refact,
+        decoder_refact,
+        positional_encoding_refact: Optional[object] = None,
+        positional_encoding_decoder_refact: Optional[object] = None
     ):
         super().__init__(
-            d_model=d_model,
-            nhead=nhead,
-            num_encoder_layers=num_encoder_layers,
-            num_decoder_layers=num_decoder_layers,
-            d_ffn=d_ffn,
-            dropout=dropout,
-            activation=activation,
-            positional_encoding=positional_encoding,
-            normalize_before=normalize_before,
-            kernel_size=kernel_size,
-            bias=bias,
-            encoder_module=encoder_module,
-            conformer_activation=conformer_activation,
-            attention_type=attention_type,
-            max_length=max_length,
-            causal=causal,
-        )
+            encoder_refact=encoder_refact,
+            decoder_refact=decoder_refact,
+            positional_encoding_refact=positional_encoding_refact,
+            positional_encoding_decoder_refact=positional_encoding_decoder_refact)
 
         self.custom_src_module = ModuleList(
             Linear(
@@ -172,9 +151,9 @@ class TransformerASR(TransformerInterface):
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
-        if self.attention_type == "RelPosMHAXL":
+        if isinstance(self.positional_encoding, RelPosEncXL):
             pos_embs_encoder = self.positional_encoding(src)
-        elif self.positional_encoding_type == "fixed_abs_sine":
+        elif isinstance(self.positional_encoding, PositionalEncoding):
             src = src + self.positional_encoding(src)  # add the encodings here
             pos_embs_encoder = None
 
@@ -187,13 +166,13 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
 
-        if self.attention_type == "RelPosMHAXL":
+        if isinstance(self.positional_encoding, RelPosEncXL):
             # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
             src = src + self.positional_encoding_decoder(src)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
-        elif self.positional_encoding_type == "fixed_abs_sine":
+        elif isinstance(self.positional_encoding, PositionalEncoding):
             tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
@@ -245,7 +224,7 @@ class TransformerASR(TransformerInterface):
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
-        if self.attention_type == "RelPosMHAXL":
+        if isinstance(self.positional_encoding, RelPosEncXL):
             # we use fixed positional encodings in the decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
             encoder_out = encoder_out + self.positional_encoding_decoder(
@@ -254,7 +233,7 @@ class TransformerASR(TransformerInterface):
             # pos_embs_target = self.positional_encoding(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
-        elif self.positional_encoding_type == "fixed_abs_sine":
+        elif isinstance(self.positional_encoding, PositionalEncoding):
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
             pos_embs_target = None
             pos_embs_encoder = None
@@ -292,10 +271,10 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
 
         src = self.custom_src_module(src)
-        if self.attention_type == "RelPosMHAXL":
+        if isinstance(self.positional_encoding, RelPosEncXL):
             pos_embs_source = self.positional_encoding(src)
 
-        elif self.positional_encoding_type == "fixed_abs_sine":
+        elif isinstance(self.positional_encoding, PositionalEncoding):
             src = src + self.positional_encoding(src)
             pos_embs_source = None
 

@@ -157,34 +157,16 @@ class ConformerEncoderLayer(nn.Module):
         self,
         d_model,
         d_ffn,
-        nhead,
+        causal,
+        attn_mechanism,
         kernel_size=31,
-        kdim=None,
-        vdim=None,
         activation=Swish,
         bias=True,
-        dropout=0.0,
-        causal=False,
-        attention_type="RelPosMHAXL",
+        dropout=0.0
     ):
         super().__init__()
 
-        if attention_type == "regularMHA":
-            self.mha_layer = MultiheadAttention(
-                nhead=nhead,
-                d_model=d_model,
-                dropout=dropout,
-                kdim=kdim,
-                vdim=vdim,
-            )
-        elif attention_type == "RelPosMHAXL":
-            # transformerXL style positional encoding
-            self.mha_layer = RelPosMHAXL(
-                num_heads=nhead,
-                embed_dim=d_model,
-                dropout=dropout,
-                mask_pos_future=causal,
-            )
+        self.mha_layer = attn_mechanism
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout, causal=causal
@@ -303,16 +285,13 @@ class ConformerEncoder(nn.Module):
         self,
         num_layers,
         d_model,
+        attn_mechanism,
         d_ffn,
-        nhead,
+        causal,
         kernel_size=31,
-        kdim=None,
-        vdim=None,
         activation=Swish,
         bias=True,
-        dropout=0.0,
-        causal=False,
-        attention_type="RelPosMHAXL",
+        dropout=0.0
     ):
         super().__init__()
 
@@ -320,16 +299,13 @@ class ConformerEncoder(nn.Module):
             [
                 ConformerEncoderLayer(
                     d_ffn=d_ffn,
-                    nhead=nhead,
                     d_model=d_model,
-                    kdim=kdim,
-                    vdim=vdim,
+                    attn_mechanism=attn_mechanism,
                     dropout=dropout,
                     activation=activation,
                     kernel_size=kernel_size,
-                    bias=bias,
                     causal=causal,
-                    attention_type=attention_type,
+                    bias=bias
                 )
                 for i in range(num_layers)
             ]
@@ -413,15 +389,12 @@ class ConformerDecoderLayer(nn.Module):
         self,
         d_model,
         d_ffn,
-        nhead,
+        attn_mechanism,
         kernel_size,
-        kdim=None,
-        vdim=None,
         activation=Swish,
         bias=True,
         dropout=0.0,
-        causal=True,
-        attention_type="RelPosMHAXL",
+        causal=True
     ):
         super().__init__()
 
@@ -430,22 +403,7 @@ class ConformerDecoderLayer(nn.Module):
                 "Decoder is not causal, in most applications it should be causal, you have been warned !"
             )
 
-        if attention_type == "regularMHA":
-            self.mha_layer = MultiheadAttention(
-                nhead=nhead,
-                d_model=d_model,
-                dropout=dropout,
-                kdim=kdim,
-                vdim=vdim,
-            )
-        elif attention_type == "RelPosMHAXL":
-            # transformerXL style positional encoding
-            self.mha_layer = RelPosMHAXL(
-                num_heads=nhead,
-                embed_dim=d_model,
-                dropout=dropout,
-                mask_pos_future=causal,
-            )
+        self.mha_layer = attn_mechanism
 
         self.convolution_module = ConvolutionModule(
             d_model, kernel_size, bias, activation, dropout, causal=causal
@@ -573,33 +531,27 @@ class ConformerDecoder(nn.Module):
     def __init__(
         self,
         num_layers,
-        nhead,
+        attn_mechanism,
         d_ffn,
         d_model,
-        kdim=None,
-        vdim=None,
         dropout=0.0,
         activation=Swish,
         kernel_size=3,
         bias=True,
-        causal=True,
-        attention_type="RelPosMHAXL",
+        causal=True
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
             [
                 ConformerDecoderLayer(
                     d_ffn=d_ffn,
-                    nhead=nhead,
+                    attn_mechanism=attn_mechanism,
                     d_model=d_model,
-                    kdim=kdim,
-                    vdim=vdim,
                     dropout=dropout,
                     activation=activation,
                     kernel_size=kernel_size,
                     bias=bias,
-                    causal=causal,
-                    attention_type=attention_type,
+                    causal=causal
                 )
                 for _ in range(num_layers)
             ]
