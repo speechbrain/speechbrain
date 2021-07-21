@@ -25,7 +25,7 @@ Perform training on a subject (e.g., subject ID 4='sub-004'): \
 
 If you want to run the full training on all the subjets, you can loop over all of then with a simple bash script:
 
-```bash
+```
 #!/bin/bash
 
 data_folder=$1
@@ -34,7 +34,7 @@ for sub in $data_folder/sub*; do
     echo "processing $sub_id..."
     python train.py train.yaml --sbj_id $sub_id --data_folder $1
 done
-```bash
+```
 
 
 # Results
