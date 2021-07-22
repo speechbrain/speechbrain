@@ -36,6 +36,7 @@ sorting: random #ascending
 origins: "*"
 graphemes_space_separated: False
 phonemes_space_separated: False
+phonemes_enable_space: True
 phonemes_count: 43
 
 # Neural Parameters

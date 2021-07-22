@@ -37,6 +37,7 @@ origins: "*"
 graphemes_space_separated: False
 phonemes_space_separated: False
 phonemes_count: 43
+phonemes_enable_space: True
 
 # Neural Parameters
 lexicon_epochs: 50

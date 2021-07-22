@@ -9,7 +9,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from train import dataio_prep, check_language_model
 from hyperpyyaml import load_hyperpyyaml
-from functools import partial
+from functools import reduce
 from types import SimpleNamespace
 from tqdm.auto import tqdm
 import math
@@ -57,6 +57,15 @@ class G2PEvaluator:
         else:
             self.load()
         self.modules["model"].eval()
+        self._word_separator = None
+
+        # When reconstructing sentences word-wise, the process depends
+        # on whether spaces are preserved or omitted, as controlled by
+        # the phonemes_enable_space hyperparameter
+        self._flatten_results = (
+            self._flatten_results_separated
+            if self.hparams.phonemes_enable_space
+            else self._flatten_results_jumbled)
 
     def load(self):
         """
@@ -120,6 +129,8 @@ class G2PEvaluator:
         return self.beam_searcher(encoder_out, char_lens)
 
     def _get_phonemes_wordwise(self, grapheme_encoded, phn_encoded_bos=None):
+        if self._word_separator is None:
+            self._word_separator = self.hparams.phoneme_encoder.lab2ind[" "]
         hyps, scores = [], []
         for grapheme_item, grapheme_len in zip(
             grapheme_encoded.data,
@@ -131,8 +142,17 @@ class G2PEvaluator:
             scores.append(self._flatten_scores(item_hyps, item_scores))
         return hyps, scores
 
-    def _flatten_results(self, results):
+    def _flatten_results_jumbled(self, results):
         return [token for item_result in results for token in item_result]
+
+    def _flatten_results_separated(self, results):
+        result = []
+        for item_result in results:
+            for token in item_result:
+                result.append(token)
+            result.append(self._word_separator)
+        del result[-1]
+        return result
 
     def _flatten_scores(self, hyps, scores):
         seq_len = sum(len(word_hyp) for word_hyp in hyps)
