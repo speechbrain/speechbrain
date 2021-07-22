@@ -80,13 +80,11 @@ class G2PEvaluator:
         batch = batch.to(self.device)
         if self.hparams.eval_mode == "sentence":
             hyps, scores = self._get_phonemes(
-                batch.grapheme_encoded,
-                batch.phn_encoded_bos
+                batch.grapheme_encoded
             )
         elif self.hparams.eval_mode == "word":
             hyps, scores = self._get_phonemes_wordwise(
-                batch.grapheme_encoded,
-                batch.phn_encoded_bos
+                batch.grapheme_encoded
             )
         else:
             raise ValueError(f"unsupported eval_mode {self.hparams.eval_mode}")
@@ -121,7 +119,7 @@ class G2PEvaluator:
         )
         return self.beam_searcher(encoder_out, char_lens)
 
-    def _get_phonemes_wordwise(self, grapheme_encoded, phn_encoded_bos):
+    def _get_phonemes_wordwise(self, grapheme_encoded, phn_encoded_bos=None):
         hyps, scores = [], []
         for grapheme_item, grapheme_len in zip(
             grapheme_encoded.data,
