@@ -2,12 +2,15 @@ import numpy as np
 import torch
 import sys
 import os
-from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 import ast
-from process_data import midi_to_pianoroll, piano_roll_to_csv
 import pickle
+import shutil
+
+from hyperpyyaml import load_hyperpyyaml
+from process_data import midi_to_pianoroll, piano_roll_to_csv
 from speechbrain.utils.data_utils import download_file
+from zipfile import ZipFile
 
 
 # Brain class for language model training
@@ -352,28 +355,26 @@ if __name__ == "__main__":
         download_file(DL_link, data_savepath)
 
         if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
-            os.system(
-                "unzip {} -d {}".format(data_savepath, hparams["data_path"])
-            )
+
+            with ZipFile(data_savepath, 'r') as zipOb:
+              zipOb.extractall(
+                hparams["data_path"]
+              )
 
             if hparams["dataset_name"] == "MAESTRO_v2":
-                os.system(
-                    "mv {} {}".format(
-                        os.path.join(
-                            hparams["data_path"], "maestro-v2.0.0", "*"
-                        ),
-                        hparams["data_path"],
+                files = os.listdir(os.path.join(hparams["data_path"], "maestro-v2.0.0"))
+                for file in files:
+                    shutil.move(
+                        os.path.join(hparams["data_path"], "maestro-v2.0.0", file),
+                        hparams["data_path"]
                     )
-                )
             elif hparams["dataset_name"] == "MAESTRO_v3":
-                os.system(
-                    "mv {} {}".format(
-                        os.path.join(
-                            hparams["data_path"], "maestro-v3.0.0", "*"
-                        ),
-                        hparams["data_path"],
+                files = os.listdir(os.path.join(hparams["data_path"], "maestro-v3.0.0"))
+                for file in files:
+                    shutil.move(
+                        os.path.join(hparams["data_path"], "maestro-v3.0.0", file),
+                        hparams["data_path"]
                     )
-                )
             else:
                 raise ValueError("Unsupported MAESTRO dataset name")
 
