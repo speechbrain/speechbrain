@@ -150,7 +150,8 @@ class G2PEvaluator:
         for item_result in results:
             for token in item_result:
                 result.append(token)
-            result.append(self._word_separator)
+            if item_result[-1] != self._word_separator:
+                result.append(self._word_separator)
         del result[-1]
         return result
 
