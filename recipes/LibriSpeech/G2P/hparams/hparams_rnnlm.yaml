@@ -26,6 +26,10 @@ valid_data: !ref <data_folder>/sentence_valid.json
 test_data: !ref <data_folder>/sentence_test.json
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 sorting: random
+origins: "*"
+graphemes_space_separated: false
+phonemes_space_separated: false
+phonemes_count: 43
 
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -60,10 +64,10 @@ layers: 2 # number of hidden layers
 dropout: 0.15
 
 # Outputs
-output_neurons: 41 # index(blank/eos/bos) = 0
+output_neurons: !ref <phonemes_count> # index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 0
-eos_index: 0
+eos_index: 1
 
 
 graphemes:
@@ -136,11 +140,7 @@ phonemes:
   - Y
   - Z
   - ZH
-
-
-graphemes_space_separated: false
-phonemes_space_separated: false
-
+  - " "
 
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line

@@ -173,11 +173,11 @@ class G2PEvaluator:
         word_boundaries, = torch.where(graphemes == space_index)
         last_word_boundary = 0
         for word_boundary in word_boundaries:
-            yield graphemes[last_word_boundary:word_boundary]
+            yield graphemes[last_word_boundary + 1:word_boundary]
             last_word_boundary = word_boundary
         char_length = math.ceil(len(graphemes) * length)
         if last_word_boundary < char_length:
-            yield graphemes[last_word_boundary:char_length]
+            yield graphemes[last_word_boundary + 1:char_length]
 
     def evaluate_epoch(self, dataset, dataloader_opts=None):
         """
