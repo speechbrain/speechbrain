@@ -327,7 +327,7 @@ grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
 encode_pipeline:
-    batch: false
+    batch: true
     use_padded_data: true
     output_keys:
         - grapheme_list
@@ -357,8 +357,10 @@ decode_pipeline:
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
   loadables:
     model: !ref <model>
+    ctc_lin: !ref <ctc_lin>
   paths:
     model: !ref <pretrained_path>/model.ckpt
+    ctc_lin: !ref <pretrained_path>/ctc_lin.ckpt
 
 train_steps:
   - name: lexicon
