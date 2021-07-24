@@ -73,7 +73,8 @@ class G2PEvaluator:
         """
         checkpointer = self.hparams.checkpointer
         checkpointer.recover_if_possible(
-            device=torch.device(self.device)
+            device=torch.device(self.device),
+            importance_key=lambda ckpt: -ckpt.meta["loss"]
         )
 
     def evaluate_batch(self, batch):
