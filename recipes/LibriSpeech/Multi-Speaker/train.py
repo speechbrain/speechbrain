@@ -10,7 +10,6 @@ Using your own hyperparameter file or one of the following:
 """
 import os
 import sys
-import random
 import torch
 import torchaudio
 import speechbrain as sb
@@ -29,34 +28,6 @@ class SpeakerBrain(sb.core.Brain):
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
-
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline): # Augmentation not used for now but we'll leave this.
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -142,9 +113,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = torchaudio.load(
-            wav
-        )
+        sig, fs = torchaudio.load(wav)
         sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
@@ -164,11 +133,15 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="nb_speakers",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="nb_speakers",
     )
 
     # 4. Set output:
-    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig", "nb_speakers_encoded"])
+    sb.dataio.dataset.set_output_keys(
+        datasets, ["id", "sig", "nb_speakers_encoded"]
+    )
 
     return train_data, valid_data, label_encoder
 
