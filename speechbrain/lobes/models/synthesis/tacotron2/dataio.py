@@ -121,11 +121,13 @@ def audio_pipeline(hparams):
 
     preprocessing_mode = hparams.get("preprocessing_mode")
     input_encoder = hparams.get("input_encoder")
+    input_bos_eos = hparams.get("input_eos_bos", False)
     if input_encoder is not None:
         if not input_encoder.lab2ind:
-            input_encoder.insert_bos_eos(
-                bos_label="<bos>",
-                eos_label="<eos>")
+            if input_bos_eos:
+                input_encoder.insert_bos_eos(
+                    bos_label="<bos>",
+                    eos_label="<eos>")
             input_encoder.update_from_iterable(
                 hparams["input_tokens"],
                 sequence_input=False)
@@ -145,8 +147,9 @@ def audio_pipeline(hparams):
             )
         else:
             text_seq = input_encoder.encode_sequence_torch(words[0])
-            text_seq = input_encoder.prepend_bos_index(text_seq)
-            text_seq = input_encoder.append_eos_index(text_seq)
+            if input_bos_eos:
+                text_seq = input_encoder.prepend_bos_index(text_seq)
+                text_seq = input_encoder.append_eos_index(text_seq)
             text_seq = text_seq.int()
 
         if wav_folder:
