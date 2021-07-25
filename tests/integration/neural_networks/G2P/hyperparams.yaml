@@ -8,7 +8,7 @@ lr: 0.002
 dataloader_options:
     batch_size: 1
 
-# token infomation
+# token information
 bos_index: 0 # eos_index = bos_index + 1
 num_phns: 45 # 43 phonemes + 1 bos + 1 eos
 num_chars: 26 # 24 chars + 1 bos + 1 eos

@@ -19,9 +19,11 @@ from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 logger = logging.getLogger(__name__)
-torchaudio.set_audio_backend("sox_io")
 
 try:
     from pesq import pesq
@@ -107,7 +109,9 @@ class SEBrain(sb.core.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, n_jobs=1, batch_eval=False
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -154,7 +158,7 @@ class SEBrain(sb.core.Brain):
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
-    # Define audio piplines
+    # Define audio pipelines
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("clean_sig", "noisy_sig")
     def train_pipeline(wav):

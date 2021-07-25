@@ -101,7 +101,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 modules:
     model: !ref <model>
 
-# Tokenier initialization
+# Tokenizer initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 # This object is used for saving the state of training both so that it

@@ -10,3 +10,5 @@ def test_softmax():
     act = Softmax(apply_log=False)
     outputs = act(inputs)
     assert torch.argmax(outputs) == 2
+
+    assert torch.jit.trace(act, inputs)

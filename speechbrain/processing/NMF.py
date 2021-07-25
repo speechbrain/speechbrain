@@ -48,7 +48,7 @@ def NMF_separate_spectra(Whats, Xmix):
     X1hat : Separated spectrum for source1
         Size = [BS x (nfft/2 +1) x T] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
-    X2hat : Seperated Spectrum for source2
+    X2hat : Separated Spectrum for source2
         The size definitions are the same as above.
 
     Example
@@ -175,8 +175,10 @@ def reconstruct_results(
                 dim=-1,
             )
         )
-        shat1 = ISTFT(X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
-        shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
+        X1hat_stft = X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3)
+        X2hat_stft = X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3)
+        shat1 = ISTFT(X1hat_stft)
+        shat2 = ISTFT(X2hat_stft)
 
         div_factor = 10
         x1 = shat1 / (div_factor * shat1.std())

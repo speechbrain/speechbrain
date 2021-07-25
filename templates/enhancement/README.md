@@ -28,3 +28,5 @@ as a starting point for developing recipes doing regression tasks
 similar to speech enhancement. Please reach out to the SpeechBrain
 team if any errors are found or clarification is needed about how
 parts of the template work. Good Luck!
+
+[For more information, please take a look into the "Speech Enhancement from scratch" tutorial](https://colab.research.google.com/drive/18RyiuKupAhwWX7fh3LCatwQGU5eIS3TR?usp=sharing)

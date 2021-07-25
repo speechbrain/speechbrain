@@ -163,7 +163,7 @@ class Covariance(torch.nn.Module):
         # Get useful dimensions
         n_mics = Xs.shape[4]
 
-        # Formating the real and imaginary parts
+        # Formatting the real and imaginary parts
         Xs_re = Xs[..., 0, :].unsqueeze(4)
         Xs_im = Xs[..., 1, :].unsqueeze(4)
 
@@ -715,7 +715,7 @@ class GccPhat(torch.nn.Module):
         """
 
         # Get useful dimensions
-        n_samples = int((XXs.shape[2] - 1) * 2)
+        n_samples = (XXs.shape[2] - 1) * 2
 
         # Extracting the tensors needed
         XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=4)
@@ -768,7 +768,7 @@ class GccPhat(torch.nn.Module):
 
         # If no tdoa specified, cover the whole frame
         if tdoa_max is None:
-            tdoa_max = n_fft // 2
+            tdoa_max = torch.div(n_fft, 2, rounding_mode="floor")
 
         # Splitting the GCC-PHAT values to search in the range
         slice_1 = xxs[..., 0:tdoa_max, :]
@@ -1103,7 +1103,7 @@ class Music(torch.nn.Module):
         # Save epsilon
         self.eps = eps
 
-        # Save number of signalsà
+        # Save number of signals
         self.n_sig = n_sig
 
     def forward(self, XXs):
@@ -1496,7 +1496,9 @@ def sphere(levels_count=4):
             (unique_scalar.shape[0], 2), dtype=unique_scalar.dtype
         )
 
-        unique_values[:, 0] = torch.floor_divide(unique_scalar, index_max + 1)
+        unique_values[:, 0] = torch.div(
+            unique_scalar, index_max + 1, rounding_mode="floor"
+        )
         unique_values[:, 1] = unique_scalar - unique_values[:, 0] * (
             index_max + 1
         )

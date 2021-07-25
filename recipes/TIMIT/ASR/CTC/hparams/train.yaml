@@ -82,7 +82,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
 
 model: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    input_shape: [null, null, !ref <n_mels>]
+    input_size: !ref <n_mels>
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>

@@ -14,3 +14,5 @@ def test_dropout():
     drop = Dropout2d(drop_rate=1.0)
     outputs = drop(inputs)
     assert torch.all(torch.eq(torch.zeros(inputs.shape), outputs))
+
+    assert torch.jit.trace(drop, inputs)

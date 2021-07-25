@@ -109,7 +109,7 @@ def ngram_evaluation_details(data, LM):
     """
     Evaluates the N-gram LM on each sentence in data
 
-    Call `ngram_preplexity` with the output of this function to compute the
+    Call `ngram_perplexity` with the output of this function to compute the
     perplexity.
 
     Arguments

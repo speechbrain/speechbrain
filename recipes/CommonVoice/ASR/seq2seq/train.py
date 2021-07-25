@@ -12,23 +12,17 @@ from speechbrain.utils.distributed import run_on_main
 """Recipe for training a sequence-to-sequence ASR system with CommonVoice.
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
-
 To run this recipe, do the following:
 > python train.py hparams/train.yaml
-
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard GRU and BeamSearch (no LM).
-
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE).
-
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
 training languages (all CommonVoice languages), and many
 other possible variations.
-
-
 Authors
  * Titouan Parcollet 2020
 """
@@ -247,6 +241,8 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
+        if info.num_channels > 1:
+            sig = torch.mean(sig, dim=1)
         resampled = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"],
         )(sig)

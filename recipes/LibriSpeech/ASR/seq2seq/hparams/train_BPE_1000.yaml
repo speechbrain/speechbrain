@@ -272,6 +272,10 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
 
+# The pretrainer allows a mapping between pretrained files and instances that
+# are declared in the yaml. E.g here, we will download the file lm.ckpt
+# and it will be loaded into "lm" which is pointing to the <lm_model> defined
+# before.
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    collect_in: !ref <save_folder>
    loadables:

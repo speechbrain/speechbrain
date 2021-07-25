@@ -22,8 +22,11 @@ from speechbrain.processing.speech_augmentation import (
     AddNoise,
     AddReverb,
 )
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-torchaudio.set_audio_backend("sox_io")
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
+
 OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
@@ -111,8 +114,7 @@ class SpecAugment(torch.nn.Module):
         return x
 
     def time_warp(self, x):
-        """Time warping with torch.nn.functional.interpolate
-        """
+        """Time warping with torch.nn.functional.interpolate"""
         original_size = x.shape
         window = self.time_warp_window
 
@@ -125,7 +127,7 @@ class SpecAugment(torch.nn.Module):
         if time - window <= window:
             return x.view(*original_size)
 
-        # compute center and corepoding window
+        # compute center and corresponding window
         c = torch.randint(window, time - window, (1,))[0]
         w = torch.randint(c - window, c + window, (1,))[0] + 1
 
@@ -289,11 +291,10 @@ class TimeDomainSpecAugment(torch.nn.Module):
             The waveforms to distort
         """
         # Augmentation
-        if self.training:
-            with torch.no_grad():
-                waveforms = self.speed_perturb(waveforms)
-                waveforms = self.drop_freq(waveforms)
-                waveforms = self.drop_chunk(waveforms, lengths)
+        with torch.no_grad():
+            waveforms = self.speed_perturb(waveforms)
+            waveforms = self.drop_freq(waveforms)
+            waveforms = self.drop_chunk(waveforms, lengths)
 
         return waveforms
 
@@ -414,17 +415,16 @@ class EnvCorrupt(torch.nn.Module):
             The waveforms to distort.
         """
         # Augmentation
-        if self.training:
-            with torch.no_grad():
-                if hasattr(self, "add_reverb"):
-                    try:
-                        waveforms = self.add_reverb(waveforms, lengths)
-                    except Exception:
-                        pass
-                if hasattr(self, "add_babble"):
-                    waveforms = self.add_babble(waveforms, lengths)
-                if hasattr(self, "add_noise"):
-                    waveforms = self.add_noise(waveforms, lengths)
+        with torch.no_grad():
+            if hasattr(self, "add_reverb"):
+                try:
+                    waveforms = self.add_reverb(waveforms, lengths)
+                except Exception:
+                    pass
+            if hasattr(self, "add_babble"):
+                waveforms = self.add_babble(waveforms, lengths)
+            if hasattr(self, "add_noise"):
+                waveforms = self.add_noise(waveforms, lengths)
 
         return waveforms
 

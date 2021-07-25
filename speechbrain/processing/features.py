@@ -302,6 +302,9 @@ class ISTFT(torch.nn.Module):
         elif len(or_shape) == 4:
             x = x.permute(0, 2, 1, 3)
 
+        # isft ask complex input
+        x = torch.complex(x[..., 0], x[..., 1])
+
         istft = torch.istft(
             input=x,
             n_fft=n_fft,
@@ -518,7 +521,7 @@ class Filterbank(torch.nn.Module):
                 * self.param_change_factor
             )
 
-        # Regularization with random changes of filter central frequnecy and band
+        # Regularization with random changes of filter central frequency and band
         elif self.param_rand_factor != 0 and self.training:
             rand_change = (
                 1.0
@@ -536,6 +539,7 @@ class Filterbank(torch.nn.Module):
 
         # Managing multi-channels case (batch, time, channels)
         if len(sp_shape) == 4:
+            spectrogram = spectrogram.permute(0, 3, 1, 2)
             spectrogram = spectrogram.reshape(
                 sp_shape[0] * sp_shape[3], sp_shape[1], sp_shape[2]
             )
@@ -549,8 +553,9 @@ class Filterbank(torch.nn.Module):
         if len(sp_shape) == 4:
             fb_shape = fbanks.shape
             fbanks = fbanks.reshape(
-                sp_shape[0], fb_shape[1], fb_shape[2], sp_shape[3]
+                sp_shape[0], sp_shape[3], fb_shape[1], fb_shape[2]
             )
+            fbanks = fbanks.permute(0, 2, 3, 1)
 
         return fbanks
 
@@ -696,9 +701,7 @@ class Filterbank(torch.nn.Module):
         x_db -= self.multiplier * self.db_multiplier
 
         # Setting up dB max
-        new_x_db_max = torch.tensor(
-            float(x_db.max()) - self.top_db, dtype=x_db.dtype, device=x.device,
-        )
+        new_x_db_max = x_db.max() - self.top_db
         # Clipping to dB max
         x_db = torch.max(x_db, new_x_db_max)
 
@@ -986,7 +989,6 @@ class InputNormalization(torch.nn.Module):
         self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
-        self.device_inp = torch.device("cpu")
         self.update_until_epoch = update_until_epoch
 
     def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
@@ -1004,7 +1006,6 @@ class InputNormalization(torch.nn.Module):
             It is used to perform per-speaker normalization when
             norm_type='speaker'.
         """
-        self.device_inp = x.device
         N_batches = x.shape[0]
 
         current_means = []
@@ -1013,7 +1014,7 @@ class InputNormalization(torch.nn.Module):
         for snt_id in range(N_batches):
 
             # Avoiding padded time steps
-            actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
+            actual_size = torch.round(lengths[snt_id] * x.shape[1]).int()
 
             # computing statistics
             current_mean, current_std = self._compute_current_stats(
@@ -1099,7 +1100,7 @@ class InputNormalization(torch.nn.Module):
         return x
 
     def _compute_current_stats(self, x):
-        """Returns the tensor with the sourrounding context.
+        """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
@@ -1171,6 +1172,17 @@ class InputNormalization(torch.nn.Module):
         self.spk_dict_count = state["spk_dict_count"]
 
         return state
+
+    def to(self, device):
+        """Puts the needed tensors in the right device.
+        """
+        self = super(InputNormalization, self).to(device)
+        self.glob_mean = self.glob_mean.to(device)
+        self.glob_std = self.glob_std.to(device)
+        for spk in self.spk_dict_mean:
+            self.spk_dict_mean[spk] = self.spk_dict_mean[spk].to(device)
+            self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
+        return self
 
     @mark_as_saver
     def _save(self, path):

@@ -11,3 +11,5 @@ def test_linear():
     lin_t.w.weight = torch.nn.Parameter(torch.eye(inputs.shape[-1]))
     outputs = lin_t(inputs)
     assert torch.all(torch.eq(inputs, outputs))
+
+    assert torch.jit.trace(lin_t, inputs)

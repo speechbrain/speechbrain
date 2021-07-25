@@ -20,10 +20,10 @@ import time
 import torchaudio
 import json
 import re
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-torchaudio.set_audio_backend(
-    "sox_io"
-)  # switch to 'soundfile' for windows machines.
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 logger = logging.getLogger(__name__)
 
 
@@ -277,7 +277,7 @@ def read_audio_multichannel(waveforms_obj):
     start = waveforms_obj.get("start", 0)
     # Default stop to start -> if not specified, num_frames becomes 0,
     # which is the torchaudio default
-    stop = waveforms_obj.get("stop", start)
+    stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
         audio, fs = torchaudio.load(
@@ -715,14 +715,14 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     Arguments
     ---------
     kaldi_ali : str
-        Path to directory where kaldi alignents are stored.
+        Path to directory where kaldi alignments are stored.
     kaldi_lab_opts : str
         A string that contains the options for reading the kaldi alignments.
 
     Returns
     -------
     lab : dict
-        A dictionary contaning the labels.
+        A dictionary containing the labels.
 
     Note
     ----
@@ -914,7 +914,7 @@ def append_eos_token(label, length, eos_index):
     label : torch.IntTensor
         Containing the original labels. Must be of size: [batch_size, max_length]
     length : torch.LongTensor
-        Cotaining the original length of each label sequences. Must be 1D.
+        Containing the original length of each label sequences. Must be 1D.
     eos_index : int
         The index for <eos> token.
 
@@ -965,7 +965,7 @@ def merge_char(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        words = "".join(seq).split("_")
+        words = "".join(seq).split(space)
         results.append(words)
     return results
 
@@ -1035,6 +1035,6 @@ def split_word(sequences, space="_"):
     """
     results = []
     for seq in sequences:
-        chars = list("_".join(seq))
+        chars = list(space.join(seq))
         results.append(chars)
     return results
