@@ -120,12 +120,15 @@ mimic_stats: !name:speechbrain.utils.metric_stats.MetricStats
 estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.estoi_eval
     n_jobs: 30
+    batch_eval: False
 pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.pesq_eval
     n_jobs: 30
+    batch_eval: False
 composite_stats: !name:train.CompositeStats
     metric: !name:train.composite_eval
     n_jobs: 30
+    batch_eval: False
 err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

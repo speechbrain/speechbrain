@@ -848,17 +848,18 @@ class SpectralMaskEnhancement(Pretrained):
 
     Example
     -------
-    >>> import torchaudio
+    >>> import torch
     >>> from speechbrain.pretrained import SpectralMaskEnhancement
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
     >>> enhancer = SpectralMaskEnhancement.from_hparams(
-    ...     source="speechbrain/mtl-mimic-voicebank",
+    ...     source="speechbrain/metricgan-plus-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
-    >>> # Channel dimension is interpreted as batch dimension here
-    >>> enhanced = enhancer.enhance_batch(noisy)
+    >>> noisy = enhancer.load_audio(
+    ...     "speechbrain/metricgan-plus-voicebank/example.wav"
+    ... ).unsqueeze(0)
+    >>> enhanced = enhancer.enhance_batch(noisy, lengths=torch.ones(1))
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
@@ -916,6 +917,70 @@ class SpectralMaskEnhancement(Pretrained):
         """
         noisy = self.load_audio(filename)
         noisy = noisy.to(self.device)
+
+        # Fake a batch:
+        batch = noisy.unsqueeze(0)
+        enhanced = self.enhance_batch(batch)
+
+        if output_filename is not None:
+            torchaudio.save(output_filename, enhanced, channels_first=False)
+
+        return enhanced.squeeze(0)
+
+
+class WaveformEnhancement(Pretrained):
+    """A ready-to-use model for speech enhancement.
+
+    Arguments
+    ---------
+    See ``Pretrained``.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import WaveformEnhancement
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> tmpdir = getfixture("tmpdir")
+    >>> enhancer = WaveformEnhancement.from_hparams(
+    ...     source="speechbrain/mtl-mimic-voicebank",
+    ...     savedir=tmpdir,
+    ... )
+    >>> noisy = enhancer.load_audio(
+    ...     "speechbrain/mtl-mimic-voicebank/example.wav"
+    ... ).unsqueeze(0)
+    >>> enhanced = enhancer.enhance_batch(noisy)
+    """
+
+    MODULES_NEEDED = ["enhance_model"]
+
+    def enhance_batch(self, noisy, lengths=None):
+        """Enhance a batch of noisy waveforms.
+
+        Arguments
+        ---------
+        noisy : torch.tensor
+            A batch of waveforms to perform enhancement on.
+        lengths : torch.tensor
+            The lengths of the waveforms if the enhancement model handles them.
+
+        Returns
+        -------
+        torch.tensor
+            A batch of enhanced waveforms of the same shape as input.
+        """
+        noisy = noisy.to(self.device)
+        return self.modules.enhance_model(noisy)
+
+    def enhance_file(self, filename, output_filename=None):
+        """Enhance a wav file.
+
+        Arguments
+        ---------
+        filename : str
+            Location on disk to load file for enhancement.
+        output_filename : str
+            If provided, writes enhanced data to this file.
+        """
+        noisy = self.load_audio(filename)
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
