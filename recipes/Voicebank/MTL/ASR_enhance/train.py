@@ -74,36 +74,23 @@ class MTLbrain(sb.Brain):
 
         predictions = {}
         if self.hparams.enhance_type is not None:
-            phase_wavs, noisy_stft, noisy_feats, lens = self.prepare_feats(
-                batch.noisy_sig
-            )
+            noisy_wavs, lens = self.prepare_wavs(batch.noisy_sig)
 
             # Mask with "signal approximation (SA)"
             if self.hparams.enhance_type == "masking":
-                mask = self.modules.enhance_model(noisy_feats)
-                mask = mask.clamp(min=0, max=1).unsqueeze(-1)
-                m = self.hparams.mask_weight
-                predictions["feats"] = m * torch.mul(mask, noisy_stft)
-                predictions["feats"] += (1 - m) * noisy_stft
-            elif self.hparams.enhance_type == "mapping":
-                spec_map = self.modules.enhance_model(noisy_feats)
-                N, T, F = spec_map.shape
-                predictions["feats"] = spec_map.reshape(N, T, F // 2, 2)
+                (
+                    predictions["wavs"],
+                    predictions["feats"],
+                ) = self.modules.enhance_model(noisy_wavs)
             elif self.hparams.enhance_type == "noisy":
-                predictions["feats"] = noisy_stft
+                predictions["wavs"] = noisy_wavs
             elif self.hparams.enhance_type == "clean":
-                phase_wavs, predictions["feats"], _, lens = self.prepare_feats(
-                    batch.clean_sig
-                )
-
-            # Resynthesize waveforms
-            predictions["wavs"] = self.hparams.compute_istft(
-                predictions["feats"], phase_wavs.shape[1]
-            )
+                predictions["wavs"], _ = self.prepare_wavs(batch.clean_sig)
 
         # Generate clean features for ASR pre-training
         if self.hparams.ctc_type == "clean" or self.hparams.seq_type == "clean":
-            _, _, clean_feats, lens = self.prepare_feats(batch.clean_sig)
+            clean_wavs, lens = self.prepare_wavs(batch.clean_sig)
+            clean_feats = self.prepare_feats(clean_wavs)
 
         # Compute seq outputs
         if self.hparams.seq_type is not None:
@@ -150,8 +137,8 @@ class MTLbrain(sb.Brain):
 
         return predictions
 
-    def prepare_feats(self, signal, augment=True):
-        """Prepare log-magnitude spectral features expected by enhance model"""
+    def prepare_wavs(self, signal, augment=True):
+        """Prepare possibly enhanced waveforms"""
         wavs, wav_lens = signal
 
         if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
@@ -162,11 +149,14 @@ class MTLbrain(sb.Brain):
                 wavs = torch.cat([wavs, wavs], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
+        return wavs, wav_lens
+
+    def prepare_feats(self, wavs):
+        """Prepare log-magnitude spectral features expected by perceptual model"""
         stft = self.hparams.compute_stft(wavs)
         feats = self.hparams.spectral_magnitude(stft)
         feats = torch.log1p(feats)
-
-        return wavs, stft, feats, wav_lens
+        return feats
 
     def prepare_targets(self, tokens):
         """Prepare target by concatenating self if "env_corr" is used"""
@@ -182,23 +172,21 @@ class MTLbrain(sb.Brain):
         """Compute possibly several loss terms: enhance, mimic, ctc, seq"""
 
         # Do not augment targets
-        clean_wavs, clean_stft, clean_feats, lens = self.prepare_feats(
-            batch.clean_sig, augment=False
-        )
+        clean_wavs, lens = self.prepare_wavs(batch.clean_sig, augment=False)
         loss = 0
 
         # Compute enhancement loss
         if self.hparams.enhance_weight > 0:
-            enhance_mag = self.hparams.spectral_magnitude(predictions["feats"])
-            enhance_mag = torch.log1p(enhance_mag)
+            clean_stft = self.modules.enhance_model.stft(clean_wavs)
+            clean_feats = self.modules.enhance_model.extract_feats(clean_stft)
             enhance_loss = self.hparams.enhance_loss(
-                enhance_mag, clean_feats, lens
+                predictions["feats"], clean_feats, lens
             )
             loss += self.hparams.enhance_weight * enhance_loss
 
             if stage != sb.Stage.TRAIN:
                 self.enh_metrics.append(
-                    batch.id, enhance_mag, clean_feats, lens
+                    batch.id, predictions["feats"], clean_feats, lens
                 )
                 self.stoi_metrics.append(
                     ids=batch.id,
@@ -231,7 +219,9 @@ class MTLbrain(sb.Brain):
         # Compute mimic loss
         if self.hparams.mimic_weight > 0:
             if hasattr(self.hparams, "perceptual_fbank"):
-                enhance_mag = self.hparams.perceptual_fbank(enhance_mag)
+                enhance_mag = self.hparams.perceptual_fbank(
+                    predictions["feats"]
+                )
                 clean_feats = self.hparams.perceptual_fbank(clean_feats)
             clean_embed = self.modules.src_embedding.CNN(clean_feats)
             enh_embed = self.modules.src_embedding.CNN(enhance_mag)

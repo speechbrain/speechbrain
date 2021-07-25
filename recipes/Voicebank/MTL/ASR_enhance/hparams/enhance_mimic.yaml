@@ -40,7 +40,6 @@ mask_weight: 0.99
 
 # Loss weights
 enhance_type: masking  # null, mapping, masking
-RI_weight: 0.0
 enhance_weight: 1.0
 mimic_weight: 0.1
 ctc_weight: 0.0
@@ -62,7 +61,6 @@ sample_rate: 16000
 n_fft: 512
 win_length: 32
 hop_length: 16
-n_mels: 40
 
 # Outputs
 output_neurons: 42
@@ -70,18 +68,20 @@ blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
-enhance_model:
-    enhance_model: !new:resnet.EnhanceResnet
-        input_shape: [null, null, !ref <n_fft> // 2 + 1]
-        output_size: !ref <n_fft> // 2 + 1
-        channel_counts: [128, 128, 256, 256, 512, 512]
-        normalization: !name:speechbrain.nnet.normalization.BatchNorm2d
-        activation: !new:torch.nn.GELU
-        dense_count: 2
-        dense_nodes: 1024
-        dropout: 0.1
+enhance_model: !new:speechbrain.lobes.models.EnhanceResnet.EnhanceResnet
+    n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+    sample_rate: !ref <sample_rate>
+    channel_counts: [128, 128, 256, 256, 512, 512]
+    normalization: !name:speechbrain.nnet.normalization.BatchNorm2d
+    activation: !new:torch.nn.GELU
+    dense_count: 2
+    dense_nodes: 1024
+    dropout: 0.1
+    mask_weight: !ref <mask_weight>
 
-perceptual_model: !include:models/perceptual_model_stack.yaml
+perceptual_model: !include:models/perceptual_model.yaml
     n_fft: !ref <n_fft>
     output_neurons: !ref <output_neurons>
 
@@ -95,36 +95,20 @@ perceptual_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_stft: !new:speechbrain.processing.features.STFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
-
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
-
 spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
     power: 0.5
-
-resynth: !name:speechbrain.processing.signal_processing.resynthesize
-    stft: !ref <compute_stft>
-    istft: !ref <compute_istft>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 modules:
-    enhance_model: !ref <enhance_model[enhance_model]>
+    enhance_model: !ref <enhance_model>
     src_embedding: !ref <perceptual_model[src_embedding]>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        enhance_model: !ref <enhance_model[enhance_model]>
+        enhance_model: !ref <enhance_model>
         counter: !ref <epoch_counter>
 
 enhance_loss: !name:speechbrain.nnet.losses.l1_loss
