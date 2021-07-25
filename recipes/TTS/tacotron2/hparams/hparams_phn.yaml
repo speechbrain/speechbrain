@@ -21,6 +21,7 @@ keep_checkpoint_interval: 20
 # Data files and pre-processing #
 #################################
 data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+data_cache_folder: null
 wav_folder: !ref <data_folder>
 train_filter: null
 valid_filter: null
@@ -238,12 +239,14 @@ datasets:
           mappings:
             label: phn_raw
           split: train
+          cache_dir: !ref <data_cache_folder>
     valid:
         path: !ref <data_folder>
         loader: !name:dataset_utils.huggingface.load
           mappings:
             label: phn_raw
           split: valid
+          cache_dir: !ref <data_cache_folder>
 
 model_output_keys:
     - mel
