@@ -95,9 +95,6 @@ perceptual_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
-    power: 0.5
-
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 

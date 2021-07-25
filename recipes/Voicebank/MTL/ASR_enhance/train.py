@@ -218,10 +218,9 @@ class MTLbrain(sb.Brain):
 
         # Compute mimic loss
         if self.hparams.mimic_weight > 0:
+            enhance_mag = predictions["feats"]
             if hasattr(self.hparams, "perceptual_fbank"):
-                enhance_mag = self.hparams.perceptual_fbank(
-                    predictions["feats"]
-                )
+                enhance_mag = self.hparams.perceptual_fbank(enhance_mag)
                 clean_feats = self.hparams.perceptual_fbank(clean_feats)
             clean_embed = self.modules.src_embedding.CNN(clean_feats)
             enh_embed = self.modules.src_embedding.CNN(enhance_mag)
@@ -285,17 +284,6 @@ class MTLbrain(sb.Brain):
                         batch.id, pred_words, target_words
                     )
 
-                    for i, (uid, snr) in enumerate(zip(batch.id, batch.snr)):
-                        if snr not in self.snr_separated_metrics:
-                            stats = self.hparams.err_rate_stats()
-                            self.snr_separated_metrics[snr] = stats
-
-                        self.snr_separated_metrics[snr].append(
-                            ids=[uid],
-                            predict=[pred_words[i]],
-                            target=[target_words[i]],
-                        )
-
                 else:
                     self.err_rate_metrics.append(
                         ids=batch.id,
@@ -321,7 +309,6 @@ class MTLbrain(sb.Brain):
 
             if self.hparams.ctc_weight > 0 or self.hparams.seq_weight > 0:
                 self.err_rate_metrics = self.hparams.err_rate_stats()
-                self.snr_separated_metrics = {}
 
         # Freeze models before training
         else:
@@ -416,11 +403,6 @@ class MTLbrain(sb.Brain):
                     self.err_rate_metrics.write_stats(w)
                 print("stats written to ", self.hparams.stats_file)
 
-            if self.hparams.seq_weight > 0:
-                for snr in self.snr_separated_metrics:
-                    with open(self.hparams.stats_file + snr + ".txt", "w") as w:
-                        self.snr_separated_metrics[snr].write_stats(w)
-
     def on_evaluate_start(self, max_key=None, min_key=None):
         self.checkpointer.recover_if_possible(max_key=max_key, min_key=min_key)
         checkpoints = self.checkpointer.find_checkpoints(
@@ -476,7 +458,7 @@ def dataio_prep(hparams, token_encoder):
             json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, target_pipeline],
-            output_keys=["id", "noisy_sig", "clean_sig", "snr"] + token_keys,
+            output_keys=["id", "noisy_sig", "clean_sig"] + token_keys,
         )
         if dataset != "train":
             data[dataset] = data[dataset].filtered_sorted(sort_key="length")

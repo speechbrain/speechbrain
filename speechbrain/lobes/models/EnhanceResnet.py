@@ -1,5 +1,6 @@
 import torch
 import speechbrain as sb
+from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
 
 
 class EnhanceResnet(torch.nn.Module):
@@ -22,7 +23,7 @@ class EnhanceResnet(torch.nn.Module):
         self.mask_weight = mask_weight
 
         # First, convert time-domain to log spectral magnitude inputs
-        self.stft = sb.processing.features.STFT(
+        self.stft = STFT(
             n_fft=n_fft,
             win_length=win_length,
             hop_length=hop_length,
@@ -58,7 +59,7 @@ class EnhanceResnet(torch.nn.Module):
         self.DNN.append(sb.nnet.linear.Linear, n_neurons=n_fft // 2 + 1)
 
         # Convert back to time domain
-        self.istft = sb.processing.features.ISTFT(
+        self.istft = ISTFT(
             n_fft=n_fft,
             win_length=win_length,
             hop_length=hop_length,
@@ -73,7 +74,7 @@ class EnhanceResnet(torch.nn.Module):
 
         # Generate mask
         mask = self.DNN(self.CNN(log_mag))
-        mask = mask.clamp(min=0, max=1).unsqueeze(1)
+        mask = mask.clamp(min=0, max=1).unsqueeze(-1)
 
         # Apply mask
         masked_spec = self.mask_weight * mask * noisy_spec
@@ -87,8 +88,7 @@ class EnhanceResnet(torch.nn.Module):
 
     def extract_feats(self, x):
         """Takes the stft output and produces features for computation."""
-        x = sb.processing.features.spectral_magnitude(x, power=0.5)
-        return torch.log1p(x)
+        return torch.log1p(spectral_magnitude(x, power=0.5))
 
 
 class ConvBlock(torch.nn.Module):
