@@ -2,13 +2,15 @@
  Data preprocessing for Tacotron2
 
  Authors
- * Georges Abous-Rjeili 2020
+ * Georges Abous-Rjeili 2021
+ * Artem Ploujnikov 2021
 
 """
 
-from speechbrain.lobes.models.synthesis.dataio import load_datasets
+import os
 import speechbrain as sb
 import torch
+from speechbrain.lobes.models.synthesis.dataio import load_datasets
 from torchaudio import transforms
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.lobes.models.synthesis.tacotron2.text_to_sequence import (
@@ -87,7 +89,7 @@ def dynamic_range_decompression(C=1, takes="mel", provides="mel_decompressed"):
     return f
 
 
-#TODO: Decouple this
+#TODO: Modularize and decouple this
 def audio_pipeline(hparams):
     """
     A pipeline function that provides text sequences, a mel spectrogram
@@ -116,12 +118,39 @@ def audio_pipeline(hparams):
         norm=hparams["norm"],
         mel_scale=hparams["mel_scale"]
     )
+
+    preprocessing_mode = hparams.get("preprocessing_mode")
+    input_encoder = hparams.get("input_encoder")
+    if input_encoder is not None:
+        if not input_encoder.lab2ind:
+            input_encoder.insert_bos_eos(
+                bos_label="<bos>",
+                eos_label="<eos>")
+            input_encoder.update_from_iterable(
+                hparams["input_tokens"],
+                sequence_input=False)
+    elif preprocessing_mode != "nvidia":
+        ValueError(
+            "An input_encoder is required except when"
+            "preprocessing_mode=nvidia")
+
+    wav_folder = hparams.get("wav_folder")
+
     @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def f(file_path, words):
-        text_seq = torch.IntTensor(
-            text_to_sequence(words, hparams["text_cleaners"])
-        )
+        if preprocessing_mode == "nvidia":
+            text_seq = torch.IntTensor(
+                text_to_sequence(words, hparams["text_cleaners"])
+            )
+        else:
+            text_seq = input_encoder.encode_sequence_torch(words[0])
+            text_seq = input_encoder.prepend_bos_index(text_seq)
+            text_seq = input_encoder.append_eos_index(text_seq)
+            text_seq = text_seq.int()
+
+        if wav_folder:
+            file_path = os.path.join(wav_folder, file_path)
         audio = sb.dataio.dataio.read_audio(file_path)
 
         mel = audio_to_mel(audio)

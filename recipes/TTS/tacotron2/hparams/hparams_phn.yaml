@@ -21,13 +21,12 @@ keep_checkpoint_interval: 20
 # Data files and pre-processing #
 #################################
 data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
-data_folder_rirs: !ref <data_folder>
-train_data_path: ../dataset_uils/mockdata/lj
+wav_folder: !ref <data_folder>
 train_filter: null
-valid_data_path: ../dataset_uils/mockdata/lj
 valid_filter: null
-preprocessing_mode: nvidia
 text_cleaners: ['english_cleaners']
+preprocessing_mode: speechbrain
+
 
 ################################
 # Audio Parameters             #
@@ -102,7 +101,50 @@ inverse_spectrogram_n_iter: 1024
 garbage_conditioning_enabled: false
 garbage_conditioning_weight: 0.2
 
+# Phonemes
+input_tokens:
+  - AA
+  - AE
+  - AH
+  - AO
+  - AW
+  - AY
+  - B
+  - CH
+  - D
+  - DH
+  - EH
+  - ER
+  - EY
+  - F
+  - G
+  - HH
+  - IH
+  - IY
+  - JH
+  - K
+  - L
+  - M
+  - N
+  - NG
+  - OW
+  - OY
+  - P
+  - R
+  - S
+  - SH
+  - T
+  - TH
+  - UH
+  - UW
+  - V
+  - W
+  - Y
+  - Z
+  - ZH
+  - " "
 
+input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
 #model
 model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
@@ -189,17 +231,19 @@ garbage_conditioner: !new:speechbrain.nnet.conditioning.GarbageConditioner
       distortion: !name:speechbrain.lobes.models.synthesis.tacotron2.dataio.shuffle_inputs
     loss_fn: !name:speechbrain.lobes.models.synthesis.tacotron2.model.loss_fn
 
-
-
 datasets:
     train:
-        path: !ref <train_data_path>
-        loader: !name:dataset_utils.lj.load
-        filter: !ref <train_filter>
+        path: !ref <data_folder>
+        loader: !name:dataset_utils.huggingface.load
+          mappings:
+            label: phn_raw
+          split: train
     valid:
-        path: !ref <valid_data_path>
-        loader: !name:dataset_utils.lj.load
-        filter: !ref <valid_filter>
+        path: !ref <data_folder>
+        loader: !name:dataset_utils.huggingface.load
+          mappings:
+            label: phn_raw
+          split: valid
 
 model_output_keys:
     - mel

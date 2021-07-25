@@ -97,19 +97,19 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     model: !ref <model>
     counter: !ref <epoch_counter>
 
-train_data_path: ../datasets/mockdata/lj
+train_data_path: ../dataset_uils/mockdata/lj
 train_filter: null
-valid_data_path: ../datasets/mockdata/lj
+valid_data_path: ../dataset_uils/mockdata/lj
 valid_filter: null
 
 datasets:
     train:
         path: !ref <train_data_path>
-        loader: !name:datasets.lj.load
+        loader: !name:dataset_utils.lj.load
         filter: !ref <train_filter>
     valid:
         path: !ref <valid_data_path>
-        loader: !name:datasets.lj.load
+        loader: !name:dataset_utils.lj.load
         filter: !ref <valid_filter>
 
 opt_class: !name:torch.optim.Adam
