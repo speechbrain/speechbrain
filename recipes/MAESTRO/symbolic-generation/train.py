@@ -356,24 +356,30 @@ if __name__ == "__main__":
 
         if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
 
-            with ZipFile(data_savepath, 'r') as zipOb:
-              zipOb.extractall(
-                hparams["data_path"]
-              )
+            with ZipFile(data_savepath, "r") as zipOb:
+                zipOb.extractall(hparams["data_path"])
 
             if hparams["dataset_name"] == "MAESTRO_v2":
-                files = os.listdir(os.path.join(hparams["data_path"], "maestro-v2.0.0"))
+                files = os.listdir(
+                    os.path.join(hparams["data_path"], "maestro-v2.0.0")
+                )
                 for file in files:
                     shutil.move(
-                        os.path.join(hparams["data_path"], "maestro-v2.0.0", file),
-                        hparams["data_path"]
+                        os.path.join(
+                            hparams["data_path"], "maestro-v2.0.0", file
+                        ),
+                        hparams["data_path"],
                     )
             elif hparams["dataset_name"] == "MAESTRO_v3":
-                files = os.listdir(os.path.join(hparams["data_path"], "maestro-v3.0.0"))
+                files = os.listdir(
+                    os.path.join(hparams["data_path"], "maestro-v3.0.0")
+                )
                 for file in files:
                     shutil.move(
-                        os.path.join(hparams["data_path"], "maestro-v3.0.0", file),
-                        hparams["data_path"]
+                        os.path.join(
+                            hparams["data_path"], "maestro-v3.0.0", file
+                        ),
+                        hparams["data_path"],
                     )
             else:
                 raise ValueError("Unsupported MAESTRO dataset name")
