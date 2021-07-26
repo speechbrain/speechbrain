@@ -6,19 +6,19 @@ from more_itertools import locate
 from tqdm import tqdm
 
 
-def piano_roll_to_csv(piano_roll, dataset, hparams):
+def piano_roll_to_csv(piano_roll, split, hparams):
     """This function takes a piano roll and creates an input csv file usable by Speechbrain
     Arguments
     ---------
     piano_roll : list
         Multidimensional list of notes
-    dataset : string
-        Name of dataset (train, test, valid)
+    split : string
+        Name of split (train, test, valid)
     hparams : dictionary
         The experiment hparams file
     """
     # Flatten roll and cast to string
-    if hparams["dataset_name"] == "data/Piano-midi.de.pickle":
+    if hparams["dataset_name"] == "Piano-Midi":
         flat_data = list(np.concatenate(piano_roll).flat)
     else:
         flat_data = list(sum(piano_roll, []))
@@ -33,7 +33,7 @@ def piano_roll_to_csv(piano_roll, dataset, hparams):
 
     # Make dataframe and write to CSV
     flat_pd = pd.DataFrame({"notes": sequence_list})
-    flat_pd.to_csv(hparams[dataset + "_csv"], index_label="ID")
+    flat_pd.to_csv(hparams[split + "_csv"], index_label="ID")
     return None
 
 
