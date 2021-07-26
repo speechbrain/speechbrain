@@ -73,9 +73,7 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
     df = pd.read_csv(os.path.join(hparams["data_path"], hparams["maestro_csv"]))
     song_set = []
     print("Processing data")
-    for i in tqdm(range(num_of_songs)):
-        for song in df[df.split == split].sample(num_of_songs)["midi_filename"]:
-            song_set.append(
-                parse_song(os.path.join(hparams["data_path"], song))
-            )
+    selected_songs = df[df.split == split].sample(num_of_songs)["midi_filename"]
+    for song in tqdm(selected_songs):
+        song_set.append(parse_song(os.path.join(hparams["data_path"], song)))
     return song_set
