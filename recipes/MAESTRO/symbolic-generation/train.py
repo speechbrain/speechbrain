@@ -393,8 +393,8 @@ if __name__ == "__main__":
                 ("test", hparams["MAESTRO_params"]["num_test_files"]),
             ]
             for split, songs in split_songs:
-                dataset = midi_to_pianoroll(split, songs, hparams)
-                piano_roll_to_csv(dataset, split, hparams)
+                midi_to_pianoroll(split, songs, hparams)
+                # piano_roll_to_csv(dataset, split, hparams)
         else:
             # download the dataset in original format if it doesn't exist on data_path
             datasets = pickle.load(open(data_savepath, "rb"))

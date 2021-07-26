@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 def piano_roll_to_csv(piano_roll, split, hparams):
-    """This function takes a piano roll and creates an input csv file usable by Speechbrain
+    """This function takes a piano roll and saves an input csv file usable by Speechbrain
     Arguments
     ---------
     piano_roll : list
@@ -31,10 +31,19 @@ def piano_roll_to_csv(piano_roll, split, hparams):
         for i in range(0, len(all_flat), hparams["sequence_length"])
     ]
 
-    # Make dataframe and write to CSV
-    flat_pd = pd.DataFrame({"notes": sequence_list})
-    flat_pd.to_csv(hparams[split + "_csv"], index_label="ID")
-    return None
+    # open the data frame
+    df_row = pd.DataFrame({"notes": sequence_list})
+    try:
+        df_all = pd.read_csv(hparams[split + "_csv"])
+        df_all = df_all.append(df_row, ignore_index=True)
+
+        df_all.reset_index()
+        df_all.ID = df_all.index
+    except FileNotFoundError:
+        print("Unable to find the csv file, starting from scratch")
+        df_all = df_row
+
+    df_all.to_csv(hparams[split + "_csv"], index_label="ID")
 
 
 def midi_to_pianoroll(split, num_of_songs, hparams):
@@ -65,15 +74,19 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
 
         return sequence_list
 
-    # Parameters definition
+    # parameters definition
     if split == "valid":
         split = "validation"
 
     # Song selection
     df = pd.read_csv(os.path.join(hparams["data_path"], hparams["maestro_csv"]))
-    song_set = []
     print("Processing data")
     selected_songs = df[df.split == split].sample(num_of_songs)["midi_filename"]
     for song in tqdm(selected_songs):
-        song_set.append(parse_song(os.path.join(hparams["data_path"], song)))
-    return song_set
+        song = parse_song(os.path.join(hparams["data_path"], song))
+
+        # to assure compatibility with the other datasets
+        if split == "validation":
+            split = "valid"
+
+        piano_roll_to_csv([song], split, hparams)
