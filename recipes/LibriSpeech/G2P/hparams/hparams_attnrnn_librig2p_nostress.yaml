@@ -30,6 +30,10 @@ lexicon_test_data: !ref <data_folder>/lexicon_test.json
 sentence_train_data: !ref <data_folder>/sentence_train.json
 sentence_valid_data: !ref <data_folder>/sentence_valid.json
 sentence_test_data: !ref <data_folder>/sentence_test.json
+homograph_train_data: !ref <data_folder>/homograph_train.json
+homograph_valid_data: !ref <data_folder>/homograph_valid.json
+homograph_test_data: !ref <data_folder>/homograph_test.json
+
 
 skip_prep: False
 sorting: random #ascending
@@ -42,8 +46,10 @@ phonemes_enable_space: True
 # Neural Parameters
 lexicon_epochs: 50
 lexicon_ctc_epochs: 10
-sentence_epochs: 50
+sentence_epochs: 20
 sentence_ctc_epochs: 10
+homograph_epochs: 20
+homograph_ctc_epochs: 10
 lexicon_batch_size: 1024
 sentence_batch_size: 64
 ctc_weight: 0.5
@@ -306,6 +312,9 @@ lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 sentence_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <sentence_epochs>
 
+homograph_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <homograph_epochs>
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
@@ -382,6 +391,17 @@ train_steps:
     wer_file: !ref <save_folder>/wer_sentence.txt
     dataloader_opts:
         batch_size: !ref <sentence_batch_size>
+
+  - name: homograph
+    train_data: !ref <homograph_train_data>
+    valid_data: !ref <homograph_valid_data>
+    test_data: !ref <homograph_test_data>
+    epoch_counter: !ref <homograph_epoch_counter>
+    ctc_epochs: !ref <homograph_ctc_epochs>
+    wer_file: !ref <save_folder>/wer_homograph.txt
+    dataloader_opts:
+        batch_size: !ref <homograph_batch_size>
+
 
 deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
