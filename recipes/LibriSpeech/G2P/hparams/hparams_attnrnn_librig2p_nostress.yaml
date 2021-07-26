@@ -52,6 +52,7 @@ homograph_epochs: 20
 homograph_ctc_epochs: 10
 lexicon_batch_size: 1024
 sentence_batch_size: 64
+homograph_batch_size: 64
 ctc_weight: 0.5
 lr: 0.002
 save_for_pretrained: true
