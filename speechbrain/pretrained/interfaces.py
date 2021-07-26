@@ -1073,9 +1073,7 @@ class EncodeDecodePipelineMixin:
         return output
 
     def _get_encode_pipeline_input(self, input):
-        if not self.batch_inputs:
-            pipeline_input = self._itemize(input)
-        return pipeline_input
+        return input if self.batch_inputs else self._itemize(input)
 
     def _get_decode_pipeline_input(self, model_output):
         model_output_keys = getattr(self.hparams, "model_output_keys", None)
@@ -1345,6 +1343,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         super().__init__(*args, **kwargs)
         self.create_pipelines()
         self.load_dependencies()
+
 
     @property
     def phonemes(self):
