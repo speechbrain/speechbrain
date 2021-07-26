@@ -11,7 +11,7 @@ import torch
 import logging
 import torch.nn as nn
 import numpy as np
-from typing import List, Optional
+from typing import Optional
 from speechbrain.dataio.dataio import length_to_mask
 import torch.nn.functional as F
 import math
