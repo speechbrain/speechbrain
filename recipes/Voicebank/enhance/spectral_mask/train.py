@@ -106,7 +106,9 @@ class SEBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=4)
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, n_jobs=1, batch_eval=False
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
