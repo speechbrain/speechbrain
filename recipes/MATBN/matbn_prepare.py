@@ -136,7 +136,7 @@ def concat_segments_info_and_transcriptions(
         concatenate_data[transcription.id] = Data(
             segment_info.wav,
             segment_info.start,
-            segment_info.end,
+            segment_info.end - segment_info.start,
             transcription.text,
         )
 
