@@ -15,9 +15,8 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_lookahead_mask,
     get_key_padding_mask,
     NormalizedEmbedding,
-    PositionalEncoding
+    PositionalEncoding,
 )
-from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 
 from speechbrain.dataio.dataio import length_to_mask
@@ -97,13 +96,14 @@ class TransformerASR(TransformerInterface):
         encoder,
         decoder,
         positional_encoding_encoder: Optional[object] = None,
-        positional_encoding_decoder: Optional[object] = None
+        positional_encoding_decoder: Optional[object] = None,
     ):
         super().__init__(
             encoder=encoder,
             decoder=decoder,
             positional_encoding_encoder=positional_encoding_encoder,
-            positional_encoding_decoder=positional_encoding_decoder)
+            positional_encoding_decoder=positional_encoding_decoder,
+        )
 
         self.custom_src_module = ModuleList(
             Linear(

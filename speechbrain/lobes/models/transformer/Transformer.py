@@ -11,11 +11,6 @@ import speechbrain as sb
 from typing import Optional
 
 
-from .Conformer import ConformerEncoder
-from speechbrain.nnet.activations import Swish
-from speechbrain.nnet.attention import RelPosEncXL
-
-
 class TransformerInterface(nn.Module):
     """This is an interface for transformer model.
 
@@ -75,7 +70,7 @@ class TransformerInterface(nn.Module):
         encoder,
         decoder,
         positional_encoding_encoder: Optional[object] = None,
-        positional_encoding_decoder: Optional[object] = None
+        positional_encoding_decoder: Optional[object] = None,
     ):
         super().__init__()
         self.positional_encoding = positional_encoding_encoder
@@ -180,7 +175,7 @@ class TransformerEncoderLayer(nn.Module):
         self_attn_mechanism,
         dropout=0.0,
         activation=nn.ReLU,
-        normalize_before=False
+        normalize_before=False,
     ):
         super().__init__()
 
@@ -291,7 +286,7 @@ class TransformerEncoder(nn.Module):
         d_model=None,
         dropout=0.0,
         activation=nn.ReLU,
-        normalize_before=False
+        normalize_before=False,
     ):
         super().__init__()
 
@@ -303,7 +298,7 @@ class TransformerEncoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
-                    self_attn_mechanism=self_attn_mechanism
+                    self_attn_mechanism=self_attn_mechanism,
                 )
                 for i in range(num_layers)
             ]
@@ -378,7 +373,7 @@ class TransformerDecoderLayer(nn.Module):
         d_model,
         dropout=0.0,
         activation=nn.ReLU,
-        normalize_before=False
+        normalize_before=False,
     ):
         super().__init__()
 
@@ -522,7 +517,7 @@ class TransformerDecoder(nn.Module):
         d_model,
         dropout=0.0,
         activation=nn.ReLU,
-        normalize_before=False
+        normalize_before=False,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -534,7 +529,7 @@ class TransformerDecoder(nn.Module):
                     d_model=d_model,
                     dropout=dropout,
                     activation=activation,
-                    normalize_before=normalize_before
+                    normalize_before=normalize_before,
                 )
                 for _ in range(num_layers)
             ]

@@ -12,11 +12,7 @@ import speechbrain as sb
 import warnings
 
 
-from speechbrain.nnet.attention import (
-    RelPosMHAXL,
-    MultiheadAttention,
-    PositionalwiseFeedForward,
-)
+from speechbrain.nnet.attention import PositionalwiseFeedForward
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.activations import Swish
 
@@ -162,7 +158,7 @@ class ConformerEncoderLayer(nn.Module):
         kernel_size=31,
         activation=Swish,
         bias=True,
-        dropout=0.0
+        dropout=0.0,
     ):
         super().__init__()
 
@@ -291,7 +287,7 @@ class ConformerEncoder(nn.Module):
         kernel_size=31,
         activation=Swish,
         bias=True,
-        dropout=0.0
+        dropout=0.0,
     ):
         super().__init__()
 
@@ -305,7 +301,7 @@ class ConformerEncoder(nn.Module):
                     activation=activation,
                     kernel_size=kernel_size,
                     causal=causal,
-                    bias=bias
+                    bias=bias,
                 )
                 for i in range(num_layers)
             ]
@@ -394,7 +390,7 @@ class ConformerDecoderLayer(nn.Module):
         activation=Swish,
         bias=True,
         dropout=0.0,
-        causal=True
+        causal=True,
     ):
         super().__init__()
 
@@ -538,7 +534,7 @@ class ConformerDecoder(nn.Module):
         activation=Swish,
         kernel_size=3,
         bias=True,
-        causal=True
+        causal=True,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -551,7 +547,7 @@ class ConformerDecoder(nn.Module):
                     activation=activation,
                     kernel_size=kernel_size,
                     bias=bias,
-                    causal=causal
+                    causal=causal,
                 )
                 for _ in range(num_layers)
             ]
