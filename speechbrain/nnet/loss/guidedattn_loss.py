@@ -42,7 +42,7 @@ class GuidedAttentionLoss(nn.Module):
     target_lengths would come from a data batch,
     whereas alignments would come from a model
     >>> import torch
-    >>> from torch.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+    >>> from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
     >>> loss = GuidedAttentionLoss(sigma=0.2)
     >>> input_lengths = torch.tensor([2, 3])
     >>> target_lengths = torch.tensor([3, 4])
