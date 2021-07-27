@@ -40,7 +40,9 @@ def piano_roll_to_csv(piano_roll, split, hparams):
         df_all.reset_index()
         df_all.ID = df_all.index
     except FileNotFoundError:
-        print("Unable to find the csv file, starting from scratch")
+        print(
+            "Unable to find the csv file on folder, starting the build the data from scratch"
+        )
         df_all = df_row
 
     df_all.to_csv(hparams[split + "_csv"], index_label="ID")
