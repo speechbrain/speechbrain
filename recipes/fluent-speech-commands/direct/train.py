@@ -76,6 +76,7 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
+        p_tokens = None
         if stage != sb.Stage.TRAIN:
             topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
                 encoder_out, wav_lens
