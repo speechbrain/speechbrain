@@ -35,6 +35,35 @@ class GuidedAttentionLoss(nn.Module):
     ---------
     sigma:
         the guided attention weight
+
+    Example
+    -------
+    NOTE: In a real scenario, the input_lengths and
+    target_lengths would come from a data batch,
+    whereas alignments would come from a model
+    >>> import torch
+    >>> from torch.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+    >>> loss = GuidedAttentionLoss(sigma=0.2)
+    >>> input_lengths = torch.tensor([2, 3])
+    >>> target_lengths = torch.tensor([3, 4])
+    >>> alignments = torch.tensor(
+    >>>     [
+    >>>         [
+    >>>             [0.8, 0.2, 0.0],
+    >>>             [0.4, 0.6, 0.0],
+    >>>             [0.2, 0.8, 0.0],
+    >>>             [0.0, 0.0, 0.0],
+    >>>         ],
+    >>>         [
+    >>>             [0.6, 0.2, 0.2],
+    >>>             [0.1, 0.7, 0.2],
+    >>>             [0.3, 0.4, 0.3],
+    >>>             [0.2, 0.3, 0.5],
+    >>>         ],
+    >>>     ]
+    >>> )
+    >>> loss(alignments, input_lengths, target_lengths)
+    tensor(0.1142)
     """
 
     def __init__(self, sigma=0.2):
