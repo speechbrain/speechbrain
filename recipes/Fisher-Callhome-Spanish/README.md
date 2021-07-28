@@ -28,7 +28,7 @@ Results are reported in terms of sacrebleu.
 | transformer.yaml | 40.67 | 41.51  | 40.30  | 0          | 0          | 0         | 2xRTX 2080 Ti 11GB |
 | transformer.yaml | 47.07 | 46.13  | 46.34  | 1          | 0.3        | 0         | 2xRTX 2080 Ti 11GB |
 | transformer.yaml | 46.10 | 46.56  | 46.79  | 1          | 0.2        | 0.2       | 2xRTX 2080 Ti 11GB |
-| conformer.yaml   |       |        |        | 0          | 0          | 0         | 2xRTX 2080 Ti 11GB |
+| conformer.yaml   | 46.37 | 47.07  | 46.10  | 0          | 0          | 0         | 2xRTX 2080 Ti 11GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
