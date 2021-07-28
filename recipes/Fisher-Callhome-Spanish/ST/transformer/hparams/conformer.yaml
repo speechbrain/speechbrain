@@ -15,7 +15,7 @@ debug: False
 seed: 8886
 num_workers: 8
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer/<seed>
+output_folder: !ref results/conformer_warm_up_35/<seed>
 ckpt_interval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt
 save_folder: !ref <output_folder>/save
@@ -60,7 +60,7 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     speeds: [90, 100, 110]
 
 # Trainer settings
-number_of_epochs: 40
+number_of_epochs: 50
 valid_search_eopch: 10
 batch_size: 4 # this works for 2 GPUs with 11GB
 gradient_accumulation: 16
@@ -70,7 +70,7 @@ sorting: random
 
 # stages related parameters
 stage_one_epochs: 100 # not gonna changing optimizer in this recipe
-lr_adam: 2.0
+lr_adam: 2.5
 lr_sgd: 0.000025
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -236,7 +236,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 25000
+    n_warmup_steps: 35000
     model_size: !ref <d_model>
 
 # Checkpoint setting
