@@ -701,7 +701,8 @@ class Filterbank(torch.nn.Module):
         x_db -= self.multiplier * self.db_multiplier
 
         # Setting up dB max
-        new_x_db_max = x_db.max() - self.top_db
+        new_x_db_max = x_db.max(dim=-1, keepdim=True).values - self.top_db
+
         # Clipping to dB max
         x_db = torch.max(x_db, new_x_db_max)
 
