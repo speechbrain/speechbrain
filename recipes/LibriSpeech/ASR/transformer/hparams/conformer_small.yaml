@@ -1,11 +1,11 @@
 # ############################################################################
 # Model: E2E ASR with Transformer
-# Encoder: Transformer Encoder
+# Encoder: Conformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet
+# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 7775
@@ -24,7 +24,7 @@ train_log: !ref <output_folder>/train_log.txt
 pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
-data_folder: /disks/disk1/LibriMix/LibriSpeech  # e.g., /path/to/LibriSpeech
+data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
@@ -50,7 +50,7 @@ ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
 loss_reduction: 'batchmean'
-sorting: random
+sorting: ascending
 
 # stages related parameters
 stage_one_epochs: 90
@@ -87,7 +87,7 @@ vocab_size: 5000
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.1
+label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2

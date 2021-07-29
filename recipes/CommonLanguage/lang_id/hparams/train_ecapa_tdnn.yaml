@@ -1,0 +1,159 @@
+# #################################
+# Training ECAPA-TDNN embeddings for language identification (LID).
+#
+# Authors:
+#  * Hwidong Na
+#  * Mirco Ravanelli
+#  * Pavlo Ruban
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Set up folders for reading from and writing to
+# Dataset will be downloaded to the `data_folder`
+data_folder: !PLACEHOLDER # e.g. /localscratch/common_voice_kpd/
+output_folder: !ref results/ECAPA-TDNN/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+device: 'cuda:0'
+skip_prep: False
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+# Feature parameters btw: 40 - 80
+n_mels: 80
+
+# Training Parameters
+sample_rate: 16000
+number_of_epochs: 30
+batch_size: 4
+n_languages: 45
+emb_dim: 192 # dimensionality of the embeddings
+
+# Dataloaders
+train_dataloader_options:
+    batch_size: !ref <batch_size>
+    drop_last: True
+    shuffle: True
+
+test_dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+# Added noise and reverb come from OpenRIR dataset, automatically
+# downloaded and prepared with this Environmental Corruption class.
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    babble_prob: 0.0
+    reverb_prob: 1.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+# Adds speech change + time and frequency dropouts (time-domain implementation)
+# A small speed change help to improve the performance of speaker-id as well.
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+# Feature extraction
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+
+# Mean and std normalization of the input features
+mean_var_norm_input: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+
+# Embedding Model
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    channels: [1024, 1024, 1024, 1024, 3072]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    attention_channels: 128
+    lin_neurons: !ref <emb_dim>
+
+# Classifier baseed on cosine distance
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    input_size: !ref <emb_dim>
+    out_neurons: !ref <n_languages>
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    compute_features: !ref <compute_features>
+    env_corrupt: !ref <env_corrupt>
+    augmentation: !ref <augmentation>
+    embedding_model: !ref <embedding_model>
+    mean_var_norm_input: !ref <mean_var_norm_input>
+    classifier: !ref <classifier>
+
+# Additive Angular Margin
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
+# Learning rates
+lr: 0.0001
+lr_final: 0.00001
+
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+
+# Linear lr decay
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        normalizer_input: !ref <mean_var_norm_input>
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        counter: !ref <epoch_counter>
+
+# Load pretrained embedding module
+# Note: in this case, we pre-train with the ECAPA-TDNN model trained on voxceleb
+# for speaker-id (this leads to a performance improvement).
+embedding_model_path: speechbrain/spkrec-ecapa-voxceleb/embedding_model.ckpt
+
+# Pretrained ECAPA embeddings from SpeakerID on VoxCeleb
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    paths:
+        embedding_model: !ref <embedding_model_path>

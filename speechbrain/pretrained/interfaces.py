@@ -193,6 +193,7 @@ class Pretrained:
         hparams_file="hyperparams.yaml",
         overrides={},
         savedir=None,
+        use_auth_token=False,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -219,11 +220,16 @@ class Pretrained:
         savedir : str or Path
             Where to put the pretraining material. If not given, will use
             ./pretrained_models/<class-name>-hash(source).
+        use_auth_token : bool (default: False)
+            If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+            default is False because majority of models are public.
         """
         if savedir is None:
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hash(source)}"
-        hparams_local_path = fetch(hparams_file, source, savedir)
+        hparams_local_path = fetch(
+            hparams_file, source, savedir, use_auth_token
+        )
 
         # Load the modules:
         with open(hparams_local_path) as fin:
