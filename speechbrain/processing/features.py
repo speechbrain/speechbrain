@@ -383,7 +383,7 @@ class Filterbank(torch.nn.Module):
     ref_value : float
         Reference value used for the dB scale.
     top_db : float
-        Top dB valu used for log-mels.
+        Minimum negative cut-off in decibels.
     freeze : bool
         If False, it the central frequency and the band of each filter are
         added into nn.parameters. If True, the standard frozen features
