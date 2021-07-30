@@ -1125,7 +1125,6 @@ class Brain:
             # data_parallel_backend
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
-                    print("hello")
                     module = DP(module)
                     self.modules[name] = module
 
