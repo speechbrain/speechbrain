@@ -697,14 +697,17 @@ class Filterbank(torch.nn.Module):
             A batch of linear FBANK tensors.
 
         """
+
         x_db = self.multiplier * torch.log10(torch.clamp(x, min=self.amin))
         x_db -= self.multiplier * self.db_multiplier
 
-        # Setting up dB max
-        new_x_db_max = x_db.max(dim=-1, keepdim=True).values - self.top_db
+        # Setting up dB max. It is the max over time and frequency,
+        # Hence, of a whole sequence (sequence-dependent)
+        new_x_db_max = x_db.amax(dim=(-2, -1)) - self.top_db
 
-        # Clipping to dB max
-        x_db = torch.max(x_db, new_x_db_max)
+        # Clipping to dB max. The view is necessary as only a scalar is obtained
+        # per sequence.
+        x_db = torch.max(x_db, new_x_db_max.view(x_db.shape[0], 1, 1))
 
         return x_db
 
