@@ -62,8 +62,8 @@ def test_filterbank():
     assert torch.equal(fbanks, torch.ones_like(fbanks) * -100)
 
     # Check top_db
-    fbanks = torch.FloatTensor([1, 0, 0]).squeeze(0).squeeze(0)
-    expected = torch.Tensor([0, -80, -80]).squeeze(0).squeeze(0)
+    fbanks = torch.zeros([1, 1, 1])
+    expected = torch.Tensor([[[-100]]])
     fbanks_db = compute_fbanks._amplitude_to_DB(fbanks)
     assert torch.equal(fbanks_db, expected)
 
