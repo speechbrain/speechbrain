@@ -736,7 +736,9 @@ class SpeakerRecognition(EncoderClassifier):
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
         # Verify:
-        score, decision = self.verify_batch(batch_x, batch_y, threshold=threshold)
+        score, decision = self.verify_batch(
+            batch_x, batch_y, threshold=threshold
+        )
         # Squeeze:
         return score[0], decision[0]
 
