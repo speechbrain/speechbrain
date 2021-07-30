@@ -72,6 +72,7 @@ class ASR(sb.core.Brain):
 
         # forward modules
         src = self.modules.CNN(feats)
+        print(src.shape)
         enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
