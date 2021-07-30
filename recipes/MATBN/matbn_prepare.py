@@ -1,6 +1,6 @@
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, asdict
 from typing import Dict, List
 
 import re
@@ -30,8 +30,18 @@ class Data:
     transcription: str
 
 
+class DataClassJSONEncoder(json.JSONEncoder):
+    def default(self, object):
+        if is_dataclass(object):
+            return asdict(object)
+        return super().default(object)
+
+
 def prepare_matbn(
-    dataset_folder: str, save_folder: str, skip_prep: bool = False
+    dataset_folder: str,
+    save_folder: str,
+    keep_unk: bool = False,
+    skip_prep: bool = False,
 ):
     if skip_prep:
         return
@@ -61,7 +71,9 @@ def prepare_matbn(
         segments_info = extract_segments_info(segments_path)
         transcriptions = extract_transcriptions(transcriptions_path)
 
-        useful_transcriptions = remove_useless_transcripts(transcriptions)
+        useful_transcriptions = remove_useless_transcripts(
+            transcriptions, keep_unk
+        )
 
         concanated_data = concat_segments_info_and_transcriptions(
             segments_info, useful_transcriptions
@@ -75,7 +87,13 @@ def prepare_matbn(
         save_path = os.path.join(save_folder, f"{split}.json")
 
         with open(save_path, "w", encoding="utf-8") as save_file:
-            json.dump(concanated_data, save_file, indent=2)
+            json.dump(
+                concanated_data,
+                save_file,
+                indent=2,
+                ensure_ascii=False,
+                cls=DataClassJSONEncoder,
+            )
 
 
 def check_folders_exist(*folders) -> bool:
@@ -114,12 +132,12 @@ def remove_useless_transcripts(
 ) -> List[Transcription]:
     useful_transcripts = []
 
-    check_useability_regex = r"\w+\b(?<!\bUNK)"
+    check_useability_regex = r"[a-zA-Z]+\b(?<!\bUNK)"
     if keep_unk:
-        check_useability_regex = r"\w"
+        check_useability_regex = r"[a-zA-Z]+"
 
     for transcription in transcriptions:
-        useless = bool(re.search(check_useability_regex, transcription))
+        useless = bool(re.search(check_useability_regex, transcription.text))
         if not useless:
             useful_transcripts.append(transcription)
 
@@ -141,3 +159,9 @@ def concat_segments_info_and_transcriptions(
         )
 
     return concatenate_data
+
+
+if __name__ == "__main__":
+    save_folder = "data"
+    dataset_folder = "/home/wayne/CORPUS/MATBN"
+    prepare_matbn(dataset_folder, save_folder)
