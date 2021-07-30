@@ -618,6 +618,10 @@ class RelPosMHAXL(nn.Module):
                 attn_score += attn_mask
 
         if key_padding_mask is not None:
+            print(bsz)
+            print(klen)
+            print(key_padding_mask.shape)
+
             attn_score = attn_score.masked_fill(
                 key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
