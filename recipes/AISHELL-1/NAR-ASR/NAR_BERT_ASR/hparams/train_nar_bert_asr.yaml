@@ -1,0 +1,213 @@
+# ############################################################################
+# Model: NAR-BERT-ASR
+# https://arxiv.org/pdf/2104.04805.pdf
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 8886
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: results/Train_NAR_BERT_ASR
+cer_file: !ref <output_folder>/cer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# e,g. results/Pretrain_Encoder/save/CKPT+XXXX-XX-XX+XX-XX-XX+XX
+pretrain_weights_dir: !PLACEHOLDER
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/aishell
+# noise/ris dataset will automatically be downloaded
+# data_folder_rirs: !ref <data_folder> # Change this is needed
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+train_data: !ref <output_folder>/train.csv
+valid_data: !ref <output_folder>/dev.csv
+test_data: !ref <output_folder>/test.csv
+
+# Training parameters
+number_of_epochs: 130
+batch_size: 20
+gradient_accumulation: 12
+gradient_clipping: 5.0
+loss_reduction: 'mean'
+sorting: random
+
+# stages related parameters
+stage_one_epochs: 130
+lr_adam_ratio: 0.1
+lr_sgd: 0.000025
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+
+# maximum decoding length
+maximum_length: 60
+
+# save n best models
+keep_nbest_models: 10
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+####################### Model parameters ###########################
+# LASO
+tgt_vocab: 21128
+out_channels: 32
+kernel_size: 3
+stride: 2
+d_model: 256
+bert_d_model: 768
+nhead: 8
+num_encoder_layers: 6
+num_pds_layers: 4
+num_decoder_layers: 6
+d_ffn: 2048
+dropout: 0.1
+activation: !name:torch.nn.GLU
+bert_model_name: 'bert-base-chinese'
+
+# Outputs
+label_smoothing: 0.1
+pad_index: 0
+
+# Decoding parameters
+valid_search_interval: 1
+
+############################## models ################################
+LASO: !new:laso.LASO
+    tgt_vocab: !ref <tgt_vocab>
+    fbank_dim: !ref <n_mels>
+    out_channels: !ref <out_channels>
+    kernel_size: !ref <kernel_size>
+    stride: !ref <stride>
+    d_model: !ref <d_model>
+    bert_d_model: !ref <bert_d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_pds_layers: !ref <num_pds_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <dropout>
+    activation: !ref <activation>
+    bert_model_name: !ref <bert_model_name>
+
+BERT: !apply:transformers.BertForMaskedLM.from_pretrained
+    pretrained_model_name_or_path: !ref <bert_model_name>
+
+tokenizer: !apply:transformers.BertTokenizer.from_pretrained
+    pretrained_model_name_or_path: !ref <bert_model_name>
+
+# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+#    openrir_folder: !ref <data_folder_rirs>
+#    babble_prob: 0.0
+#    reverb_prob: 0.0
+#    noise_prob: 1.0
+#    noise_snr_low: 0
+#    noise_snr_high: 15
+
+modules:
+    LASO: !ref <LASO>
+    BERT: !ref <BERT>
+#     env_corrupt: !ref <env_corrupt>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <LASO>, !ref <BERT>]
+
+model_LASO: !new:torch.nn.ModuleList
+    - [!ref <LASO>]
+
+# define two optimizers here for two-stage training
+Adam: !name:torch.optim.Adam
+    lr: 0
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+SGD: !name:torch.optim.SGD
+    lr: !ref <lr_sgd>
+    momentum: 0.99
+    nesterov: True
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_adam_ratio>
+    n_warmup_steps: 12000
+    model_size: !ref <bert_d_model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        noam_scheduler: !ref <noam_annealing>
+        normalizer: !ref <normalize>
+        counter: !ref <epoch_counter>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+SpecAugment: !new:speechbrain.lobes.augment.SpecAugment
+    time_warp: True
+    time_warp_window: 5
+    time_warp_mode: bicubic
+    freq_mask: True
+    n_freq_mask: 2
+    time_mask: True
+    n_time_mask: 2
+    replace_with_zero: False
+    freq_mask_width: 30
+    time_mask_width: 40
+
+SpeedPerturb:
+    speed_90: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+        orig_freq: !ref <sample_rate>
+        speeds: [90]
+    speed_110: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+        orig_freq: !ref <sample_rate>
+        speeds: [110]
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    update_until_epoch: 4
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# AISHELL-1 has spaces between words in the transcripts,
+# which Chinese writing normally does not do.
+# If remove_spaces, spaces are removed
+# from the transcript before computing CER.
+# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
+remove_spaces: True
+split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: !ref <split_tokens>
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <output_folder>/pretrain_model
+    loadables:
+        model_LASO: !ref <model_LASO>
+        normalize: !ref <normalize>
+    paths:
+        model_LASO: !ref <pretrain_weights_dir>/model.ckpt
+        normalize: !ref <pretrain_weights_dir>/normalizer.ckpt
