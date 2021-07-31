@@ -162,6 +162,6 @@ def concat_segments_info_and_transcriptions(
 
 
 if __name__ == "__main__":
-    save_folder = "data"
-    dataset_folder = "/home/wayne/CORPUS/MATBN"
+    save_folder = "results/prepare"
+    dataset_folder = "PLACEHOLDER"
     prepare_matbn(dataset_folder, save_folder)
