@@ -1,28 +1,24 @@
 import numpy as np
 import torch
 import sys
-import os
 import speechbrain as sb
 import ast
-import pickle
-import shutil
-
 from hyperpyyaml import load_hyperpyyaml
-from process_data import midi_to_pianoroll, piano_roll_to_csv
-from speechbrain.utils.data_utils import download_file
-from zipfile import ZipFile
+from prepare_dataset import prepare_dataset
 
 
 # Brain class for language model training
 class MusicLM(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Predicts the next word given the previous ones.
+
         Arguments
         ---------
         batch : PaddedBatch
             This batch object contains all the relevant tensors for computation.
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+
         Returns
         -------
         predictions : torch.Tensor
@@ -44,6 +40,7 @@ class MusicLM(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
+
         Arguments
         ---------
         predictions : torch.Tensor
@@ -52,6 +49,7 @@ class MusicLM(sb.core.Brain):
             This batch object contains all the relevant tensors for computation.
         stage : sb.Stage
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+
         Returns
         -------
         loss : torch.Tensor
@@ -95,10 +93,12 @@ class MusicLM(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Runs all the steps needed to train the model on a single batch.
+
         Arguments
         ---------
         batch : PaddedBatch
             This batch object contains all the relevant tensors for computation.
+
         Returns
         -------
         Loss : torch.Tensor
@@ -126,6 +126,7 @@ class MusicLM(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the start of an epoch.
+
         Arguments
         ---------
         stage : sb.Stage
@@ -139,6 +140,7 @@ class MusicLM(sb.core.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
+
         Arguments
         ---------
         stage : sb.Stage
@@ -192,11 +194,13 @@ def dataio_prepare(hparams):
     It also defines the data processing pipeline through user-defined functions.
     The language model is trained with the text files specified by the user in
     the hyperparameter file.
+
     Arguments
     ---------
     hparams : dict
         This dictionary is loaded from the `train.yaml` file, and it includes
         all the hyperparameters needed for dataset construction and loading.
+
     Returns
     -------
     datasets : list
@@ -242,6 +246,7 @@ def dataio_prepare(hparams):
 
     def gen_to_piano_roll(notes):
         """This function takes an array of string notes and creates a piano roll
+
         Arguments
         ---------
         notes : list
@@ -264,6 +269,7 @@ def dataio_prepare(hparams):
 
     def roll_to_binary(piano_roll):
         """This function takes a piano roll and creates a binary vector of size 88
+
         Arguments
         ---------
         piano_roll : list
@@ -292,31 +298,6 @@ def dataio_prepare(hparams):
     return train_data, valid_data, test_data
 
 
-def return_DL_link(dataset_name):
-    if dataset_name == "MAESTRO_v2":
-        DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v2.0.0/maestro-v2.0.0-midi.zip"
-    elif dataset_name == "MAESTRO_v3":
-        DL_link = "https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0-midi.zip"
-    elif dataset_name == "JSB_chorales":
-        DL_link = (
-            "http://www-ens.iro.umontreal.ca/~boulanni/JSB%20Chorales.pickle"
-        )
-    elif dataset_name == "Piano-Midi":
-        DL_link = (
-            "http://www-ens.iro.umontreal.ca/~boulanni/Piano-midi.de.pickle"
-        )
-    elif dataset_name == "Nottingham":
-        DL_link = "http://www-ens.iro.umontreal.ca/~boulanni/Nottingham.pickle"
-    elif dataset_name == "MuseData":
-        DL_link = "http://www-ens.iro.umontreal.ca/~boulanni/MuseData.pickle"
-    else:
-        raise ValueError(
-            "The dataset name you entered is not supported. Supported datasetnames are: MAESTRO_v2, MAESTRO_v3, JSB_chorales, Piano-Midi, Nottingham, MuseData"
-        )
-
-    return DL_link
-
-
 # Recipe begins!
 if __name__ == "__main__":
 
@@ -337,70 +318,15 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # check if the csv files exist, and if not create new ones
-    train_csv_exists = True if os.path.isfile(hparams["train_csv"]) else False
-    valid_csv_exists = True if os.path.isfile(hparams["valid_csv"]) else False
-    test_csv_exists = True if os.path.isfile(hparams["test_csv"]) else False
-
-    # set the names to name the downloaded file
-    if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
-        data_savepath = hparams["data_path"] + ".zip"
-    else:
-        data_savename = hparams["data_path"].split("/")[-1] + ".pickle"
-        data_savepath = os.path.join(hparams["data_path"], data_savename)
-
-    # download the data
-    if not os.path.exists(hparams["data_path"]):
-        DL_link = return_DL_link(hparams["dataset_name"])
-        download_file(DL_link, data_savepath)
-
-        if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
-
-            with ZipFile(data_savepath, "r") as zipOb:
-                zipOb.extractall(hparams["data_path"])
-
-            if hparams["dataset_name"] == "MAESTRO_v2":
-                files = os.listdir(
-                    os.path.join(hparams["data_path"], "maestro-v2.0.0")
-                )
-                for file in files:
-                    shutil.move(
-                        os.path.join(
-                            hparams["data_path"], "maestro-v2.0.0", file
-                        ),
-                        hparams["data_path"],
-                    )
-            elif hparams["dataset_name"] == "MAESTRO_v3":
-                files = os.listdir(
-                    os.path.join(hparams["data_path"], "maestro-v3.0.0")
-                )
-                for file in files:
-                    shutil.move(
-                        os.path.join(
-                            hparams["data_path"], "maestro-v3.0.0", file
-                        ),
-                        hparams["data_path"],
-                    )
-            else:
-                raise ValueError("Unsupported MAESTRO dataset name")
-
-    if not (train_csv_exists and valid_csv_exists and test_csv_exists):
-        # if we work with MAESTRO
-        if hparams["dataset_name"] in ["MAESTRO_v2", "MAESTRO_v3"]:
-            split_songs = [
-                ("train", hparams["MAESTRO_params"]["num_train_files"]),
-                ("valid", hparams["MAESTRO_params"]["num_valid_files"]),
-                ("test", hparams["MAESTRO_params"]["num_test_files"]),
-            ]
-            for split, songs in split_songs:
-                midi_to_pianoroll(split, songs, hparams)
-                # piano_roll_to_csv(dataset, split, hparams)
-        else:
-            # download the dataset in original format if it doesn't exist on data_path
-            datasets = pickle.load(open(data_savepath, "rb"))
-
-            for dataset in datasets:
-                piano_roll_to_csv(datasets[dataset], dataset, hparams)
+    # Create the csv files from the dataset
+    prepare_dataset(
+        hparams["data_folder"],
+        hparams["dataset_name"],
+        hparams["train_csv"],
+        hparams["valid_csv"],
+        hparams["test_csv"],
+        hparams,
+    )
 
     # Create dataset objects "train", "valid", and "test"
     train_data, valid_data, test_data = dataio_prepare(hparams)

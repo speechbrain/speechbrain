@@ -19,7 +19,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # this points to the maestro folder
-data_path: !PLACEHOLDER
+data_folder: !PLACEHOLDER
 
 # this csv file comes with the dataset, and defines the dataset
 # For MAESTRO_v3, you need to update the file below to maestro-v3.0.0.csv
@@ -32,9 +32,9 @@ time_scale: 9
 velocity: 80
 note_duration: 15
 
-train_csv: !ref <data_path>/train.csv
-valid_csv: !ref <data_path>/valid.csv
-test_csv: !ref <data_path>/test.csv
+train_csv: !ref <data_folder>/train.csv
+valid_csv: !ref <data_folder>/valid.csv
+test_csv: !ref <data_folder>/test.csv
 
 # When MAESTRO used, these are the number of midi files to picked up
 MAESTRO_params:

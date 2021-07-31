@@ -14,15 +14,13 @@ Make sure you have the MusPy library installed. If not, type:
 pip install -r extra_dependencies.txt
 ```
 
-Hao-Wen Dong, Ke Chen, Julian McAuley, and Taylor Berg-Kirkpatrick, “MusPy: A Toolkit for Symbolic Music Generation,” in Proceedings of the 21st International Society for Music Information Retrieval Conference (ISMIR), 2020.
-
 # How to train a model:
 ```
-python train.py hparams/RNNLM_{dataset}.yaml --data_path yourpath/dataset
+python train.py hparams/RNNLM_{dataset}.yaml --data_folder yourpath/dataset
 ```
 For example for JSB chorales dataset, you can call:
 ```
-python train.py hparams/RNNLM_JSB.yaml --data_path yourpath/JSB
+python train.py hparams/RNNLM_JSB.yaml --data_folder yourpath/JSB
 ```
 The code will automatically download the dataset to the specified path.
 
@@ -32,6 +30,10 @@ The code will automatically download the dataset to the specified path.
 python generate.py yourpath/trained_model_CKPT
 ```
 You need to specify the path to the model checkpoint to be able to generate. You need to copy the corresponding `hyperparams.yaml` inside the checkpoint folder to be able to run this script.
+
+
+# **Citing MusPy**
+Hao-Wen Dong, Ke Chen, Julian McAuley, and Taylor Berg-Kirkpatrick, “MusPy: A Toolkit for Symbolic Music Generation,” in Proceedings of the 21st International Society for Music Information Retrieval Conference (ISMIR), 2020.
 
 
 # **Citing SpeechBrain**

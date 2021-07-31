@@ -1,2 +1,2 @@
-muspy==0.3.0
-pandas==1.3.0
+muspy>=0.3.0
+pandas>=1.3.0
