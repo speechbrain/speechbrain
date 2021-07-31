@@ -1,7 +1,7 @@
 dataset_folder: !PLACEHOLDER
 prepare_folder: !ref results/prepare
 output_folder: !ref results/tokenizer_bpe5k
-keep_unk: True
+keep_unk: False
 
 token_type: unigram # ["unigram", "bpe", "char"]
 token_output: 5000 # index(blank/eos/bos/unk) = 0

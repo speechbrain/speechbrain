@@ -132,9 +132,15 @@ def remove_useless_transcripts(
 ) -> List[Transcription]:
     useful_transcripts = []
 
-    check_useability_regex = r"[a-zA-Z]+\b(?<!\bUNK)"
+    check_useability_regex = r"[a-zA-Z]+"
     if keep_unk:
-        check_useability_regex = r"[a-zA-Z]+"
+        transcriptions = [
+            Transcription(
+                transcription.id, transcription.text.replace("UNK", "unk")
+            )
+            for transcription in transcriptions
+        ]
+        check_useability_regex = r"[a-zA-Z]+\b(?<!\bunk)"
 
     for transcription in transcriptions:
         useless = bool(re.search(check_useability_regex, transcription.text))
@@ -162,6 +168,6 @@ def concat_segments_info_and_transcriptions(
 
 
 if __name__ == "__main__":
-    save_folder = "results/prepare"
-    dataset_folder = "PLACEHOLDER"
+    save_folder = "PLACEHOLDER"
+    dataset_folder = "/home/wayne/CORPUS/MATBN"
     prepare_matbn(dataset_folder, save_folder)
