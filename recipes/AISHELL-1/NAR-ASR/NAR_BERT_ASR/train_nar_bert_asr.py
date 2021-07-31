@@ -36,13 +36,16 @@ class ASR(sb.core.Brain):
 
                 wav_lens = torch.cat(
                     [
-                        wav_lens * (wavs_speed_90.size(1) / wavs_speed_110.size(1)),
-                        wav_lens * (wavs_speed_100.size(1) / wavs_speed_110.size(1)),
+                        wav_lens
+                        * (wavs_speed_90.size(1) / wavs_speed_110.size(1)),
+                        wav_lens
+                        * (wavs_speed_100.size(1) / wavs_speed_110.size(1)),
                         wav_lens,
                     ]
                 )
                 wavs = pad_sequence(
-                    [*wavs_speed_90, *wavs_speed_100, *wavs_speed_110], batch_first=True
+                    [*wavs_speed_90, *wavs_speed_100, *wavs_speed_110],
+                    batch_first=True,
                 )
                 pos_encodings = torch.cat(
                     [pos_encodings, pos_encodings, pos_encodings], dim=0
@@ -82,7 +85,9 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "SpeedPerturb"):
                 tokens = torch.cat([tokens, tokens, tokens], dim=0)
-                tokens_lens = torch.cat([tokens_lens, tokens_lens, tokens_lens], dim=0)
+                tokens_lens = torch.cat(
+                    [tokens_lens, tokens_lens, tokens_lens], dim=0
+                )
             if hasattr(self.modules, "env_corrupt"):
                 tokens = torch.cat([tokens, tokens], dim=0)
                 tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
@@ -95,7 +100,10 @@ class ASR(sb.core.Brain):
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
 
-            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
+            if (
+                current_epoch % valid_search_interval == 0
+                or stage == sb.Stage.TEST
+            ):
                 predicted_words_list = []
                 target_words_list = [[c for c in seq] for seq in batch.wrd]
 
@@ -117,12 +125,16 @@ class ASR(sb.core.Brain):
                     predicted_words_list.append(predicted_words)
 
                 self.cer_metric.append(
-                    ids=ids, predict=predicted_words_list, target=target_words_list
+                    ids=ids,
+                    predict=predicted_words_list,
+                    target=target_words_list,
                 )
 
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(
-                log_probabilities=predictions, targets=tokens, length=tokens_lens
+                log_probabilities=predictions,
+                targets=tokens,
+                length=tokens_lens,
             )
         return loss_seq
 
@@ -173,7 +185,10 @@ class ASR(sb.core.Brain):
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or stage == sb.Stage.TEST:
+            if (
+                current_epoch % valid_search_interval == 0
+                or stage == sb.Stage.TEST
+            ):
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
@@ -262,13 +277,17 @@ class ASR(sb.core.Brain):
                 if "momentum" not in group:
                     return
 
-                self.checkpointer.recover_if_possible(device=torch.device(self.device))
+                self.checkpointer.recover_if_possible(
+                    device=torch.device(self.device)
+                )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
         super().on_evaluate_start()
 
-        ckpts = self.checkpointer.find_checkpoints(max_key=max_key, min_key=min_key)
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
         ckpt = sb.utils.checkpoints.average_checkpoints(
             ckpts, recoverable_name="model", device=self.device
         )
@@ -283,8 +302,7 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_data"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["train_data"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -294,7 +312,9 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -302,17 +322,17 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_data"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["valid_data"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_data"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["test_data"], replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -357,8 +377,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "tokens", "pos_encodings"],
+        datasets, ["id", "sig", "wrd", "tokens", "pos_encodings"],
     )
     return train_data, valid_data, test_data, tokenizer
 
@@ -421,4 +440,6 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.evaluate(test_data, test_loader_kwargs=hparams["test_dataloader_opts"])
+    asr_brain.evaluate(
+        test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
+    )

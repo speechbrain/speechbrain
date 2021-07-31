@@ -8,7 +8,9 @@ import glob
 try:
     import pandas as pd
 except ImportError:
-    err_msg = "The optional dependency pandas must be installed to run this recipe.\n"
+    err_msg = (
+        "The optional dependency pandas must be installed to run this recipe.\n"
+    )
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
@@ -85,7 +87,10 @@ def prepare_aishell(data_folder, save_folder, skip_prep=False):
         transcript_opts = []
 
         all_wavs = glob.glob(
-            os.path.join(data_folder, "data_aishell/wav") + "/" + split + "/*/*.wav"
+            os.path.join(data_folder, "data_aishell/wav")
+            + "/"
+            + split
+            + "/*/*.wav"
         )
         for i in range(len(all_wavs)):
             filename = all_wavs[i].split("/")[-1].split(".wav")[0]

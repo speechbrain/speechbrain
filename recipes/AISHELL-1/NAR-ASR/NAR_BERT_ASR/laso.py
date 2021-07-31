@@ -133,11 +133,7 @@ class AttentionBlock(nn.Module):
     ):
         super().__init__()
         self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
-            nhead=nhead,
-            d_model=d_model,
-            kdim=kdim,
-            vdim=vdim,
-            dropout=dropout,
+            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
         )
         self.pos_ffn = PositionalwiseFeedForward(
             d_ffn=d_ffn,
@@ -153,12 +149,7 @@ class AttentionBlock(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
 
     def forward(
-        self,
-        query,
-        key,
-        value,
-        attn_mask=None,
-        key_padding_mask=None,
+        self, query, key, value, attn_mask=None, key_padding_mask=None,
     ):
         output, multihead_attention = self.mutihead_attn(
             query=query,
@@ -393,7 +384,9 @@ class PDSLayer(nn.Module):
         )
         self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, tgt, memory, memory_mask=None, memory_key_padding_mask=None):
+    def forward(
+        self, tgt, memory, memory_mask=None, memory_key_padding_mask=None
+    ):
         """
         Arguments
         ----------
@@ -473,7 +466,9 @@ class PDS(nn.Module):
             ]
         )
 
-    def forward(self, tgt, memory, memory_mask=None, memory_key_padding_mask=None):
+    def forward(
+        self, tgt, memory, memory_mask=None, memory_key_padding_mask=None
+    ):
         """
         Arguments
         ----------
@@ -605,7 +600,8 @@ class PositionalEncoding(nn.Module):
         pe = torch.zeros(self.max_len, input_size, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
         denominator = torch.exp(
-            torch.arange(0, input_size, 2).float() * -(math.log(10000.0) / input_size)
+            torch.arange(0, input_size, 2).float()
+            * -(math.log(10000.0) / input_size)
         )
 
         pe[:, 0::2] = torch.sin(positions * denominator)
@@ -713,11 +709,7 @@ class LASO(nn.Module):
         self._init_params()
 
     def forward(
-        self,
-        src,
-        tgt,
-        wav_len=None,
-        pad_idx=0,
+        self, src, tgt, wav_len=None, pad_idx=0,
     ):
         """
         Arguments
@@ -730,17 +722,15 @@ class LASO(nn.Module):
             The index for <pad> token (default=0).
         """
 
-        encode_result = self.encode(src=src, tgt=tgt, wav_len=wav_len, pad_idx=pad_idx)
+        encode_result = self.encode(
+            src=src, tgt=tgt, wav_len=wav_len, pad_idx=pad_idx
+        )
         output = self.classifier(encode_result)
 
         return output
 
     def encode(
-        self,
-        src,
-        tgt,
-        wav_len=None,
-        pad_idx=0,
+        self, src, tgt, wav_len=None, pad_idx=0,
     ):
         """
         Arguments
