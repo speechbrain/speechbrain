@@ -25,6 +25,10 @@ data_folder: !PLACEHOLDER
 # For MAESTRO_v3, you need to update the file below to maestro-v3.0.0.csv
 maestro_csv: maestro-v2.0.0.csv
 
+# this determines how many songs to keep in memory during data preparation
+# larger this number is we use more memory, but the preparation is faster
+save_after_nsongs: 100
+
 # this file is needed to save the generated music in a MIDI file
 midi_file: !ref <experiment_name>.MIDI
 resolution: 25

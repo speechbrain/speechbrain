@@ -205,11 +205,20 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
     )
     print("Processing data")
     selected_songs = df[df.split == split].sample(num_of_songs)["midi_filename"]
+
+    # to assure compatibility with the other datasets
+    if split == "validation":
+        split = "valid"
+
+    # save after each 100 songs
+    save_after_nsongs = hparams["save_after_nsongs"]
+    counter = 0
+    stack = []
     for song in tqdm(selected_songs):
         song = parse_song(os.path.join(hparams["data_folder"], song))
 
-        # to assure compatibility with the other datasets
-        if split == "validation":
-            split = "valid"
-
-        piano_roll_to_csv([song], split, hparams)
+        stack.append(song)
+        counter = counter + 1
+        if counter % save_after_nsongs == 0:
+            piano_roll_to_csv(stack, split, hparams)
+            stack = []
