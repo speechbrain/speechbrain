@@ -111,6 +111,17 @@ class CoopNetBrain(sb.Brain):
             predictions[f"feats_{layer}"] = m * torch.mul(mask, clean_feats)
             predictions[f"feats_{layer}"] += (1 - m) * clean_feats
 
+        elif self.hparams.enhance_type == "noisy":
+            phase_wavs, noisy_feats, lens = self.prepare_feats(batch.noisy_sig)
+
+            if layer > 0:  # Feed info from previous layer
+                noisy_feats = predictions[f"feats_{layer-1}"]
+
+            mask = self.modules.model[f"se_{layer}"](noisy_feats)
+            m = self.hparams.mask_weight
+            predictions[f"feats_{layer}"] = m * torch.mul(mask, noisy_feats)
+            predictions[f"feats_{layer}"] += (1 - m) * noisy_feats
+
         # Resynthesize waveforms
         enhanced_mag = torch.expm1(predictions[f"feats_{layer}"])
         predictions[f"wavs_{layer}"] = self.hparams.resynth(

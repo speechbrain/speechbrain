@@ -29,7 +29,7 @@ number_of_epochs: 50
 ctc_epochs: 10
 batch_size: 8
 lr_asr: 0.0005
-lr_se: 0.0001
+lr_se: 0.00002
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
 eval_max_key: null
