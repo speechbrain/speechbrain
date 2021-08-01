@@ -929,11 +929,8 @@ class SpectralMaskEnhancement(Pretrained):
         return enhanced.squeeze(0)
 
 
-class SymbolicGeneration(Pretrained):
-    """A model for symbolic generation.
-
-    The class can be used to run a language model to predict the next timestep in a series.
-    """
+class SymbolicMusicGeneration(Pretrained):
+    """The inference interface for symbolic music generation."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -941,6 +938,7 @@ class SymbolicGeneration(Pretrained):
 
     def generate_timestep(self, N):
         """Generates a sequence of N timesteps
+
         Arguments
         ---------
         N : int
@@ -988,3 +986,51 @@ class SymbolicGeneration(Pretrained):
             inp = torch.unsqueeze(out, dim=0)
 
         return sequence
+
+    def generateMIDI(self, savepath=".", N=200):
+        """
+        This function generates a MIDI file by using a pretrained model
+
+
+        Arguments
+        ---------
+        savepath : str
+            A string specifying where to save the MIDI file
+        N : int
+            Number of timesteps to generate using the model.
+
+        """
+        import muspy as mp
+
+        gen_notes = self.generate_timestep(N)
+
+        # Create Music object from binary piano roll
+        music = mp.from_pianoroll_representation(
+            gen_notes,
+            resolution=self.hparams["resolution"],
+            encode_velocity=False,
+            default_velocity=self.hparams["velocity"],
+        )
+
+        # Increase duration of each note
+        for note in music.tracks[0].notes:
+            note.duration *= self.hparams["note_duration"]
+
+        # Increate time of each note
+        mp.adjust_time(music, self.scale_time)
+
+        # Write to MIDI
+        music.write(savepath)
+
+    def scale_time(self, old_time):
+        """Scales each time step in generated music
+        Arguments
+        ---------
+        old_time : int
+            Note time in 1 timestep.
+        Returns
+        -------
+        scaled old_time: int
+            input scaled by some factor
+        """
+        return old_time * self.hparams["time_scale"]
