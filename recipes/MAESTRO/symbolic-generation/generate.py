@@ -1,5 +1,5 @@
 import sys
-from speechbrain.pretrained.interfaces import SymbolicGeneration
+from speechbrain.pretrained.interfaces import SymbolicMusicGeneration
 
 
 # Generation begins!
@@ -13,6 +13,6 @@ if __name__ == "__main__":
         )
 
     # Load the model
-    inferer = SymbolicGeneration.from_hparams(source=model_path)
+    inferer = SymbolicMusicGeneration.from_hparams(source=model_path)
 
-    inferer.generateMIDI()
+    inferer.generateMIDI("generated.MIDI")

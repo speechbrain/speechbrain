@@ -1007,14 +1007,14 @@ class SymbolicMusicGeneration(Pretrained):
         # Create Music object from binary piano roll
         music = mp.from_pianoroll_representation(
             gen_notes,
-            resolution=self.hparams["resolution"],
+            resolution=self.hparams.resolution,
             encode_velocity=False,
-            default_velocity=self.hparams["velocity"],
+            default_velocity=self.hparams.velocity,
         )
 
         # Increase duration of each note
         for note in music.tracks[0].notes:
-            note.duration *= self.hparams["note_duration"]
+            note.duration *= self.hparams.note_duration
 
         # Increate time of each note
         mp.adjust_time(music, self.scale_time)
@@ -1033,4 +1033,4 @@ class SymbolicMusicGeneration(Pretrained):
         scaled old_time: int
             input scaled by some factor
         """
-        return old_time * self.hparams["time_scale"]
+        return old_time * self.hparams.time_scale
