@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import sys
 import speechbrain as sb
@@ -228,11 +227,11 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.provides("binary_roll_bos", "binary_roll_eos")
     def text_pipeline(notes):
         # Parse csv line into array
+
         notes = ast.literal_eval(notes)
 
         # Create binarized piano roll from input
-        piano_roll = gen_to_piano_roll(notes)
-        binary_roll = roll_to_binary(piano_roll)
+        binary_roll = gen_to_piano_roll(notes)
 
         # Flatten training roll for sb pipeline
         binary_roll_bos = binary_roll[: (len(binary_roll) - 1)]
@@ -251,41 +250,20 @@ def dataio_prepare(hparams):
         ---------
         notes : list
             List of string notes
+
         Returns
         -------
-        piano_roll : list
-            List of piano roll tensors
+        binary_roll : torch.tensor
+            Torch tensor for the binary roll
         """
-        piano_roll = []
+        binary_roll = torch.zeros(len(notes), 88)
+
         for i in range(len(notes)):
             if notes[i] == "":
                 notes[i] = "0"
-            piano_roll_entry = list(map(int, notes[i].split(",")))
+            row = list(map(int, notes[i].split(",")))
+            binary_roll[i, torch.tensor(row) - 21] = 1
 
-            piano_roll_tensor = np.array(piano_roll_entry)
-            piano_roll.append(piano_roll_tensor)
-
-        return piano_roll
-
-    def roll_to_binary(piano_roll):
-        """This function takes a piano roll and creates a binary vector of size 88
-
-        Arguments
-        ---------
-        piano_roll : list
-            List of string notes
-        Returns
-        -------
-        binary_roll : tensor
-            Torch tensor containing a sequence of binarized piano rolls
-        """
-        binary_roll = torch.zeros(
-            (len(piano_roll), 88), dtype=torch.float32
-        ).to(run_opts["device"])
-        for i in range(len(piano_roll)):
-            for j in range(len(piano_roll[i])):
-                if piano_roll[i][j] != 0:
-                    binary_roll[i][piano_roll[i][j] - 21] = 1
         return binary_roll
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
