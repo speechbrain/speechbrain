@@ -14,6 +14,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
+enable_interim_reports: True
 
 
 input_lexicon: !ref <save_folder>/lexicon.csv
@@ -54,6 +55,7 @@ lexicon_batch_size: 1024
 sentence_batch_size: 64
 homograph_batch_size: 64
 ctc_weight: 0.5
+homograph_loss_weight: 2.0
 lr: 0.002
 save_for_pretrained: true
 
@@ -293,18 +295,31 @@ lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.8
     patient: 0
 
+homograph_extractor: !new:speechbrain.lobes.models.g2p.homograph.SubsequenceExtractor
+
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
+seq_cost_metric: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: 0.1
+    reduction: batch
+
+homograph_cost: !new:speechbrain.lobes.models.g2p.homograph.SubsequenceLoss
+    seq_cost: !ref <seq_cost>
+
 seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.nll_loss
-        label_smoothing: 0.1
-        reduction: batch
+    metric: !ref <seq_cost_metric>
+
+seq_stats_homograph: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !ref <seq_cost_metric>
+
+classification_stats_homograph: !name:speechbrain.utils.metric_stats.ClassificationStats
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+per_stats_homograph: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 
 lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -399,7 +414,9 @@ train_steps:
     test_data: !ref <homograph_test_data>
     epoch_counter: !ref <homograph_epoch_counter>
     ctc_epochs: !ref <homograph_ctc_epochs>
+    mode: homograph
     wer_file: !ref <save_folder>/wer_homograph.txt
+    homograph_stats_file: !ref <save_folder>/homograph_stats.txt
     dataloader_opts:
         batch_size: !ref <homograph_batch_size>
 

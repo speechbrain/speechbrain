@@ -17,6 +17,7 @@ input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
 wer_file: !ref <save_folder>/wer.txt
 pretrained_path: !ref <save_folder>
+enable_interim_reports: True
 
 
 # These three files are created from lexicon.csv.
