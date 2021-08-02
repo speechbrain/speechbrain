@@ -18,9 +18,14 @@ different encoders, decoders,  and many other possible variations.
 Authors
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
+ * Artem Ploujnikov 2021
 """
+from speechbrain.core import Stage
 import sys
+
 import speechbrain as sb
+import os
+from enum import Enum
 from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
@@ -37,6 +42,10 @@ import numpy as np
 G2PPredictions = namedtuple(
     "G2PPredictions", "p_seq char_lens hyps ctc_logprobs attn", defaults=[None] * 4)
 
+class TrainMode(Enum):
+    NORMAL = "normal"
+    HOMOGRAPH = "homograph"
+
 # Define training procedure
 class G2PBrain(sb.Brain, PretrainedModelMixin):
     def __init__(self, train_step_name, *args, **kwargs):
@@ -47,6 +56,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             if step['name'] == train_step_name)
         self.epoch_counter = self.train_step["epoch_counter"]
         self.has_ctc = hasattr(self.hparams, 'ctc_lin')
+        self.mode = TrainMode(
+            train_step.get("mode", TrainMode.NORMAL)
+        )
         self.last_attn = None
 
     def compute_forward(self, batch, stage):
@@ -77,7 +89,6 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
-        graphemes, grapheme_lens = batch.grapheme_encoded
         loss_seq = self.hparams.seq_cost(predictions.p_seq, phns_eos, phn_lens_eos)
         if self.is_ctc_active(stage):
             seq_weight = 1 - self.hparams.ctc_weight
@@ -85,9 +96,19 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 predictions.ctc_logprobs,
                 phns_eos, predictions.char_lens, phn_lens_eos
             )
-            loss = seq_weight + loss_seq + self.hparams.ctc_weight * loss_ctc
+            loss = seq_weight * loss_seq + self.hparams.ctc_weight * loss_ctc
         else:
             loss = loss_seq
+
+        if self.mode == TrainMode.HOMOGRAPH:
+            homograph_loss = self.hparams.homograph_loss_weight * self.hparams.homograph_cost(
+                phns=phns,
+                phn_lens=phn_lens,
+                p_seq=predictions.p_seq,
+                subsequence_phn_start=batch.homograph_phn_start, subsequence_phn_end=batch.homograph_phn_end
+            )
+            loss += homograph_loss
+
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
@@ -98,10 +119,64 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 phns,
                 None,
                 phn_lens,
-                self.phoneme_encoder.decode_ndim,
+                self.phoneme_encoder.decode_ndim
             )
+            if self.mode == TrainMode.HOMOGRAPH:
+                self._add_homograph_metrics(
+                    predictions,
+                    batch
+                )
 
         return loss
+
+    def _add_homograph_metrics(self, predictions, batch):
+        phns, phn_lens = batch.phn_encoded
+        ids = batch.id
+        p_seq_homograph, phns_homograph, phn_lens_homograph = (
+            self.hparams.homograph_extractor(
+                phns,
+                phn_lens,
+                predictions.p_seq,
+                subsequence_phn_start=batch.homograph_phn_start,
+                subsequence_phn_end=batch.homograph_phn_end
+            )
+        )
+        hyps_homograph = self.hparams.homograph_extractor.extract_hyps(
+            phns,
+            predictions.hyps,
+            batch.homograph_phn_start
+        )
+        self.seq_metrics_homograph.append(
+            ids,
+            p_seq_homograph,
+            phns_homograph,
+            phn_lens_homograph
+        )
+        self.per_metrics_homograph.append(
+            ids,
+            hyps_homograph,
+            phns_homograph,
+            None,
+            phn_lens_homograph,
+            self.phoneme_encoder.decode_ndim
+        )
+
+        prediction_labels = self._phonemes_to_label(hyps_homograph)
+        target_labels = self._phonemes_to_label(phns_homograph)
+
+        self.classification_metrics_homograph.append(
+            ids,
+            predictions=prediction_labels,
+            targets=target_labels,
+            categories=batch.homograph_wordid
+        )
+
+    def _phonemes_to_label(self, phn):
+        phn_decoded = self.phoneme_encoder.decode_ndim(phn)
+        return [' '.join(self._remove_special(item)) for item in phn_decoded]
+
+    def _remove_special(self, phn):
+        return [token for token in phn if "<" not in token]
 
     def is_ctc_active(self, stage):
         if not self.has_ctc or stage != sb.Stage.TRAIN:
@@ -132,6 +207,21 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
+        if self.mode == TrainMode.HOMOGRAPH:
+            self.seq_metrics_homograph = self.hparams.seq_stats_homograph()
+            self.classification_metrics_homograph = (
+                self.hparams.classification_stats_homograph())
+
+            if stage != sb.Stage.TRAIN:
+                self.per_metrics_homograph = self.hparams.per_stats_homograph()
+
+            self._set_word_separator()
+
+    def _set_word_separator(self):
+        word_separator_idx = self.phoneme_encoder.lab2ind[" "]
+        self.hparams.homograph_cost.word_separator = word_separator_idx
+        self.hparams.homograph_extractor.word_separator = word_separator_idx
+
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
@@ -152,6 +242,23 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                     "PER": per,
                 },
             }
+
+            if self.mode == TrainMode.HOMOGRAPH:
+                per_homograph = self.per_metrics_homograph.summarize("error_rate")
+                stats["valid_stats"].update(
+                    {
+                        "seq_loss_homograph": self.seq_metrics_homograph.summarize("average"),
+                        "PER_homograph": per_homograph
+                    }
+                )
+                ckpt_meta = {"PER_homograph": per}
+                min_keys = ["PER_homograph"]
+                ckpt_predicate = lambda ckpt: "PER_homograph" in ckpt.meta
+            else:
+                ckpt_meta={"PER": per}
+                min_keys=["PER"]
+                ckpt_predicate = None
+
             stats = self._add_stats_prefix(stats)
             self.hparams.train_logger.log_stats(**stats)
             if self.hparams.use_tensorboard:
@@ -159,24 +266,58 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 self.save_samples()
 
             self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"]
+                meta=ckpt_meta, min_keys=min_keys,
+                ckpt_predicate=ckpt_predicate
             )
+            if self.hparams.enable_interim_reports:
+                self._write_reports(epoch, final=False)
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            wer_file = self.train_step['wer_file']
-            with open(wer_file, "w") as w:
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "seq2seq, and PER stats written to file",
-                    wer_file
-                )
+            self._write_reports(epoch)
+
+    def _get_interim_report_path(self, epoch, file_path):
+        output_path = os.path.join(
+            self.hparams.output_folder,
+            "reports",
+            self.train_step["name"],
+            str(epoch))
+
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        return os.path.join(output_path, os.path.basename(file_path))
+
+    def _get_report_path(self, epoch, key, final):
+        file_name = self.train_step[key]
+        if not final:
+            file_name = self._get_interim_report_path(epoch, file_name)
+        return file_name
+
+    def _write_reports(self, epoch, final=True):
+        wer_file_name = self._get_report_path(epoch, "wer_file", final)
+        self._write_wer_file(wer_file_name)
+        if self.mode == TrainMode.HOMOGRAPH:
+            homograph_stats_file_name = self._get_report_path(
+                epoch, "homograph_stats_file", final)
+            self._write_homograph_file(homograph_stats_file_name)
+
+    def _write_wer_file(self, file_name):
+        with open(file_name, "w") as w:
+            w.write("\nseq2seq loss stats:\n")
+            self.seq_metrics.write_stats(w)
+            w.write("\nPER stats:\n")
+            self.per_metrics.write_stats(w)
+            print(
+                "seq2seq, and PER stats written to file",
+                file_name
+            )
+
+    def _write_homograph_file(self, file_name):
+        with open(file_name, "w") as w:
+            self.classification_metrics_homograph.write_stats(w)
 
     def _add_stats_prefix(self, stats):
         prefix = self.train_step["name"]
@@ -357,6 +498,15 @@ def dataio_prep(hparams, train_step=None):
         "phn_encoded_eos",
         "phn_encoded_bos",
     ]
+    if (
+        TrainMode(train_step.get("mode", TrainMode.NORMAL))
+        == TrainMode.HOMOGRAPH
+    ):
+        output_keys += [
+            "homograph_wordid",
+            "homograph_phn_start",
+            "homograph_phn_end"
+        ]
     sb.dataio.dataset.set_output_keys(
         datasets,
         output_keys,
@@ -379,6 +529,7 @@ def check_language_model(hparams, run_opts):
     else:
         if "beam_searcher_lm" in hparams:
             del hparams["beam_searcher_lm"]
+
 
 def load_dependencies(hparams, run_opts):
     deps_pretrainer = hparams.get("deps_pretrainer")
