@@ -22,47 +22,14 @@ class TransformerInterface(nn.Module):
 
     Arguments
     ----------
-    d_model: int
-        The number of expected features in the encoder/decoder inputs (default=512).
-    nhead: int
-        The number of heads in the multi-head attention models (default=8).
-    num_encoder_layers: int, optional
-        The number of encoder layers in1ì the encoder.
-    num_decoder_layers: int, optional
-        The number of decoder layers in the decoder.
-    dim_ffn: int, optional
-        The dimension of the feedforward network model hidden layer.
-    dropout: int, optional
-        The dropout value.
-    activation: torch.nn.Module, optional
-        The activation function for Feed-Forward Netowrk layer,
-        e.g., relu or gelu or swish.
-    custom_src_module: torch.nn.Module, optional
-        Module that processes the src features to expected feature dim.
-    custom_tgt_module: torch.nn.Module, optional
-        Module that processes the src features to expected feature dim.
-    positional_encoding: str, optional
-        Type of positional encoding used. e.g. 'fixed_abs_sine' for fixed absolute positional encodings.
-    normalize_before: bool, optional
-        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
-        Defaults to True as this was shown to lead to better performance and training stability.
-    kernel_size: int, optional
-        Kernel size in convolutional layers when Conformer is used.
-    bias: bool, optional
-        Whether to use bias in Conformer convolutional layers.
-    encoder_module: str, optional
-        Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
-    conformer_activation: torch.nn.Module, optional
-        Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
-    attention_type: str, optional
-        Type of attention layer used in all Transformer or Conformer layers.
-        e.g. regularMHA or RelPosMHA.
-    max_length: int, optional
-        Max length for the target and source sequence in input.
-        Used for positional encodings.
-    causal: bool, optional
-        Whether the encoder should be causal or not (the decoder is always causal).
-        If causal the Conformer convolutional layer is causal.
+    encoder: encoder module
+        A module to be used as the encoder part in the Transformer
+    decoder: decoder module
+        A module to be used as the decoder part in the Transformer
+    positional_encoding_encoder: Positional Encoding module
+        A module to be used as the Positional Encoding encoder part in the Transformer
+    positional_encoding_decoder: Positional Encoding module
+        A module to be used as the Positional Encoding decoder part in the Transformer
     """
 
     def __init__(
@@ -138,14 +105,10 @@ class TransformerEncoderLayer(nn.Module):
     ----------
     d_ffn: int, optional
         The dimension of the feedforward network model hidden layer.
-    nhead: int
-        The number of heads in the multi-head attention models (default=8).
     d_model: int
         The number of expected features in the encoder/decoder inputs (default=512).
-    kdim: int, optional
-        Dimension of the key.
-    vdim: int, optional
-        Dimension of the value.
+    self_attn_mechanism: Attention mechanism module
+        The default attention mechanism is the Multihead attention from PyTorch
     dropout: int, optional
         The dropout value.
     activation: torch.nn.Module, optional
@@ -154,17 +117,16 @@ class TransformerEncoderLayer(nn.Module):
     normalize_before: bool, optional
         Whether normalization should be applied before or after MHA or FFN in Transformer layers.
         Defaults to True as this was shown to lead to better performance and training stability.
-    attention_type: str, optional
-        Type of attention layer used in all Transformer or Conformer layers.
-        e.g. regularMHA or RelPosMHA.
 
     Example
     -------
     >>> import torch
-    >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoderLayer(512, 8, d_model=512)
-    >>> output = net(x)
-    >>> output[0].shape
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> inputs = torch.rand((8, 60, 512))
+    >>> mha = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> net = TransformerEncoderLayer(512, 512, mha)
+    >>> output, _ = net(inputs)
+    >>> output.shape
     torch.Size([8, 60, 512])
     """
 
@@ -252,27 +214,29 @@ class TransformerEncoder(nn.Module):
     ---------
     num_layers : int
         Number of transformer layers to include.
-    nhead : int
-        Number of attention heads.
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
+    self_attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
     d_model : int
         The dimension of the input embedding.
-    kdim : int
-        Dimension for key (Optional).
-    vdim : int
-        Dimension for value (Optional).
     dropout : float
         Dropout for the encoder (Optional).
-    input_module: torch class
-        The module to process the source input feature to expected
-        feature dimension (Optional).
+    activation: torch.nn.Module, optional
+        The activation function for Feed-Forward Netowrk layer,
+        e.g., relu or gelu or swish.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
 
     Example
     -------
     >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoder(1, 8, 512, d_model=512)
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> net = TransformerEncoder(1, 512, mha, d_model=512)
     >>> output, _ = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -342,24 +306,33 @@ class TransformerDecoderLayer(nn.Module):
 
     Arguments
     ----------
+    self_attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
+    multihead_attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
-    nhead : int
-        Number of attention heads.
     d_model : int
         Dimension of the model.
-    kdim : int
-        Dimension for key (optional).
-    vdim : int
-        Dimension for value (optional).
     dropout : float
         Dropout for the decoder (optional).
+    activation: torch.nn.Module, optional
+        The activation function for Feed-Forward Netowrk layer,
+        e.g., relu or gelu or swish.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
 
     Example
     -------
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> x = torch.rand((8, 60, 512))
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> self_attn = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoderLayer(1024, 8, d_model=512)
+    >>> net = TransformerDecoderLayer(1024, self_attn, mha, d_model=512)
     >>> output, self_attn, multihead_attn = net(src, tgt)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -485,24 +458,35 @@ class TransformerDecoder(nn.Module):
 
     Arguments
     ----------
-    nhead : int
-        Number of attention heads.
+    num_layers : int
+        Number of decoder layers
+    self_attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
+    multihead_attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
     d_ffn : int
         Hidden size of self-attention Feed Forward layer.
     d_model : int
         Dimension of the model.
-    kdim : int, optional
-        Dimension for key (Optional).
-    vdim : int, optional
-        Dimension for value (Optional).
-    dropout : float, optional
-        Dropout for the decoder (Optional).
+    dropout : float
+        Dropout for the decoder (optional).
+    activation: torch.nn.Module, optional
+        The activation function for Feed-Forward Netowrk layer,
+        e.g., relu or gelu or swish.
+    normalize_before: bool, optional
+        Whether normalization should be applied before or after MHA or FFN in Transformer layers.
+        Defaults to True as this was shown to lead to better performance and training stability.
 
     Example
     -------
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> x = torch.rand((8, 60, 512))
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> self_attn = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoder(1, 8, 1024, d_model=512)
+    >>> net = TransformerDecoder(8, self_attn, mha, d_model=512, d_ffn=512)
     >>> output, _, _ = net(src, tgt)
     >>> output.shape
     torch.Size([8, 60, 512])

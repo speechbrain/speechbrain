@@ -141,9 +141,11 @@ class ConformerEncoderLayer(nn.Module):
     Example
     -------
     >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> mha = MultiheadAttention(nhead=8, d_model=512)
+    >>> pos_embs = torch.rand((64, 60, 60))
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_embs = torch.rand((1, 2*60-1, 512))
-    >>> net = ConformerEncoderLayer(d_ffn=512, nhead=8, d_model=512, kernel_size=3)
+    >>> net = ConformerEncoderLayer(d_ffn=512, attn_mechanism=mha, d_model=512, kernel_size=3, causal=True)
     >>> output = net(x, pos_embs=pos_embs)
     >>> output[0].shape
     torch.Size([8, 60, 512])
@@ -269,10 +271,12 @@ class ConformerEncoder(nn.Module):
     Example
     -------
     >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> mha = MultiheadAttention(nhead=8, d_model=512)
+    >>> pos_embs = torch.rand((64, 60, 60))
     >>> x = torch.rand((8, 60, 512))
-    >>> pos_emb = torch.rand((1, 2*60-1, 512))
-    >>> net = ConformerEncoder(1, 512, 512, 8)
-    >>> output, _ = net(x, pos_embs=pos_emb)
+    >>> net = ConformerEncoder(1, 512, mha, 512, 8)
+    >>> output, _ = net(x, pos_embs=pos_embs)
     >>> output.shape
     torch.Size([8, 60, 512])
     """
@@ -347,36 +351,33 @@ class ConformerDecoderLayer(nn.Module):
 
     Arguments
     ----------
-    d_model : int
-        The expected size of the input embedding.
-    d_ffn : int
+
+    d_model: int
+        Embedding dimension size.
+    d_ffn: int
         Hidden size of self-attention Feed Forward layer.
-    nhead : int
-        Number of attention heads.
-    kernel_size : int, optional
-        Kernel size of convolution model.
-    kdim : int, optional
-        Dimension of the key.
-    vdim : int, optional
-        Dimension of the value.
+    attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
+    dropout: float, optional
+        Dropout rate.
     activation: torch.nn.Module, optional
-         Activation function used in each Conformer layer.
+         Activation function used after non-bottleneck conv layer.
+    kernel_size : int, optional
+        Kernel size of convolutional layer.
     bias : bool, optional
         Whether  convolution module.
-    dropout : int, optional
-        Dropout for the encoder.
     causal: bool, optional
         Whether the convolutions should be causal or not.
-    attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
 
     Example
     -------
     >>> import torch
-    >>> x = torch.rand((8, 60, 512))
-    >>> pos_embs = torch.rand((1, 2*60-1, 512))
-    >>> net = ConformerEncoderLayer(d_ffn=512, nhead=8, d_model=512, kernel_size=3)
-    >>> output = net(x, pos_embs=pos_embs)
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha = MultiheadAttention(nhead=8, d_model=512)
+    >>> pos_embs = torch.rand((64, 60, 60))
+    >>> net = ConformerEncoderLayer(d_ffn=512, d_model=512, attn_mechanism=mha, kernel_size=3, causal=True)
+    >>> output = net(inputs, pos_embs=pos_embs)
     >>> output[0].shape
     torch.Size([8, 60, 512])
     """
@@ -386,7 +387,7 @@ class ConformerDecoderLayer(nn.Module):
         d_model,
         d_ffn,
         attn_mechanism,
-        kernel_size,
+        kernel_size=31,
         activation=Swish,
         bias=True,
         dropout=0.0,
@@ -490,16 +491,14 @@ class ConformerDecoder(nn.Module):
     ----------
     num_layers: int
         Number of layers.
+    attn_mechanism: Attention Mechanism class
+        The classic Transformer class is the Multihead attention
     nhead: int
         Number of attention heads.
     d_ffn: int
         Hidden size of self-attention Feed Forward layer.
     d_model: int
         Embedding dimension size.
-    kdim: int, optional
-        Dimension for key.
-    vdim: int, optional
-        Dimension for value.
     dropout: float, optional
         Dropout rate.
     activation: torch.nn.Module, optional
@@ -510,15 +509,18 @@ class ConformerDecoder(nn.Module):
         Whether  convolution module.
     causal: bool, optional
         Whether the convolutions should be causal or not.
-    attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
 
 
     Example
     -------
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> x = torch.rand((8, 60, 512))
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> self_attn = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = ConformerDecoder(1, 8, 1024, 512, attention_type="regularMHA")
+    >>> net = ConformerDecoder(1, mha, 1024, 512)
     >>> output, _, _ = net(tgt, src)
     >>> output.shape
     torch.Size([8, 60, 512])
