@@ -328,6 +328,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.eos_threshold = eos_threshold
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
+        self.attn_weight = 1.0
         self.ctc_weight = 0.0
         self.minus_inf = minus_inf
 
@@ -348,8 +349,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     raise ValueError(
                         "Set blank, eos and bos to different indexes for joint ATT/CTC or CTC decoding"
                     )
-            self.ctc_weight = self.scorer.weights["ctc"]
-            self.attn_weight = 1.0 - self.ctc_weight
+
+                self.ctc_weight = self.scorer.weights["ctc"]
+                self.attn_weight = 1.0 - self.ctc_weight
 
     def _check_full_beams(self, hyps, beam_size):
         """This method checks whether hyps has been full.

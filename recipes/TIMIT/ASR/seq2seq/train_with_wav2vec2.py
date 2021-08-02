@@ -52,6 +52,7 @@ class ASR(sb.Brain):
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
+        hyps = None
         if stage != sb.Stage.TRAIN:
             # Decide searcher for inference: valid or test search
             searcher = getattr(self.hparams, f"{stage.name}_searcher".lower())
@@ -68,10 +69,7 @@ class ASR(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the NLL loss."
-        if stage == sb.Stage.TRAIN:
-            p_ctc, p_seq, wav_lens = predictions
-        else:
-            p_ctc, p_seq, wav_lens, hyps = predictions
+        p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
