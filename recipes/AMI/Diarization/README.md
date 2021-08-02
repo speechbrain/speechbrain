@@ -17,9 +17,11 @@ The script assumes the pre-trained model. Please refer to speechbrain/recipes/Vo
 ## Best performance in terms of Diarization Error Rate (DER).
 The forgiveness collar of 0.25 sec is used and overlaps are ignored while evaluation.
 
-| System | Orcl. (Dev) | Orcl. (Eval) | Est. (Dev) | Est. (Eval)
+| System | Mic. | Orcl. (Dev) | Orcl. (Eval) | Est. (Dev) | Est. (Eval)
 |----------- | ------------ | ------|------| ------|
-| ECAPA-TDNN + SC | 2.82% | 2.65% | 3.66% | 3.01% |
+| ECAPA-TDNN + SC | HeadsetMix | 2.02% | 1.78% | 2.43% | 4.03% |
+| ECAPA-TDNN + SC | LapelMix | 2.17% | 2.36% | 2.34% | 2.57% |
+| ECAPA-TDNN + SC | Array-1 | 2.95% | 2.75% | 3.07% | 3.30% |
 
 For the complete set of analyses, please refer to our paper given below.
 
