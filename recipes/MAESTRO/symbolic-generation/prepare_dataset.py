@@ -62,7 +62,7 @@ def prepare_dataset(
                 ("test", hparams["MAESTRO_params"]["num_test_files"]),
             ]
             for split, songs in split_songs:
-                save_piano_rolls(split, songs, hparams)
+                midi_to_pianoroll(split, songs, hparams)
         else:
             # download the dataset in original format if it doesn't exist on data_path
             datasets = pickle.load(open(data_savepath, "rb"))
@@ -163,19 +163,7 @@ def save_piano_rolls(counter, piano_roll, split, hparams):
         torch.save({"notes": pitches, "times": times}, save_path)
         all_paths.append(save_path)
 
-    # open the data frame
-    df_row = pd.DataFrame({"file_path": all_paths})
-    try:
-        df_all = pd.read_csv(hparams[split + "_csv"])
-        df_all = df_all.append(df_row, ignore_index=True)
-
-        df_all.reset_index()
-        df_all.ID = df_all.index
-    except FileNotFoundError:
-        print("Data preparation...")
-        df_all = df_row
-
-    df_all.to_csv(hparams[split + "_csv"], index_label="ID")
+    return all_paths
 
 
 def midi_to_pianoroll(split, num_of_songs, hparams):
@@ -225,8 +213,13 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
 
     # save after each 100 songs
     counter = 0
+    all_paths = []
     for song in tqdm(selected_songs):
         song = parse_song(os.path.join(hparams["data_folder"], song))
 
-        save_piano_rolls(counter, [song], split, hparams)
+        paths = save_piano_rolls(counter, [song], split, hparams)
         counter = counter + 1
+        all_paths.extend(paths)
+
+    df = pd.DataFrame({"file_path": all_paths})
+    df.to_csv(hparams[split + "_csv"], index_label="ID")
