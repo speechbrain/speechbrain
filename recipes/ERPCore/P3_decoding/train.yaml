@@ -1,0 +1,165 @@
+###################################################
+# P3 classification using EEGNet with custom hyper-parameters.
+# Reference to EEGNet: V. J. Lawhern et al., J Neural Eng 2018 (https://doi.org/10.1088/1741-2552/aace8c)
+#
+# Author
+# ------
+# Davide Borra, 2021
+###################################################
+seed: 2602
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# DIRECTORIES
+data_folder: !PLACEHOLDER  #'/path/to/ERPCore_P3'
+output_folder: !ref results/ERPCore_P3/<seed>
+
+# DATASET HPARS
+# ID of the subject to decode
+sbj_id: !PLACEHOLDER  #'sub-004'
+# EEG channels to use
+ch_names: ['FP1',
+           'F3', 'F7',
+           'FC3',
+           'C3', 'C5',
+           'P3', 'P7', 'P9',
+           'PO7', 'PO3',
+           'O1',
+           'Oz',
+           'Pz',
+           'CPz',
+           'FP2',
+           'Fz',
+           'F4', 'F8',
+           'FC4',
+           'FCz',
+           'Cz',
+           'C4', 'C6',
+           'P4', 'P8', 'P10',
+           'PO8', 'PO4',
+           'O2']
+# Number of channels
+C: !apply:len
+  - !ref <ch_names>
+# Target sampling rate while downsampling
+sf: 128
+# tmin, tmax respect to stimulus onset to define EEG epochs
+tmin: -0.2
+tmax: 0.8
+# Time samples=int((tmax-tmin)*sf)
+T: 128
+
+# TRAINING HPARS
+number_of_epochs: 500  # number of training epochs
+max_increase_epochs: 25  # early stop when after consecutive "max_increase_epochs" epochs there is no improvement
+num_warmup_epochs: 5  # start checking for early stopping after first "num_warmup_epochs"
+target_valid_metric: 'f1'  # target metric to track while performing early stopping
+direction: 'max'  # direction to optimize the target metric
+batch_size: 32
+lr: 0.001
+loss: !name:torch.nn.functional.nll_loss
+class_weight: [1, 4]  # class weight to address class imbalance
+optimizer: !name:torch.optim.Adam
+  lr: !ref <lr>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper  # epoch counter and early stopper
+  limit: !ref <number_of_epochs>
+  limit_to_stop: !ref <max_increase_epochs>
+  limit_warmup: !ref <num_warmup_epochs>
+  direction: !ref <direction>
+
+# EEGNET HPARS
+k0: 4  # number of temporal filters in the temporal conv. layer
+d1: 4  # depth multiplier for the spatial depthwise conv. layer
+k3: !ref <k0> * <d1>  # number of spatial depthwise filters
+f0: 65  # length of temporal filters in the temporal conv. layer
+f2: 17  # length of temporal filters in the temporal separable conv. layer
+fp0: 4  # temporal pool size and stride of the first pooling layer
+fp1: 8  # temporal pool size and stride of the second pooling layer
+fptot: !ref <fp0> * <fp1>  # overall pool size
+max_norm_1: 1.  # kernel max-norm constaint of the spatial depthwise conv. layer
+max_norm_out: 1.  # kernel max-norm constaint of the dense layer
+p_drop: 0.5  # dropout rate
+padding_mode: 'constant'
+
+layer0: !new:speechbrain.nnet.CNN.Conv2d
+  in_channels: 1
+  out_channels: !ref <k0>
+  kernel_size: [!ref <f0>, 1]
+  padding: 'same'
+  padding_mode: !ref <padding_mode>
+  bias: False
+bnorm0: !new:speechbrain.nnet.normalization.BatchNorm2d
+  input_size: !ref <k0>
+  momentum: 0.01
+  affine: True
+
+layer1: !new:speechbrain.nnet.CNN.Conv2dWithConstraint
+  in_channels: !ref <k0>
+  out_channels: !ref <k0> * <d1>
+  kernel_size: [1, !ref <C>]
+  groups: !ref <k0>
+  max_norm: !ref <max_norm_1>
+  padding: 'valid'
+  bias: False
+bnorm1: !new:speechbrain.nnet.normalization.BatchNorm2d
+  input_size: !ref <k0> * <d1>
+  momentum: 0.01
+  affine: True
+avgpool1: !new:speechbrain.nnet.pooling.Pooling2d
+  pool_type: 'avg'
+  kernel_size: [!ref <fp0>, 1]
+  stride: [!ref <fp0>, 1]
+  pool_axis: [2, 3]
+
+layer2: !new:speechbrain.nnet.CNN.Conv2d
+  in_channels: !ref <k0> * <d1>
+  out_channels: !ref <k0> * <d1>
+  kernel_size: [!ref <f2>, 1]
+  padding: 'same'
+  padding_mode: !ref <padding_mode>
+  groups: !ref <k0> * 2
+  bias: False
+layer3: !new:speechbrain.nnet.CNN.Conv2d
+  in_channels: !ref <k0> * <d1>
+  out_channels: !ref <k3>
+  kernel_size: [1, 1]
+  padding: 'valid'
+  bias: False
+bnorm3: !new:speechbrain.nnet.normalization.BatchNorm2d
+  input_size: !ref <k3>
+  momentum: 0.01
+  affine: True
+avgpool3: !new:speechbrain.nnet.pooling.Pooling2d
+  pool_type: 'avg'
+  kernel_size: [!ref <fp1>, 1]
+  stride: [!ref <fp1>, 1]
+  pool_axis: [2, 3]
+
+layer4: !new:speechbrain.nnet.linear.LinearWithConstraint
+  input_size: !ref <k3> * <T> // <fptot>
+  n_neurons: 2  # 2 output neurons as we balance for the imbalanced dataset
+  max_norm: !ref <max_norm_out>
+  bias: True
+
+model: !new:speechbrain.nnet.containers.Sequential
+  - !ref <layer0>
+  - !ref <bnorm0>
+
+  - !ref <layer1>
+  - !ref <bnorm1>
+  - !ref <avgpool1>
+  - !new:torch.nn.Dropout
+    p: !ref <p_drop>
+  - !new:torch.nn.ELU
+
+  - !ref <layer2>
+  - !ref <layer3>
+  - !ref <bnorm3>
+  - !ref <avgpool3>
+  - !new:torch.nn.Dropout
+    p: !ref <p_drop>
+  - !new:torch.nn.ELU
+
+  - !new:torch.nn.Flatten
+  - !ref <layer4>
+  - !new:torch.nn.LogSoftmax
+    dim: 1

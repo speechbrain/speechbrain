@@ -715,7 +715,7 @@ class SpeakerRecognition(EncoderClassifier):
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
-    def verify_files(self, path_x, path_y):
+    def verify_files(self, path_x, path_y, threshold=0.25):
         """Speaker verification with cosine distance
 
         Returns the score and the decision (0 different speakers,
@@ -736,7 +736,9 @@ class SpeakerRecognition(EncoderClassifier):
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
         # Verify:
-        score, decision = self.verify_batch(batch_x, batch_y)
+        score, decision = self.verify_batch(
+            batch_x, batch_y, threshold=threshold
+        )
         # Squeeze:
         return score[0], decision[0]
 
