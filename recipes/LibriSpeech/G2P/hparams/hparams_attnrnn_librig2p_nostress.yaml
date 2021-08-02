@@ -342,6 +342,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         scheduler: !ref <lr_annealing>
         lexicon_counter: !ref <lexicon_epoch_counter>
         sentence_counter: !ref <sentence_epoch_counter>
+        homograph_counter: !ref <homograph_epoch_counter>
 
 model_output_keys:
     - p_seq
