@@ -23,3 +23,5 @@ tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
   character_coverage: !ref <character_coverage>
   annotation_list_to_check: [!ref <dev_json>, !ref <eval_json>, !ref <test_json>]
   annotation_format: json
+  bos_id: 1
+  eos_id: 2
