@@ -25,9 +25,6 @@ data_folder: !PLACEHOLDER
 # For MAESTRO_v3, you need to update the file below to maestro-v3.0.0.csv
 maestro_csv: maestro-v2.0.0.csv
 
-# this determines how many songs to keep in memory during data preparation
-# larger this number is we use more memory, but the preparation is faster
-save_after_nsongs: 100
 
 # this file is needed to save the generated music in a MIDI file
 midi_file: !ref <experiment_name>.MIDI
@@ -63,12 +60,13 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 train_dataloader_opts:
   batch_size: !ref <batch_size>
   shuffle: True
+  num_workers: 0
 
 valid_dataloader_opts:
-  batch_size: 1
+  batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-  batch_size: 1
+  batch_size: !ref <batch_size>
 
 # Model parameters
 emb_dim: 88 # dimension of the embeddings

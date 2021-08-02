@@ -1,4 +1,5 @@
 import os
+import torch
 import pickle
 import shutil
 import numpy as np
@@ -61,14 +62,13 @@ def prepare_dataset(
                 ("test", hparams["MAESTRO_params"]["num_test_files"]),
             ]
             for split, songs in split_songs:
-                midi_to_pianoroll(split, songs, hparams)
-                # piano_roll_to_csv(dataset, split, hparams)
+                save_piano_rolls(split, songs, hparams)
         else:
             # download the dataset in original format if it doesn't exist on data_path
             datasets = pickle.load(open(data_savepath, "rb"))
 
             for dataset in datasets:
-                piano_roll_to_csv(datasets[dataset], dataset, hparams)
+                save_piano_rolls(datasets[dataset], dataset, hparams)
 
 
 def download_data(data_folder, dataset_name, data_savepath):
@@ -126,11 +126,13 @@ def return_DL_link(dataset_name):
     return DL_link
 
 
-def piano_roll_to_csv(piano_roll, split, hparams):
+def save_piano_rolls(counter, piano_roll, split, hparams):
     """This function takes a piano roll and saves an input csv file usable by Speechbrain
 
     Arguments
     ---------
+    counter: int
+        integer the song index
     piano_roll : list
         Multidimensional list of notes
     split : string
@@ -143,17 +145,26 @@ def piano_roll_to_csv(piano_roll, split, hparams):
         flat_data = list(np.concatenate(piano_roll).flat)
     else:
         flat_data = list(sum(piano_roll, []))
-    all_flat = [list(map(str, lst)) for lst in flat_data]
-    all_flat = [",".join(lst) for lst in all_flat]
 
     # Create time dimension of defined size
-    sequence_list = [
-        all_flat[i : i + hparams["sequence_length"]]
-        for i in range(0, len(all_flat), hparams["sequence_length"])
-    ]
+    all_paths = []
+    for i in range(0, len(flat_data), hparams["sequence_length"]):
+        chunk = flat_data[i : i + hparams["sequence_length"]]
+
+        pitches = []
+        times = []
+        for j, tupl in enumerate(chunk):
+            pitches.extend([el - 21 for el in tupl])
+            times.extend([j for el in tupl])
+
+        save_path = os.path.join(
+            hparams["data_folder"], split, "{}_{}.pkl".format(counter, i)
+        )
+        torch.save({"notes": pitches, "times": times}, save_path)
+        all_paths.append(save_path)
 
     # open the data frame
-    df_row = pd.DataFrame({"notes": sequence_list})
+    df_row = pd.DataFrame({"file_path": all_paths})
     try:
         df_all = pd.read_csv(hparams[split + "_csv"])
         df_all = df_all.append(df_row, ignore_index=True)
@@ -210,15 +221,12 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
     if split == "validation":
         split = "valid"
 
+    os.makedirs(os.path.join(hparams["data_folder"], split))
+
     # save after each 100 songs
-    save_after_nsongs = hparams["save_after_nsongs"]
     counter = 0
-    stack = []
     for song in tqdm(selected_songs):
         song = parse_song(os.path.join(hparams["data_folder"], song))
 
-        stack.append(song)
+        save_piano_rolls(counter, [song], split, hparams)
         counter = counter + 1
-        if counter % save_after_nsongs == 0:
-            piano_roll_to_csv(stack, split, hparams)
-            stack = []

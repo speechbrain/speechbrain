@@ -1,7 +1,6 @@
 import torch
 import sys
 import speechbrain as sb
-import ast
 from hyperpyyaml import load_hyperpyyaml
 from prepare_dataset import prepare_dataset
 
@@ -223,15 +222,14 @@ def dataio_prepare(hparams):
     # Define piano roll processing pipeline. We start from the raw notes and then
     # encode it using a binary piano roll. The binary rolls with bos are used for feeding
     # the neural network, the binary rolls with eos for computing the cost function.
-    @sb.utils.data_pipeline.takes("notes")
+    @sb.utils.data_pipeline.takes("file_path")
     @sb.utils.data_pipeline.provides("binary_roll_bos", "binary_roll_eos")
-    def text_pipeline(notes):
+    def text_pipeline(file_path):
         # Parse csv line into array
+        dct = torch.load(file_path)
 
-        notes = ast.literal_eval(notes)
-
-        # Create binarized piano roll from input
-        binary_roll = gen_to_piano_roll(notes)
+        binary_roll = torch.zeros(hparams["sequence_length"], 88)
+        binary_roll[dct["times"], dct["notes"]] = 1
 
         # Flatten training roll for sb pipeline
         binary_roll_bos = binary_roll[: (len(binary_roll) - 1)]
@@ -242,29 +240,6 @@ def dataio_prepare(hparams):
         binary_roll_eos = binary_roll[1:]
         binary_roll_eos = binary_roll_eos.view(-1)
         yield binary_roll_eos
-
-    def gen_to_piano_roll(notes):
-        """This function takes an array of string notes and creates a piano roll
-
-        Arguments
-        ---------
-        notes : list
-            List of string notes
-
-        Returns
-        -------
-        binary_roll : torch.tensor
-            Torch tensor for the binary roll
-        """
-        binary_roll = torch.zeros(len(notes), 88)
-
-        for i in range(len(notes)):
-            if notes[i] == "":
-                notes[i] = "0"
-            row = list(map(int, notes[i].split(",")))
-            binary_roll[i, torch.tensor(row) - 21] = 1
-
-        return binary_roll
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
