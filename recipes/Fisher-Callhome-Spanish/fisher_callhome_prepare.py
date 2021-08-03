@@ -116,7 +116,9 @@ def prepare_fisher_callhome_spanish(
     corpus_path = f"{save_folder}/fisher-callhome-corpus"
     download_translations(path=corpus_path)
 
-    make_data_splits()  # make splitted data list from mapping files
+    make_data_splits(
+        f"{corpus_path}/mapping"
+    )  # make splitted data list from mapping files
 
     for dataset in datasets:
         if not os.path.exists(f"{save_folder}/{dataset}/wav"):
@@ -393,7 +395,13 @@ def segment_audio(
     data = resampler(data)
     data = torch.unsqueeze(data[channel], 0)
 
-    torchaudio.save(save_path, src=data, sample_rate=sample_rate)
+    torchaudio.save(
+        save_path,
+        src=data,
+        sample_rate=sample_rate,
+        encoding="PCM_S",
+        bits_per_sample=16,
+    )
 
 
 def get_transcription_files_by_dataset(
@@ -402,7 +410,7 @@ def get_transcription_files_by_dataset(
     """return paths of transcriptions from the given data set and the path of all of transcriptions"""
     train_set = get_data_list(f"splits/{dataset}")
     transcription_train_set = list(
-        map(lambda path: path.split(".")[0], train_set)
+        map(lambda path: path.split(".")[0].strip(), train_set)
     )
     transcription_train_set = list(
         map(lambda path: f"{path}.tdf", transcription_train_set)
@@ -467,23 +475,23 @@ def make_data_splits(
     if not os.path.exists("splits"):
         os.mkdir("splits")
 
-    for fisher_split in fisher_splits:
-        split = set()
-        with open(
-            f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
-        ) as fisher_file, open(
-            f"./splits/{fisher_split}", "a+", encoding="utf-8"
-        ) as split_file:
-            fisher_file_lines = fisher_file.readlines()
+        for fisher_split in fisher_splits:
+            split = set()
+            with open(
+                f"{mapping_folder}/fisher_{fisher_split}", "r", encoding="utf-8"
+            ) as fisher_file, open(
+                f"./splits/{fisher_split}", "a+", encoding="utf-8"
+            ) as split_file:
+                fisher_file_lines = fisher_file.readlines()
 
-            for fisher_file_line in fisher_file_lines:
-                fisher_file_line = fisher_file_line.strip()
-                fisher_file_id = fisher_file_line.split(" ")[0]
-                split.add(fisher_file_id)
+                for fisher_file_line in fisher_file_lines:
+                    fisher_file_line = fisher_file_line.strip()
+                    fisher_file_id = fisher_file_line.split(" ")[0]
+                    split.add(fisher_file_id)
 
-            split = sorted(list(split))
-            for file_id in split:
-                split_file.write(f"{file_id}\n")
+                split = sorted(list(split))
+                for file_id in split:
+                    split_file.write(f"{file_id}\n")
 
 
 def remove_punctuation(text: str) -> str:
@@ -726,7 +734,7 @@ def remove_labels(transcription: str):
 
 
 if __name__ == "__main__":
-    data_folder = "PATH_TO_YOUR_DATA"
+    data_folder = "/mnt/md0/user_jamfly/CORPUS"
     save_folder = "data"
     device = "cuda:0"
 
