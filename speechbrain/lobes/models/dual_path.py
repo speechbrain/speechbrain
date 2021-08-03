@@ -531,27 +531,27 @@ class SBTransformerBlock(nn.Module):
 
     Example
     ---------
-    >>> x = torch.randn(10, 100, 64)
-    >>> block = SBTransformerBlock(1, 64, 8)
+    >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> x = torch.rand((8, 60, 64))
+    >>> inputs = torch.rand([8, 60, 64])
+    >>> mha = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> block = SBTransformerBlock(1, 64, mha)
     >>> x = block(x)
     >>> x.shape
-    torch.Size([10, 100, 64])
+    torch.Size([8, 60, 64])
     """
 
     def __init__(
         self,
         num_layers,
         d_model,
-        nhead,
+        attn_mechanism,
         d_ffn=2048,
-        input_shape=None,
-        kdim=None,
-        vdim=None,
         dropout=0.1,
         activation="relu",
         use_positional_encoding=False,
         norm_before=False,
-        attention_type="regularMHA",
     ):
         super(SBTransformerBlock, self).__init__()
         self.use_positional_encoding = use_positional_encoding
@@ -565,16 +565,12 @@ class SBTransformerBlock(nn.Module):
 
         self.mdl = TransformerEncoder(
             num_layers=num_layers,
-            nhead=nhead,
             d_ffn=d_ffn,
-            input_shape=input_shape,
             d_model=d_model,
-            kdim=kdim,
-            vdim=vdim,
+            self_attn_mechanism=attn_mechanism,
             dropout=dropout,
             activation=activation,
             normalize_before=norm_before,
-            attention_type=attention_type,
         )
 
         if use_positional_encoding:
@@ -773,8 +769,13 @@ class Dual_Computation_Block(nn.Module):
 
     Example
     ---------
-        >>> intra_block = SBTransformerBlock(1, 64, 8)
-        >>> inter_block = SBTransformerBlock(1, 64, 8)
+        >>> import torch
+        >>> from speechbrain.nnet.attention import MultiheadAttention
+        >>> inputs = torch.rand([8, 60, 64])
+        >>> mha1 = MultiheadAttention(nhead=8, d_model=64)
+        >>> mha2 = MultiheadAttention(nhead=8, d_model=64)
+        >>> intra_block = SBTransformerBlock(1, 64, mha1)
+        >>> inter_block = SBTransformerBlock(1, 64, mha2)
         >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
         >>> x = torch.randn(10, 64, 100, 10)
         >>> x = dual_comp_block(x)
@@ -919,13 +920,17 @@ class Dual_Path_Model(nn.Module):
 
     Example
     ---------
-    >>> intra_block = SBTransformerBlock(1, 64, 8)
-    >>> inter_block = SBTransformerBlock(1, 64, 8)
+    >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> inputs = torch.rand([8, 64, 64])
+    >>> mha1 = MultiheadAttention(nhead=8, d_model=64)
+    >>> mha2 = MultiheadAttention(nhead=8, d_model=64)
+    >>> intra_block = SBTransformerBlock(1, 64, mha1)
+    >>> inter_block = SBTransformerBlock(1, 64, mha2)
     >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
-    >>> x = torch.randn(10, 64, 2000)
-    >>> x = dual_path_model(x)
+    >>> x = dual_path_model(inputs)
     >>> x.shape
-    torch.Size([2, 10, 64, 2000])
+    torch.Size([2, 8, 64, 64])
     """
 
     def __init__(
@@ -1192,7 +1197,9 @@ class SepformerWrapper(nn.Module):
 
     Example
     -----
-    >>> model = SepformerWrapper()
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> mha = MultiheadAttention(nhead=1, d_model=256)
+    >>> model = SepformerWrapper(mha)
     >>> inp = torch.rand(1, 160)
     >>> result = model.forward(inp)
     >>> result.shape
@@ -1201,6 +1208,7 @@ class SepformerWrapper(nn.Module):
 
     def __init__(
         self,
+        attn_mechanism,
         encoder_kernel_size=16,
         encoder_in_nchannels=1,
         encoder_out_nchannels=256,
@@ -1212,8 +1220,6 @@ class SepformerWrapper(nn.Module):
         masknet_numspks=2,
         intra_numlayers=8,
         inter_numlayers=8,
-        intra_nhead=8,
-        inter_nhead=8,
         intra_dffn=1024,
         inter_dffn=1024,
         intra_use_positional=True,
@@ -1231,7 +1237,7 @@ class SepformerWrapper(nn.Module):
         intra_model = SBTransformerBlock(
             num_layers=intra_numlayers,
             d_model=encoder_out_nchannels,
-            nhead=intra_nhead,
+            attn_mechanism=attn_mechanism,
             d_ffn=intra_dffn,
             use_positional_encoding=intra_use_positional,
             norm_before=intra_norm_before,
@@ -1240,7 +1246,7 @@ class SepformerWrapper(nn.Module):
         inter_model = SBTransformerBlock(
             num_layers=inter_numlayers,
             d_model=encoder_out_nchannels,
-            nhead=inter_nhead,
+            attn_mechanism=attn_mechanism,
             d_ffn=inter_dffn,
             use_positional_encoding=inter_use_positional,
             norm_before=inter_norm_before,
