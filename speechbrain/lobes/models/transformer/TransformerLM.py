@@ -44,8 +44,22 @@ class TransformerLM(TransformerInterface):
 
     Example
     -------
+    >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, TransformerDecoder
+    >>> from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+    >>> x = torch.rand((8, 60, 512))
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha1 = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> mha2 = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> mha3 = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> enc = TransformerEncoder(1, 512, mha1, d_model=512)
+    >>> dec = TransformerDecoder(8, mha2, mha3, d_model=512, d_ffn=512)
+    >>> pos_enc = PositionalEncoding(input_size=512)
+    >>> pos_dec = PositionalEncoding(input_size=512)
     >>> src = torch.randint(0, 720, [8, 120])
-    >>> net = TransformerLM(720, 512, 8, 1, 0, 1024, activation=torch.nn.GELU)
+    >>> net = TransformerLM(vocab=720, d_model=512, encoder=enc, decoder=dec, positional_encoding_encoder=pos_enc,
+    ... positional_encoding_decoder=pos_dec)
     >>> enc_out = net.forward(src)
     >>> print(enc_out.shape)
     torch.Size([8, 120, 720])
@@ -54,33 +68,20 @@ class TransformerLM(TransformerInterface):
     def __init__(
         self,
         vocab,
+        encoder,
+        decoder,
+        positional_encoding_encoder,
+        positional_encoding_decoder,
         d_model=512,
-        nhead=8,
         num_encoder_layers=12,
         num_decoder_layers=0,
-        d_ffn=2048,
-        dropout=0.1,
-        activation=nn.ReLU,
-        positional_encoding="fixed_abs_sine",
-        normalize_before=False,
-        d_embedding=None,
-        max_length=2500,
-        causal=True,
-        attention_type="regularMHA",
+        d_embedding=None
     ):
         super().__init__(
-            d_model=d_model,
-            nhead=nhead,
-            num_encoder_layers=num_encoder_layers,
-            num_decoder_layers=num_decoder_layers,
-            d_ffn=d_ffn,
-            dropout=dropout,
-            activation=activation,
-            positional_encoding=positional_encoding,
-            normalize_before=normalize_before,
-            max_length=max_length,
-            causal=causal,
-            attention_type=attention_type,
+            encoder=encoder,
+            decoder=decoder,
+            positional_encoding_encoder=positional_encoding_encoder,
+            positional_encoding_decoder=positional_encoding_decoder
         )
 
         self.d_embedding = d_embedding

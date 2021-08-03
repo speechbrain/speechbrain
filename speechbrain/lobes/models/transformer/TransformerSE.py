@@ -40,8 +40,22 @@ class CNNTransformerSE(TransformerInterface):
 
     Example
     -------
-    >>> src = torch.rand([8, 120, 256])
-    >>> net = CNNTransformerSE(d_model=256, output_size=257)
+        >>> import torch
+    >>> from speechbrain.nnet.attention import MultiheadAttention
+    >>> from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, TransformerDecoder
+    >>> from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+    >>> x = torch.rand((8, 60, 512))
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> mha1 = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> mha2 = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> mha3 = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> enc = TransformerEncoder(1, 512, mha1, d_model=512)
+    >>> dec = TransformerDecoder(8, mha2, mha3, d_model=512, d_ffn=512)
+    >>> pos_enc = PositionalEncoding(input_size=512)
+    >>> pos_dec = PositionalEncoding(input_size=512)
+    >>> src = torch.rand([8, 120, 512])
+    >>> net = CNNTransformerSE(d_model=512, output_size=257,encoder=enc, decoder=dec,
+    ... positional_encoding_encoder=pos_enc, positional_encoding_decoder=pos_dec)
     >>> out = net(src)
     >>> out.shape
     torch.Size([8, 120, 257])
@@ -51,32 +65,25 @@ class CNNTransformerSE(TransformerInterface):
         self,
         d_model,
         output_size,
+        encoder,
+        decoder,
+        positional_encoding_encoder,
+        positional_encoding_decoder,
         output_activation=nn.ReLU,
-        nhead=8,
-        num_layers=8,
-        d_ffn=512,
-        dropout=0.1,
-        activation=nn.LeakyReLU,
-        causal=True,
         custom_emb_module=None,
-        normalize_before=False,
+        causal=False
     ):
         super().__init__(
-            d_model=d_model,
-            nhead=nhead,
-            num_encoder_layers=num_layers,
-            num_decoder_layers=0,
-            d_ffn=d_ffn,
-            dropout=dropout,
-            activation=activation,
-            positional_encoding=None,
-            normalize_before=normalize_before,
-            causal=causal,
+            encoder=encoder,
+            decoder=decoder,
+            positional_encoding_encoder=positional_encoding_encoder,
+            positional_encoding_decoder=positional_encoding_decoder
         )
 
         self.custom_emb_module = custom_emb_module
         self.output_layer = Linear(output_size, input_size=d_model, bias=False)
         self.output_activation = output_activation()
+        self.causal = causal
 
     def forward(self, x, src_key_padding_mask=None):
         if self.causal:

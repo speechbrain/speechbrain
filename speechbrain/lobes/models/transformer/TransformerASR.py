@@ -61,7 +61,7 @@ class TransformerASR(TransformerInterface):
     >>> enc = TransformerEncoder(1, 512, mha1, d_model=512)
     >>> dec = TransformerDecoder(8, mha2, mha3, d_model=512, d_ffn=512)
     >>> pos_enc = PositionalEncoding(input_size=512)
-    >>> pos_dec = PositionalEncoding(input_size=5122)
+    >>> pos_dec = PositionalEncoding(input_size=512)
     >>> src = torch.rand([8, 120, 512])
     >>> tgt = torch.randint(0, 720, [8, 120])
     >>> net = TransformerASR(tgt_vocab=720, input_size=512, d_model=512, encoder=enc, decoder=dec,
