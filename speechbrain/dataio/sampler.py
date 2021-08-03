@@ -6,6 +6,7 @@ Authors:
   * Aku Rouhe 2020
   * Samuele Cornell 2020
   * Ralf Leibold 2020
+  * Artem Ploujnikov 2021
 """
 import torch
 import logging
@@ -19,6 +20,7 @@ from torch.utils.data import (
 import numpy as np
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 
@@ -585,3 +587,52 @@ class DistributedSamplerWrapper(DistributedSampler):
         super().set_epoch(epoch)
         if hasattr(self.sampler, "set_epoch"):
             self.sampler.set_epoch(epoch)
+
+
+class BalancingDataSampler(ReproducibleWeightedRandomSampler):
+    """A data sampler that takes a single key from the dataset and
+    ensures an approximately equal distribution by that key
+
+    Arguments
+    ---------
+    dataset: DynamicItemDataset
+        the dataset form which samples will be drawn
+    key: str
+        the key from which samples will be taken
+    num_samples : int
+        Number of samples to draw
+    replacement : bool
+        To draw with replacement or not (within an epoch of num_samples).
+    seed : int
+        The base seed to use for the random number generator. It is recommended
+        to use a value which has a good mix of 0 and 1 bits.
+    epoch : int
+        The epoch to start at.
+    """
+
+    def __init__(
+        self,
+        dataset,
+        key,
+        num_samples=None,
+        replacement=True,
+        seed=563375142,
+        epoch=0,
+        **kwargs
+    ):
+        self.dataset = dataset
+        self.key = key
+        if not num_samples:
+            num_samples = len(dataset)
+        weights = self._compute_weights()
+        super().__init__(weights, num_samples, replacement, seed, epoch,
+                         **kwargs)
+
+    def _compute_weights(self):
+        with self.dataset.output_keys_as([self.key]):
+            class_ids = [item[self.key] for item in self.dataset]
+            class_counter = Counter(class_ids)
+        weights = 1 / torch.tensor([
+            class_counter[class_id] for class_id in class_ids
+        ])
+        return weights

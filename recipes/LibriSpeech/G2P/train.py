@@ -20,7 +20,7 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
-from speechbrain.core import Stage
+from speechbrain.dataio.sampler import BalancingDataSampler
 import sys
 
 import speechbrain as sb
@@ -608,12 +608,20 @@ if __name__ == "__main__":
             hparams.get("dataloader_opts", {}))
         if 'ckpt_prefix' in dataloader_opts and dataloader_opts['ckpt_prefix'] is None:
             del dataloader_opts['ckpt_prefix']
+
+        train_dataloader_opts = dataloader_opts
+        if train_step.get("balance"):
+            sampler = BalancingDataSampler(
+                train_data, train_step["balance_on"])
+            train_dataloader_opts = dict(
+                dataloader_opts, sampler=sampler)
+
         # Training/validation loop
         g2p_brain.fit(
             train_step['epoch_counter'],
             train_data,
             valid_data,
-            train_loader_kwargs=dataloader_opts,
+            train_loader_kwargs=train_dataloader_opts,
             valid_loader_kwargs=dataloader_opts,
         )
 

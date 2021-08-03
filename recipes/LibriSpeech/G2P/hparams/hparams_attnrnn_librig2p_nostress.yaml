@@ -34,6 +34,7 @@ sentence_test_data: !ref <data_folder>/sentence_test.json
 homograph_train_data: !ref <data_folder>/homograph_train.json
 homograph_valid_data: !ref <data_folder>/homograph_valid.json
 homograph_test_data: !ref <data_folder>/homograph_test.json
+homograph_balance: true
 
 
 skip_prep: False
@@ -416,6 +417,8 @@ train_steps:
     epoch_counter: !ref <homograph_epoch_counter>
     ctc_epochs: !ref <homograph_ctc_epochs>
     mode: homograph
+    balance: !ref <homograph_balance>
+    balance_on: homograph_wordid
     wer_file: !ref <save_folder>/wer_homograph.txt
     homograph_stats_file: !ref <save_folder>/homograph_stats.txt
     dataloader_opts:
