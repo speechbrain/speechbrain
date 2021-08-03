@@ -39,9 +39,9 @@ test_csv: !ref <data_folder>/test.csv
 
 # When MAESTRO used, these are the number of midi files to picked up
 MAESTRO_params:
-  num_train_files: 962
-  num_valid_files: 137
-  num_test_files: 177
+  num_train_files: 10 #962
+  num_valid_files: 10 #137
+  num_test_files: 10 #177
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -50,8 +50,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # Training parameters
 number_of_epochs: 60
 batch_size: 128
-sequence_length: 300
-lr: 0.001
+sequence_length: 600
+lr: 0.0002
 dropout: 0.2
 accu_steps: 1 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
@@ -71,7 +71,7 @@ test_dataloader_opts:
 # Model parameters
 emb_dim: 88 # dimension of the embeddings
 rnn_size: 200 # dimension of hidden layers
-layers: 3 # number of hidden layers
+layers: 1 # number of hidden layers
 
 # Outputs
 output_neurons: 88 # index(blank/eos/bos) = 0

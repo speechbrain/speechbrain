@@ -971,10 +971,11 @@ class SymbolicMusicGeneration(Pretrained):
 
             out = torch.squeeze(out)
 
-            # Convert probabilities to binary vector
+            ## Convert probabilities to binary vector
             for j in range(len(out)):
                 thresh = random.random()
                 out[j] = (thresh < out[j] and out[j] > 0.05).type(torch.int32)
+            # out = (out > 0.5 ).float()
 
             # Store and pad vectors to match MIDI size
             sequence[i] = np.pad(
@@ -1003,6 +1004,12 @@ class SymbolicMusicGeneration(Pretrained):
         import muspy as mp
 
         gen_notes = self.generate_timestep(N)
+
+        # import pdb; pdb.set_trace()
+        # import matplotlib.pyplot as plt
+
+        # plt.imshow(gen_notes)
+        # plt.savefig('generated.png', format='png')
 
         # Create Music object from binary piano roll
         music = mp.from_pianoroll_representation(

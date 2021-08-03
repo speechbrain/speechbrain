@@ -40,8 +40,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # Training parameters
 number_of_epochs: 2000
 batch_size: 32
-sequence_length: 100
-lr: 0.001
+sequence_length: 300
+lr: 0.0002
 dropout: 0.4
 accu_steps: 2 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min

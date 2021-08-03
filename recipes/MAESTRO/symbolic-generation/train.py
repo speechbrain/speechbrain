@@ -25,13 +25,6 @@ class MusicLM(sb.core.Brain):
         batch = batch.to(self.device)
         binary_roll, _ = batch.binary_roll_bos
 
-        # Reshape binary roll into 3D tensor
-        binary_roll = binary_roll.view(
-            binary_roll.shape[0],
-            int(binary_roll.shape[1] / self.hparams.emb_dim),
-            self.hparams.emb_dim,
-        )
-
         pred, _ = self.hparams.model(binary_roll)
 
         return pred
@@ -54,19 +47,12 @@ class MusicLM(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = batch.to(self.device)
-        binary_roll, _ = batch.binary_roll_eos
-
-        # Reshape ground truth into 3D tensor
-        truth = binary_roll.view(
-            binary_roll.shape[0],
-            int(binary_roll.shape[1] / self.hparams.emb_dim),
-            self.hparams.emb_dim,
-        )
+        targets, _ = batch.binary_roll_eos
 
         # Get frame level accuracy
         if stage != sb.Stage.TRAIN:
             thresh_values = torch.where(predictions > 0.5, 1, 0)
-            flat_truth = torch.flatten(truth)
+            flat_truth = torch.flatten(targets)
             flat_pred = torch.flatten(thresh_values)
             TP = torch.sum(
                 (flat_truth == flat_pred) * (flat_truth == 1) * (flat_pred == 1)
@@ -85,7 +71,7 @@ class MusicLM(sb.core.Brain):
             )
             self.accuracy = TP / (TP + FN + FP)
 
-        loss = self.hparams.compute_cost(predictions, truth)
+        loss = self.hparams.compute_cost(predictions, targets)
 
         return loss
 
@@ -104,6 +90,13 @@ class MusicLM(sb.core.Brain):
         """
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
+        # import matplotlib.pyplot as plt
+
+        # plt.imshow(predictions[0].detach().cpu().numpy())
+        # plt.savefig('preds.png', format='png')
+
+        # plt.imshow(batch.binary_roll_eos[0][0].detach().cpu().numpy())
+        # plt.savefig('gt.png', format='png')
 
         # Loss backpropagation (gradient computation)
         (loss / self.hparams.accu_steps).backward()
@@ -232,13 +225,13 @@ def dataio_prepare(hparams):
         binary_roll[dct["times"], dct["notes"]] = 1
 
         # Flatten training roll for sb pipeline
-        binary_roll_bos = binary_roll[: (len(binary_roll) - 1)]
-        binary_roll_bos = binary_roll_bos.view(-1)
+        binary_roll_bos = binary_roll[:-1]
+        # binary_roll_bos = binary_roll_bos.view(-1)
         yield binary_roll_bos
 
         # Flatten loss roll for sb pipeline
         binary_roll_eos = binary_roll[1:]
-        binary_roll_eos = binary_roll_eos.view(-1)
+        # binary_roll_eos = binary_roll_eos.view(-1)
         yield binary_roll_eos
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)

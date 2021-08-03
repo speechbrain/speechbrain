@@ -68,7 +68,14 @@ def prepare_dataset(
             datasets = pickle.load(open(data_savepath, "rb"))
 
             for dataset in datasets:
-                save_piano_rolls(datasets[dataset], dataset, hparams)
+                os.makedirs(os.path.join(hparams["data_folder"], dataset))
+
+                all_paths = save_piano_rolls(
+                    0, datasets[dataset], dataset, hparams
+                )
+
+                df = pd.DataFrame({"file_path": all_paths})
+                df.to_csv(hparams[dataset + "_csv"], index_label="ID")
 
 
 def download_data(data_folder, dataset_name, data_savepath):
