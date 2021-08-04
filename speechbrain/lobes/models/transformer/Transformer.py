@@ -12,7 +12,9 @@ from typing import Optional
 
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
-from speechbrain.lobes.models.transformer.TransformerUtils import PositionalEncoding
+from speechbrain.lobes.models.transformer.TransformerUtils import (
+    PositionalEncoding,
+)
 
 
 class TransformerInterface(nn.Module):
