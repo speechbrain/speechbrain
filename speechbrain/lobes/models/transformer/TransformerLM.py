@@ -12,8 +12,8 @@ from torch import nn
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.containers import ModuleList
-from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerInterface,
+from speechbrain.lobes.models.transformer.Transformer import TransformerInterface
+from speechbrain.lobes.models.transformer.TransformerUtils import (
     get_lookahead_mask,
     get_key_padding_mask,
     NormalizedEmbedding,

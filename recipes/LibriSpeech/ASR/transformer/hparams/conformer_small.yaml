@@ -103,7 +103,6 @@ lm_weight: 0.60
 ctc_weight_decode: 0.40
 
 ############################## models ################################
-
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
     num_blocks: 2
@@ -113,35 +112,89 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     strides: (2, 2)
     residuals: (False, False)
 
+######### Transformer Encoder #########
+SelfAttentionMechanismEncoder: !new:speechbrain.nnet.attention.RelPosMHAXL
+    num_heads: !ref <nhead>
+    embed_dim: !ref <d_model>
+    dropout: !ref <transformer_dropout>
+    mask_pos_future: False
+
+ConformerEncoder: !new:speechbrain.lobes.models.transformer.Conformer.ConformerEncoder
+    num_layers: !ref <num_encoder_layers>
+    d_ffn: !ref <d_ffn>
+    kernel_size: 31
+    d_model: !ref <d_model>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    causal: False
+    attn_mechanism: !ref <SelfAttentionMechanismEncoder>
+
+######### Transformer Decoder #########
+MultiHeadAttentionMechanismDecoder: !new:speechbrain.nnet.attention.MultiheadAttention
+    nhead: !ref <nhead>
+    d_model: !ref <d_model>
+    dropout: !ref <transformer_dropout>
+
+SelfAttentionMechanismDecoder: !new:speechbrain.nnet.attention.MultiheadAttention
+    nhead: !ref <nhead>
+    d_model: !ref <d_model>
+    dropout: !ref <transformer_dropout>
+
+TransformerDecoder: !new:speechbrain.lobes.models.transformer.TransformerUtils.TransformerDecoder
+    num_layers: 4
+    d_ffn: !ref <d_ffn>
+    d_model: !ref <d_model>
+    dropout: 0.0
+    activation: !ref <activation>
+    normalize_before: True
+    self_attn_mechanism: !ref <SelfAttentionMechanismDecoder>
+    multihead_attn_mechanism: !ref <MultiHeadAttentionMechanismDecoder>
+
+######### ASR Transformer #########
+PositionalEncoding: !new:speechbrain.nnet.attention.RelPosEncXL
+    emb_dim: !ref <d_model>
+
+PositionalEncodingDecoder: !new:speechbrain.lobes.models.transformer.TransformerUtils.PositionalEncoding
+    input_size: !ref <d_model>
+    max_len: 2500
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     input_size: 640
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
-    nhead: !ref <nhead>
-    num_encoder_layers: !ref <num_encoder_layers>
-    num_decoder_layers: !ref <num_decoder_layers>
-    d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
-    activation: !ref <activation>
-    encoder_module: conformer
-    attention_type: RelPosMHAXL
-    normalize_before: True
-    causal: False
+    encoder: !ref <ConformerEncoder>
+    decoder: !ref <TransformerDecoder>
+    positional_encoding_encoder: !ref <PositionalEncoding>
+    positional_encoding_decoder: !ref <PositionalEncodingDecoder>
 
 # This is the TransformerLM that is used according to the Huggingface repository
 # Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
 # For more details about the model!
 # NB: It has to match the pre-trained TransformerLM!!
-lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
-    vocab: !ref <output_neurons>
-    d_model: 768
+############################## LM models ################################
+######### Encoder #########
+SelfAttentionMechanismLM: !new:speechbrain.nnet.attention.MultiheadAttention
     nhead: 12
-    num_encoder_layers: 12
-    num_decoder_layers: 0
+    d_model: 768
+    dropout: 0.0
+
+TransformerEncoderLM: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
+    num_layers: 12
     d_ffn: 3072
+    d_model: 768
     dropout: 0.0
     activation: !name:torch.nn.GELU
     normalize_before: False
+    self_attn_mechanism: !ref <SelfAttentionMechanismLM>
+
+######### Transformer LM #########
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    vocab: !ref <output_neurons>
+    d_model: 768
+    encoder: !ref <TransformerEncoderLM>
+    decoder: None
+    num_encoder_layers: 12
+    num_decoder_layers: 0
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
