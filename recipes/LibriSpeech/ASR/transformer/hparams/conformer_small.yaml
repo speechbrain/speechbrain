@@ -171,30 +171,16 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 # Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
 # For more details about the model!
 # NB: It has to match the pre-trained TransformerLM!!
-############################## LM models ################################
-######### Encoder #########
-SelfAttentionMechanismLM: !new:speechbrain.nnet.attention.MultiheadAttention
-    nhead: 12
-    d_model: 768
-    dropout: 0.0
-
-TransformerEncoderLM: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
-    num_layers: 12
-    d_ffn: 3072
-    d_model: 768
-    dropout: 0.0
-    activation: !name:torch.nn.GELU
-    normalize_before: False
-    self_attn_mechanism: !ref <SelfAttentionMechanismLM>
-
-######### Transformer LM #########
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
     d_model: 768
-    encoder: !ref <TransformerEncoderLM>
-    decoder: None
+    nhead: 12
     num_encoder_layers: 12
     num_decoder_layers: 0
+    d_ffn: 3072
+    dropout: 0.0
+    activation: !name:torch.nn.GELU
+    normalize_before: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
