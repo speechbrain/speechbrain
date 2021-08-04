@@ -578,7 +578,9 @@ class SBTransformerBlock(nn.Module):
         )
 
         if use_positional_encoding:
-            self.pos_enc = PositionalEncoding(input_size=d_model)
+            self.pos_enc = PositionalEncoding(
+                input_size=d_model, max_len=100000
+            )
 
     def forward(self, x):
         """Returns the transformed output.
@@ -1202,14 +1204,24 @@ class Dual_Path_Model(nn.Module):
                L = the number of time points
         """
         B, N, L = input.shape
-        P = K // 2
-        input, gap = self._padding(input, K)
-        # [B, N, K, S]
-        input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
-        input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
-        input = (
-            torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
-        )
+
+        if K >= L:
+            input = input.unsqueeze(-1)
+            gap = 0
+        else:
+            P = K // 2
+            input, gap = self._padding(input, K)
+            # [B, N, K, S]
+            input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
+            input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
+            input = (
+                torch.cat([input1, input2], dim=3)
+                .view(B, N, -1, K)
+                .transpose(2, 3)
+            )
+        import pdb
+
+        pdb.set_trace()
 
         return input.contiguous(), gap
 
@@ -1235,16 +1247,20 @@ class Dual_Path_Model(nn.Module):
 
         """
         B, N, K, S = input.shape
-        P = K // 2
-        # [B, N, S, K]
-        input = input.transpose(2, 3).contiguous().view(B, N, -1, K * 2)
 
-        input1 = input[:, :, :, :K].contiguous().view(B, N, -1)[:, :, P:]
-        input2 = input[:, :, :, K:].contiguous().view(B, N, -1)[:, :, :-P]
-        input = input1 + input2
-        # [B, N, L]
-        if gap > 0:
-            input = input[:, :, :-gap]
+        if S == 1:
+            input = input.squeeze(-1)
+        else:
+            P = K // 2
+            # [B, N, S, K]
+            input = input.transpose(2, 3).contiguous().view(B, N, -1, K * 2)
+
+            input1 = input[:, :, :, :K].contiguous().view(B, N, -1)[:, :, P:]
+            input2 = input[:, :, :, K:].contiguous().view(B, N, -1)[:, :, :-P]
+            input = input1 + input2
+            # [B, N, L]
+            if gap > 0:
+                input = input[:, :, :-gap]
 
         return input
 
