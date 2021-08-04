@@ -20,7 +20,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
 import numpy as np
-import random
 
 
 class Pretrained:
@@ -936,54 +935,41 @@ class SymbolicMusicGeneration(Pretrained):
         super().__init__(*args, **kwargs)
         self.model = self.hparams.model
 
-    def generate_timestep(self, N):
+    def generate_timestep(self, T):
         """Generates a sequence of N timesteps
 
         Arguments
         ---------
-        N : int
-            Number of sequences to generate using the model.
+        T : int
+            Number of time points to generate
         Returns
         -------
         sequence: nd.array (N,128)
         binarized piano roll ready for MIDI generation
         """
 
-        notes_len = self.hparams.emb_dim
-        midi_len = 128
+        midi_dim = 388 if self.hparams.representation == "event" else 128
 
         # Initial input to the sequence is a randomized binary vector with 4 ones
-        inp = torch.bernoulli(torch.ones(notes_len) * 0.2)
-        inp = inp.unsqueeze(0)
 
-        # Sequence to return for MIDI processing
-        sequence = np.zeros((N, midi_len))
-
-        # Generate N timesteps
-        for i in range(N):
-            if i == 0:
-                out, h = self.model(inp)
+        inp = torch.randint(midi_dim, (1,)).to(self.device)
+        outs = []
+        all_probs = []
+        for t in range(T):
+            inp = inp.unsqueeze(0)
+            if t == 0:
+                out, h = self.model.forward(inp)
             else:
-                out, h = self.model(inp, h)
+                out, h = self.model.forward(inp, h)
 
-            out = torch.squeeze(out)
+            probs = F.softmax(out.squeeze(), dim=-1)
+            all_probs.append(probs.data.unsqueeze(0))
 
-            ## Convert probabilities to binary vector
-            for j in range(len(out)):
-                thresh = min(random.random(), 0.05)
-                out[j] = (thresh < out[j]).type(torch.int32)
-            # out = (out > 0.5 ).float()
+            inp = torch.multinomial(probs, 1)
 
-            # Store and pad vectors to match MIDI size
-            sequence[i] = np.pad(
-                array=out.cpu().detach().numpy(),
-                pad_width=(20, 20),
-                mode="constant",
-                constant_values=(0, 0),
-            )
-            inp = torch.unsqueeze(out, dim=0)
+            outs.append(inp.item())
 
-        return sequence
+        return np.array(outs)
 
     def generateMIDI(self, savepath=".", N=200):
         """
@@ -1000,33 +986,36 @@ class SymbolicMusicGeneration(Pretrained):
         """
         import muspy as mp
 
-        gen_notes = self.generate_timestep(N)
+        gen_data = self.generate_timestep(N)
 
-        import pdb
+        # import matplotlib.pyplot as plt
 
-        pdb.set_trace()
-        import matplotlib.pyplot as plt
-
-        plt.imshow(gen_notes)
-        plt.savefig("generated.png", format="png")
+        # plt.imshow(gen_notes)
+        # plt.savefig("generated.png", format="png")
 
         # Create Music object from binary piano roll
-        music = mp.from_pianoroll_representation(
-            gen_notes,
-            resolution=self.hparams.resolution,
-            encode_velocity=False,
-            default_velocity=self.hparams.velocity,
-        )
 
-        # Increase duration of each note
-        for note in music.tracks[0].notes:
-            note.duration *= self.hparams.note_duration
+        if self.hparams.representation == "event":
+            generated_music = mp.from_event_representation(
+                gen_data, resolution=self.hparams.resolution * 4
+            )
+        else:
+            generated_music = mp.from_pianoroll_representation(
+                gen_data,
+                resolution=self.hparams.resolution,
+                encode_velocity=False,
+                default_velocity=self.hparams.velocity,
+            )
 
-        # Increate time of each note
-        mp.adjust_time(music, self.scale_time)
+            # Increase duration of each note
+            for note in generated_music.tracks[0].notes:
+                note.duration *= self.hparams.note_duration
+
+            # Increate time of each note
+            mp.adjust_time(generated_music, self.scale_time)
 
         # Write to MIDI
-        music.write(savepath)
+        generated_music.write(savepath)
 
     def scale_time(self, old_time):
         """Scales each time step in generated music

@@ -53,9 +53,9 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # Training parameters
 number_of_epochs: 60
 batch_size: 128
-sequence_length: 300
-lr: 0.0002
-dropout: 0.4
+sequence_length: 200
+lr: 0.001
+dropout: 0.1
 accu_steps: 1 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -74,10 +74,10 @@ test_dataloader_opts:
 # Model parameters
 emb_dim: 200 # dimension of the embeddings
 rnn_latent_size: 200 # dimension of hidden layers
-n_rnn_layers: 1 # number of hidden layers
+n_rnn_layers: 2 # number of hidden layers
 
 # Outputs
-output_neurons: 88 # index(blank/eos/bos) = 0
+output_dim: 388
 
 model: !new:speechbrain.lobes.music_generation_models.custom_model.MusicRNN
   embedding_dim: !ref <emb_dim>
