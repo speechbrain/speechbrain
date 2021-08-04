@@ -179,9 +179,9 @@ def save_event_sequences(counter, event_sequence, split, hparams):
     all_paths = []
     for i, chunk in enumerate(chunks):
         save_path = os.path.join(
-            hparams["data_folder"], split, "{}_{}.pkl".format(counter, i)
+            hparams["data_folder"], split, "{}_{}.t".format(counter, i)
         )
-        torch.save({"events": chunk}, save_path)
+        torch.save(chunk, save_path)
         all_paths.append(save_path)
 
     return all_paths

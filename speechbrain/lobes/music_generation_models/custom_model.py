@@ -5,10 +5,11 @@ Authors
  * Edward Son 2021
 """
 import torch
+import torch.nn as nn
 import speechbrain as sb
 
 
-class CustomModel(torch.nn.Module):
+class MusicRNN(torch.nn.Module):
     """Basic LSTM model for language modeling.
     Arguments
     ---------
@@ -27,23 +28,29 @@ class CustomModel(torch.nn.Module):
 
     def __init__(
         self,
-        embedding_dim=88,
-        rnn_size=100,
-        layers=2,
-        output_dim=88,
+        embedding_dim,
+        rnn_latent_size,
+        n_rnn_layers=2,
+        output_dim=388,
         return_hidden=False,
         dropout=0,
+        representation="event",
     ):
         super().__init__()
-        self.layers = torch.nn.ModuleList()
-        self.return_hidden = return_hidden
         self.reshape = False
 
+        if representation == "event":
+            self.emb_layer = nn.Embedding(
+                num_embeddings=output_dim, embedding_dim=embedding_dim
+            )
+        else:
+            self.emb_layer = lambda x: x
+
         # LSTM
-        self.rnn = torch.nn.LSTM(
+        self.rnn = nn.LSTM(
             input_size=embedding_dim,
-            hidden_size=rnn_size,
-            num_layers=layers,
+            hidden_size=rnn_latent_size,
+            num_layers=n_rnn_layers,
             bidirectional=False,
             batch_first=True,
             dropout=dropout,
@@ -51,18 +58,16 @@ class CustomModel(torch.nn.Module):
 
         # Final output transformation
         self.out = sb.nnet.linear.Linear(
-            input_size=rnn_size, n_neurons=output_dim
+            input_size=rnn_latent_size, n_neurons=output_dim
         )
-        self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, hx=None):
         """List of computations from input to output predictions"""
 
         # If 2d tensor, add a time-axis
         # This is used for inference time
-        if len(x.shape) == 2:
-            x = x.unsqueeze(dim=0)
-            self.reshape = True
+
+        x = self.emb_layer(x)
 
         if hx is None:
             x, hidden = self.rnn(x)
@@ -70,9 +75,5 @@ class CustomModel(torch.nn.Module):
             x, hidden = self.rnn(x, hx)
 
         x = self.out(x)
-        x = self.sigmoid(x)
-
-        if self.reshape:
-            x = x.squeeze(dim=0)
 
         return x, hidden

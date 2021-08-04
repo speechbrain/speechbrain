@@ -23,11 +23,11 @@ class MusicLM(sb.core.Brain):
             A tensor containing the posterior probabilities (predictions).
         """
         batch = batch.to(self.device)
-        binary_roll, _ = batch.binary_roll_bos
+        inp, _ = batch.inputs
 
-        pred, _ = self.hparams.model(binary_roll)
+        preds, _ = self.hparams.model(inp)
 
-        return pred
+        return preds
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -47,31 +47,34 @@ class MusicLM(sb.core.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = batch.to(self.device)
-        targets, _ = batch.binary_roll_eos
+        targets, _ = batch.targets
 
         # Get frame level accuracy
-        if stage != sb.Stage.TRAIN:
-            thresh_values = torch.where(predictions > 0.5, 1, 0)
-            flat_truth = torch.flatten(targets)
-            flat_pred = torch.flatten(thresh_values)
-            TP = torch.sum(
-                (flat_truth == flat_pred) * (flat_truth == 1) * (flat_pred == 1)
-            )
+        # if stage != sb.Stage.TRAIN:
+        #     thresh_values = torch.where(predictions > 0.5, 1, 0)
+        #     flat_truth = torch.flatten(targets)
+        #     flat_pred = torch.flatten(thresh_values)
+        #     TP = torch.sum(
+        #         (flat_truth == flat_pred) * (flat_truth == 1) * (flat_pred == 1)
+        #     )
 
-            negatives_ground_truth = (
-                2 * len(flat_truth) / self.hparams.emb_dim
-            ) - torch.sum(flat_truth == 1)
-            negatives_pred = (
-                2 * len(flat_pred) / self.hparams.emb_dim
-            ) - torch.sum(flat_pred == 1)
-            FN = negatives_pred - negatives_ground_truth
+        #     negatives_ground_truth = (
+        #         2 * len(flat_truth) / self.hparams.emb_dim
+        #     ) - torch.sum(flat_truth == 1)
+        #     negatives_pred = (
+        #         2 * len(flat_pred) / self.hparams.emb_dim
+        #     ) - torch.sum(flat_pred == 1)
+        #     FN = negatives_pred - negatives_ground_truth
 
-            FP = torch.sum(
-                (flat_truth != flat_pred) * (flat_truth == 0) * (flat_pred == 1)
-            )
-            self.accuracy = TP / (TP + FN + FP)
+        #     FP = torch.sum(
+        #         (flat_truth != flat_pred) * (flat_truth == 0) * (flat_pred == 1)
+        #     )
+        #     self.accuracy = TP / (TP + FN + FP)
 
-        loss = self.hparams.compute_cost(predictions, targets)
+        loss = self.hparams.compute_cost(
+            predictions.reshape(-1, predictions.shape[-1]),
+            targets.reshape(-1).long(),
+        )
 
         return loss
 
@@ -146,13 +149,12 @@ class MusicLM(sb.core.Brain):
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-
-        # Summarize the statistics from the stage for record-keeping.
         else:
+            # Summarize the statistics from the stage for record-keeping.
             stats = {
                 "loss": stage_loss,
-                "log-likelihood": -(stage_loss * self.hparams.emb_dim),
-                "accuracy": self.accuracy,
+                # "log-likelihood": -(stage_loss * self.hparams.emb_dim),
+                # "accuracy": self.accuracy,
             }
 
         # At the end of validation, we can wrote
@@ -165,7 +167,7 @@ class MusicLM(sb.core.Brain):
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
                 {"Epoch": epoch},
-                train_stats={"loss": self.train_loss},
+                train_stats={"loss": self.train_loss, "lr": old_lr},
                 valid_stats=stats,
             )
 
@@ -216,8 +218,8 @@ def dataio_prepare(hparams):
     # encode it using a binary piano roll. The binary rolls with bos are used for feeding
     # the neural network, the binary rolls with eos for computing the cost function.
     @sb.utils.data_pipeline.takes("file_path")
-    @sb.utils.data_pipeline.provides("binary_roll_bos", "binary_roll_eos")
-    def text_pipeline(file_path):
+    @sb.utils.data_pipeline.provides("inputs", "targets")
+    def pianoroll_pipeline(file_path):
         # Parse csv line into array
         dct = torch.load(file_path)
 
@@ -225,21 +227,36 @@ def dataio_prepare(hparams):
         binary_roll[dct["times"], dct["notes"]] = 1
 
         # Flatten training roll for sb pipeline
-        binary_roll_bos = binary_roll[:-1]
-        # binary_roll_bos = binary_roll_bos.view(-1)
-        yield binary_roll_bos
+        inputs = binary_roll[:-1]
+        yield inputs
 
         # Flatten loss roll for sb pipeline
-        binary_roll_eos = binary_roll[1:]
-        # binary_roll_eos = binary_roll_eos.view(-1)
-        yield binary_roll_eos
+        targets = binary_roll[1:]
+        yield targets
 
-    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
+    @sb.utils.data_pipeline.takes("file_path")
+    @sb.utils.data_pipeline.provides("inputs", "targets")
+    def midievent_pipeline(file_path):
+        # Parse csv line into array
+        events = torch.load(file_path)
+
+        # Flatten training roll for sb pipeline
+        inputs = events[:-1]
+        yield inputs
+
+        # Flatten loss roll for sb pipeline
+        targets = events[1:]
+        yield targets
+
+    if hparams["representation"] == "event":
+        sb.dataio.dataset.add_dynamic_item(datasets, midievent_pipeline)
+    else:
+        sb.dataio.dataset.add_dynamic_item(datasets, pianoroll_pipeline)
 
     # Set outputs to add into the batch. The batch variable will contain
     # all these fields (e.g, batch.binary_roll_bos, batch.binary_roll_eos)
     sb.dataio.dataset.set_output_keys(
-        datasets, ["binary_roll_bos", "binary_roll_eos"],
+        datasets, ["inputs", "targets"],
     )
     return train_data, valid_data, test_data
 
