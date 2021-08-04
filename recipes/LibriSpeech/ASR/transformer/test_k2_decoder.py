@@ -131,7 +131,7 @@ def main():
     wavs_ = [wav,wav1]
 
     # multiwav = torch.nn.utils.rnn.pad_sequence([wav,wav0,wav1],batch_first=True)
-    # print("size of multiwav:", multiwav.size())
+
 
     # wavs = multiwav.float().to(device)
     # wavs = wav1.unsqueeze(0).float().to(device)
