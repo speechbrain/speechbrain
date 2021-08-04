@@ -15,4 +15,4 @@ if __name__ == "__main__":
     # Load the model
     inferer = SymbolicMusicGeneration.from_hparams(source=model_path)
 
-    inferer.generateMIDI("generated.MIDI")
+    inferer.generateMIDI("generated.MIDI", N=2000)

@@ -62,7 +62,7 @@ def prepare_dataset(
                 ("test", hparams["MAESTRO_params"]["num_test_files"]),
             ]
             for split, songs in split_songs:
-                midi_to_pianoroll(split, songs, hparams)
+                midi_to_representation(split, songs, hparams)
         else:
             # download the dataset in original format if it doesn't exist on data_path
             datasets = pickle.load(open(data_savepath, "rb"))
@@ -173,7 +173,46 @@ def save_piano_rolls(counter, piano_roll, split, hparams):
     return all_paths
 
 
-def midi_to_pianoroll(split, num_of_songs, hparams):
+def save_event_sequences(counter, event_sequence, split, hparams):
+    chunks = torch.split(event_sequence, hparams["sequence_length"])
+
+    all_paths = []
+    for i, chunk in enumerate(chunks):
+        save_path = os.path.join(
+            hparams["data_folder"], split, "{}_{}.pkl".format(counter, i)
+        )
+        torch.save({"events": chunk}, save_path)
+        all_paths.append(save_path)
+
+    return all_paths
+
+
+def get_pianoroll(fl):
+    """
+    This function converts one MIDI song to piano roll
+    :param fl: song to convert (str)
+    :return: list of sequences
+    """
+    sequence_list = []
+    piano_roll = mp.to_pianoroll_representation(mp.read(fl))
+
+    for seq in piano_roll:
+        index_list = list(locate(list(map(bool, seq) and seq)))
+        if sum(index_list) > 0:
+            sequence_list.append(tuple(index_list))
+
+    return sequence_list
+
+
+def get_events(fl):
+    events = mp.to_event_representation(mp.read(fl))
+    events = events.astype("int32")
+    events = torch.from_numpy(events).squeeze()
+
+    return events
+
+
+def midi_to_representation(split, num_of_songs, hparams):
     """
     This function creates CSV from random selected files in MAESTRO dataset
     :param  set: "validation", "train", "test"
@@ -185,22 +224,6 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
 
     """
 
-    def parse_song(file):
-        """
-        This function converts one MIDI song to piano roll
-        :param file: song to convert (str)
-        :return: list of sequences
-        """
-        sequence_list = []
-        piano_roll = mp.to_pianoroll_representation(mp.read(file))
-
-        for seq in piano_roll:
-            index_list = list(locate(list(map(bool, seq) and seq)))
-            if sum(index_list) > 0:
-                sequence_list.append(tuple(index_list))
-
-        return sequence_list
-
     # parameters definition
     if split == "valid":
         split = "validation"
@@ -210,7 +233,13 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
         os.path.join(hparams["data_folder"], hparams["maestro_csv"])
     )
     print("Processing data")
-    selected_songs = df[df.split == split].sample(num_of_songs)["midi_filename"]
+    # if num_of_songs is -1, we use all the songs
+    if num_of_songs == -1:
+        selected_songs = df[df.split == split]["midi_filename"]
+    else:
+        selected_songs = df[df.split == split].sample(num_of_songs)[
+            "midi_filename"
+        ]
 
     # to assure compatibility with the other datasets
     if split == "validation":
@@ -222,9 +251,14 @@ def midi_to_pianoroll(split, num_of_songs, hparams):
     counter = 0
     all_paths = []
     for song in tqdm(selected_songs):
-        song = parse_song(os.path.join(hparams["data_folder"], song))
+        if hparams["representation"] == "event":
+            song = get_events(os.path.join(hparams["data_folder"], song))
 
-        paths = save_piano_rolls(counter, [song], split, hparams)
+            paths = save_event_sequences(counter, song, split, hparams)
+        else:
+            song = get_pianoroll(os.path.join(hparams["data_folder"], song))
+
+            paths = save_piano_rolls(counter, [song], split, hparams)
         counter = counter + 1
         all_paths.extend(paths)
 

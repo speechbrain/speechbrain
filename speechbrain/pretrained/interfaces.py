@@ -950,14 +950,11 @@ class SymbolicMusicGeneration(Pretrained):
         """
 
         notes_len = self.hparams.emb_dim
-        zeros = 85
         midi_len = 128
 
         # Initial input to the sequence is a randomized binary vector with 4 ones
-        inp = np.array([0] * zeros + [1] * (notes_len - zeros))
-        np.random.shuffle(inp)
-        inp = torch.tensor(inp, dtype=torch.float32).to(self.device)
-        inp = inp.view((1, notes_len))
+        inp = torch.bernoulli(torch.ones(notes_len) * 0.2)
+        inp = inp.unsqueeze(0)
 
         # Sequence to return for MIDI processing
         sequence = np.zeros((N, midi_len))
@@ -973,8 +970,8 @@ class SymbolicMusicGeneration(Pretrained):
 
             ## Convert probabilities to binary vector
             for j in range(len(out)):
-                thresh = random.random()
-                out[j] = (thresh < out[j] and out[j] > 0.05).type(torch.int32)
+                thresh = min(random.random(), 0.05)
+                out[j] = (thresh < out[j]).type(torch.int32)
             # out = (out > 0.5 ).float()
 
             # Store and pad vectors to match MIDI size
@@ -1005,11 +1002,13 @@ class SymbolicMusicGeneration(Pretrained):
 
         gen_notes = self.generate_timestep(N)
 
-        # import pdb; pdb.set_trace()
-        # import matplotlib.pyplot as plt
+        import pdb
 
-        # plt.imshow(gen_notes)
-        # plt.savefig('generated.png', format='png')
+        pdb.set_trace()
+        import matplotlib.pyplot as plt
+
+        plt.imshow(gen_notes)
+        plt.savefig("generated.png", format="png")
 
         # Create Music object from binary piano roll
         music = mp.from_pianoroll_representation(
