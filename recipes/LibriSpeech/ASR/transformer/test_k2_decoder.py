@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 # Copyright (c)  2021  Xiaomi Corporation (authors: Fangjun Kuang & Rong Fu)
 from speechbrain.pretrained import EncoderDecoderASR
