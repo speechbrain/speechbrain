@@ -103,7 +103,6 @@ def ctc_decoding(log_probs: torch.Tensor,
         supervisions.append([i, 0, log_probs.size(1)])
     supervision_segments = torch.tensor(supervisions, dtype=torch.int32)
 
-    supervision_segments = torch.clamp(supervision_segments, min=0)
 
     dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments)
 
