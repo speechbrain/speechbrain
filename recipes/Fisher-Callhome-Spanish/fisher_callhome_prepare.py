@@ -396,11 +396,7 @@ def segment_audio(
     data = torch.unsqueeze(data[channel], 0)
 
     torchaudio.save(
-        save_path,
-        src=data,
-        sample_rate=sample_rate,
-        encoding="PCM_S",
-        bits_per_sample=16,
+        save_path, src=data, sample_rate=sample_rate,
     )
 
 
