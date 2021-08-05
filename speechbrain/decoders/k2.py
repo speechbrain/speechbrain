@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# Copyright (c)  2021  Xiaomi Corporation (Authors: Rong Fu, Tsinghua University)
+# Copyright (c)  2021  Tsinghua University (Authors: Rong Fu)
+
 
 import k2
 import k2.ragged as k2r
@@ -122,4 +123,3 @@ def ctc_decoding(log_probs: torch.Tensor,
     scores = best_paths.get_tot_scores(True, True)
 
     return predicted_tokens, scores.tolist()
-
