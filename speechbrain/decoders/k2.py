@@ -1,21 +1,10 @@
 
 # Copyright (c)  2021  Tsinghua University (Authors: Rong Fu)
 
-
 import k2
 import k2.ragged as k2r
 import torch
-from snowfall.training.ctc_graph import build_ctc_topo2
-from speechbrain.pretrained import EncoderDecoderASR
 from typing import List
-
-def load_model():
-    model = EncoderDecoderASR.from_hparams(
-        source="speechbrain/asr-transformer-transformerlm-librispeech",
-        savedir="pretrained_models/asr-transformer-transformerlm-librispeech",
-        #  run_opts={'device': 'cuda:0'},
-    )
-    return model
 
 def get_texts(best_paths: k2.Fsa) -> List[List[int]]:
     """Extract the texts (as word IDs) from the best-path FSAs.
@@ -52,47 +41,47 @@ def get_texts(best_paths: k2.Fsa) -> List[List[int]]:
 
 def ctc_decoding(log_probs: torch.Tensor,
                  ctc_topo: k2.Fsa,
-                 search_beam: float,
-                 output_beam: float,
-                 min_active_states: int,
-                 max_active_states: int
+                 search_beam: float = 20.0,
+                 output_beam: float = 8.0,
+                 min_active_states: int = 30,
+                 max_active_states: int = 10000
                  ) -> (List[List[int]], List[float]):
     '''building an FSA decoder based on ctc topology.
-       Args:
-           log_probs:
-                    torch.Tensor of dimension [B, T, N].
-                            where, B = Batchsize,
-                                T = the number of frames,
-                                N = number of tokens
-                    It represents the probability distribution over tokens, which
-                    is the output of an encoder network.
-           ctc_topo:
-                    a CTC topology fst that represents a specific topology used to
-                    convert the network outputs to a sequence of tokens.
-           search_beam:
-                    Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
-                    (less pruning). This is the default value; it may be modified by
-                    `min_active_states` and `max_active_states`.
-           output_beam:
-                    Pruning beam for the output of intersection (vs. best path);
-                    equivalent to kaldi's lattice-beam.  E.g. 8.
-           min_active_states:
-                    Minimum number of FSA states that are allowed to be active on
-                    any given frame for any given intersection/composition task.
-                    This is advisory, in that it will try not to have fewer than
-                    this number active. Set it to zero if there is no constraint.
+        Args:
+            log_probs:
+                torch.Tensor of dimension [B, T, C].
+                    where, B = Batchsize,
+                    T = the number of frames,
+                    C = number of tokens
+                It represents the probability distribution over tokens, which
+                is the output of an encoder network.
+            ctc_topo:
+                a CTC topology fst that represents a specific topology used to
+                convert the network outputs to a sequence of tokens.
+            search_beam:
+                Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
+                (less pruning). This is the default value; it may be modified by
+                `min_active_states` and `max_active_states`.
+            output_beam:
+                Pruning beam for the output of intersection (vs. best path);
+                equivalent to kaldi's lattice-beam.  E.g. 8.
+            min_active_states:
+                Minimum number of FSA states that are allowed to be active on
+                any given frame for any given intersection/composition task.
+                This is advisory, in that it will try not to have fewer than
+                this number active. Set it to zero if there is no constraint.
            max_active_states:
-                    Maximum number of FSA states that are allowed to be active on
-                    any given frame for any given intersection/composition task.
-                    This is advisory, in that it will try not to exceed that but
-                    may not always succeed. You can use a very large number if no
-                    constraint is needed.
+                Maximum number of FSA states that are allowed to be active on
+                any given frame for any given intersection/composition task.
+                This is advisory, in that it will try not to exceed that but
+                may not always succeed. You can use a very large number if no
+                constraint is needed.
 
        Return:
-           predicted_tokens : a list of lists of int,
+            predicted_tokens : a list of lists of int,
                 This list contains batch_size number. Each inside list contains
                 a list stores all the hypothesis for this sentence.
-           scores : a list of float64
+            scores : a list of float64
                 This list contains the total score of each sequences.
     '''
 
