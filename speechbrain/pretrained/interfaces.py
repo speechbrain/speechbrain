@@ -948,13 +948,14 @@ class SymbolicMusicGeneration(Pretrained):
         binarized piano roll ready for MIDI generation
         """
 
-        midi_dim = 388 if self.hparams.representation == "event" else 128
+        topk = 250
+        midi_dim = 413 if self.hparams.representation == "event" else 128
 
         # Initial input to the sequence is a randomized binary vector with 4 ones
 
         inp = torch.randint(midi_dim, (1,)).to(self.device)
         outs = []
-        all_probs = []
+        # all_probs = []
         for t in range(T):
             inp = inp.unsqueeze(0)
             if t == 0:
@@ -963,9 +964,15 @@ class SymbolicMusicGeneration(Pretrained):
                 out, h = self.model.forward(inp, h)
 
             probs = F.softmax(out.squeeze(), dim=-1)
-            all_probs.append(probs.data.unsqueeze(0))
+            # all_probs.append(probs.data.unsqueeze(0))
 
-            inp = torch.multinomial(probs, 1)
+            sorted_probs = probs.sort(descending=True)[0]
+            kth = sorted_probs[topk]
+
+            filtered = probs * (probs > kth).float()
+
+            inp = torch.multinomial(filtered, 1)
+            # inp = torch.argmax(probs, -1).unsqueeze(0)
 
             outs.append(inp.item())
 
@@ -997,7 +1004,9 @@ class SymbolicMusicGeneration(Pretrained):
 
         if self.hparams.representation == "event":
             generated_music = mp.from_event_representation(
-                gen_data, resolution=self.hparams.resolution * 4
+                gen_data,
+                resolution=self.hparams.resolution * 4,
+                max_time_shift=self.hparams.numtimeevents,
             )
         else:
             generated_music = mp.from_pianoroll_representation(
