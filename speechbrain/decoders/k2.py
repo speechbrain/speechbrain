@@ -1,10 +1,10 @@
-
 # Copyright (c)  2021  Tsinghua University (Authors: Rong Fu)
 
 import k2
 import k2.ragged as k2r
 import torch
 from typing import List
+
 
 def get_texts(best_paths: k2.Fsa) -> List[List[int]]:
     """Extract the texts (as word IDs) from the best-path FSAs.
@@ -39,14 +39,16 @@ def get_texts(best_paths: k2.Fsa) -> List[List[int]]:
     assert aux_labels.num_axes() == 2
     return k2r.to_list(aux_labels)
 
-def ctc_decoding(log_probs: torch.Tensor,
-                 ctc_topo: k2.Fsa,
-                 search_beam: float = 20.0,
-                 output_beam: float = 8.0,
-                 min_active_states: int = 30,
-                 max_active_states: int = 10000
-                 ) -> (List[List[int]], List[float]):
-    '''building an FSA decoder based on ctc topology.
+
+def ctc_decoding(
+    log_probs: torch.Tensor,
+    ctc_topo: k2.Fsa,
+    search_beam: float = 20.0,
+    output_beam: float = 8.0,
+    min_active_states: int = 30,
+    max_active_states: int = 10000,
+) -> (List[List[int]], List[float]):
+    """building an FSA decoder based on ctc topology.
         Args:
             log_probs:
                 torch.Tensor of dimension [B, T, C].
@@ -83,7 +85,7 @@ def ctc_decoding(log_probs: torch.Tensor,
                 a list stores all the hypothesis for this sentence.
             scores : a list of float64
                 This list contains the total score of each sequences.
-    '''
+    """
 
     batchnum = log_probs.size(0)
 
@@ -92,15 +94,16 @@ def ctc_decoding(log_probs: torch.Tensor,
         supervisions.append([i, 0, log_probs.size(1)])
     supervision_segments = torch.tensor(supervisions, dtype=torch.int32)
 
-
     dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments)
 
-    lattices = k2.intersect_dense_pruned(ctc_topo, dense_fsa_vec,
-                                         search_beam=search_beam,
-                                         output_beam=output_beam,
-                                         min_active_states=min_active_states,
-                                         max_active_states=max_active_states
-                                         )
+    lattices = k2.intersect_dense_pruned(
+        ctc_topo,
+        dense_fsa_vec,
+        search_beam=search_beam,
+        output_beam=output_beam,
+        min_active_states=min_active_states,
+        max_active_states=max_active_states,
+    )
 
     best_paths = k2.shortest_path(lattices, True)
 
