@@ -18,7 +18,7 @@ The script assumes the pre-trained model. Please refer to speechbrain/recipes/Vo
 The forgiveness collar of 0.25 sec is used and overlaps are ignored while evaluation.
 
 | System | Mic. | Orcl. (Dev) | Orcl. (Eval) | Est. (Dev) | Est. (Eval)
-|----------- | ------------ | ------|------| ------|
+|----------- | ------------ | ------ |------| ------| ------ |
 | ECAPA-TDNN + SC | HeadsetMix | 2.02% | 1.78% | 2.43% | 4.03% |
 | ECAPA-TDNN + SC | LapelMix | 2.17% | 2.36% | 2.34% | 2.57% |
 | ECAPA-TDNN + SC | Array-1 | 2.95% | 2.75% | 3.07% | 3.30% |
