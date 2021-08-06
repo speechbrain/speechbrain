@@ -1219,9 +1219,6 @@ class Dual_Path_Model(nn.Module):
                 .view(B, N, -1, K)
                 .transpose(2, 3)
             )
-        import pdb
-
-        pdb.set_trace()
 
         return input.contiguous(), gap
 
