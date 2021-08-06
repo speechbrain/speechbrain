@@ -1,9 +1,11 @@
 # Copyright (c)  2021  Tsinghua University (Authors: Rong Fu)
 
+from typing import List, Tuple
+
+import torch
+
 import k2
 import k2.ragged as k2r
-import torch
-from typing import List
 
 
 def get_texts(best_paths: k2.Fsa) -> List[List[int]]:
@@ -47,46 +49,45 @@ def ctc_decoding(
     output_beam: float = 8.0,
     min_active_states: int = 30,
     max_active_states: int = 10000,
-) -> (List[List[int]], List[float]):
+) -> Tuple[List[List[int]], torch.Tensor]:
     """building an FSA decoder based on ctc topology.
-        Args:
-            log_probs:
-                torch.Tensor of dimension [B, T, C].
-                    where, B = Batchsize,
-                    T = the number of frames,
-                    C = number of tokens
-                It represents the probability distribution over tokens, which
-                is the output of an encoder network.
-            ctc_topo:
-                a CTC topology fst that represents a specific topology used to
-                convert the network outputs to a sequence of tokens.
-            search_beam:
-                Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
-                (less pruning). This is the default value; it may be modified by
-                `min_active_states` and `max_active_states`.
-            output_beam:
-                Pruning beam for the output of intersection (vs. best path);
-                equivalent to kaldi's lattice-beam.  E.g. 8.
-            min_active_states:
-                Minimum number of FSA states that are allowed to be active on
-                any given frame for any given intersection/composition task.
-                This is advisory, in that it will try not to have fewer than
-                this number active. Set it to zero if there is no constraint.
-           max_active_states:
-                Maximum number of FSA states that are allowed to be active on
-                any given frame for any given intersection/composition task.
-                This is advisory, in that it will try not to exceed that but
-                may not always succeed. You can use a very large number if no
-                constraint is needed.
+    Args:
+        log_probs:
+            torch.Tensor of dimension [B, T, C].
+                where, B = Batch size,
+                T = the number of frames,
+                C = number of tokens
+            It represents the probability distribution over tokens, which
+            is the output of an encoder network.
+        ctc_topo:
+            a CTC topology FST that represents a specific topology used to
+            convert the network outputs to a sequence of tokens.
+        search_beam:
+            Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
+            (less pruning). This is the default value; it may be modified by
+            `min_active_states` and `max_active_states`.
+        output_beam:
+            Pruning beam for the output of intersection (vs. best path);
+            equivalent to kaldi's lattice-beam.  E.g. 8.
+        min_active_states:
+            Minimum number of FSA states that are allowed to be active on
+            any given frame for any given intersection/composition task.
+            This is advisory, in that it will try not to have fewer than
+            this number active. Set it to zero if there is no constraint.
+        max_active_states:
+            Maximum number of FSA states that are allowed to be active on
+            any given frame for any given intersection/composition task.
+            This is advisory, in that it will try not to exceed that but
+            may not always succeed. You can use a very large number if no
+            constraint is needed.
 
-       Return:
-            predicted_tokens : a list of lists of int,
-                This list contains batch_size number. Each inside list contains
-                a list stores all the hypothesis for this sentence.
-            scores : a list of float64
-                This list contains the total score of each sequences.
+    Returns:
+        predicted_tokens : a list of lists of int,
+            This list contains batch_size number. Each inside list contains
+            a list stores all the hypothesis for this sentence.
+        scores : a torch tensor
+           It contains the total score of each sequence.
     """
-
     batchnum = log_probs.size(0)
 
     supervisions = []
