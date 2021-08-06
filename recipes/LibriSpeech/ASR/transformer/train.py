@@ -38,8 +38,10 @@ import sys
 import torch
 import logging
 from pathlib import Path
+import k2
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.decoders.k2 import ctc_decoding
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
@@ -96,7 +98,21 @@ class ASR(sb.core.Brain):
                 # and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            if self.hparams.use_k2 is False:
+                hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            else:
+                hyps, _ = ctc_decoding(
+                    p_ctc.detach(),
+                    self.ctc_topo,
+                    search_beam=self.hparams.k2_ctc_decoding["search_beam"],
+                    output_beam=self.hparams.k2_ctc_decoding["output_beam"],
+                    min_active_states=self.hparams.k2_ctc_decoding[
+                        "min_active_states"
+                    ],
+                    max_active_states=self.hparams.k2_ctc_decoding[
+                        "max_active_states"
+                    ],
+                )
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -440,6 +456,10 @@ if __name__ == "__main__":
 
     # adding objects to trainer:
     asr_brain.tokenizer = hparams["tokenizer"]
+
+    if hparams["use_k2"]:
+        ctc_topo = k2.ctc_topo(hparams["vocab_size"] - 1)
+        asr_brain.ctc_topo = ctc_topo.to(torch.device(run_opts["device"]))
 
     # Training
     asr_brain.fit(

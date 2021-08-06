@@ -270,3 +270,11 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     paths:
         lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
         tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+
+# True to use k2 for decoding during the test time
+use_k2: True
+k2_ctc_decoding:
+  search_beam: 20
+  output_beam: 8
+  min_active_states: 30
+  max_active_states: 10000
