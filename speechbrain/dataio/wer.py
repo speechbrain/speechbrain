@@ -54,9 +54,12 @@ def print_wer_summary(wer_details, file=sys.stdout):
 
 
 def print_alignments(
-    details_by_utterance, file=sys.stdout, empty_symbol="<eps>", separator=" ; ",
+    details_by_utterance,
+    file=sys.stdout,
+    empty_symbol="<eps>",
+    separator=" ; ",
     print_header=True,
-    sample_separator=None
+    sample_separator=None,
 ):
     """Print WER summary and alignments.
 
@@ -96,7 +99,6 @@ def print_alignments(
             )
             if sample_separator:
                 print(sample_separator, file=file)
-
 
 
 # The following internal functions are used to

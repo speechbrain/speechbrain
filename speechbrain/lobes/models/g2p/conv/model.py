@@ -5,6 +5,7 @@ from speechbrain.nnet.normalization import BatchNorm1d
 from speechbrain.nnet.activations import Softmax
 from speechbrain.nnet.containers import Sequential
 
+
 class ResidualConvBlock(nn.Module):
     """
     A one-dimensional convolutional residual block
@@ -22,6 +23,7 @@ class ResidualConvBlock(nn.Module):
     dilation: int
         the dilation for convolutional layers
     """
+
     def __init__(
         self,
         out_channels,
@@ -29,12 +31,11 @@ class ResidualConvBlock(nn.Module):
         kernel_size,
         stride=1,
         dilation=1,
-        padding='same',
-        input_shape=None
+        padding="same",
+        input_shape=None,
     ):
         super().__init__()
-        self.batch_norm = BatchNorm1d(
-            input_size=in_channels)
+        self.batch_norm = BatchNorm1d(input_size=in_channels)
         self.relu = nn.ReLU()
         self.conv = CNN.Conv1d(
             out_channels=out_channels,
@@ -43,7 +44,8 @@ class ResidualConvBlock(nn.Module):
             stride=stride,
             dilation=dilation,
             input_shape=input_shape,
-            padding=padding)
+            padding=padding,
+        )
         self.residual_conv = CNN.Conv1d(
             out_channels=out_channels,
             kernel_size=kernel_size,
@@ -51,8 +53,8 @@ class ResidualConvBlock(nn.Module):
             stride=stride,
             dilation=dilation,
             input_shape=input_shape,
-            padding=padding)
-
+            padding=padding,
+        )
 
     def forward(self, inputs):
         """
@@ -75,13 +77,10 @@ class ResidualConvBlock(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, conv_layers, input_shape=None):
         super().__init__()
-        self.conv_sequence = Sequential(
-            input_shape=input_shape,
-            *conv_layers)
+        self.conv_sequence = Sequential(input_shape=input_shape, *conv_layers)
         self.relu = nn.ReLU()
         num_channels = self._get_output_channels()
-        self.batch_norm = BatchNorm1d(
-            input_size=num_channels)
+        self.batch_norm = BatchNorm1d(input_size=num_channels)
         self.softmax = Softmax(apply_log=False)
 
     def _get_output_channels(self):

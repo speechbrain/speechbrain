@@ -530,6 +530,7 @@ def minDCF(
 
     return float(c_min), float(thresholds[min_index])
 
+
 class ClassificationStats(MetricStats):
     """Computes statistics pertaining to multi-label
     classification tasks, as well as tasks that can be loosely interpreted as such for the purpose of
@@ -573,16 +574,15 @@ class ClassificationStats(MetricStats):
         self.summary = {
             "accuracy": self._compute_accuracy(),
             "confusion_matrix": confusion_matrix,
-            "classwise_stats": self._compute_classwise_stats(
-                confusion_matrix),
+            "classwise_stats": self._compute_classwise_stats(confusion_matrix),
             "keys": self._available_keys,
-            "predictions": self._available_predictions
+            "predictions": self._available_predictions,
         }
         for stat in ["total", "correct", "accuracy"]:
             self.summary[f"classwise_{stat}"] = {
                 key: key_stats[stat]
-                for key, key_stats
-                in self.summary["classwise_stats"].items()}
+                for key, key_stats in self.summary["classwise_stats"].items()
+            }
         if field is not None:
             return self.summary[field]
         else:
@@ -596,14 +596,18 @@ class ClassificationStats(MetricStats):
 
     def _build_lookups(self):
         self._available_keys = self._get_keys()
-        self._available_predictions = list(sorted(
-            set(prediction for prediction in self.predictions)))
+        self._available_predictions = list(
+            sorted(set(prediction for prediction in self.predictions))
+        )
         self._keys_lookup = self._index_lookup(self._available_keys)
-        self._predictions_lookup = self._index_lookup(self._available_predictions)
+        self._predictions_lookup = self._index_lookup(
+            self._available_predictions
+        )
 
     def _compute_confusion_matrix(self):
         confusion_matrix = torch.zeros(
-            len(self._available_keys), len(self._available_predictions))
+            len(self._available_keys), len(self._available_predictions)
+        )
         for key, prediction in self._get_confusion_entries():
             key_idx = self._keys_lookup[key]
             prediction_idx = self._predictions_lookup[prediction]
@@ -617,22 +621,32 @@ class ClassificationStats(MetricStats):
         # statically determined; for example, they could
         # be constructed from seq2seq predictions. As a
         # result, one cannot use the diagonal
-        key_targets = self._available_keys if not self.categories else [
-            target for _, target in self._available_keys]
+        key_targets = (
+            self._available_keys
+            if not self.categories
+            else [target for _, target in self._available_keys]
+        )
         correct = torch.tensor(
-            [(confusion_matrix[idx, self._predictions_lookup[target]]
-              if target in self._predictions_lookup
-              else 0)
-             for idx, target in enumerate(key_targets)])
+            [
+                (
+                    confusion_matrix[idx, self._predictions_lookup[target]]
+                    if target in self._predictions_lookup
+                    else 0
+                )
+                for idx, target in enumerate(key_targets)
+            ]
+        )
         accuracy = correct / total
         return {
             key: {
                 "total": item_total.item(),
                 "correct": item_correct.item(),
-                "accuracy": item_accuracy.item()
+                "accuracy": item_accuracy.item(),
             }
-            for key, item_total, item_correct, item_accuracy
-            in zip(self._available_keys, total, correct, accuracy)}
+            for key, item_total, item_correct, item_accuracy in zip(
+                self._available_keys, total, correct, accuracy
+            )
+        }
 
     def _get_keys(self):
         if self.categories:
@@ -645,15 +659,12 @@ class ClassificationStats(MetricStats):
         if self.categories:
             result = (
                 ((category, target), prediction)
-                for category, target, prediction
-                in zip(
-                    self.categories,
-                    self.targets,
-                    self.predictions))
+                for category, target, prediction in zip(
+                    self.categories, self.targets, self.predictions
+                )
+            )
         else:
-            result = zip(
-                self.targets,
-                self.predictions)
+            result = zip(self.targets, self.predictions)
         result = list(result)
         return result
 
@@ -669,7 +680,9 @@ class ClassificationStats(MetricStats):
     def write_stats(self, filestream):
         if self.summary is None:
             self.summarize()
-        print(f"Overall Accuracy: {self.summary['accuracy']:.0%}", file=filestream)
+        print(
+            f"Overall Accuracy: {self.summary['accuracy']:.0%}", file=filestream
+        )
         print(file=filestream)
         self._write_classwise_stats(filestream)
         print(file=filestream)
@@ -677,31 +690,44 @@ class ClassificationStats(MetricStats):
 
     def _write_classwise_stats(self, filestream):
         self._write_header("Class-Wise Accuracy", filestream=filestream)
-        key_labels = {key: self._format_key_label(key) for key in self._available_keys}
+        key_labels = {
+            key: self._format_key_label(key) for key in self._available_keys
+        }
         longest_key_label = max(len(label) for label in key_labels.values())
         for key in self._available_keys:
             stats = self.summary["classwise_stats"][key]
             padded_label = self._pad_to_length(
-                self._format_key_label(key), longest_key_label)
-            print(f"{padded_label}: {int(stats['correct'])} / {int(stats['total'])} ({stats['accuracy']:.2%})", file=filestream)
+                self._format_key_label(key), longest_key_label
+            )
+            print(
+                f"{padded_label}: {int(stats['correct'])} / {int(stats['total'])} ({stats['accuracy']:.2%})",
+                file=filestream,
+            )
 
     def _write_confusion(self, filestream):
         self._write_header("Confusion", filestream=filestream)
         longest_prediction = max(
-            len(prediction) for prediction in self._available_predictions)
+            len(prediction) for prediction in self._available_predictions
+        )
         confusion_matrix = self.summary["confusion_matrix"].int()
         totals = confusion_matrix.sum(dim=-1)
-        for key, key_predictions, total in zip(self._available_keys, confusion_matrix, totals):
+        for key, key_predictions, total in zip(
+            self._available_keys, confusion_matrix, totals
+        ):
             target_label = self._format_key_label(key)
             print(f"Target: {target_label}", file=filestream)
-            indexes, = torch.where(key_predictions > 0)
+            (indexes,) = torch.where(key_predictions > 0)
             total = total.item()
             for index in indexes:
                 count = key_predictions[index].item()
                 prediction = self._available_predictions[index]
-                padded_label = self._pad_to_length(prediction, longest_prediction)
-                print(f"  -> {padded_label}: {count} / {total} ({count / total:.2%})",
-                      file=filestream)
+                padded_label = self._pad_to_length(
+                    prediction, longest_prediction
+                )
+                print(
+                    f"  -> {padded_label}: {count} / {total} ({count / total:.2%})",
+                    file=filestream,
+                )
 
     def _write_header(self, header, filestream):
         print(header, file=filestream)
@@ -718,4 +744,3 @@ class ClassificationStats(MetricStats):
         else:
             label = key
         return label
-

@@ -618,21 +618,22 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
         replacement=True,
         seed=563375142,
         epoch=0,
-        **kwargs
+        **kwargs,
     ):
         self.dataset = dataset
         self.key = key
         if not num_samples:
             num_samples = len(dataset)
         weights = self._compute_weights()
-        super().__init__(weights, num_samples, replacement, seed, epoch,
-                         **kwargs)
+        super().__init__(
+            weights, num_samples, replacement, seed, epoch, **kwargs
+        )
 
     def _compute_weights(self):
         with self.dataset.output_keys_as([self.key]):
             class_ids = [item[self.key] for item in self.dataset]
             class_counter = Counter(class_ids)
-        weights = 1 / torch.tensor([
-            class_counter[class_id] for class_id in class_ids
-        ])
+        weights = 1 / torch.tensor(
+            [class_counter[class_id] for class_id in class_ids]
+        )
         return weights

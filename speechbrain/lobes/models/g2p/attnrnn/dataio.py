@@ -43,8 +43,11 @@ def clean_pipeline(graphemes, takes="txt", provides="txt_cleaned"):
 
 
 def grapheme_pipeline(
-    graphemes, grapheme_encoder=None, space_separated=False,
-    uppercase=True, takes="char"
+    graphemes,
+    grapheme_encoder=None,
+    space_separated=False,
+    uppercase=True,
+    takes="char",
 ):
     """Creates a pipeline element for grapheme encoding
 
@@ -75,13 +78,14 @@ def grapheme_pipeline(
         if uppercase:
             char = char.upper()
         grapheme_list = char.strip().split(" ") if space_separated else char
-        grapheme_list = [grapheme for grapheme in grapheme_list if grapheme in grapheme_set]
+        grapheme_list = [
+            grapheme for grapheme in grapheme_list if grapheme in grapheme_set
+        ]
         yield grapheme_list
         grapheme_encoded_list = grapheme_encoder.encode_sequence(grapheme_list)
         yield grapheme_encoded_list
         grapheme_encoded = torch.LongTensor(grapheme_encoded_list)
         yield grapheme_encoded
-
 
     return f
 
@@ -95,7 +99,7 @@ def tokenizer_encode_pipeline(
     word_separator=" ",
     token_space_index=512,
     space_separated=True,
-    char_map=None
+    char_map=None,
 ):
     """A pipeline element that uses a pretrained tokenizer
 
@@ -110,18 +114,22 @@ def tokenizer_encode_pipeline(
     @sb.utils.data_pipeline.provides(
         f"{provides_prefix}_list",
         f"{provides_prefix}_encoded_list",
-        f"{provides_prefix}_encoded"
+        f"{provides_prefix}_encoded",
     )
     def f(seq):
         token_list = seq.strip().split(" ") if space_separated else seq
         token_list = [token for token in token_list if token in token_set]
         yield token_list
         tokenizer_input = "".join(
-            _map_tokens_item(token_list, char_map) if char_map is not None else token_list)
+            _map_tokens_item(token_list, char_map)
+            if char_map is not None
+            else token_list
+        )
 
         if wordwise:
             encoded_list = _wordwise_tokenize(
-                tokenizer(), tokenizer_input, word_separator, token_space_index)
+                tokenizer(), tokenizer_input, word_separator, token_space_index
+            )
         else:
             encoded_list = tokenizer().sp.encode_as_ids(tokenizer_input)
         yield encoded_list
@@ -132,15 +140,11 @@ def tokenizer_encode_pipeline(
 
 
 def _add_bos(encoder, seq):
-    return torch.LongTensor(
-        encoder.prepend_bos_index(seq)
-    )
+    return torch.LongTensor(encoder.prepend_bos_index(seq))
 
 
 def _add_eos(encoder, seq):
-    return torch.LongTensor(
-        encoder.append_eos_index(seq)
-    )
+    return torch.LongTensor(encoder.append_eos_index(seq))
 
 
 def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
@@ -148,8 +152,8 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
         return tokenizer.sp.encode_as_ids(sequence)
     words = list(_split_list(sequence, input_separator))
     encoded_words = [
-        tokenizer.sp.encode_as_ids(word_tokens)
-        for word_tokens in words]
+        tokenizer.sp.encode_as_ids(word_tokens) for word_tokens in words
+    ]
     sep_list = [token_separator]
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
@@ -159,8 +163,8 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
         return tokenizer.sp.decode_ids(sequence)
     words = list(_split_list(sequence, token_separator))
     encoded_words = [
-        tokenizer.sp.decode_ids(word_tokens)
-        for word_tokens in words]
+        tokenizer.sp.decode_ids(word_tokens) for word_tokens in words
+    ]
     return output_separtor.join(encoded_words)
 
 
@@ -169,10 +173,10 @@ def _split_list(items, separator):
         last_idx = -1
         for idx, item in enumerate(items):
             if item == separator:
-                yield items[last_idx+1:idx]
+                yield items[last_idx + 1 : idx]
                 last_idx = idx
         if last_idx < idx - 1:
-            yield items[last_idx + 1:]
+            yield items[last_idx + 1 :]
 
 
 def _enable_eos_bos(tokens, encoder, bos_index, eos_index):
@@ -211,11 +215,10 @@ def phoneme_pipeline(phoneme_encoder=None, space_separated=True):
     result: DymamicItem
         a pipeline element
     """
+
     @sb.utils.data_pipeline.takes("phn")
     @sb.utils.data_pipeline.provides(
-        "phn_list",
-        "phn_encoded_list",
-        "phn_encoded"
+        "phn_list", "phn_encoded_list", "phn_encoded"
     )
     def f(phn):
         phn_list = phn.strip().split(" ") if space_separated else phn
@@ -252,17 +255,12 @@ def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
     result: DymamicItem
         a pipeline element
     """
-    phoneme_encoder = _enable_eos_bos(
-        tokens, encoder, bos_index, eos_index
-    )
-
+    phoneme_encoder = _enable_eos_bos(tokens, encoder, bos_index, eos_index)
 
     @sb.utils.data_pipeline.takes(f"{prefix}_encoded_list")
     @sb.utils.data_pipeline.provides(
-        f"{prefix}_encoded_eos",
-        f"{prefix}_encoded_bos",
+        f"{prefix}_encoded_eos", f"{prefix}_encoded_bos",
     )
-
     def f(seq):
         yield _add_eos(encoder, seq)
         yield _add_bos(encoder, seq)
@@ -352,7 +350,7 @@ def build_token_char_map(tokens):
     """
     chars = char_range("A", "Z") + char_range("a", "z")
     values = list(filter(lambda chr: chr != " ", tokens))
-    token_map = dict(zip(values, chars[:len(values)]))
+    token_map = dict(zip(values, chars[: len(values)]))
     token_map[" "] = " "
     return token_map
 
@@ -392,7 +390,9 @@ def text_decode(seq, encoder):
     return encoder.decode_ndim(seq)
 
 
-def char_map_detokenize(tokenizer, char_map, token_space_index=None, wordwise=True):
+def char_map_detokenize(
+    tokenizer, char_map, token_space_index=None, wordwise=True
+):
     """Returns a function that recovers the original sequence from one that has been
     tokenized using a character map
 
@@ -414,13 +414,14 @@ def char_map_detokenize(tokenizer, char_map, token_space_index=None, wordwise=Tr
 
     """
     if wordwise:
-        detokenize = lambda item: _wordwise_detokenize(tokenizer(), item, " ", token_space_index)
+        detokenize = lambda item: _wordwise_detokenize(
+            tokenizer(), item, " ", token_space_index
+        )
     else:
         detokenize = lambda item: tokenizer().sp.decode_ids(item)
 
     def f(tokens):
-        decoded_tokens = [
-            detokenize(item) for item in tokens]
+        decoded_tokens = [detokenize(item) for item in tokens]
         mapped_tokens = _map_tokens_batch(decoded_tokens, char_map)
         return mapped_tokens
 
@@ -428,8 +429,8 @@ def char_map_detokenize(tokenizer, char_map, token_space_index=None, wordwise=Tr
 
 
 def _map_tokens_batch(tokens, char_map):
-    return [[char_map[char] for char in item]
-            for item in tokens]
+    return [[char_map[char] for char in item] for item in tokens]
+
 
 def _map_tokens_item(tokens, char_map):
     return [char_map[char] for char in tokens]
@@ -451,9 +452,11 @@ def lazy_init(init):
         the object instance
     """
     instance = None
+
     def f():
         nonlocal instance
         if instance is None:
             instance = init()
         return instance
+
     return f

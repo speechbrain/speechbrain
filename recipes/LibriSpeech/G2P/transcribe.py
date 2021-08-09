@@ -33,7 +33,7 @@ def transcribe_text(g2p, text):
     print(" ".join(output))
 
 
-def transcribe_file(g2p, text_file_name,  output_file_name=None, batch_size=64):
+def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
     """
     Transcribes a file with one example per line
 
@@ -55,12 +55,14 @@ def transcribe_file(g2p, text_file_name,  output_file_name=None, batch_size=64):
     line_count = get_line_count(text_file_name)
     with open(text_file_name) as text_file:
         if output_file_name is None:
-            transcribe_stream(g2p, text_file, sys.stdout, batch_size,
-                              total=line_count)
+            transcribe_stream(
+                g2p, text_file, sys.stdout, batch_size, total=line_count
+            )
         else:
             with open(output_file_name, "w") as output_file:
-                transcribe_stream(g2p, text_file, output_file, batch_size,
-                                  total=line_count)
+                transcribe_stream(
+                    g2p, text_file, output_file, batch_size, total=line_count
+                )
 
 
 def get_line_count(text_file_name):
@@ -80,7 +82,9 @@ def get_line_count(text_file_name):
     with open(text_file_name) as text_file:
         return sum(1 for _ in text_file)
 
+
 _substitutions = {" ": "<spc>"}
+
 
 def transcribe_stream(g2p, text_file, output_file, batch_size=64, total=None):
     """
@@ -104,7 +108,8 @@ def transcribe_stream(g2p, text_file, output_file, batch_size=64, total=None):
         phoneme_results = g2p(batch)
         for result in phoneme_results:
             line = " ".join(
-                _substitutions.get(phoneme, phoneme) for phoneme in result)
+                _substitutions.get(phoneme, phoneme) for phoneme in result
+            )
             print(line, file=output_file)
             output_file.flush()
 
@@ -143,6 +148,7 @@ def chunked(iterable, batch_size):
     iterator = iter(lambda: list(itertools.islice(iterable, batch_size)), [])
     return iterator
 
+
 def main():
     parser = ArgumentParser(description="Command-line speech synthesizer")
     parser.add_argument(
@@ -157,7 +163,9 @@ def main():
     parser.add_argument("--text-file", help="the text file to transcribe")
     parser.add_argument("--output-file", help="")
     arguments, override_arguments = parser.parse_known_args()
-    _, run_opts, overrides = sb.parse_arguments([arguments.hparams] + override_arguments)
+    _, run_opts, overrides = sb.parse_arguments(
+        [arguments.hparams] + override_arguments
+    )
 
     if not os.path.isdir(arguments.model):
         print(MSG_MODEL_NOT_FOUND, file=sys.stderr)
@@ -168,9 +176,10 @@ def main():
         sys.exit(1)
 
     g2p = GraphemeToPhoneme.from_hparams(
-        hparams_file=arguments.hparams, source=arguments.model,
+        hparams_file=arguments.hparams,
+        source=arguments.model,
         overrides=overrides,
-        run_opts=run_opts
+        run_opts=run_opts,
     )
     if getattr(g2p.hparams, "use_language_model", False):
         g2p.hparams.beam_searcher = g2p.hparams.beam_searcher_lm
@@ -181,10 +190,12 @@ def main():
             g2p=g2p,
             text_file_name=arguments.text_file,
             output_file_name=arguments.output_file,
-            batch_size=g2p.hparams.eval_batch_size
+            batch_size=g2p.hparams.eval_batch_size,
         )
     else:
-        print("ERROR: Either --text or --text-file is required", file=sys.stderr)
+        print(
+            "ERROR: Either --text or --text-file is required", file=sys.stderr
+        )
 
 
 if __name__ == "__main__":

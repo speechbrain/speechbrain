@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 orion_is_available = False
 try:
     import orion.client
+
     orion_is_available = True
 except ImportError:
     logger.warn("Orion is not available")
@@ -46,6 +47,7 @@ class G2PEvaluator:
         - could be useful if hyperparameters have changed, but
         the same model can be reused from one run to the next
     """
+
     def __init__(self, hparams, device, model_state=None):
         self.hparams = SimpleNamespace(**hparams)
         self.overrides = overrides
@@ -65,7 +67,8 @@ class G2PEvaluator:
         self._flatten_results = (
             self._flatten_results_separated
             if self.hparams.phonemes_enable_space
-            else self._flatten_results_jumbled)
+            else self._flatten_results_jumbled
+        )
 
     def load(self):
         """
@@ -74,7 +77,7 @@ class G2PEvaluator:
         checkpointer = self.hparams.checkpointer
         checkpointer.recover_if_possible(
             device=torch.device(self.device),
-            importance_key=lambda ckpt: -ckpt.meta["PER"]
+            importance_key=lambda ckpt: -ckpt.meta["PER"],
         )
 
     def evaluate_batch(self, batch):
@@ -89,13 +92,9 @@ class G2PEvaluator:
         """
         batch = batch.to(self.device)
         if self.hparams.eval_mode == "sentence":
-            hyps, scores = self._get_phonemes(
-                batch.grapheme_encoded
-            )
+            hyps, scores = self._get_phonemes(batch.grapheme_encoded)
         elif self.hparams.eval_mode == "word":
-            hyps, scores = self._get_phonemes_wordwise(
-                batch.grapheme_encoded
-            )
+            hyps, scores = self._get_phonemes_wordwise(batch.grapheme_encoded)
         else:
             raise ValueError(f"unsupported eval_mode {self.hparams.eval_mode}")
 
@@ -116,16 +115,16 @@ class G2PEvaluator:
         if not phn_encoded_bos:
             grapheme_encoded_data, _ = grapheme_encoded
             phn_encoded_bos = (
-                torch.ones(
-                    len(grapheme_encoded_data), 1
-                ).to(grapheme_encoded_data.device) * self.hparams.bos_index,
-                torch.ones(
-                    len(grapheme_encoded_data)
-                ).to(grapheme_encoded_data.device)
+                torch.ones(len(grapheme_encoded_data), 1).to(
+                    grapheme_encoded_data.device
+                )
+                * self.hparams.bos_index,
+                torch.ones(len(grapheme_encoded_data)).to(
+                    grapheme_encoded_data.device
+                ),
             )
         p_seq, char_lens, encoder_out, _ = self.modules.model(
-            grapheme_encoded=grapheme_encoded,
-            phn_encoded=phn_encoded_bos,
+            grapheme_encoded=grapheme_encoded, phn_encoded=phn_encoded_bos,
         )
         return self.beam_searcher(encoder_out, char_lens)
 
@@ -134,11 +133,12 @@ class G2PEvaluator:
             self._word_separator = self.hparams.phoneme_encoder.lab2ind[" "]
         hyps, scores = [], []
         for grapheme_item, grapheme_len in zip(
-            grapheme_encoded.data,
-            grapheme_encoded.lengths
+            grapheme_encoded.data, grapheme_encoded.lengths
         ):
             words_batch = self._split_words_batch(grapheme_item, grapheme_len)
-            item_hyps, item_scores = self._get_phonemes(words_batch.grapheme_encoded)
+            item_hyps, item_scores = self._get_phonemes(
+                words_batch.grapheme_encoded
+            )
             hyps.append(self._flatten_results(item_hyps))
             scores.append(self._flatten_scores(item_hyps, item_scores))
         return hyps, scores
@@ -158,27 +158,32 @@ class G2PEvaluator:
 
     def _flatten_scores(self, hyps, scores):
         seq_len = sum(len(word_hyp) for word_hyp in hyps)
-        return sum(
-            word_score * len(word_hyp)
-            for word_hyp, word_score
-            in zip(hyps, scores)) / seq_len
+        return (
+            sum(
+                word_score * len(word_hyp)
+                for word_hyp, word_score in zip(hyps, scores)
+            )
+            / seq_len
+        )
 
     def _split_words_batch(self, graphemes, length):
-        return PaddedBatch([
-            {"grapheme_encoded": word}
-            for word in self._split_words_seq(graphemes, length)]
+        return PaddedBatch(
+            [
+                {"grapheme_encoded": word}
+                for word in self._split_words_seq(graphemes, length)
+            ]
         ).to(self.device)
 
     def _split_words_seq(self, graphemes, length):
         space_index = self.hparams.graphemes.index(" ")
-        word_boundaries, = torch.where(graphemes == space_index)
+        (word_boundaries,) = torch.where(graphemes == space_index)
         last_word_boundary = 0
         for word_boundary in word_boundaries:
-            yield graphemes[last_word_boundary + 1:word_boundary]
+            yield graphemes[last_word_boundary + 1 : word_boundary]
             last_word_boundary = word_boundary
         char_length = math.ceil(len(graphemes) * length)
         if last_word_boundary < char_length:
-            yield graphemes[last_word_boundary + 1:char_length]
+            yield graphemes[last_word_boundary + 1 : char_length]
 
     def evaluate_epoch(self, dataset, dataloader_opts=None):
         """
@@ -199,15 +204,22 @@ class G2PEvaluator:
             self.per_metrics = self.hparams.per_stats()
             dataloader = sb.dataio.dataloader.make_dataloader(
                 dataset,
-                **dict(dataloader_opts or {}, shuffle=True,
-                    batch_size=self.hparams.eval_batch_size)
+                **dict(
+                    dataloader_opts or {},
+                    shuffle=True,
+                    batch_size=self.hparams.eval_batch_size,
+                ),
             )
             dataloader_it = iter(dataloader)
             if self.hparams.eval_batch_count is not None:
-                dataloader_it = itertools.islice(dataloader_it, 0, self.hparams.eval_batch_count)
+                dataloader_it = itertools.islice(
+                    dataloader_it, 0, self.hparams.eval_batch_count
+                )
                 batch_count = self.hparams.eval_batch_count
             else:
-                batch_count = math.ceil(len(dataset) / self.hparams.eval_batch_size)
+                batch_count = math.ceil(
+                    len(dataset) / self.hparams.eval_batch_size
+                )
             for batch in tqdm(dataloader_it, total=batch_count):
                 self.evaluate_batch(batch)
             if self.hparams.eval_output_wer_file:
@@ -220,9 +232,8 @@ class G2PEvaluator:
             self.per_metrics.write_stats(w)
             print(
                 "seq2seq, and PER stats written to file",
-                self.hparams.eval_wer_file
+                self.hparams.eval_wer_file,
             )
-
 
 
 if __name__ == "__main__":
@@ -231,7 +242,7 @@ if __name__ == "__main__":
     # Parse the hyperparameter file
     search_hparam_file = sys.argv[0]
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    device = run_opts.get('device', 'cpu')
+    device = run_opts.get("device", "cpu")
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
@@ -246,14 +257,16 @@ if __name__ == "__main__":
     # step specified in the eval_training_step hyperparameter
     # (or command-line argument)
     train_step = next(
-        train_step for train_step in hparams['train_steps']
-        if train_step['name'] == hparams["eval_train_step"])
+        train_step
+        for train_step in hparams["train_steps"]
+        if train_step["name"] == hparams["eval_train_step"]
+    )
     train, valid, test, _ = dataio_prep(hparams, train_step)
     datasets = {"train": train, "valid": valid, "test": test}
     dataset = datasets[hparams["eval_dataset"]]
     dataloader_opts = train_step.get(
-            "dataloader_opts",
-            hparams.get("dataloader_opts", {}))
+        "dataloader_opts", hparams.get("dataloader_opts", {})
+    )
     result = evaluator.evaluate_epoch(dataset, dataloader_opts)
 
     # Report the results

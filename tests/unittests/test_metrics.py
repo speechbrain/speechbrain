@@ -114,28 +114,21 @@ def test_minDCF():
     assert min_dcf == 0
     assert threshold > 0.3 and threshold < 0.4
 
+
 def test_classification_stats():
     import pytest
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()
-    stats.append(
-        ids=["1", "2"],
-        predictions=["B", "A"],
-        targets=["B", "A"]
-    )
-    stats.append(
-        ids=["3", "4"],
-        predictions=["A", "B"],
-        targets=["B", "C"]
-    )
+    stats.append(ids=["1", "2"], predictions=["B", "A"], targets=["B", "A"])
+    stats.append(ids=["3", "4"], predictions=["A", "B"], targets=["B", "C"])
 
     summary = stats.summarize()
     assert pytest.approx(summary["accuracy"], 0.01) == 0.5
     classwise_accuracy = summary["classwise_accuracy"]
-    assert pytest.approx(classwise_accuracy["A"]) == 1.
-    assert pytest.approx(classwise_accuracy["B"]) == .5
-    assert pytest.approx(classwise_accuracy["C"]) == 0.
+    assert pytest.approx(classwise_accuracy["A"]) == 1.0
+    assert pytest.approx(classwise_accuracy["B"]) == 0.5
+    assert pytest.approx(classwise_accuracy["C"]) == 0.0
 
 
 def test_categorized_classification_stats():
@@ -147,29 +140,28 @@ def test_categorized_classification_stats():
         ids=["1", "2"],
         predictions=["B", "A"],
         targets=["B", "A"],
-        categories=["C1", "C2"]
+        categories=["C1", "C2"],
     )
     stats.append(
         ids=["3", "4"],
         predictions=["A", "B"],
         targets=["B", "C"],
-        categories=["C2", "C1"]
+        categories=["C2", "C1"],
     )
     stats.append(
         ids=["5", "6"],
         predictions=["A", "C"],
         targets=["B", "C"],
-        categories=["C2", "C1"]
+        categories=["C2", "C1"],
     )
-
 
     summary = stats.summarize()
     assert pytest.approx(summary["accuracy"], 0.01) == 0.5
     classwise_accuracy = summary["classwise_accuracy"]
-    assert pytest.approx(classwise_accuracy["C1", "B"]) == 1.
-    assert pytest.approx(classwise_accuracy["C1", "C"]) == .5
-    assert pytest.approx(classwise_accuracy["C2", "A"]) == 1.
-    assert pytest.approx(classwise_accuracy["C2", "B"]) == 0.
+    assert pytest.approx(classwise_accuracy["C1", "B"]) == 1.0
+    assert pytest.approx(classwise_accuracy["C1", "C"]) == 0.5
+    assert pytest.approx(classwise_accuracy["C2", "A"]) == 1.0
+    assert pytest.approx(classwise_accuracy["C2", "B"]) == 0.0
 
 
 def test_classification_stats_report():
@@ -177,16 +169,8 @@ def test_classification_stats_report():
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()
-    stats.append(
-        ids=["1", "2"],
-        predictions=["B", "A"],
-        targets=["B", "A"]
-    )
-    stats.append(
-        ids=["3", "4"],
-        predictions=["A", "B"],
-        targets=["B", "C"]
-    )
+    stats.append(ids=["1", "2"], predictions=["B", "A"], targets=["B", "A"])
+    stats.append(ids=["3", "4"], predictions=["A", "B"], targets=["B", "C"])
     report_file = StringIO()
     stats.write_stats(report_file)
     report_file.seek(0)

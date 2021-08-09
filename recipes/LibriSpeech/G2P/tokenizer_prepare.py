@@ -6,6 +6,7 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import build_token_char_map
 
 MULTI_SPACE = re.compile(r"\s{2,}")
 
+
 def phn2txt(phn, phoneme_map):
     """Encodes phonemes using a character map for use with SentencePiece
 
@@ -44,7 +45,7 @@ def prepare_annotation(source_file_name, destination_file_name, phonemes):
         annotation = {
             key: {
                 "char": item["char"],
-                "phn": phn2txt(item["phn"], phoneme_map)
+                "phn": phn2txt(item["phn"], phoneme_map),
             }
             for key, item in src.items()
         }
@@ -75,10 +76,14 @@ def prepare_tokenizer(data_folder, save_folder, phonemes):
             print(f"Annotation file '{destination_file_name} already exists")
         else:
             source_file_name = os.path.join(
-                data_folder, f"sentence_{data_split}.json")
-            print(f"Creating tokenizer annotation '{destination_file_name}' "
-                f"from '{source_file_name}'")
+                data_folder, f"sentence_{data_split}.json"
+            )
+            print(
+                f"Creating tokenizer annotation '{destination_file_name}' "
+                f"from '{source_file_name}'"
+            )
             prepare_annotation(
                 source_file_name=source_file_name,
                 destination_file_name=destination_file_name,
-                phonemes=phonemes)
+                phonemes=phonemes,
+            )
