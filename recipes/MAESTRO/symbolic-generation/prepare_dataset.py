@@ -205,8 +205,11 @@ def get_pianoroll(fl):
 
 
 def get_events(fl, hparams):
+    music = mp.read(fl)
+    # transpose / slowdown / speed up here.
+
     events = mp.to_event_representation(
-        mp.read(fl), max_time_shift=hparams["numtimeevents"]
+        music, max_time_shift=hparams["numtimeevents"]
     )
     events = events.astype("int32")
     events = torch.from_numpy(events).squeeze()
@@ -257,7 +260,6 @@ def midi_to_representation(split, num_of_songs, hparams):
             song = get_events(
                 os.path.join(hparams["data_folder"], song), hparams
             )
-
             paths = save_event_sequences(counter, song, split, hparams)
         else:
             song = get_pianoroll(os.path.join(hparams["data_folder"], song))
