@@ -33,6 +33,8 @@ from speechbrain.pretrained.training import PretrainedModelMixin
 from speechbrain.lobes.models.g2p.attnrnn.dataio import (
     grapheme_pipeline,
     phoneme_pipeline,
+    tokenizer_encode_pipeline,
+    add_bos_eos
 )
 from speechbrain.dataio.wer import print_alignments
 from io import StringIO
@@ -119,7 +121,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 phns,
                 None,
                 phn_lens,
-                self.phoneme_encoder.decode_ndim
+                self.hparams.out_phoneme_decoder
             )
             if self.mode == TrainMode.HOMOGRAPH:
                 self._add_homograph_metrics(
@@ -158,7 +160,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             phns_homograph,
             None,
             phn_lens_homograph,
-            self.phoneme_encoder.decode_ndim
+            self.hparams.out_phoneme_decoder
         )
 
         prediction_labels = self._phonemes_to_label(hyps_homograph)
@@ -172,7 +174,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         )
 
     def _phonemes_to_label(self, phn):
-        phn_decoded = self.phoneme_encoder.decode_ndim(phn)
+        phn_decoded = self.hparams.out_phoneme_decoder(phn)
         return [' '.join(self._remove_special(item)) for item in phn_decoded]
 
     def _remove_special(self, phn):
@@ -471,26 +473,53 @@ def dataio_prep(hparams, train_step=None):
 
     phoneme_encoder = sb.dataio.encoder.TextEncoder()
 
-    # 2. Define grapheme pipeline:
-    sb.dataio.dataset.add_dynamic_item(
-        datasets,
-        grapheme_pipeline(
+    # 2. Define grapheme and phoneme pipelines:
+    if hparams.get("char_tokenize"):
+        grapheme_pipeline_item = tokenizer_encode_pipeline(
+            tokenizer=hparams["grapheme_tokenizer"],
+            tokens=hparams["graphemes"],
+            takes="char",
+            provides_prefix="grapheme",
+            wordwise=hparams["char_token_wordwise"],
+            space_separated=hparams["phonemes_space_separated"],
+            token_space_index=hparams["token_space_index"],
+        )
+    else:
+        grapheme_pipeline_item = grapheme_pipeline(
             graphemes=hparams["graphemes"],
-            space_separated=hparams['graphemes_space_separated']),
-    )
-    # 3. Define phoneme pipeline:
-    sb.dataio.dataset.add_dynamic_item(
-        datasets,
-        phoneme_pipeline(
-            phonemes=hparams["phonemes"],
+            space_separated=hparams['graphemes_space_separated'])
+    if hparams.get("phn_tokenize"):
+        phoneme_pipeline_item = tokenizer_encode_pipeline(
+            tokenizer=hparams["phoneme_tokenizer"],
+            tokens=hparams["phonemes"],
+            takes="phn",
+            provides_prefix="phn",
+            char_map=hparams["phn_char_map"],
+            wordwise=hparams["phn_token_wordwise"],
+            space_separated=hparams["phonemes_space_separated"],
+            token_space_index=hparams["token_space_index"],
+        )
+        # Ensure the tokenizers are trained
+        hparams["grapheme_tokenizer"]()
+        hparams["phoneme_tokenizer"]()
+    else:
+        phoneme_pipeline_item = phoneme_pipeline(
             phoneme_encoder=phoneme_encoder,
-            bos_index=hparams["bos_index"],
-            eos_index=hparams["eos_index"],
-            space_separated=hparams["phonemes_space_separated"]
-        ),
-    )
+            space_separated=hparams["phonemes_space_separated"])
 
-    # 4. Set output:
+    bos_eos_pipeline_item = add_bos_eos(
+        tokens=hparams["phonemes"],
+        encoder=phoneme_encoder,
+        bos_index=hparams["bos_index"],
+        eos_index=hparams["eos_index"],
+        prefix="phn"
+    )
+    dynamic_items = [
+        grapheme_pipeline_item, phoneme_pipeline_item, bos_eos_pipeline_item]
+    for dynamic_item in dynamic_items:
+        sb.dataio.dataset.add_dynamic_item(datasets, dynamic_item)
+
+    # 3. Set output:
     output_keys = [
         "id",
         "grapheme_encoded",
@@ -562,6 +591,7 @@ if __name__ == "__main__":
     check_tensorboard(hparams)
 
     from librispeech_prepare import prepare_librispeech  # noqa
+    from tokenizer_prepare import prepare_tokenizer #noqa
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -580,6 +610,21 @@ if __name__ == "__main__":
                 "skip_prep": hparams["skip_prep"],
                 "select_n_sentences": hparams.get("select_n_sentences"),
             },
+        )
+    if hparams.get("char_tokenize") or hparams.get("phn_tokenize"):
+        path_keys = [
+            "grapheme_tokenizer_output_folder", "phoneme_tokenizer_output_folder"]
+        paths = [hparams[key] for key in path_keys]
+        for path in paths:
+            if not os.path.exists(path):
+                os.makedirs(path)
+        run_on_main(
+            prepare_tokenizer,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_folder": hparams["save_folder"],
+                "phonemes": hparams["phonemes"]
+            }
         )
     for train_step in hparams['train_steps']:
         epochs = train_step['epoch_counter'].limit

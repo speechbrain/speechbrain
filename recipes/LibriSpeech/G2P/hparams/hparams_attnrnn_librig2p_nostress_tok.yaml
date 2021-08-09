@@ -15,6 +15,8 @@ train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 enable_interim_reports: True
+grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
+phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 
 
 input_lexicon: !ref <save_folder>/lexicon.csv
@@ -34,7 +36,21 @@ sentence_test_data: !ref <data_folder>/sentence_test.json
 homograph_train_data: !ref <data_folder>/homograph_train.json
 homograph_valid_data: !ref <data_folder>/homograph_valid.json
 homograph_test_data: !ref <data_folder>/homograph_test.json
+tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
+tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
+
 homograph_balance: true
+
+# Tokenizers
+char_tokenize: true
+char_token_type: unigram  # ["unigram", "bpe", "char"]
+char_token_output: 512
+char_token_wordwise: false
+phn_tokenize: true
+phn_token_type: unigram  # ["unigram", "bpe", "char"]
+phn_token_output: 512  # index(blank/eos/bos/unk) = 0
+phn_token_wordwise: false
+character_coverage: 1.0
 
 
 skip_prep: False
@@ -61,7 +77,8 @@ lr: 0.002
 save_for_pretrained: true
 
 # Model parameters
-output_neurons: !ref <phonemes_count>
+output_neurons: !ref <phn_token_output> + 1
+#output_neurons: 1000
 enc_dropout: 0.5
 enc_neurons: 512
 enc_num_layers: 4
@@ -75,6 +92,9 @@ embedding_dim: 512
 bos_index: 0
 eos_index: 1
 blank_index: 2
+unk_index: 2
+token_space_index: 512
+#token_space_index: 999
 
 # Language Model
 lm_emb_dim: 256 # dimension of the embeddings
@@ -183,6 +203,13 @@ phonemes:
   - ZH
   - " "
 
+phn_char_map: !apply:speechbrain.lobes.models.g2p.attnrnn.build_token_char_map
+    tokens: !ref <phonemes>
+
+
+char_phn_map: !apply:speechbrain.lobes.models.g2p.attnrnn.flip_map
+    map_dict: !ref <phn_char_map>
+
 
 # Models
 enc: !new:speechbrain.nnet.RNN.LSTM
@@ -194,7 +221,7 @@ enc: !new:speechbrain.nnet.RNN.LSTM
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
-    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
+    n_neurons: !ref <output_neurons>
     bias: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
@@ -202,11 +229,11 @@ ctc_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 28  # 27 chars + 1 bos
+    num_embeddings: !ref <char_token_output>
     embedding_dim: !ref <embedding_dim>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>  # 39 phonemes + 1 bos
+    num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <embedding_dim>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
@@ -353,8 +380,43 @@ model_output_keys:
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
-out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.attnrnn.text_decode
-    encoder: !ref <phoneme_encoder>
+grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <grapheme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <char_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: char
+        model_type: !ref <char_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_list_to_check: [!ref <tokenizer_valid_data>]
+        annotation_format: json
+        text_file: !ref <save_folder>/grapheme_annotations.txt
+
+
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <phoneme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <phn_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: phn
+        model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_list_to_check: [!ref <tokenizer_valid_data>]
+        annotation_format: json
+        text_file: !ref <save_folder>/phoneme_annotations.txt
+
+
+out_phoneme_decoder: !apply:speechbrain.lobes.models.g2p.attnrnn.char_map_detokenize
+    tokenizer: !ref <phoneme_tokenizer>
+    char_map: !ref <char_phn_map>
+    token_space_index: !ref <token_space_index>
+    wordwise: !ref <phn_token_wordwise>
 
 
 encode_pipeline:
@@ -413,20 +475,6 @@ train_steps:
     wer_file: !ref <save_folder>/wer_sentence.txt
     dataloader_opts:
         batch_size: !ref <sentence_batch_size>
-
-  - name: homograph
-    train_data: !ref <homograph_train_data>
-    valid_data: !ref <homograph_valid_data>
-    test_data: !ref <homograph_test_data>
-    epoch_counter: !ref <homograph_epoch_counter>
-    ctc_epochs: !ref <homograph_ctc_epochs>
-    mode: homograph
-    balance: !ref <homograph_balance>
-    balance_on: homograph_wordid
-    wer_file: !ref <save_folder>/wer_homograph.txt
-    homograph_stats_file: !ref <save_folder>/homograph_stats.txt
-    dataloader_opts:
-        batch_size: !ref <homograph_batch_size>
 
 
 deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer

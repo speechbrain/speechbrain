@@ -252,6 +252,10 @@ model_output_keys:
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
+out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.attnrnn.text_decode
+    encoder: !ref <phoneme_encoder>
+
+
 encode_pipeline:
     batch: false
     use_padded_data: true
