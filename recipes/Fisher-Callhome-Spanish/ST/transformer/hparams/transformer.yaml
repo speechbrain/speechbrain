@@ -115,7 +115,7 @@ attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 # asr_weight * ASR Loss +
 # mt_weight * MT Loss
 
-# don't forget to uncomment the ctc_lin in modules section (line:184) when using ctc
+# don't forget to uncomment the ctc_lin in modules section (line:185) when using ctc
 ctc_weight: 0
 asr_weight: 0
 mt_weight: 0
@@ -159,6 +159,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.Transformer
     asr_weight: !ref <asr_weight>
     mt_weight: !ref <mt_weight>
     asr_tgt_vocab: !ref <output_neurons>
+    mt_src_vocab: !ref <output_neurons>
     attention_type: !ref <attention_type>
     normalize_before: True
     causal: False

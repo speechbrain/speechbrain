@@ -178,7 +178,7 @@ class TransformerST(TransformerASR):
                     causal=self.causal,
                     attention_type=self.attention_type,
                 )
-            elif encoder_module == "conforemr":
+            elif encoder_module == "conformer":
                 self.mt_encoder = ConformerEncoder(
                     nhead=nhead,
                     num_layers=num_encoder_layers,

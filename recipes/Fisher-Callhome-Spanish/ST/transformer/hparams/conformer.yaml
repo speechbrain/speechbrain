@@ -118,7 +118,7 @@ encoder_module: conformer
 # ASR Loss = ctc_weight * CTC Loss + (1 - ctc_weight) * ASR Attention Loss
 # MT Loss = MT Attention Loss
 
-# don't forget to uncomment the ctc_lin in modules section (line:189) when using ctc
+# don't forget to uncomment the ctc_lin in modules section (line:190) when using ctc
 ctc_weight: 0
 asr_weight: 0
 mt_weight: 0
@@ -162,6 +162,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.Transformer
     asr_weight: !ref <asr_weight>
     mt_weight: !ref <mt_weight>
     asr_tgt_vocab: !ref <output_neurons>
+    mt_src_vocab: !ref <output_neurons>
     attention_type: !ref <attention_type>
     kernel_size: !ref <kernel_size>
     encoder_module: !ref <encoder_module>
