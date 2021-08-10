@@ -191,7 +191,7 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     weights:
         ctc: !ref <ctc_decode_weight>
 
-valid_search: !new:speechbrain.decoders.seq2seq import S2STransformerBeamSearcher
+valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
@@ -203,7 +203,7 @@ valid_search: !new:speechbrain.decoders.seq2seq import S2STransformerBeamSearche
     length_normalization: True
     scorer: !ref <scorer>
 
-test_search: !new:speechbrain.decoders.seq2seq import S2STransformerBeamSearcher
+test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
