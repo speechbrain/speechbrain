@@ -117,6 +117,8 @@ encoder_module: conformer
 # mt_weight * MT Loss
 # ASR Loss = ctc_weight * CTC Loss + (1 - ctc_weight) * ASR Attention Loss
 # MT Loss = MT Attention Loss
+
+# don't forget to uncomment the ctc_lin in modules section (line:189) when using ctc
 ctc_weight: 0
 asr_weight: 0
 mt_weight: 0
@@ -184,6 +186,7 @@ modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
+    # ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>]
