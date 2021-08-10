@@ -114,6 +114,8 @@ attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 # (1 - asr_weight - mt_weight) * ST Attention Loss +
 # asr_weight * ASR Loss +
 # mt_weight * MT Loss
+
+# don't forget to uncomment the ctc_lin in modules section (line:184) when using ctc
 ctc_weight: 0
 asr_weight: 0
 mt_weight: 0
@@ -179,6 +181,7 @@ modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
+    # ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>]
