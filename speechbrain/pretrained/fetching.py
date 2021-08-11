@@ -9,6 +9,11 @@ import urllib.error
 import pathlib
 import logging
 import huggingface_hub
+import os
+import shutil
+import shlex
+from speechbrain.utils.superpowers import run_shell
+
 
 logger = logging.getLogger(__name__)
 
@@ -112,3 +117,53 @@ def fetch(
         _missing_ok_unlink(destination)
         destination.symlink_to(sourcepath)
     return destination
+
+class Downloader:
+    """A base class for downloaders"""
+
+    def check_prerequisites(self):
+        """Ensures that all prerequisites have been installed"""
+        pass
+
+    def download(self, files):
+        """Downloads the file
+
+        Arguments
+        ---------
+        files: dict
+            the specifications of files to download
+            (downloader-specific)
+        """
+        return NotImplemented()
+
+
+class DependencyUnavailableError(Exception): pass
+
+class DownloadError(Exception): pass
+
+class GoogleDriveDownloader(Downloader):
+    """A Google Drive downloader"""
+
+    def check_prerequisites(self):
+        """Ensures that gdown has been installed"""
+        if not shutil.which("gdown"):
+            out, err, code = run_shell("pip install gdown")
+            if code != 0:
+                raise DependencyUnavailableError(
+                    "gdown not found and could not be installed")
+
+    def download(self, files):
+        for file in files:
+            target_path = os.path.dirname(file['destination'])
+            if not os.path.exists(target_path):
+                os.makedirs(target_path)
+            print(os.getcwd())
+            cmd = (f"gdown -O {shlex.quote(file['destination'])} "
+                   f"--id {shlex.quote(file['file_id'])}")
+
+            out, err, code = run_shell(cmd)
+            if code != 0:
+                raise DownloadError(
+                    f"Unable to download {self.file_id} from Google\n"
+                    f"Output: {out}\n"
+                    f"Errors: {err}")

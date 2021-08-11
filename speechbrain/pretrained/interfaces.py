@@ -6,19 +6,33 @@ Authors:
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
+ * Artem Ploujnikov 2021
 """
+import os
+import logging
+import shlex
+import sys
 import torch
 import torchaudio
+import torch.nn.functional as F
+
+from copy import Error
+from importlib import import_module
+from speechbrain.utils.superpowers import run_shell
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
-import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.batch import PaddedBatch
+
+
+logger = logging.getLogger(__name__)
 
 
 class Pretrained:
@@ -715,7 +729,7 @@ class SpeakerRecognition(EncoderClassifier):
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
-    def verify_files(self, path_x, path_y, threshold=0.25):
+    def verify_files(self, path_x, path_y):
         """Speaker verification with cosine distance
 
         Returns the score and the decision (0 different speakers,
@@ -736,9 +750,7 @@ class SpeakerRecognition(EncoderClassifier):
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
         # Verify:
-        score, decision = self.verify_batch(
-            batch_x, batch_y, threshold=threshold
-        )
+        score, decision = self.verify_batch(batch_x, batch_y)
         # Squeeze:
         return score[0], decision[0]
 
@@ -927,3 +939,404 @@ class SpectralMaskEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+
+class SpeechSynthesizer(Pretrained):
+    HPARAMS_NEEDED = ["model", "encode_pipeline", "decode_pipeline"]
+    INPUT_STATIC_KEYS = ["txt"]
+    OUTPUT_KEYS = ["wav"]
+
+    """
+    A friendly wrapper for speech synthesis models
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> synthesizer = SpeechSynthesizer.from_hparams('path/to/model')
+    >>> waveform = synthesizer.tts("Mary had a little lamb")
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> waveforms = synthesizer.tts(items)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.encode_pipeline = DataPipeline(
+            static_data_keys=self.INPUT_STATIC_KEYS,
+            dynamic_items=self.hparams.encode_pipeline["steps"],
+            output_keys=self.hparams.encode_pipeline["output_keys"],
+        )
+        self.decode_pipeline = DataPipeline(
+            static_data_keys=self.hparams.model_output_keys,
+            dynamic_items=self.hparams.decode_pipeline["steps"],
+            output_keys=self.OUTPUT_KEYS,
+        )
+        # NOTE: Some models will provide a custom, model-specific inference
+        # function, others can be called directly
+        self.infer = getattr(self.hparams, "infer", None)
+        if not self.infer:
+            self.infer = lambda model, **kwargs: model(**kwargs)
+        self._transfer_external()
+
+    def tts(self, text):
+        """Computes the waveform for the provided example or batch
+        of examples
+
+        Arguments
+        ---------
+        text: str or List[str]
+            the text to be translated into speech
+
+        Returns
+        -------
+        a single waveform if a single example is provided - or
+        a list of waveform tensors if multiple examples are provided
+        """
+        # Create a single batch if provided a single example
+        single = isinstance(text, str)
+        if single:
+            text = [text]
+        pipeline_input = self._get_encode_pipeline_input(text)
+        model_input = self._run_pipeline(
+            pipeline=self.encode_pipeline,
+            input=pipeline_input,
+            batch=self.batch_inputs,
+        )
+        model_input = self._collate(model_input)
+        model_output = self.compute_forward(model_input)
+        pipeline_input = self._get_decode_pipeline_input(model_output)
+        decoded_output = self._run_pipeline(
+            pipeline=self.decode_pipeline,
+            input=pipeline_input,
+            batch=self.batch_outputs,
+        )
+        waveform = decoded_output.get("wav")
+        if waveform is None:
+            raise ValueError("The output pipeline did not output a waveform")
+        if single:
+            waveform = waveform[0]
+        return waveform
+
+    def _run_pipeline(self, pipeline, input, batch):
+        if batch:
+            output = pipeline(input)
+        else:
+            output = [pipeline(item) for item in input]
+        return output
+
+    def _get_encode_pipeline_input(self, text):
+        pipeline_input = {"txt": text}
+        if not self.batch_inputs:
+            pipeline_input = self._itemize(pipeline_input)
+        return pipeline_input
+
+    def _get_decode_pipeline_input(self, model_output):
+        model_output_keys = getattr(self.hparams, "model_output_keys", None)
+        pipeline_input = model_output
+        # The input to a pipeline is a dictionary. If model_output_keys
+        # is provided, the output of the model is assumed to be a collection
+        # (e.g. a list or a tuple).
+        if model_output_keys:
+            pipeline_input = dict(zip(model_output_keys, pipeline_input))
+
+        # By default, the pipeline will be applied to in batch mode
+        # to the entire model input
+        if not self.batch_outputs:
+            pipeline_input = self._itemize(pipeline_input)
+
+        return pipeline_input
+
+    def _itemize(self, pipeline_input):
+        first_item = next(iter(pipeline_input.values()))
+        keys, values = pipeline_input.keys(), pipeline_input.values()
+        batch_length = len(first_item)
+        return [
+            dict(zip(keys, [value[idx] for value in values]))
+            for idx in range(batch_length)
+        ]
+
+    def _to_dict(self, data):
+        if isinstance(data, PaddedBatch):
+            data = {
+                key: getattr(data, key).data
+                for key in self.hparams.encode_pipeline["output_keys"]
+            }
+        return data
+
+    def _to_device(self, data):
+        return {
+            key: value.to(self.device)
+            if isinstance(value, torch.Tensor)
+            else value
+            for key, value in data.items()}
+
+    @property
+    def batch_inputs(self):
+        """Determines whether the input pipeline
+        operates on batches or individual examples
+        (true means batched)
+
+        Returns
+        -------
+        batch_intputs: bool
+        """
+        return self.hparams.encode_pipeline.get("batch", True)
+
+    @property
+    def batch_outputs(self):
+        """Determines whether the output pipeline
+        operates on batches or individual examples
+        (true means batched)
+
+        Returns
+        -------
+        batch_outputs: bool
+        """
+        return self.hparams.decode_pipeline.get("batch", True)
+
+    def _collate(self, data):
+        if not self.batch_inputs:
+            collate_fn = getattr(self.hparams, "collate_fn", PaddedBatch)
+            data = collate_fn(data)
+        return data
+
+    def __call__(self, text):
+        """Calls tts(text)
+        """
+        return self.tts(text)
+
+    def compute_forward(self, data):
+        """Computes the forward pass of the model. This method can be overridden
+        in the implementation, if needed
+
+        Arguments
+        ---------
+        data
+            the raw inputs to the model
+
+        Returns
+        -------
+        The raw output of the model (the exact output
+        depends on the implementation)
+        """
+        data_dict = self._to_dict(data)
+        data_dict = self._to_device(data_dict)
+        return self.infer(model=self.modules.model, **data_dict)
+
+    def _transfer_external(self):
+        """Transfers all external models to the same device as this
+        model"""
+
+        external_models = getattr(self.hparams, "external", {})
+        for model in external_models.values():
+            model.to(self.device)
+
+
+class RepositoryCloneError(Error):
+    """Exception thrown when a repository cannot be cloned
+
+    Arguments
+    ---------
+    repo_path: str
+        the path to the Git repository
+    local_path: str
+        the path to the local directory to which the repository
+        was going to be cloned
+    returncode: int
+        the return code from the external command
+    output: str
+        the command output
+    err: str
+        the error output
+    """
+    def __init__(
+        self,
+        repo,
+        local_path,
+        returncode,
+        output,
+        err
+    ):
+        self.repo = repo
+        self.local_path = local_path
+        self.returncode = returncode
+        self.output = output
+        self.err = err
+        super().__init__(self._format_message())
+
+    def _format_message(self):
+        return f"""Unable to clone {self.repo} into {self.local_path}
+Return code {self.returncode}
+Standard Output:
+{self.output}
+
+Errors:
+{self.err}"""
+
+
+class ExternalModelSourceError(Exception):
+    def __init__(self, src):
+        self.src = src
+        super().__init__(f"External model source not found at {src}")
+
+
+class ExternalModelWrapper(Pretrained):
+    """A Pretrainer wrapper for pretrained third-party models that
+    are not part of SpeechBrain but are written in Python. This
+    class is meant to be used as a base class for wrappers for specific
+    models
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ready = False
+
+    def _ensure_ready(self):
+        """Ensures that the model is ready, loads it
+           if it is not"""
+        if not self.ready:
+            self.load()
+            self.ready = True
+
+    def load(self):
+        """Downloads the source code (if available)"""
+        git_repo = getattr(self.hparams, "git_repo", None)
+        if git_repo and not os.path.exists(self.hparams.model_src):
+            self._clone()
+        if not os.path.exists(self.hparams.model_src):
+            raise ExternalModelSourceError(self.hparams.model_src)
+        if self.hparams.model_src not in sys.path:
+            sys.path.append(self.hparams.model_src)
+        self._download_files()
+        self._load_model()
+
+    def _load_model(self):
+        if hasattr(self.hparams, "model"):
+            self._load_model_module()
+        elif hasattr(self.hparams, "model_file"):
+            self._load_model_file()
+        if isinstance(self.model, torch.nn.Module):
+            self.model = self.model.to(self.device)
+        self.adapter = getattr(self.hparams, "adapter", None)
+        if self.adapter is None:
+            self.adapter = (
+                lambda model, *args, **kwargs: model(*args, **kwargs))
+
+    def _load_model_module(self):
+        model_components = self.hparams.model.split(".")
+        model_module = ".".join(model_components[:-1])
+        model_obj = model_components[-1]
+        self.model_module = import_module(model_module)
+        model = getattr(self.model_module, model_obj)
+        self.model = model
+
+    def _load_model_file(self):
+        model = torch.load(self.hparams.model_file)
+        model_key = getattr(self.hparams, "model_key", None)
+        if model_key:
+            model = model[model_key]
+        self.model = model
+
+    def _download_files(self):
+        downloads = getattr(self.hparams, "downloads")
+        if downloads:
+            logger.info("Downloading files")
+            for download in downloads:
+                downloader = download["downloader"]
+                downloader.check_prerequisites()
+                existence  = {
+                    file["destination"]: os.path.exists(file["destination"])
+                    for file in download["files"]
+                }
+                for file_path, exists in existence.items():
+                    if exists:
+                        logging.info(
+                            "File %s already exists", file_path)
+                missing_files = [
+                    file for file in download["files"]
+                    if not existence[file["destination"]]]
+                downloader.download(missing_files)
+
+    def _clone(self):
+        clone_cmd = (
+            f"git clone {shlex.quote(self.hparams.git_repo)} "
+            f"{shlex.quote(self.hparams.model_src)}")
+        output, err, returncode = run_shell(clone_cmd)
+        if returncode != 0:
+            raise RepositoryCloneError(
+                repo=self.hparam.git_repo,
+                local_path=self.hparams.model_src,
+                returncode=returncode,
+                output=output,
+                err=err)
+
+    def __call__(self, *args, **kwargs):
+        """Calls the underlying model, loading it if it has not been already
+        loaded. Any arguments will be passed through 'as is'"""
+        self._ensure_ready()
+        return self.adapter(self.model, *args, **kwargs)
+
+    @classmethod
+    def from_hparams(
+        cls,
+        source=None,
+        hparams_file=None,
+        overrides={},
+        **kwargs
+    ):
+        """Fetch and load from external source based on HyperPyYAML file
+
+        Arguments
+        ---------
+        source : str
+            The location to use for finding the model. See
+            ``speechbrain.pretrained.fetching.fetch`` for details.
+        hparams_file : str
+            The name of the hyperparameters file to use for constructing
+            the modules necessary for inference. Must contain two keys:
+            "modules" and "pretrainer", as described.
+        overrides : dict
+            Any changes to make to the hparams file when it is loaded.
+        """
+        if not source:
+            source = "."
+        if not hparams_file:
+            hparams_file = "hyperparams.yaml"
+        if not os.path.isabs(hparams_file):
+            hparams_file = os.path.join(source, hparams_file)
+        if not os.path.exists(hparams_file):
+            raise ValueError(f"Unable to find hparams file {hparams_file}")
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin, overrides)
+        return cls(hparams=hparams, **kwargs)
+
+    def to(self, device):
+        """
+        Transfers this model to another device
+
+        Arguments
+        ---------
+        device: str or torch device
+            the torch device
+        """
+        self._ensure_ready()
+        self.device = device
+        self.model = self.model.to(device)
+
+
+class VocoderWrapper(ExternalModelWrapper):
+    def synthesize(self, inputs):
+        """Synthesizes audio (usually speech) from inputs (usually a spectrogram)
+
+        Arguments
+        ---------
+        inputs: torch.Tensor
+            Vocoder inputs
+        """
+        return self.__call__(inputs)

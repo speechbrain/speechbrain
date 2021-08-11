@@ -1,0 +1,256 @@
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref ./results/tts/tacotron2/<seed>
+save_folder: !ref <output_folder>/save
+pretrained_path: !ref <save_folder>
+save_for_pretrained: True
+train_log: !ref <output_folder>/train_log.txt
+epochs: 500
+progress_samples: True
+progress_samples_incremental: False
+progress_sample_path: !ref <output_folder>/samples
+progress_samples_interval: 1
+progress_batch_sample_size: 3
+keep_checkpoint_interval: 20
+
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+data_folder_rirs: !ref <data_folder>
+train_data_path: ../dataset_utils/mockdata/lj
+train_filter: null
+valid_data_path: ../dataset_utils/mockdata/lj
+valid_filter: null
+preprocessing_mode: nvidia
+text_cleaners: ['english_cleaners']
+
+################################
+# Audio Parameters             #
+################################
+sample_rate: 22050
+hop_length: 256
+win_length: 1024
+n_mel_channels: 80
+n_fft: 1024
+n_stft: !ref <n_fft> // 2 + 1
+mel_fmin: 0.0
+mel_fmax: 8000.0
+mel_normalized: null
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate: 0.001
+weight_decay: 0.000006
+grad_clip_thresh: 1.0
+batch_size: 64 #minimum 2
+mask_padding: True
+guided_attention_sigma: 0.2
+guided_attention_weight: 50.0
+guided_attention_weight_half_life: 10.
+guided_attention_hard_stop: 50
+gate_loss_weight: 1.0
+
+################################
+# Model Parameters and model   #
+################################
+n_symbols: 148 #fixed depending on symbols in textToSequence
+symbols_embedding_dim: 512
+
+# Encoder parameters
+encoder_kernel_size: 5
+encoder_n_convolutions: 3
+encoder_embedding_dim: 512
+
+# Decoder parameters
+n_frames_per_step: 1  # currently only 1 is supported
+decoder_rnn_dim: 1024
+prenet_dim: 256
+max_decoder_steps: 1000
+gate_threshold: 0.5
+p_attention_dropout: 0.1
+p_decoder_dropout: 0.1
+decoder_no_early_stopping: False
+
+# Attention parameters
+attention_rnn_dim: 1024
+attention_dim: 128
+
+# Location Layer parameters
+attention_location_n_filters: 32
+attention_location_kernel_size: 31
+
+# Mel-post processing network parameters
+postnet_embedding_dim: 512
+postnet_kernel_size: 5
+postnet_n_convolutions: 5
+
+# Inverse spectrogram parameters
+inverse_spectrogram_n_iter: 1024
+
+# Garbage conditioning
+garbage_conditioning_enabled: false
+garbage_conditioning_weight: 0.2
+
+# Pretrained WaveGlow parameters (used for inference)
+waveglow_git_repo: https://github.com/NVIDIA/waveglow.git
+waveglow_git_revision: 5bc2a53
+waveglow_file_id: 1rpK8CzAAirq9sWZhe9nlfvxMF1dRgFbF
+waveglow_model_path: <output_folder>/external/waveglow
+waveglow_model_src: !ref <waveglow_model_path>/src
+waveglow_sigma: 0.667
+waveglow_model_file: !ref <waveglow_model_path>/waveglow_256channels.pt
+waveglow_model_key: model
+
+
+#model
+model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
+    mask_padding: !ref <mask_padding>
+    n_mel_channels: !ref <n_mel_channels>
+    # symbols
+    n_symbols: !ref <n_symbols>
+    symbols_embedding_dim: !ref <symbols_embedding_dim>
+    # encoder
+    encoder_kernel_size: !ref <encoder_kernel_size>
+    encoder_n_convolutions: !ref <encoder_n_convolutions>
+    encoder_embedding_dim: !ref <encoder_embedding_dim>
+    # attention
+    attention_rnn_dim: !ref <attention_rnn_dim>
+    attention_dim: !ref <attention_dim>
+    # attention location
+    attention_location_n_filters: !ref <attention_location_n_filters>
+    attention_location_kernel_size: !ref <attention_location_kernel_size>
+    # decoder
+    n_frames_per_step: !ref <n_frames_per_step>
+    decoder_rnn_dim: !ref <decoder_rnn_dim>
+    prenet_dim: !ref <prenet_dim>
+    max_decoder_steps: !ref <max_decoder_steps>
+    gate_threshold: !ref <gate_threshold>
+    p_attention_dropout: !ref <p_attention_dropout>
+    p_decoder_dropout: !ref <p_decoder_dropout>
+    # postnet
+    postnet_embedding_dim: !ref <postnet_embedding_dim>
+    postnet_kernel_size: !ref <postnet_kernel_size>
+    postnet_n_convolutions: !ref <postnet_n_convolutions>
+    decoder_no_early_stopping: !ref <decoder_no_early_stopping>
+
+
+guided_attention_scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+    initial_value: !ref <guided_attention_weight>
+    half_life: !ref <guided_attention_weight_half_life>
+
+criterion: !new:speechbrain.lobes.models.synthesis.tacotron2.Loss
+    gate_loss_weight: !ref <gate_loss_weight>
+    guided_attention_weight: !ref <guided_attention_weight>
+    guided_attention_sigma: !ref <guided_attention_sigma>
+    guided_attention_scheduler: !ref <guided_attention_scheduler>
+    guided_attention_hard_stop: !ref <guided_attention_hard_stop>
+
+modules:
+    model: !ref <model>
+
+#optimizer
+opt_class: !name:torch.optim.Adam
+    lr: !ref <learning_rate>
+    weight_decay: !ref <weight_decay>
+
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+#annealing_function
+lr_annealing: !new:speechbrain.nnet.schedulers.IntervalScheduler
+    intervals:
+        - steps: 6000
+          lr: 0.0005
+        - steps: 8000
+          lr: 0.0003
+        - steps: 10000
+          lr: 0.0001
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <epoch_counter>
+        scheduler: !ref <lr_annealing>
+
+
+datasets:
+    train:
+        path: !ref <train_data_path>
+        loader: !name:dataset_utils.lj.load
+        filter: !ref <train_filter>
+    valid:
+        path: !ref <valid_data_path>
+        loader: !name:dataset_utils.lj.load
+        filter: !ref <valid_filter>
+
+model_output_keys:
+    - mel
+    - mel_lengths
+    - alignments
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        model: !ref <model>
+    paths:
+        model: !ref <pretrained_path>/model.ckpt
+
+encode_pipeline:
+    batch: False
+    output_keys:
+        - text_sequences
+        - input_lengths
+    steps:
+        - !apply:speechbrain.lobes.models.synthesis.tacotron2.encode_text
+          # TODO: Not using !ref because it triggers an odd bug when loading
+          # a file from a saved model - investigate this further
+          text_cleaners: ['english_cleaners']
+
+
+waveglow: !new:speechbrain.pretrained.interfaces.VocoderWrapper
+    hparams:
+        git_repo: !ref <waveglow_git_repo>
+        git_revision: !ref <waveglow_git_revision>
+        weight_file_id: !ref <waveglow_file_id>
+        model_path: !ref <waveglow_model_path>
+        model_src: !ref <waveglow_model_src>
+        waveglow_sigma: !ref <waveglow_sigma>
+        model_file: !ref <waveglow_model_file>
+        model_key: !ref <waveglow_model_key>
+
+        downloads:
+        - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
+          files:
+            - file_id: !ref <waveglow_file_id>
+              destination: !ref <waveglow_model_file>
+
+        adapter: !name:speechbrain.lobes.models.synthesis.external.waveglow.adapter
+        sigma: !ref <waveglow_sigma>
+    run_opts:
+        device: !ref <model.device>
+
+decode_pipeline:
+    steps:
+        - !apply:speechbrain.lobes.models.synthesis.dataio.pretrained_vocoder
+          vocoder: !ref <waveglow>
+
+external:
+    waveglow: !ref <waveglow>
+
+infer: !name:speechbrain.lobes.models.synthesis.tacotron2.model.infer
