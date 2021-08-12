@@ -41,45 +41,45 @@ class ST(sb.core.Brain):
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
         # forward modules
-        src = self.hparams.CNN(feats)
-        enc_out, pred = self.hparams.Transformer(
+        src = self.modules.CNN(feats)
+        enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
 
         asr_p_seq = None
         # asr output layer for seq2seq log-probabilities
         if self.hparams.asr_weight > 0 and self.hparams.ctc_weight < 1:
-            asr_pred = self.hparams.Transformer.forward_asr(
+            asr_pred = self.modules.Transformer.forward_asr(
                 enc_out,
                 src,
                 transcription_bos,
                 wav_lens,
                 pad_idx=self.hparams.pad_index,
             )
-            asr_pred = self.hparams.asr_seq_lin(asr_pred)
+            asr_pred = self.modules.asr_seq_lin(asr_pred)
             asr_p_seq = self.hparams.log_softmax(asr_pred)
 
         # st output layer for seq2seq log-probabilities
-        pred = self.hparams.seq_lin(pred)
+        pred = self.modules.seq_lin(pred)
         p_seq = self.hparams.log_softmax(pred)
 
         # asr ctc
         p_ctc = None
         if self.hparams.ctc_weight > 0:
-            logits = self.hparams.ctc_lin(enc_out)
+            logits = self.modules.ctc_lin(enc_out)
             p_ctc = self.hparams.log_softmax(logits)
 
         # mt task
         mt_p_seq = None
         if self.hparams.mt_weight > 0:
-            _, mt_pred = self.hparams.Transformer.forward_mt(
+            _, mt_pred = self.modules.Transformer.forward_mt(
                 transcription_tokens,
                 tokens_bos,
                 pad_idx=self.hparams.pad_index,
             )
 
             # mt output layer for seq2seq log-probabilities
-            mt_pred = self.hparams.seq_lin(mt_pred)
+            mt_pred = self.modules.seq_lin(mt_pred)
             mt_p_seq = self.hparams.log_softmax(mt_pred)
 
         # compute outputs
