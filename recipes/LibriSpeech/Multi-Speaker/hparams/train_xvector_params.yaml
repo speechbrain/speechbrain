@@ -77,55 +77,49 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
-# augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-#     sample_rate: !ref <sample_rate>
-#     speeds: [100]
+add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 0.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
 
-# augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-#     sample_rate: !ref <sample_rate>
-#     speeds: [95, 100, 105]
+add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
 
-# add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
-#     openrir_folder: !ref <rir_folder>
-#     openrir_max_noise_len: 3.0  # seconds
-#     reverb_prob: 1.0
-#     noise_prob: 0.0
-#     noise_snr_low: 0
-#     noise_snr_high: 15
-#     rir_scale_factor: 1.0
-
-# add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-#     openrir_folder: !ref <rir_folder>
-#     openrir_max_noise_len: 3.0  # seconds
-#     reverb_prob: 0.0
-#     noise_prob: 1.0
-#     noise_snr_low: 0
-#     noise_snr_high: 15
-#     rir_scale_factor: 1.0
-
-# add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-#     openrir_folder: !ref <rir_folder>
-#     openrir_max_noise_len: 3.0  # seconds
-#     reverb_prob: 1.0
-#     noise_prob: 1.0
-#     noise_snr_low: 0
-#     noise_snr_high: 15
-#     rir_scale_factor: 1.0
+add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
 
 
 # Definition of the augmentation pipeline.
 # If concat_augment = False, the augmentation techniques are applied
 # in sequence. If concat_augment = True, all the augmented signals
 # are concatenated in a single big batch.
-# augment_pipeline: [
-#     !ref <augment_wavedrop>,
-#     !ref <augment_speed>,
-#     !ref <add_rev>,
-#     !ref <add_noise>,
-#     !ref <add_rev_noise>
-# ]
-# concat_augment: True
+augment_pipeline: [
+    !ref <augment_speed>,
+    !ref <add_rev>,
+    !ref <add_noise>,
+    !ref <add_rev_noise>
+]
+concat_augment: True
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
@@ -133,11 +127,10 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 modules:
     compute_features: !ref <compute_features>
-    # augment_wavedrop: !ref <augment_wavedrop>
-    # augment_speed: !ref <augment_speed>
-    # add_rev: !ref <add_rev>
-    # add_noise: !ref <add_noise>
-    # add_rev_noise: !ref <add_rev_noise>
+    augment_speed: !ref <augment_speed>
+    add_rev: !ref <add_rev>
+    add_noise: !ref <add_noise>
+    add_rev_noise: !ref <add_rev_noise>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>

@@ -1,12 +1,13 @@
 #!/usr/bin/python3
-"""Recipe for training speaker embeddings (e.g, xvectors) using the VoxCeleb Dataset.
+"""Recipe for training speaker embeddings (e.g, xvectors) using the 
+LibriSpeech 5s multi-speaker dataset created in recipes/LibriSpeech/Multi-Speaker/data_creation.py. 
 We employ an encoder followed by a speaker classifier.
 
 To run this recipe, use the following command:
-> python train_speaker_embeddings.py {hyperparameter_file}
+> python train.py {hyperparameter_file} --data_foler {data_folder}
 
 Using your own hyperparameter file or one of the following:
-    hyperparams/train_x_vectors.yaml (for standard xvectors)
+    hyperparams/train_xvector_params.yaml (for standard xvectors)
 """
 import os
 import sys
@@ -105,7 +106,12 @@ def dataio_prep(hparams):
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    datasets = [train_data, valid_data]
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_csv"], replacements={"data_root": data_folder}
+    )
+    test_data = test_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, valid_data, test_data]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
     # 2. Define audio pipeline:
@@ -143,7 +149,7 @@ def dataio_prep(hparams):
         datasets, ["id", "sig", "nb_speakers_encoded"]
     )
 
-    return train_data, valid_data, label_encoder
+    return train_data, valid_data, test_data, label_encoder
 
 
 if __name__ == "__main__":
@@ -183,7 +189,7 @@ if __name__ == "__main__":
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    train_data, valid_data, label_encoder = dataio_prep(hparams)
+    train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)
 
     # Create experiment directory
     sb.core.create_experiment_directory(
@@ -208,4 +214,9 @@ if __name__ == "__main__":
         valid_data,
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
+    )
+
+    # Testing
+    speaker_brain.evaluate(
+        test_data, test_loader_kwargs=hparams["dataloader_options"]
     )
