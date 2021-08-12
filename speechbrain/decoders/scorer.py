@@ -214,7 +214,7 @@ class KenLMScorer(BaseScorerInterface):
             by default. Install it with:
             > pip install https://github.com/kpu/kenlm/archive/master.zip
             """
-            raise ImportError
+            raise ImportError(MSG)
         self.lm = self.kenlm.Model(lm_path)
         self.vocab_size = vocab_size
         self.full_candidates = np.arange(self.vocab_size)
