@@ -1,7 +1,5 @@
 import torch
 import numpy as np
-import kenlm
-import sentencepiece as spm
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
 
@@ -192,9 +190,8 @@ class TransformerLMScorer(BaseScorerInterface):
         return None
 
 
-class NGramLMScorer(BaseScorerInterface):
-    """A ngram LM scorer. Please make sure the tokenizer or token_list
-    matches the tokenizer of the ASR model.
+class KenLMScorer(BaseScorerInterface):
+    """KenLM N-gram scorer
 
     Arguments
     ---------
@@ -202,44 +199,37 @@ class NGramLMScorer(BaseScorerInterface):
         The path of ngram model.
     vocab_size: int
         The total number of tokens.
-    tokenizer_path : str
-        The path of pre-trained sentencepiece tokenizer.
     token_list : list
         The tokens set.
     """
 
     def __init__(self, lm_path, vocab_size, tokenizer_path=None, token_list=[]):
-        self.lm = kenlm.Model(lm_path)
+        try:
+            import kenlm
+
+            self.kenlm = kenlm
+        except ImportError:
+            MSG = """Couldn't import KenLM
+            It is an optional dependency; it is not installed with SpeechBrain
+            by default. Install it with:
+            > pip install https://github.com/kpu/kenlm/archive/master.zip
+            """
+            raise ImportError
+        self.lm = self.kenlm.Model(lm_path)
         self.vocab_size = vocab_size
         self.full_candidates = np.arange(self.vocab_size)
         self.minus_inf = -1e20
-
-        if len(token_list) > 0:
-            assert (
-                len(token_list) == vocab_size
-            ), "The size of the token_list and vocab_size are not matched."
-            self.id2char = token_list
-
-        elif tokenizer_path is not None:
-            # Create token list
-            tokenizer = spm.SentencePieceProcessor()
-            tokenizer.load(tokenizer_path)
-            self.id2char = [
-                tokenizer.id_to_piece([i])[0].replace("\u2581", "_")
-                for i in range(vocab_size)
-            ]
-
-        else:
-            raise ValueError(
-                "Please specify the token list or the path to the spm tokenizer."
-            )
+        if len(token_list) != vocab_size:
+            MSG = "The size of the token_list and vocab_size are not matched."
+            raise ValueError(MSG)
+        self.id2char = token_list
 
     def score(self, inp_tokens, memory, candidates, attn):
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
 
         if memory is None:
-            state = kenlm.State()
+            state = self.kenlm.State()
             state = np.array([state] * n_bh)
             scoring_table = np.ones(n_bh)
         else:
@@ -260,7 +250,7 @@ class NGramLMScorer(BaseScorerInterface):
             parent_state = state[i]
             for token_id in candidates[i]:
                 char = self.id2char[token_id.item()]
-                out_state = kenlm.State()
+                out_state = self.kenlm.State()
                 score = scale * self.lm.BaseScore(parent_state, char, out_state)
                 scores[i, token_id] = score
                 new_memory[i, token_id] = out_state
@@ -289,7 +279,7 @@ class NGramLMScorer(BaseScorerInterface):
         return state, scoring_table
 
     def reset_mem(self, x, enc_lens):
-        state = kenlm.State()
+        state = self.kenlm.State()
         self.lm.NullContextWrite(state)
         self.batch_index = np.arange(x.size(0))
         return None
