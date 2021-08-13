@@ -78,7 +78,7 @@ class STFT(torch.nn.Module):
         t-th frame is centered at time t×hop_length. Otherwise, the t-th frame
         begins at time t×hop_length.
     pad_mode : str
-        It can be 'constant' (default),'reflect','replicate', 'circular', 'reflect'. 
+        It can be 'constant' (default),'reflect','replicate', 'circular', 'reflect'.
         'constant' pads the input tensor boundaries with a
         constant value. 'reflect' pads the input tensor using the reflection
         of the input boundary. 'replicate' pads the input tensor using
