@@ -196,7 +196,7 @@ class STFT(torch.nn.Module):
             # For some reason, STFT of torch adds an extra non-zero time step
             # at the end when doing a batch STFT. We here use wav_len to remove
             # such an extra step. Please, for more details see:
-            # link to colab
+            # https://colab.research.google.com/drive/1xQizKw11EJiIRzBNGo95RR1VXC5NGMkM?usp=sharing
 
             wav_len_abs = (x.shape[1] * wav_len).int()
             mask_elem = torch.floor(wav_len_abs / self.hop_length + 1).int()
