@@ -18,8 +18,6 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 
-from speechbrain.dataio.dataio import length_to_mask
-
 
 class TransformerASR(TransformerInterface):
     """This is an implementation of transformer model for ASR.
@@ -142,9 +140,7 @@ class TransformerASR(TransformerInterface):
         # reset parameters using xavier_normal_
         self._init_params()
 
-    def forward(
-        self, src, tgt, wav_len=None, pad_idx=0,
-    ):
+    def forward(self, src, tgt, wav_len=None, pad_idx=0):
         """
         Arguments
         ----------
@@ -159,7 +155,7 @@ class TransformerASR(TransformerInterface):
         """
 
         # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
-        if src.dim() == 4:
+        if src.ndim == 4:
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
 
@@ -224,9 +220,13 @@ class TransformerASR(TransformerInterface):
             The index for <pad> token (default=0).
         """
         src_key_padding_mask = None
-        if wav_len is not None and self.training:
+        if wav_len is not None:
             abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+            src_key_padding_mask = (
+                torch.arange(src.shape[1])[None, :].to(abs_len)
+                > abs_len[:, None]
+            )
+
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
 
         src_mask = None
@@ -287,9 +287,12 @@ class TransformerASR(TransformerInterface):
             src = src.reshape(bz, t, ch1 * ch2)
 
         src_key_padding_mask = None
-        if wav_len is not None and self.training:
-            abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = (1 - length_to_mask(abs_len)).bool()
+        if wav_len is not None:
+            abs_len = torch.floor(wav_len * src.shape[1])
+            src_key_padding_mask = (
+                torch.arange(src.shape[1])[None, :].to(abs_len)
+                > abs_len[:, None]
+            )
 
         src = self.custom_src_module(src)
         if self.attention_type == "RelPosMHAXL":
