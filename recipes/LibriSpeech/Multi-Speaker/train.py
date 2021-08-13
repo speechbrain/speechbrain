@@ -89,7 +89,11 @@ class SpeakerBrain(sb.core.Brain):
                 meta={"ErrorRate": stage_stats["ErrorRate"]},
                 min_keys=["ErrorRate"],
             )
-
+        elif stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=stage_stats,
+            )
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
