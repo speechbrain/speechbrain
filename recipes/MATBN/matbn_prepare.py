@@ -17,16 +17,14 @@ class Transcription:
 
 @dataclass
 class SegmentInfo:
-    wav: str
-    start: float
-    end: float
+    file: str
+    start: int
+    stop: int
 
 
 @dataclass
 class Data:
-    wav: str
-    start: float
-    duration: float
+    wav: SegmentInfo
     transcription: str
 
 
@@ -80,8 +78,8 @@ def prepare_matbn(
         )
 
         for key, data in concanated_data.items():
-            concanated_data[key].wav = os.path.join(
-                split_wav_folder, f"{data.wav}.wav"
+            concanated_data[key].wav.file = os.path.join(
+                split_wav_folder, f"{data.wav.file}.wav"
             )
 
         save_path = os.path.join(save_folder, f"{split}.json")
@@ -107,9 +105,12 @@ def extract_segments_info(segments_path: str) -> Dict[str, SegmentInfo]:
     segments_info: Dict[str, SegmentInfo] = {}
     with open(segments_path, "r", encoding="utf-8") as segments_file:
         segments_file_lines = segments_file.readlines()
+        sample_rate = 16000
         for segments_file_line in segments_file_lines:
-            id, wav, start, end = segments_file_line.split()
-            segments_info[id] = SegmentInfo(wav, float(start), float(end))
+            id, file, start, stop = segments_file_line.split()
+            start = int(float(start) * sample_rate)
+            stop = int(float(stop) * sample_rate)
+            segments_info[id] = SegmentInfo(file, start, stop)
     return segments_info
 
 
@@ -158,10 +159,7 @@ def concat_segments_info_and_transcriptions(
     for transcription in transcriptions:
         segment_info = segments_info[transcription.id]
         concatenate_data[transcription.id] = Data(
-            segment_info.wav,
-            segment_info.start,
-            segment_info.end - segment_info.start,
-            transcription.text,
+            segment_info, transcription.text,
         )
 
     return concatenate_data
