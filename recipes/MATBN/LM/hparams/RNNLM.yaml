@@ -20,7 +20,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 20
+batch_size: 32
 lr: 0.001
 accumulation_steps: 1
 ckpt_interval_minutes: 15
@@ -40,13 +40,13 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
 
 # Model parameters
-emb_size: 128
+emb_size: 256
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.0
+dropout: 0.3
 rnn_layers: 2
-rnn_neurons: 2048
+rnn_neurons: 512
 dnn_blocks: 1
-dnn_neurons: 512
+dnn_neurons: 256
 
 # Outputs
 output_neurons: 5000

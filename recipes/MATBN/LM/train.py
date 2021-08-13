@@ -1,4 +1,5 @@
 import sys
+import json
 
 import torch
 import speechbrain as sb
@@ -55,6 +56,12 @@ class LM(sb.core.Brain):
                 meta=stage_stats, min_keys=["loss"],
             )
 
+        if stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=stage_stats,
+            )
+
 
 def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("transcription")
@@ -71,7 +78,7 @@ def dataio_prepare(hparams):
 
     data_folder = hparams["data_folder"]
     datasets = {}
-    for dataset_name in ["train", "dev", "eval", "test"]:
+    for dataset_name in ["train", "eval"]:
         json_path = f"{data_folder}/{dataset_name}.json"
         datasets[dataset_name] = dataset.DynamicItemDataset.from_json(
             json_path=json_path,
@@ -79,6 +86,19 @@ def dataio_prepare(hparams):
             dynamic_items=[transcription_pipline],
             output_keys=["transcription", "tokens_bos", "tokens_eos"],
         )
+
+    dev_json_path = f"{data_folder}/dev.json"
+    test_json_path = f"{data_folder}/test.json"
+    with open(dev_json_path, "r", encoding="utf-8") as dev_file, open(
+        test_json_path, "r", encoding="utf-8"
+    ) as test_file:
+        valid_data = {**json.load(dev_file), **json.load(test_file)}
+        datasets["valid"] = dataset.DynamicItemDataset(
+            valid_data,
+            dynamic_items=[transcription_pipline],
+            output_keys=["transcription", "tokens_bos", "tokens_eos"],
+        )
+
     return datasets
 
 
@@ -109,15 +129,14 @@ if __name__ == "__main__":
     lm_brain.fit(
         lm_brain.hparams.epoch_counter,
         datasets["train"],
-        datasets["eval"],
+        datasets["valid"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # evaluation
-    for dataset_name in ["dev", "test"]:
-        lm_brain.evaluate(
-            datasets[dataset_name],
-            min_key="loss",
-            test_loader_kwargs=hparams["test_dataloader_opts"],
-        )
+    lm_brain.evaluate(
+        datasets["eval"],
+        min_key="loss",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+    )
