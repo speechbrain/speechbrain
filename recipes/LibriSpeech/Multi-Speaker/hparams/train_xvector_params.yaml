@@ -15,6 +15,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
 train_data: <data_folder>/train-clean-100
 test_data: <data_folder>/test-clean
 data_folder_rirs: !ref <data_folder> # where to store noisy data for augment (change it if needed)
+rir_folder: /home/matteo/data/rirs
 
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
@@ -23,8 +24,9 @@ skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev-clean.csv
-test_csv:
-   - !ref <save_folder>/test-clean.csv
+test_csv: !ref <save_folder>/test-clean.csv
+
+
 
 # Training parameters
 number_of_epochs: 20
