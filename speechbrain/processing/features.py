@@ -37,12 +37,14 @@ import math
 import torch
 import logging
 from packaging import version
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
     mark_as_transfer,
     register_checkpoint_hooks,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +78,8 @@ class STFT(torch.nn.Module):
         t-th frame is centered at time t×hop_length. Otherwise, the t-th frame
         begins at time t×hop_length.
     pad_mode : str
-        It can be 'constant','reflect','replicate', 'circular', 'reflect'
-        (default). 'constant' pads the input tensor boundaries with a
+        It can be 'constant' (default),'reflect','replicate', 'circular', 'reflect'. 
+        'constant' pads the input tensor boundaries with a
         constant value. 'reflect' pads the input tensor using the reflection
         of the input boundary. 'replicate' pads the input tensor using
         replication of the input boundary. 'circular' pads using  circular
@@ -130,13 +132,15 @@ class STFT(torch.nn.Module):
 
         self.window = window_fn(self.win_length)
 
-    def forward(self, x):
+    def forward(self, x, wav_len=None):
         """Returns the STFT generated from the input waveforms.
 
         Arguments
         ---------
         x : tensor
             A batch of audio signals to transform.
+        wav_len: tensor
+            Relative length of each sentence in the batch.
         """
 
         # Managing multi-channel stft
@@ -184,6 +188,25 @@ class STFT(torch.nn.Module):
         else:
             # (batch, time, channels)
             stft = stft.transpose(2, 1)
+
+        if wav_len is not None:
+
+            # This ensures that the STFT of a sentence is the same even if the
+            # STFT is computed in a batch with other sentences.
+            # For some reason, STFT of torch adds an extra non-zero time step
+            # at the end when doing a batch STFT. We here use wav_len to remove
+            # such an extra step. Please, for more details see:
+            # link to colab
+
+            wav_len_abs = (x.shape[1] * wav_len).int()
+            mask_elem = torch.floor(wav_len_abs / self.hop_length + 1).int()
+            mask = length_to_mask(mask_elem, max_len=stft.shape[1])
+            mask = mask.unsqueeze(2).unsqueeze(3)
+
+            # Manage multi-channel inputs
+            if len(x.shape) == 5:
+                mask = mask.unsqueeze(4)
+            stft = stft * mask
 
         return stft
 
@@ -455,10 +478,7 @@ class Filterbank(torch.nn.Module):
 
         # Make sure f_min < f_max
         if self.f_min >= self.f_max:
-            err_msg = "Require f_min: %f < f_max: %f" % (
-                self.f_min,
-                self.f_max,
-            )
+            err_msg = "Require f_min: %f < f_max: %f" % (self.f_min, self.f_max)
             logger.error(err_msg, exc_info=True)
 
         # Filter definition
@@ -737,9 +757,7 @@ class DCT(torch.nn.Module):
     torch.Size([10, 101, 20])
     """
 
-    def __init__(
-        self, input_size, n_out=20, ortho_norm=True,
-    ):
+    def __init__(self, input_size, n_out=20, ortho_norm=True):
         super().__init__()
 
         if n_out > input_size:
@@ -803,16 +821,14 @@ class Deltas(torch.nn.Module):
     torch.Size([10, 101, 20])
     """
 
-    def __init__(
-        self, input_size, window_length=5,
-    ):
+    def __init__(self, input_size, window_length=5):
         super().__init__()
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
         self.register_buffer(
             "kernel",
-            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
+            torch.arange(-self.n, self.n + 1, dtype=torch.float32).repeat(
                 input_size, 1, 1
             ),
         )
@@ -843,7 +859,7 @@ class Deltas(torch.nn.Module):
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
             delta_coeff = delta_coeff.reshape(
-                or_shape[0], or_shape[1], or_shape[2], or_shape[3],
+                or_shape[0], or_shape[1], or_shape[2], or_shape[3]
             )
         delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
 
@@ -874,9 +890,7 @@ class ContextWindow(torch.nn.Module):
     torch.Size([10, 101, 220])
     """
 
-    def __init__(
-        self, left_frames=0, right_frames=0,
-    ):
+    def __init__(self, left_frames=0, right_frames=0):
         super().__init__()
         self.left_frames = left_frames
         self.right_frames = right_frames
@@ -907,7 +921,7 @@ class ContextWindow(torch.nn.Module):
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
-                .view(x.shape[1] * self.context_len, self.kernel_len,)
+                .view(x.shape[1] * self.context_len, self.kernel_len)
                 .unsqueeze(1)
             )
 

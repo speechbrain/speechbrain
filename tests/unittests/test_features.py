@@ -1,6 +1,71 @@
 import torch
 
 
+def test_stft():
+
+    import torchaudio
+    from speechbrain.processing.features import STFT
+    from torch.nn.utils.rnn import pad_sequence
+
+    audio_file_1 = "samples/audio_samples/example1.wav"
+    audio_file_2 = "samples/audio_samples/example2.flac"
+
+    sig_1, fs = torchaudio.load(audio_file_1)
+
+    # Select just a random chunk
+    rand_end = torch.randint(size=(1,), low=1000, high=8000)
+    sig_1 = sig_1[:, 0:rand_end]
+
+    # Padding
+    sig_pad = torch.zeros([1, 16000])
+    sig_pad[:, 0:rand_end] = sig_1
+
+    compute_stft = STFT(fs)
+    out = compute_stft(sig_1)
+    out_pad = compute_stft(sig_pad)
+
+    wav_len = torch.Tensor([sig_1.shape[1] / sig_pad.shape[1]])
+    out_pad = compute_stft(sig_pad, wav_len=wav_len)
+
+    # Padded version must be equal to unpadded version
+    assert (
+        torch.sum(out == out_pad[:, 0 : out.shape[1]])
+        == torch.Tensor(list(out.shape)).prod()
+    )
+
+    # All the other elements of the padded tensors must be zero
+    assert torch.sum(out_pad[:, out.shape[1] :]) == 0
+
+    # Let's see what happens within the batch
+    sig_2, fs = torchaudio.load(audio_file_2)
+
+    # Let's just select a part
+    rand_end = torch.randint(size=(1,), low=1000, high=8000)
+    sig_2 = sig_2[:, 0:rand_end]
+    out2 = compute_stft(sig_2)
+
+    # Batch creation
+    batch = pad_sequence(
+        [sig_1.squeeze(), sig_2.squeeze()], batch_first=True, padding_value=0.0
+    )
+    wav_len = torch.Tensor(
+        [sig_1.shape[1] / batch.shape[1], sig_2.shape[1] / batch.shape[1]]
+    )
+    out_batch = compute_stft(batch, wav_len)
+
+    # Making sure the STFT is the same even when the sentence is withing a batch
+    assert (
+        torch.sum(out == out_batch[0, 0 : out.shape[1]])
+        == torch.Tensor(list(out.shape)).prod()
+    )
+    assert torch.sum(out_batch[0, out.shape[1] :]) == 0
+    assert (
+        torch.sum(out2 == out_batch[1, 0 : out2.shape[1]])
+        == torch.Tensor(list(out2.shape)).prod()
+    )
+    assert torch.sum(out_batch[1, out2.shape[1] :]) == 0
+
+
 def test_deltas():
 
     from speechbrain.processing.features import Deltas
