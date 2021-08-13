@@ -10,6 +10,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNNLM/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
+
 
 # If you plan to train a system on an HPC cluster with a big dataset,
 # we strongly suggest doing the following:
@@ -24,20 +26,27 @@ data_folder: /localscratch/librig2p
 train_data: !ref <data_folder>/sentence_train.json
 valid_data: !ref <data_folder>/sentence_valid.json
 test_data: !ref <data_folder>/sentence_test.json
+tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
+tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 sorting: random
 origins: "*"
 graphemes_space_separated: false
 phonemes_space_separated: false
+phn_token_output: 128
+token_space_index: !ref <phn_token_output>
 phonemes_count: 43
-
+phn_tokenize: true
+phn_token_wordwise: false
+phn_token_type: unigram
+character_coverage: 1.0
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 # Tokenizer model (you must use the same tokenizer for LM and ASR training)
-tokenizer_file: <output_folder>/save/phoneme_tokenizer.model
+pretrained_tokenizer_file: !ref <output_folder>/pretrained/<phn_token_output>_unigram.model
 
 # Training parameters
 number_of_epochs: 20
@@ -64,11 +73,11 @@ layers: 2 # number of hidden layers
 dropout: 0.15
 
 # Outputs
-output_neurons: !ref <phonemes_count> # index(blank/eos/bos) = 0
-blank_index: 0
+output_neurons: !ref <phn_token_output> + 1 # index(blank/eos/bos) = 0
 bos_index: 0
 eos_index: 1
-
+blank_index: 2
+unk_index: 2
 
 graphemes:
   - A
@@ -142,6 +151,9 @@ phonemes:
   - ZH
   - " "
 
+phn_char_map: !apply:speechbrain.lobes.models.g2p.attnrnn.build_token_char_map
+    tokens: !ref <phonemes>
+
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined..
@@ -189,7 +201,21 @@ modules:
     model: !ref <model>
 
 # Tokenizer initialization
-tokenizer: !new:sentencepiece.SentencePieceProcessor
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <phoneme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <phn_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: phn
+        model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_list_to_check: [!ref <tokenizer_valid_data>]
+        annotation_format: json
+        text_file: !ref <save_folder>/phoneme_annotations.txt
+
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
@@ -206,4 +232,4 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
         phoneme_tokenizer: !ref <phoneme_tokenizer>
     paths:
-        phoneme_tokenizer: !ref <tokenizer_file>
+        phoneme_tokenizer: !ref <pretrained_tokenizer_file>

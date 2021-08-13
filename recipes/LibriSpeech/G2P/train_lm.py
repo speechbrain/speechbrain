@@ -15,11 +15,11 @@ Authors
 """
 import sys
 import logging
-import torch
-from train import dataio_prep
-from hyperpyyaml import load_hyperpyyaml
+import os
 import speechbrain as sb
-import sys
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main
+from train import dataio_prep
 
 
 logger = logging.getLogger(__name__)
@@ -170,9 +170,24 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
+    from tokenizer_prepare import prepare_tokenizer  # noqa
+
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    if hparams.get("phn_tokenize"):
+        path = hparams["phoneme_tokenizer_output_folder"]
+        if not os.path.exists(path):
+            os.makedirs(path)
+        run_on_main(
+            prepare_tokenizer,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_folder": hparams["save_folder"],
+                "phonemes": hparams["phonemes"],
+            },
+        )
 
     # Create experiment directory
     sb.create_experiment_directory(

@@ -513,8 +513,10 @@ def dataio_prep(hparams, train_step=None):
             token_space_index=hparams["token_space_index"],
         )
         # Ensure the tokenizers are trained
-        hparams["grapheme_tokenizer"]()
-        hparams["phoneme_tokenizer"]()
+        if "grapheme_tokenizer" in hparams:
+            hparams["grapheme_tokenizer"]()
+        if "phoneme_tokenizer" in hparams:
+            hparams["phoneme_tokenizer"]()
     else:
         phoneme_pipeline_item = phoneme_pipeline(
             phoneme_encoder=phoneme_encoder,
