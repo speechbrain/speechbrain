@@ -14,7 +14,8 @@ def test_to_csv():
         """
         module_path = os.path.dirname(__file__)
         data_path = os.path.join(
-            module_path, "..", "..", "samples", "dataset_samples",  "lj")
+            module_path, "..", "..", "samples", "dataset_samples", "lj"
+        )
         return LJ(data_path)
 
     """
