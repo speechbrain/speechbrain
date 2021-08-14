@@ -115,8 +115,12 @@ def test_istft():
 
 def test_filterbank():
 
+    tollerance_th = 5e-05
+    import torchaudio
     from speechbrain.processing.features import Filterbank
-
+    from speechbrain.processing.features import STFT, spectral_magnitude
+    from torch.nn.utils.rnn import pad_sequence
+    
     compute_fbanks = Filterbank()
     inputs = torch.ones([10, 101, 201])
     assert torch.jit.trace(compute_fbanks, inputs)
@@ -140,10 +144,65 @@ def test_filterbank():
     fbank1 = compute_fbanks(input1)
     fbank2 = compute_fbanks(input2)
     fbank3 = compute_fbanks(input3)
-    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < 5e-05
-    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < 5e-05
+    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < tollerance_th
+    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < tollerance_th
+    
+    # Tests using read signals (including STFT)
+    audio_file_1 = 'samples/audio_samples/example1.wav'
+    audio_file_2 = 'samples/audio_samples/example2.flac'
+    
+    sig_1, fs = torchaudio.load(audio_file_1)
+    
+    # Let's just select a part
+    rand_end = torch.randint(size=(1,), low=3499, high=3500)
+    sig_1 = sig_1[:,0:rand_end]
+    
+    compute_stft= STFT(16000)
+    compute_fbanks= Filterbank()
+    
+    out = compute_stft(sig_1)
+    out = spectral_magnitude(out)
+    out_1 = compute_fbanks(out)
 
 
+    # let's not add padding
+    sig_pad = torch.zeros([1, 16000])
+    sig_pad[:, 0:rand_end] = sig_1
+    
+    wav_len = torch.Tensor([sig_1.shape[1]/sig_pad.shape[1]])
+    
+    out = compute_stft(sig_pad, wav_len)
+    out = spectral_magnitude(out)
+    out_1_pad = compute_fbanks(out)
+    
+    # Padded version must be equal to unpadded version
+    assert torch.sum(torch.abs(out_1[0,:,:] - out_1_pad[0,0:out_1.shape[1],:]))< tollerance_th
+   
+    
+    # Let's see what happens within the batch
+    sig_2, fs = torchaudio.load(audio_file_2)
+    
+    # Let's just select a part
+    rand_end = torch.randint(size=(1,), low=8999, high=9000)
+    sig_2 = sig_2[:,0:rand_end]
+    
+    batch = pad_sequence([sig_1.squeeze(), sig_2.squeeze()], batch_first=True, padding_value=0.0)
+    
+    wav_len = torch.Tensor([sig_1.shape[1]/batch.shape[1], sig_2.shape[1]/batch.shape[1]])
+    
+    out = compute_stft(batch, wav_len)
+    out = spectral_magnitude(out)
+    out_batch = compute_fbanks(out)
+
+    # Padded version must be equal to unpadded version
+    assert torch.sum(torch.abs(out_1[0,:,:] - out_batch[0,0:out_1.shape[1],:])) < tollerance_th
+    
+    out = compute_stft(sig_2)
+    out = spectral_magnitude(out)
+    out_2 = compute_fbanks(out)
+
+    assert torch.sum(torch.abs(out_2[0,:,:] - out_batch[1,0:out_2.shape[1],:])) < tollerance_th
+    
 def test_dtc():
 
     from speechbrain.processing.features import DCT
