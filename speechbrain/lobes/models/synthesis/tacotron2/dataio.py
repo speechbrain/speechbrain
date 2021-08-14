@@ -183,7 +183,6 @@ def dataset_prep(dataset, hparams):
     """
     dataset.add_dynamic_item(audio_pipeline(hparams))
     dataset.set_output_keys(["mel_text_pair", "wav", "label"])
-    dataset.data_ids = dataset.data_ids[:128]
     return SaveableDataLoader(
         dataset,
         batch_size=hparams["batch_size"],
