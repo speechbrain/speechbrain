@@ -5,7 +5,6 @@ Authors
 * Artem Ploujnikov 2021
 """
 import speechbrain as sb
-from datasets import load_dataset
 from speechbrain.dataio.dataset import DynamicItemDataset
 
 
@@ -26,6 +25,7 @@ def load(path, mappings=None, split=None, **kwargs):
     dataset: DynamicItemDataset
         a SpeechBrain dataset
     """
+    from datasets import load_dataset  # noqa
 
     dataset_hs = load_dataset(path, **kwargs)
     if split:
