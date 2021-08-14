@@ -235,6 +235,7 @@ def prepare_fisher_callhome_spanish(
                     "duration": data.duration,
                     "transcription": data.transcription,
                     "translation_0": data.translations[0],
+                    "transcription_and_translation": f"{data.transcription}\n{data.translations[0]}",
                 }
 
         # save json
