@@ -13,7 +13,8 @@ def test_to_csv():
         fake data for unit tests
         """
         module_path = os.path.dirname(__file__)
-        data_path = os.path.join(module_path, "mockdata", "lj")
+        data_path = os.path.join(
+            module_path, "..", "..", "samples", "dataset_samples",  "lj")
         return LJ(data_path)
 
     """
