@@ -565,7 +565,7 @@ class Filterbank(torch.nn.Module):
             )
 
         # FBANK computation
-        # Note torch.matmul is not fully deterministic. 
+        # Note torch.matmul is not fully deterministic.
         # There might be (very) minor differences when computing fbanks of a
         # single sentence vs same sentence within a batch.
         fbanks = torch.matmul(spectrogram, fbank_matrix)
@@ -1107,14 +1107,13 @@ class InputNormalization(torch.nn.Module):
                         1 - self.weight
                     ) * self.glob_mean + self.weight * current_mean
 
-
                     self.glob_std = (
                         1 - self.weight
                     ) * self.glob_std + self.weight * current_std
 
                 self.glob_mean = self.glob_mean.detach()
                 self.glob_std = self.glob_std.detach()
-                
+
                 x = (x - self.glob_mean.data) / (self.glob_std.data)
         self.count = self.count + 1
 
