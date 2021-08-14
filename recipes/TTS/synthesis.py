@@ -30,7 +30,8 @@ def main():
         "--output", default="output.wav", help="The name of the output file"
     )
     parser.add_argument(
-        "--device", help="The name of the device on which it will be run")
+        "--device", help="The name of the device on which it will be run"
+    )
 
     parser.add_argument("--text", default=DEFAULT_TEXT)
     arguments = parser.parse_args()
@@ -42,12 +43,12 @@ def main():
         print(MSG_HPARAMS_NOT_FILE, file=sys.stderr)
         sys.exit(1)
     device = arguments.device or (
-        "cuda:0" if torch.cuda.is_available()
-        else 'cpu'
+        "cuda:0" if torch.cuda.is_available() else "cpu"
     )
     synthesizer = SpeechSynthesizer.from_hparams(
-        hparams_file=arguments.hparams, source=arguments.model,
-        run_opts={"device": device}
+        hparams_file=arguments.hparams,
+        source=arguments.model,
+        run_opts={"device": device},
     )
     sample = synthesizer([arguments.text])
     sample = sample.squeeze().cpu()

@@ -191,6 +191,7 @@ class PaddedBatch:
         corresponding to the data element"""
         value = getattr(self, key)
         return getattr(value, "data", value)
+
     @property
     def batchsize(self):
         return self.__length

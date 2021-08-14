@@ -228,22 +228,22 @@ class StepScheduler:
     DEFAULT_DECAY_DROP = 2
 
     def __init__(
-        self, initial_value, decay_factor=None, decay_drop=None,
-        half_life = None
+        self, initial_value, decay_factor=None, decay_drop=None, half_life=None
     ):
         self.initial_value = initial_value
         if half_life:
             if decay_factor or decay_drop:
                 raise ValueError(
-                    "half_life cannot be used together with decay_factor and decay_drop")
+                    "half_life cannot be used together with decay_factor and decay_drop"
+                )
             self.decay_factor = self._compute_half_life_decay_factor(half_life)
-            self.decay_drop = 1.
+            self.decay_drop = 1.0
         else:
             self.decay_factor = decay_factor or self.DEFAULT_DECAY_FACTOR
             self.decay_drop = decay_drop or self.DEFAULT_DECAY_DROP
 
     def _compute_half_life_decay_factor(self, half_life):
-        return math.exp(- math.log(2) / half_life)
+        return math.exp(-math.log(2) / half_life)
 
     def __call__(self, current_epoch):
         """Returns current and new hyperparameter value.
@@ -751,6 +751,7 @@ class IntervalScheduler:
     intervals: list
         a list of dictionaries: {'steps': <number of steps>, 'lr': the learning rate}
     """
+
     def __init__(self, intervals):
         self.intervals = intervals
         self.n_steps = 0
@@ -786,15 +787,17 @@ class IntervalScheduler:
 
     def _compute_next(self):
         self._next_intervals = [
-            interval for interval in self.intervals
-            if interval['steps'] > self.n_steps]
+            interval
+            for interval in self.intervals
+            if interval["steps"] > self.n_steps
+        ]
 
     def _get_lr(self, current_lr):
         lr = current_lr
         if self._next_intervals:
             next_interval = self._next_intervals[0]
-            if self.n_steps >= next_interval['steps']:
-                lr = next_interval['lr']
+            if self.n_steps >= next_interval["steps"]:
+                lr = next_interval["lr"]
                 del self._next_intervals[0]
         return lr
 

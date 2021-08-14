@@ -1075,7 +1075,8 @@ class SpeechSynthesizer(Pretrained):
             key: value.to(self.device)
             if isinstance(value, torch.Tensor)
             else value
-            for key, value in data.items()}
+            for key, value in data.items()
+        }
 
     @property
     def batch_inputs(self):
@@ -1156,14 +1157,8 @@ class RepositoryCloneError(Error):
     err: str
         the error output
     """
-    def __init__(
-        self,
-        repo,
-        local_path,
-        returncode,
-        output,
-        err
-    ):
+
+    def __init__(self, repo, local_path, returncode, output, err):
         self.repo = repo
         self.local_path = local_path
         self.returncode = returncode
@@ -1193,6 +1188,7 @@ class ExternalModelWrapper(Pretrained):
     class is meant to be used as a base class for wrappers for specific
     models
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ready = False
@@ -1225,8 +1221,7 @@ class ExternalModelWrapper(Pretrained):
             self.model = self.model.to(self.device)
         self.adapter = getattr(self.hparams, "adapter", None)
         if self.adapter is None:
-            self.adapter = (
-                lambda model, *args, **kwargs: model(*args, **kwargs))
+            self.adapter = lambda model, *args, **kwargs: model(*args, **kwargs)
 
     def _load_model_module(self):
         model_components = self.hparams.model.split(".")
@@ -1250,23 +1245,26 @@ class ExternalModelWrapper(Pretrained):
             for download in downloads:
                 downloader = download["downloader"]
                 downloader.check_prerequisites()
-                existence  = {
+                existence = {
                     file["destination"]: os.path.exists(file["destination"])
                     for file in download["files"]
                 }
                 for file_path, exists in existence.items():
                     if exists:
-                        logging.info(
-                            "File %s already exists", file_path)
+                        logging.info("File %s already exists", file_path)
                 missing_files = [
-                    file for file in download["files"]
-                    if not existence[file["destination"]]]
+                    file
+                    for file in download["files"]
+                    if not existence[file["destination"]]
+                ]
                 downloader.download(missing_files)
 
     def _clone(self):
+        logger.info("Cloning %s into %s")
         clone_cmd = (
             f"git clone {shlex.quote(self.hparams.git_repo)} "
-            f"{shlex.quote(self.hparams.model_src)}")
+            f"{shlex.quote(self.hparams.model_src)}"
+        )
         output, err, returncode = run_shell(clone_cmd)
         if returncode != 0:
             raise RepositoryCloneError(
@@ -1274,7 +1272,22 @@ class ExternalModelWrapper(Pretrained):
                 local_path=self.hparams.model_src,
                 returncode=returncode,
                 output=output,
-                err=err)
+                err=err,
+            )
+        if hasattr(self.hparams, "git_revision"):
+            self._get_revision()
+
+    def _get_revision(self, revision):
+        co_cmd = f"git checkout -C {shlex.quote(self.hparams.model_src)} checkout {shlex.quote(self.hparams.git_revision)}"
+        output, err, returncode = run_shell(co_cmd)
+        if returncode != 0:
+            raise RepositoryCloneError(
+                repo=self.hparam.git_repo,
+                local_path=self.hparams.model_src,
+                returncode=returncode,
+                output=output,
+                err=err,
+            )
 
     def __call__(self, *args, **kwargs):
         """Calls the underlying model, loading it if it has not been already
@@ -1284,11 +1297,7 @@ class ExternalModelWrapper(Pretrained):
 
     @classmethod
     def from_hparams(
-        cls,
-        source=None,
-        hparams_file=None,
-        overrides={},
-        **kwargs
+        cls, source=None, hparams_file=None, overrides={}, **kwargs
     ):
         """Fetch and load from external source based on HyperPyYAML file
 

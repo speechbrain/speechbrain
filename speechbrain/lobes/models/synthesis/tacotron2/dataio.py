@@ -85,10 +85,11 @@ def dynamic_range_decompression(C=1, takes="mel", provides="mel_decompressed"):
     @sb.utils.data_pipeline.provides(provides)
     def f(x):
         return _dynamic_range_decompression(x, C)
+
     return f
 
 
-#TODO: Modularize and decouple this
+# TODO: Modularize and decouple this
 def audio_pipeline(hparams):
     """
     A pipeline function that provides text sequences, a mel spectrogram
@@ -115,7 +116,7 @@ def audio_pipeline(hparams):
         power=hparams["power"],
         normalized=hparams["mel_normalized"],
         norm=hparams["norm"],
-        mel_scale=hparams["mel_scale"]
+        mel_scale=hparams["mel_scale"],
     )
 
     preprocessing_mode = hparams.get("preprocessing_mode")
@@ -125,15 +126,16 @@ def audio_pipeline(hparams):
         if not input_encoder.lab2ind:
             if input_bos_eos:
                 input_encoder.insert_bos_eos(
-                    bos_label="<bos>",
-                    eos_label="<eos>")
+                    bos_label="<bos>", eos_label="<eos>"
+                )
             input_encoder.update_from_iterable(
-                hparams["input_tokens"],
-                sequence_input=False)
+                hparams["input_tokens"], sequence_input=False
+            )
     elif preprocessing_mode != "nvidia":
         ValueError(
             "An input_encoder is required except when"
-            "preprocessing_mode=nvidia")
+            "preprocessing_mode=nvidia"
+        )
 
     wav_folder = hparams.get("wav_folder")
 
@@ -156,7 +158,7 @@ def audio_pipeline(hparams):
         audio = sb.dataio.dataio.read_audio(file_path)
 
         mel = audio_to_mel(audio)
-        if hparams['dynamic_range_compression']:
+        if hparams["dynamic_range_compression"]:
             mel = _dynamic_range_compression(mel)
         len_text = len(text_seq)
         yield text_seq, mel, len_text
@@ -181,6 +183,7 @@ def dataset_prep(dataset, hparams):
     """
     dataset.add_dynamic_item(audio_pipeline(hparams))
     dataset.set_output_keys(["mel_text_pair", "wav", "label"])
+    dataset.data_ids = dataset.data_ids[:128]
     return SaveableDataLoader(
         dataset,
         batch_size=hparams["batch_size"],
@@ -246,7 +249,7 @@ class TextMelCollate:
         for i in range(
             len(batch)
         ):  # the pipline return a dictionary wiht one elemnent
-            batch[i] = batch[i]['mel_text_pair']
+            batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
@@ -282,8 +285,8 @@ class TextMelCollate:
             mel_padded[i, :, : mel.size(1)] = mel
             gate_padded[i, mel.size(1) - 1 :] = 1
             output_lengths[i] = mel.size(1)
-            labels.append(raw_batch[idx]['label'])
-            wavs.append(raw_batch[idx]['wav'])
+            labels.append(raw_batch[idx]["label"])
+            wavs.append(raw_batch[idx]["wav"])
 
         # count number of items - characters in text
         len_x = [x[2] for x in batch]
@@ -296,6 +299,5 @@ class TextMelCollate:
             output_lengths,
             len_x,
             labels,
-            wavs
+            wavs,
         )
-

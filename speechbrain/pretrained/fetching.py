@@ -118,6 +118,7 @@ def fetch(
         destination.symlink_to(sourcepath)
     return destination
 
+
 class Downloader:
     """A base class for downloaders"""
 
@@ -137,9 +138,13 @@ class Downloader:
         return NotImplemented()
 
 
-class DependencyUnavailableError(Exception): pass
+class DependencyUnavailableError(Exception):
+    pass
 
-class DownloadError(Exception): pass
+
+class DownloadError(Exception):
+    pass
+
 
 class GoogleDriveDownloader(Downloader):
     """A Google Drive downloader"""
@@ -150,20 +155,24 @@ class GoogleDriveDownloader(Downloader):
             out, err, code = run_shell("pip install gdown")
             if code != 0:
                 raise DependencyUnavailableError(
-                    "gdown not found and could not be installed")
+                    "gdown not found and could not be installed"
+                )
 
     def download(self, files):
         for file in files:
-            target_path = os.path.dirname(file['destination'])
+            target_path = os.path.dirname(file["destination"])
             if not os.path.exists(target_path):
                 os.makedirs(target_path)
             print(os.getcwd())
-            cmd = (f"gdown -O {shlex.quote(file['destination'])} "
-                   f"--id {shlex.quote(file['file_id'])}")
+            cmd = (
+                f"gdown -O {shlex.quote(file['destination'])} "
+                f"--id {shlex.quote(file['file_id'])}"
+            )
 
             out, err, code = run_shell(cmd)
             if code != 0:
                 raise DownloadError(
                     f"Unable to download {self.file_id} from Google\n"
                     f"Output: {out}\n"
-                    f"Errors: {err}")
+                    f"Errors: {err}"
+                )
