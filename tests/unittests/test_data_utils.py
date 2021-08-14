@@ -1,9 +1,11 @@
 import pytest
 
+
 def test_scalarize():
     import torch
     from collections import namedtuple
     from speechbrain.utils.data_utils import scalarize
+
     values = {"foo": torch.tensor(1.2), "bar": torch.tensor(2)}
     scalarized = scalarize(values)
     assert isinstance(scalarized["foo"], float)

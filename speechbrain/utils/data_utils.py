@@ -546,7 +546,7 @@ def scalarize(value):
     result: dict
         a result dictionary
     """
-    if hasattr(value, '_asdict'):
+    if hasattr(value, "_asdict"):
         value_dict = value._asdict()
     else:
         value_dict = value

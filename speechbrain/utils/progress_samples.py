@@ -13,7 +13,7 @@ from speechbrain.utils.checkpoints import torch_save
 
 class ProgressSampleImageMixin:
     _FORMATS = {
-        "raw": {"extension": "pth", "saver": torch.save,},
+        "raw": {"extension": "pth", "saver": torch_save},
         "image": {"extension": "png", "saver": torchvision.utils.save_image},
     }
     DEFAULT_FORMAT = "image"

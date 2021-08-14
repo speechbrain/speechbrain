@@ -1,8 +1,8 @@
-
 import csv
 import shutil
 import tempfile
 import os
+
 
 def test_to_csv():
     from speechbrain.dataio.datasets.lj import LJ
@@ -15,7 +15,6 @@ def test_to_csv():
         module_path = os.path.dirname(__file__)
         data_path = os.path.join(module_path, "mockdata", "lj")
         return LJ(data_path)
-
 
     """
     Unit test for CSV creation

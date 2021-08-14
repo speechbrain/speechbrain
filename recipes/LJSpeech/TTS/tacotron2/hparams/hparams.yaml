@@ -98,10 +98,6 @@ postnet_n_convolutions: 5
 # Inverse spectrogram parameters
 inverse_spectrogram_n_iter: 1024
 
-# Garbage conditioning
-garbage_conditioning_enabled: false
-garbage_conditioning_weight: 0.2
-
 # Pretrained WaveGlow parameters (used for inference)
 waveglow_git_repo: https://github.com/NVIDIA/waveglow.git
 waveglow_git_revision: 5bc2a53
@@ -235,10 +231,10 @@ waveglow: !new:speechbrain.pretrained.interfaces.VocoderWrapper
         model_key: !ref <waveglow_model_key>
 
         downloads:
-        - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
-          files:
-            - file_id: !ref <waveglow_file_id>
-              destination: !ref <waveglow_model_file>
+            - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
+              files:
+                  - file_id: !ref <waveglow_file_id>
+                    destination: !ref <waveglow_model_file>
 
         adapter: !name:speechbrain.lobes.models.synthesis.external.waveglow.adapter
         sigma: !ref <waveglow_sigma>

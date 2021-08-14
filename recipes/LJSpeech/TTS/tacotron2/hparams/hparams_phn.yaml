@@ -20,7 +20,7 @@ keep_checkpoint_interval: 20
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+data_folder: ./ #data_folder: !PLACEHOLDER
 data_cache_folder: null
 wav_folder: !ref <data_folder>
 train_filter: null
@@ -98,10 +98,6 @@ postnet_n_convolutions: 5
 # Inverse spectrogram parameters
 inverse_spectrogram_n_iter: 1024
 
-# Garbage conditioning
-garbage_conditioning_enabled: false
-garbage_conditioning_weight: 0.2
-
 # Pretrained WaveGlow parameters (used for inference)
 waveglow_git_repo: https://github.com/NVIDIA/waveglow.git
 waveglow_git_revision: 5bc2a53
@@ -115,46 +111,46 @@ waveglow_model_key: model
 
 # Phonemes
 input_tokens:
-  - AA
-  - AE
-  - AH
-  - AO
-  - AW
-  - AY
-  - B
-  - CH
-  - D
-  - DH
-  - EH
-  - ER
-  - EY
-  - F
-  - G
-  - HH
-  - IH
-  - IY
-  - JH
-  - K
-  - L
-  - M
-  - N
-  - NG
-  - OW
-  - OY
-  - P
-  - R
-  - S
-  - SH
-  - T
-  - TH
-  - UH
-  - UW
-  - V
-  - W
-  - Y
-  - Z
-  - ZH
-  - " "
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
 
 input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
@@ -238,17 +234,17 @@ datasets:
     train:
         path: !ref <data_folder>
         loader: !name:speechbrain.dataio.datasets.huggingface.load
-          mappings:
-            label: phn_raw
-          split: train
-          cache_dir: !ref <data_cache_folder>
+            mappings:
+                label: phn_raw
+            split: train
+            cache_dir: !ref <data_cache_folder>
     valid:
         path: !ref <data_folder>
         loader: !name:speechbrain.dataio.datasets.huggingface.load
-          mappings:
-            label: phn_raw
-          split: valid
-          cache_dir: !ref <data_cache_folder>
+            mappings:
+                label: phn_raw
+            split: valid
+            cache_dir: !ref <data_cache_folder>
 
 model_output_keys:
     - mel
@@ -285,10 +281,10 @@ waveglow: !new:speechbrain.pretrained.interfaces.VocoderWrapper
         model_key: !ref <waveglow_model_key>
 
         downloads:
-        - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
-          files:
-            - file_id: !ref <waveglow_file_id>
-              destination: !ref <waveglow_model_file>
+            - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
+              files:
+                  - file_id: !ref <waveglow_file_id>
+                    destination: !ref <waveglow_model_file>
 
         adapter: !name:speechbrain.lobes.models.synthesis.external.waveglow.adapter
         sigma: !ref <waveglow_sigma>

@@ -167,4 +167,3 @@ def load(file_path):
     """
 
     return LJ(file_path).to_dataset()
-
