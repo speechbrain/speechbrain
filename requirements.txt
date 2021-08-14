@@ -10,4 +10,5 @@ sentencepiece>=0.1.91
 SoundFile; sys_platform == 'win32'
 torch>=1.8.0,<=1.8.1
 torchaudio>=0.7.2,<=0.8.1
+torchvision>=0.9.0,<=0.9.1
 tqdm>=4.42.0
