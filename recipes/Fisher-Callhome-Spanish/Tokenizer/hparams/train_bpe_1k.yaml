@@ -14,7 +14,10 @@ device: "cuda:0" # for resample audio
 # Tokenizer parameters
 token_type: bpe  # ["unigram", "bpe", "char"]
 token_output: 1000
-annotation_read: "translation_0" # field to read
+# transcription: transcription in source language
+# translation_0: translation in target language
+# transcription_and_translation: joint transcription and translation
+annotation_read: "transcription_and_translation" # field to read
 
 # Tokenizer object
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
