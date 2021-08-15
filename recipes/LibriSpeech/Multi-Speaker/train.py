@@ -16,7 +16,7 @@ import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-
+from speechbrain.processing.speech_augmentation import Resample
 
 class SpeakerBrain(sb.core.Brain):
     """Class for speaker embedding training"
@@ -30,36 +30,20 @@ class SpeakerBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
+        # Manual data augmentation pipeline
+        # Speed modulation
+        resampler = Resample(
+            orig_freq=int(self.hparams.sample_rate), 
+            new_freq=int(self.hparams.sample_rate*self.hparams.augment_speed)
+        )
+        new_wavs_list = []
+        for signal in wavs:
+            new_wavs_list.append(resampler(signal.unsqueeze(0)).reshape(-1))
 
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        new_wavs = torch.stack(new_wavs_list)
 
         # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
+        feats = self.modules.compute_features(new_wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
