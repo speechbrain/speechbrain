@@ -200,7 +200,7 @@ class STFT(torch.nn.Module):
 
             wav_len_abs = (x.shape[1] * wav_len).int()
             mask_elem = torch.floor(wav_len_abs / self.hop_length + 1).int()
-            mask = length_to_mask(mask_elem, max_len=stft.shape[1])
+            mask = length_to_mask(mask_elem, max_len=stft.shape[1], device=stft.device)
             mask = mask.unsqueeze(2).unsqueeze(3)
 
             # Manage multi-channel inputs
@@ -568,7 +568,10 @@ class Filterbank(torch.nn.Module):
         # Note torch.matmul is not fully deterministic.
         # There might be (very) minor differences when computing fbanks of a
         # single sentence vs same sentence within a batch.
+        # For more info, see
+        # https://colab.research.google.com/drive/1lklKrRRYTKTXwMbFMh62biQokjmA95is?usp=sharing
         fbanks = torch.matmul(spectrogram, fbank_matrix)
+
         if self.log_mel:
             fbanks = self._amplitude_to_DB(fbanks)
 
@@ -608,6 +611,29 @@ class Filterbank(torch.nn.Module):
 
     def _triangular_filters(self, all_freqs, f_central, band):
         """Returns fbank matrix using triangular filters.
+
+        To compute the lines corresponding to the left and right parts of the
+        triangular filters you have to derive the line passing for two points.
+        For the left part of the triangular filter (positive slope) you have to
+        compute the equation of the line passing from these two points:
+
+        p1 = (f_central-band, 0)
+        p2 = (f_central, 1)
+
+        the "x" in this case is the all_freq variable.
+        The equation resulting is ((all_freqs - f_central) / band) + 1
+
+        Similarly, you can compute the left part of the triangular (negative slope)
+        by computing the line passing between these two points:
+
+        p1 = (f_central, 1)
+        p2 = (f_central + B, 0)
+
+        The resulting equation is  (-(all_freqs - f_central) / band) + 1
+
+        You then have to remove the negative parts of the lines and apply
+        min(left_side, right_side). The result is a triangular filter.
+
 
         Arguments
         ---------
@@ -796,6 +822,11 @@ class DCT(torch.nn.Module):
             x = x.reshape(x.shape[0] * x.shape[3], x.shape[1], x.shape[2])
 
         # apply the DCT transform
+        # Note torch.matmul is not fully deterministic.
+        # There might be (very) minor differences when computing mfccs of a
+        # single sentence vs same sentence within a batch.
+        # For more info, see
+        # https://colab.research.google.com/drive/1lklKrRRYTKTXwMbFMh62biQokjmA95is?usp=sharing
         dct = torch.matmul(x, self.dct_mat.to(x.device))
 
         # Reshape in the case of multi-channels
