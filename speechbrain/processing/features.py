@@ -200,7 +200,9 @@ class STFT(torch.nn.Module):
 
             wav_len_abs = (x.shape[1] * wav_len).int()
             mask_elem = torch.floor(wav_len_abs / self.hop_length + 1).int()
-            mask = length_to_mask(mask_elem, max_len=stft.shape[1], device=stft.device)
+            mask = length_to_mask(
+                mask_elem, max_len=stft.shape[1], device=stft.device
+            )
             mask = mask.unsqueeze(2).unsqueeze(3)
 
             # Manage multi-channel inputs

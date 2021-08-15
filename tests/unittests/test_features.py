@@ -115,11 +115,15 @@ def test_istft():
 
 def test_filterbank():
 
-    tollerance_th = 5e-05
     import torchaudio
     from speechbrain.processing.features import Filterbank
     from speechbrain.processing.features import STFT, spectral_magnitude
     from torch.nn.utils.rnn import pad_sequence
+
+    # A tollerance is needed because sometimes a non-deterministic behavior of
+    # torch.mm occurs when processing sentences of different lengths
+    # (see https://colab.research.google.com/drive/1lklKrRRYTKTXwMbFMh62biQokjmA95is?usp=sharing).
+    tollerance_th = 5e-07
 
     compute_fbanks = Filterbank()
     inputs = torch.ones([10, 101, 201])
@@ -144,8 +148,8 @@ def test_filterbank():
     fbank1 = compute_fbanks(input1)
     fbank2 = compute_fbanks(input2)
     fbank3 = compute_fbanks(input3)
-    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < tollerance_th
-    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < tollerance_th
+    assert torch.mean(torch.abs(fbank1[0] - fbank3[0])) <= tollerance_th
+    assert torch.mean(torch.abs(fbank2[0] - fbank3[1])) <= tollerance_th
 
     # Tests using read signals (including STFT)
     audio_file_1 = "samples/audio_samples/example1.wav"
@@ -154,7 +158,7 @@ def test_filterbank():
     sig_1, fs = torchaudio.load(audio_file_1)
 
     # Let's just select a part
-    rand_end = torch.randint(size=(1,), low=3499, high=3500)
+    rand_end = torch.randint(size=(1,), low=3500, high=8000)
     sig_1 = sig_1[:, 0:rand_end]
 
     compute_stft = STFT(16000)
@@ -176,17 +180,17 @@ def test_filterbank():
 
     # Padded version must be equal to unpadded version
     assert (
-        torch.sum(
+        torch.mean(
             torch.abs(out_1[0, :, :] - out_1_pad[0, 0 : out_1.shape[1], :])
         )
-        < tollerance_th
+        <= tollerance_th
     )
 
     # Let's see what happens within the batch
     sig_2, fs = torchaudio.load(audio_file_2)
 
     # Let's just select a part
-    rand_end = torch.randint(size=(1,), low=8999, high=9000)
+    rand_end = torch.randint(size=(1,), low=3500, high=8000)
     sig_2 = sig_2[:, 0:rand_end]
 
     batch = pad_sequence(
@@ -203,10 +207,10 @@ def test_filterbank():
 
     # Padded version must be equal to unpadded version
     assert (
-        torch.sum(
+        torch.mean(
             torch.abs(out_1[0, :, :] - out_batch[0, 0 : out_1.shape[1], :])
         )
-        < tollerance_th
+        <= tollerance_th
     )
 
     out = compute_stft(sig_2)
@@ -214,10 +218,10 @@ def test_filterbank():
     out_2 = compute_fbanks(out)
 
     assert (
-        torch.sum(
+        torch.mean(
             torch.abs(out_2[0, :, :] - out_batch[1, 0 : out_2.shape[1], :])
         )
-        < tollerance_th
+        == 0
     )
 
 
