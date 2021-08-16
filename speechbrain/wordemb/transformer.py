@@ -85,7 +85,7 @@ class TransformerWordEmbeddings:
         encoded = self.tokenizer.encode_plus(sentence, return_tensors="pt")
 
         with torch.no_grad():
-            output = self.model(**encoded)
+            output = self.model(**self._to_device(encoded))
 
         if isinstance(word, str):
             idx = self._get_word_idx(sentence, word)
@@ -116,7 +116,7 @@ class TransformerWordEmbeddings:
         encoded = self.tokenizer.encode_plus(sentence, return_tensors="pt")
 
         with torch.no_grad():
-            output = self.model(**encoded)
+            output = self.model(**self._to_device(encoded))
 
         token_ids_word = torch.tensor(
             [
@@ -151,10 +151,21 @@ class TransformerWordEmbeddings:
         )
 
         with torch.no_grad():
-            output = self.model(**encoded)
+            output = self.model(**self._to_device(encoded))
 
         states = torch.stack(output.hidden_states)
         return self._get_hidden_states(states)
+
+    def _to_device(self, encoded):
+        return {
+            key: self._tensor_to_device(value)
+            for key, value in encoded.items()}
+
+    def _tensor_to_device(self, value):
+        return (
+            value.to(self.device)
+            if isinstance(value, torch.Tensor)
+            else value)
 
     def _get_word_idx(self, sent, word):
         return sent.split(" ").index(word)

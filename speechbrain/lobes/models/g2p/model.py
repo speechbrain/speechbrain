@@ -102,12 +102,12 @@ class AttentionSeq2Seq(nn.Module):
 
         return p_seq, char_lens, encoder_out, w
 
-    def _apply_word_emb(self, e_in, word_emb):
+    def _apply_word_emb(self, emb_char, word_emb):
         word_emb_enc = (
             self.word_emb_enc(word_emb)
             if self.word_emb_enc is not None
             else word_emb)
-        return torch.cat([e_in, word_emb_enc], dim=-1)
+        return torch.cat([emb_char, word_emb_enc], dim=-1)
 
     def _get_dummy_phonemes(self, batch_size, device):
         return torch.tensor([0], device=device).expand(batch_size, 1)
