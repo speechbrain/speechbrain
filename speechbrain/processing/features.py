@@ -31,7 +31,7 @@ Example
 >>> features = norm(features, torch.tensor([1]).float())
 
 Authors
- * Mirco Ravanelli 2020
+ * Mirco Ravanelli 2020, 2021
 """
 import math
 import torch
