@@ -123,6 +123,33 @@ def test_context_window():
     compute_cw = ContextWindow(left_frames=0, right_frames=0)
     assert torch.sum(compute_cw(inp) == inp) == inp.numel()
 
+    # Check batch vs non-batch computations
+    input1 = torch.rand([1, 101, 40]) * 10
+    input2 = torch.rand([1, 101, 40])
+    input3 = torch.cat([input1, input2], dim=0)
+
+    compute_cw = ContextWindow(left_frames=5, right_frames=5)
+
+    fea1 = compute_cw(input1)
+    fea2 = compute_cw(input2)
+    fea3 = compute_cw(input3)
+
+    assert (fea1[0] - fea3[0]).abs().sum() == 0
+    assert (fea2[0] - fea3[1]).abs().sum() == 0
+
+    rand_end = torch.randint(size=(1,), low=15, high=80)
+
+    input1 = input1[:, 0:rand_end]
+    input3[0, rand_end:] = 0
+
+    wav_len = torch.Tensor([rand_end / input3.shape[1], 1.0])
+    fea1 = compute_cw(input1)
+    fea3 = compute_cw(input3, wav_len)
+
+    assert (fea1[0, :, :] - fea3[0, 0 : fea1.shape[1], :]).abs().sum() == 0
+    assert (fea3[0, fea1.shape[1] :, :]).sum() == 0
+    assert (fea2[0, :, :] - fea3[1, 0 : fea2.shape[1], :]).abs().sum() == 0
+
     assert torch.jit.trace(compute_cw, inp)
 
 

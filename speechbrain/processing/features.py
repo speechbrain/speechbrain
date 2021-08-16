@@ -963,13 +963,17 @@ class ContextWindow(torch.nn.Module):
 
         self.first_call = True
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
         x : tensor
             A batch of tensors.
+        lengths: tensor
+            Tensor containing relative lengths of each sentence in the batch.
+            It can be used here to avoid the extra non-zero steps due to the
+            convolution tail.
         """
 
         x = x.transpose(1, 2)
@@ -1003,6 +1007,22 @@ class ContextWindow(torch.nn.Module):
 
         cw_x = cw_x.transpose(1, 2)
 
+        if lengths is not None:
+            # This ensures that the contexts are the same even if the
+            # context are computed in a batch with other sentences.
+            # In particular, the length information  is used to remove the
+            # convolution tail.
+            len_abs = torch.round(cw_x.shape[1] * lengths).int()
+            mask = length_to_mask(
+                len_abs, max_len=cw_x.shape[1], device=cw_x.device
+            )
+            mask = mask.unsqueeze(2)
+
+            # Manage multi-channel inputs
+            if len(cw_x.shape) == 4:
+                mask = mask.unsqueeze(3)
+
+            cw_x = cw_x * mask
         return cw_x
 
 
