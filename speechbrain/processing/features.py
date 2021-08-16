@@ -616,7 +616,7 @@ class Filterbank(torch.nn.Module):
 
         To compute the lines corresponding to the left and right parts of the
         triangular filters you have to derive the line passing for two points.
-        For the left part of the triangular filter (positive slope) you have to
+        For the left part of the triangular filter (positive slope), you have to
         compute the equation of the line passing from these two points:
 
         p1 = (f_central-band, 0)
