@@ -198,9 +198,9 @@ class EmoIdBrain(sb.Brain):
                 self.step += 1
 
                 emo_ids = batch.id
-                true_vals = batch.emo_encoded.data.squeeze().tolist()
+                true_vals = batch.emo_encoded.data.squeeze(dim=1).tolist()
                 output = self.compute_forward(batch, stage=Stage.TEST)
-                predictions = torch.argmax(output, dim=-1).squeeze().tolist()
+                predictions = torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
 
                 with open(save_file, "a", newline="") as csvfile:
                     outwriter = csv.writer(csvfile, delimiter=",")
