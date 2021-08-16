@@ -221,7 +221,7 @@ def test_filterbank():
         torch.mean(
             torch.abs(out_2[0, :, :] - out_batch[1, 0 : out_2.shape[1], :])
         )
-        == 0
+        <= tollerance_th
     )
 
 
