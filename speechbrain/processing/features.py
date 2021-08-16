@@ -869,13 +869,17 @@ class Deltas(torch.nn.Module):
             ),
         )
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Returns the delta coefficients.
 
         Arguments
         ---------
         x : tensor
             A batch of tensors.
+        lengths: tensor
+            Tensor containing relative lengths of each sentence in the batch.
+            It can be used here to avoid the extra non-zero steps due to the 
+            convolution tail.
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
@@ -884,7 +888,7 @@ class Deltas(torch.nn.Module):
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1], or_shape[3])
 
         # Padding for time borders
-        x = torch.nn.functional.pad(x, (self.n, self.n), mode="replicate")
+        x = torch.nn.functional.pad(x, (self.n, self.n), mode="constant")
 
         # Derivative estimation (with a fixed convolutional kernel)
         delta_coeff = (
@@ -898,6 +902,23 @@ class Deltas(torch.nn.Module):
                 or_shape[0], or_shape[1], or_shape[2], or_shape[3]
             )
         delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
+
+        if lengths is not None:
+            # This ensures that the delta coefficiets are the same even if the
+            # deltas are computed in a batch with other sentences.
+            # In particular, the length information  is used to remove the
+            # convolution tail.
+            len_abs = torch.round(delta_coeff.shape[1] * lengths).int()
+            mask = length_to_mask(
+                len_abs, max_len=delta_coeff.shape[1], device=delta_coeff.device
+            )
+            mask = mask.unsqueeze(2)
+
+            # Manage multi-channel inputs
+            if len(delta_coeff.shape) == 4:
+                mask = mask.unsqueeze(3)
+
+            delta_coeff = delta_coeff * mask
 
         return delta_coeff
 

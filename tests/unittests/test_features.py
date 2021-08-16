@@ -74,8 +74,39 @@ def test_deltas():
     inp = torch.ones(size)
     compute_deltas = Deltas(input_size=20)
     out = torch.zeros(size)
-    assert torch.sum(compute_deltas(inp) == out) == out.numel()
+    assert (
+        torch.sum(compute_deltas(inp)[:, 2:-2, :] == out[:, 2:-2, :])
+        == out[:, 2:-2, :].numel()
+    )
 
+    # Check batch vs non-batch computations
+    input1 = torch.rand([1, 101, 40]) * 10
+    input2 = torch.rand([1, 101, 40])
+    input3 = torch.cat([input1, input2], dim=0)
+
+    compute_deltas = Deltas(input_size=input1.size(-1))
+
+    fea1 = compute_deltas(input1)
+    fea2 = compute_deltas(input2)
+    fea3 = compute_deltas(input3)
+
+    assert (fea1[0] - fea3[0]).abs().sum() == 0
+    assert (fea2[0] - fea3[1]).abs().sum() == 0
+
+    rand_end = torch.randint(size=(1,), low=15, high=80)
+
+    input1 = input1[:, 0:rand_end]
+    input3[0, rand_end:] = 0
+
+    wav_len = torch.Tensor([rand_end / input3.shape[1], 1.0])
+    fea1 = compute_deltas(input1)
+    fea3 = compute_deltas(input3, wav_len)
+
+    assert (fea1[0, :, :] - fea3[0, 0 : fea1.shape[1], :]).abs().sum() == 0
+    assert (fea3[0, fea1.shape[1] :, :]).sum() == 0
+    assert (fea2[0, :, :] - fea3[1, 0 : fea2.shape[1], :]).abs().sum() == 0
+
+    # JIT check
     assert torch.jit.trace(compute_deltas, inp)
 
 
@@ -119,6 +150,8 @@ def test_filterbank():
     from speechbrain.processing.features import Filterbank
     from speechbrain.processing.features import STFT, spectral_magnitude
     from torch.nn.utils.rnn import pad_sequence
+
+    torch.use_deterministic_algorithms(True)
 
     # A tollerance is needed because sometimes a non-deterministic behavior of
     # torch.mm occurs when processing sentences of different lengths
@@ -221,7 +254,7 @@ def test_filterbank():
         torch.mean(
             torch.abs(out_2[0, :, :] - out_batch[1, 0 : out_2.shape[1], :])
         )
-        == 0
+        <= tollerance_th
     )
 
 
