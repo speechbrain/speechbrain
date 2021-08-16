@@ -1172,7 +1172,7 @@ class InputNormalization(torch.nn.Module):
         current_stds : tensor
             Stds of inputs.
         """
-        x = x * masks.unsqueeze(1)
+        x = x * masks.unsqueeze(-1)
         batch = x.size(0)
         fea_dim = x.size(-1)
         num_nonpad = torch.sum(masks, 1) * fea_dim
