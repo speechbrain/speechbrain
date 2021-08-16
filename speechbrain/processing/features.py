@@ -878,7 +878,7 @@ class Deltas(torch.nn.Module):
             A batch of tensors.
         lengths: tensor
             Tensor containing relative lengths of each sentence in the batch.
-            It can be used here to avoid the extra non-zero steps due to the 
+            It can be used here to avoid the extra non-zero steps due to the
             convolution tail.
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
