@@ -1027,7 +1027,6 @@ class InputNormalization(torch.nn.Module):
         norm_type="global",
         avg_factor=None,
         requires_grad=False,
-        update_until_epoch=3,
     ):
         super().__init__()
         self.mean_norm = mean_norm
@@ -1043,9 +1042,8 @@ class InputNormalization(torch.nn.Module):
         self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
-        self.update_until_epoch = update_until_epoch
 
-    def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
+    def forward(self, x, lengths, spk_ids=torch.tensor([])):
         """Returns the tensor with the surrounding context.
 
         Arguments
@@ -1065,8 +1063,11 @@ class InputNormalization(torch.nn.Module):
         # Avoiding padded time steps with masks
         actual_lens = torch.round(lengths * x.shape[1]).int()
         # NOTE (SLin): Assume x is single channel feature in the shape of (batch, time, fea)
-        masks = length_to_mask(actual_lens, device=stft.device)
+        masks = length_to_mask(actual_lens, device=x.device)
+        # Mask padding part
+        x = x * masks.unsqueeze(-1)
 
+        # Compute current statistics
         current_means, current_stds = self._compute_current_stats(x, masks)
 
         if self.norm_type == "speaker":
@@ -1124,7 +1125,7 @@ class InputNormalization(torch.nn.Module):
                     self.glob_mean = current_mean
                     self.glob_std = current_std
 
-                elif epoch < self.update_until_epoch:
+                elif self.training:
                     if self.avg_factor is None:
                         self.weight = 1 / (self.count + 1)
                     else:
@@ -1172,14 +1173,13 @@ class InputNormalization(torch.nn.Module):
         current_stds : tensor
             Stds of inputs.
         """
-        x = x * masks.unsqueeze(-1)
         batch = x.size(0)
         fea_dim = x.size(-1)
-        num_nonpad = torch.sum(masks, dim=1) * fea_dim
+        num_nonpad = torch.sum(masks, dim=1).unsqueeze(-1) * fea_dim
 
         # Compute current mean
         if self.mean_norm:
-            current_means = torch.sum(x, dim=1).detach().data / num_nonpad.unsqueeze(-1)
+            current_means = torch.sum(x, dim=1).detach().data / num_nonpad
         else:
             current_means = torch.zeros(batch, fea_dim, device=x.device)
 
