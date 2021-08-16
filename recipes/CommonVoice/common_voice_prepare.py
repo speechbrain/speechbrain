@@ -26,7 +26,6 @@ def prepare_common_voice(
     dev_tsv_file=None,
     test_tsv_file=None,
     accented_letters=False,
-    duration_threshold=10,
     language="en",
     skip_prep=False,
 ):
@@ -50,10 +49,6 @@ def prepare_common_voice(
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    duration_threshold : int, optional
-        Max duration (in seconds) to use as a threshold to filter sentences.
-        The CommonVoice dataset contains very long utterance mostly containing
-        noise due to open microphones.
     language: str
         Specify the language for text normalization.
     skip_prep: bool
@@ -76,7 +71,6 @@ def prepare_common_voice(
                  dev_tsv_file, \
                  test_tsv_file, \
                  accented_letters, \
-                 duration_threshold, \
                  language="en" \
                  )
     """
