@@ -1065,7 +1065,7 @@ class InputNormalization(torch.nn.Module):
         # Avoiding padded time steps with masks
         actual_lens = torch.round(lengths * x.shape[1]).int()
         # NOTE (SLin): Assume x is single channel feature in the shape of (batch, time, fea)
-        masks = length_to_mask(actual_lens)
+        masks = length_to_mask(actual_lens, device=stft.device)
 
         current_means, current_stds = self._compute_current_stats(x, masks)
 
@@ -1175,11 +1175,11 @@ class InputNormalization(torch.nn.Module):
         x = x * masks.unsqueeze(-1)
         batch = x.size(0)
         fea_dim = x.size(-1)
-        num_nonpad = torch.sum(masks, 1) * fea_dim
+        num_nonpad = torch.sum(masks, dim=1) * fea_dim
 
         # Compute current mean
         if self.mean_norm:
-            current_means = torch.sum(x, dim=1).detach().data / num_nonpad
+            current_means = torch.sum(x, dim=1).detach().data / num_nonpad.unsqueeze(-1)
         else:
             current_means = torch.zeros(batch, fea_dim, device=x.device)
 
