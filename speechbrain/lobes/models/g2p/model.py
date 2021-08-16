@@ -8,7 +8,8 @@ Authors
 
 import torch
 from torch import nn
-
+from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.normalization import BatchNorm1d
 
 class AttentionSeq2Seq(nn.Module):
     """
@@ -28,8 +29,12 @@ class AttentionSeq2Seq(nn.Module):
         the linear module
     out: torch.nn.Module
         the output layer (typically log_softmax)
-    max_len
+    max_len: int
         the maximum length
+    use_word_emb: bool
+        whether or not to use word embedding
+    word_emb_enc: nn.Module
+        a module to encode word embeddings
 
 
     Returns
@@ -40,7 +45,7 @@ class AttentionSeq2Seq(nn.Module):
     """
 
     def __init__(
-        self, enc, encoder_emb, emb, dec, lin, out, bos_token=0, max_len=50
+        self, enc, encoder_emb, emb, dec, lin, out, bos_token=0, max_len=50, use_word_emb=False, word_emb_enc=None
     ):
         super().__init__()
         self.enc = enc
@@ -51,8 +56,16 @@ class AttentionSeq2Seq(nn.Module):
         self.out = out
         self.bos_token = bos_token
         self.max_len = max_len
+        self.use_word_emb = use_word_emb
+        self.word_emb_enc = word_emb_enc if use_word_emb else None
 
-    def forward(self, grapheme_encoded, phn_encoded=None, **kwargs):
+    def forward(
+        self,
+        grapheme_encoded,
+        phn_encoded=None,
+        word_emb=None,
+        **kwargs
+    ):
         """
         Computes the forward pass
 
@@ -70,6 +83,7 @@ class AttentionSeq2Seq(nn.Module):
             a tuple of (p_seq, char_lens, encoder_out) - sequence
             probabilities, character lengths and
         """
+
         chars, char_lens = grapheme_encoded
         if phn_encoded is None:
             phn_bos = self._get_dummy_phonemes(chars.size(0), chars.device)
@@ -77,8 +91,10 @@ class AttentionSeq2Seq(nn.Module):
             phn_bos, _ = phn_encoded
 
         emb_char = self.encoder_emb(chars)
-        encoder_out, _ = self.enc(emb_char)
+        if self.use_word_emb:
+            emb_char = self._apply_word_emb(emb_char, word_emb)
 
+        encoder_out, _ = self.enc(emb_char)
         e_in = self.emb(phn_bos)
         h, w = self.dec(e_in, encoder_out, char_lens)
         logits = self.lin(h)
@@ -86,5 +102,73 @@ class AttentionSeq2Seq(nn.Module):
 
         return p_seq, char_lens, encoder_out, w
 
+    def _apply_word_emb(self, e_in, word_emb):
+        word_emb_enc = (
+            self.word_emb_enc(word_emb)
+            if self.word_emb_enc is not None
+            else word_emb)
+        return torch.cat([e_in, word_emb_enc], dim=-1)
+
     def _get_dummy_phonemes(self, batch_size, device):
         return torch.tensor([0], device=device).expand(batch_size, 1)
+
+
+class WordEmbeddingEncoder(nn.Module):
+    """A small encoder module that reduces the dimensionality
+    and normalizes word embeddings
+
+    Arguments
+    ---------
+    word_emb_dim: int
+        the dimension of the original word embeddings
+    word_emb_enc_dim: int
+        the dimension of the encoded word embeddings
+    """
+    def __init__(self, word_emb_dim, word_emb_enc_dim):
+        super().__init__()
+        self.word_emb_dim = word_emb_dim
+        self.word_emb_enc_dim = word_emb_enc_dim
+        self.batch_norm = BatchNorm1d(input_size=self.word_emb_dim)
+        self.lin = Linear(
+            n_neurons=word_emb_enc_dim, input_size=word_emb_dim)
+        self.activation = nn.Tanh()
+
+    def forward(self, emb):
+        """Computes the forward pass of the embedding
+
+        Arguments
+        ---------
+        emb: torch.Tensor
+            the original word embeddings
+
+        Returns
+        -------
+        emb_enc: torch.Tensor
+            encoded word embeddings
+        """
+        x = self.batch_norm(emb)
+        x = self.lin(x)
+        x = self.activation(x)
+        return x
+
+
+def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):
+    """Computes the input dimension (intended for hparam files)
+
+    Arguments
+    ---------
+    use_word_emb: bool
+        whether to use word embeddings
+
+    embedding_dim: int
+        the embedding dimension
+
+    word_emb_enc_dim: int
+        the dimension of encoded word embeddings
+
+    Returns
+    -------
+    input_dim: int
+        the input dimension
+    """
+    return embedding_dim + use_word_emb * word_emb_enc_dim

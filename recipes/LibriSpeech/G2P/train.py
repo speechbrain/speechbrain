@@ -37,6 +37,7 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import (
     add_bos_eos,
 )
 from speechbrain.dataio.wer import print_alignments
+from speechbrain.wordemb.util import expand_to_chars
 from io import StringIO
 import numpy as np
 
@@ -67,15 +68,28 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         self.has_ctc = hasattr(self.hparams, "ctc_lin")
         self.mode = TrainMode(train_step.get("mode", TrainMode.NORMAL))
         self.last_attn = None
+        self.use_word_emb = getattr(
+            self.hparams, "use_word_emb", False)
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
 
         graphemes, grapheme_lens = batch.grapheme_encoded
+        word_emb = None
+        if self.use_word_emb:
+            word_emb = self.modules.word_emb.batch_embeddings(batch.char)
+            char_word_emb = expand_to_chars(
+                emb=word_emb,
+                seq=graphemes,
+                seq_len=grapheme_lens,
+                word_separator=self.grapheme_word_separator_idx
+            )
+
         p_seq, char_lens, encoder_out, attn = self.modules["model"](
             grapheme_encoded=(graphemes.detach(), grapheme_lens),
             phn_encoded=batch.phn_encoded_bos,
+            word_emb=char_word_emb
         )
         self.last_attn = attn
 
@@ -225,6 +239,10 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 self.per_metrics_homograph = self.hparams.per_stats_homograph()
 
             self._set_word_separator()
+        self.grapheme_word_separator_idx = (
+            self.hparams.grapheme_encoder.lab2ind[" "])
+        if self.use_word_emb:
+            self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
     def _set_word_separator(self):
         word_separator_idx = self.phoneme_encoder.lab2ind[" "]
@@ -555,6 +573,8 @@ def dataio_prep(hparams, train_step=None):
             "homograph_phn_start",
             "homograph_phn_end",
         ]
+    if hparams.get("use_word_emb", False):
+        output_keys.append("char")
     sb.dataio.dataset.set_output_keys(
         datasets, output_keys,
     )
