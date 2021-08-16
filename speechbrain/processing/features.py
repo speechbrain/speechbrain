@@ -31,7 +31,7 @@ Example
 >>> features = norm(features, torch.tensor([1]).float())
 
 Authors
- * Mirco Ravanelli 2020
+ * Mirco Ravanelli 2020, 2021
 """
 import math
 import torch
@@ -483,7 +483,7 @@ class Filterbank(torch.nn.Module):
             err_msg = "Require f_min: %f < f_max: %f" % (self.f_min, self.f_max)
             logger.error(err_msg, exc_info=True)
 
-        # Filter definition
+        # Filter definition (equally-spaced filters in the mel domain)
         mel = torch.linspace(
             self._to_mel(self.f_min), self._to_mel(self.f_max), self.n_mels + 2
         )

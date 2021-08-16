@@ -201,7 +201,7 @@ def test_filterbank():
     out = spectral_magnitude(out)
     out_1 = compute_fbanks(out)
 
-    # let's not add padding
+    # Let's now add padding
     sig_pad = torch.zeros([1, 16000])
     sig_pad[:, 0:rand_end] = sig_1
 
@@ -250,6 +250,7 @@ def test_filterbank():
     out = spectral_magnitude(out)
     out_2 = compute_fbanks(out)
 
+    # The second sentence in the batch must be equal as well
     assert (
         torch.mean(
             torch.abs(out_2[0, :, :] - out_batch[1, 0 : out_2.shape[1], :])
