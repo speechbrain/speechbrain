@@ -194,6 +194,8 @@ class SentencePiece:
             if sb.utils.distributed.if_main_process():
                 if annotation_list_to_check is not None:
                     self._check_coverage_from_bpe(annotation_list_to_check)
+            else:
+                sb.utils.distributed.ddp_barrier()
         finally:
             sb.utils.distributed.ddp_barrier()
 
