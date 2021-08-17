@@ -13,6 +13,7 @@ import json
 import sentencepiece as spm
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
+from speechbrain.utils.distributed import run_on_main
 import speechbrain as sb
 
 logger = logging.getLogger(__name__)
@@ -157,26 +158,17 @@ class SentencePiece:
         # print(os.environ["RANK"])
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
-            try:
-                if sb.utils.distributed.if_main_process():
-                    if not os.path.isfile(self.text_file):
-                        if annotation_format == "csv":
-                            self._csv2text()
-                        elif annotation_format == "json":
-                            self._json2text()
-                        else:
-                            raise ValueError(
-                                "Annotation format not supported. Supported formats are csv and json. Got "
-                                + annotation_format
-                            )
-                        self._train_BPE()
+            if not os.path.isfile(self.text_file):
+                if annotation_format == "csv":
+                    run_on_main(self._csv2text())
+                elif annotation_format == "json":
+                    run_on_main(self._json2text())
                 else:
-                    print(os.environ["RANK"])
-                    sb.utils.distributed.ddp_barrier()
-            finally:
-                print(os.environ["RANK"])
-                sb.utils.distributed.ddp_barrier()
-
+                    raise ValueError(
+                        "Annotation format not supported. Supported formats are csv and json. Got "
+                        + annotation_format
+                    )
+            run_on_main(self._train_BPE())
         else:
             logger.info("Tokenizer is already trained.")
 
