@@ -154,7 +154,7 @@ class SentencePiece:
         self.num_sequences = num_sequences
         self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
-
+        print(os.environ["RANK"])
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
             if not os.path.isfile(self.text_file):
