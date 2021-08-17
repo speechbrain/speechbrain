@@ -169,22 +169,27 @@ class SentencePiece:
                                 "Annotation format not supported. Supported formats are csv and json. Got "
                                 + annotation_format
                             )
-
+                    else:
+                        sb.utils.distributed.ddp_barrier()
                 finally:
                     sb.utils.distributed.ddp_barrier()
             try:
                 if sb.utils.distributed.if_main_process():
                     self._train_BPE()
+                else:
+                    sb.utils.distributed.ddp_barrier()
             finally:
                 sb.utils.distributed.ddp_barrier()
         else:
             logger.info("Tokenizer is already trained.")
+
         logger.info("==== Loading Tokenizer ===")
         logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
         logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
         logger.info("Tokenizer type: " + self.model_type)
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
+
         try:
             if sb.utils.distributed.if_main_process():
                 if annotation_list_to_check is not None:
