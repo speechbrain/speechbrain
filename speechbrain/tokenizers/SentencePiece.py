@@ -14,7 +14,8 @@ import sentencepiece as spm
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
-import speechbrain as sb
+
+# import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -181,14 +182,11 @@ class SentencePiece:
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
 
-        try:
-            if sb.utils.distributed.if_main_process():
-                if annotation_list_to_check is not None:
-                    self._check_coverage_from_bpe(annotation_list_to_check)
-            else:
-                sb.utils.distributed.ddp_barrier()
-        finally:
-            sb.utils.distributed.ddp_barrier()
+        if annotation_list_to_check is not None:
+            run_on_main(
+                self._check_coverage_from_bpe,
+                kwargs={"list_annotation_files": annotation_list_to_check},
+            )
 
         # print(os.environ["RANK"])
 
