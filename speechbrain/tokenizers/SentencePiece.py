@@ -154,7 +154,7 @@ class SentencePiece:
         self.num_sequences = num_sequences
         self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
-        print(os.environ["RANK"])
+        # print(os.environ["RANK"])
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
             try:
@@ -180,7 +180,7 @@ class SentencePiece:
         else:
             logger.info("Tokenizer is already trained.")
 
-        print(os.environ["RANK"])
+        # print(os.environ["RANK"])
 
         logger.info("==== Loading Tokenizer ===")
         logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
@@ -198,7 +198,7 @@ class SentencePiece:
         finally:
             sb.utils.distributed.ddp_barrier()
 
-        print(os.environ["RANK"])
+        # print(os.environ["RANK"])
 
     def _csv2text(self):
         """Read CSV file and convert specific data entries into text file.
