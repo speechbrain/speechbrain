@@ -359,7 +359,7 @@ if __name__ == "__main__":
         },
     )
 
-    # defining tokenizer and loading it
+    # Defining tokenizer and loading it
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
