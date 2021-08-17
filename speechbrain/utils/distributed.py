@@ -58,7 +58,6 @@ def run_on_main(
     if if_main_process():
         # Main comes here
         try:
-            print("HELLO WTF" + str(os.environ["RANK"]))
             func(*args, **kwargs)
         finally:
             ddp_barrier()
