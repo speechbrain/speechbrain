@@ -199,6 +199,8 @@ class SentencePiece:
         finally:
             sb.utils.distributed.ddp_barrier()
 
+        print(os.environ["RANK"])
+
     def _csv2text(self):
         """Read CSV file and convert specific data entries into text file.
         """
