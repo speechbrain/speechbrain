@@ -183,6 +183,8 @@ class SentencePiece:
         else:
             logger.info("Tokenizer is already trained.")
 
+        print(os.environ["RANK"])
+
         logger.info("==== Loading Tokenizer ===")
         logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
         logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
