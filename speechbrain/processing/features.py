@@ -1036,6 +1036,7 @@ class InputNormalization(torch.nn.Module):
         self.requires_grad = requires_grad
         self.glob_mean = torch.tensor([0])
         self.glob_std = torch.tensor([0])
+        self.weight = avg_factor
         self.spk_dict_mean = {}
         self.spk_dict_std = {}
         self.spk_dict_count = {}
@@ -1058,91 +1059,86 @@ class InputNormalization(torch.nn.Module):
             It is used to perform per-speaker normalization when
             norm_type='speaker'.
         """
+        # NOTE (SLin): Assume x is single channel feature in the shape of (batch, time, fea)
         N_batches = x.shape[0]
 
         # Avoiding padded time steps with masks
         actual_lens = torch.round(lengths * x.shape[1]).int()
-        # NOTE (SLin): Assume x is single channel feature in the shape of (batch, time, fea)
         masks = length_to_mask(actual_lens, device=x.device)
-        # Mask padding part
         x = x * masks.unsqueeze(-1)
 
         # Compute current statistics
-        current_means, current_stds = self._compute_current_stats(x, masks)
+        if self._require_current_stats():
+            current_means, current_stds = self._compute_current_stats(x, masks)
 
         if self.norm_type == "speaker":
             for snt_id in range(N_batches):
-                # computing statistics
-                current_mean, current_std = (
-                    current_means[snt_id],
-                    current_stds[snt_id],
-                )
-                spk_id = int(spk_ids[snt_id][0])
+                if self.training:
+                    # computing statistics
+                    current_mean, current_std = (
+                        current_means[snt_id],
+                        current_stds[snt_id],
+                    )
+                    spk_id = int(spk_ids[snt_id][0])
 
-                if spk_id not in self.spk_dict_mean:
-                    # Initialization of the dictionary
-                    self.spk_dict_mean[spk_id] = current_mean
-                    self.spk_dict_std[spk_id] = current_std
-                    self.spk_dict_count[spk_id] = 1
+                    if spk_id not in self.spk_dict_mean:
+                        # Initialization of the dictionary
+                        self.spk_dict_mean[spk_id] = current_mean
+                        self.spk_dict_std[spk_id] = current_std
+                        self.spk_dict_count[spk_id] = 1
 
-                else:
                     self.spk_dict_count[spk_id] = (
                         self.spk_dict_count[spk_id] + 1
                     )
 
                     if self.avg_factor is None:
                         self.weight = 1 / self.spk_dict_count[spk_id]
-                    else:
-                        self.weight = self.avg_factor
 
-                    self.spk_dict_mean[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_mean[spk_id] + self.weight * current_mean
-                    self.spk_dict_std[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_std[spk_id] + self.weight * current_std
+                    self.spk_dict_mean[spk_id] = self._update_stats(
+                        self.spk_dict_mean[spk_id], current_mean
+                    )
+                    self.spk_dict_std[spk_id] = self._update_stats(
+                        self.spk_dict_std[spk_id], current_std
+                    )
 
-                    self.spk_dict_mean[spk_id].detach()
-                    self.spk_dict_std[spk_id].detach()
+                    self.spk_dict_mean[spk_id] = self.spk_dict_mean[
+                        spk_id
+                    ].detach()
+                    self.spk_dict_std[spk_id] = self.spk_dict_std[
+                        spk_id
+                    ].detach()
 
                 x[snt_id] = (
-                    x[snt_id] - self.spk_dict_mean[spk_id].data
-                ) / self.spk_dict_std[spk_id].data
+                    x[snt_id] - self.spk_dict_mean[spk_id]
+                ) / self.spk_dict_std[spk_id]
 
         elif self.norm_type == "sentence":
-            x = (x - current_means.data) / current_stds.data
+            x = (x - current_means.unsqueeze(1)) / current_stds.unsqueeze(1)
 
-        elif self.norm_type == "batch" or self.norm_type == "global":
+        elif self.norm_type == "batch":
             current_mean = torch.mean(current_means, dim=0)
             current_std = torch.mean(current_stds, dim=0)
+            x = (x - current_mean) / (current_std)
 
-            if self.norm_type == "batch":
-                x = (x - current_mean.data) / (current_std.data)
-
-            if self.norm_type == "global":
+        elif self.norm_type == "global":
+            if self.training:
+                current_mean = torch.mean(current_means, dim=0)
+                current_std = torch.mean(current_stds, dim=0)
 
                 if self.count == 0:
                     self.glob_mean = current_mean
                     self.glob_std = current_std
 
-                elif self.training:
-                    if self.avg_factor is None:
-                        self.weight = 1 / (self.count + 1)
-                    else:
-                        self.weight = self.avg_factor
+                if self.avg_factor is None:
+                    self.weight = 1 / (self.count + 1)
 
-                    self.glob_mean = (
-                        1 - self.weight
-                    ) * self.glob_mean + self.weight * current_mean
+                self.glob_mean = self.update_stats(self.glob_mean, current_mean)
+                self.glob_std = self.update_stats(self.glob_std, current_std)
 
-                    self.glob_std = (
-                        1 - self.weight
-                    ) * self.glob_std + self.weight * current_std
+            self.glob_mean = self.glob_mean.detach()
+            self.glob_std = self.glob_std.detach()
 
-                self.glob_mean = self.glob_mean.detach()
-                self.glob_std = self.glob_std.detach()
-
-                x = (x - self.glob_mean.data) / (self.glob_std.data)
+            x = (x - self.glob_mean) / (self.glob_std)
 
         else:
             raise ValueError(
@@ -1179,16 +1175,16 @@ class InputNormalization(torch.nn.Module):
 
         # Compute current mean
         if self.mean_norm:
-            current_means = torch.sum(x, dim=1).detach().data / num_nonpad
+            current_means = torch.sum(x, dim=1).detach() / num_nonpad
         else:
             current_means = torch.zeros(batch, fea_dim, device=x.device)
 
         # Compute current std
         if self.std_norm:
             current_stds = (
-                torch.sum(current_means ** 2) * num_nonpad
-                - 2 * current_means * torch.sum(x, dim=1).detach().data
-                + torch.sum(x ** 2, dim=1).detach().data
+                current_means ** 2 * num_nonpad
+                - 2 * current_means * torch.sum(x, dim=1).detach()
+                + torch.sum(x ** 2, dim=1).detach()
             ) / num_nonpad
         else:
             current_stds = torch.ones(batch, fea_dim, device=x.device)
@@ -1199,6 +1195,23 @@ class InputNormalization(torch.nn.Module):
         )
 
         return current_means, current_stds
+
+    def _update_stats(self, norm_stats, current_stats):
+        """Update normalization statistics from current statistics.
+        """
+        norm_stats = (
+            1 - self.weight
+        ) * norm_stats + self.weight * current_stats
+
+        return norm_stats
+
+    def _require_current_stats(self):
+        """Checks if the computation of current statistics is required.
+        """
+        if self.norm_type in ["speaker", "global"] and not self.training:
+            return False
+
+        return True
 
     def _statistics_dict(self):
         """Fills the dictionary containing the normalization statistics.
