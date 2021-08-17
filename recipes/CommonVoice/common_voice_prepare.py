@@ -299,7 +299,7 @@ def create_csv(
         chars = " ".join([char for char in chars][:])
 
         # Remove too short sentences (or empty):
-        if len(words) < 3:
+        if len(words.split(" ")) < 3:
             continue
 
         # Composition of the csv_line
