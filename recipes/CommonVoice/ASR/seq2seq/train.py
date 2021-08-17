@@ -261,7 +261,7 @@ def dataio_prepare(hparams, tokenizer):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data, tokenizer
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -311,9 +311,7 @@ if __name__ == "__main__":
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
-    train_data, valid_data, test_data, tokenizer = dataio_prepare(
-        hparams, tokenizer
-    )
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
