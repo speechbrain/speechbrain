@@ -359,21 +359,6 @@ if __name__ == "__main__":
         },
     )
 
-    # Due to DDP, we first train the tokenizer onthe main python process.
-    run_on_main(
-        SentencePiece,
-        kwargs={
-            "model_dir": hparams["save_folder"],
-            "vocab_size": hparams["output_neurons"],
-            "annotation_train": hparams["train_csv"],
-            "annotation_read": "wrd",
-            "model_type": hparams["token_type"],
-            "character_coverage": hparams["character_coverage"],
-            "bos_id": hparams["bos_index"],
-            "eos_id": hparams["eos_index"],
-        },
-    )
-
     # defining tokenizer and loading it
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
