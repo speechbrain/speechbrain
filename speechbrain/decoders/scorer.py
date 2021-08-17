@@ -12,7 +12,7 @@ class BaseScorerInterface:
         - speechbrain.decoders.scorer.CTCPrefixScorer
         - speechbrain.decoders.scorer.RNNLMScorer
         - speechbrain.decoders.scorer.TransformerLMScorer
-        - speechbrain.decoders.scorer.NGramLMScoer
+        - speechbrain.decoders.scorer.KenLMScoer
         - speechbrain.decoders.scorer.CoverageScorer
         - speechbrain.decoders.scorer.LengthScorer
     """
@@ -203,7 +203,7 @@ class KenLMScorer(BaseScorerInterface):
         The tokens set.
     """
 
-    def __init__(self, lm_path, vocab_size, tokenizer_path=None, token_list=[]):
+    def __init__(self, lm_path, vocab_size, token_list=[]):
         try:
             import kenlm
 
