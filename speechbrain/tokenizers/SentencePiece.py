@@ -171,8 +171,10 @@ class SentencePiece:
                             )
                         self._train_BPE()
                 else:
+                    print(os.environ["RANK"])
                     sb.utils.distributed.ddp_barrier()
             finally:
+                print(os.environ["RANK"])
                 sb.utils.distributed.ddp_barrier()
 
         else:
