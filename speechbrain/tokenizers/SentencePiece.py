@@ -157,28 +157,19 @@ class SentencePiece:
         print(os.environ["RANK"])
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
-            if not os.path.isfile(self.text_file):
-                try:
-                    if sb.utils.distributed.if_main_process():
-                        if annotation_format == "csv":
-                            self._csv2text()
-                        elif annotation_format == "json":
-                            self._json2text()
-                        else:
-                            raise ValueError(
-                                "Annotation format not supported. Supported formats are csv and json. Got "
-                                + annotation_format
-                            )
+            if sb.utils.distributed.if_main_process():
+                if not os.path.isfile(self.text_file):
+                    if annotation_format == "csv":
+                        self._csv2text()
+                    elif annotation_format == "json":
+                        self._json2text()
                     else:
-                        sb.utils.distributed.ddp_barrier()
-                finally:
-                    sb.utils.distributed.ddp_barrier()
-            try:
-                if sb.utils.distributed.if_main_process():
+                        raise ValueError(
+                            "Annotation format not supported. Supported formats are csv and json. Got "
+                            + annotation_format
+                        )
                     self._train_BPE()
-                else:
-                    sb.utils.distributed.ddp_barrier()
-            finally:
+            else:
                 sb.utils.distributed.ddp_barrier()
         else:
             logger.info("Tokenizer is already trained.")
