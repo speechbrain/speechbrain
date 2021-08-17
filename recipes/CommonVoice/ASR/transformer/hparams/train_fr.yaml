@@ -78,8 +78,8 @@ num_decoder_layers: 6
 d_ffn: 3072
 transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
-output_neurons: 1000
-vocab_size: 1000
+output_neurons: 500
+vocab_size: 500
 
 # Outputs
 blank_index: 0
