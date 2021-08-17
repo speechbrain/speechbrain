@@ -15,8 +15,6 @@ from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
 
-# import speechbrain as sb
-
 logger = logging.getLogger(__name__)
 
 
