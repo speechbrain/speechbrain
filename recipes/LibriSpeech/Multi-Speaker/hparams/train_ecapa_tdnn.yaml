@@ -29,12 +29,9 @@ test_csv: !ref <save_folder>/test-clean.csv
 
 # verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 
-skip_prep: False
-ckpt_interval_minutes: 15 # save checkpoint every N min
-
 # Training parameters
 number_of_epochs: 10
-batch_size: 32
+batch_size: 5
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>

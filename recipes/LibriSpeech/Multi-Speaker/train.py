@@ -89,7 +89,7 @@ class SpeakerBrain(sb.core.Brain):
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
-            num_spk = torch.cat([num_spk] * 1, dim=0)
+            num_spk = torch.cat([num_spk] * self.n_augment, dim=0)
 
         loss = self.hparams.compute_cost(predictions, num_spk, lens)
 

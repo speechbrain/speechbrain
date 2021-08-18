@@ -4,7 +4,7 @@
 # #######################################
 
 # Basic parameters
-seed: 1997
+seed: 9000
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/xvect/<seed>
 save_folder: !ref <output_folder>/save
@@ -77,7 +77,7 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augment_speed: 0.95
+# augment_speed: 0.95
 
 augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
