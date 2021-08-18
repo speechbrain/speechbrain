@@ -1173,8 +1173,8 @@ class InputNormalization(torch.nn.Module):
                 if self.avg_factor is None:
                     self.weight = 1 / (self.count + 1)
 
-                self.glob_mean = self.update_stats(self.glob_mean, current_mean)
-                self.glob_std = self.update_stats(self.glob_std, current_std)
+                self.glob_mean = self._update_stats(self.glob_mean, current_mean)
+                self.glob_std = self._update_stats(self.glob_std, current_std)
 
             self.glob_mean = self.glob_mean.detach()
             self.glob_std = self.glob_std.detach()
