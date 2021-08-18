@@ -3,14 +3,14 @@ Data preparation.
 
 Download: http://groups.inf.ed.ac.uk/ami/download/
 
-Prepares csv from manual annotations "segments/" using RTTM format (Oracle VAD).
+Prepares metadata files (JSON) from manual annotations "segments/" using RTTM format (Oracle VAD).
 """
 
 import os
 import logging
 import xml.etree.ElementTree as et
 import glob
-import csv
+import json
 from ami_splits import get_AMI_split
 
 from speechbrain.dataio.dataio import (
@@ -19,10 +19,6 @@ from speechbrain.dataio.dataio import (
 )
 
 logger = logging.getLogger(__name__)
-OPT_FILE = "opt_ami_prepare.pkl"
-TRAIN_CSV = "ami_train.subsegments.csv"
-DEV_CSV = "ami_dev.subsegments.csv"
-EVAL_CSV = "ami_eval.subsegments.csv"
 SAMPLERATE = 16000
 
 
@@ -30,6 +26,8 @@ def prepare_ami(
     data_folder,
     manual_annot_folder,
     save_folder,
+    ref_rttm_dir,
+    meta_data_dir,
     split_type="full_corpus_asr",
     skip_TNO=True,
     mic_type="Lapel",
@@ -38,7 +36,7 @@ def prepare_ami(
     overlap=1.5,
 ):
     """
-    Prepares reference RTTM and CSV files for the AMI dataset.
+    Prepares reference RTTM and JSON files for the AMI dataset.
 
     Arguments
     ---------
@@ -48,6 +46,10 @@ def prepare_ami(
         Directory where the manual annotations are stored.
     save_folder : str
         The save directory in results.
+    ref_rttm_dir : str
+        Directory to store reference RTTM files.
+    meta_data_dir : str
+        Directory to store the meta data (json) files.
     split_type : str
         Standard dataset split. See ami_splits.py for more information.
         Allowed split_type: "scenario_only", "full_corpus" or "full_corpus_asr"
@@ -73,33 +75,42 @@ def prepare_ami(
     >>> prepare_ami(data_folder, manual_annot_folder, save_folder, split_type, mic_type)
     """
 
+    # Meta files
+    meta_files = [
+        os.path.join(meta_data_dir, "ami_train." + mic_type + ".subsegs.json"),
+        os.path.join(meta_data_dir, "ami_dev." + mic_type + ".subsegs.json"),
+        os.path.join(meta_data_dir, "ami_eval." + mic_type + ".subsegs.json"),
+    ]
+
     # Create configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,
         "save_folder": save_folder,
+        "ref_rttm_dir": ref_rttm_dir,
+        "meta_data_dir": meta_data_dir,
         "split_type": split_type,
         "skip_TNO": skip_TNO,
         "mic_type": mic_type,
         "vad": vad_type,
         "max_subseg_dur": max_subseg_dur,
         "overlap": overlap,
+        "meta_files": meta_files,
     }
 
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput opt files
-    save_opt = os.path.join(save_folder, OPT_FILE)
+    # Setting output option files.
+    opt_file = "opt_ami_prepare." + mic_type + ".pkl"
 
     # Check if this phase is already done (if so, skip it)
-    splits = ["train", "dev", "eval"]
-    if skip(splits, save_folder, conf):
+    if skip(save_folder, conf, meta_files, opt_file):
         logger.info(
             "Skipping data preparation, as it was completed in previous run."
         )
         return
 
-    msg = "\tCreating csv file for the AMI Dataset.."
+    msg = "\tCreating meta-data file for the AMI Dataset.."
     logger.debug(msg)
 
     # Get the split
@@ -107,13 +118,13 @@ def prepare_ami(
 
     # Prepare RTTM from XML(manual annot) and store are groundtruth
     # Create ref_RTTM directory
-    ref_dir = save_folder + "/ref_rttms/"
-    if not os.path.exists(ref_dir):
-        os.makedirs(ref_dir)
+    if not os.path.exists(ref_rttm_dir):
+        os.makedirs(ref_rttm_dir)
 
     # Create reference RTTM files
+    splits = ["train", "dev", "eval"]
     for i in splits:
-        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        rttm_file = ref_rttm_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
             prepare_segs_for_RTTM(
                 train_set,
@@ -142,25 +153,26 @@ def prepare_ami(
                 skip_TNO,
             )
 
-    # Create csv_files for splits
-    csv_folder = os.path.join(save_folder, "csv")
-    if not os.path.exists(csv_folder):
-        os.makedirs(csv_folder)
+    # Create meta_files for splits
+    meta_data_dir = meta_data_dir
+    if not os.path.exists(meta_data_dir):
+        os.makedirs(meta_data_dir)
 
     for i in splits:
-        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
-        csv_filename_prefix = "ami_" + i
-        prepare_csv(
+        rttm_file = ref_rttm_dir + "/fullref_ami_" + i + ".rttm"
+        meta_filename_prefix = "ami_" + i
+        prepare_metadata(
             rttm_file,
-            csv_folder,
+            meta_data_dir,
             data_folder,
-            csv_filename_prefix,
+            meta_filename_prefix,
             max_subseg_dur,
             overlap,
             mic_type,
         )
 
-    save_pkl(conf, save_opt)
+    save_opt_file = os.path.join(save_folder, opt_file)
+    save_pkl(conf, save_opt_file)
 
 
 def get_RTTM_per_rec(segs, spkrs_list, rec_id):
@@ -386,11 +398,11 @@ def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
     return subsegments
 
 
-def prepare_csv(
+def prepare_metadata(
     rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap, mic_type
 ):
     # Read RTTM, get unique meeting_IDs (from RTTM headers)
-    # For each MeetingID. select that meetID -> merge -> subsegment -> csv -> append
+    # For each MeetingID. select that meetID -> merge -> subsegment -> json -> append
 
     # Read RTTM
     RTTM = []
@@ -401,7 +413,7 @@ def prepare_csv(
 
     spkr_info = filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
     rec_ids = list(set([row.split(" ")[1] for row in spkr_info]))
-    rec_ids.sort()  # sorting just to make CSV look in proper sequence
+    rec_ids.sort()  # sorting just to make JSON look in proper sequence
 
     # For each recording merge segments and then perform subsegmentation
     MERGED_SEGMENTS = []
@@ -412,7 +424,7 @@ def prepare_csv(
         )
         gt_rttm_segs = [row.split(" ") for row in segs_iter]
 
-        # Merge, subsegment and convert to csv format.
+        # Merge, subsegment and then convert to json format.
         merged_segs = merge_rttm_intervals(
             gt_rttm_segs
         )  # We lose speaker_ID after merging
@@ -436,58 +448,76 @@ def prepare_csv(
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
 
-    # Create CSV from subsegments
-    csv_output_head = [["ID", "duration", "wav", "start", "stop"]]  # noqa E231
-
-    entry = []
+    # Create JSON from subsegments
+    json_dict = {}
     for row in SUBSEGMENTS:
         rec_id = row[1]
         strt = str(round(float(row[3]), 4))
         end = str(round((float(row[3]) + float(row[4])), 4))
-
         subsegment_ID = rec_id + "_" + strt + "_" + end
         dur = row[4]
-        wav_file_path = (
-            data_dir
-            + "/"
-            + rec_id
-            + "/audio/"
-            + rec_id
-            + ".Mix-"
-            + mic_type
-            + ".wav"
-        )
-
         start_sample = int(float(strt) * SAMPLERATE)
         end_sample = int(float(end) * SAMPLERATE)
 
-        # Composition of the csv_line
-        csv_line = [
-            subsegment_ID,
-            dur,
-            wav_file_path,
-            str(start_sample),
-            str(end_sample),
-        ]
+        # If multi-mic audio is selected
+        if mic_type == "Array1":
+            wav_file_base_path = (
+                data_dir
+                + "/"
+                + rec_id
+                + "/audio/"
+                + rec_id
+                + "."
+                + mic_type
+                + "-"
+            )
 
-        entry.append(csv_line)
+            f = []  # adding all 8 mics
+            for i in range(8):
+                f.append(wav_file_base_path + str(i + 1).zfill(2) + ".wav")
+            audio_files_path_list = f
 
-    csv_output = csv_output_head + entry
+            # Note: key "files" with 's' is used for multi-mic
+            json_dict[subsegment_ID] = {
+                "wav": {
+                    "files": audio_files_path_list,
+                    "duration": float(dur),
+                    "start": int(start_sample),
+                    "stop": int(end_sample),
+                },
+            }
+        else:
+            # Single mic audio
+            wav_file_path = (
+                data_dir
+                + "/"
+                + rec_id
+                + "/audio/"
+                + rec_id
+                + "."
+                + mic_type
+                + ".wav"
+            )
 
-    # Write csv file only for subsegments
-    csv_file = save_dir + "/" + filename + ".subsegments.csv"
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-        for line in csv_output:
-            csv_writer.writerow(line)
+            # Note: key "file" without 's' is used for single-mic
+            json_dict[subsegment_ID] = {
+                "wav": {
+                    "file": wav_file_path,
+                    "duration": float(dur),
+                    "start": int(start_sample),
+                    "stop": int(end_sample),
+                },
+            }
 
-    msg = "%s csv prepared" % (csv_file)
+    out_json_file = save_dir + "/" + filename + "." + mic_type + ".subsegs.json"
+    with open(out_json_file, mode="w") as json_f:
+        json.dump(json_dict, json_f, indent=2)
+
+    msg = "%s JSON prepared" % (out_json_file)
     logger.debug(msg)
 
 
-def skip(splits, save_folder, conf):
+def skip(save_folder, conf, meta_files, opt_file):
     """
     Detects if the AMI data_preparation has been already done.
     If the preparation has been done, we can skip it.
@@ -498,25 +528,17 @@ def skip(splits, save_folder, conf):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    # Checking csv files
+    # Checking if meta (json) files are available
     skip = True
-
-    split_files = {
-        "train": TRAIN_CSV,
-        "dev": DEV_CSV,
-        "eval": EVAL_CSV,
-    }
-    for split in splits:
-        if not os.path.isfile(
-            os.path.join(save_folder, "csv", split_files[split])
-        ):
+    for file_path in meta_files:
+        if not os.path.isfile(file_path):
             skip = False
 
-    #  Checking saved options
-    save_opt = os.path.join(save_folder, OPT_FILE)
+    # Checking saved options
+    save_opt_file = os.path.join(save_folder, opt_file)
     if skip is True:
-        if os.path.isfile(save_opt):
-            opts_old = load_pkl(save_opt)
+        if os.path.isfile(save_opt_file):
+            opts_old = load_pkl(save_opt_file)
             if opts_old == conf:
                 skip = True
             else:
