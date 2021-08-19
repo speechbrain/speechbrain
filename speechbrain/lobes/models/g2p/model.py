@@ -9,7 +9,7 @@ Authors
 import torch
 from torch import nn
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.normalization import BatchNorm1d
+from speechbrain.nnet import normalization
 
 class AttentionSeq2Seq(nn.Module):
     """
@@ -114,6 +114,11 @@ class AttentionSeq2Seq(nn.Module):
 
 
 class WordEmbeddingEncoder(nn.Module):
+    NORMS = {
+        "batch": normalization.BatchNorm1d,
+        "layer": normalization.LayerNorm,
+        "instance": normalization.InstanceNorm1d
+    }
     """A small encoder module that reduces the dimensionality
     and normalizes word embeddings
 
@@ -123,15 +128,30 @@ class WordEmbeddingEncoder(nn.Module):
         the dimension of the original word embeddings
     word_emb_enc_dim: int
         the dimension of the encoded word embeddings
+    norm_type: str
+        the type of normalization to be used
+    norm: torch.nn.Module
+        the normalization to be used (
+            e.g. speechbrain.nnet.normalization.LayerNorm)
     """
-    def __init__(self, word_emb_dim, word_emb_enc_dim):
+    def __init__(self, word_emb_dim, word_emb_enc_dim, norm=None, norm_type=None):
         super().__init__()
         self.word_emb_dim = word_emb_dim
         self.word_emb_enc_dim = word_emb_enc_dim
-        self.batch_norm = BatchNorm1d(input_size=self.word_emb_dim)
+        if norm_type:
+            self.norm = self._get_norm(norm_type, word_emb_dim)
+        else:
+            self.norm = norm
         self.lin = Linear(
             n_neurons=word_emb_enc_dim, input_size=word_emb_dim)
         self.activation = nn.Tanh()
+
+    def _get_norm(self, norm, dim):
+        """Determines the type of normalizer"""
+        norm_cls = self.NORMS.get(norm)
+        if not norm_cls:
+            raise ValueError(f"Invalid norm: {norm}")
+        return norm_cls(input_size=dim)
 
     def forward(self, emb):
         """Computes the forward pass of the embedding
@@ -146,7 +166,8 @@ class WordEmbeddingEncoder(nn.Module):
         emb_enc: torch.Tensor
             encoded word embeddings
         """
-        x = self.batch_norm(emb)
+        if self.norm is not None:
+            x = self.norm(emb)
         x = self.lin(x)
         x = self.activation(x)
         return x

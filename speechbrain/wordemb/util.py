@@ -22,6 +22,7 @@ def expand_to_chars(emb, seq, seq_len, word_separator):
     for idx, (item, item_length) in enumerate(zip(words, seq_len_idx)):
         char_word_emb[idx] = emb[idx, item]
         char_word_emb[idx, item_length:, :] = 0
+        char_word_emb[idx, word_boundaries[idx], :] = 0
 
     return char_word_emb
 

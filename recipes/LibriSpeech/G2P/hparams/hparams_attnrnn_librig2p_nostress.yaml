@@ -101,6 +101,7 @@ use_word_emb: False
 word_emb_model: bert-base-uncased
 word_emb_dim: 768
 word_emb_enc_dim: 256
+word_emb_norm_type: batch
 
 # Evaluation parameters
 eval_dataset: train
@@ -232,6 +233,7 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
 word_emb_enc: !new:speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder
     word_emb_dim: !ref <word_emb_dim>
     word_emb_enc_dim: !ref <word_emb_enc_dim>
+    norm_type: !ref <word_emb_norm_type>
 
 word_emb: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
     init: !name:speechbrain.wordemb.transformer.TransformerWordEmbeddings
