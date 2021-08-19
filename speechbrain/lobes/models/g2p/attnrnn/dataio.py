@@ -9,7 +9,9 @@ Authors
 from functools import reduce
 import speechbrain as sb
 import torch
+import re
 
+RE_MULTI_SPACE = re.compile(r"\s{2,}")
 
 def clean_pipeline(graphemes, takes="txt", provides="txt_cleaned"):
     """
@@ -36,8 +38,10 @@ def clean_pipeline(graphemes, takes="txt", provides="txt_cleaned"):
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(txt):
-        txt_upper = txt.upper()
-        return "".join(char for char in txt_upper if char in grapheme_set)
+        result = txt.upper()
+        result = "".join(char for char in result if char in grapheme_set)
+        result = RE_MULTI_SPACE.sub(" ", result)
+        return result
 
     return f
 
