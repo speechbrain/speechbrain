@@ -1131,7 +1131,7 @@ class InputNormalization(torch.nn.Module):
 
         else:
             raise ValueError(
-                "norm_type must be one of : [speaker, sentence, batch, global]"
+                "norm_type must be one of : [sentence, batch, global]"
             )
 
         self.count = self.count + 1
@@ -1199,7 +1199,7 @@ class InputNormalization(torch.nn.Module):
     def _require_current_stats(self):
         """Checks if the computation of current statistics is required.
         """
-        if self.norm_type in ["speaker", "global"] and not self.training:
+        if self.norm_type == "global" and not self.training:
             return False
 
         return True
@@ -1211,9 +1211,6 @@ class InputNormalization(torch.nn.Module):
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
         state["glob_std"] = self.glob_std
-        state["spk_dict_mean"] = self.spk_dict_mean
-        state["spk_dict_std"] = self.spk_dict_std
-        state["spk_dict_count"] = self.spk_dict_count
 
         return state
 
@@ -1232,23 +1229,6 @@ class InputNormalization(torch.nn.Module):
         else:
             self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
             self.glob_std = state["glob_std"]  # .to(self.device_inp)
-
-        # Loading the spk_dict_mean in the right device
-        self.spk_dict_mean = {}
-        for spk in state["spk_dict_mean"]:
-            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk].to(
-                self.device_inp
-            )
-
-        # Loading the spk_dict_std in the right device
-        self.spk_dict_std = {}
-        for spk in state["spk_dict_std"]:
-            self.spk_dict_std[spk] = state["spk_dict_std"][spk].to(
-                self.device_inp
-            )
-
-        self.spk_dict_count = state["spk_dict_count"]
-
         return state
 
     def to(self, device):
@@ -1257,9 +1237,6 @@ class InputNormalization(torch.nn.Module):
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)
-        for spk in self.spk_dict_mean:
-            self.spk_dict_mean[spk] = self.spk_dict_mean[spk].to(device)
-            self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
         return self
 
     @mark_as_saver
