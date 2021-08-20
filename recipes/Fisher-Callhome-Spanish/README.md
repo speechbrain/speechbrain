@@ -23,13 +23,13 @@ python train.py hparams/transformer.yaml
 # Performance summary
 Results are reported in terms of sacrebleu.
 
-| hyperparams file | dev   | dev2   | test   | ctc_weight | asr_weight | mt_weight | GPUs               |
-|:----------------:|:-----:| :-----:| :-----:| :--------: | :--------: | :-------: | :----------------: |
-| transformer.yaml | 40.67 | 41.51  | 40.30  | 0          | 0          | 0         | 2xRTX 2080 Ti 11GB |
-| transformer.yaml | 47.07 | 46.13  | 46.34  | 1          | 0.3        | 0         | 2xRTX 2080 Ti 11GB |
-| transformer.yaml | 46.10 | 46.56  | 46.79  | 1          | 0.2        | 0.2       | 2xRTX 2080 Ti 11GB |
-| conformer.yaml   | 46.37 | 47.07  | 46.10  | 0          | 0          | 0         | 2xRTX 2080 Ti 11GB |
-| conformer.yaml   | 50.51 | 50.29  | 49.07  | 1          | 0.3        | 0         | 2xRTX 2080 Ti 11GB |
+| hyperparams file | dev   | dev2   | test   | ctc_weight | asr_weight | mt_weight | Model | GPUs               |
+|:----------------:|:-----:| :-----:| :-----:| :--------: | :--------: | :-------: | :-------: | :----------------: |
+| transformer.yaml | 40.67 | 41.51  | 40.30  | 0          | 0          | 0         | Not Avail. | 2xRTX 2080 Ti 11GB |
+| transformer.yaml | 47.50 | 48.33  | 47.31  | 1          | 0.3        | 0         | [Model](https://drive.google.com/drive/folders/1wd4iWuFimZBanBDeZSPFjxM1m4LovXdb?usp=sharing) | 2xRTX 2080 Ti 11GB |
+| transformer.yaml | 46.10 | 46.56  | 46.79  | 1          | 0.2        | 0.2       | Not Avail. | 2xRTX 2080 Ti 11GB |
+| conformer.yaml   | 46.37 | 47.07  | 46.10  | 0          | 0          | 0         | Not Avail. | 2xRTX 2080 Ti 11GB |
+| conformer.yaml   | 48.09 | 48.19  | 48.04  | 1          | 0.3        | 0         | [Model](https://drive.google.com/drive/folders/1hlMOy1yutwkcXgKIW7tMa5WEe1ixhLaU?usp=sharing) | 1xTesla A100 (works with 2xRTX 2080 Ti) |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
