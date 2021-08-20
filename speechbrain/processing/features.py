@@ -1170,11 +1170,13 @@ class InputNormalization(torch.nn.Module):
 
         # Compute current std
         if self.std_norm:
-            current_stds = (
+            current_vars = (
                 current_means ** 2 * num_nonpad
                 - 2 * current_means * torch.sum(x, dim=1).detach()
                 + torch.sum(x ** 2, dim=1).detach()
-            ) / num_nonpad
+            ) / (num_nonpad - 1)
+            current_stds = torch.sqrt(current_vars)
+
         else:
             current_stds = torch.ones(batch, fea_dim, device=x.device)
 

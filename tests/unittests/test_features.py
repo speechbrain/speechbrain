@@ -297,6 +297,7 @@ def test_dtc():
 
 def test_input_normalization():
 
+    import math
     from speechbrain.processing.features import InputNormalization
 
     norm = InputNormalization()
@@ -310,6 +311,44 @@ def test_input_normalization():
     out_norm = norm(inputs, inp_len).squeeze()
     target = torch.FloatTensor([-1, 0, 1, 0, 0, 0])
     assert torch.equal(out_norm, target)
+
+    norm = InputNormalization()
+    inputs = torch.FloatTensor([1, -1, 0, 0, 0]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([0.4])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([1 / math.sqrt(2), -1 / math.sqrt(2), 0, 0, 0])
+    assert torch.equal(out_norm, target)
+
+    norm = InputNormalization()
+    inputs = torch.FloatTensor([1, 1, 1, 0, 0]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([0.6])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([0, 0, 0, 0, 0])
+    assert torch.equal(out_norm, target)
+
+    norm = InputNormalization(norm_type="sentence")
+    inputs = torch.FloatTensor([[1, 2, 3, 0, 0], [4, 5, 6, 0, 0]]).unsqueeze(2)
+    inp_len = torch.FloatTensor([0.6, 0.6])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([[-1, 0, 1, 0, 0], [-1, 0, 1, 0, 0]])
+    assert torch.equal(out_norm, target)
+
+    norm = InputNormalization(std_norm=False)
+    inputs = torch.FloatTensor([1, 2, 3, 4, 5]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([1.0])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([-2, -1, 0, 1, 2])
+    assert torch.equal(out_norm, target)
+
+    norm = InputNormalization()
+    inputs = torch.FloatTensor([1, 2, 3, 0, 0]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([0.6])
+    out_norm = norm(inputs, inp_len).squeeze()
+    inputs = torch.FloatTensor([3, 4, 5, 6, 7]).unsqueeze(0).unsqueeze(2)
+    inp_len = torch.FloatTensor([1.0])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.Tensor([3.5])
+    assert torch.equal(norm.glob_mean, target)
 
 
 def test_features_multimic():
