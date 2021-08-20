@@ -24,8 +24,8 @@ def test_stft():
     out = compute_stft(sig_1)
     out_pad = compute_stft(sig_pad)
 
-    wav_len = torch.Tensor([sig_1.shape[1] / sig_pad.shape[1]])
-    out_pad = compute_stft(sig_pad, wav_len=wav_len)
+    lengths = torch.Tensor([sig_1.shape[1] / sig_pad.shape[1]])
+    out_pad = compute_stft(sig_pad, lengths=lengths)
 
     # Padded version must be equal to unpadded version
     assert (
@@ -308,7 +308,7 @@ def test_input_normalization():
     inputs = torch.FloatTensor([1, 2, 3, 0, 0, 0]).unsqueeze(0).unsqueeze(2)
     inp_len = torch.FloatTensor([0.5])
     out_norm = norm(inputs, inp_len).squeeze()
-    target = torch.FloatTensor([-1, 0, 1, -2, -2, -2])
+    target = torch.FloatTensor([-1, 0, 1, 0, 0, 0])
     assert torch.equal(out_norm, target)
 
 

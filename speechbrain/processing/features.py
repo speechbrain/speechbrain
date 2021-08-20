@@ -132,14 +132,14 @@ class STFT(torch.nn.Module):
 
         self.window = window_fn(self.win_length)
 
-    def forward(self, x, wav_len=None):
+    def forward(self, x, lengths=None):
         """Returns the STFT generated from the input waveforms.
 
         Arguments
         ---------
         x : tensor
             A batch of audio signals to transform.
-        wav_len: tensor
+        lengths: tensor
             Relative length of each sentence in the batch.
         """
 
@@ -189,7 +189,7 @@ class STFT(torch.nn.Module):
             # (batch, time, channels)
             stft = stft.transpose(2, 1)
 
-        if wav_len is not None:
+        if lengths is not None:
 
             # This ensures that the STFT of a sentence is the same even if the
             # STFT is computed in a batch with other sentences.
@@ -198,8 +198,8 @@ class STFT(torch.nn.Module):
             # such an extra step. Please, for more details see:
             # https://colab.research.google.com/drive/1xQizKw11EJiIRzBNGo95RR1VXC5NGMkM?usp=sharing
 
-            wav_len_abs = (x.shape[1] * wav_len).int()
-            mask_elem = torch.floor(wav_len_abs / self.hop_length + 1).int()
+            lengths_abs = (x.shape[1] * lengths).int()
+            mask_elem = torch.floor(lengths_abs / self.hop_length + 1).int()
             mask = length_to_mask(
                 mask_elem, max_len=stft.shape[1], device=stft.device
             )
@@ -1038,9 +1038,9 @@ class InputNormalization(torch.nn.Module):
          If True, the standard deviation will be normalized.
     norm_type : str
          It defines how the statistics are computed ('sentence' computes them
-         at sentence level, 'batch' at batch level, 'speaker' at speaker
-         level, while global computes a single normalization vector for all
-         the sentences in the dataset). Speaker and global statistics are
+         at sentence level, 'batch' at batch level, while global computes a single
+         normalization vector for all the sentences in the dataset).
+         Speaker and global statistics are
          computed with a moving average approach.
     avg_factor : float
          It can be used to manually set the weighting factor between
@@ -1056,10 +1056,6 @@ class InputNormalization(torch.nn.Module):
     """
 
     from typing import Dict
-
-    spk_dict_mean: Dict[int, torch.Tensor]
-    spk_dict_std: Dict[int, torch.Tensor]
-    spk_dict_count: Dict[int, int]
 
     def __init__(
         self,
@@ -1078,14 +1074,10 @@ class InputNormalization(torch.nn.Module):
         self.glob_mean = torch.tensor([0])
         self.glob_std = torch.tensor([0])
         self.weight = avg_factor
-        self.spk_dict_mean = {}
-        self.spk_dict_std = {}
-        self.spk_dict_count = {}
-        self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
 
-    def forward(self, x, lengths, spk_ids=torch.tensor([])):
+    def forward(self, x, lengths):
         """Returns the tensor with the surrounding context.
 
         Arguments
@@ -1096,64 +1088,18 @@ class InputNormalization(torch.nn.Module):
             A batch of tensors containing the relative length of each
             sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
             computing stats on zero-padded steps.
-        spk_ids : tensor containing the ids of each speaker (e.g, [0 10 6]).
-            It is used to perform per-speaker normalization when
-            norm_type='speaker'.
         """
         # NOTE (SLin): Assume x is single channel feature in the shape of (batch, time, fea)
-        N_batches = x.shape[0]
-
         # Avoiding padded time steps with masks
         actual_lens = torch.round(lengths * x.shape[1]).int()
-        masks = length_to_mask(actual_lens, device=x.device)
+        masks = length_to_mask(actual_lens, max_len=x.shape[1], device=x.device)
         x = x * masks.unsqueeze(-1)
 
         # Compute current statistics
         if self._require_current_stats():
             current_means, current_stds = self._compute_current_stats(x, masks)
 
-        if self.norm_type == "speaker":
-            for snt_id in range(N_batches):
-                if self.training:
-                    # computing statistics
-                    current_mean, current_std = (
-                        current_means[snt_id],
-                        current_stds[snt_id],
-                    )
-                    spk_id = int(spk_ids[snt_id][0])
-
-                    if spk_id not in self.spk_dict_mean:
-                        # Initialization of the dictionary
-                        self.spk_dict_mean[spk_id] = current_mean
-                        self.spk_dict_std[spk_id] = current_std
-                        self.spk_dict_count[spk_id] = 1
-
-                    self.spk_dict_count[spk_id] = (
-                        self.spk_dict_count[spk_id] + 1
-                    )
-
-                    if self.avg_factor is None:
-                        self.weight = 1 / self.spk_dict_count[spk_id]
-
-                    self.spk_dict_mean[spk_id] = self._update_stats(
-                        self.spk_dict_mean[spk_id], current_mean
-                    )
-                    self.spk_dict_std[spk_id] = self._update_stats(
-                        self.spk_dict_std[spk_id], current_std
-                    )
-
-                    self.spk_dict_mean[spk_id] = self.spk_dict_mean[
-                        spk_id
-                    ].detach()
-                    self.spk_dict_std[spk_id] = self.spk_dict_std[
-                        spk_id
-                    ].detach()
-
-                x[snt_id] = (
-                    x[snt_id] - self.spk_dict_mean[spk_id]
-                ) / self.spk_dict_std[spk_id]
-
-        elif self.norm_type == "sentence":
+        if self.norm_type == "sentence":
             x = (x - current_means.unsqueeze(1)) / current_stds.unsqueeze(1)
 
         elif self.norm_type == "batch":
@@ -1173,13 +1119,15 @@ class InputNormalization(torch.nn.Module):
                 if self.avg_factor is None:
                     self.weight = 1 / (self.count + 1)
 
-                self.glob_mean = self._update_stats(self.glob_mean, current_mean)
+                self.glob_mean = self._update_stats(
+                    self.glob_mean, current_mean
+                )
                 self.glob_std = self._update_stats(self.glob_std, current_std)
 
             self.glob_mean = self.glob_mean.detach()
             self.glob_std = self.glob_std.detach()
 
-            x = (x - self.glob_mean) / (self.glob_std)
+            x = (x - self.glob_mean.data) / (self.glob_std.data)
 
         else:
             raise ValueError(
