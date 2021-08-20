@@ -128,6 +128,13 @@ eval_mode: sentence
 eval_output_wer_file: false
 eval_wer_file: !ref <save_folder>/wer_eval.txt
 
+# Word embeddings
+use_word_emb: False
+word_emb_model: bert-base-uncased
+word_emb_dim: 768
+word_emb_enc_dim: 256
+word_emb_norm_type: batch
+
 
 select_n_sentences: None
 
@@ -203,6 +210,12 @@ phonemes:
   - ZH
   - " "
 
+enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
+    use_word_emb: !ref <use_word_emb>
+    word_emb_enc_dim: !ref <word_emb_enc_dim>
+    embedding_dim: !ref <embedding_dim>
+
+
 phn_char_map: !apply:speechbrain.lobes.models.g2p.attnrnn.build_token_char_map
     tokens: !ref <phonemes>
 
@@ -212,8 +225,9 @@ char_phn_map: !apply:speechbrain.lobes.models.g2p.attnrnn.flip_map
 
 
 # Models
+
 enc: !new:speechbrain.nnet.RNN.LSTM
-    input_shape: [null, null, !ref <embedding_dim>]
+    input_shape: [null, null, !ref <enc_input_dim>]
     bidirectional: True
     hidden_size: !ref <enc_neurons>
     num_layers: !ref <enc_num_layers>
@@ -246,6 +260,18 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     attn_dim: !ref <dec_att_neurons>
     num_layers: !ref <dec_num_layers>
 
+
+word_emb_enc: !new:speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder
+    word_emb_dim: !ref <word_emb_dim>
+    word_emb_enc_dim: !ref <word_emb_enc_dim>
+    norm_type: !ref <word_emb_norm_type>
+
+
+word_emb: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+    init: !name:speechbrain.wordemb.transformer.TransformerWordEmbeddings
+        model: !ref <word_emb_model>
+
+
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
@@ -258,6 +284,7 @@ modules:
     lin: !ref <lin>
     ctc_lin: !ref <ctc_lin>
     out: !ref <log_softmax>
+    word_emb_enc: !ref <word_emb_enc>
 
 model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
     enc: !ref <enc>
@@ -266,6 +293,9 @@ model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
     dec: !ref <dec>
     lin: !ref <lin>
     out: !ref <log_softmax>
+    use_word_emb: !ref <use_word_emb>
+    word_emb_enc: !ref <word_emb_enc>
+
 
 lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     embedding_dim: !ref <lm_emb_dim>
