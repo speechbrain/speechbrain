@@ -140,7 +140,9 @@ class STFT(torch.nn.Module):
         x : tensor
             A batch of audio signals to transform.
         lengths: tensor
-            Relative length of each sentence in the batch.
+            Relative length of each sentence in the batch
+            (e.g, [0.7, 0.9, 1.0]). It is used to mask the
+            extra-steps introduced by the STFT function.
         """
 
         # Managing multi-channel stft
@@ -878,8 +880,8 @@ class Deltas(torch.nn.Module):
             A batch of tensors.
         lengths: tensor
             Tensor containing relative lengths of each sentence in the batch.
-            It can be used here to avoid the extra non-zero steps due to the
-            convolution tail.
+            (e.g, [0.7, 0.9, 1.0]). It can be used here to avoid the extra
+            non-zero steps due to the convolution tail.
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
@@ -972,8 +974,8 @@ class ContextWindow(torch.nn.Module):
             A batch of tensors.
         lengths: tensor
             Tensor containing relative lengths of each sentence in the batch.
-            It can be used here to avoid the extra non-zero steps due to the
-            convolution tail.
+            (e.g, [0.7, 0.9, 1.0]). It can be used here to avoid the extra
+            non-zero steps due to the convolution tail.
         """
 
         x = x.transpose(1, 2)
@@ -1038,13 +1040,9 @@ class InputNormalization(torch.nn.Module):
          If True, the standard deviation will be normalized.
     norm_type : str
          It defines how the statistics are computed ('sentence' computes them
-         at sentence level, 'batch' at batch level, while global computes a single
-         normalization vector for all the sentences in the dataset).
-         Speaker and global statistics are
-         computed with a moving average approach.
-    avg_factor : float
-         It can be used to manually set the weighting factor between
-         current statistics and accumulated ones.
+         at sentence level, while global computes a single normalization vector
+         for all the sentences in the dataset).
+         Speaker and global statistics are computed with a moving average approach.
 
     Example
     -------
@@ -1058,22 +1056,15 @@ class InputNormalization(torch.nn.Module):
     from typing import Dict
 
     def __init__(
-        self,
-        mean_norm=True,
-        std_norm=True,
-        norm_type="global",
-        avg_factor=None,
-        requires_grad=False,
+        self, mean_norm=True, std_norm=True, norm_type="global",
     ):
         super().__init__()
         self.mean_norm = mean_norm
         self.std_norm = std_norm
         self.norm_type = norm_type
-        self.avg_factor = avg_factor
-        self.requires_grad = requires_grad
         self.glob_mean = torch.tensor([0])
         self.glob_std = torch.tensor([0])
-        self.weight = avg_factor
+        self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
 
@@ -1102,39 +1093,34 @@ class InputNormalization(torch.nn.Module):
         if self.norm_type == "sentence":
             x = (x - current_means.unsqueeze(1)) / current_stds.unsqueeze(1)
 
-        elif self.norm_type == "batch":
-            current_mean = torch.mean(current_means, dim=0)
-            current_std = torch.mean(current_stds, dim=0)
-            x = (x - current_mean) / (current_std)
-
         elif self.norm_type == "global":
+            if self.count == 0:
+                self.glob_mean = current_means.unsqueeze(1)
+                self.glob_std = current_stds.unsqueeze(1)
+
+            # Perform Normalization
+            x = (x - self.glob_mean.data) / (self.glob_std.data)
+
+            # Update statistics for the next training batch
             if self.training:
+                # Average statistics within the batch
                 current_mean = torch.mean(current_means, dim=0)
                 current_std = torch.mean(current_stds, dim=0)
 
-                if self.count == 0:
-                    self.glob_mean = current_mean
-                    self.glob_std = current_std
-
-                if self.avg_factor is None:
-                    self.weight = 1 / (self.count + 1)
-
+                # Update statistics with moving average
+                self.weight = 1 / (self.count + 1)
                 self.glob_mean = self._update_stats(
                     self.glob_mean, current_mean
                 )
                 self.glob_std = self._update_stats(self.glob_std, current_std)
+                self.glob_mean = self.glob_mean.detach()
+                self.glob_std = self.glob_std.detach()
 
-            self.glob_mean = self.glob_mean.detach()
-            self.glob_std = self.glob_std.detach()
-
-            x = (x - self.glob_mean.data) / (self.glob_std.data)
+                # Update counter
+                self.count = self.count + x.shape[0]
 
         else:
-            raise ValueError(
-                "norm_type must be one of : [sentence, batch, global]"
-            )
-
-        self.count = self.count + 1
+            raise ValueError("norm_type must be one of : [sentence, global]")
 
         # Mask padding part after normalization
         x = masks.unsqueeze(-1) * x
@@ -1199,7 +1185,7 @@ class InputNormalization(torch.nn.Module):
     def _require_current_stats(self):
         """Checks if the computation of current statistics is required.
         """
-        if self.norm_type == "global" and not self.training:
+        if self.norm_type == "global" and not self.training and self.count != 0:
             return False
 
         return True
