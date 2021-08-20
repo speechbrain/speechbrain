@@ -34,7 +34,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 32 # This works with a 32GB GPU !
+batch_size: 32 # This works with a 32GB GPU ! (bs * nb_gpu * accum) > 128 !
 ctc_weight: 0.3
 gradient_accumulation: 4
 gradient_clipping: 5.0
