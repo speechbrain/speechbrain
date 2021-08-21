@@ -1055,16 +1055,11 @@ class InputNormalization(torch.nn.Module):
 
     from typing import Dict
 
-    def __init__(
-        self, mean_norm=True, std_norm=True, norm_type="global",
-    ):
+    def __init__(self, mean_norm=True, std_norm=True, norm_type="global"):
         super().__init__()
         self.mean_norm = mean_norm
         self.std_norm = std_norm
         self.norm_type = norm_type
-        self.glob_mean = torch.tensor([0])
-        self.glob_std = torch.tensor([0])
-        self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
 
@@ -1094,11 +1089,12 @@ class InputNormalization(torch.nn.Module):
             x = (x - current_means.unsqueeze(1)) / current_stds.unsqueeze(1)
 
         elif self.norm_type == "global":
-            if self.count == 0:
-                self.glob_mean = current_means.unsqueeze(1)
-                self.glob_std = current_stds.unsqueeze(1)
 
             # Perform Normalization
+            if self.count == 0:
+                self.glob_mean = torch.mean(current_means, dim=0)
+                self.glob_std = torch.mean(current_stds, dim=0)
+
             x = (x - self.glob_mean.data) / (self.glob_std.data)
 
             # Update statistics for the next training batch
@@ -1107,17 +1103,21 @@ class InputNormalization(torch.nn.Module):
                 current_mean = torch.mean(current_means, dim=0)
                 current_std = torch.mean(current_stds, dim=0)
 
-                # Update statistics with moving average
-                self.weight = 1 / (self.count + 1)
-                self.glob_mean = self._update_stats(
-                    self.glob_mean, current_mean
-                )
-                self.glob_std = self._update_stats(self.glob_std, current_std)
-                self.glob_mean = self.glob_mean.detach()
-                self.glob_std = self.glob_std.detach()
-
                 # Update counter
                 self.count = self.count + x.shape[0]
+
+                # Update stats
+                weight = x.shape[0] / self.count
+                self.glob_mean = self._update_stats(
+                    self.glob_mean, current_mean, weight
+                )
+                self.glob_std = self._update_stats(
+                    self.glob_std, current_std, weight
+                )
+
+                # Detach tensors (to avoid memory leak)
+                self.glob_mean = self.glob_mean.detach()
+                self.glob_std = self.glob_std.detach()
 
         else:
             raise ValueError("norm_type must be one of : [sentence, global]")
@@ -1146,7 +1146,7 @@ class InputNormalization(torch.nn.Module):
         """
         batch = x.size(0)
         fea_dim = x.size(-1)
-        num_nonpad = torch.sum(masks, dim=1).unsqueeze(-1) * fea_dim
+        num_nonpad = torch.sum(masks, dim=1).unsqueeze(-1)
 
         # Compute current mean
         if self.mean_norm:
@@ -1173,12 +1173,10 @@ class InputNormalization(torch.nn.Module):
 
         return current_means, current_stds
 
-    def _update_stats(self, norm_stats, current_stats):
+    def _update_stats(self, norm_stats, current_stats, weight):
         """Update normalization statistics from current statistics.
         """
-        norm_stats = (
-            1 - self.weight
-        ) * norm_stats + self.weight * current_stats
+        norm_stats = (1 - weight) * norm_stats + weight * current_stats
 
         return norm_stats
 

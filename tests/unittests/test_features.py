@@ -340,6 +340,19 @@ def test_input_normalization():
     target = torch.FloatTensor([-2, -1, 0, 1, 2])
     assert torch.equal(out_norm, target)
 
+    norm = InputNormalization(norm_type="sentence")
+    inputs = (
+        torch.FloatTensor([[1, 2, 3, 0, 0], [4, 5, 6, 0, 0]])
+        .unsqueeze(0)
+        .transpose(-1, 1)
+    )
+    inp_len = torch.FloatTensor([0.6])
+    out_norm = norm(inputs, inp_len).squeeze()
+    target = torch.FloatTensor([[-1, 0, 1, 0, 0], [-1, 0, 1, 0, 0]]).transpose(
+        0, 1
+    )
+    assert torch.equal(out_norm, target)
+
     norm = InputNormalization()
     inputs = torch.FloatTensor([1, 2, 3, 0, 0]).unsqueeze(0).unsqueeze(2)
     inp_len = torch.FloatTensor([0.6])
