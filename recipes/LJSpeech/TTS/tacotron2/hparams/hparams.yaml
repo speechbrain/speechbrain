@@ -22,9 +22,9 @@ keep_checkpoint_interval: 20
 #################################
 data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
 data_folder_rirs: !ref <data_folder>
-train_data_path: ../../../samples/dataset_samples/lj
+train_data_path: ../../../../samples/dataset_samples/lj
 train_filter: null
-valid_data_path: ../../../samples/dataset_samples/lj
+valid_data_path: ../../../../samples/dataset_samples/lj
 valid_filter: null
 preprocessing_mode: nvidia
 text_cleaners: ['english_cleaners']
