@@ -5,6 +5,7 @@ Authors
  * Peter Plantinga 2020
 """
 import torch
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.processing.features import (
     STFT,
     spectral_magnitude,
@@ -13,6 +14,7 @@ from speechbrain.processing.features import (
     Deltas,
     ContextWindow,
 )
+
 
 
 class Fbank(torch.nn.Module):
@@ -123,27 +125,30 @@ class Fbank(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    def forward(self, wav):
+    def forward(self, wav, lengths=None):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
         ---------
         wav : tensor
             A batch of audio signals to transform to features.
+        lengths: tensor
+            Relative length of each sentence in the batch
+            (e.g, [0.7, 0.9, 1.0]).
         """
         with torch.no_grad():
 
-            STFT = self.compute_STFT(wav)
+            STFT = self.compute_STFT(wav, lengths)
             mag = spectral_magnitude(STFT)
             fbanks = self.compute_fbanks(mag)
 
             if self.deltas:
-                delta1 = self.compute_deltas(fbanks)
-                delta2 = self.compute_deltas(delta1)
+                delta1 = self.compute_deltas(fbanks, lengths)
+                delta2 = self.compute_deltas(delta1, lengths)
                 fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
 
             if self.context:
-                fbanks = self.context_window(fbanks)
+                fbanks = self.context_window(fbanks, lengths)
 
         return fbanks
 
@@ -261,26 +266,29 @@ class MFCC(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    def forward(self, wav):
+    def forward(self, wav, lengths=None):
         """Returns a set of mfccs generated from the input waveforms.
 
         Arguments
         ---------
         wav : tensor
             A batch of audio signals to transform to features.
+        lengths: tensor
+            Relative length of each sentence in the batch
+            (e.g, [0.7, 0.9, 1.0]).
         """
         with torch.no_grad():
-            STFT = self.compute_STFT(wav)
+            STFT = self.compute_STFT(wav, lengths)
             mag = spectral_magnitude(STFT)
             fbanks = self.compute_fbanks(mag)
             mfccs = self.compute_dct(fbanks)
 
             if self.deltas:
-                delta1 = self.compute_deltas(mfccs)
-                delta2 = self.compute_deltas(delta1)
+                delta1 = self.compute_deltas(mfccs, lengths)
+                delta2 = self.compute_deltas(delta1, lengths)
                 mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
 
             if self.context:
-                mfccs = self.context_window(mfccs)
+                mfccs = self.context_window(mfccs, lengths)
 
         return mfccs
