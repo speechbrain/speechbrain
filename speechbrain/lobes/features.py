@@ -5,7 +5,6 @@ Authors
  * Peter Plantinga 2020
 """
 import torch
-from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.processing.features import (
     STFT,
     spectral_magnitude,
@@ -14,7 +13,6 @@ from speechbrain.processing.features import (
     Deltas,
     ContextWindow,
 )
-
 
 
 class Fbank(torch.nn.Module):

@@ -7,7 +7,6 @@ Authors
 import torch  # noqa 42
 from torch import nn
 from typing import Optional
-
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -17,7 +16,6 @@ from speechbrain.lobes.models.transformer.Transformer import (
     NormalizedEmbedding,
 )
 from speechbrain.nnet.activations import Swish
-
 from speechbrain.dataio.dataio import length_to_mask
 
 
