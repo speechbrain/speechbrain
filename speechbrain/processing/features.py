@@ -1059,6 +1059,8 @@ class InputNormalization(torch.nn.Module):
         super().__init__()
         self.mean_norm = mean_norm
         self.std_norm = std_norm
+        self.glob_mean = torch.Tensor([0])
+        self.glob_std = torch.Tensor([1])
         self.norm_type = norm_type
         self.count = 0
         self.eps = 1e-10
