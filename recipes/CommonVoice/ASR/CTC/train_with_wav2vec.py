@@ -195,7 +195,7 @@ class ASR(sb.core.Brain):
 
 
 # Define custom data procedure
-def dataio_prepare(hparams):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
 
@@ -247,18 +247,6 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    # defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-        bos_id=hparams["bos_index"],
-        eos_id=hparams["eos_index"],
-    )
-
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -293,7 +281,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data, tokenizer
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -332,8 +320,18 @@ if __name__ == "__main__":
         },
     )
 
+    # Defining tokenizer and loading it
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["output_neurons"],
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
+        model_type=hparams["token_type"],
+        character_coverage=hparams["character_coverage"],
+    )
+
     # Create the datasets objects as well as tokenization and encoding :-D
-    train_data, valid_data, test_data, tokenizer = dataio_prepare(hparams)
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(

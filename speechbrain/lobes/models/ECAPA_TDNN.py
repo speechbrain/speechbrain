@@ -83,6 +83,8 @@ class Res2NetBlock(torch.nn.Module):
         The number of output channels.
     scale : int
         The scale of the Res2Net block.
+    kernel_size: int
+        The kernel size of the Res2Net block.
     dilation : int
         The dilation of the Res2Net block.
 
@@ -95,7 +97,9 @@ class Res2NetBlock(torch.nn.Module):
     torch.Size([8, 120, 64])
     """
 
-    def __init__(self, in_channels, out_channels, scale=8, dilation=1):
+    def __init__(
+        self, in_channels, out_channels, scale=8, kernel_size=3, dilation=1
+    ):
         super(Res2NetBlock, self).__init__()
         assert in_channels % scale == 0
         assert out_channels % scale == 0
@@ -106,7 +110,10 @@ class Res2NetBlock(torch.nn.Module):
         self.blocks = nn.ModuleList(
             [
                 TDNNBlock(
-                    in_channel, hidden_channel, kernel_size=3, dilation=dilation
+                    in_channel,
+                    hidden_channel,
+                    kernel_size=kernel_size,
+                    dilation=dilation,
                 )
                 for i in range(scale - 1)
             ]
@@ -310,7 +317,7 @@ class SERes2NetBlock(nn.Module):
             activation=activation,
         )
         self.res2net_block = Res2NetBlock(
-            out_channels, out_channels, res2net_scale, dilation
+            out_channels, out_channels, res2net_scale, kernel_size, dilation
         )
         self.tdnn2 = TDNNBlock(
             out_channels,

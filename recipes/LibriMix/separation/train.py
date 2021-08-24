@@ -600,22 +600,39 @@ if __name__ == "__main__":
 
         # if the base_folder for dm is not processed, preprocess them
         if "processed" not in hparams["base_folder_dm"]:
-            from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
-                resample_folder,
-            )
+            # if the processed folder already exists we just use it otherwise we do the preprocessing
+            if not os.path.exists(
+                os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+            ):
+                from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
+                    resample_folder,
+                )
 
-            print("Resampling the base folder")
-            run_on_main(
-                resample_folder,
-                kwargs={
-                    "input_folder": hparams["base_folder_dm"],
-                    "output_folder": hparams["base_folder_dm"] + "_processed",
-                    "fs": hparams["sample_rate"],
-                    "regex": "**/*.flac",
-                },
-            )
-            # adjust the base_folder_dm path
-            hparams["base_folder_dm"] = hparams["base_folder_dm"] + "_processed"
+                print("Resampling the base folder")
+                run_on_main(
+                    resample_folder,
+                    kwargs={
+                        "input_folder": hparams["base_folder_dm"],
+                        "output_folder": os.path.normpath(
+                            hparams["base_folder_dm"]
+                        )
+                        + "_processed",
+                        "fs": hparams["sample_rate"],
+                        "regex": "**/*.flac",
+                    },
+                )
+                # adjust the base_folder_dm path
+                hparams["base_folder_dm"] = (
+                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                )
+            else:
+                print(
+                    "Using the existing processed folder on the same directory as base_folder_dm"
+                )
+                hparams["base_folder_dm"] = (
+                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                )
+
         train_data = dynamic_mix_data_prep(hparams)
         _, valid_data, test_data = dataio_prep(hparams)
     else:
