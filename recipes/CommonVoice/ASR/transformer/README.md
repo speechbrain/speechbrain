@@ -16,7 +16,7 @@ with our transformers:
 
 | Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
-| French | 2020-06-22 | train_fr.yaml | No | 5.28 | 19.26 | 6.13 | 20.57 | [model](https://drive.google.com/drive/folders/1C6YPWFT1VmciKGAjhO5b_70P-eqcrSH-?usp=sharing) | 1xV100 16GB |
+| French | 2020-06-22 | train_fr.yaml | No | 5.15 | 17.80 | 6.01 | 19.21 | [model](https://drive.google.com/drive/folders/12ny6daoz1Ze1MmgLrsqf352AXvhwob6d?usp=sharing) | 1xV100 16GB |
 
 
 # **About SpeechBrain**
