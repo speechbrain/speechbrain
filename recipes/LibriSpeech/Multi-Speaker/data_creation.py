@@ -246,8 +246,9 @@ def make_data(
                 hparams["new_data_folder"], audio_folders[folder_id], "*.txt"
             )
         ) + glob.glob(
-            os.path.join(hparams["new_data_folder"], audio_folders[folder_id],
-            "*.flac")
+            os.path.join(
+                hparams["new_data_folder"], audio_folders[folder_id], "*.flac"
+            )
         )
 
         # Move to temp dir

@@ -4,10 +4,11 @@ LibriSpeech 5s multi-speaker dataset created in recipes/LibriSpeech/Multi-Speake
 We employ an encoder followed by a speaker classifier.
 
 To run this recipe, use the following command:
-> python train.py {hyperparameter_file} --data_foler {data_folder}
+> python train.py {hyperparameter_file} --data_folder {data_folder}
 
 Using your own hyperparameter file or one of the following:
-    hyperparams/train_xvector_params.yaml (for standard xvectors)
+    hparams/train_xvector_params.yaml (for standard xvectors)
+    hparams/train_ecapa_tdnn.yaml 
 """
 import os
 import sys
@@ -16,7 +17,7 @@ import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.speech_augmentation import Resample
+
 
 class SpeakerBrain(sb.core.Brain):
     """Class for speaker embedding training"
@@ -57,18 +58,6 @@ class SpeakerBrain(sb.core.Brain):
             wavs = torch.cat(wavs_aug_tot, dim=0)
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
-
-        # Manual data augmentation pipeline
-        # Speed modulation
-        # resampler = Resample(
-        #     orig_freq=int(self.hparams.sample_rate), 
-        #     new_freq=int(self.hparams.sample_rate*self.hparams.augment_speed)
-        # )
-        # new_wavs_list = []
-        # for signal in wavs:
-        #     new_wavs_list.append(resampler(signal.unsqueeze(0)).reshape(-1))
-
-        # new_wavs = torch.stack(new_wavs_list)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)

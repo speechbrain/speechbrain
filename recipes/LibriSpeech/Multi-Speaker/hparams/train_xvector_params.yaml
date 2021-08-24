@@ -15,7 +15,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
 train_data: <data_folder>/train-clean-100
 test_data: <data_folder>/test-clean
 data_folder_rirs: !ref <data_folder> # where to store noisy data for augment (change it if needed)
-rir_folder: /home/matteo/data/rirs
+rir_folder: <data_folder>/rirs
 
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
@@ -76,8 +76,6 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-augment_speed: 0.95
 
 augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>

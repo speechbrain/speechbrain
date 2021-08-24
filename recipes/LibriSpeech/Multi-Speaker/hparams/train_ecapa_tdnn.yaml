@@ -16,7 +16,7 @@ train_annotation: !ref <save_folder>/train.csv
 valid_annotation: !ref <save_folder>/dev-clean.csv
 
 # Folder to extract data augmentation files
-rir_folder: /home/matteo/data/rirs # Change it if needed
+rir_folder: !ref <output_folder>/rirs # Change it if needed
 
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
@@ -26,8 +26,6 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev-clean.csv
 test_csv: !ref <save_folder>/test-clean.csv
-
-# verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
@@ -51,7 +49,7 @@ right_frames: 0
 deltas: False
 
 # Number of speakers
-out_n_neurons: 5 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+out_n_neurons: 5
 
 dataloader_options:
     batch_size: !ref <batch_size>

@@ -1,6 +1,5 @@
 # ############################################################################
-# Model: CRNN
-# losses: TBC
+# Data Creation for Speaker Counting
 # Training: Multi-speaker 5s clips from Librispeech 100h
 # Authors:  Matteo Esposito 2021
 # ############################################################################
