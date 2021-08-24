@@ -1,0 +1,127 @@
+# ########################################
+# Emotion recognition from speech using wav2vec2
+#
+#  * Authors: Yingzhi WANG
+# ########################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1968
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+experiment: emotion_recognition
+# Set up folders for reading from and writing to
+# Dataset will be downloaded to the `data_folder`
+data_folder: !PLACEHOLDER # e.g., /tempstorage/IA_EMOTIONELLE/IEMOCAP/IEMOCAP_ahsn_leave-two-speaker-out
+output_folder: !ref results/wav2vec/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the wav2vec2 model, you can change to benchmark diffrenet models
+wav2vec2_hub: "facebook/wav2vec2-base-960h"
+
+# different speakers for train, valid and test sets
+# (more challenging exercise: higher error rate)
+different_speakers: False
+
+# Path where data manifest files will be stored
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/valid.json
+test_annotation: !ref <output_folder>/test.json
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 30
+batch_size: 4
+lr: 0.0001 
+lr_wav2vec2: 0.00001
+
+#freeze all wav2vec2
+freeze_wav2vec2: False
+#set to true to freeze the CONV part of the wav2vec2 model
+freeze_wav2vec2_conv: True
+
+# Model parameters
+Wav2vec_encoder_dim: 768
+encoder_dim: 256
+
+# Number of emotions
+out_n_neurons: 4 # (anger, happiness, sadness, neutral)
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: 2  # 2 on linux but 0 works on windows
+    drop_last: False
+
+# Functions
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec2>
+    freeze_feature_extractor : !ref <freeze_wav2vec2_conv>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+rnn_enc: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <Wav2vec_encoder_dim>]
+    lstm: !new:speechbrain.nnet.RNN.LSTM
+        input_size: !ref <Wav2vec_encoder_dim>
+        bidirectional: True
+        hidden_size: !ref <encoder_dim>
+        num_layers: 2
+    linear: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <encoder_dim> * 2
+        n_neurons: !ref <encoder_dim>
+
+output_mlp: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <encoder_dim>
+    n_neurons: !ref <out_n_neurons>
+    bias: False
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    rnn_enc: !ref <rnn_enc>
+    output_mlp: !ref <output_mlp>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <rnn_enc>, !ref <output_mlp>]
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+wav2vec2_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_wav2vec2>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
+
+lr_annealing_wav2vec2: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec2>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        wav2vec2: !ref <wav2vec2>
+        scheduler: !ref <lr_annealing>
+        lr_annealing_wav2vec2: !ref <lr_annealing_wav2vec2>
+        counter: !ref <epoch_counter>
+
