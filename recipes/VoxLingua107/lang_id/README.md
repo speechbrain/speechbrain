@@ -76,7 +76,7 @@ Training is run for 30 epochs. One epoch takes one hour and 40 minutes on a NVid
 
 # Performance
 | Release | hyperparams file | Dev error rate | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
+|:-------------:|:---------------------------:| -----:| -----:| :-----------:|
 | 21-08-24 | train.yaml | 7.3 |https://drive.google.com/drive/folders/1NWIOXpHvC7qUZ16TmNC8oFjfEcjXnKop?usp=sharing | 2xA100 40GB |
 
 
