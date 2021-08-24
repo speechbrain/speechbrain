@@ -4,7 +4,7 @@
 # #######################################
 
 # Basic parameters
-seed: 1997
+seed: 9000
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/xvect/<seed>
 save_folder: !ref <output_folder>/save
