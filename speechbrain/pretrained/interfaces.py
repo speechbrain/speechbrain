@@ -539,7 +539,7 @@ class EncoderASR(Pretrained):
 
         The waveforms should already be in the model's desired format.
         You can call:
-        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        ``normalized = EncoderASR.normalizer(signal, sample_rate)``
         to get a correctly converted signal in most cases.
 
         Arguments
@@ -568,7 +568,7 @@ class EncoderASR(Pretrained):
 
         The waveforms should already be in the model's desired format.
         You can call:
-        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        ``normalized = EncoderASR.normalizer(signal, sample_rate)``
         to get a correctly converted signal in most cases.
 
         Arguments
