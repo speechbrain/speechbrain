@@ -1,6 +1,6 @@
 #!/usr/bin/python3
-"""Recipe for training speaker embeddings (e.g, xvectors) using the 
-LibriSpeech 5s multi-speaker dataset created in recipes/LibriSpeech/Multi-Speaker/data_creation.py. 
+"""Recipe for training speaker embeddings (e.g, xvectors) using the
+LibriSpeech 5s multi-speaker dataset created in recipes/LibriSpeech/Multi-Speaker/data_creation.py.
 We employ an encoder followed by a speaker classifier.
 
 To run this recipe, use the following command:
@@ -8,7 +8,7 @@ To run this recipe, use the following command:
 
 Using your own hyperparameter file or one of the following:
     hparams/train_xvector_params.yaml (for standard xvectors)
-    hparams/train_ecapa_tdnn.yaml 
+    hparams/train_ecapa_tdnn.yaml
 """
 import os
 import sys

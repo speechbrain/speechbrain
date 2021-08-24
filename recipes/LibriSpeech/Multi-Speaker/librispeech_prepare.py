@@ -12,7 +12,7 @@ import os
 import csv
 import logging
 import torchaudio
-from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.data_utils import get_all_files
 from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,

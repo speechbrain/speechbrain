@@ -60,7 +60,7 @@ def move_to_root_folder(root_path, cur_path):
 
 
 def flatten_directory(original_data_path, destination_data_path, audio_folders):
-    """Utility function to remove all subdirectories in a directory and place all files under the parent dir. 
+    """Utility function to remove all subdirectories in a directory and place all files under the parent dir.
 
     Args:
         original_data_path (String): Filepath for directory wished to be flattened.
@@ -83,7 +83,7 @@ def flatten_directory(original_data_path, destination_data_path, audio_folders):
             f"+++ Directory {current_path} flattened and ready for processing."
         )
 
-
+# flake8: noqa: C901
 def make_data(
     original_data_path,
     destination_data_path,
