@@ -26,7 +26,6 @@ def prepare_common_voice(
     dev_tsv_file=None,
     test_tsv_file=None,
     accented_letters=False,
-    duration_threshold=10,
     language="en",
     skip_prep=False,
 ):
@@ -50,10 +49,6 @@ def prepare_common_voice(
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    duration_threshold : int, optional
-        Max duration (in seconds) to use as a threshold to filter sentences.
-        The CommonVoice dataset contains very long utterance mostly containing
-        noise due to open microphones.
     language: str
         Specify the language for text normalization.
     skip_prep: bool
@@ -76,7 +71,6 @@ def prepare_common_voice(
                  dev_tsv_file, \
                  test_tsv_file, \
                  accented_letters, \
-                 duration_threshold, \
                  language="en" \
                  )
     """
@@ -249,12 +243,23 @@ def create_csv(
         # Getting transcript
         words = line.split("\t")[2]
 
+        # Unicode Normalization
+        words = unicode_normalisation(words)
+
         # !! Language specific cleaning !!
         # Important: feel free to specify the text normalization
         # corresponding to your alphabet.
 
         if language in ["en", "fr", "it", "rw"]:
-            words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
+            words = re.sub(
+                "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
+            ).upper()
+
+        if language == "fr":
+            # Replace J'y D'hui etc by J_ D_hui
+            words = words.replace("'", " ")
+            words = words.replace("’", " ")
+
         elif language == "ar":
             HAMZA = "\u0621"
             ALEF_MADDA = "\u0622"
@@ -279,11 +284,9 @@ def create_csv(
 
         # Remove accents if specified
         if not accented_letters:
-            nfkd_form = unicodedata.normalize("NFKD", words)
-            words = "".join(
-                [c for c in nfkd_form if not unicodedata.combining(c)]
-            )
+            words = strip_accents(words)
             words = words.replace("'", " ")
+            words = words.replace("’", " ")
 
         # Remove multiple spaces
         words = re.sub(" +", " ", words)
@@ -296,7 +299,7 @@ def create_csv(
         chars = " ".join([char for char in chars][:])
 
         # Remove too short sentences (or empty):
-        if len(words) < 3:
+        if len(words.split(" ")) < 3:
             continue
 
         # Composition of the csv_line
@@ -349,3 +352,23 @@ def check_commonvoice_folders(data_folder):
             "the Common Voice dataset)" % (data_folder + files_str)
         )
         raise FileNotFoundError(err_msg)
+
+
+def unicode_normalisation(text):
+
+    try:
+        text = unicode(text, "utf-8")
+    except NameError:  # unicode is a default on python 3
+        pass
+    return str(text)
+
+
+def strip_accents(text):
+
+    text = (
+        unicodedata.normalize("NFD", text)
+        .encode("ascii", "ignore")
+        .decode("utf-8")
+    )
+
+    return str(text)

@@ -8,11 +8,14 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Folders
-# data: http://groups.inf.ed.ac.uk/ami/download/
-data_folder: /network/datasets/ami/amicorpus
-manual_annot_folder: /miniscratch/nauman/ami_public_manual
-output_folder: results/ami/sd_ecapa_tdnn/
+# Directories: Replace !PLACEHOLDER with full path of the directory.
+# Download data from: http://groups.inf.ed.ac.uk/ami/download/
+data_folder: !PLACEHOLDER # e.g., /path/to/amicorpus/
+
+# Download manual annotations from: http://groups.inf.ed.ac.uk/ami/download/
+manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
+
+output_folder: results/ami/ecapa/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -21,18 +24,16 @@ device: 'cuda:0'
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
+
+# Will automatically download ECAPA-TDNN model (best).
 pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
-# Some more exp folders (for cleaner structure)
+# Some more exp folders (for cleaner structure).
 embedding_dir: !ref <save_folder>/emb
-csv_dir: !ref <save_folder>/csv
+meta_data_dir: !ref <save_folder>/metadata
 ref_rttm_dir: !ref <save_folder>/ref_rttms
 sys_rttm_dir: !ref <save_folder>/sys_rttms
 der_dir: !ref <save_folder>/DER
-
-# AMI: csv files
-csv_diary_dev: !ref <csv_dir>/ami_dev.subsegments.csv
-csv_diary_eval: !ref <csv_dir>/ami_eval.subsegments.csv
 
 # Spectral feature parameters
 n_mels: 80
@@ -40,20 +41,23 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
-# Xvector model
+# ECAPA-TDNN model
 emb_dim: 192
 batch_size: 512
 
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
 skip_TNO: True
-mic_type: 'Lapel'
+# Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
+mic_type: 'Mix-Headset'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 
+backend: 'SC' # options: 'kmeans' # Note: kmeans goes only with cos affinity
+
 # Spectral Clustering parameters
-affinity: 'nn'  # use 'cos' for cosine affinity
+affinity: 'cos'  # options: cos, nn
 max_num_spkrs: 10
 oracle_n_spkrs: True
 
@@ -61,11 +65,17 @@ oracle_n_spkrs: True
 ignore_overlap: True
 forgiveness_collar: 0.25
 
+# Used for multi-mic beamformer
+sampling_rate: 16000
+
 dataloader_opts:
     batch_size: !ref <batch_size>
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
+
+multimic_beamformer: !new:speechbrain.lobes.beamform_multimic.DelaySum_Beamformer
+    sampling_rate: !ref <sampling_rate>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence

@@ -1,4 +1,5 @@
 import torch
+import pytest
 
 
 def test_saveable_dataloader(tmpdir):
@@ -54,3 +55,33 @@ def test_saveable_dataloader_multiprocess(tmpdir):
         assert second_second_item == second_item
         del new_data_iterator
         del new_dataloader
+
+
+def test_looped_loader(tmpdir):
+    # Tests that LoopedLoader will raise StopIteration appropriately
+    # And that it can recover and keep the place.
+    from speechbrain.dataio.dataloader import LoopedLoader
+
+    save_file = tmpdir + "/loopedloader.ckpt"
+    data = range(3)
+    dataloader = LoopedLoader(data, epoch_length=2)
+    data_iterator = iter(dataloader)
+    assert next(data_iterator) == 0
+    # Save here, 1 to go:
+    dataloader.save(save_file)
+    assert next(data_iterator) == 1
+    with pytest.raises(StopIteration):
+        next(data_iterator)
+    # And it can be continued past the range:
+    assert next(data_iterator) == 2
+    assert next(data_iterator) == 0
+    # And again it raises:
+    with pytest.raises(StopIteration):
+        next(data_iterator)
+    # Now make a new dataloader and recover:
+    new_dataloader = LoopedLoader(data, epoch_length=2)
+    new_dataloader.load(save_file, end_of_epoch=False, device=None)
+    new_data_iterator = iter(new_dataloader)
+    next(new_data_iterator)
+    with pytest.raises(StopIteration):
+        next(new_data_iterator)

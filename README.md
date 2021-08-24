@@ -21,6 +21,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loader and dataset style and enables users to customize the i/o pipelines (e.g adding on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
+- A nice integration of sharded data with WebDataset optimized for very large datasets on Nested File Systems (NFS).
 
 
 ### Speech recognition
@@ -50,6 +51,10 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Spectral clustering for speaker diarization (combined with speakers embeddings).
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
+### Speech Translation
+- Recipes for transformer and conformer-based end-to-end speech translation.
+- Possibility to choose between normal training (Attention), multi-objectives (CTC+Attention) and multitasks (ST + ASR).
+
 ### Speech enhancement and separation
 - Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
 - Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
@@ -68,9 +73,10 @@ The recipes released with speechbrain implement speech processing systems with c
 | LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
-| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC/Att. | WER=13.7% (test) |
+| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC | WER=9.96% (test) |
+| Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
-| AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.13% (lapel-mix)|
+| AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
 | WSJ2MIX      | Speech Separation | SepFormer| SDRi=22.6 dB (test)|
 | WSJ3MIX      | Speech Separation | SepFormer| SDRi=20.0 dB (test)|
@@ -155,3 +161,19 @@ Instead of a long and boring README, we prefer to provide you with different res
 
 # License
 SpeechBrain is released under the Apache License, version 2.0. The Apache license is a popular BSD-like license. SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances, you may have to distribute a license document). Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
+
+# Citing SpeechBrain
+Please, cite SpeechBrain if you use it for your research or business.
+
+```bibtex
+@misc{speechbrain,
+  title={{SpeechBrain}: A General-Purpose Speech Toolkit},
+  author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
+  year={2021},
+  eprint={2106.04624},
+  archivePrefix={arXiv},
+  primaryClass={eess.AS},
+  note={arXiv:2106.04624}
+}
+```
+

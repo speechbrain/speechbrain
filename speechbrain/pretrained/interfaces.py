@@ -96,7 +96,7 @@ class Pretrained:
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
         if self.HPARAMS_NEEDED and hparams is None:
-            raise ValueError(f"Need to provide hparams dict.")
+            raise ValueError("Need to provide hparams dict.")
         if hparams is not None:
             # Also first check that all required params are found:
             for hp in self.HPARAMS_NEEDED:
@@ -193,6 +193,7 @@ class Pretrained:
         hparams_file="hyperparams.yaml",
         overrides={},
         savedir=None,
+        use_auth_token=False,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -219,11 +220,16 @@ class Pretrained:
         savedir : str or Path
             Where to put the pretraining material. If not given, will use
             ./pretrained_models/<class-name>-hash(source).
+        use_auth_token : bool (default: False)
+            If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+            default is False because majority of models are public.
         """
         if savedir is None:
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hash(source)}"
-        hparams_local_path = fetch(hparams_file, source, savedir)
+        hparams_local_path = fetch(
+            hparams_file, source, savedir, use_auth_token
+        )
 
         # Load the modules:
         with open(hparams_local_path) as fin:
@@ -709,7 +715,7 @@ class SpeakerRecognition(EncoderClassifier):
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
-    def verify_files(self, path_x, path_y):
+    def verify_files(self, path_x, path_y, threshold=0.25):
         """Speaker verification with cosine distance
 
         Returns the score and the decision (0 different speakers,
@@ -730,7 +736,9 @@ class SpeakerRecognition(EncoderClassifier):
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
         # Verify:
-        score, decision = self.verify_batch(batch_x, batch_y)
+        score, decision = self.verify_batch(
+            batch_x, batch_y, threshold=threshold
+        )
         # Squeeze:
         return score[0], decision[0]
 
