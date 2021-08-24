@@ -74,7 +74,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (French) | Speech Recognition | wav2vec2 + CTC | WER=9.96% (test) |
-| Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04% (test) |
+| Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
