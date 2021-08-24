@@ -21,7 +21,7 @@ train_shards: !ref <shards_url>/train/shard-{000000..000507}.tar
 val_shards: !ref <shards_url>/dev/shard-000000.tar
 
 # Set to directory on a large disk if you are training on Webdataset shards hosted on the web
-shard_cache_dir: 
+shard_cache_dir:
 
 ckpt_interval_minutes: 5
 
