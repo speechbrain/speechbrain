@@ -1,4 +1,4 @@
-# Language identification experiments using the VoxLingua107 dataset.
+# Language identification experiments using the VoxLingua107 dataset
 
 This folder contains scripts for running language identification experiments with the VoxLingua107 dataset. 
 These experiments were highly inspired by the language identification experiments on the CommonLanguage dataset,
