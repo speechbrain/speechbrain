@@ -499,9 +499,8 @@ class EncoderASR(Pretrained):
     >>> asr_model = EncoderASR.from_hparams(
     ...     source="speechbrain/asr-wav2vec2-commonvoice-fr",
     ...     savedir=tmpdir,
-    ... )
-    >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav")
-    "MON CHIEN EST LE PLUS BEAU"
+    ... ) # doctest: +SKIP
+    >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
