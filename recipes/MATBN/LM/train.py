@@ -12,7 +12,7 @@ class LM(sb.core.Brain):
     def compute_forward(self, batch, stage):
         batch = batch.to(self.device)
         tokens_bos, _ = batch.tokens_bos
-        logits = self.hparams.RNNLM(tokens_bos)
+        logits = self.hparams.model(tokens_bos)
         pred = self.hparams.log_softmax(logits)
         return pred
 
@@ -36,7 +36,15 @@ class LM(sb.core.Brain):
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-        return loss.detach()
+            if isinstance(
+                self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
+            ) or isinstance(
+                self.hparams.lr_annealing,
+                sb.nnet.schedulers.CyclicCosineScheduler,
+            ):
+                self.hparams.lr_annealing(self.optimizer)
+
+        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         stage_stats = {"loss": stage_loss}
@@ -44,8 +52,19 @@ class LM(sb.core.Brain):
             self.train_stats = stage_stats
 
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
-            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            if not (
+                isinstance(
+                    self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
+                )
+                or isinstance(
+                    self.hparams.lr_annealing,
+                    sb.nnet.schedulers.CyclicCosineScheduler,
+                )
+            ):
+                old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
+                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            else:
+                old_lr = self.hparams.lr_annealing.current_lr
 
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},

@@ -39,6 +39,8 @@ class ASR(sb.core.Brain):
             hyps = None
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
+                # for the sake of efficiency, we only perform beamsearch with limited capacity
+                # and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wavs_len)
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wavs_len)
@@ -47,7 +49,7 @@ class ASR(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
 
-        p_ctc, p_seq, wavs_len, hyps = predictions
+        (p_ctc, p_seq, wavs_len, hyps,) = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_len = batch.tokens_eos
@@ -70,7 +72,7 @@ class ASR(sb.core.Brain):
                 stage == sb.Stage.TEST
             ):
                 predictions = [
-                    self.hparams["tokenizer"].decode_ids(utt_seq).split(" ")
+                    self.hparams.tokenizer.decode_ids(utt_seq).split(" ")
                     for utt_seq in hyps
                 ]
                 targets = [
@@ -300,12 +302,6 @@ if __name__ == "__main__":
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     datasets = dataio_prepare(hparams)
-
-    hparams[
-        "Transformer"
-    ].positional_encoding = sb.lobes.models.transformer.Transformer.PositionalEncoding(
-        hparams["d_model"], hparams["max_length"]
-    )
 
     asr_brain = ASR(
         modules=hparams["modules"],

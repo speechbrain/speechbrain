@@ -23,11 +23,13 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
+hop_length: 15
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+    hop_length: !ref <hop_length>
 
 # Training parameters
 number_of_epochs: 50
@@ -65,7 +67,6 @@ transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 vocab_size: 5000
-max_length: 2600
 
 # Outputs
 blank_index: 0
@@ -202,11 +203,6 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask_width: 30
     time_mask_width: 40
 
-# AISHELL-1 has spaces between words in the transcripts,
-# which Chinese writing normally does not do.
-# If remove_spaces, spaces are removed
-# from the transcript before computing CER.
-# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 

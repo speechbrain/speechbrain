@@ -61,8 +61,6 @@ def prepare_matbn(
     for split in splits:
         split_data_folder = os.path.join(data_folder, split)
         split_wav_folder = os.path.join(wav_folder, split)
-        if split == "eval":
-            split_wav_folder = os.path.join(wav_folder, "test")
         transcriptions_path = os.path.join(split_data_folder, "text")
         segments_path = os.path.join(split_data_folder, "segments")
 
@@ -78,9 +76,15 @@ def prepare_matbn(
         )
 
         for key, data in concanated_data.items():
-            concanated_data[key].wav.file = os.path.join(
-                split_wav_folder, f"{data.wav.file}.wav"
-            )
+            if split == "eval":
+
+                concanated_data[key].wav.file = find_wav_path(
+                    wav_folder, data.wav.file
+                )
+            else:
+                concanated_data[key].wav.file = os.path.join(
+                    split_wav_folder, f"{data.wav.file}.wav"
+                )
 
         save_path = os.path.join(save_folder, f"{split}.json")
 
@@ -99,6 +103,13 @@ def check_folders_exist(*folders) -> bool:
         if not os.path.exists(folder):
             return False
     return True
+
+
+def find_wav_path(wav_folder: str, wav_name: str) -> str:
+    for split in ["train", "eval", "dev", "test"]:
+        file_path = os.path.join(wav_folder, split, f"{wav_name}.wav")
+        if os.path.isfile(file_path):
+            return file_path
 
 
 def extract_segments_info(segments_path: str) -> Dict[str, SegmentInfo]:
@@ -166,6 +177,6 @@ def concat_segments_info_and_transcriptions(
 
 
 if __name__ == "__main__":
-    save_folder = "PLACEHOLDER"
-    dataset_folder = "/home/wayne/CORPUS/MATBN"
+    save_folder = "results/prepare"
+    dataset_folder = "PLACEHOLDER"
     prepare_matbn(dataset_folder, save_folder)

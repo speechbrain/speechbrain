@@ -1,4 +1,4 @@
-output_folder: !ref results/RNNLM
+output_folder: !ref results/TransformerLM
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -19,10 +19,10 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 # Training parameters
-number_of_epochs: 50
-batch_size: 32
-lr: 0.001
-accumulation_steps: 1
+number_of_epochs: 40
+batch_size: 4
+lr: 10
+accumulation_steps: 32
 ckpt_interval_minutes: 15
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -32,6 +32,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    pin_memory: True
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
@@ -40,38 +41,34 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
 
 # Model parameters
-emb_size: 256
-activation: !name:torch.nn.LeakyReLU
-dropout: 0.3
-rnn_layers: 2
-rnn_neurons: 512
-dnn_blocks: 1
-dnn_neurons: 256
+d_model: 768
 
 # Outputs
 output_neurons: 5000
 blank_index: 0
 bos_index: 1
 eos_index: 2
+unk_index: 0
+pad_index: 0
 
-model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    activation: !ref <activation>
-    dropout: !ref <dropout>
-    rnn_layers: !ref <rnn_layers>
-    rnn_neurons: !ref <rnn_neurons>
-    dnn_blocks: !ref <dnn_blocks>
-    dnn_neurons: !ref <dnn_neurons>
+model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: 12
+    num_encoder_layers: 12
+    num_decoder_layers: 0
+    d_ffn: 3072
+    dropout: 0.0
+    activation: !name:torch.nn.GELU
+    normalize_before: False
 
 modules:
     model: !ref <model>
 
-lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 250000
+    model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -84,7 +81,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 optimizer: !name:torch.optim.Adam
-    lr: !ref <lr>
+    lr: 0
     betas: (0.9, 0.98)
     eps: 0.000000001
 
