@@ -523,7 +523,7 @@ class Classifier(torch.nn.Module):
         for block_index in range(lin_blocks):
             self.blocks.extend(
                 [
-                    _BatchNorm1d(input_size),
+                    _BatchNorm1d(input_size=input_size),
                     Linear(input_size=input_size, n_neurons=lin_neurons),
                 ]
             )
