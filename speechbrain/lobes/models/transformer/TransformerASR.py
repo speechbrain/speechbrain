@@ -222,10 +222,7 @@ class TransformerASR(TransformerInterface):
         src_key_padding_mask = None
         if wav_len is not None:
             abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = (
-                torch.arange(src.shape[1])[None, :].to(abs_len)
-                > abs_len[:, None]
-            )
+            src_key_padding_mask = ~length_to_mask(abs_len).bool()
 
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
 
@@ -233,6 +230,7 @@ class TransformerASR(TransformerInterface):
         tgt_mask = get_lookahead_mask(tgt)
         return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
+    @torch.no_grad()
     def decode(self, tgt, encoder_out, enc_len=None):
         """This method implements a decoding step for the transformer model.
 
