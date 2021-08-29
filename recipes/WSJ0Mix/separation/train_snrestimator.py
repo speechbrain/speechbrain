@@ -102,29 +102,70 @@ class Separation(sb.Brain):
                     mix, targets = self.cut_signals(mix, targets)
 
         # Separation
-        mix_w = self.hparams.Encoder(mix)
-        est_mask = self.hparams.MaskNet(mix_w)
-        mix_w = torch.stack([mix_w] * self.hparams.num_spks)
-        sep_h = mix_w * est_mask
+        with torch.no_grad():
+            mix_w = self.hparams.Encoder(mix)
+            est_mask = self.hparams.MaskNet(mix_w)
+            mix_w = torch.stack([mix_w] * self.hparams.num_spks)
+            sep_h = mix_w * est_mask
 
-        # Decoding
-        est_source = torch.cat(
-            [
-                self.hparams.Decoder(sep_h[i]).unsqueeze(-1)
-                for i in range(self.hparams.num_spks)
-            ],
-            dim=-1,
-        )
+            # Decoding
+            est_source = torch.cat(
+                [
+                    self.hparams.Decoder(sep_h[i]).unsqueeze(-1)
+                    for i in range(self.hparams.num_spks)
+                ],
+                dim=-1,
+            )
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mix.size(1)
         T_est = est_source.size(1)
         if T_origin > T_est:
-            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
+            predictions = F.pad(est_source, (0, 0, 0, T_origin - T_est))
         else:
-            est_source = est_source[:, :T_origin, :]
+            predictions = est_source[:, :T_origin, :]
 
-        return est_source, targets, mix
+        # added part
+
+        snr = self.compute_objectives(predictions, targets)
+        snr = snr.to(self.device)
+        if self.hparams.use_snr_compression:
+            snr_compressed = self.compress_snrrange(snr)
+        predictions = predictions.permute(0, 2, 1)
+        predictions = predictions.reshape(-1, predictions.size(-1))
+
+        if hasattr(self.hparams, "compute_features"):
+            feats_preds = self.hparams.compute_features(predictions)
+            feats_mix = self.hparams.compute_features(mix)
+            min_T = min(feats_preds.shape[1], feats_mix.shape[1])
+
+            assert feats_preds.shape[1] == feats_mix.shape[1], "lengths change"
+            feats_preds = feats_preds[:, :min_T, :]
+            feats_mix = feats_mix[:, :min_T, :]
+
+            feats_mix_repeat = feats_mix.repeat(feats_preds.shape[0], 1, 1)
+            inp_cat = torch.cat([feats_preds, feats_mix_repeat], dim=-1)
+
+            enc_stats = self.hparams.classifier_enc(inp_cat)
+        else:
+            mix_repeat = mix.repeat(2, 1)
+            min_T = min(predictions.shape[1], mix.shape[1])
+            assert predictions.shape[1] == mix.shape[1], "lengths change"
+
+            inp_cat = torch.cat(
+                [
+                    predictions[:, :min_T].unsqueeze(1),
+                    mix_repeat[:, :min_T].unsqueeze(1),
+                ],
+                dim=1,
+            )
+
+            enc = self.hparams.classifier_enc(inp_cat)
+            enc = enc.permute(0, 2, 1)
+            enc_stats = self.hparams.stat_pooling(enc)
+
+        snrhat = self.hparams.classifier_out(enc_stats).squeeze()
+        return predictions, snrhat, snr, snr_compressed
 
     def compute_objectives(self, predictions, targets):
         """Computes the sinr loss"""
@@ -168,94 +209,15 @@ class Separation(sb.Brain):
             targets.append(batch.s3_sig)
 
         if self.hparams.auto_mix_prec:
-            with autocast():
-                predictions, targets, mix = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN, noise
-                )
-                loss = self.compute_objectives(predictions, targets)
-
-                # hard threshold the easy dataitems
-                if self.hparams.threshold_byloss:
-                    th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
-                else:
-                    loss = loss.mean()
-
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                self.scaler.scale(loss).backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm,
-                    )
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
+            pass
         else:
-            with torch.no_grad():
-                predictions, targets, mix = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN, noise
-                )
-
-                snr = self.compute_objectives(predictions, targets)
-                snr = snr.to(self.device)
-
-                if self.hparams.use_snr_compression:
-                    snr = self.compress_snrrange(snr)
-                # mix = mixture[0].to(self.device)
-                # snr = torch.clip(torch.round(snr), self.hparams.snrmin,
-                #                  self.hparams.snrmax) - self.hparams.snrmin
-                # snr = snr.long().to(self.device)
-
-            predictions = predictions.permute(0, 2, 1)
-            predictions = predictions.reshape(-1, predictions.size(-1))
-
-            mix_repeat = mix.repeat(2, 1)
-            min_T = min(predictions.shape[1], mix.shape[1])
-
-            inp_cat = torch.cat(
-                [
-                    predictions[:, :min_T].unsqueeze(1),
-                    mix_repeat[:, :min_T].unsqueeze(1),
-                ],
-                dim=1,
+            predictions, snrhat, snr, snr_compressed = self.compute_forward(
+                mixture, targets, sb.Stage.TRAIN, noise
             )
-
-            # feats_preds = self.hparams.compute_features(predictions)
-            # feats_mix = self.hparams.compute_features(mix)
-            # min_T = min(feats_preds.shape[1], feats_mix.shape[1])
-            # feats_preds = feats_preds[:, :min_T, :]
-            # feats_mix = feats_mix[:, :min_T, :]
-
-            # feats_mix_repeat = feats_mix.repeat(feats_preds.shape[0], 1, 1)
-            # feats_cat = torch.cat([feats_preds, feats_mix_repeat], dim=-1)
-
-            enc = self.hparams.classifier_enc(inp_cat)
-            enc = enc.permute(0, 2, 1)
-            enc_stats = self.hparams.stat_pooling(enc)
-
-            # enc_stats = torch.cat([enc.mean(-1), enc.std(-1)], dim=-1)
-
-            # enc = enc.mean(0, keepdim=True)
-
-            snrhat = self.hparams.classifier_out(enc_stats).squeeze()
-
-            # loss = self.hparams.classifier_loss(snrhat.unsqueeze(0), snr)
 
             if self.hparams.use_snr_compression:
                 snr = snr.reshape(-1)
-                loss = ((snr - snrhat).abs()).mean()
+                loss = ((snr_compressed - snrhat).abs()).mean()
             else:
                 loss = ((snr - snrhat) ** 2).mean()
 
@@ -295,79 +257,19 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        # with torch.no_grad():
-        #     predictions, targets = self.compute_forward(mixture, targets, stage)
-        #     snr = self.compute_objectives(predictions, targets)
-
-        #     snr = torch.clip(torch.round(snr), self.hparams.snrmin,
-        #                           self.hparams.snrmax) - self.hparams.snrmin
-        #     snr = snr.long().to(self.device)
-
-        #     targets = targets.permute(0, 2, 1)
-        #     targets = targets.reshape(-1, targets.size(-1))
-
-        #     mels = self.hparams.compute_features(targets)
-        #
-        #     enc = self.hparams.classifier_enc(mels)
-        #     snrhat = self.hparams.classifier_out(enc).squeeze()
-
-        #     loss = self.hparams.classifier_loss(snrhat, snr)
-
         if self.hparams.use_wham_noise:
             noise = batch.noise_sig[0]
         else:
             noise = None
 
         with torch.no_grad():
-            predictions, targets, mix = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN, noise
+            predictions, snrhat, snr, snr_compressed = self.compute_forward(
+                mixture, targets, sb.Stage.VALID, noise
             )
-
-            snr = self.compute_objectives(predictions, targets)
-            snr = snr.to(self.device)
-            # mix = mixture[0].to(self.device)
-
-            # snr = torch.clip(torch.round(snr), self.hparams.snrmin,
-            #                  self.hparams.snrmax) - self.hparams.snrmin
-            # snr = snr.long().to(self.device)
-
-            predictions = predictions.permute(0, 2, 1)
-            predictions = predictions.reshape(-1, predictions.size(-1))
-
-            mix_repeat = mix.repeat(2, 1)
-            min_T = min(predictions.shape[1], mix.shape[1])
-            inp_cat = torch.cat(
-                [
-                    predictions[:, :min_T].unsqueeze(1),
-                    mix_repeat[:, :min_T].unsqueeze(1),
-                ],
-                dim=1,
-            )
-
-            enc = self.hparams.classifier_enc(inp_cat)
-            enc_stats = torch.cat([enc.mean(-1), enc.std(-1)], dim=-1)
-            snrhat = self.hparams.classifier_out(enc_stats).squeeze()
 
             if self.hparams.use_snr_compression:
                 snrhat = self.gettrue_snrrange(snrhat)
 
-            # predictions = predictions.permute(0, 2, 1)
-            # predictions = predictions.reshape(-1, predictions.size(-1))
-
-            # feats_preds = self.hparams.compute_features(predictions)
-            # feats_mix = self.hparams.compute_features(mix)
-            # feats_mix_repeat = feats_mix.repeat(feats_preds.shape[0], 1, 1)
-            # min_T = min(feats_preds.shape[1], feats_mix.shape[1])
-            # feats_preds = feats_preds[:, :min_T, :]
-            # feats_mix_repeat = feats_mix_repeat[:, :min_T, :]
-            # feats_cat = torch.cat([feats_preds, feats_mix_repeat], dim=-1)
-            #
-            # enc = self.hparams.classifier_enc(feats_cat)
-            # #enc = enc.mean(0, keepdim=True)
-
-            # snrhat = self.hparams.classifier_out(enc).squeeze()
-
-            # loss = self.hparams.classifier_loss(snrhat.unsqueeze(0), snr)
             loss = (snr - snrhat).abs().mean()
 
         # Manage audio file saving
@@ -541,81 +443,32 @@ class Separation(sb.Brain):
                         noise = None
 
                     with torch.no_grad():
-                        predictions, targets, mix = self.compute_forward(
-                            mixture, targets, sb.Stage.TRAIN, noise
+                        (
+                            predictions,
+                            snrhat,
+                            snr,
+                            snr_compressed,
+                        ) = self.compute_forward(
+                            mixture, targets, sb.Stage.VALID, noise
                         )
-
-                        snr = self.compute_objectives(predictions, targets)
-                        snr = snr.to(self.device)
-                        # mix = mixture.to(self.device)
-
-                        predictions = predictions.permute(0, 2, 1)
-                        predictions = predictions.reshape(
-                            -1, predictions.size(-1)
-                        )
-
-                        mix_repeat = mix.repeat(2, 1)
-                        min_T = min(predictions.shape[1], mix.shape[1])
-                        inp_cat = torch.cat(
-                            [
-                                predictions[:, :min_T].unsqueeze(1),
-                                mix_repeat[:, :min_T].unsqueeze(1),
-                            ],
-                            dim=1,
-                        )
-
-                        enc = self.hparams.classifier_enc(inp_cat)
-                        enc_stats = torch.cat(
-                            [enc.mean(-1), enc.std(-1)], dim=-1
-                        )
-                        snrhat = self.hparams.classifier_out(
-                            enc_stats
-                        ).squeeze()
 
                         if self.hparams.use_snr_compression:
                             snrhat = self.gettrue_snrrange(snrhat)
 
-                        # predictions, targets = self.compute_forward(
-                        #     mixture, targets, sb.Stage.TEST, noise
-                        # )
-                        # snr = self.compute_objectives(predictions, targets)
-                        # snr = snr.to(self.device)
-                        # mix = mixture[0].to(self.device)
-
-                        # predictions = predictions.permute(0, 2, 1)
-                        # predictions = predictions.reshape(-1, predictions.size(-1))
-
-                        # feats_preds = self.hparams.compute_features(predictions)
-                        # feats_mix = self.hparams.compute_features(mix)
-                        # min_T = min(feats_preds.shape[1], feats_mix.shape[1])
-                        # feats_preds = feats_preds[:, :min_T, :]
-                        # feats_mix = feats_mix[:, :min_T, :]
-
-                        # feats_mix_repeat = feats_mix.repeat(feats_preds.shape[0], 1, 1)
-                        # feats_cat = torch.cat([feats_preds, feats_mix_repeat], dim=-1)
-                        # enc = self.hparams.classifier_enc(feats_cat)
-                        # enc = enc.mean(0, keepdim=True)
-
-                        # snrhat = self.hparams.classifier_out(enc).squeeze()
-
-                        # snr = torch.clip(torch.round(snr), self.hparams.snrmin,
-                        #                  self.hparams.snrmax) - self.hparams.snrmin
-                        # snr = snr.long().to(self.device)
-
                     # Saving on a csv file
                     row = {
                         "snt_id": snt_id[0],
-                        "snr1": snr[0].squeeze().item(),
+                        "snr1": snr.squeeze()[0].item(),
                         "snr1-hat": snrhat[0].item(),
-                        "snr2": snr[1].squeeze().item(),
+                        "snr2": snr.squeeze()[1].item(),
                         "snr2-hat": snrhat[1].item(),
                     }
                     writer.writerow(row)
 
                     # Metric Accumulation
-                    all_sisnr1s.append(snr[0].item())
+                    all_sisnr1s.append(snr.squeeze()[0].item())
                     all_sisnr1_hats.append(snrhat[0].item())
-                    all_sisnr2s.append(snr[1].item())
+                    all_sisnr2s.append(snr.squeeze()[1].item())
                     all_sisnr2_hats.append(snrhat[1].item())
 
                 row = {
@@ -681,88 +534,6 @@ class Separation(sb.Brain):
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
-
-
-# def dataio_prep(hparams):
-#    """Creates data processing pipeline"""
-#
-#    # 1. Define datasets
-#    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-#        csv_path=hparams["train_data"],
-#        replacements={"data_root": hparams["data_folder"]},
-#    )
-#
-#    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-#        csv_path=hparams["valid_data"],
-#        replacements={"data_root": hparams["data_folder"]},
-#   )
-#
-#    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-#        csv_path=hparams["test_data"],
-#        replacements={"data_root": hparams["data_folder"]},
-#    )
-#
-#    datasets = [train_data, valid_data, test_data]
-#
-#    # 2. Provide audio pipelines
-#
-#    @sb.utils.data_pipeline.takes("mix_wav")
-#    @sb.utils.data_pipeline.provides("mix_sig")
-#    def audio_pipeline_mix(mix_wav):
-#        mix_sig = sb.dataio.dataio.read_audio(mix_wav)
-#        return mix_sig
-#
-#    @sb.utils.data_pipeline.takes("s1_wav")
-#    @sb.utils.data_pipeline.provides("s1_sig")
-#    def audio_pipeline_s1(s1_wav):
-#        s1_sig = sb.dataio.dataio.read_audio(s1_wav)
-#        return s1_sig
-#
-#    @sb.utils.data_pipeline.takes("s2_wav")
-#    @sb.utils.data_pipeline.provides("s2_sig")
-#    def audio_pipeline_s2(s2_wav):
-#        s2_sig = sb.dataio.dataio.read_audio(s2_wav)
-#        return s2_sig
-#
-#    if hparams["num_spks"] == 3:
-#
-#        @sb.utils.data_pipeline.takes("s3_wav")
-#        @sb.utils.data_pipeline.provides("s3_sig")
-#        def audio_pipeline_s3(s3_wav):
-#            s3_sig = sb.dataio.dataio.read_audio(s3_wav)
-#            return s3_sig
-#
-#    if "wham" in hparams["data_folder"]:
-#
-#        @sb.utils.data_pipeline.takes("noise_wav")
-#        @sb.utils.data_pipeline.provides("noise_sig")
-#        def audio_pipeline_noise(noise_wav):
-#            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
-#            return noise_sig
-#
-#    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
-#    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
-#    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
-#    if hparams["num_spks"] == 3:
-#        sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
-#        sb.dataio.dataset.set_output_keys(
-#            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
-#        )
-#    else:
-#        if "wham" in hparams["data_folder"]:
-#            print("Using the WHAM! noise in the data pipeline")
-#            sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
-#
-#            sb.dataio.dataset.set_output_keys(
-#                datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
-#            )
-#
-#        else:
-#            sb.dataio.dataset.set_output_keys(
-#                datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
-#            )
-#
-#    return train_data, valid_data, test_data
 
 
 def dataio_prep(hparams):
@@ -1093,42 +864,5 @@ if __name__ == "__main__":
 
     if hparams["test_onwsj"]:
         test_data = test_data_wham
-    # separator.evaluate(test_data, min_key="si-snr")
+    separator.evaluate(test_data, min_key="si-snr")
     separator.save_results(test_data)
-
-
-# Create dataset objects
-# if hparams["dynamic_mixing"]:
-#     if hparams["num_spks"] == 2:
-#         if "Libri" in hparams["data_folder"]:
-#             from dynamic_mixing import (
-#                 dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
-#             )  # noqa
-#         else:
-#             from dynamic_mixing import dynamic_mix_data_prep  # noqa
-
-#         # if the base_folder for dm is not processed, preprocess them
-#         if "processed" not in hparams["base_folder_dm"]:
-#             from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
-#                 resample_folder,
-#             )
-
-#             print("Resampling the base folder")
-#             resample_folder(
-#                 hparams["base_folder_dm"],
-#                 hparams["base_folder_dm"] + "_processed",
-#                 hparams["sample_rate"],
-#                 "**/*.flac",
-#             )
-#         train_data = dynamic_mix_data_prep(hparams)
-#     elif hparams["num_spks"] == 3:
-#         from dynamic_mixing import dynamic_mix_data_prep_3mix  # noqa
-
-#         train_data = dynamic_mix_data_prep_3mix(hparams)
-#     else:
-#         raise ValueError(
-#             "The specified number of speakers is not supported."
-#         )
-#     _, valid_data, test_data = dataio_prep(hparams)
-# else:
-#     train_data, valid_data, test_data = dataio_prep(hparams)
