@@ -36,17 +36,14 @@ class EmoIdBrain(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using speaker-id as label.
         """
-        _, lens = batch.sig
         emoid, _ = batch.emo_encoded
-        ids = batch.id
 
         emoid = torch.squeeze(emoid,1).to(self.device)
 
         loss = self.hparams.compute_cost(predictions, emoid)
-        predicted_class = [score.argmax(dim=0) for score in predictions]
 
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(batch.id, [predicted_class], [emoid])
+            self.error_metrics.append(batch.id, predictions, emoid)
 
         return loss
 
@@ -107,7 +104,7 @@ class EmoIdBrain(sb.Brain):
         else:
             stats = {
                 "loss": stage_loss,
-                "error_rate": self.error_metrics.summarize("error_rate"),
+                "error_rate": self.error_metrics.summarize("average"),
             }
 
         # At the end of validation...
