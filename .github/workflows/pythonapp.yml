@@ -44,6 +44,7 @@ jobs:
               run: |
                   pip install -r requirements.txt
                   pip install --editable .
+                  pip install ctc-segmentation
             - name: Unittests with pytest
               run: |
                   pytest tests/unittests
