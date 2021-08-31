@@ -31,8 +31,6 @@ test_annotation: !ref <output_folder>/test.json
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-error_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
-
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
@@ -98,6 +96,10 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
