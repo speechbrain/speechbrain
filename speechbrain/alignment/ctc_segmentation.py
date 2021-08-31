@@ -188,11 +188,6 @@ class CTCSegmentation:
         >>> audio_path = "./samples/audio_samples/example1.wav"
         >>> text = ["THE BIRCH CANOE", "SLID ON THE", "SMOOTH PLANKS"]
         >>> segments = aligner(audio_path, text, name="example1")
-        >>> segments
-        example1_0000 example1 0.04 0.70 -0.0304 THE BIRCH CANOE
-        example1_0001 example1 0.97 1.97 -0.0131 SLID ON THE
-        example1_0002 example1 1.97 3.00 -0.0375 SMOOTH PLANKS
-        <BLANKLINE>
 
     On multiprocessing
     ------------------
