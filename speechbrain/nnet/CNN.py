@@ -376,7 +376,7 @@ class Conv1d(nn.Module):
             bias=bias,
         )
 
-    def forward(self, x):
+    def forward(self, x, masks=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -527,7 +527,7 @@ class Conv2d(nn.Module):
         padding="same",
         groups=1,
         bias=True,
-        padding_mode="reflect",
+        padding_mode="constant",
     ):
         super().__init__()
 
@@ -576,7 +576,6 @@ class Conv2d(nn.Module):
         x = x.transpose(1, -1)
         if self.unsqueeze:
             x = x.unsqueeze(1)
-
         if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
@@ -1098,6 +1097,49 @@ class DepthwiseSeparableConv2d(nn.Module):
             out = out.squeeze(1)
 
         return out
+
+
+class Conv2dMasking(nn.Module):
+    def __init__(
+        self, kernel_size, stride=(1, 1), dilation=(1, 1), padding="same",
+    ):
+        super().__init__()
+
+        # handle the case if some parameter is int
+        if isinstance(kernel_size, int):
+            kernel_size = (kernel_size, kernel_size)
+        if isinstance(stride, int):
+            stride = (stride, stride)
+        if isinstance(dilation, int):
+            dilation = (dilation, dilation)
+
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+
+    def forward(self, mask):
+        mask = mask.transpose(1, -1)
+        # Unsqueeze
+        if mask.ndim == 3:
+            mask = mask.unsqueeze(1)
+        if self.padding == "same":
+            mask = mask[:, :, ::self.stride[-1], ::self.stride[-2]] # noqa
+        elif self.padding == "valid":
+            time_end = -self.dilation[-1] * (self.kernel_size[-1] - 1)
+            freq_end = -self.dilation[-2] * (self.kernel_size[-2] - 1)
+            mask = mask[:, :, :time_end:self.stride[-1], :freq_end:self.stride[-2]] # noqa
+        else:
+            raise ValueError(
+                "Padding must be 'same' or 'valid'. Got " + self.padding
+            )
+
+        # Make it to (batch, 1, time, freq)
+        mask = mask[:, :1]
+        # Make it to (batch, freq, time, 1)
+        mask = mask.transpose(1, -1)
+
+        return mask.detach()
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):

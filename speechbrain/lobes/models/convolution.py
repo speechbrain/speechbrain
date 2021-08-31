@@ -4,7 +4,7 @@ Authors
  * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.nnet.CNN import Conv2d
+from speechbrain.nnet.CNN import Conv2d, Conv2dMasking
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm2d
 
@@ -117,28 +117,38 @@ class ConvBlock(torch.nn.Module):
         dilation=1,
         residual=False,
         conv_module=Conv2d,
+        conv_mask=Conv2dMasking,
         activation=torch.nn.LeakyReLU,
         norm=None,
         dropout=0.1,
     ):
         super().__init__()
 
+        print(input_shape)
         self.convs = Sequential(input_shape=input_shape)
+        self.masks = torch.nn.Sequential()
+        self.pad_idx = 0
 
         for i in range(num_layers):
             self.convs.append(
-                conv_module,
+                ConvLayer,
+                conv_module=conv_module,
                 out_channels=out_channels,
                 kernel_size=kernel_size,
                 stride=stride if i == num_layers - 1 else 1,
                 dilation=dilation,
-                layer_name=f"conv_{i}",
+                norm=norm,
+                activation=activation,
+                dropout=dropout,
+                layer_name=f"conv_layer_{i}",
             )
-            if norm is not None:
-                self.convs.append(norm, layer_name=f"norm_{i}")
-            self.convs.append(activation(), layer_name=f"act_{i}")
-            self.convs.append(
-                torch.nn.Dropout(dropout), layer_name=f"dropout_{i}"
+            self.masks.add_module(
+                "mask_layer_{i}",
+                conv_mask(
+                    kernel_size=kernel_size,
+                    stride=stride if i == num_layers - 1 else 1,
+                    dilation=dilation,
+                ),
             )
 
         self.reduce_conv = None
@@ -146,19 +156,86 @@ class ConvBlock(torch.nn.Module):
         if residual:
             self.reduce_conv = Sequential(input_shape=input_shape)
             self.reduce_conv.append(
-                conv_module,
+                ConvLayer,
+                conv_module=conv_module,
                 out_channels=out_channels,
                 kernel_size=1,
                 stride=stride,
-                layer_name="conv",
+                norm=norm,
+                layer_name=f"reduce_conv",
             )
-            self.reduce_conv.append(norm, layer_name="norm")
             self.drop = torch.nn.Dropout(dropout)
 
     def forward(self, x):
-        out = self.convs(x)
-        if self.reduce_conv:
-            out = out + self.reduce_conv(x)
-            out = self.drop(x)
+        # Create mask from padding input
+        mask = ~x.eq(self.pad_idx)
+        for conv_layer, mask_layer in zip(self.convs.values(), self.masks):
+            mask = mask_layer(mask)
+            x = conv_layer(x)
+            x.masked_fill_(~mask, 0.0)
 
-        return out
+        if self.reduce_conv:
+            x = x + self.reduce_conv(x)
+            x = self.drop(x)
+            x.masked_fill_(~mask, 0.0)
+
+        return x
+
+
+class ConvLayer(Sequential):
+    """An implementation of convolution layer with 1d or 2d convolutions (depthwise).
+
+    Arguments
+    ----------
+    out_channels : int
+        Number of output channels of this model (default 640).
+    kernel_size : int
+        Kernel size of convolution layers (default 3).
+    strides : int
+        Striding factor for this block (default 1).
+    num_layers : int
+        Number of depthwise convolution layers for this block.
+    activation : torch class
+        Activation function for this block.
+    norm : torch class
+        Normalization to regularize the model (default BatchNorm1d).
+    residuals: bool
+        Whether apply residual connection at this block (default None).
+
+    Example
+    -------
+    >>> x = torch.rand((8, 30, 10))
+    >>> conv = ConvBlock(2, 16, input_shape=x.shape)
+    >>> out = conv(x)
+    >>> x.shape
+    torch.Size([8, 30, 10])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        input_shape=None,
+        kernel_size=3,
+        stride=1,
+        dilation=1,
+        conv_module=Conv2d,
+        activation=None,
+        norm=None,
+        dropout=0.0,
+    ):
+        super().__init__(input_shape=input_shape)
+
+        self.append(
+            conv_module,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            dilation=dilation,
+            layer_name="conv",
+        )
+        if norm is not None:
+            self.append(norm, layer_name="norm")
+        if activation is not None:
+            self.append(activation(), layer_name="act")
+        if dropout > 0.0:
+            self.append(torch.nn.Dropout(dropout), layer_name="drop")
