@@ -66,3 +66,37 @@ def test_Conv2d():
     assert torch.all(torch.eq(input, output))
 
     assert torch.jit.trace(convolve, input)
+
+
+def test_Conv2dMask():
+
+    from speechbrain.nnet.CNN import Conv2d, Conv2dMask
+
+    sample_length = 32
+    # Padded input with the shape (batch, time, fea)
+    input_padded = torch.rand([2, 66, 40])
+    # The first sample is padded
+    input_padded[0, sample_length:] = 0.0
+    input_nonpadded = input_padded[0, :sample_length].unsqueeze(0)
+    # Create mask
+    input_mask = input_padded.eq(0.0)
+
+    convolve = Conv2d(
+        out_channels=4,
+        input_shape=input_padded.shape,
+        kernel_size=(1, 1),
+        stride=(2, 2),
+        padding="same",
+    )
+    convolve.eval()
+    conv_mask = Conv2dMask(kernel_size=(1, 1), stride=(2, 2), padding="same",)
+    output_padded = convolve(input_padded)
+    conv_mask = conv_mask(input_mask)
+    # Mask conv output
+    output_padded.masked_fill_(conv_mask, 0.0)
+
+    output_nonpadded = convolve(input_nonpadded)
+
+    assert torch.sum(output_nonpadded[0]) == torch.sum(output_padded[0])
+
+    assert torch.jit.trace(convolve, input_padded)
