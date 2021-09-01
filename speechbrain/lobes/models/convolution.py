@@ -44,7 +44,7 @@ class ConvolutionFrontEnd(Sequential):
     >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
     >>> out = conv(x)
     >>> out.shape
-    torch.Size([8, 30, 10])
+    torch.Size([8, 8, 3, 512])
     """
 
     def __init__(
@@ -153,7 +153,7 @@ class ConvBlock(torch.nn.Module):
                 layer_name=f"conv_layer_{i}",
             )
             self.masks.add_module(
-                "mask_layer_{i}",
+                f"mask_layer_{i}",
                 conv_mask(
                     kernel_size=kernel_size,
                     stride=stride if i == num_layers - 1 else 1,
@@ -179,13 +179,14 @@ class ConvBlock(torch.nn.Module):
     def forward(self, x):
         # Create mask from padding input
         mask = ~x.eq(self.pad_idx)
+        x_residual = x
         for conv_layer, mask_layer in zip(self.convs.values(), self.masks):
             mask = mask_layer(mask)
             x = conv_layer(x)
             x.masked_fill_(~mask, 0.0)
 
         if self.reduce_conv:
-            x = x + self.reduce_conv(x)
+            x = x + self.reduce_conv(x_residual)
             x = self.drop(x)
             x.masked_fill_(~mask, 0.0)
 
