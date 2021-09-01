@@ -1122,20 +1122,12 @@ class Conv2dMask(nn.Module):
     >>> pad_idx = 0
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
     >>> inp_mask = ~inp_tensor.eq(pad_idx)
-    >>> cnn_2d = Conv2d(
-    ...     input_shape=inp_tensor.shape,
-    ...     out_channels=5,
-    ...     kernel_size=(7, 3),
-    ...     stride=(3, 3),
-    ... )
     >>> cnn_2dmask = Conv2dMask(
     ...     kernel_size=(7, 3), stride=(3, 3)
     ... )
     >>> out_mask = cnn_2dmask(inp_mask)
-    >>> out_tensor = cnn_2d(inp_tensor)
-    >>> out_tensor.masked_fill_(~out_mask, 0.0)
-    >>> out_tensor.shape
-    torch.Size([10, 13, 5, 1])
+    >>> out_mask.shape
+    torch.Size([10, 14, 6, 1])
     """
 
     def __init__(
