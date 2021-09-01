@@ -1099,7 +1099,45 @@ class DepthwiseSeparableConv2d(nn.Module):
         return out
 
 
-class Conv2dMasking(nn.Module):
+class Conv2dMask(nn.Module):
+    """This function implements masking for 2d convolution.
+
+    Arguments
+    ---------
+    kernel_size : tuple
+        Kernel size of the 2d convolutional filters over time and frequency
+        axis.
+    stride: int
+        Stride factor of the 2d convolutional filters over time and frequency
+        axis.
+    dilation : int
+        Dilation factor of the 2d convolutional filters over time and
+        frequency axis.
+    padding : str
+        (same, valid). If "valid", no padding is performed.
+        If "same" and stride is 1, output shape is same as input shape.
+
+    Example
+    -------
+    >>> pad_idx = 0
+    >>> inp_tensor = torch.rand([10, 40, 16, 8])
+    >>> inp_mask = ~inp_tensor.eq(pad_idx)
+    >>> cnn_2d = Conv2d(
+    ...     input_shape=inp_tensor.shape,
+    ...     out_channels=5,
+    ...     kernel_size=(7, 3),
+    ...     stride=(3, 3),
+    ... )
+    >>> cnn_2dmask = Conv2dMask(
+    ...     kernel_size=(7, 3), stride=(3, 3)
+    ... )
+    >>> out_mask = cnn_2dmask(inp_mask)
+    >>> out_tensor = cnn_2d(inp_tensor)
+    >>> out_tensor.masked_fill_(~out_mask, 0.0)
+    >>> out_tensor.shape
+    torch.Size([10, 13, 5, 1])
+    """
+
     def __init__(
         self, kernel_size, stride=(1, 1), dilation=(1, 1), padding="same",
     ):

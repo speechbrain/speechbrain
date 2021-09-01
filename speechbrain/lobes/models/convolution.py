@@ -4,7 +4,7 @@ Authors
  * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.nnet.CNN import Conv2d, Conv2dMasking
+from speechbrain.nnet.CNN import Conv2d, Conv2dMask
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm2d
 
@@ -15,6 +15,10 @@ class ConvolutionFrontEnd(Sequential):
 
      Arguments
     ----------
+    num_blocks: int
+        Number of block (default 21).
+    num_per_layers: int
+        Number of convolution layers for each block (default 5).
     out_channels: int
         Number of output channels of this model (default 640).
     out_channels: Optional(list[int])
@@ -23,18 +27,16 @@ class ConvolutionFrontEnd(Sequential):
         Kernel size of convolution layers (default 3).
     strides: Optional(list[int])
         Striding factor for each block, this stride is applied at the last convolution layer at each block.
-    num_blocks: int
-        Number of block (default 21).
-    num_per_layers: int
-        Number of convolution layers for each block (default 5).
-    dropout: float
-        Dropout (default 0.15).
+    dilation : int
+        The spacing between the elements (default 1).
+    residuals: Optional(list[bool])
+        Whether apply residual connection at each block (default None).
     activation: torch class
         Activation function for each block (default Swish).
     norm: torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals: Optional(list[bool])
-        Whether apply residual connection at each block (default None).
+    dropout: float
+        Dropout (default 0.1).
 
     Example
     -------
@@ -83,28 +85,37 @@ class ConvBlock(torch.nn.Module):
 
     Arguments
     ----------
+    num_layer : int
+        Number of convolution layers.
     out_channels : int
         Number of output channels of this model (default 640).
     kernel_size : int
         Kernel size of convolution layers (default 3).
     strides : int
         Striding factor for this block (default 1).
-    num_layers : int
-        Number of depthwise convolution layers for this block.
+    dilation : int
+        The spacing between the elements (default 1).
+    residuals: bool
+        Whether apply residual connection at this block (default None).
+    conv_module : torch class
+        1D or 2D convolution module (default Conv2d).
+    conv_mask : torch class
+        1D or 2D convolution masking module. Masking is applied after convolution
+        to avoid the contribution of padding part (default Conv2dMask).
     activation : torch class
         Activation function for this block.
     norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals: bool
-        Whether apply residual connection at this block (default None).
+    dropout: float
+        Dropout (default 0.1).
 
     Example
     -------
     >>> x = torch.rand((8, 30, 10))
     >>> conv = ConvBlock(2, 16, input_shape=x.shape)
     >>> out = conv(x)
-    >>> x.shape
-    torch.Size([8, 30, 10])
+    >>> out.shape
+    torch.Size([8, 30, 10, 16])
     """
 
     def __init__(
@@ -117,14 +128,13 @@ class ConvBlock(torch.nn.Module):
         dilation=1,
         residual=False,
         conv_module=Conv2d,
-        conv_mask=Conv2dMasking,
+        conv_mask=Conv2dMask,
         activation=torch.nn.LeakyReLU,
         norm=None,
         dropout=0.1,
     ):
         super().__init__()
 
-        print(input_shape)
         self.convs = Sequential(input_shape=input_shape)
         self.masks = torch.nn.Sequential()
         self.pad_idx = 0
@@ -193,22 +203,24 @@ class ConvLayer(Sequential):
         Kernel size of convolution layers (default 3).
     strides : int
         Striding factor for this block (default 1).
-    num_layers : int
-        Number of depthwise convolution layers for this block.
+    dilation : int
+        The spacing between the elements (default 1).
+    conv_module : torch class
+        1D or 2D convolution module (default Conv2d).
     activation : torch class
         Activation function for this block.
     norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals: bool
-        Whether apply residual connection at this block (default None).
+    dropout: float
+        Dropout (default 0.1).
 
     Example
     -------
     >>> x = torch.rand((8, 30, 10))
-    >>> conv = ConvBlock(2, 16, input_shape=x.shape)
-    >>> out = conv(x)
-    >>> x.shape
-    torch.Size([8, 30, 10])
+    >>> conv_layer = ConvLayer(16, input_shape=x.shape)
+    >>> out = conv_layer(x)
+    >>> out.shape
+    torch.Size([8, 30, 10, 16])
     """
 
     def __init__(
