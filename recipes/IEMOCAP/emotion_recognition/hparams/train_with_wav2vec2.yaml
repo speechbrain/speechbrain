@@ -46,7 +46,7 @@ freeze_wav2vec2_conv: True
 
 # Model parameters
 Wav2vec_encoder_dim: 768
-encoder_dim: 256
+encoder_dim: !ref <Wav2vec_encoder_dim>
 
 # Number of emotions
 out_n_neurons: 4 # (anger, happiness, sadness, neutral)
@@ -65,17 +65,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     freeze_feature_extractor : !ref <freeze_wav2vec2_conv>
     save_path: !ref <save_folder>/wav2vec2_checkpoint
 
-rnn_enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <Wav2vec_encoder_dim>]
-    lstm: !new:speechbrain.nnet.RNN.LSTM
-        input_size: !ref <Wav2vec_encoder_dim>
-        bidirectional: True
-        hidden_size: !ref <encoder_dim>
-        num_layers: 2
-    linear: !new:speechbrain.nnet.linear.Linear
-        input_size: !ref <encoder_dim> * 2
-        n_neurons: !ref <encoder_dim>
-
 output_mlp: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <encoder_dim>
     n_neurons: !ref <out_n_neurons>
@@ -86,11 +75,10 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 modules:
     wav2vec2: !ref <wav2vec2>
-    rnn_enc: !ref <rnn_enc>
     output_mlp: !ref <output_mlp>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <rnn_enc>, !ref <output_mlp>]
+    - [!ref <output_mlp>]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

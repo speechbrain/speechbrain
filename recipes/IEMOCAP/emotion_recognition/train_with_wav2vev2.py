@@ -24,21 +24,27 @@ class EmoIdBrain(sb.Brain):
         wavs, lens = batch.sig
 
         wav2vec2_out = self.modules.wav2vec2(wavs)
-        encoder_out = self.hparams.rnn_enc(wav2vec2_out)
 
-        out = encoder_out[:,-1,:]
-        out = out.reshape(out.shape[0],-1)
+        average_pooling = sb.nnet.pooling.Pooling1d(
+                    pool_type="avg",
+                    input_dims=3,
+                    kernel_size=wav2vec2_out.shape[1],
+                    pool_axis=1,
+                )
 
-        outputs = self.modules.output_mlp(out)
+        averaged_out = average_pooling(wav2vec2_out).view(wav2vec2_out.shape[0],-1)
+
+        outputs = self.modules.output_mlp(averaged_out)
         outputs = self.hparams.log_softmax(outputs)
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using speaker-id as label.
         """
-        emoid, _ = batch.emo_encoded
+        emoid, _ = batch.to(self.device).emo_encoded
 
-        emoid = torch.squeeze(emoid,1).to(self.device)
+        """to meet the input form of nll loss"""
+        emoid = torch.squeeze(emoid,1)
 
         loss = self.hparams.compute_cost(predictions, emoid)
 
