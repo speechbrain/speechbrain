@@ -1156,11 +1156,13 @@ class Mask2d(nn.Module):
         if unsqueeze:
             mask = mask.unsqueeze(1)
         if self.padding == "same":
-            mask = mask[:, :, ::self.stride[-1], ::self.stride[-2]] # noqa
+            mask = mask[:, :, :: self.stride[-1], :: self.stride[-2]]
         elif self.padding == "valid":
             time_end = -self.dilation[-1] * (self.kernel_size[-1] - 1)
             freq_end = -self.dilation[-2] * (self.kernel_size[-2] - 1)
-            mask = mask[:, :, :time_end:self.stride[-1], :freq_end:self.stride[-2]] # noqa
+            mask = mask[
+                :, :, : time_end : self.stride[-1], : freq_end : self.stride[-2]
+            ]
         else:
             raise ValueError(
                 "Padding must be 'same' or 'valid'. Got " + self.padding
