@@ -1100,7 +1100,7 @@ class DepthwiseSeparableConv2d(nn.Module):
 
 
 class Mask2d(nn.Module):
-    """This function implements masking for output after 2d convolution, 
+    """This function implements masking for output after 2d convolution,
     pooling layers.
 
     Arguments

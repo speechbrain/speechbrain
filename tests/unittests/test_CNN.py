@@ -96,7 +96,8 @@ def test_Conv2dMask():
     output_padded.masked_fill_(conv_mask, 0.0)
 
     output_nonpadded = convolve(input_nonpadded)
+    output_length = output_nonpadded.size(1)
 
-    assert torch.sum(output_nonpadded[0]) == torch.sum(output_padded[0])
+    assert torch.allclose(output_nonpadded[0], output_padded[0][:output_length])
 
     assert torch.jit.trace(convolve, input_padded)
