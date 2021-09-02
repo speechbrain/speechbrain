@@ -1099,8 +1099,9 @@ class DepthwiseSeparableConv2d(nn.Module):
         return out
 
 
-class Conv2dMask(nn.Module):
-    """This function implements masking for 2d convolution.
+class Mask2d(nn.Module):
+    """This function implements masking for output after 2d convolution, 
+    pooling layers.
 
     Arguments
     ---------
@@ -1122,7 +1123,7 @@ class Conv2dMask(nn.Module):
     >>> pad_idx = 0
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
     >>> inp_mask = ~inp_tensor.eq(pad_idx)
-    >>> cnn_2dmask = Conv2dMask(
+    >>> cnn_2dmask = Mask2d(
     ...     kernel_size=(7, 3), stride=(3, 3)
     ... )
     >>> out_mask = cnn_2dmask(inp_mask)
@@ -1151,7 +1152,8 @@ class Conv2dMask(nn.Module):
     def forward(self, mask):
         mask = mask.transpose(1, -1)
         # Unsqueeze
-        if mask.ndim == 3:
+        unsqueeze = mask.ndim == 3
+        if unsqueeze:
             mask = mask.unsqueeze(1)
         if self.padding == "same":
             mask = mask[:, :, ::self.stride[-1], ::self.stride[-2]] # noqa
@@ -1168,6 +1170,9 @@ class Conv2dMask(nn.Module):
         mask = mask[:, :1]
         # Make it to (batch, freq, time, 1)
         mask = mask.transpose(1, -1)
+        # Squeeze
+        if unsqueeze:
+            mask = mask.squeeze(1)
 
         return mask.detach()
 

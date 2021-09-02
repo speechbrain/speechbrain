@@ -70,7 +70,7 @@ def test_Conv2d():
 
 def test_Conv2dMask():
 
-    from speechbrain.nnet.CNN import Conv2d, Conv2dMask
+    from speechbrain.nnet.CNN import Conv2d, Mask2d
 
     sample_length = 32
     # Padded input with the shape (batch, time, fea)
@@ -89,7 +89,7 @@ def test_Conv2dMask():
         padding="same",
     )
     convolve.eval()
-    conv_mask = Conv2dMask(kernel_size=(1, 1), stride=(2, 2), padding="same",)
+    conv_mask = Mask2d(kernel_size=(1, 1), stride=(2, 2), padding="same",)
     output_padded = convolve(input_padded)
     conv_mask = conv_mask(input_mask)
     # Mask conv output

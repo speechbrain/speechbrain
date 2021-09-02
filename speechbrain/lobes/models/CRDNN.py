@@ -9,6 +9,7 @@ Authors
 """
 import torch
 import speechbrain as sb
+from speechbrain.lobes.models.convolution import ConvLayer
 
 
 class CRDNN(sb.nnet.containers.Sequential):
@@ -194,7 +195,7 @@ class CRDNN(sb.nnet.containers.Sequential):
             )
 
 
-class CNN_Block(sb.nnet.containers.Sequential):
+class CNN_Block(torch.nn.Module):
     """CNN Block, based on VGG blocks.
 
     Arguments
@@ -233,47 +234,63 @@ class CNN_Block(sb.nnet.containers.Sequential):
         pooling_size=2,
         dropout=0.15,
     ):
-        super().__init__(input_shape=input_shape)
-        self.append(
-            sb.nnet.CNN.Conv2d,
-            out_channels=channels,
-            kernel_size=kernel_size,
-            layer_name="conv_1",
-        )
-        self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_1")
-        self.append(activation(), layer_name="act_1")
-        self.append(
-            sb.nnet.CNN.Conv2d,
-            out_channels=channels,
-            kernel_size=kernel_size,
-            layer_name="conv_2",
-        )
-        self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
-        self.append(activation(), layer_name="act_2")
+        super().__init__()
 
+        self.pad_idx = 0
+        # Convolution
+        self.convs = sb.nnet.containers.Sequential(input_shape=input_shape)
+        self.convs.append(
+            ConvLayer,
+            out_channels=channels,
+            kernel_size=kernel_size,
+            norm=sb.nnet.normalization.LayerNorm,
+            activation=activation,
+            layer_name="conv_layer_1",
+        )
+        self.convs.append(
+            ConvLayer,
+            out_channels=channels,
+            kernel_size=kernel_size,
+            norm=sb.nnet.normalization.LayerNorm,
+            activation=activation,
+            layer_name="conv_layer_2",
+        )
+        # Masking
+        self.masks = torch.nn.Sequential()
+        self.masks.add_module(
+            "mask_layer_1", sb.nnet.CNN.Mask2d(kernel_size=kernel_size),
+        )
+        self.masks.add_module(
+            "mask_layer_2", sb.nnet.CNN.Mask2d(kernel_size=kernel_size),
+        )
+        # Pooling
         if using_2d_pool:
-            self.append(
-                sb.nnet.pooling.Pooling2d(
-                    pool_type="max",
-                    kernel_size=(pooling_size, pooling_size),
-                    pool_axis=(1, 2),
-                ),
-                layer_name="pooling",
+            self.pooling = sb.nnet.pooling.Pooling2d(
+                pool_type="max",
+                kernel_size=(pooling_size, pooling_size),
+                pool_axis=(1, 2),
             )
         else:
-            self.append(
-                sb.nnet.pooling.Pooling1d(
-                    pool_type="max",
-                    input_dims=4,
-                    kernel_size=pooling_size,
-                    pool_axis=2,
-                ),
-                layer_name="pooling",
+            self.pooling = sb.nnet.pooling.Pooling1d(
+                pool_type="max",
+                input_dims=4,
+                kernel_size=pooling_size,
+                pool_axis=2,
             )
 
-        self.append(
-            sb.nnet.dropout.Dropout2d(drop_rate=dropout), layer_name="drop"
-        )
+        self.drop = sb.nnet.dropout.Dropout2d(drop_rate=dropout)
+
+    def forward(self, x):
+        # Create mask from padding input
+        mask = x.eq(self.pad_idx)
+        for conv_layer, mask_layer in zip(self.convs.values(), self.masks):
+            mask = mask_layer(mask)
+            x = conv_layer(x)
+            x.masked_fill_(mask, 0.0)
+        x = self.pooling(x)
+        x = self.drop(x)
+
+        return x
 
 
 class DNN_Block(sb.nnet.containers.Sequential):

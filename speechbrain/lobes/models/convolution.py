@@ -4,7 +4,7 @@ Authors
  * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.nnet.CNN import Conv2d, Conv2dMask
+from speechbrain.nnet.CNN import Conv2d, Mask2d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm2d
 
@@ -128,7 +128,7 @@ class ConvBlock(torch.nn.Module):
         dilation=1,
         residual=False,
         conv_module=Conv2d,
-        conv_mask=Conv2dMask,
+        conv_mask=Mask2d,
         activation=torch.nn.LeakyReLU,
         norm=None,
         dropout=0.1,
@@ -178,17 +178,17 @@ class ConvBlock(torch.nn.Module):
 
     def forward(self, x):
         # Create mask from padding input
-        mask = ~x.eq(self.pad_idx)
+        mask = x.eq(self.pad_idx)
         x_residual = x
         for conv_layer, mask_layer in zip(self.convs.values(), self.masks):
             mask = mask_layer(mask)
             x = conv_layer(x)
-            x.masked_fill_(~mask, 0.0)
+            x.masked_fill_(mask, 0.0)
 
         if self.reduce_conv:
             x = x + self.reduce_conv(x_residual)
             x = self.drop(x)
-            x.masked_fill_(~mask, 0.0)
+            x.masked_fill_(mask, 0.0)
 
         return x
 
