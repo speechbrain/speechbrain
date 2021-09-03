@@ -1159,8 +1159,16 @@ class Mask2d(nn.Module):
             freq_end = mask.size(2)
             time_end = mask.size(3)
         elif self.padding == "valid":
-            time_end = -self.dilation[-1] * (self.kernel_size[-1] - 1)
-            freq_end = -self.dilation[-2] * (self.kernel_size[-2] - 1)
+            freq_end = (
+                mask.size(2)
+                - self.dilation[-2] * (self.kernel_size[-2] - 1)
+                - 1
+            )
+            time_end = (
+                mask.size(3)
+                - self.dilation[-1] * (self.kernel_size[-1] - 1)
+                - 1
+            )
         else:
             raise ValueError(
                 "Padding must be 'same' or 'valid'. Got " + self.padding
