@@ -660,7 +660,9 @@ def write_stdout(data, filename=None, sampling_rate=None):
 
 
 def length_to_mask(length, max_len=None, dtype=None, device=None):
-    """Creates a binary mask for each sequence.
+    """Creates a binary mask to avoid the contribution of padding parts.
+    To perform batch independent computation, masks are applied to feature
+    extraction and context dependent components like attention, convolution.
 
     Reference: https://discuss.pytorch.org/t/how-to-generate-variable-length-mask/23397/3
 
