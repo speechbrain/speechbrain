@@ -1156,17 +1156,20 @@ class Mask2d(nn.Module):
         if unsqueeze:
             mask = mask.unsqueeze(1)
         if self.padding == "same":
-            mask = mask[:, :, :: self.stride[-1], :: self.stride[-2]]
+            freq_end = mask.size(2)
+            time_end = mask.size(3)
         elif self.padding == "valid":
             time_end = -self.dilation[-1] * (self.kernel_size[-1] - 1)
             freq_end = -self.dilation[-2] * (self.kernel_size[-2] - 1)
-            mask = mask[
-                :, :, : time_end : self.stride[-1], : freq_end : self.stride[-2]
-            ]
         else:
             raise ValueError(
                 "Padding must be 'same' or 'valid'. Got " + self.padding
             )
+
+        # Subsample mask
+        mask = mask[
+            :, :, : freq_end : self.stride[-1], : time_end : self.stride[-2]
+        ]
 
         # Make it to (batch, 1, time, freq)
         mask = mask[:, :1]
@@ -1177,6 +1180,9 @@ class Mask2d(nn.Module):
             mask = mask.squeeze(1)
 
         return mask.detach()
+
+    def extra_repr(self):
+        return f"kernel_size={self.kernel_size}, stride={self.stride}, dilation={self.dilation}, padding={self.padding}"
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
