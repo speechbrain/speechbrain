@@ -241,6 +241,7 @@ class CNN_Block(torch.nn.Module):
         self.convs = sb.nnet.containers.Sequential(input_shape=input_shape)
         self.convs.append(
             ConvLayer,
+            conv_module=sb.nnet.CNN.Conv2d,
             out_channels=channels,
             kernel_size=kernel_size,
             norm=sb.nnet.normalization.LayerNorm,
@@ -249,6 +250,7 @@ class CNN_Block(torch.nn.Module):
         )
         self.convs.append(
             ConvLayer,
+            conv_module=sb.nnet.CNN.Conv2d,
             out_channels=channels,
             kernel_size=kernel_size,
             norm=sb.nnet.normalization.LayerNorm,
