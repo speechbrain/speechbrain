@@ -1,5 +1,4 @@
 import sys
-import json
 
 import torch
 import speechbrain as sb
@@ -21,12 +20,12 @@ class ASR(sb.core.Brain):
         #     if hasattr(self.modules, "augmentation"):
         #         feats = self.hparams.augmentation(feats)
 
-        src = self.hparams.CNN(feats)
-        enc_out, pred = self.hparams.Transformer(
+        src = self.modules.CNN(feats)
+        enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wavs_len, pad_idx=self.hparams.pad_index
         )
 
-        logits = self.hparams.ctc_lin(enc_out)
+        logits = self.modules.ctc_lin(enc_out)
         p_ctc = self.hparams.log_softmax(logits)
 
         pred = self.hparams.seq_lin(pred)
@@ -251,6 +250,15 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def sp_audio_pipline(wav):
+        sig = sb.dataio.dataio.read_audio(wav)
+        sig = sig.unsqueeze(0)
+        sig = hparams["speed_perturb"](sig)
+        sig = sig.squeeze(0)
+        return sig
+
     datasets = {}
     data_folder = hparams["data_folder"]
     output_keys = [
@@ -261,25 +269,21 @@ def dataio_prepare(hparams):
         "sig",
         "id",
     ]
-    dynamic_items = [transcription_pipline, audio_pipline]
+    default_dynamic_items = [transcription_pipline, audio_pipline]
+    train_dynamic_item = [transcription_pipline, sp_audio_pipline]
 
-    for dataset_name in ["train", "eval"]:
+    for dataset_name in ["train", "dev", "test"]:
+        if dataset_name == "train":
+            dynamic_items = train_dynamic_item
+        else:
+            dynamic_items = default_dynamic_items
+
         json_path = f"{data_folder}/{dataset_name}.json"
         datasets[dataset_name] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
             dynamic_items=dynamic_items,
             output_keys=output_keys,
-        )
-
-    dev_json_path = f"{data_folder}/dev.json"
-    test_json_path = f"{data_folder}/test.json"
-    with open(dev_json_path, "r", encoding="utf-8") as dev_file, open(
-        test_json_path, "r", encoding="utf-8"
-    ) as test_file:
-        valid_data = {**json.load(dev_file), **json.load(test_file)}
-        datasets["valid"] = sb.dataio.dataset.DynamicItemDataset(
-            valid_data, dynamic_items=dynamic_items, output_keys=output_keys,
         )
 
     return datasets
@@ -314,11 +318,11 @@ if __name__ == "__main__":
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         datasets["train"],
-        datasets["valid"],
+        datasets["dev"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    asr_brain.evaluate(
-        datasets["eval"], test_loader_kwargs=hparams["test_dataloader_opts"]
-    )
+    # asr_brain.evaluate(
+    #     datasets["test"], test_loader_kwargs=hparams["test_dataloader_opts"]
+    # )

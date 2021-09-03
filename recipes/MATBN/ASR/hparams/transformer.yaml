@@ -31,8 +31,12 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     hop_length: !ref <hop_length>
 
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [90, 100, 110]
+
 # Training parameters
-number_of_epochs: 50
+number_of_epochs: 80
 batch_size: 1
 ctc_weight: 0.3
 gradient_accumulation: 32
@@ -41,7 +45,7 @@ loss_reduction: batchmean
 sorting: random
 
 # stages related parameters
-stage_one_epochs: 40
+stage_one_epochs: 70
 lr_adam: 1.0
 lr_sgd: 0.000025
 
