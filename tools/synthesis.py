@@ -1,4 +1,12 @@
-"""A wrapper for speech synthesis
+"""A wrapper for speech synthesis models, which can be used as
+a CLI utility to generate a single audio sample from text
+
+Example
+-------
+
+export PYTHONPATH=~/src/speechbrain
+cd ~/src/speechbrain/tools
+python.py --model /path/to/trained/tacotron --text "A quick brown fox jumps over the lazy dog" --output foxdog.wav
 
 Authors
 * Artem Ploujnikov 2021

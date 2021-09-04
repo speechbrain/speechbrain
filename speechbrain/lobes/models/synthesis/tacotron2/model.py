@@ -500,7 +500,7 @@ class Decoder(nn.Module):
         )
 
     def get_go_frame(self, memory):
-        """ Gets all zeros frames to use as first decoder input
+        """Gets all zeros frames to use as first decoder input
 
         Arguments
         ---------

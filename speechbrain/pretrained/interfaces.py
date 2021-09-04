@@ -1200,26 +1200,26 @@ class ExternalModelWrapper(Pretrained):
     -------
 
     Given below is sample usage in hparams
-    waveglow: !new:speechbrain.pretrained.interfaces.class ExternalModelWrapper:
+    my_pretrained: !new:speechbrain.pretrained.interfaces.class ExternalModelWrapper:
 
-    hparams:
-        git_repo: !ref <waveglow_git_repo>
-        git_revision: !ref <waveglow_git_revision>
-        weight_file_id: !ref <waveglow_file_id>
-        model_path: !ref <waveglow_model_path>
-        model_src: !ref <waveglow_model_src>
-        waveglow_sigma: !ref <waveglow_sigma>
-        model_file: !ref <waveglow_model_file>
-        model_key: !ref <waveglow_model_key>
+        hparams:
+            git_repo: !ref <waveglow_git_repo>
+            git_revision: !ref <waveglow_git_revision>
+            weight_file_id: !ref <waveglow_file_id>
+            model_path: !ref <waveglow_model_path>
+            model_src: !ref <waveglow_model_src>
+            waveglow_sigma: !ref <waveglow_sigma>
+            model_file: !ref <waveglow_model_file>
+            model_key: !ref <waveglow_model_key>
 
-        downloads:
-            - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
-              files:
-                  - file_id: !ref <waveglow_file_id>
-                    destination: !ref <waveglow_model_file>
+            downloads:
+                - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
+                files:
+                    - file_id: !ref <waveglow_file_id>
+                        destination: !ref <waveglow_model_file>
 
-        adapter: !name:speechbrain.lobes.models.synthesis.external.waveglow.adapter
-        sigma: !ref <waveglow_sigma>
+            adapter: !name:speechbrain.lobes.models.synthesis.external.waveglow.adapter
+            sigma: !ref <waveglow_sigma>
 
     """
 
