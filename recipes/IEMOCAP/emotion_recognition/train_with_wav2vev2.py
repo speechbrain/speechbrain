@@ -26,13 +26,13 @@ class EmoIdBrain(sb.Brain):
         wav2vec2_out = self.modules.wav2vec2(wavs)
 
         average_pooling = sb.nnet.pooling.Pooling1d(
-                    pool_type="avg",
-                    input_dims=3,
-                    kernel_size=wav2vec2_out.shape[1],
-                    pool_axis=1,
-                )
+            pool_type="avg",
+            input_dims=3,
+            kernel_size=wav2vec2_out.shape[1],
+            pool_axis=1,
+        )
 
-        averaged_out = average_pooling(wav2vec2_out).view(wav2vec2_out.shape[0],-1)
+        averaged_out = average_pooling(wav2vec2_out).view(wav2vec2_out.shape[0], -1)
 
         outputs = self.modules.output_mlp(averaged_out)
         outputs = self.hparams.log_softmax(outputs)
@@ -44,7 +44,7 @@ class EmoIdBrain(sb.Brain):
         emoid, _ = batch.to(self.device).emo_encoded
 
         """to meet the input form of nll loss"""
-        emoid = torch.squeeze(emoid,1)
+        emoid = torch.squeeze(emoid, 1)
 
         loss = self.hparams.compute_cost(predictions, emoid)
 
@@ -58,7 +58,6 @@ class EmoIdBrain(sb.Brain):
 
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        
         loss.backward()
         if self.check_gradients(loss):
             self.wav2vec2_optimizer.step()
@@ -121,7 +120,6 @@ class EmoIdBrain(sb.Brain):
 
             old_lr_wav2vec2, new_lr_wav2vec2 = self.hparams.lr_annealing_wav2vec2(stats["error_rate"])
             sb.nnet.schedulers.update_learning_rate(self.wav2vec2_optimizer, new_lr_wav2vec2)
-            
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
                 {"Epoch": epoch, "lr": old_lr, "wave2vec_lr": old_lr_wav2vec2},
@@ -151,8 +149,6 @@ class EmoIdBrain(sb.Brain):
                 "wav2vec2_opt", self.wav2vec2_optimizer
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
-
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
@@ -288,6 +284,3 @@ if __name__ == "__main__":
         min_key="error_rate",
         test_loader_kwargs=hparams["dataloader_options"],
     )
-
-
-
