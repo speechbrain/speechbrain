@@ -551,3 +551,27 @@ def scalarize(value):
     else:
         value_dict = value
     return {key: item_value.item() for key, item_value in value_dict.items()}
+
+
+def detach(value):
+    """Detaches the specified object from the graph, which can be a
+    single tensor or a dictionary of tensors. Dictionaries of tensors are
+    converted recursively
+
+    Arguments
+    ---------
+    value: torch.Tensor|dict
+        a tensor or a dictionary of tensors
+
+    Returns
+    -------
+    result: torch.Tensor|dict
+        a tensor of dictionary of tensors
+    """
+    if isinstance(value, torch.Tensor):
+        result = value.detach().cpu()
+    elif isinstance(value, dict):
+        result = {key: detach(item_value) for key, item_value in value.items()}
+    else:
+        result = value
+    return result

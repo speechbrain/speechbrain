@@ -1,3 +1,12 @@
+############################################################################
+# Model: Tacotron2
+# Tokens: Raw characters (English text)
+# losses: Transducer
+# Training: LJSpeech
+# Authors: Georges Abous-Rjeili, Artem Ploujnikov
+# ############################################################################
+
+
 ###################################
 # Experiment Parameters and setup #
 ###################################
@@ -9,24 +18,55 @@ pretrained_path: !ref <save_folder>
 save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
 epochs: 500
-progress_samples: True
-progress_samples_incremental: False
-progress_sample_path: !ref <output_folder>/samples
-progress_samples_interval: 1
-progress_batch_sample_size: 3
 keep_checkpoint_interval: 20
+
+###################################
+# Progress Samples                #
+###################################
+# Progress samples are used to monitor the progress
+# of an ongoing training session by outputting samples
+# of spectrograms, alignments, etc at regular intervals
+
+# Whether to enable progress samples
+progress_samples: True
+# Whether to include incremental predictions in the samples
+# Enabling them will cause a slowdown of the validation
+# step
+progress_samples_incremental: False
+# The path where the samples will be stored
+progress_sample_path: !ref <output_folder>/samples
+# The interval, in epochs. For instance, if it is set to 5,
+# progress samples will be output every 5 epochs
+progress_samples_interval: 1
+# The sample size for raw batch samples saved in batch.pth
+# (useful mostly for model debugging)
+progress_batch_sample_size: 3
 
 
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
-data_folder_rirs: !ref <data_folder>
+data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/ljspeech
 train_data_path: ../../../../samples/dataset_samples/lj
+# A path to a file with a list of IDs (one per line)
+# listing the items from the main data set to be included
+# in the training set
 train_filter: null
 valid_data_path: ../../../../samples/dataset_samples/lj
+# A path to a file with a list of IDs (one per line)
+# listing the items from the main data set to be included
+# in the validation set
 valid_filter: null
+# How inputs will be preprocessed. Two modes are currently
+# available
+#
+# nvidia: the preprocessing from the original NVidia implementation,
+# providing basic cleaning routines
+#
+# speechbrain: using the standard SpeechBrain TextEncoder
 preprocessing_mode: nvidia
+
+# The cleaners to be used (applicable to nvidia only)
 text_cleaners: ['english_cleaners']
 
 ################################
@@ -73,7 +113,8 @@ encoder_n_convolutions: 3
 encoder_embedding_dim: 512
 
 # Decoder parameters
-n_frames_per_step: 1  # currently only 1 is supported
+# The number of frames in the target per encoder step
+n_frames_per_step: 1
 decoder_rnn_dim: 1024
 prenet_dim: 256
 max_decoder_steps: 1000
@@ -110,7 +151,7 @@ waveglow_model_key: model
 
 
 #model
-model: !new:speechbrain.lobes.models.synthesis.tacotron2.Tacotron2
+model: !new:speechbrain.lobes.models.synthesis.tacotron2.model.Tacotron2
     mask_padding: !ref <mask_padding>
     n_mel_channels: !ref <n_mel_channels>
     # symbols
@@ -213,10 +254,8 @@ encode_pipeline:
         - text_sequences
         - input_lengths
     steps:
-        - !apply:speechbrain.lobes.models.synthesis.tacotron2.encode_text
-          # TODO: Not using !ref because it triggers an odd bug when loading
-          # a file from a saved model - investigate this further
-          text_cleaners: ['english_cleaners']
+        - !apply:speechbrain.lobes.models.synthesis.tacotron2.dataio.encode_text
+          text_cleaners: !ref <text_cleaners>
 
 
 waveglow: !new:speechbrain.pretrained.interfaces.VocoderWrapper
@@ -248,3 +287,9 @@ external:
     waveglow: !ref <waveglow>
 
 infer: !name:speechbrain.lobes.models.synthesis.tacotron2.model.infer
+
+progress_sample_logger: !new:speechbrain.utils.progress_samples.ProgressSampleLogger
+    output_path: !ref <progress_sample_path>
+    batch_sample_size: !ref <progress_batch_sample_size>
+    formats:
+        raw_batch: raw

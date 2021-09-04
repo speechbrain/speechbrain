@@ -742,14 +742,45 @@ class CyclicLRScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class IntervalScheduler:
-    """
-    A simple scheduler implementation that sets the learning rate to a specific value
-    at specific numbers of steps
+    """A simple scheduler implementation that sets the learning rate to
+    specific values after a specific number of steps has been reached.
 
     Arguments
     ---------
     intervals: list
-        a list of dictionaries: {'steps': <number of steps>, 'lr': the learning rate}
+        a list of dictionaries: {"steps": <number of steps>, "lr": the learning rate}
+        'steps' indicates the global step count at which a given
+        rate will apply
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.nnet.schedulers import IntervalScheduler
+    >>> from speechbrain.nnet.linear import Linear
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> scheduler = IntervalScheduler(
+    ...    intervals=[
+    ...        {"steps": 2, "lr": 0.01},
+    ...        {"steps": 5, "lr": 0.005},
+    ...        {"steps": 9, "lr": 0.001}
+    ...    ]
+    ... )
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> for _ in range(10):
+    ...     pre, post = scheduler(optim)
+    ...     print(f"{pre} -> {post}")
+    1 -> 1
+    1 -> 0.01
+    0.01 -> 0.01
+    0.01 -> 0.01
+    0.01 -> 0.005
+    0.005 -> 0.005
+    0.005 -> 0.005
+    0.005 -> 0.005
+    0.005 -> 0.001
+    0.001 -> 0.001
     """
 
     def __init__(self, intervals):

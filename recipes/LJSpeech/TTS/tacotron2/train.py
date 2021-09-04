@@ -17,7 +17,7 @@
  * Artem Ploujnikov 2021
 
 """
-
+import os
 import torch
 import speechbrain as sb
 import sys
@@ -25,9 +25,10 @@ import logging
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.lobes.models.synthesis.dataio import load_datasets
-from speechbrain.lobes.models.synthesis.tacotron2.dataio import text_to_sequence, dynamic_range_compression
-from speechbrain.pretrained.training import PretrainedModelMixin
-from speechbrain.utils.progress_samples import ProgressSampleImageMixin
+from speechbrain.lobes.models.synthesis.tacotron2.dataio import (
+    text_to_sequence,
+    dynamic_range_compression,
+)
 from speechbrain.utils.data_utils import scalarize
 from torchaudio import transforms
 
@@ -35,19 +36,16 @@ from torchaudio import transforms
 logger = logging.getLogger(__name__)
 
 
-class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
-    PROGRESS_SAMPLE_FORMATS = {"raw_batch": "raw"}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.init_progress_samples()
+class Tacotron2Brain(sb.Brain):
+    def on_fit_start(self):
+        self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
         self.last_loss_stats = {}
+        return super().on_fit_start()
 
     def compute_forward(self, batch, stage):
-        """
-        Computes the forward pass
+        """Computes the forward pass
 
         Arguments
         ---------
@@ -66,7 +64,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         max_input_length = input_lengths.max().item()
         return self.modules.model(
             inputs, alignments_dim=max_input_length
-        )  # 1#2#
+        )
 
     def fit_batch(self, batch):
         """
@@ -129,12 +127,12 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             .unsqueeze(-1)
         )
         alignments_output = alignments[0].T.flip(dims=(1,)) / alignments_max
-        self.remember_progress_sample(
+        self.hparams.progress_sample_logger.remember(
             target=self._get_sample_data(mel_target),
             output=self._get_sample_data(mel_out),
             output_postnet=self._get_sample_data(mel_out_postnet),
             alignments=alignments_output,
-            raw_batch=self.get_batch_sample(
+            raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
                 {
                     "text_padded": text_padded,
                     "input_lengths": input_lengths,
@@ -170,34 +168,31 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             labels,
             wavs,
         ) = batch
-        text_padded = self.to_device(text_padded).long()
-        input_lengths = self.to_device(input_lengths).long()
+        text_padded = (
+            text_padded.to(self.device, non_blocking=True)
+                .long()
+                .contiguous())
+        input_lengths = (
+            input_lengths.to(self.device, non_blocking=True)
+                .long()
+                .contiguous())
         max_len = torch.max(input_lengths.data).item()
-        mel_padded = self.to_device(mel_padded).float()
-        gate_padded = self.to_device(gate_padded).float()
-        output_lengths = self.to_device(output_lengths).long()
+        mel_padded = (
+            mel_padded.to(self.device, non_blocking=True)
+                .float()
+                .contiguous())
+        gate_padded = (
+            gate_padded.to(self.device, non_blocking=True)
+                .float()
+                .contiguous())
+        output_lengths = (
+            output_lengths.to(self.device, non_blocking=True)
+                .long()
+                .contiguous())
         x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
         y = (mel_padded, gate_padded)
         len_x = torch.sum(output_lengths)
         return (x, y, len_x, labels, wavs)
-
-    def to_device(self, x):
-        """
-        Transfers a single tensor to the target device
-
-        Arguments
-        ---------
-        x: torch.Tensor
-            the tensor to transfer
-
-        Returns
-        -------
-        result: tensor
-            the same tensor, on the target device
-        """
-        x = x.contiguous()
-        x = x.to(self.device, non_blocking=True)
-        return x
 
     def _get_sample_data(self, raw):
         sample = raw[0]
@@ -255,7 +250,7 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             )
             if output_progress_sample:
                 self.run_inference_sample()
-                self.save_progress_sample(epoch)
+                self.hparams.progress_sample_logger.save(epoch)
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -265,6 +260,8 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             )
 
     def run_inference_sample(self):
+        """Produces a sample in inference mode. This is called when producing
+        samples and can be useful because"""
         if self.last_batch is None:
             return
         inputs, _, _, _, _ = self.last_batch
@@ -272,14 +269,13 @@ class Tacotron2Brain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         mel_out, _, _ = self.hparams.model.infer(
             text_padded[:1], input_lengths[:1]
         )
-        self.remember_progress_sample(
+        self.hparams.progress_sample_logger.remember(
             inference_mel_out=self._get_sample_data(mel_out)
         )
 
 
 def dataset_prep(dataset, hparams):
-    """
-    Adds pipeline elements for Tacotron to a dataset and
+    """Adds pipeline elements for Tacotron to a dataset and
     wraps it in a saveable data loader
 
     Arguments
@@ -532,8 +528,9 @@ if __name__ == "__main__":
         datasets["train"],
         datasets["valid"],
     )
-    if hparams.get("save_for_pretrained"):
-        tacotron2_brain.save_for_pretrained()
+    # TODO: Reimplement without a mixin
+#    if hparams.get("save_for_pretrained"):
+#        tacotron2_brain.save_for_pretrained()
 
     # Test
     if "test" in datasets:

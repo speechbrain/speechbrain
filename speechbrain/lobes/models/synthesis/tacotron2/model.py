@@ -125,6 +125,22 @@ class LocationLayer(nn.Module):
 
 
 class Attention(nn.Module):
+    """The Tacotron attention layer
+
+    Arguments
+    ---------
+    attention_rnn_dim: int
+        the dimension of the RNN to which the attention layer
+        is applied
+    embedding_dim: int
+        the embedding dimension
+    attention_dim: int
+        the dimension of the memory cell
+    attenion_location_n_filters: int
+        the number of location filters
+    attention_location_kernel_size: int
+        the kernel size of the location layer
+    """
     def __init__(
         self,
         attention_rnn_dim,
@@ -151,7 +167,8 @@ class Attention(nn.Module):
     def get_alignment_energies(
         self, query, processed_memory, attention_weights_cat
     ):
-        """
+        """Computes the alignment energies
+
         Arguments
         ---------
         query: torch.Tensor
@@ -186,7 +203,8 @@ class Attention(nn.Module):
         attention_weights_cat,
         mask,
     ):
-        """
+        """Computes the forward pass
+
         Arguments
         ---------
         attention_hidden_state: torch.Tensor
@@ -214,6 +232,15 @@ class Attention(nn.Module):
 
 
 class Prenet(nn.Module):
+    """The Tacotron pre-net module
+
+    Arguments
+    ---------
+    in_dim: int
+        the input dimensions
+    sizes: int
+        the dimension of the hidden layers/outout
+    """
     def __init__(self, in_dim, sizes):
         super().__init__()
         in_sizes = [in_dim] + sizes[:-1]
@@ -380,6 +407,36 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
+    """The Tacotron decoder
+
+    Arguments
+    ---------
+    n_mel_channels: int
+        the number of channels in the MEL sepctrogram
+    n_frames_per_step:
+        the number of frames in the spectrogram for each
+        time step of the decoder
+    encoder_embedding_dim: int
+        the dimension of the encoder embedding
+    attention_location_n_filters: int
+        the number of filters in location-based attention
+    attention_location_kernel_size: int
+        the kernel size of location-based attention
+    attention_rnn_dim: int
+        RNN dimension for the attention layer
+    decoder_rnn_dim: int
+        the encoder RNN dimension
+    prenet_dim: int
+        the dimension of the prenet (inner and output layers)
+    max_decoder_steps: int
+        the maximum number of decoder steps for the longest utterance
+        expected for the model
+    gate_threshold: float
+        the fixed threshold to which the outputs of the decoders will be compared
+    p_attention_dropout: float
+        dropout probability for attention layers
+
+    """
     def __init__(
         self,
         n_mel_channels,
@@ -534,7 +591,7 @@ class Decoder(nn.Module):
         )
 
     def parse_decoder_inputs(self, decoder_inputs):
-        """ Prepares decoder inputs, i.e. mel outputs
+        """Prepares decoder inputs, i.e. mel outputs
         Arguments
         ----------
         decoder_inputs: torch.Tensor
@@ -558,7 +615,7 @@ class Decoder(nn.Module):
         return decoder_inputs
 
     def parse_decoder_outputs(self, mel_outputs, gate_outputs, alignments):
-        """ Prepares decoder outputs for output
+        """Prepares decoder outputs for output
 
         Arguments
         ---------
@@ -899,8 +956,8 @@ class Tacotron2(nn.Module):
         prenet(input is decoder previous time step) output is input to decoder
         concatenanted with the attention output
 
-        PARAMS
-        ------
+        Arguments
+        ---------
         mask_padding: bool
             whether or not to mask pad-outputs of tacotron
 

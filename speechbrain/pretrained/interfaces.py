@@ -1177,6 +1177,14 @@ Errors:
 
 
 class ExternalModelSourceError(Exception):
+    """Thrown when the model source code is not found in the specified
+    folder
+
+    Arguments
+    ---------
+    src: str
+        the path where the model source is expected
+    """
     def __init__(self, src):
         self.src = src
         super().__init__(f"External model source not found at {src}")
@@ -1187,6 +1195,32 @@ class ExternalModelWrapper(Pretrained):
     are not part of SpeechBrain but are written in Python. This
     class is meant to be used as a base class for wrappers for specific
     models
+
+    Example
+    -------
+
+    Given below is sample usage in hparams
+    waveglow: !new:speechbrain.pretrained.interfaces.class ExternalModelWrapper:
+
+    hparams:
+        git_repo: !ref <waveglow_git_repo>
+        git_revision: !ref <waveglow_git_revision>
+        weight_file_id: !ref <waveglow_file_id>
+        model_path: !ref <waveglow_model_path>
+        model_src: !ref <waveglow_model_src>
+        waveglow_sigma: !ref <waveglow_sigma>
+        model_file: !ref <waveglow_model_file>
+        model_key: !ref <waveglow_model_key>
+
+        downloads:
+            - downloader: !new:speechbrain.pretrained.fetching.GoogleDriveDownloader
+              files:
+                  - file_id: !ref <waveglow_file_id>
+                    destination: !ref <waveglow_model_file>
+
+        adapter: !name:speechbrain.lobes.models.synthesis.external.waveglow.adapter
+        sigma: !ref <waveglow_sigma>
+
     """
 
     def __init__(self, *args, **kwargs):
@@ -1201,7 +1235,8 @@ class ExternalModelWrapper(Pretrained):
             self.ready = True
 
     def load(self):
-        """Downloads the source code (if available)"""
+        """Downloads the source code (if available) and loads
+        the model"""
         git_repo = getattr(self.hparams, "git_repo", None)
         if git_repo and not os.path.exists(self.hparams.model_src):
             self._clone()
@@ -1213,6 +1248,8 @@ class ExternalModelWrapper(Pretrained):
         self._load_model()
 
     def _load_model(self):
+        """Loads the modules associated with the third-party
+        model and move them to the right device"""
         if hasattr(self.hparams, "model"):
             self._load_model_module()
         elif hasattr(self.hparams, "model_file"):
@@ -1224,6 +1261,8 @@ class ExternalModelWrapper(Pretrained):
             self.adapter = lambda model, *args, **kwargs: model(*args, **kwargs)
 
     def _load_model_module(self):
+        """Imporrts and loads the module in which the model resides
+        and returns the model class"""
         model_components = self.hparams.model.split(".")
         model_module = ".".join(model_components[:-1])
         model_obj = model_components[-1]
@@ -1232,6 +1271,7 @@ class ExternalModelWrapper(Pretrained):
         self.model = model
 
     def _load_model_file(self):
+        """Loads the file in which the model state is saved"""
         model = torch.load(self.hparams.model_file)
         model_key = getattr(self.hparams, "model_key", None)
         if model_key:
@@ -1239,6 +1279,7 @@ class ExternalModelWrapper(Pretrained):
         self.model = model
 
     def _download_files(self):
+        """Downnloads any relevant files using the provided Downloaders"""
         downloads = getattr(self.hparams, "downloads")
         if downloads:
             logger.info("Downloading files")
@@ -1260,6 +1301,7 @@ class ExternalModelWrapper(Pretrained):
                 downloader.download(missing_files)
 
     def _clone(self):
+        """Clones the model's Git repository"""
         logger.info("Cloning %s into %s")
         clone_cmd = (
             f"git clone {shlex.quote(self.hparams.git_repo)} "
@@ -1277,7 +1319,9 @@ class ExternalModelWrapper(Pretrained):
         if hasattr(self.hparams, "git_revision"):
             self._get_revision()
 
-    def _get_revision(self, revision):
+    def _get_revision(self):
+        """Checks out the requested Git revision of the model source
+        code"""
         co_cmd = f"git checkout -C {shlex.quote(self.hparams.model_src)} checkout {shlex.quote(self.hparams.git_revision)}"
         output, err, returncode = run_shell(co_cmd)
         if returncode != 0:
@@ -1290,8 +1334,7 @@ class ExternalModelWrapper(Pretrained):
             )
 
     def __call__(self, *args, **kwargs):
-        """Calls the underlying model, loading it if it has not been already
-        loaded. Any arguments will be passed through 'as is'"""
+        """Calls the underlying model, loading it if it has not been already loaded. Any arguments will be passed through 'as is'"""
         self._ensure_ready()
         return self.adapter(self.model, *args, **kwargs)
 

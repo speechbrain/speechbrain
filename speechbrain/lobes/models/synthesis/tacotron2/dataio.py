@@ -73,7 +73,9 @@ def dynamic_range_compression(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-def dynamic_range_compression_pipeline(C, clip_val, takes="mel", provides="mel_compressed"):
+def dynamic_range_compression_pipeline(
+    C, clip_val, takes="mel", provides="mel_compressed"
+):
     """A pipeline element that performs dynamic range compression (i.e. puts
     the supplied input, typically a spectrogram, on a logarithmic scale)
 
@@ -92,6 +94,7 @@ def dynamic_range_compression_pipeline(C, clip_val, takes="mel", provides="mel_c
         a pipeline element
 
     """
+
     @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(provides)
     def f(x):
@@ -112,7 +115,9 @@ def dynamic_range_decompression(x, C=1):
     return torch.exp(x) / C
 
 
-def dynamic_range_decompression_pipeline(C=1, takes="mel", provides="mel_decompressed"):
+def dynamic_range_decompression_pipeline(
+    C=1, takes="mel", provides="mel_decompressed"
+):
     """A pipeline element that performs dynamic range decompression
 
     x: torch.Tensor
