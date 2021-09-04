@@ -62,9 +62,7 @@ class Tacotron2Brain(sb.Brain):
         inputs, y, num_items, _, _ = effective_batch
         _, input_lengths, _, _, _ = inputs
         max_input_length = input_lengths.max().item()
-        return self.modules.model(
-            inputs, alignments_dim=max_input_length
-        )
+        return self.modules.model(inputs, alignments_dim=max_input_length)
 
     def fit_batch(self, batch):
         """
@@ -170,25 +168,30 @@ class Tacotron2Brain(sb.Brain):
         ) = batch
         text_padded = (
             text_padded.to(self.device, non_blocking=True)
-                .long()
-                .contiguous())
+            .long()
+            .contiguous()
+        )
         input_lengths = (
             input_lengths.to(self.device, non_blocking=True)
-                .long()
-                .contiguous())
+            .long()
+            .contiguous()
+        )
         max_len = torch.max(input_lengths.data).item()
         mel_padded = (
             mel_padded.to(self.device, non_blocking=True)
-                .float()
-                .contiguous())
+            .float()
+            .contiguous()
+        )
         gate_padded = (
             gate_padded.to(self.device, non_blocking=True)
-                .float()
-                .contiguous())
+            .float()
+            .contiguous()
+        )
         output_lengths = (
             output_lengths.to(self.device, non_blocking=True)
-                .long()
-                .contiguous())
+            .long()
+            .contiguous()
+        )
         x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
         y = (mel_padded, gate_padded)
         len_x = torch.sum(output_lengths)
@@ -529,8 +532,8 @@ if __name__ == "__main__":
         datasets["valid"],
     )
     # TODO: Reimplement without a mixin
-#    if hparams.get("save_for_pretrained"):
-#        tacotron2_brain.save_for_pretrained()
+    #    if hparams.get("save_for_pretrained"):
+    #        tacotron2_brain.save_for_pretrained()
 
     # Test
     if "test" in datasets:
