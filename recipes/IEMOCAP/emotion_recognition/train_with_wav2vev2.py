@@ -32,7 +32,9 @@ class EmoIdBrain(sb.Brain):
             pool_axis=1,
         )
 
-        averaged_out = average_pooling(wav2vec2_out).view(wav2vec2_out.shape[0], -1)
+        averaged_out = average_pooling(wav2vec2_out).view(
+            wav2vec2_out.shape[0], -1
+        )
 
         outputs = self.modules.output_mlp(averaged_out)
         outputs = self.hparams.log_softmax(outputs)
@@ -118,8 +120,14 @@ class EmoIdBrain(sb.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(stats["error_rate"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            old_lr_wav2vec2, new_lr_wav2vec2 = self.hparams.lr_annealing_wav2vec2(stats["error_rate"])
-            sb.nnet.schedulers.update_learning_rate(self.wav2vec2_optimizer, new_lr_wav2vec2)
+            (
+                old_lr_wav2vec2,
+                new_lr_wav2vec2,
+            ) = self.hparams.lr_annealing_wav2vec2(stats["error_rate"])
+            sb.nnet.schedulers.update_learning_rate(
+                self.wav2vec2_optimizer, new_lr_wav2vec2
+            )
+
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
                 {"Epoch": epoch, "lr": old_lr, "wave2vec_lr": old_lr_wav2vec2},
@@ -128,7 +136,9 @@ class EmoIdBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error_rate"])
+            self.checkpointer.save_and_keep_only(
+                meta=stats, min_keys=["error_rate"]
+            )
 
         # We also write statistics about test data to stdout and to logfile.
         if stage == sb.Stage.TEST:
