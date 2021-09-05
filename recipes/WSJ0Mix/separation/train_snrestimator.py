@@ -29,7 +29,6 @@ import torchaudio
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import run_on_main
-from torch.cuda.amp import autocast
 from hyperpyyaml import load_hyperpyyaml
 import numpy as np
 from tqdm import tqdm
@@ -101,6 +100,8 @@ class Separation(sb.Brain):
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
 
+        # torchaudio.save('train_mixture.wav', mix.cpu(), 8000)
+        # import pdb; pdb.set_trace()
         # Separation
         with torch.no_grad():
             mix_w = self.hparams.Encoder(mix)
@@ -125,8 +126,22 @@ class Separation(sb.Brain):
         else:
             predictions = est_source[:, :T_origin, :]
 
-        # added part
+        if hasattr(self.hparams, "separation_norm_type"):
+            if self.hparams.separation_norm_type == "max":
+                predictions = (
+                    predictions / predictions.max(dim=1, keepdim=True)[0]
+                )
+                mix = mix / mix.max(dim=1, keepdim=True)[0]
 
+            elif self.hparams.separation_norm_type == "stnorm":
+                predictions = (
+                    predictions - predictions.mean(dim=1, keepdim=True)
+                ) / predictions.std(dim=1, keepdim=True)
+                mix = (mix - mix.mean(dim=1, keepdim=True)) / mix.std(
+                    dim=1, keepdim=True
+                )
+
+        # added part
         snr = self.compute_objectives(predictions, targets)
         snr = snr.to(self.device)
         if self.hparams.use_snr_compression:
@@ -199,6 +214,8 @@ class Separation(sb.Brain):
                 batch = next(self.hparams.train_wham_loader)
 
         mixture = batch.mix_sig
+        # import pdb; pdb.set_trace()
+
         targets = [batch.s1_sig, batch.s2_sig]
         if self.hparams.use_wham_noise:
             noise = batch.noise_sig[0]
@@ -535,6 +552,74 @@ class Separation(sb.Brain):
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
+    def compute_forward_testtime(self, mix):
+        """Forward computations from the mixture to the separated signals."""
+
+        # Unpack lists and put tensors in the right device
+        mix = mix.to(self.device)
+
+        # Separation
+        with torch.no_grad():
+            mix_w = self.hparams.Encoder(mix)
+            est_mask = self.hparams.MaskNet(mix_w)
+            mix_w = torch.stack([mix_w] * self.hparams.num_spks)
+            sep_h = mix_w * est_mask
+
+            # Decoding
+            est_source = torch.cat(
+                [
+                    self.hparams.Decoder(sep_h[i]).unsqueeze(-1)
+                    for i in range(self.hparams.num_spks)
+                ],
+                dim=-1,
+            )
+
+        # T changed after conv1d in encoder, fix it here
+        T_origin = mix.size(1)
+        T_est = est_source.size(1)
+        if T_origin > T_est:
+            predictions = F.pad(est_source, (0, 0, 0, T_origin - T_est))
+        else:
+            predictions = est_source[:, :T_origin, :]
+
+        # added part
+
+        predictions = predictions.permute(0, 2, 1)
+        predictions = predictions.reshape(-1, predictions.size(-1))
+
+        if hasattr(self.hparams, "compute_features"):
+            feats_preds = self.hparams.compute_features(predictions)
+            feats_mix = self.hparams.compute_features(mix)
+            min_T = min(feats_preds.shape[1], feats_mix.shape[1])
+
+            assert feats_preds.shape[1] == feats_mix.shape[1], "lengths change"
+            feats_preds = feats_preds[:, :min_T, :]
+            feats_mix = feats_mix[:, :min_T, :]
+
+            feats_mix_repeat = feats_mix.repeat(feats_preds.shape[0], 1, 1)
+            inp_cat = torch.cat([feats_preds, feats_mix_repeat], dim=-1)
+
+            enc_stats = self.hparams.classifier_enc(inp_cat)
+        else:
+            mix_repeat = mix.repeat(2, 1)
+            min_T = min(predictions.shape[1], mix.shape[1])
+            assert predictions.shape[1] == mix.shape[1], "lengths change"
+
+            inp_cat = torch.cat(
+                [
+                    predictions[:, :min_T].unsqueeze(1),
+                    mix_repeat[:, :min_T].unsqueeze(1),
+                ],
+                dim=1,
+            )
+
+            enc = self.hparams.classifier_enc(inp_cat)
+            enc = enc.permute(0, 2, 1)
+            enc_stats = self.hparams.stat_pooling(enc)
+
+        snrhat = self.hparams.classifier_out(enc_stats).squeeze()
+        return predictions, snrhat
+
 
 def dataio_prep(hparams):
     """Creates data processing pipeline"""
@@ -864,5 +949,21 @@ if __name__ == "__main__":
 
     if hparams["test_onwsj"]:
         test_data = test_data_wham
-    separator.evaluate(test_data, min_key="si-snr")
-    separator.save_results(test_data)
+
+    # separator.evaluate(test_data, min_key="si-snr")
+    # separator.save_results(test_data)
+
+    if separator.checkpointer is not None:
+        separator.checkpointer.recover_if_possible(
+            min_key="si-snr", device=torch.device(separator.device),
+        )
+
+    wav_fl, fs = torchaudio.load("saved.wav")
+    # import librosa as lr
+    # sr = 8000
+    # wav_fl, _ = lr.load('mixture_240.mp3', sr=sr)
+    # wav_fl = torch.from_numpy(wav_fl)
+    preds = separator.compute_forward_testtime(wav_fl)
+    import pdb
+
+    pdb.set_trace()
