@@ -1185,6 +1185,7 @@ class ExternalModelSourceError(Exception):
     src: str
         the path where the model source is expected
     """
+
     def __init__(self, src):
         self.src = src
         super().__init__(f"External model source not found at {src}")

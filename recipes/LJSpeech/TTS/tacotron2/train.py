@@ -167,25 +167,17 @@ class Tacotron2Brain(sb.Brain):
             wavs,
         ) = batch
         text_padded = (
-            text_padded.to(self.device, non_blocking=True)
-            .long()
-            .contiguous()
+            text_padded.to(self.device, non_blocking=True).long().contiguous()
         )
         input_lengths = (
-            input_lengths.to(self.device, non_blocking=True)
-            .long()
-            .contiguous()
+            input_lengths.to(self.device, non_blocking=True).long().contiguous()
         )
         max_len = torch.max(input_lengths.data).item()
         mel_padded = (
-            mel_padded.to(self.device, non_blocking=True)
-            .float()
-            .contiguous()
+            mel_padded.to(self.device, non_blocking=True).float().contiguous()
         )
         gate_padded = (
-            gate_padded.to(self.device, non_blocking=True)
-            .float()
-            .contiguous()
+            gate_padded.to(self.device, non_blocking=True).float().contiguous()
         )
         output_lengths = (
             output_lengths.to(self.device, non_blocking=True)

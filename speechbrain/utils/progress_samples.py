@@ -81,11 +81,7 @@ class ProgressSampleLogger:
     """
 
     def __init__(
-        self,
-        output_path,
-        formats=None,
-        format_defs=None,
-        batch_sample_size=1
+        self, output_path, formats=None, format_defs=None, batch_sample_size=1
     ):
         self.progress_samples = {}
         self.formats = formats or {}
@@ -164,13 +160,10 @@ class ProgressSampleLogger:
         target_path = os.path.join(self.output_path, str(epoch))
         if not os.path.exists(target_path):
             os.makedirs(target_path)
-        format = self.formats.get(
-            key, self.DEFAULT_FORMAT)
+        format = self.formats.get(key, self.DEFAULT_FORMAT)
         format_def = self.format_defs.get(format)
         if format_def is None:
             raise ValueError("Unsupported format {format}")
         file_name = f"{key}.{format_def['extension']}"
-        effective_file_name = os.path.join(
-            target_path, file_name)
-        format_def["saver"](
-            data, effective_file_name)
+        effective_file_name = os.path.join(target_path, file_name)
+        format_def["saver"](data, effective_file_name)

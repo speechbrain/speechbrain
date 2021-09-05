@@ -141,6 +141,7 @@ class Attention(nn.Module):
     attention_location_kernel_size: int
         the kernel size of the location layer
     """
+
     def __init__(
         self,
         attention_rnn_dim,
@@ -241,6 +242,7 @@ class Prenet(nn.Module):
     sizes: int
         the dimension of the hidden layers/outout
     """
+
     def __init__(self, in_dim, sizes):
         super().__init__()
         in_sizes = [in_dim] + sizes[:-1]
@@ -437,6 +439,7 @@ class Decoder(nn.Module):
         dropout probability for attention layers
 
     """
+
     def __init__(
         self,
         n_mel_channels,
