@@ -7,6 +7,9 @@ Authors
 * Artem Ploujnikov 2021
 """
 
+# This code uses a significant portion of the NVidia implementation, even though it
+# has been modified and enhanced
+
 # https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/SpeechSynthesis/Tacotron2/tacotron2/model.py
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
@@ -42,11 +45,10 @@ from torch import nn
 from torch.nn import functional as F
 from collections import namedtuple
 
-#################
-# defining some helper classes
-
 
 class LinearNorm(torch.nn.Module):
+    """A linear layer with Xavier initialization"""
+
     def __init__(self, in_dim, out_dim, bias=True, w_init_gain="linear"):
         super().__init__()
         self.linear_layer = torch.nn.Linear(in_dim, out_dim, bias=bias)
@@ -57,10 +59,26 @@ class LinearNorm(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Computes the forward pass
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            a (batch, features) input tensor
+
+
+        Returns
+        -------
+        output: torch.Tensor
+            the linear layer output
+
+        """
         return self.linear_layer(x)
 
 
 class ConvNorm(torch.nn.Module):
+    """A 1D convolution layer with Xavier initialization"""
+
     def __init__(
         self,
         in_channels,
@@ -92,13 +110,37 @@ class ConvNorm(torch.nn.Module):
         )
 
     def forward(self, signal):
+        """Computes the forward pass
+
+        Arguments
+        ---------
+        signal: torch.Tensor
+            the input to the convolutional layer
+
+        Returns
+        -------
+        output: torch.Tensor
+            the output
+        """
         return self.conv(signal)
 
 
-###############
-
-
 class LocationLayer(nn.Module):
+    """A location-based attention layer consisting of a Xavier-initialized
+    convolutional layer followed by a dense layer
+
+    Arguments
+    ---------
+    attention_n_filters: int
+        the number of filters used in attention
+
+    attention_kernel_size: int
+        the kernel size of the attention layer
+
+    attention_dim: int
+        the dimension of linear attention layers
+    """
+
     def __init__(
         self, attention_n_filters, attention_kernel_size, attention_dim
     ):
@@ -118,6 +160,19 @@ class LocationLayer(nn.Module):
         )
 
     def forward(self, attention_weights_cat):
+        """Performs the forward pass for the attention layer
+
+        Arguments
+        ---------
+        attention_weights_cat: torch.Tensor
+            the concatenating attention weights
+
+        Results
+        -------
+        processed_attention: torch.Tensor
+            the attention layer output
+
+        """
         processed_attention = self.location_conv(attention_weights_cat)
         processed_attention = processed_attention.transpose(1, 2)
         processed_attention = self.location_dense(processed_attention)
@@ -218,6 +273,11 @@ class Attention(nn.Module):
             previous and cummulative attention weights
         mask: torch.Tensor
             binary mask for padded data
+
+        Returns
+        -------
+        result: tuple
+            a (attention_context, attention_weights) tuple
         """
         alignment = self.get_alignment_energies(
             attention_hidden_state, processed_memory, attention_weights_cat
@@ -233,7 +293,8 @@ class Attention(nn.Module):
 
 
 class Prenet(nn.Module):
-    """The Tacotron pre-net module
+    """The Tacotron pre-net module consisting of a specified number of
+    normalized (Xavier-initialized) linear layers
 
     Arguments
     ---------
@@ -241,9 +302,11 @@ class Prenet(nn.Module):
         the input dimensions
     sizes: int
         the dimension of the hidden layers/outout
+    dropout: float
+        the dropout probability
     """
 
-    def __init__(self, in_dim, sizes):
+    def __init__(self, in_dim, sizes, dropout=0.5):
         super().__init__()
         in_sizes = [in_dim] + sizes[:-1]
         self.layers = nn.ModuleList(
@@ -252,10 +315,23 @@ class Prenet(nn.Module):
                 for (in_size, out_size) in zip(in_sizes, sizes)
             ]
         )
+        self.dropout = dropout
 
     def forward(self, x):
+        """Computes the forward pass for the prenet
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the prenet inputs
+
+        Returns
+        -------
+        output: torch.Tensor
+            the output
+        """
         for linear in self.layers:
-            x = F.dropout(F.relu(linear(x)), p=0.5, training=True)
+            x = F.dropout(F.relu(linear(x)), p=self.dropout, training=True)
         return x
 
 
@@ -669,11 +745,32 @@ class Decoder(nn.Module):
         processed_memory,
         mask,
     ):
-        """ Decoder step using stored states, attention and memory
+        """Decoder step using stored states, attention and memory
         Arguments
         ---------
         decoder_input: torch.Tensor
             previous mel output
+        attention_hidden: torch.Tensor
+            the hidden state of the attention module
+        attention_cell: torch.Tensor
+            the attention cell state
+        decoder_hidden: torch.Tensor
+            the decoder hidden state
+        decoder_cell: torch.Tensor
+            the decoder cell state
+        attention_weights: torch.Tensor
+            the attention weights
+        attention_weights_cum: torch.Tensor
+            cumulative attention weights
+        attention_context: torch.Tensor
+            the attention context tensor
+        memory: torch.Tensor
+            the memory tensor
+        processed_memory: torch.Tensor
+            the processed memory tensor
+        mask: torch.Tensor
+
+
 
         Returns
         -------
@@ -927,6 +1024,120 @@ class Decoder(nn.Module):
 
 
 class Tacotron2(nn.Module):
+    """The Tactron2 text-to-speech model, based on the NVIDIA implementation.
+
+    This class is the main entry point for the model, which is responsible
+    for instantiating all submodules, which, in turn, manage the individual
+    neural network layers
+
+    Simplified STRUCTURE: input->word embedding ->encoder ->attention \
+    ->decoder(+prenet) -> postnet ->output
+
+    prenet(input is decoder previous time step) output is input to decoder
+    concatenanted with the attention output
+
+    Arguments
+    ---------
+    mask_padding: bool
+        whether or not to mask pad-outputs of tacotron
+
+    #mel generation parameter in data io
+    n_mel_channels: int
+        number of mel channels for constructing spectrogram
+
+    #symbols
+    n_symbols:  int=128
+        number of accepted char symbols defined in textToSequence
+    symbols_embedding_dim: int
+        number of embeding dimension for symbols fed to nn.Embedding
+
+    # Encoder parameters
+    encoder_kernel_size: int
+        size of kernel processing the embeddings
+    encoder_n_convolutions: int
+        number of convolution layers in encoder
+    encoder_embedding_dim: int
+        number of kernels in encoder, this is also the dimension
+        of the bidirectional LSTM in the encoder
+
+    # Attention parameters
+    attention_rnn_dim: int
+        input dimension
+    attention_dim: int
+        number of hidden represetation in attention
+    # Location Layer parameters
+    attention_location_n_filters: int
+        number of 1-D convulation filters in attention
+    attention_location_kernel_size: int
+        length of the 1-D convolution filters
+
+    # Decoder parameters
+    n_frames_per_step: int=1
+        only 1 generated mel-frame per step is supported for the decoder as of now.
+    decoder_rnn_dim: int
+        number of 2 unidirectionnal stacked LSTM units
+    prenet_dim: int
+        dimension of linear prenet layers
+    max_decoder_steps: int
+        maximum number of steps/frames the decoder generates before stopping
+    p_attention_dropout: float
+        attention drop out probability
+    p_decoder_dropout: float
+        decoder drop  out probability
+
+    gate_threshold: int
+        cut off level any output probabilty above that is considered
+        complete and stops genration so we have variable length outputs
+    decoder_no_early_stopping: bool
+        determines early stopping of decoder
+        along with gate_threshold . The logical inverse of this is fed to the decoder
+
+
+    #Mel-post processing network parameters
+    postnet_embedding_dim: int
+        number os postnet dfilters
+    postnet_kernel_size: int
+        1d size of posnet kernel
+    postnet_n_convolutions: int
+        number of convolution layers in postnet
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Tacotron2
+    >>> model = Tacotron2(
+    ...    mask_padding=True,
+    ...    n_mel_channels=80,
+    ...    n_symbols=148,
+    ...    symbols_embedding_dim=512,
+    ...    encoder_kernel_size=5,
+    ...    encoder_n_convolutions=3,
+    ...    encoder_embedding_dim=512,
+    ...    attention_rnn_dim=1024,
+    ...    attention_dim=128,
+    ...    attention_location_n_filters=32,
+    ...    attention_location_kernel_size=31,
+    ...    n_frames_per_step=1,
+    ...    decoder_rnn_dim=1024,
+    ...    prenet_dim=256,
+    ...    max_decoder_steps=1000,
+    ...    gate_threshold=0.5,
+    ...    p_attention_dropout=0.1,
+    ...    p_decoder_dropout=0.1,
+    ...    postnet_embedding_dim=512,
+    ...    postnet_kernel_size=5,
+    ...    postnet_n_convolutions=5,
+    ...    decoder_no_early_stopping=False
+    ... )
+    >>> inputs = torch.tensor([
+    ...     [13, 12, 31, 14, 19],
+    ...     [31, 16, 30, 31, 0],
+    ... ])
+    >>> input_lengths = torch.tensor([5, 4])
+    >>> outputs, output_lengths, alignments = model.infer(inputs, input_lengths)
+
+    """
+
     def __init__(
         self,
         mask_padding,
@@ -952,79 +1163,6 @@ class Tacotron2(nn.Module):
         postnet_n_convolutions,
         decoder_no_early_stopping,
     ):
-        """ Tactron2 object
-        Simplified STRUCTURE: input->word embedding ->encoder ->attention \
-        ->decoder(+prenet) -> postnet ->output
-
-        prenet(input is decoder previous time step) output is input to decoder
-        concatenanted with the attention output
-
-        Arguments
-        ---------
-        mask_padding: bool
-            whether or not to mask pad-outputs of tacotron
-
-        #mel generation parameter in data io
-        n_mel_channels: int
-            number of mel channels for constructing spectrogram
-
-        #symbols
-        n_symbols:  int=128
-            number of accepted char symbols defined in textToSequence
-        symbols_embedding_dim: int
-            number of embeding dimension for symbols fed to nn.Embedding
-
-        # Encoder parameters
-        encoder_kernel_size: int
-            size of kernel processing the embeddings
-        encoder_n_convolutions: int
-            number of convolution layers in encoder
-        encoder_embedding_dim: int
-            number of kernels in encoder, this is also the dimension
-            of the bidirectional LSTM in the encoder
-
-        # Attention parameters
-        attention_rnn_dim: int
-            input dimension
-        attention_dim: int
-            number of hidden represetation in attention
-        # Location Layer parameters
-        attention_location_n_filters: int
-            number of 1-D convulation filters in attention
-        attention_location_kernel_size: int
-            length of the 1-D convolution filters
-
-        # Decoder parameters
-        n_frames_per_step: int=1
-            only 1 generated mel-frame per step is supported for the decoder as of now.
-        decoder_rnn_dim: int
-            number of 2 unidirectionnal stacked LSTM units
-        prenet_dim: int
-            dimension of linear prenet layers
-        max_decoder_steps: int
-            maximum number of steps/frames the decoder generates before stopping
-        p_attention_dropout: float
-            attention drop out probability
-        p_decoder_dropout: float
-            decoder drop  out probability
-
-        gate_threshold: int
-            cut off level any output probabilty above that is considered
-            complete and stops genration so we have variable length outputs
-        decoder_no_early_stopping: bool
-            determines early stopping of decoder
-            along with gate_threshold . The logical inverse of this is fed to the decoder
-
-
-        #Mel-post processing network parameters
-        postnet_embedding_dim: int
-            number os postnet dfilters
-        postnet_kernel_size: int
-            1d size of posnet kernel
-        postnet_n_convolutions: int
-            number of convolution layers in postnet
-
-        """
         super().__init__()
         self.mask_padding = mask_padding
         self.n_mel_channels = n_mel_channels
@@ -1076,7 +1214,8 @@ class Tacotron2(nn.Module):
 
         Returns
         -------
-        result: torch.Tensor
+        result: tuple
+            a (mel_outputs, mel_outputs_postnet, gate_outputs, alignments) tuple with
             the original outputs - with the mask applied
         """
         mel_outputs, mel_outputs_postnet, gate_outputs, alignments = outputs
@@ -1098,10 +1237,11 @@ class Tacotron2(nn.Module):
         return mel_outputs, mel_outputs_postnet, gate_outputs, alignments
 
     def forward(self, inputs, alignments_dim=None):
-        """ Decoder forward pass for training
+        """Decoder forward pass for training
+
         Arguments
         ---------
-        inputs: torch.Tensor
+        inputs: tuple
             batch object
         alignments_dim: int
             the desired dimension of the alignments along the last axis
@@ -1142,13 +1282,16 @@ class Tacotron2(nn.Module):
         )
 
     def infer(self, inputs, input_lengths):
-        """ Decoder inference
+        """Produces outputs
+
+
         Arguments
         ---------
-        inputs:(int list) text converted to sequence of ints with the function text_to_sequence in
-        tectTosequence.py
+        inputs: torch.tensor
+            text or phonemes converted
 
-        input_lengths:(int) lenght of seuqence
+        input_lengths: torch.tensor
+            the lengths of input parameters
 
         Returns
         -------
@@ -1176,8 +1319,7 @@ class Tacotron2(nn.Module):
 
 
 def get_mask_from_lengths(lengths, max_len=None):
-    """
-    Creates a mask from a tensor of lengths
+    """Creates a mask from a tensor of lengths
 
     Arguments
     ---------
@@ -1229,8 +1371,14 @@ LossStats = namedtuple(
 
 
 class Loss(nn.Module):
-    """
-    The Tacotron loss implementation
+    """The Tacotron loss implementation
+
+    The loss consists of an MSE loss on the spectrogram, a BCE gate loss
+    and a guided attention loss (if enabled) that attempts to make the
+    attention matrix diagonal
+
+    The output of the moduel is a LossStats tuple, which includes both the
+    total loss
 
     Arguments
     ---------
@@ -1239,10 +1387,13 @@ class Loss(nn.Module):
         the mask
     gate_loss_weight: float
         The constant by which the hate loss will be multiplied
-    guided_attention_weight:
+    guided_attention_weight: float
         The weight for the guided attention
-    guided_attention_scheduler: None
+    guided_attention_scheduler: callable
         The scheduler class for the guided attention loss
+    guided_attention_hard_stop: int
+        The number of epochs after which guided attention will be compeltely
+        turned off
     """
 
     def __init__(
@@ -1270,8 +1421,7 @@ class Loss(nn.Module):
     def forward(
         self, model_output, targets, input_lengths, target_lengths, epoch
     ):
-        """
-        Computes the loss
+        """Computes the loss
 
         Arguments
         ---------
@@ -1280,11 +1430,11 @@ class Loss(nn.Module):
             (mel_outputs, mel_outputs_postnet, gate_outputs, alignments)
         targets: tuple
             the targets
-        input_lengths: torch.tensor
+        input_lengths: torch.Tensor
             a (batch, length) tensor of input lengths
-        target_lengths:
+        target_lengths: torch.Tensor
             a (batch, length) tensor of target (spectrogram) lengths
-        epoch:
+        epoch: int
             the current epoch number (used for the scheduling of the guided attention
             loss) A StepScheduler is typically used
 
@@ -1316,18 +1466,17 @@ class Loss(nn.Module):
     def get_attention_loss(
         self, alignments, input_lengths, target_lengths, epoch
     ):
-        """
-        Computes the attention loss
+        """Computes the attention loss
 
         Arguments
         ---------
         alignments: torch.Tensor
             the aligment matrix from the model
-        input_lengths: torch.tensor
+        input_lengths: torch.Tensor
             a (batch, length) tensor of input lengths
-        target_lengths:
+        target_lengths: torch.Tensor
             a (batch, length) tensor of target (spectrogram) lengths
-        epoch:
+        epoch: int
             the current epoch number (used for the scheduling of the guided attention
             loss) A StepScheduler is typically used
 

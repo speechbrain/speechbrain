@@ -37,7 +37,11 @@ logger = logging.getLogger(__name__)
 
 
 class Tacotron2Brain(sb.Brain):
+    """The Brain implementation for Tacotron2"""
+
     def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
         self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
@@ -65,8 +69,7 @@ class Tacotron2Brain(sb.Brain):
         return self.modules.model(inputs, alignments_dim=max_input_length)
 
     def fit_batch(self, batch):
-        """
-        Fits a single batch and applies annealing
+        """Fits a single batch and applies annealing
 
         Arguments
         ---------
@@ -98,12 +101,31 @@ class Tacotron2Brain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         effective_batch = self.batch_to_device(batch)
+        # Hold on to the batch for the inference sample. This is needed because
+        # the infernece sample is run from on_stage_end only, where
+        # batch information is not available
         self.last_batch = effective_batch
+        # Hold on to a sample (for logging)
         self._remember_sample(effective_batch, predictions)
+        # Compute the loss
         loss = self._compute_loss(predictions, effective_batch, stage)
         return loss
 
     def _compute_loss(self, predictions, batch, stage):
+        """Computes the value of the loss function and updates stats
+
+        Arguments
+        ---------
+        predictions: tuple
+            model predictions
+        targets: tuple
+            ground truth data
+
+        Returns
+        -------
+        loss: torch.Tensor
+            the loss value
+        """
         inputs, targets, num_items, labels, wavs = batch
         text_padded, input_lengths, _, max_len, output_lengths = inputs
         loss_stats = self.hparams.criterion(
@@ -113,6 +135,15 @@ class Tacotron2Brain(sb.Brain):
         return loss_stats.loss
 
     def _remember_sample(self, batch, predictions):
+        """Remembers samples of spectrograms and the batch for logging purposes
+
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+        predictions: tuple
+            predictions (raw output of the Tacotron model)
+        """
         inputs, targets, num_items, labels, wavs = batch
         text_padded, input_lengths, _, max_len, output_lengths = inputs
         mel_target, _ = targets
@@ -126,9 +157,9 @@ class Tacotron2Brain(sb.Brain):
         )
         alignments_output = alignments[0].T.flip(dims=(1,)) / alignments_max
         self.hparams.progress_sample_logger.remember(
-            target=self._get_sample_data(mel_target),
-            output=self._get_sample_data(mel_out),
-            output_postnet=self._get_sample_data(mel_out_postnet),
+            target=self._get_spectrogram_sample(mel_target),
+            output=self._get_spectrogram_sample(mel_out),
+            output_postnet=self._get_spectrogram_sample(mel_out_postnet),
             alignments=alignments_output,
             raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
                 {
@@ -148,13 +179,17 @@ class Tacotron2Brain(sb.Brain):
         )
 
     def batch_to_device(self, batch):
-        """
-        Transfers the batch to the target device
+        """Transfers the batch to the target device
 
         Arguments
         ---------
         batch: tuple
             the batch to use
+
+        Returns
+        -------
+        batch: tiuple
+            the batch on the correct device
         """
         (
             text_padded,
@@ -166,30 +201,34 @@ class Tacotron2Brain(sb.Brain):
             labels,
             wavs,
         ) = batch
-        text_padded = (
-            text_padded.to(self.device, non_blocking=True).long().contiguous()
-        )
-        input_lengths = (
-            input_lengths.to(self.device, non_blocking=True).long().contiguous()
-        )
+        text_padded = text_padded.to(self.device, non_blocking=True).long()
+        input_lengths = input_lengths.to(self.device, non_blocking=True).long()
         max_len = torch.max(input_lengths.data).item()
-        mel_padded = (
-            mel_padded.to(self.device, non_blocking=True).float().contiguous()
-        )
-        gate_padded = (
-            gate_padded.to(self.device, non_blocking=True).float().contiguous()
-        )
-        output_lengths = (
-            output_lengths.to(self.device, non_blocking=True)
-            .long()
-            .contiguous()
-        )
+        mel_padded = mel_padded.to(self.device, non_blocking=True).float()
+        gate_padded = gate_padded.to(self.device, non_blocking=True).float()
+
+        output_lengths = output_lengths.to(
+            self.device, non_blocking=True
+        ).long()
         x = (text_padded, input_lengths, mel_padded, max_len, output_lengths)
         y = (mel_padded, gate_padded)
         len_x = torch.sum(output_lengths)
         return (x, y, len_x, labels, wavs)
 
-    def _get_sample_data(self, raw):
+    def _get_spectrogram_sample(self, raw):
+        """Converts a raw spectrogram to one that can be saved as an image
+        sample  = sqrt(exp(raw))
+
+        Arguments
+        ---------
+        raw: torch.Tensor
+            the raw spectrogram (as used in the model)
+
+        Returns
+        -------
+        sample: torch.Tensor
+            the spectrogram, for image saving purposes
+        """
         sample = raw[0]
         return torch.sqrt(torch.exp(sample))
 
@@ -265,7 +304,7 @@ class Tacotron2Brain(sb.Brain):
             text_padded[:1], input_lengths[:1]
         )
         self.hparams.progress_sample_logger.remember(
-            inference_mel_out=self._get_sample_data(mel_out)
+            inference_mel_out=self._get_spectrogram_sample(mel_out)
         )
 
 
@@ -313,8 +352,7 @@ def dataio_prepare(hparams):
 
 # TODO: Modularize and decouple this
 def audio_pipeline(hparams):
-    """
-    A pipeline function that provides text sequences, a mel spectrogram
+    """A pipeline function that provides text sequences, a mel spectrogram
     and the text length
 
     Arguments
@@ -394,7 +432,7 @@ class TextMelCollate:
     Arguments
     ---------
     n_frames_per_step: int
-        the number of frames per step
+        the number of output frames per step
 
     Returns
     -------
@@ -484,18 +522,15 @@ class TextMelCollate:
 if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
-    #########
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     #############
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    show_results_every = 5  # plots results every N iterations
-
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
-    # sb.utils.distributed.ddp_init_group(run_opts)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
