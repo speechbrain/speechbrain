@@ -111,7 +111,7 @@ class CRDNN(sb.nnet.containers.Sequential):
         super().__init__(input_shape=input_shape)
 
         if cnn_blocks > 0:
-            self.append(sb.nnet.containers.Sequential, layer_name="CNN")
+            self.append(sb.nnet.containers.MaskCapableSequential(input_shape=input_shape, return_mask=True), layer_name="CNN")
         for block_index in range(cnn_blocks):
             self.CNN.append(
                 CNN_Block,
@@ -238,7 +238,7 @@ class CNN_Block(torch.nn.Module):
 
         self.pad_idx = 0
         # Convolution
-        self.convs = sb.nnet.containers.Sequential(input_shape=input_shape)
+        self.convs = sb.nnet.containers.MaskCapableSequential(input_shape=input_shape, return_mask=True)
         self.convs.append(
             ConvLayer,
             conv_module=sb.nnet.CNN.Conv2d,
@@ -257,42 +257,30 @@ class CNN_Block(torch.nn.Module):
             activation=activation,
             layer_name="conv_layer_2",
         )
-        # Masking
-        self.masks = torch.nn.Sequential()
-        self.masks.add_module(
-            "mask_layer_1", sb.nnet.CNN.Mask2d(kernel_size=kernel_size),
-        )
-        self.masks.add_module(
-            "mask_layer_2", sb.nnet.CNN.Mask2d(kernel_size=kernel_size),
-        )
         # Pooling
         if using_2d_pool:
-            self.pooling = sb.nnet.pooling.Pooling2d(
+            self.convs.append(
+                sb.nnet.pooling.Pooling2d(
                 pool_type="max",
                 kernel_size=(pooling_size, pooling_size),
-                pool_axis=(1, 2),
-            )
+                pool_axis=(1, 2)),
+                layer_name="pooling",)
         else:
-            self.pooling = sb.nnet.pooling.Pooling1d(
+            self.convs.append(
+                sb.nnet.pooling.Pooling1d( 
                 pool_type="max",
                 input_dims=4,
                 kernel_size=pooling_size,
-                pool_axis=2,
-            )
+                pool_axis=2),
+                layer_name="pooling",)
 
-        self.drop = sb.nnet.dropout.Dropout2d(drop_rate=dropout)
+        #self.drop = sb.nnet.dropout.Dropout2d(drop_rate=dropout)
+        self.convs.append(sb.nnet.dropout.Dropout2d(drop_rate=dropout), layer_name="drop")
 
-    def forward(self, x):
-        # Create mask from padding input
-        mask = x.eq(self.pad_idx)
-        for conv_layer, mask_layer in zip(self.convs.values(), self.masks):
-            mask = mask_layer(mask)
-            x = conv_layer(x)
-            x.masked_fill_(mask, 0.0)
-        x = self.pooling(x)
-        x = self.drop(x)
+    def forward(self, x, mask):
+        x, mask = self.convs(x, mask)
 
-        return x
+        return x, mask
 
 
 class DNN_Block(sb.nnet.containers.Sequential):

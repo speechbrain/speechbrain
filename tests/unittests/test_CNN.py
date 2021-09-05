@@ -48,29 +48,29 @@ def test_Conv2d():
         kernel_size=(1, 1),
         padding="same",
     )
-    output = convolve(input)
+    output, _ = convolve(input)
     assert output.shape[-1] == 1
 
     convolve.conv.weight = torch.nn.Parameter(
         torch.zeros(convolve.conv.weight.shape)
     )
     convolve.conv.bias = torch.nn.Parameter(torch.tensor([0]).float())
-    output = convolve(input)
+    output, _ = convolve(input)
     assert torch.all(torch.eq(torch.zeros(input.shape), output))
 
     convolve.conv.weight = torch.nn.Parameter(
         torch.ones(convolve.conv.weight.shape)
     )
     convolve.conv.bias = torch.nn.Parameter(torch.tensor([0]).float())
-    output = convolve(input)
+    output, _ = convolve(input)
     assert torch.all(torch.eq(input, output))
 
-    assert torch.jit.trace(convolve, input)
+    assert torch.jit.trace(convolve, [input, input.eq(0.0)])
 
 
-def test_Conv2dMask():
+def test_Conv2d_with_Mask():
 
-    from speechbrain.nnet.CNN import Conv2d, Mask2d
+    from speechbrain.nnet.CNN import Conv2d
 
     sample_length = 32
     # Padded input with the shape (batch, time, fea)
@@ -84,20 +84,15 @@ def test_Conv2dMask():
     convolve = Conv2d(
         out_channels=4,
         input_shape=input_padded.shape,
-        kernel_size=(1, 1),
+        kernel_size=(3, 3),
         stride=(2, 2),
         padding="same",
     )
     convolve.eval()
-    conv_mask = Mask2d(kernel_size=(1, 1), stride=(2, 2), padding="same",)
-    output_padded = convolve(input_padded)
-    conv_mask = conv_mask(input_mask)
-    # Mask conv output
-    output_padded.masked_fill_(conv_mask, 0.0)
+    output_padded, mask = convolve(input_padded, mask=input_padded.eq(0.0))
+    output_nonpadded, _ = convolve(input_nonpadded)
 
-    output_nonpadded = convolve(input_nonpadded)
-    output_length = output_nonpadded.size(1)
+    print(torch.sum(output_nonpadded[0]), torch.sum(output_padded[0]))
+    assert torch.allclose(torch.sum(output_nonpadded[0]), torch.sum(output_padded[0]))
 
-    assert torch.allclose(output_nonpadded[0], output_padded[0][:output_length])
-
-    assert torch.jit.trace(convolve, input_padded)
+    assert torch.jit.trace(convolve, [input_padded, input_padded.eq(0.0)])

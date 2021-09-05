@@ -564,7 +564,7 @@ class Conv2d(nn.Module):
             bias=bias,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -573,6 +573,9 @@ class Conv2d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
+        if mask is not None:
+            x.masked_fill_(mask, 0.0)
+
         x = x.transpose(1, -1)
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -594,7 +597,48 @@ class Conv2d(nn.Module):
         if self.unsqueeze:
             wx = wx.squeeze(1)
         wx = wx.transpose(1, -1)
-        return wx
+
+        if mask is not None:
+            mask = self.compute_mask(mask)
+            wx.masked_fill_(mask, 0.0)
+
+        return wx, mask
+
+    def compute_mask(self, mask):
+        mask = mask.transpose(1, -1)
+        # Unsqueeze
+        unsqueeze = mask.ndim == 3
+        if unsqueeze:
+            mask = mask.unsqueeze(1)
+        if self.padding == "same":
+            freq_end = mask.size(2)
+            time_end = mask.size(3)
+        elif self.padding == "valid":
+            freq_end = (
+                mask.size(2)
+                - self.dilation[-2] * (self.kernel_size[-2] - 1)
+                - 1
+            )
+            time_end = (
+                mask.size(3)
+                - self.dilation[-1] * (self.kernel_size[-1] - 1)
+                - 1
+            )
+
+        # Subsample mask
+        mask = mask[
+            :, :, : freq_end : self.stride[-1], : time_end : self.stride[-2]
+        ]
+
+        # Make it to (batch, 1, time, freq)
+        mask = mask[:, :1]
+        # Make it to (batch, freq, time, 1)
+        mask = mask.transpose(1, -1)
+        # Squeeze
+        if unsqueeze:
+            mask = mask.squeeze(1)
+
+        return mask
 
     def _manage_padding(
         self,
@@ -1097,100 +1141,6 @@ class DepthwiseSeparableConv2d(nn.Module):
             out = out.squeeze(1)
 
         return out
-
-
-class Mask2d(nn.Module):
-    """This function implements masking for output after 2d convolution,
-    pooling layers.
-
-    Arguments
-    ---------
-    kernel_size : tuple
-        Kernel size of the 2d convolutional filters over time and frequency
-        axis.
-    stride: int
-        Stride factor of the 2d convolutional filters over time and frequency
-        axis.
-    dilation : int
-        Dilation factor of the 2d convolutional filters over time and
-        frequency axis.
-    padding : str
-        (same, valid). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
-
-    Example
-    -------
-    >>> pad_idx = 0
-    >>> inp_tensor = torch.rand([10, 40, 16, 8])
-    >>> inp_mask = ~inp_tensor.eq(pad_idx)
-    >>> cnn_2dmask = Mask2d(
-    ...     kernel_size=(7, 3), stride=(3, 3)
-    ... )
-    >>> out_mask = cnn_2dmask(inp_mask)
-    >>> out_mask.shape
-    torch.Size([10, 14, 6, 1])
-    """
-
-    def __init__(
-        self, kernel_size, stride=(1, 1), dilation=(1, 1), padding="same",
-    ):
-        super().__init__()
-
-        # handle the case if some parameter is int
-        if isinstance(kernel_size, int):
-            kernel_size = (kernel_size, kernel_size)
-        if isinstance(stride, int):
-            stride = (stride, stride)
-        if isinstance(dilation, int):
-            dilation = (dilation, dilation)
-
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.dilation = dilation
-        self.padding = padding
-
-    def forward(self, mask):
-        mask = mask.transpose(1, -1)
-        # Unsqueeze
-        unsqueeze = mask.ndim == 3
-        if unsqueeze:
-            mask = mask.unsqueeze(1)
-        if self.padding == "same":
-            freq_end = mask.size(2)
-            time_end = mask.size(3)
-        elif self.padding == "valid":
-            freq_end = (
-                mask.size(2)
-                - self.dilation[-2] * (self.kernel_size[-2] - 1)
-                - 1
-            )
-            time_end = (
-                mask.size(3)
-                - self.dilation[-1] * (self.kernel_size[-1] - 1)
-                - 1
-            )
-        else:
-            raise ValueError(
-                "Padding must be 'same' or 'valid'. Got " + self.padding
-            )
-
-        # Subsample mask
-        mask = mask[
-            :, :, : freq_end : self.stride[-1], : time_end : self.stride[-2]
-        ]
-
-        # Make it to (batch, 1, time, freq)
-        mask = mask[:, :1]
-        # Make it to (batch, freq, time, 1)
-        mask = mask.transpose(1, -1)
-        # Squeeze
-        if unsqueeze:
-            mask = mask.squeeze(1)
-
-        return mask.detach()
-
-    def extra_repr(self):
-        return f"kernel_size={self.kernel_size}, stride={self.stride}, dilation={self.dilation}, padding={self.padding}"
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):

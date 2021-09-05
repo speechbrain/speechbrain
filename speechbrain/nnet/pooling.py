@@ -63,6 +63,12 @@ class Pooling1d(nn.Module):
         if stride is None:
             stride = kernel_size
 
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.input_dims = input_dims
+
         if pool_type == "avg":
             if input_dims == 3:
                 self.pool_layer = torch.nn.AvgPool1d(
@@ -104,7 +110,7 @@ class Pooling1d(nn.Module):
         else:
             raise ValueError("pool_type must be 'avg' or 'max'")
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
 
         # Put the pooling axes as the last dimension for torch.nn.pool
         x = x.transpose(-1, self.pool_axis)
@@ -115,7 +121,16 @@ class Pooling1d(nn.Module):
         # Recover input shape
         x = x.transpose(-1, self.pool_axis)
 
-        return x
+        if mask is not None:
+            mask = self.compute_mask(mask)
+
+        return x, mask
+
+    def compute_mask(self, mask):
+        mask = mask.transpose(-1, self.pool_axis)
+        mask = mask[..., :: self.stride]
+        mask = mask.transpose(-1, self.pool_axis)
+        return mask
 
 
 class Pooling2d(nn.Module):
@@ -187,7 +202,7 @@ class Pooling2d(nn.Module):
                 ceil_mode=self.ceil_mode,
             )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
 
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
@@ -224,6 +239,42 @@ class Pooling2d(nn.Module):
         )
 
         return x
+
+    def compute_mask(self, mask):
+        mask = mask.transpose(1, -1)
+        # Unsqueeze
+        unsqueeze = mask.ndim == 3
+        if unsqueeze:
+            mask = mask.unsqueeze(1)
+        if self.padding == "same":
+            freq_end = mask.size(2)
+            time_end = mask.size(3)
+        elif self.padding == "valid":
+            freq_end = (
+                mask.size(2)
+                - self.dilation[-2] * (self.kernel_size[-2] - 1)
+                - 1
+            )
+            time_end = (
+                mask.size(3)
+                - self.dilation[-1] * (self.kernel_size[-1] - 1)
+                - 1
+            )
+
+        # Subsample mask
+        mask = mask[
+            :, :, : freq_end : self.stride[-1], : time_end : self.stride[-2]
+        ]
+
+        # Make it to (batch, 1, time, freq)
+        mask = mask[:, :1]
+        # Make it to (batch, freq, time, 1)
+        mask = mask.transpose(1, -1)
+        # Squeeze
+        if unsqueeze:
+            mask = mask.squeeze(1)
+
+        return mask
 
 
 class StatisticsPooling(nn.Module):

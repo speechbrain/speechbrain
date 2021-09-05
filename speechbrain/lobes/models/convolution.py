@@ -4,12 +4,12 @@ Authors
  * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.nnet.CNN import Conv2d, Mask2d
-from speechbrain.nnet.containers import Sequential
+from speechbrain.nnet.CNN import Conv2d
+from speechbrain.nnet.containers import Sequential, MaskCapableSequential
 from speechbrain.nnet.normalization import BatchNorm2d
 
 
-class ConvolutionFrontEnd(Sequential):
+class ConvolutionFrontEnd(MaskCapableSequential):
     """This is a module to ensemble a convolution (depthwise) encoder with or
     without residual connection.
 
@@ -62,7 +62,7 @@ class ConvolutionFrontEnd(Sequential):
         norm=BatchNorm2d,
         dropout=0.1,
     ):
-        super().__init__(input_shape=input_shape)
+        super().__init__(input_shape=input_shape, return_mask=False)
         for i in range(num_blocks):
             self.append(
                 ConvBlock,
@@ -128,16 +128,15 @@ class ConvBlock(torch.nn.Module):
         dilation=1,
         residual=False,
         conv_module=Conv2d,
-        conv_mask=Mask2d,
         activation=torch.nn.LeakyReLU,
         norm=None,
         dropout=0.1,
     ):
         super().__init__()
 
-        self.convs = Sequential(input_shape=input_shape)
-        self.masks = torch.nn.Sequential()
-        self.pad_idx = 0
+        self.convs = MaskCapableSequential(
+            input_shape=input_shape, return_mask=True
+        )
 
         for i in range(num_layers):
             self.convs.append(
@@ -152,19 +151,11 @@ class ConvBlock(torch.nn.Module):
                 dropout=dropout,
                 layer_name=f"conv_layer_{i}",
             )
-            self.masks.add_module(
-                f"mask_layer_{i}",
-                conv_mask(
-                    kernel_size=kernel_size,
-                    stride=stride if i == num_layers - 1 else 1,
-                    dilation=dilation,
-                ),
-            )
 
         self.reduce_conv = None
         self.drop = None
         if residual:
-            self.reduce_conv = Sequential(input_shape=input_shape)
+            self.reduce_conv = MaskCapableSequential(input_shape=input_shape)
             self.reduce_conv.append(
                 ConvLayer,
                 conv_module=conv_module,
@@ -176,24 +167,16 @@ class ConvBlock(torch.nn.Module):
             )
             self.drop = torch.nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, mask):
         # Create mask from padding input
-        mask = x.eq(self.pad_idx)
-        x_residual = x
-        for conv_layer, mask_layer in zip(self.convs.values(), self.masks):
-            mask = mask_layer(mask)
-            x = conv_layer(x)
-            x.masked_fill_(mask, 0.0)
-
+        out, out_mask = self.convs(x, mask)
         if self.reduce_conv:
-            x = x + self.reduce_conv(x_residual)
-            x = self.drop(x)
-            x.masked_fill_(mask, 0.0)
-
-        return x
+            out = out + self.reduce_conv(x, mask)
+            out = self.drop(out)
+        return out, out_mask
 
 
-class ConvLayer(Sequential):
+class ConvLayer(MaskCapableSequential):
     """An implementation of convolution layer with 1d or 2d convolutions (depthwise).
 
     Arguments
@@ -236,7 +219,7 @@ class ConvLayer(Sequential):
         norm=None,
         dropout=0.0,
     ):
-        super().__init__(input_shape=input_shape)
+        super().__init__(input_shape=input_shape, return_mask=True)
 
         self.append(
             conv_module,
