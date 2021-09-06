@@ -431,6 +431,7 @@ def phoneme_decoder_pipeline(
     bos_index: int
         the index of the BOS token
     eos_index: int
+        the index of the EOS token
 
     Returns
     -------
