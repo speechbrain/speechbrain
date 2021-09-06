@@ -68,8 +68,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         self.has_ctc = hasattr(self.hparams, "ctc_lin")
         self.mode = TrainMode(train_step.get("mode", TrainMode.NORMAL))
         self.last_attn = None
-        self.use_word_emb = getattr(
-            self.hparams, "use_word_emb", False)
+        self.use_word_emb = getattr(self.hparams, "use_word_emb", False)
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
@@ -83,13 +82,13 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 emb=word_emb,
                 seq=graphemes,
                 seq_len=grapheme_lens,
-                word_separator=self.grapheme_word_separator_idx
+                word_separator=self.grapheme_word_separator_idx,
             )
 
         p_seq, char_lens, encoder_out, attn = self.modules["model"](
             grapheme_encoded=(graphemes.detach(), grapheme_lens),
             phn_encoded=batch.phn_encoded_bos,
-            word_emb=char_word_emb
+            word_emb=char_word_emb,
         )
         self.last_attn = attn
 
@@ -239,8 +238,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 self.per_metrics_homograph = self.hparams.per_stats_homograph()
 
             self._set_word_separator()
-        self.grapheme_word_separator_idx = (
-            self.hparams.grapheme_encoder.lab2ind[" "])
+        self.grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
+            " "
+        ]
         if self.use_word_emb:
             self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
@@ -284,7 +284,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 )
                 ckpt_meta = {"PER_homograph": per}
                 min_keys = ["PER_homograph"]
-                ckpt_predicate = lambda ckpt: "PER_homograph" in ckpt.meta
+                ckpt_predicate = self._has_homograph_per
             else:
                 ckpt_meta = {"PER": per}
                 min_keys = ["PER"]
@@ -308,6 +308,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             self._write_reports(epoch)
+
+    def _has_homograph_per(self, ckpt):
+        return "PER_homograph" in ckpt.meta
 
     def _get_interim_report_path(self, epoch, file_path):
         output_path = os.path.join(

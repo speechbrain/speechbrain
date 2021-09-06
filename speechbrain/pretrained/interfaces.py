@@ -20,6 +20,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.batch import PaddedBatch, PaddedData
+from speechbrain.utils.data_pipeline import DataPipeline
 
 
 class Pretrained:
@@ -1395,5 +1396,3 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         Calls g2p
         """
         return self.g2p(text)
-
-

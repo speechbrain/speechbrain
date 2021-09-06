@@ -13,6 +13,7 @@ import re
 
 RE_MULTI_SPACE = re.compile(r"\s{2,}")
 
+
 def clean_pipeline(graphemes, takes="txt", provides="txt_cleaned"):
     """
     Creates a pipeline element that cleans incoming text, removing
@@ -259,7 +260,6 @@ def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
     result: DymamicItem
         a pipeline element
     """
-    phoneme_encoder = _enable_eos_bos(tokens, encoder, bos_index, eos_index)
 
     @sb.utils.data_pipeline.takes(f"{prefix}_encoded_list")
     @sb.utils.data_pipeline.provides(
@@ -417,12 +417,14 @@ def char_map_detokenize(
         the tokenizer function
 
     """
-    if wordwise:
-        detokenize = lambda item: _wordwise_detokenize(
-            tokenizer(), item, " ", token_space_index
-        )
-    else:
-        detokenize = lambda item: tokenizer().sp.decode_ids(item)
+
+    def detokenize_wordwise(item):
+        return _wordwise_detokenize(tokenizer(), item, " ", token_space_index)
+
+    def detokenize_regular(item):
+        return tokenizer().sp.decode_ids(item)
+
+    detokenize = detokenize_wordwise if wordwise else detokenize_regular
 
     def f(tokens):
         decoded_tokens = [detokenize(item) for item in tokens]

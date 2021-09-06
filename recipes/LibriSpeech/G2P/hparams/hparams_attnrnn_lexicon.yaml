@@ -21,7 +21,7 @@ enable_interim_reports: True
 
 
 # These three files are created from lexicon.csv.
-build_lexicon: true
+build_lexicon: True
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_csv
 train_data: !ref <save_folder>/lexicon_tr.csv
 valid_data: !ref <save_folder>/lexicon_dev.csv
@@ -34,7 +34,7 @@ phonemes_space_separated: False
 # Neural Parameters
 batch_size: 1024
 lr: 0.002
-save_for_pretrained: true
+save_for_pretrained: True
 
 # Model parameters
 output_neurons: 41
@@ -72,75 +72,75 @@ eval_mode: sentence
 select_n_sentences: None
 
 graphemes:
-- A
-- B
-- C
-- D
-- E
-- F
-- G
-- H
-- I
-- J
-- K
-- L
-- M
-- N
-- O
-- P
-- Q
-- R
-- S
-- T
-- U
-- V
-- W
-- X
-- Y
-- Z
-- "'"
-- " "
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
 
 phonemes:
-- AA
-- AE
-- AH
-- AO
-- AW
-- AY
-- B
-- CH
-- D
-- DH
-- EH
-- ER
-- EY
-- F
-- G
-- HH
-- IH
-- IY
-- JH
-- K
-- L
-- M
-- N
-- NG
-- OW
-- OY
-- P
-- R
-- S
-- SH
-- T
-- TH
-- UH
-- UW
-- V
-- W
-- Y
-- Z
-- ZH
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
 
 dataloader_opts:
     batch_size: !ref <batch_size>
@@ -257,8 +257,8 @@ out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.attnrnn.text_decode
 
 
 encode_pipeline:
-    batch: false
-    use_padded_data: true
+    batch: False
+    use_padded_data: True
     output_keys:
         - grapheme_list
         - grapheme_encoded_list
@@ -272,7 +272,7 @@ encode_pipeline:
           grapheme_encoder: !ref <grapheme_encoder>
 
 decode_pipeline:
-    batch: true
+    batch: True
     output_keys:
         - phonemes
     steps:
@@ -283,15 +283,15 @@ decode_pipeline:
           phonemes: !ref <phonemes>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-  loadables:
-    model: !ref <model>
-  paths:
-    model: !ref <pretrained_path>/model.ckpt
+    loadables:
+        model: !ref <model>
+    paths:
+        model: !ref <pretrained_path>/model.ckpt
 
 train_steps:
-  - name: lexicon
-    train_data: !ref <train_data>
-    valid_data: !ref <valid_data>
-    test_data: !ref <test_data>
-    epoch_counter: !ref <epoch_counter>
-    wer_file: !ref <wer_file>
+    - name: lexicon
+      train_data: !ref <train_data>
+      valid_data: !ref <valid_data>
+      test_data: !ref <test_data>
+      epoch_counter: !ref <epoch_counter>
+      wer_file: !ref <wer_file>

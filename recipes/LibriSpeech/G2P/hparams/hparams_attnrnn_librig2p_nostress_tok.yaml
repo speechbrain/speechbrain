@@ -25,7 +25,7 @@ pretrained_path: !ref <save_folder>/pretrained
 
 
 # These three files are created from lexicon.csv.
-build_lexicon: false
+build_lexicon: False
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 lexicon_train_data: !ref <data_folder>/lexicon_train.json
 lexicon_valid_data: !ref <data_folder>/lexicon_valid.json
@@ -39,17 +39,17 @@ homograph_test_data: !ref <data_folder>/homograph_test.json
 tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
 tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 
-homograph_balance: true
+homograph_balance: True
 
 # Tokenizers
-char_tokenize: true
+char_tokenize: True
 char_token_type: unigram  # ["unigram", "bpe", "char"]
 char_token_output: 512
-char_token_wordwise: false
-phn_tokenize: true
+char_token_wordwise: False
+phn_tokenize: True
 phn_token_type: unigram  # ["unigram", "bpe", "char"]
 phn_token_output: 512  # index(blank/eos/bos/unk) = 0
-phn_token_wordwise: false
+phn_token_wordwise: False
 character_coverage: 1.0
 
 
@@ -74,7 +74,7 @@ homograph_batch_size: 64
 ctc_weight: 0.5
 homograph_loss_weight: 2.0
 lr: 0.002
-save_for_pretrained: true
+save_for_pretrained: True
 
 # Model parameters
 output_neurons: !ref <phn_token_output> + 1
@@ -125,7 +125,7 @@ eval_batch_count: 1
 eval_reporting: raw
 eval_prediction_sample_size: 10
 eval_mode: sentence
-eval_output_wer_file: false
+eval_output_wer_file: False
 eval_wer_file: !ref <save_folder>/wer_eval.txt
 
 # Word embeddings
@@ -139,76 +139,76 @@ word_emb_norm_type: batch
 select_n_sentences: None
 
 graphemes:
-  - A
-  - B
-  - C
-  - D
-  - E
-  - F
-  - G
-  - H
-  - I
-  - J
-  - K
-  - L
-  - M
-  - N
-  - O
-  - P
-  - Q
-  - R
-  - S
-  - T
-  - U
-  - V
-  - W
-  - X
-  - Y
-  - Z
-  - "'"
-  - " "
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
 
 phonemes:
-  - AA
-  - AE
-  - AH
-  - AO
-  - AW
-  - AY
-  - B
-  - CH
-  - D
-  - DH
-  - EH
-  - ER
-  - EY
-  - F
-  - G
-  - HH
-  - IH
-  - IY
-  - JH
-  - K
-  - L
-  - M
-  - N
-  - NG
-  - OW
-  - OY
-  - P
-  - R
-  - S
-  - SH
-  - T
-  - TH
-  - UH
-  - UW
-  - V
-  - W
-  - Y
-  - Z
-  - ZH
-  - " "
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
 
 enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
     use_word_emb: !ref <use_word_emb>
@@ -302,7 +302,7 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     rnn_layers: !ref <lm_layers>
     rnn_neurons: !ref <lm_rnn_size>
     output_neurons: !ref <lm_output_neurons>
-    return_hidden: true
+    return_hidden: True
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -450,8 +450,8 @@ out_phoneme_decoder: !apply:speechbrain.lobes.models.g2p.attnrnn.char_map_detoke
 
 
 encode_pipeline:
-    batch: true
-    use_padded_data: true
+    batch: True
+    use_padded_data: True
     output_keys:
         - grapheme_list
         - grapheme_encoded_list
@@ -465,7 +465,7 @@ encode_pipeline:
           grapheme_encoder: !ref <grapheme_encoder>
 
 decode_pipeline:
-    batch: true
+    batch: True
     output_keys:
         - phonemes
     steps:
@@ -478,33 +478,33 @@ decode_pipeline:
           eos_index: !ref <eos_index>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-  loadables:
-    model: !ref <model>
-    ctc_lin: !ref <ctc_lin>
-  paths:
-    model: !ref <pretrained_path>/model.ckpt
-    ctc_lin: !ref <pretrained_path>/ctc_lin.ckpt
+    loadables:
+        model: !ref <model>
+        ctc_lin: !ref <ctc_lin>
+    paths:
+        model: !ref <pretrained_path>/model.ckpt
+        ctc_lin: !ref <pretrained_path>/ctc_lin.ckpt
 
 train_steps:
-  - name: lexicon
-    train_data: !ref <lexicon_train_data>
-    valid_data: !ref <lexicon_valid_data>
-    test_data: !ref <lexicon_test_data>
-    epoch_counter: !ref <lexicon_epoch_counter>
-    ctc_epochs: !ref <lexicon_ctc_epochs>
-    wer_file: !ref <save_folder>/wer_lexicon.txt
-    dataloader_opts:
-        batch_size: !ref <lexicon_batch_size>
+    - name: lexicon
+      train_data: !ref <lexicon_train_data>
+      valid_data: !ref <lexicon_valid_data>
+      test_data: !ref <lexicon_test_data>
+      epoch_counter: !ref <lexicon_epoch_counter>
+      ctc_epochs: !ref <lexicon_ctc_epochs>
+      wer_file: !ref <save_folder>/wer_lexicon.txt
+      dataloader_opts:
+          batch_size: !ref <lexicon_batch_size>
 
-  - name: sentence
-    train_data: !ref <sentence_train_data>
-    valid_data: !ref <sentence_valid_data>
-    test_data: !ref <sentence_test_data>
-    epoch_counter: !ref <sentence_epoch_counter>
-    ctc_epochs: !ref <sentence_ctc_epochs>
-    wer_file: !ref <save_folder>/wer_sentence.txt
-    dataloader_opts:
-        batch_size: !ref <sentence_batch_size>
+    - name: sentence
+      train_data: !ref <sentence_train_data>
+      valid_data: !ref <sentence_valid_data>
+      test_data: !ref <sentence_test_data>
+      epoch_counter: !ref <sentence_epoch_counter>
+      ctc_epochs: !ref <sentence_ctc_epochs>
+      wer_file: !ref <save_folder>/wer_sentence.txt
+      dataloader_opts:
+          batch_size: !ref <sentence_batch_size>
 
 
 deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer

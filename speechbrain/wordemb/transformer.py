@@ -158,14 +158,13 @@ class TransformerWordEmbeddings:
 
     def _to_device(self, encoded):
         return {
-            key: self._tensor_to_device(value)
-            for key, value in encoded.items()}
+            key: self._tensor_to_device(value) for key, value in encoded.items()
+        }
 
     def _tensor_to_device(self, value):
         return (
-            value.to(self.device)
-            if isinstance(value, torch.Tensor)
-            else value)
+            value.to(self.device) if isinstance(value, torch.Tensor) else value
+        )
 
     def _get_word_idx(self, sent, word):
         return sent.split(" ").index(word)
@@ -215,5 +214,3 @@ def _get_tokenizer(identifier):
         return AutoTokenizer.from_pretrained(identifier)
     except ImportError:
         raise MissingTransformersError()
-
-

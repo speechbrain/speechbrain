@@ -11,6 +11,7 @@ from torch import nn
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet import normalization
 
+
 class AttentionSeq2Seq(nn.Module):
     """
     The Attentional RNN encoder-decoder model
@@ -45,7 +46,17 @@ class AttentionSeq2Seq(nn.Module):
     """
 
     def __init__(
-        self, enc, encoder_emb, emb, dec, lin, out, bos_token=0, max_len=50, use_word_emb=False, word_emb_enc=None
+        self,
+        enc,
+        encoder_emb,
+        emb,
+        dec,
+        lin,
+        out,
+        bos_token=0,
+        max_len=50,
+        use_word_emb=False,
+        word_emb_enc=None,
     ):
         super().__init__()
         self.enc = enc
@@ -60,11 +71,7 @@ class AttentionSeq2Seq(nn.Module):
         self.word_emb_enc = word_emb_enc if use_word_emb else None
 
     def forward(
-        self,
-        grapheme_encoded,
-        phn_encoded=None,
-        word_emb=None,
-        **kwargs
+        self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs
     ):
         """
         Computes the forward pass
@@ -106,7 +113,8 @@ class AttentionSeq2Seq(nn.Module):
         word_emb_enc = (
             self.word_emb_enc(word_emb)
             if self.word_emb_enc is not None
-            else word_emb)
+            else word_emb
+        )
         return torch.cat([emb_char, word_emb_enc], dim=-1)
 
     def _get_dummy_phonemes(self, batch_size, device):
@@ -117,7 +125,7 @@ class WordEmbeddingEncoder(nn.Module):
     NORMS = {
         "batch": normalization.BatchNorm1d,
         "layer": normalization.LayerNorm,
-        "instance": normalization.InstanceNorm1d
+        "instance": normalization.InstanceNorm1d,
     }
     """A small encoder module that reduces the dimensionality
     and normalizes word embeddings
@@ -134,7 +142,10 @@ class WordEmbeddingEncoder(nn.Module):
         the normalization to be used (
             e.g. speechbrain.nnet.normalization.LayerNorm)
     """
-    def __init__(self, word_emb_dim, word_emb_enc_dim, norm=None, norm_type=None):
+
+    def __init__(
+        self, word_emb_dim, word_emb_enc_dim, norm=None, norm_type=None
+    ):
         super().__init__()
         self.word_emb_dim = word_emb_dim
         self.word_emb_enc_dim = word_emb_enc_dim
@@ -142,8 +153,7 @@ class WordEmbeddingEncoder(nn.Module):
             self.norm = self._get_norm(norm_type, word_emb_dim)
         else:
             self.norm = norm
-        self.lin = Linear(
-            n_neurons=word_emb_enc_dim, input_size=word_emb_dim)
+        self.lin = Linear(n_neurons=word_emb_enc_dim, input_size=word_emb_dim)
         self.activation = nn.Tanh()
 
     def _get_norm(self, norm, dim):
