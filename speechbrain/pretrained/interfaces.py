@@ -1238,93 +1238,6 @@ class EncodeDecodePipelineMixin:
         )
 
 
-class SpeechSynthesizer(Pretrained, EncodeDecodePipelineMixin):
-    HPARAMS_NEEDED = ["model", "encode_pipeline", "decode_pipeline"]
-    INPUT_STATIC_KEYS = ["txt"]
-    OUTPUT_KEYS = ["wav"]
-
-    """
-    A friendly wrapper for speech synthesis models
-
-    Arguments
-    ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
-
-    Example
-    -------
-    >>> synthesizer = SpeechSynthesizer.from_hparams('path/to/model')
-    >>> waveform = synthesizer.tts("Mary had a little lamb")
-    >>> items = [
-    ...   "A quick brown fox jumped over the lazy dog",
-    ...   "How much wood would a woodchuck chuck?",
-    ...   "Never odd or even"
-    ... ]
-    >>> waveforms = synthesizer.tts(items)
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.create_pipelines()
-        # NOTE: Some models will provide a custom, model-specific inference
-        # function, others can be called directly
-        self.infer = getattr(self.hparams, "infer", None)
-        if not self.infer:
-            self.infer = lambda model, **kwargs: model(**kwargs)
-
-    def tts(self, text):
-        """
-        Computes the waveform for the provided example or batch
-        of examples
-
-        Arguments
-        ---------
-        text: str or List[str]
-            the text to be translated into speech
-
-        Returns
-        -------
-        a single waveform if a single example is provided - or
-        a list of waveform tensors if multiple examples are provided
-        """
-        # Create a single batch if provided a single example
-        single = isinstance(text, str)
-        if single:
-            text = [text]
-        model_input = self.encode_input({"txt": text})
-        model_output = self.compute_forward(model_input)
-        decoded_output = self.decode_output(model_output)
-        waveform = decoded_output.get("wav")
-        if waveform is None:
-            raise ValueError("The output pipeline did not output a waveform")
-        if single:
-            waveform = waveform[0]
-        return waveform
-
-    def __call__(self, text):
-        """
-        Calls tts(text)
-        """
-        return self.tts(text)
-
-    def compute_forward(self, data):
-        """
-        Computes the forward pass of the model. This method can be overridden
-        in the implementation, if needed
-
-        Arguments
-        ---------
-        data: dict
-            the raw inputs to the model
-
-        Returns
-        -------
-        The raw output of the model (the exact output
-        depends on the implementation)
-        """
-        return self.infer(model=self.hparams.model, **data)
-
-
 class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     """
     A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
@@ -1347,15 +1260,12 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
 
     @property
     def phonemes(self):
-        """
-        Returns the available phonemes
-        """
+        """Returns the available phonemes"""
         return self.hparams.phonemes
 
     @property
     def language(self):
-        """Returns the language for which this model is available
-        """
+        """Returns the language for which this model is available"""
         return self.hparams.language
 
     def g2p(self, text):
@@ -1386,13 +1296,25 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         return phonemes
 
     def load_dependencies(self):
+        """Loads any relevant model dependencies"""
         deps_pretrainer = getattr(self.hparams, "deps_pretrainer", None)
         if deps_pretrainer:
             deps_pretrainer.collect_files()
             deps_pretrainer.load_collected(device=self.device)
 
     def __call__(self, text):
-        """
-        Calls g2p
+        """A convenience callable wrapper - same as G2P
+
+        Arguments
+        ---------
+        text: str or list[str]
+            a single string to be encoded to phonemes - or a
+            sequence of strings
+
+        Returns
+        -------
+        result: list
+            if a single example was provided, the return value is a
+            single list of phonemes
         """
         return self.g2p(text)
