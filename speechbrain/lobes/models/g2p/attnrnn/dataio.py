@@ -6,6 +6,7 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021 (minor refactoring only)
 """
+
 from functools import reduce
 import speechbrain as sb
 import torch
@@ -60,6 +61,8 @@ def grapheme_pipeline(
     ---------
     graphemes: list
         a list of available graphemes
+    grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
+        a text encoder for graphemes. If not provided,
     takes: str
         the name of the input
     space_separated: bool
@@ -112,6 +115,26 @@ def tokenizer_encode_pipeline(
     ---------
     tokenizer: speechbrain.tokenizer.SentencePiece
         a tokenizer instance
+    tokens: str
+        available tokens
+    takes: str
+        the name of the pipeline input providing raw text
+    provides_prefix: str
+        the prefix used for outputs
+    wordwise: str
+        whether tokenization is peformed on the whole sequence
+        or one word at a time. Tokenization can produce token
+        sequences in which a token may span multiple words
+    token_space_index: int
+        the index of the space token
+    char_map: dict
+        a mapping from characters to tokens. This is used when
+        tokenizing sequences of phonemes rather than sequences
+        of characters. A sequence of phonemes is typically a list
+        of one or two-character tokens (e.g. ["DH", "UH", " ", "S", "AW",
+        "N", "D"]). The character map makes it possible to map these
+        to arbitrarily selected characters
+
     """
     token_set = set(tokens)
 
@@ -145,14 +168,61 @@ def tokenizer_encode_pipeline(
 
 
 def _add_bos(encoder, seq):
+    """Adds a BOS token to the sequence
+
+    Arguments
+    ---------
+    encoder: speechbrain.dataio.encoder.TextEncoder.
+        a text encoder instance.
+    seq: torch.Tensor
+        an encoded sequence
+
+    Returns
+    -------
+    result: torch.Tensor
+        the resulting tensor with BOS
+    """
     return torch.LongTensor(encoder.prepend_bos_index(seq))
 
 
 def _add_eos(encoder, seq):
+    """Adds a EOS token to the sequence
+
+    Arguments
+    ---------
+    encoder: speechbrain.dataio.encoder.TextEncoder.
+        a text encoder instance.
+    seq: torch.Tensor
+        an encoding syste,
+
+    Returns
+    -------
+    result: torch.Tensor
+        the resulting tensor with EOS
+    """
     return torch.LongTensor(encoder.append_eos_index(seq))
 
 
 def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
+    """Tokenizes a sequence wordwise
+
+    Arguments
+    ---------
+    tokenizer: speechbrain.tokenizers.SentencePiece.SentencePiece
+        a tokenizer instance
+    sequence: iterable
+        the original sequence
+    input_separator: str
+        the separator used in the input seauence
+    token_separator: str
+        the token separator used in the output sequence
+
+    Returns
+    -------
+    result: str
+        the resulting tensor
+    """
+
     if input_separator not in sequence:
         return tokenizer.sp.encode_as_ids(sequence)
     words = list(_split_list(sequence, input_separator))
@@ -164,6 +234,25 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
 
 
 def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
+    """Detokenizes a sequence wordwise
+
+    Arguments
+    ---------
+    tokenizer: speechbrain.tokenizers.SentencePiece.SentencePiece
+        a tokenizer instance
+    sequence: iterable
+        the original sequence
+    output_separator: str
+        the separator used in the output seauence
+    token_separator: str
+        the token separator used in the output sequence
+
+    Returns
+    -------
+    result: torch.Tensor
+        the result
+
+    """
     if token_separator not in sequence:
         return tokenizer.sp.decode_ids(sequence)
     words = list(_split_list(sequence, token_separator))
@@ -174,6 +263,19 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
 
 
 def _split_list(items, separator):
+    """
+    Splits a sequence (such as a tensor) by the specified separator
+
+    Arguments
+    ---------
+    items: sequence
+        any sequence that supports indexing
+
+    Results
+    -------
+    separator: str
+        the separator token
+    """
     if items is not None:
         last_idx = -1
         for idx, item in enumerate(items):
@@ -186,7 +288,26 @@ def _split_list(items, separator):
 
 def _enable_eos_bos(tokens, encoder, bos_index, eos_index):
     """
-    Initializs the phoneme encoder
+    Initializs the phoneme encoder with EOS/BOS sequences
+
+    Arguments
+    ---------
+    tokens: list
+        a list of tokens
+    encoder: speechbrain.dataio.encoder.TextEncoder.
+        a text encoder instance. If none is provided, a new one
+        will be instantiated
+    bos_index: int
+        the position corresponding to the Beginning-of-Sentence
+        token
+    eos_index: int
+        the position corresponding to the End-of-Sentence
+
+    Returns
+    -------
+    encoder: speechbrain.dataio.encoder.TextEncoder
+        an encoder
+
     """
     if encoder is None:
         encoder = sb.dataio.encoder.TextEncoder()
@@ -273,8 +394,17 @@ def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
 
 
 def beam_search_pipeline(beam_searcher):
-    """
-    Performs a Beam Search on the phonemes
+    """Performs a Beam Search on the phonemes
+
+    Arguments
+    ---------
+    beam_searcher: speechbrain.decoders.seq2seq.S2SBeamSearcher
+        a SpeechBrain beam searcher instance
+
+    Returns
+    -------
+    result: DymamicItem
+        a pipeline element
     """
 
     @sb.utils.data_pipeline.takes("char_lens", "encoder_out")
@@ -435,10 +565,39 @@ def char_map_detokenize(
 
 
 def _map_tokens_batch(tokens, char_map):
+    """Performs token mapping, in batch mode
+
+    Arguments
+    ---------
+    tokens: iterable
+        a list of token sequences
+    char_map: dict
+        a token-to-character mapping
+
+    Returns
+    -------
+    result: list
+        a list of lists of characters
+    """
     return [[char_map[char] for char in item] for item in tokens]
 
 
 def _map_tokens_item(tokens, char_map):
+    """Maps tokens to characters, for a single item
+
+    Arguments
+    ---------
+    tokens: iterable
+        a single token sequence
+    char_map: dict
+        a token-to-character mapping
+
+    Returns
+    -------
+    result: list
+        a list of tokens
+
+    """
     return [char_map[char] for char in tokens]
 
 
