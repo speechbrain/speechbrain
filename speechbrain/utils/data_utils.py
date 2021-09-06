@@ -132,7 +132,7 @@ def get_all_files(
                 if match_found == len(exclude_and):
                     exclude_and_entry = True
 
-            # Check exclude_and case
+            # Check exclude_or case
             if exclude_or is not None:
                 exclude_or_entry = False
                 for ele in exclude_or:

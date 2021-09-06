@@ -51,6 +51,10 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Spectral clustering for speaker diarization (combined with speakers embeddings).
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
+### Speech Translation
+- Recipes for transformer and conformer-based end-to-end speech translation.
+- Possibility to choose between normal training (Attention), multi-objectives (CTC+Attention) and multitasks (ST + ASR).
+
 ### Speech enhancement and separation
 - Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
 - Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
@@ -69,7 +73,8 @@ The recipes released with speechbrain implement speech processing systems with c
 | LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
-| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC/Att. | WER=13.7% (test) |
+| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC | WER=9.96% (test) |
+| Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
