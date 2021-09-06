@@ -15,6 +15,9 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
 train_annotation: !ref <save_folder>/train.csv
 valid_annotation: !ref <save_folder>/dev.csv
 
+# Folder to extract data augmentation files
+rir_folder: !ref <data_folder> # Change it if needed
+
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 # VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
@@ -84,7 +87,7 @@ augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 1.0
     noise_prob: 0.0
@@ -93,7 +96,7 @@ add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
     rir_scale_factor: 1.0
 
 add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 0.0
     noise_prob: 1.0
@@ -102,7 +105,7 @@ add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     rir_scale_factor: 1.0
 
 add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 1.0
     noise_prob: 1.0

@@ -61,7 +61,10 @@ The third uses the "960 Hr" variant of wav2vec 2.0, which is finetuned on LibriS
 | wav2vec 2.0 "Base" | 92.7% ± 1.0% | none |
 | wav2vec 2.0 "960 Hr" | 94.0% ± 1.2% | none |
 
-You can find the output folders (model, logs, etc) here: https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing
+You can find the output folders (model, logs, etc) [here](https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing)
+
+# PreTrained Model + Easy-Inference
+You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr).
 
 
 # Citation
@@ -78,5 +81,26 @@ The dataset and baseline models are described in the paper below. If you found t
       eprint={2104.01604},
       archivePrefix={arXiv},
       primaryClass={cs.CL}
+}
+```
+
+# **About SpeechBrain**
+- Website: https://speechbrain.github.io/
+- Code: https://github.com/speechbrain/speechbrain/
+- HuggingFace: https://huggingface.co/speechbrain/
+
+
+# **Citing SpeechBrain**
+Please, cite SpeechBrain if you use it for your research or business.
+
+```bibtex
+@misc{speechbrain,
+  title={{SpeechBrain}: A General-Purpose Speech Toolkit},
+  author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
+  year={2021},
+  eprint={2106.04624},
+  archivePrefix={arXiv},
+  primaryClass={eess.AS},
+  note={arXiv:2106.04624}
 }
 ```
