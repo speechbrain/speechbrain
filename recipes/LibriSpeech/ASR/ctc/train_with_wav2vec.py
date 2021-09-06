@@ -1,30 +1,13 @@
 #!/usr/bin/env/python3
-"""Recipe for training a sequence-to-sequence ASR system with librispeech.
-The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with beamsearch coupled with a neural
-language model.
+"""Recipe for training a wav2vec-based ctc ASR system with librispeech.
+The system employs wav2vec as its encoder. Decoding is performed with 
+ctc greedy decoder.
 To run this recipe, do the following:
-> python train.py hparams/train_BPE1000.yaml
-With the default hyperparameters, the system employs a CRDNN encoder.
-The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
-language model is used  on the top of decoder probabilities.
-The neural network is trained on both CTC and negative-log likelihood
-targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
+> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
+The neural network is trained on CTC likelihood target and character units 
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
-The experiment file is flexible enough to support a large variety of
-different systems. By properly changing the parameter files, you can try
-different encoders, decoders, tokens (e.g, characters instead of BPE),
-training split (e.g, train-clean 100 rather than the full one), and many
-other possible variations.
-This recipe assumes that the tokenizer and the LM are already trained.
-To avoid token mismatches, the tokenizer used for the acoustic model is
-the same use for the LM.  The recipe downloads the pre-trained tokenizer
-and LM.
-If you would like to train a full system from scratch do the following:
-1- Train a tokenizer (see ../../Tokenizer)
-2- Train a language model (see ../../LM)
-3- Train the acoustic model (with this code).
+
 Authors
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
