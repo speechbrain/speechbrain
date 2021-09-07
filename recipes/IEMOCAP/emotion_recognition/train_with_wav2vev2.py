@@ -26,9 +26,9 @@ class EmoIdBrain(sb.Brain):
         wav2vec2_out = self.modules.wav2vec2(wavs)
 
         # last dim will be used for AdaptativeAVG pool
-        wav2vec2_out = wav2vec2_out.permute(0,2,1)
+        wav2vec2_out = wav2vec2_out.permute(0, 2, 1)
         averaged_out = self.hparams.avg_pool(wav2vec2_out)
-        averaged_out.view(averaged_out.shape[0],-1)
+        averaged_out = averaged_out.view(averaged_out.shape[0], -1)
 
         outputs = self.modules.output_mlp(averaged_out)
         outputs = self.hparams.log_softmax(outputs)
