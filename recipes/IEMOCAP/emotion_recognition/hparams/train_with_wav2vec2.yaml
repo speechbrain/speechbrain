@@ -45,8 +45,7 @@ freeze_wav2vec2: False
 freeze_wav2vec2_conv: True
 
 # Model parameters
-Wav2vec_encoder_dim: 768
-encoder_dim: !ref <Wav2vec_encoder_dim>
+encoder_dim: 768
 
 # Number of emotions
 out_n_neurons: 4 # (anger, happiness, sadness, neutral)
@@ -64,6 +63,9 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     freeze: !ref <freeze_wav2vec2>
     freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
     save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+avg_pool: !new:torch.nn.AdaptiveAvgPool1d
+    output_size: 1
 
 output_mlp: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <encoder_dim>
