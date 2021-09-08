@@ -15,7 +15,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/tts/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
-save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
 epochs: 500
 keep_checkpoint_interval: 20

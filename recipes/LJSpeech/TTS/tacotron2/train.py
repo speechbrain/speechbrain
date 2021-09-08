@@ -558,9 +558,6 @@ if __name__ == "__main__":
         datasets["train"],
         datasets["valid"],
     )
-    # TODO: Reimplement without a mixin
-    #    if hparams.get("save_for_pretrained"):
-    #        tacotron2_brain.save_for_pretrained()
 
     # Test
     if "test" in datasets:
