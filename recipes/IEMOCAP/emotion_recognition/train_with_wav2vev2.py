@@ -37,7 +37,7 @@ class EmoIdBrain(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using speaker-id as label.
         """
-        emoid, _ = batch.to(self.device).emo_encoded
+        emoid, _ = batch.emo_encoded
 
         """to meet the input form of nll loss"""
         emoid = torch.squeeze(emoid, 1)
