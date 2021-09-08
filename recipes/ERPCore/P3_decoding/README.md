@@ -15,7 +15,7 @@ Therefore, subject-specific decoders are trained and due to the resulting compac
 
 # How to run
 Before running an experiment, make sure the extra-dependencies reported in the file `extra_requirements.txt` are installed in your environment.
-Note that this code requires mne==0.20.7.
+Note that this code requires mne==0.22.1.
 
 Download the dataset with: \
 \>>> python download_required_data.py --data_folder /path/to/ERPCore_P3 
