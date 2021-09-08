@@ -23,7 +23,11 @@ from torch.nn import init
 import numpy as np
 from sklearn.metrics import confusion_matrix, f1_score, roc_auc_score
 import speechbrain as sb
-from MOABB_dataio_iterators import WithinSession, CrossSession, LeaveOneSubjectOut
+from MOABB_dataio_iterators import (
+    WithinSession,
+    CrossSession,
+    LeaveOneSubjectOut,
+)
 from moabb.paradigms import MotorImagery
 from moabb.datasets import BNCI2014001
 
@@ -72,8 +76,10 @@ class BNCI2014001Brain(sb.Brain):
             preds = np.array(self.preds)
             y_pred = np.argmax(preds, axis=-1)
             y_true = self.targets
-            f1 = f1_score(y_true=y_true, y_pred=y_pred, average='macro')
-            auc = roc_auc_score(y_true=y_true, y_score=preds, multi_class='ovo', average='macro')
+            f1 = f1_score(y_true=y_true, y_pred=y_pred, average="macro")
+            auc = roc_auc_score(
+                y_true=y_true, y_score=preds, multi_class="ovo", average="macro"
+            )
             cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
             self.last_eval_loss = stage_loss
             self.last_eval_f1 = float(f1)
@@ -128,7 +134,7 @@ class BNCI2014001Brain(sb.Brain):
                     "loss": self.last_eval_loss,
                     "f1": self.last_eval_f1,
                     "auc": self.last_eval_auc,
-                    "cm": self.last_eval_cm
+                    "cm": self.last_eval_cm,
                 },
             )
 
@@ -175,10 +181,15 @@ def run_single_fold(hparams, run_opts, datasets):
         brain.last_eval_loss,
         brain.last_eval_f1,
         brain.last_eval_auc,
-        brain.last_eval_cm
+        brain.last_eval_cm,
     )
 
-    tmp_metrics_dict = {'loss': test_loss, 'f1': test_f1, 'auc': test_auc, 'cm': test_cm}
+    tmp_metrics_dict = {
+        "loss": test_loss,
+        "f1": test_f1,
+        "auc": test_auc,
+        "cm": test_cm,
+    }
     return tmp_metrics_dict
 
 
@@ -207,14 +218,21 @@ if __name__ == "__main__":
 
     moabb_dataset = BNCI2014001()
     # to run on a subset of subjects: moabb_dataset.subject_list = [1, 2, 3, 4]
-    moabb_dataset.download(path=hparams['data_folder'])
-    moabb_paradigm = MotorImagery(n_classes=4, fmin=hparams['fmin'], fmax=hparams['fmax'],
-                                  tmin=hparams['tmin'], tmax=hparams['tmax'],
-                                  resample=hparams['sf'])
+    moabb_dataset.download(path=hparams["data_folder"])
+    moabb_paradigm = MotorImagery(
+        n_classes=4,
+        fmin=hparams["fmin"],
+        fmax=hparams["fmax"],
+        tmin=hparams["tmin"],
+        tmax=hparams["tmax"],
+        resample=hparams["sf"],
+    )
     # defining data iterators to use
-    data_its = [WithinSession(moabb_paradigm, hparams),
-                CrossSession(moabb_paradigm, hparams),
-                LeaveOneSubjectOut(moabb_paradigm, hparams)]
+    data_its = [
+        WithinSession(moabb_paradigm, hparams),
+        CrossSession(moabb_paradigm, hparams),
+        LeaveOneSubjectOut(moabb_paradigm, hparams),
+    ]
     for data_it in data_its:
         print("Running {0} iterations".format(data_it.iterator_tag))
         for i, (exp_dir, datasets) in enumerate(data_it.prepare(moabb_dataset)):
@@ -228,10 +246,8 @@ if __name__ == "__main__":
             )
             tmp_metrics_dict = run_single_fold(hparams, run_opts, datasets)
             # saving metrics on the test set in a pickle file
-            metrics_fpath = os.path.join(
-                hparams["exp_dir"], "metrics.pkl"
-            )
-            with open(metrics_fpath, "wb", ) as handle:
+            metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
+            with open(metrics_fpath, "wb",) as handle:
                 pickle.dump(
                     tmp_metrics_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
                 )
@@ -239,4 +255,3 @@ if __name__ == "__main__":
             hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
             with open(hparams_file) as fin:
                 hparams = load_hyperpyyaml(fin, overrides)
-

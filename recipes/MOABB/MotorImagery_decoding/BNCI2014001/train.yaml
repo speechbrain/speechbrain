@@ -44,7 +44,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper  # epoc
   limit_warmup: !ref <num_warmup_epochs>
   direction: !ref <direction>
 
-
 # EEGNET HPARS
 k0: 8  # number of temporal filters in the temporal conv. layer
 d1: 2  # depth multiplier for the spatial depthwise conv. layer

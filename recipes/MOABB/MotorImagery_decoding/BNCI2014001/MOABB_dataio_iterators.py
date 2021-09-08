@@ -23,6 +23,7 @@ def nth(iterable, n, default=None):
 
 class WithinSession(object):
     """Within Session """
+
     def __init__(self, paradigm, hparams):
         if not isinstance(paradigm, BaseParadigm):
             raise (ValueError("paradigm must be an Paradigm instance"))
@@ -30,18 +31,18 @@ class WithinSession(object):
         self.hparams = hparams
         np.random.seed(hparams["seed"])
         self.skf = StratifiedKFold(n_splits=hparams["nfolds"])
-
+        self.iterator_tag = "within-session"
 
     def prepare(self, dataset):
         if not (isinstance(dataset, BaseDataset)):
-            raise (ValueError("datasets must only contains dataset " "instance"))
+            raise (
+                ValueError("datasets must only contains dataset " "instance")
+            )
 
         # iterate over subjects
         for subject in dataset.subject_list:
             # loading subject-specific data
-            x, y, metadata = self.paradigm.get_data(
-                dataset, [subject], True
-            )
+            x, y, metadata = self.paradigm.get_data(dataset, [subject], True)
             x = x.get_data()[..., :-1]
             y = [dataset.event_id[yy] for yy in y]
             y = np.array(y)
@@ -53,7 +54,8 @@ class WithinSession(object):
                 for sel_fold in range(self.hparams["nfolds"]):
                     # obtaining indices for train and test sets
                     idx_train_, idx_test_ = nth(
-                        self.skf.split(np.arange(idx.shape[0]), y[idx]), sel_fold
+                        self.skf.split(np.arange(idx.shape[0]), y[idx]),
+                        sel_fold,
                     )
                     idx_train = idx[idx_train_]
                     idx_test = idx[idx_test_]
@@ -63,7 +65,12 @@ class WithinSession(object):
                     for c in range(nclasses):
                         to_select_c = idx_train[np.where(y[idx_train] == c)[0]]
                         tmp_idx_valid_c = np.random.choice(
-                            to_select_c, round(self.hparams["valid_ratio"] * to_select_c.shape[0]), replace=False
+                            to_select_c,
+                            round(
+                                self.hparams["valid_ratio"]
+                                * to_select_c.shape[0]
+                            ),
+                            replace=False,
                         )
                         idx_valid.extend(tmp_idx_valid_c)
                     idx_valid = np.array(idx_valid)
@@ -86,33 +93,56 @@ class WithinSession(object):
                     # dataloaders
                     inps = torch.Tensor(
                         x_train.reshape(
-                            (x_train.shape[0], x_train.shape[1], x_train.shape[2], 1,)
+                            (
+                                x_train.shape[0],
+                                x_train.shape[1],
+                                x_train.shape[2],
+                                1,
+                            )
                         )
                     )
                     tgts = torch.tensor(y_train, dtype=torch.long)
                     ds = TensorDataset(inps, tgts)
                     train_loader = DataLoader(
-                        ds, batch_size=self.hparams["batch_size"], pin_memory=True
+                        ds,
+                        batch_size=self.hparams["batch_size"],
+                        pin_memory=True,
                     )
 
                     inps = torch.Tensor(
                         x_valid.reshape(
-                            (x_valid.shape[0], x_valid.shape[1], x_valid.shape[2], 1,)
+                            (
+                                x_valid.shape[0],
+                                x_valid.shape[1],
+                                x_valid.shape[2],
+                                1,
+                            )
                         )
                     )
                     tgts = torch.tensor(y_valid, dtype=torch.long)
                     ds = TensorDataset(inps, tgts)
                     valid_loader = DataLoader(
-                        ds, batch_size=self.hparams["batch_size"], pin_memory=True
+                        ds,
+                        batch_size=self.hparams["batch_size"],
+                        pin_memory=True,
                     )
 
                     inps = torch.Tensor(
-                        x_test.reshape((x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,))
+                        x_test.reshape(
+                            (
+                                x_test.shape[0],
+                                x_test.shape[1],
+                                x_test.shape[2],
+                                1,
+                            )
+                        )
                     )
                     tgts = torch.tensor(y_test, dtype=torch.long)
                     ds = TensorDataset(inps, tgts)
                     test_loader = DataLoader(
-                        ds, batch_size=self.hparams["batch_size"], pin_memory=True
+                        ds,
+                        batch_size=self.hparams["batch_size"],
+                        pin_memory=True,
                     )
                     datasets = {}
                     datasets["train"] = train_loader
@@ -121,6 +151,7 @@ class WithinSession(object):
 
                     exp_dir = os.path.join(
                         self.hparams["output_folder"],
+                        self.iterator_tag,
                         str(subject).zfill(3),
                         str(session).zfill(2),
                         str(sel_fold).zfill(2),
@@ -130,6 +161,7 @@ class WithinSession(object):
 
 class CrossSession(object):
     """Cross Session """
+
     def __init__(self, paradigm, hparams):
         if not isinstance(paradigm, BaseParadigm):
             raise (ValueError("paradigm must be an Paradigm instance"))
@@ -137,18 +169,18 @@ class CrossSession(object):
         self.hparams = hparams
         np.random.seed(hparams["seed"])
         self.skf = StratifiedKFold(n_splits=hparams["nfolds"])
-
+        self.iterator_tag = "cross-session"
 
     def prepare(self, dataset):
         if not (isinstance(dataset, BaseDataset)):
-            raise (ValueError("datasets must only contains dataset " "instance"))
+            raise (
+                ValueError("datasets must only contains dataset " "instance")
+            )
 
         # iterate over subjects
         for subject in dataset.subject_list:
             # loading subject-specific data
-            x, y, metadata = self.paradigm.get_data(
-                dataset, [subject], True
-            )
+            x, y, metadata = self.paradigm.get_data(dataset, [subject], True)
             x = x.get_data()[..., :-1]
             y = [dataset.event_id[yy] for yy in y]
             y = np.array(y)
@@ -161,11 +193,12 @@ class CrossSession(object):
                 idx_test = []
                 # iterate over sessions to accumulate session examples in a balanced way across sessions
                 for session in np.unique(metadata.session):
-                # obtaining indices for the current session
+                    # obtaining indices for the current session
                     idx = np.where(metadata.session == session)[0]
                     # obtaining indices for train and test sets
                     idx_train_, idx_test_ = nth(
-                        self.skf.split(np.arange(idx.shape[0]), y[idx]), sel_fold
+                        self.skf.split(np.arange(idx.shape[0]), y[idx]),
+                        sel_fold,
                     )
                     tmp_idx_train = idx[idx_train_]
                     tmp_idx_test = idx[idx_test_]
@@ -173,9 +206,16 @@ class CrossSession(object):
                     nclasses = y.max() + 1
                     tmp_idx_valid = []
                     for c in range(nclasses):
-                        to_select_c = tmp_idx_train[np.where(y[tmp_idx_train] == c)[0]]
+                        to_select_c = tmp_idx_train[
+                            np.where(y[tmp_idx_train] == c)[0]
+                        ]
                         tmp_idx_valid_c = np.random.choice(
-                            to_select_c, round(self.hparams["valid_ratio"] * to_select_c.shape[0]), replace=False
+                            to_select_c,
+                            round(
+                                self.hparams["valid_ratio"]
+                                * to_select_c.shape[0]
+                            ),
+                            replace=False,
                         )
                         tmp_idx_valid.extend(tmp_idx_valid_c)
                     tmp_idx_valid = np.array(tmp_idx_valid)
@@ -205,33 +245,45 @@ class CrossSession(object):
                 # dataloaders
                 inps = torch.Tensor(
                     x_train.reshape(
-                        (x_train.shape[0], x_train.shape[1], x_train.shape[2], 1,)
+                        (
+                            x_train.shape[0],
+                            x_train.shape[1],
+                            x_train.shape[2],
+                            1,
+                        )
                     )
                 )
                 tgts = torch.tensor(y_train, dtype=torch.long)
-                dataset = TensorDataset(inps, tgts)
+                ds = TensorDataset(inps, tgts)
                 train_loader = DataLoader(
-                    dataset, batch_size=self.hparams["batch_size"], pin_memory=True
+                    ds, batch_size=self.hparams["batch_size"], pin_memory=True
                 )
 
                 inps = torch.Tensor(
                     x_valid.reshape(
-                        (x_valid.shape[0], x_valid.shape[1], x_valid.shape[2], 1,)
+                        (
+                            x_valid.shape[0],
+                            x_valid.shape[1],
+                            x_valid.shape[2],
+                            1,
+                        )
                     )
                 )
                 tgts = torch.tensor(y_valid, dtype=torch.long)
-                dataset = TensorDataset(inps, tgts)
+                ds = TensorDataset(inps, tgts)
                 valid_loader = DataLoader(
-                    dataset, batch_size=self.hparams["batch_size"], pin_memory=True
+                    ds, batch_size=self.hparams["batch_size"], pin_memory=True
                 )
 
                 inps = torch.Tensor(
-                    x_test.reshape((x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,))
+                    x_test.reshape(
+                        (x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,)
+                    )
                 )
                 tgts = torch.tensor(y_test, dtype=torch.long)
-                dataset = TensorDataset(inps, tgts)
+                ds = TensorDataset(inps, tgts)
                 test_loader = DataLoader(
-                    dataset, batch_size=self.hparams["batch_size"], pin_memory=True
+                    ds, batch_size=self.hparams["batch_size"], pin_memory=True
                 )
                 datasets = {}
                 datasets["train"] = train_loader
@@ -239,6 +291,7 @@ class CrossSession(object):
                 datasets["test"] = test_loader
                 exp_dir = os.path.join(
                     self.hparams["output_folder"],
+                    self.iterator_tag,
                     str(subject).zfill(3),
                     str(sel_fold).zfill(2),
                 )
@@ -247,6 +300,7 @@ class CrossSession(object):
 
 class LeaveOneSubjectOut(object):
     """Leave one subject out"""
+
     def __init__(self, paradigm, hparams):
         if not isinstance(paradigm, BaseParadigm):
             raise (ValueError("paradigm must be an Paradigm instance"))
@@ -254,18 +308,22 @@ class LeaveOneSubjectOut(object):
         self.hparams = hparams
         np.random.seed(hparams["seed"])
         self.skf = StratifiedKFold(n_splits=hparams["nfolds"])
-
+        self.iterator_tag = "leave-one-subject-out"
 
     def prepare(self, dataset):
         if not (isinstance(dataset, BaseDataset)):
-            raise (ValueError("datasets must only contains dataset " "instance"))
+            raise (
+                ValueError("datasets must only contains dataset " "instance")
+            )
 
         # iterate over subjects
         for subject in dataset.subject_list:
             # identification of training, test and validation splits
             idx_train = np.setdiff1d(dataset.subject_list, [subject])
             idx_valid = np.random.choice(
-                idx_train, round(self.hparams["valid_ratio"] * idx_train.shape[0]), replace=False
+                idx_train,
+                round(self.hparams["valid_ratio"] * idx_train.shape[0]),
+                replace=False,
             )
             idx_train = np.setdiff1d(idx_train, idx_valid)
             idx_train = list(idx_train)
@@ -282,9 +340,7 @@ class LeaveOneSubjectOut(object):
             y_train -= 1
 
             # loading test set
-            x_test, y_test, _ = self.paradigm.get_data(
-                dataset, idx_test, True
-            )
+            x_test, y_test, _ = self.paradigm.get_data(dataset, idx_test, True)
             x_test = x_test.get_data()[..., :-1]
             y_test = [dataset.event_id[yy] for yy in y_test]
             y_test = np.array(y_test)
@@ -315,9 +371,9 @@ class LeaveOneSubjectOut(object):
                 )
             )
             tgts = torch.tensor(y_train, dtype=torch.long)
-            dataset = TensorDataset(inps, tgts)
+            ds = TensorDataset(inps, tgts)
             train_loader = DataLoader(
-                dataset, batch_size=self.hparams["batch_size"], pin_memory=True
+                ds, batch_size=self.hparams["batch_size"], pin_memory=True
             )
 
             inps = torch.Tensor(
@@ -326,18 +382,20 @@ class LeaveOneSubjectOut(object):
                 )
             )
             tgts = torch.tensor(y_valid, dtype=torch.long)
-            dataset = TensorDataset(inps, tgts)
+            ds = TensorDataset(inps, tgts)
             valid_loader = DataLoader(
-                dataset, batch_size=self.hparams["batch_size"], pin_memory=True
+                ds, batch_size=self.hparams["batch_size"], pin_memory=True
             )
 
             inps = torch.Tensor(
-                x_test.reshape((x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,))
+                x_test.reshape(
+                    (x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,)
+                )
             )
             tgts = torch.tensor(y_test, dtype=torch.long)
-            dataset = TensorDataset(inps, tgts)
+            ds = TensorDataset(inps, tgts)
             test_loader = DataLoader(
-                dataset, batch_size=self.hparams["batch_size"], pin_memory=True
+                ds, batch_size=self.hparams["batch_size"], pin_memory=True
             )
             datasets = {}
             datasets["train"] = train_loader
@@ -345,6 +403,7 @@ class LeaveOneSubjectOut(object):
             datasets["test"] = test_loader
             exp_dir = os.path.join(
                 self.hparams["output_folder"],
+                self.iterator_tag,
                 str(subject).zfill(3),
             )
             yield (exp_dir, datasets)
