@@ -47,7 +47,29 @@ from collections import namedtuple
 
 
 class LinearNorm(torch.nn.Module):
-    """A linear layer with Xavier initialization"""
+    """A linear layer with Xavier initialization
+
+    Arguments
+    ---------
+    in_dim: int
+        the input dimension
+    out_dim: int
+        the output dimension
+    bias: bool
+        whether or not to use a bias
+    w_init_gain: linear
+        the weight initialization gain type (see torch.nn.init.calculate_gain)
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Tacotron2
+    >>> layer = LinearNorm(in_dim=5, out_dim=3)
+    >>> x = torch.randn(3, 5)
+    >>> y = layer(x)
+    >>> y.shape
+    torch.Size([3, 3])
+    """
 
     def __init__(self, in_dim, out_dim, bias=True, w_init_gain="linear"):
         super().__init__()
@@ -77,7 +99,38 @@ class LinearNorm(torch.nn.Module):
 
 
 class ConvNorm(torch.nn.Module):
-    """A 1D convolution layer with Xavier initialization"""
+    """A 1D convolution layer with Xavier initialization
+
+    Arguments
+    ---------
+    in_channels: int
+        the number of input channels
+    out_channels: int
+        the number of output channels
+    kernel_size: int
+        the kernel size
+    stride: int
+        the convolutional stride
+    padding: int
+        the amount of padding to include. If not provided, it will be calculated
+        as dilation * (kernel_size - 1) / 2
+    dilation: int
+        the dilation of the convolution
+    bias: bool
+        whether or not to use a bias
+    w_init_gain: linear
+        the weight initialization gain type (see torch.nn.init.calculate_gain)
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import ConvNorm
+    >>> layer = ConvNorm(in_channels=10, out_channels=5, kernel_size=3)
+    >>> x = torch.randn(3, 10, 5)
+    >>> y = layer(x)
+    >>> y.shape
+    torch.Size([3, 5, 5])
+    """
 
     def __init__(
         self,
@@ -139,10 +192,25 @@ class LocationLayer(nn.Module):
 
     attention_dim: int
         the dimension of linear attention layers
+
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import LocationLayer
+    >>> layer = LocationLayer()
+    >>> attention_weights_cat = torch.randn(3, 2, 64)
+    >>> processed_attention = layer(attention_weights_cat)
+    >>> processed_attention.shape
+    torch.Size([3, 64, 128])
+
     """
 
     def __init__(
-        self, attention_n_filters, attention_kernel_size, attention_dim
+        self,
+        attention_n_filters=32,
+        attention_kernel_size=31,
+        attention_dim=128,
     ):
         super().__init__()
         padding = int((attention_kernel_size - 1) / 2)
@@ -180,7 +248,7 @@ class LocationLayer(nn.Module):
 
 
 class Attention(nn.Module):
-    """The Tacotron attention layer
+    """The Tacotron attention layer. Location-based attention is used.
 
     Arguments
     ---------
@@ -195,15 +263,37 @@ class Attention(nn.Module):
         the number of location filters
     attention_location_kernel_size: int
         the kernel size of the location layer
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import (
+    ...     Attention, get_mask_from_lengths)
+    >>> layer = Attention()
+    >>> attention_hidden_state = torch.randn(2, 1024)
+    >>> memory = torch.randn(2, 173, 512)
+    >>> processed_memory = torch.randn(2, 173, 128)
+    >>> attention_weights_cat = torch.randn(2, 2, 173)
+    >>> memory_lengths = torch.tensor([173, 91])
+    >>> mask = get_mask_from_lengths(memory_lengths)
+    >>> attention_context, attention_weights = layer(
+    ...    attention_hidden_state,
+    ...    memory,
+    ...    processed_memory,
+    ...    attention_weights_cat,
+    ...    mask
+    ... )
+    >>> attention_context.shape, attention_weights.shape
+    (torch.Size([2, 512]), torch.Size([2, 173]))
     """
 
     def __init__(
         self,
-        attention_rnn_dim,
-        embedding_dim,
-        attention_dim,
-        attention_location_n_filters,
-        attention_location_kernel_size,
+        attention_rnn_dim=1024,
+        embedding_dim=512,
+        attention_dim=128,
+        attention_location_n_filters=32,
+        attention_location_kernel_size=31,
     ):
         super().__init__()
         self.query_layer = LinearNorm(
@@ -304,9 +394,19 @@ class Prenet(nn.Module):
         the dimension of the hidden layers/outout
     dropout: float
         the dropout probability
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Prenet
+    >>> layer = Prenet()
+    >>> x = torch.randn(862, 2, 80)
+    >>> output = layer(x)
+    >>> output.shape
+    torch.Size([862, 2, 256])
     """
 
-    def __init__(self, in_dim, sizes, dropout=0.5):
+    def __init__(self, in_dim=80, sizes=[256, 256], dropout=0.5):
         super().__init__()
         in_sizes = [in_dim] + sizes[:-1]
         self.layers = nn.ModuleList(
@@ -336,16 +436,39 @@ class Prenet(nn.Module):
 
 
 class Postnet(nn.Module):
-    """Postnet
-        - Five 1-d convolution with 512 channels and kernel size 5
+    """The Tacotron postnet consists of a number of 1-d convolutional layers
+    with Xavier initialization and a tanh activation, with batch normalization.
+    Depending on configuration, the postnet may either refine the MEL spectrogram
+    or upsample it to a linear spectrogram
+
+    Arguments
+    ---------
+    n_mel_channels: int
+        the number of MEL spectrogram channels
+    postnet_embedding_dim: int
+        the postnet embedding dimension
+    postnet_kernel_size: int
+        the kernel size of the convolutions within the decoders
+    postnet_n_convolutions: int
+        the number of convolutions in the postnet
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Postnet
+    >>> layer = Postnet()
+    >>> x = torch.randn(2, 80, 861)
+    >>> output = layer(x)
+    >>> output.shape
+    torch.Size([2, 80, 861])
     """
 
     def __init__(
         self,
-        n_mel_channels,
-        postnet_embedding_dim,
-        postnet_kernel_size,
-        postnet_n_convolutions,
+        n_mel_channels=80,
+        postnet_embedding_dim=512,
+        postnet_kernel_size=5,
+        postnet_n_convolutions=5,
     ):
         super().__init__()
         self.convolutions = nn.ModuleList()
@@ -398,6 +521,20 @@ class Postnet(nn.Module):
         self.n_convs = len(self.convolutions)
 
     def forward(self, x):
+        """Computes the forward pass of the postnet
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the postnet input (usually a MEL spectrogram)
+
+        Returns
+        -------
+        output: torch.Tensor
+            the postnet output (a refined MEL spectrogram or a
+            linear spectrogram depending on how the model is
+            configured)
+        """
         i = 0
         for conv in self.convolutions:
             if i < self.n_convs - 1:
@@ -410,13 +547,37 @@ class Postnet(nn.Module):
 
 
 class Encoder(nn.Module):
-    """Encoder module:
-        - Three 1-d convolution banks
-        - Bidirectional LSTM
+    """The Tacotron2 encoder module, consisting of a sequence of  1-d convolution banks (3 by default)
+    and a bidirectional LSTM
+
+    Arguments
+    ---------
+    encoder_n_convolutions: int
+        the number of encoder convolutions
+    encoder_embedding_dim: int
+        the dimension of the encoder embedding
+    encoder_kernel_size: int
+        the kernel size of the 1-D convolutional layers within
+        the encoder
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Encoder
+    >>> layer = Encoder()
+    >>> x = torch.randn(2, 512, 128)
+    >>> input_lengths = torch.tensor([128, 83])
+    >>> outputs = layer(x, input_lengths)
+    >>> outputs.shape
+    torch.Size([2, 128, 512])
+
     """
 
     def __init__(
-        self, encoder_n_convolutions, encoder_embedding_dim, encoder_kernel_size
+        self,
+        encoder_n_convolutions=3,
+        encoder_embedding_dim=512,
+        encoder_kernel_size=5,
     ):
         super().__init__()
 
@@ -447,6 +608,21 @@ class Encoder(nn.Module):
 
     @torch.jit.ignore
     def forward(self, x, input_lengths):
+        """Computes the encoder forward pass
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            a batch of inputs (sequence embeddings)
+
+        input_lengths: torch.Tensor
+            a tensor of input lengths
+
+        Returns
+        -------
+        outputs: torch.Tensor
+            the encoder output
+        """
         for conv in self.convolutions:
             x = F.dropout(F.relu(conv(x)), 0.5, self.training)
 
@@ -467,6 +643,21 @@ class Encoder(nn.Module):
 
     @torch.jit.export
     def infer(self, x, input_lengths):
+        """Performs a forward stap in the inference context
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            a batch of inputs (sequence embeddings)
+
+        input_lengths: torch.Tensor
+            a tensor of input lengths
+
+        Returns
+        -------
+        outputs: torch.Tensor
+            the encoder output
+        """
         device = x.device
         for conv in self.convolutions:
             x = F.dropout(F.relu(conv(x.to(device))), 0.5, self.training)
@@ -514,24 +705,36 @@ class Decoder(nn.Module):
     p_attention_dropout: float
         dropout probability for attention layers
 
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Decoder
+    >>> layer = Decoder()
+    >>> memory = torch.randn(2, 173, 512)
+    >>> decoder_inputs = torch.randn(2, 80, 173)
+    >>> memory_lengths = torch.tensor([173, 91])
+    >>> mel_outputs, gate_outputs, alignments = layer(
+    ...     memory, decoder_inputs, memory_lengths)
+    >>> mel_outputs.shape, gate_outputs.shape, alignments.shape
+    (torch.Size([2, 80, 173]), torch.Size([2, 173]), torch.Size([2, 173, 173]))
     """
 
     def __init__(
         self,
-        n_mel_channels,
-        n_frames_per_step,
-        encoder_embedding_dim,
-        attention_dim,
-        attention_location_n_filters,
-        attention_location_kernel_size,
-        attention_rnn_dim,
-        decoder_rnn_dim,
-        prenet_dim,
-        max_decoder_steps,
-        gate_threshold,
-        p_attention_dropout,
-        p_decoder_dropout,
-        early_stopping,
+        n_mel_channels=80,
+        n_frames_per_step=1,
+        encoder_embedding_dim=512,
+        attention_dim=128,
+        attention_location_n_filters=32,
+        attention_location_kernel_size=31,
+        attention_rnn_dim=1024,
+        decoder_rnn_dim=1024,
+        prenet_dim=256,
+        max_decoder_steps=1000,
+        gate_threshold=0.5,
+        p_attention_dropout=0.1,
+        p_decoder_dropout=0.1,
+        early_stopping=True,
     ):
         super().__init__()
         self.n_mel_channels = n_mel_channels
@@ -1011,7 +1214,6 @@ class Decoder(nn.Module):
             if self.early_stopping and torch.sum(not_finished) == 0:
                 break
             if len(mel_outputs) == self.max_decoder_steps:
-                print("Warning! Reached max decoder steps")
                 break
 
             decoder_input = mel_output
@@ -1104,6 +1306,7 @@ class Tacotron2(nn.Module):
     Example
     -------
     >>> import torch
+    >>> _ = torch.manual_seed(213312)
     >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Tacotron2
     >>> model = Tacotron2(
     ...    mask_padding=True,
@@ -1120,7 +1323,7 @@ class Tacotron2(nn.Module):
     ...    n_frames_per_step=1,
     ...    decoder_rnn_dim=1024,
     ...    prenet_dim=256,
-    ...    max_decoder_steps=1000,
+    ...    max_decoder_steps=32,
     ...    gate_threshold=0.5,
     ...    p_attention_dropout=0.1,
     ...    p_decoder_dropout=0.1,
@@ -1135,33 +1338,34 @@ class Tacotron2(nn.Module):
     ... ])
     >>> input_lengths = torch.tensor([5, 4])
     >>> outputs, output_lengths, alignments = model.infer(inputs, input_lengths)
-
+    >>> outputs.shape, output_lengths.shape, alignments.shape
+    (torch.Size([2, 80, 32]), torch.Size([2]), torch.Size([2, 32, 5]))
     """
 
     def __init__(
         self,
-        mask_padding,
-        n_mel_channels,
-        n_symbols,
-        symbols_embedding_dim,
-        encoder_kernel_size,
-        encoder_n_convolutions,
-        encoder_embedding_dim,
-        attention_rnn_dim,
-        attention_dim,
-        attention_location_n_filters,
-        attention_location_kernel_size,
-        n_frames_per_step,
-        decoder_rnn_dim,
-        prenet_dim,
-        max_decoder_steps,
-        gate_threshold,
-        p_attention_dropout,
-        p_decoder_dropout,
-        postnet_embedding_dim,
-        postnet_kernel_size,
-        postnet_n_convolutions,
-        decoder_no_early_stopping,
+        mask_padding=True,
+        n_mel_channels=80,
+        n_symbols=148,
+        symbols_embedding_dim=512,
+        encoder_kernel_size=5,
+        encoder_n_convolutions=3,
+        encoder_embedding_dim=512,
+        attention_rnn_dim=1024,
+        attention_dim=128,
+        attention_location_n_filters=32,
+        attention_location_kernel_size=31,
+        n_frames_per_step=1,
+        decoder_rnn_dim=1024,
+        prenet_dim=256,
+        max_decoder_steps=1000,
+        gate_threshold=0.5,
+        p_attention_dropout=0.1,
+        p_decoder_dropout=0.1,
+        postnet_embedding_dim=512,
+        postnet_kernel_size=5,
+        postnet_n_convolutions=5,
+        decoder_no_early_stopping=False,
     ):
         super().__init__()
         self.mask_padding = mask_padding
@@ -1394,6 +1598,24 @@ class Loss(nn.Module):
     guided_attention_hard_stop: int
         The number of epochs after which guided attention will be compeltely
         turned off
+
+    Example:
+    >>> import torch
+    >>> _ = torch.manual_seed(42)
+    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Loss
+    >>> loss = Loss(guided_attention_sigma=0.2)
+    >>> mel_target = torch.randn(2, 80, 861)
+    >>> gate_target = torch.randn(1722, 1)
+    >>> mel_out = torch.randn(2, 80, 861)
+    >>> mel_out_postnet = torch.randn(2, 80, 861)
+    >>> gate_out = torch.randn(2, 861)
+    >>> alignments = torch.randn(2, 861, 173)
+    >>> targets = mel_target, gate_target
+    >>> model_outputs = mel_out, mel_out_postnet, gate_out, alignments
+    >>> input_lengths = torch.tensor([173,  91])
+    >>> target_lengths = torch.tensor([861, 438])
+    >>> loss(model_outputs, targets, input_lengths, target_lengths, 1)
+    TacotronLoss(loss=tensor(4.8566), mel_loss=tensor(4.0097), gate_loss=tensor(0.8460), attn_loss=tensor(0.0010), attn_weight=tensor(1.))
     """
 
     def __init__(
@@ -1450,6 +1672,7 @@ class Loss(nn.Module):
         gate_target = gate_target.view(-1, 1)
 
         mel_out, mel_out_postnet, gate_out, alignments = model_output
+
         gate_out = gate_out.view(-1, 1)
         mel_loss = self.mse_loss(mel_out, mel_target) + self.mse_loss(
             mel_out_postnet, mel_target
