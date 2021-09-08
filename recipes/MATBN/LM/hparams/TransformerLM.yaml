@@ -41,7 +41,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
 
 # Model parameters
-d_model: 768
+d_model: 576
 
 # Outputs
 output_neurons: 5000
@@ -54,11 +54,11 @@ pad_index: 0
 model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
     d_model: !ref <d_model>
-    nhead: 12
-    num_encoder_layers: 12
+    nhead: 6
+    num_encoder_layers: 6
     num_decoder_layers: 0
-    d_ffn: 3072
-    dropout: 0.0
+    d_ffn: 1538
+    dropout: 0.2
     activation: !name:torch.nn.GELU
     normalize_before: False
 
@@ -67,7 +67,7 @@ modules:
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr>
-    n_warmup_steps: 250000
+    n_warmup_steps: 1000
     model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

@@ -22,7 +22,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 number_of_epochs: 50
 batch_size: 32
 lr: 0.001
-accumulation_steps: 1
+accumulation_steps: 4
 ckpt_interval_minutes: 15
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter

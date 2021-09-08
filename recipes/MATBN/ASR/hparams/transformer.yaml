@@ -3,6 +3,7 @@ cer_file: !ref <output_folder>/cer.txt
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
 ckpt_interval_minutes: 15
+num_workers: 4
 
 data_folder: results/prepare
 tokenizer_file: results/tokenizer_bpe5k/5000_unigram.model
@@ -51,13 +52,16 @@ lr_sgd: 0.000025
 
 # Dataloader options
 train_dataloader_opts:
+    num_workers: !ref <num_workers>
     batch_size: !ref <batch_size>
     shuffle: True
 
 valid_dataloader_opts:
+    num_workers: !ref <num_workers>
     batch_size: !ref <batch_size>
 
 test_dataloader_opts:
+    num_workers: !ref <num_workers>
     batch_size: !ref <batch_size>
 
 ####################### Model parameters ###########################
@@ -177,7 +181,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 25000
+    n_warmup_steps: 6000
     model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

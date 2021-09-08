@@ -1,5 +1,4 @@
 import sys
-import json
 
 import torch
 import speechbrain as sb
@@ -75,7 +74,7 @@ class LM(sb.core.Brain):
                 meta=stage_stats, min_keys=["loss"],
             )
 
-        if stage == sb.Stage.TEST:
+        if stage == sb.Stage.TEST and sb.utils.distributed.if_main_process():
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
@@ -97,23 +96,11 @@ def dataio_prepare(hparams):
 
     data_folder = hparams["data_folder"]
     datasets = {}
-    for dataset_name in ["train", "eval"]:
+    for dataset_name in ["train", "dev", "test"]:
         json_path = f"{data_folder}/{dataset_name}.json"
         datasets[dataset_name] = dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
-            dynamic_items=[transcription_pipline],
-            output_keys=["transcription", "tokens_bos", "tokens_eos"],
-        )
-
-    dev_json_path = f"{data_folder}/dev.json"
-    test_json_path = f"{data_folder}/test.json"
-    with open(dev_json_path, "r", encoding="utf-8") as dev_file, open(
-        test_json_path, "r", encoding="utf-8"
-    ) as test_file:
-        valid_data = {**json.load(dev_file), **json.load(test_file)}
-        datasets["valid"] = dataset.DynamicItemDataset(
-            valid_data,
             dynamic_items=[transcription_pipline],
             output_keys=["transcription", "tokens_bos", "tokens_eos"],
         )
@@ -125,6 +112,8 @@ if __name__ == "__main__":
     hparams_file_path, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file_path) as hparams_file:
         hparams = load_hyperpyyaml(hparams_file, overrides)
+
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -148,14 +137,14 @@ if __name__ == "__main__":
     lm_brain.fit(
         lm_brain.hparams.epoch_counter,
         datasets["train"],
-        datasets["valid"],
+        datasets["dev"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # evaluation
     lm_brain.evaluate(
-        datasets["eval"],
+        datasets["test"],
         min_key="loss",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
