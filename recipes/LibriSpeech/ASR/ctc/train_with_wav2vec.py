@@ -9,6 +9,8 @@ are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
 
 Authors
+ * Sung-Lin Yeh 2021
+ * Titouan Parcollet 2021
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
  * Abdel Heba 2020
