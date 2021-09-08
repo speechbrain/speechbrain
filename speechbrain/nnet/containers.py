@@ -127,7 +127,7 @@ class Sequential(torch.nn.ModuleDict):
         ``self.input_shape`` attribute.
         """
         with torch.no_grad():
-            dummy_input = torch.zeros(self.input_shape)
+            dummy_input = torch.ones(self.input_shape)
             dummy_output = self(dummy_input)
             if isinstance(dummy_output, tuple):
                 dummy_output = dummy_output[0]
@@ -206,15 +206,14 @@ class LengthsCapableSequential(Sequential):
 
 
 class MaskCapableSequential(Sequential):
-    def __init__(self, *args, return_mask=False, **kwargs):
+    def __init__(self, *args, input_shape=None, return_mask=False, **kwargs):
+        super().__init__(*args, input_shape=input_shape, **kwargs)
         self.takes_mask = []
         self.mask = None
         self.pad_idx = 0.0
         self.return_mask = return_mask
-        super().__init__(*args, **kwargs)
 
     def append(self, *args, **kwargs):
-        # Add lengths arg inference here.
         super().append(*args, **kwargs)
         latest_forward_method = list(self.values())[-1].forward
         self.takes_mask.append(self._arg_exists("mask", latest_forward_method))
@@ -229,6 +228,8 @@ class MaskCapableSequential(Sequential):
                 x = layer(x)
             if isinstance(x, tuple):
                 x = x[0]
+
+        x.masked_fill_(mask, 0.0)
 
         if self.return_mask:
             return x, mask
