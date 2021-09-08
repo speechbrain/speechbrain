@@ -1,4 +1,4 @@
-# LibriSpeech ASR with wav2vec + ctc.
+# LibriSpeech ASR with ctc models.
 This folder contains the scripts to train a wav2vec based system using LibriSpeech.
 You can download LibriSpeech at http://www.openslr.org/12
 
@@ -9,14 +9,10 @@ python train_with_wav2vec.py hparams/file.yaml
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 09-09-21 | train_with_wav2vec.yaml | 1.90 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech) | [Link](https://drive.google.com/drive/folders/1uKpnllZRM3fs5KVAR7HiFlaNhefGdwLb) | 1xV100 32GB |
+| 09-09-21 | train_with_wav2vec.yaml | 1.90 | Not Avail. | [Link](https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing) | 1xRTX8000 48GB |
 
 # Training Time
 It takes about 3 hours for an epoch on a rtx8000 (48 GB).
-
-You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/1uKpnllZRM3fs5KVAR7HiFlaNhefGdwLb
-
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
