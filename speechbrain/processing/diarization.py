@@ -909,7 +909,7 @@ class Spec_Clust_unorm:
         if k_oracle is not None:
             num_of_spk = k_oracle
         else:
-            lambda_gap_list = self.getEigenGaps(lambdas[1 : self.max_num_spkrs])
+            lambda_gap_list = self.getEigenGaps(lambdas[0 : self.max_num_spkrs])
 
             num_of_spk = (
                 np.argmax(
@@ -917,7 +917,7 @@ class Spec_Clust_unorm:
                         : min(self.max_num_spkrs, len(lambda_gap_list))
                     ]
                 )
-                + 2
+                + 1
             )
 
             if num_of_spk < self.min_num_spkrs:
