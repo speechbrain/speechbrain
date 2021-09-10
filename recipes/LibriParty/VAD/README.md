@@ -24,13 +24,18 @@ About 12 minutes for each epoch with a TESLA V100.
 
 # Inference
 The pre-trained model + easy inference is available on HuggingFace:
-- https://huggingface.co/speechbrain/to_add
+- https://huggingface.co/speechbrain/vad-crdnn-libriparty
 
 Basically, you can run inference with only a few lines of code:
 
 ```python
-import torchaudio
-to add
+from speechbrain.pretrained import VAD
+
+VAD = VAD.from_hparams(source="speechbrain/vad-crdnn-libriparty", savedir="pretrained_models/vad-crdnn-libriparty")
+boundaries = VAD.get_speech_segments("speechbrain/vad-crdnn-libriparty/example_vad.wav")
+
+# Print the output
+VAD.save_boundaries(boundaries)
 ```
 
 
