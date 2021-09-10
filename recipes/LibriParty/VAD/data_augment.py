@@ -262,7 +262,7 @@ def create_chunks(
     wav, target, lengths, end_chunk = add_chunk(
         wav1,
         wav,
-        initialize_targets(wav1),
+        initialize_targets(wav1, sample_rate, time_resolution),
         sample_rate=sample_rate,
         time_resolution=time_resolution,
         example_length=example_length,

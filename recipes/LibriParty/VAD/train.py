@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
 """
 Recipe for training a Voice Activity Detection (VAD) model on LibriParty.
+This code heavily relis on data augmentation with external datasets.
+(e.g, open_rir, musan, CommonLanguge is used as well).
 
-To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/data
+Make sure you download all the datasets before staring the experiment:
+- LibriParty: https://drive.google.com/file/d/1--cAS5ePojMwNY5fewioXAv9YlYAWzIJ/view?usp=sharing
+- Musan: https://www.openslr.org/resources/17/musan.tar.gz
+- CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
+
+To run an experiment:
+
+python train.py hparams/train.yaml\
+--data_folder=/path/to/LibriParty \
+--musan_folder=/path/to/musan/\
+--commonlanguage_folder=/path/to/commonlang
 
 Authors
  * Mohamed Kleit 2021
@@ -34,13 +45,15 @@ class VADBrain(sb.Brain):
         self.targets = targets
 
         if stage == sb.Stage.TRAIN:
-            wavs, self.targets, self.lens = augment_data(
+            wavs, targets, lens = augment_data(
                 self.noise_datasets,
                 self.speech_datasets,
                 wavs,
                 targets,
                 lens_targ,
             )
+            self.lens = lens
+            self.targets = targets
 
         # From wav input to output binary prediciton
         feats = self.hparams.compute_features(wavs)
