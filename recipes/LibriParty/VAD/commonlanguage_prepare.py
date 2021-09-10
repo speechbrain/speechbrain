@@ -2,12 +2,14 @@ import os
 import logging
 import torchaudio
 import speechbrain as sb
-from speechbrain.lobes.augment import _prepare_csv
-from speechbrain.utils.data_utils import get_all_files,download_file
+from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)
 
-COMMON_LANGUAGE_URL='https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1'
+COMMON_LANGUAGE_URL = (
+    "https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1"
+)
+
 
 def prepare_commonlanguage(folder, csv_file, max_noise_len=None):
     """Prepare the CommonLanguage dataset for VAD training.
@@ -90,4 +92,3 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                         )
     finally:
         sb.utils.distributed.ddp_barrier()
-
