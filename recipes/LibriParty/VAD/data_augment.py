@@ -105,7 +105,7 @@ def add_chunk(
 
     # Fetch the signal to append
     wav_to_paste = wav[
-        :, begin_sample: begin_sample + (end_chunk - chunk_shift)
+        :, begin_sample : begin_sample + (end_chunk - chunk_shift)
     ]
 
     # Random amplitude
