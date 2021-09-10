@@ -745,7 +745,7 @@ class VAD(Pretrained):
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
     >>> VAD = EncoderClassifier.from_hparams(
-    ...     source="speechbrain/vad-gru-libriparty",
+    ...     source="speechbrain/speechbrain/vad-crdnn-libriparty",
     ...     savedir=tmpdir,
     ... )
 
