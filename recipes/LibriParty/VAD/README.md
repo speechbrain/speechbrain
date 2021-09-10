@@ -1,6 +1,7 @@
 # Voice Activity Detection (VAD) with LibriParty
 This folder contains scripts for training a VAD with the [LibriParty dataset](https://drive.google.com/file/d/1--cAS5ePojMwNY5fewioXAv9YlYAWzIJ/view?usp=sharing).
 LibriParty contains sequences of 1 minute compose of speech sentences (sampled from LibriSpeech) corrupted by noise and reverberation.
+Data augmentation with open_rir, musan, CommonLanguge is used as well.
 
 # Training a RNN-based VAD
 Run the following command to train the model:
@@ -9,11 +10,11 @@ Run the following command to train the model:
 # Results
 | Release | hyperparams file | Test Precision | Test Recall. | Test F-Score | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 2021-07-06 | train.yaml |  0.943 | 0.957 | 0.950 | https://drive.google.com/drive/folders/1yLPKiwxQ2woCmuDy6o27IS1DFd04pKAm?usp=sharing | 1xV100 16GB |
+| 2021-09-09 | train.yaml |  0.939 | 0.951 | 0.945 | https://drive.google.com/drive/folders/1Z7J3Zd7M5M9VYoNtbrbpbxSoKWUpjhzp?usp=sharing | 1xV100 16GB |
 
 
 # Training Time
-About 9 minutes for each epoch with a TESLA V100.
+About 12 minutes for each epoch with a TESLA V100.
 
 # Inference
 The pre-trained model + easy inference is available on HuggingFace:
@@ -26,18 +27,6 @@ import torchaudio
 to add
 ```
 
-# **About IEMOCAP**
-
-```bibtex
-@article{Busso2008IEMOCAPIE,
-  title={IEMOCAP: interactive emotional dyadic motion capture database},
-  author={C. Busso and M. Bulut and Chi-Chun Lee and Ebrahim Kazemzadeh and Emily Mower Provost and Samuel Kim and J. N. Chang and Sungbok Lee and Shrikanth S. Narayanan},
-  journal={Language Resources and Evaluation},
-  year={2008},
-  volume={42},
-  pages={335-359}
-}
-```
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

@@ -8,6 +8,7 @@ To run this recipe, do the following:
 Authors
  * Mohamed Kleit 2021
  * Arjun V 2021
+ * Mirco Ravanelli 2021
 """
 
 import sys
@@ -17,30 +18,53 @@ import numpy as np
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from data_augment import augment_data
 
 logger = logging.getLogger(__name__)
 
 
-"""Create Brain class"""
-
-
 class VADBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the binary probability."
+        """Given an input batch it computes the binary probability.
+        In training phase, we create on-the-fly augmentation data.
+        """
+        batch = batch.to(self.device)
         wavs, lens = batch.signal
+        targets, lens_targ = batch.target
+        self.targets = targets
+
+        if stage == sb.Stage.TRAIN:
+            wavs, self.targets, self.lens = augment_data(
+                self.noise_datasets,
+                self.speech_datasets,
+                wavs,
+                targets,
+                lens_targ,
+            )
+
+        # From wav input to output binary prediciton
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
-        x, _ = self.modules.rnn(feats)
-        outputs = self.modules.lin(x)
+        feats = feats.detach()
+        outputs = self.modules.cnn(feats)
+
+        outputs = outputs.reshape(
+            outputs.shape[0],
+            outputs.shape[1],
+            outputs.shape[2] * outputs.shape[3],
+        )
+
+        outputs, h = self.modules.rnn(outputs)
+        outputs = self.modules.dnn(outputs)
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the binary CE"
         predictions, lens = predictions
+        targets = self.targets
 
-        targets, lens = batch.target
-        targets = targets.to(predictions.device)
         predictions = predictions[:, : targets.shape[-1], 0]
+
         loss = self.hparams.compute_BCE_cost(predictions, targets, lens)
 
         self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets)
@@ -54,6 +78,17 @@ class VADBrain(sb.Brain):
         "Gets called when a stage (either training, validation, test) starts."
         self.train_metrics = self.hparams.train_stats()
 
+        self.noise_datasets = [
+            self.hparams.add_noise,
+            self.hparams.add_noise_musan,
+            self.hparams.add_music_musan,
+        ]
+        self.speech_datasets = [
+            self.hparams.add_speech_musan,
+            self.hparams.add_speech_musan,
+            self.hparams.add_speech_musan,
+        ]
+
         if stage != sb.Stage.TRAIN:
             self.valid_metrics = self.hparams.test_stats()
 
@@ -65,7 +100,7 @@ class VADBrain(sb.Brain):
             summary = self.valid_metrics.summarize(threshold=0.5)
 
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
+            old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
@@ -173,7 +208,7 @@ if __name__ == "__main__":
 
     from libriparty_prepare import prepare_libriparty
 
-    # multi-gpu (ddp) save data preparation
+    # LibriParty preparation
     run_on_main(
         prepare_libriparty,
         kwargs={
@@ -185,14 +220,40 @@ if __name__ == "__main__":
         },
     )
 
+    # Prepare Musan
+    from musan_prepare import prepare_musan
+
+    run_on_main(
+        prepare_musan,
+        kwargs={
+            "folder": hparams["musan_folder"],
+            "music_csv": hparams["music_csv"],
+            "noise_csv": hparams["noise_csv"],
+            "speech_csv": hparams["speech_csv"],
+            "max_noise_len": hparams["example_length"],
+        },
+    )
+
+    # Prepare common
+    from commonlanguage_prepare import prepare_commonlanguage
+
+    run_on_main(
+        prepare_commonlanguage,
+        kwargs={
+            "folder": hparams["commonlanguage_folder"],
+            "csv_file": hparams["multilang_speech_csv"],
+        },
+    )
+
     # Dataset IO prep: creating Dataset objects
     train_data, valid_data, test_data = dataio_prep(hparams)
 
     # Trainer initialization
     vad_brain = VADBrain(
-        hparams["modules"],
-        hparams["opt_class"],
-        hparams,
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
