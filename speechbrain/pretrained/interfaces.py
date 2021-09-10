@@ -735,9 +735,9 @@ class SpeakerRecognition(EncoderClassifier):
 
 
 class VAD(Pretrained):
-    """A ready-to-use class for Voice Activity Detection (VAD) using a 
-    pre-trained model. 
-            
+    """A ready-to-use class for Voice Activity Detection (VAD) using a
+    pre-trained model.
+
     Example
     -------
     >>> import torchaudio
@@ -975,19 +975,19 @@ class VAD(Pretrained):
     def apply_threshold(
         self, vad_prob, activation_th=0.5, deactivation_th=0.25
     ):
-        """Scans the frame-level speech probabilities and applies a threshold 
-        on them. Speech starts when a value larger than activation_th is 
-        detected, while it ends when observing a value lower than 
+        """Scans the frame-level speech probabilities and applies a threshold
+        on them. Speech starts when a value larger than activation_th is
+        detected, while it ends when observing a value lower than
         the deactivation_th.
 
         Arguments
         ---------
         vad_prob: torch.tensor
-    		Frame-level speech probabilities.
+            Frame-level speech probabilities.
         activation_th:  float
-    		Threshold for starting a speech segment.
+            Threshold for starting a speech segment.
         deactivation_th: float
-    		Threshold for ending a speech segment.
+            Threshold for ending a speech segment.
 
         Returns
         -------
@@ -1013,25 +1013,25 @@ class VAD(Pretrained):
 
     def get_boundaries(self, prob_th, output_value="seconds"):
         """Computes the time boundaries where speech activity is detected.
-        It takes in input frame-level binary decisions 
-        (1 for speech, 0 for non-speech) and outputs the begin/end second 
+        It takes in input frame-level binary decisions
+        (1 for speech, 0 for non-speech) and outputs the begin/end second
         (or sample) of each detected speech region.
 
         Arguments
         ---------
         prob_th: torch.tensor
-    		Frame-level binary decisions (1 for speech frame, 0 for a 
+            Frame-level binary decisions (1 for speech frame, 0 for a
             non-speech one).  The tensor can be obtained from apply_threshold.
         put_value: 'seconds' or 'samples'
-    		When the option 'seconds' is set, the returned boundaries are in 
-            seconds, otherwise, it reports them in samples. 
+            When the option 'seconds' is set, the returned boundaries are in
+            seconds, otherwise, it reports them in samples.
 
         Returns
         -------
         boundaries: torch.tensor
-            Tensor containing the start second (or sample) of speech segments 
-            in even positions and their corresponding end in odd positions 
-            (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment; 
+            Tensor containing the start second (or sample) of speech segments
+            in even positions and their corresponding end in odd positions
+            (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).
        """
         # Shifting frame-levels binary decision by 1
@@ -1061,16 +1061,16 @@ class VAD(Pretrained):
 
     def merge_short_segments(self, boundaries, close_th=0.250):
         """Merges segments that are shorter than the given threshold.
-    
+
         Arguments
         ---------
         boundaries : str
-            Tensor containing the speech boundaries. It can be derived using the 
+            Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         close_th: float
             If the distance between boundaries is smaller than close_th, the
             segments will be merged.
-    
+
         Returns
         -------
         new_boundaries
@@ -1108,16 +1108,16 @@ class VAD(Pretrained):
 
     def remove_short_segments(self, boundaries, len_th=0.250):
         """Removes segments that are too short.
-    
+
         Arguments
         ---------
         boundaries : str
-            Tensor containing the speech boundaries. It can be derived using the 
+            Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         len_th: float
             If the length of the segment is smaller than close_th, the segments
             will be merged.
-    
+
         Returns
         -------
         new_boundaries
@@ -1141,16 +1141,16 @@ class VAD(Pretrained):
         self, boundaries, save_path=None, print_boundaries=True
     ):
         """Saves the boundaries on a file (and/or prints them)  in a readable format.
-    
+
         Arguments
         ---------
         boundaries: torch.tensor
-            Tensor containing the speech boundaries. It can be derived using the 
+            Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
-    	save_path: path
-    		When to store the text file containing the speech/non-speech intervals.
+        save_path: path
+            When to store the text file containing the speech/non-speech intervals.
         print_boundaries: Bool
-    		Prints the speech/non-speech intervals in the standard outputs.
+            Prints the speech/non-speech intervals in the standard outputs.
         """
         # Create a new file if needed
         if save_path is not None:
@@ -1197,28 +1197,28 @@ class VAD(Pretrained):
         """Applies energy-based VAD within the detected speech segments.The neural
         network VAD often creates longer segments and tends to merge segments that
         are close with each other.
-        
+
         The energy VAD post-processes can be useful for having a fine-grained voice
         activity detection.
-        
+
         The energy VAD computes the energy within the small chunks. The energy is
         normalized within the segment to have mean 0.5 and +-0.5 of std.
         This helps to set the energy threshold.
-        
+
         Arguments
         ---------
         audio_file: path
             Path of the audio file containing the recording. The file is read
             with torchaudio.
         boundaries : str
-            Tensor containing the speech boundaries. It can be derived using the 
+            Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         activation_th: float
             A new speech segment is started it the energy is above activation_th.
         deactivation_th: float
             The segment is considered ended when the energy is <= deactivation_th.
-            
-    
+
+
         Returns
         -------
         new_boundaries
@@ -1289,7 +1289,7 @@ class VAD(Pretrained):
         """Splits the input into smaller chunks of size chunk_size with
         an overlap chunk_stride. The chunks are concatenated over
         the batch axis.
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -1298,13 +1298,13 @@ class VAD(Pretrained):
             The size of each chunk.
         chunk_stride:
             The stride (hop) of each chunk.
-            
-    
+
+
         Returns
         -------
         x: torch.Tensor
             A new tensors with the chunks derived from the input signal.
-        
+
         """
         x = x.unfold(1, chunk_size, chunk_stride)
         x = x.reshape(x.shape[0] * x.shape[1], -1)
@@ -1320,21 +1320,21 @@ class VAD(Pretrained):
         return sample_rate, audio_len
 
     def upsample_VAD(self, vad_out, audio_file, time_resolution=0.01):
-        """Upsamples the output of the vad to help visualization. It creates a 
-        signal that is 1 when there is speech and 0 when there is no speech. 
+        """Upsamples the output of the vad to help visualization. It creates a
+        signal that is 1 when there is speech and 0 when there is no speech.
         The vad signal has the same resolution as the input one and can be
         opened with it (e.g, using audacity) to visually figure out VAD regions.
-        
+
         Arguments
         ---------
         vad_out: torch.Tensor
-            Tensor containing 1 for each frame of speech and 0 for each non-speech 
+            Tensor containing 1 for each frame of speech and 0 for each non-speech
             frame.
         audio_file: path
             The original audio file used to compute vad_out
         time_resolution : float
-            Time resolution of the vad_out signal.            
-    
+            Time resolution of the vad_out signal.
+
         Returns
         -------
         vad_signal
@@ -1367,17 +1367,17 @@ class VAD(Pretrained):
 
     def upsample_boundaries(self, boundaries, audio_file):
         """Based on the input boundaries, this method creates a signal that is 1
-        when there is speech and 0 when there is no speech. 
+        when there is speech and 0 when there is no speech.
         The vad signal has the same resolution as the input one and can be
         opened with it (e.g, using audacity) to visually figure out VAD regions.
-        
+
         Arguments
         ---------
         boundaries: torch.Tensor
             Tensor containing the boundaries of the speech segments.
         audio_file: path
-            The original audio file used to compute vad_out           
-    
+            The original audio file used to compute vad_out
+
         Returns
         -------
         vad_signal
@@ -1405,20 +1405,20 @@ class VAD(Pretrained):
     def double_check_speech_segments(
         self, boundaries, audio_file, speech_th=0.5
     ):
-        """Takes in input the boundaries of the detected speech segments and 
+        """Takes in input the boundaries of the detected speech segments and
         double checks (using the neural VAD) that they actually contain speech.
-        
+
         Arguments
         ---------
         boundaries: torch.Tensor
             Tensor containing the boundaries of the speech segments.
         audio_file: path
-            The original audio file used to compute vad_out.           
+            The original audio file used to compute vad_out.
         speech_th: float
             Threshold on the mean posterior probability over which speech is
             confirmed. Below that threshold, the segment is re-assigned to a
             non-speech region.
-            
+
         Returns
         -------
         new_boundaries
@@ -1452,17 +1452,17 @@ class VAD(Pretrained):
         self, boundaries, audio_file, before_margin=0.1, after_margin=0.1
     ):
         """Returns a list containing all the detected speech segments.
-        
+
         Arguments
         ---------
         boundaries: torch.Tensor
             Tensor containing the boundaries of the speech segments.
         audio_file: path
-            The original audio file used to compute vad_out.           
+            The original audio file used to compute vad_out.
         before_margin: float
             Used to cut the segments samples a bit before the detected margin.
         after_margin: float
-            Use to cut the segments samples a bit after the detected margin. 
+            Use to cut the segments samples a bit after the detected margin.
 
         Returns
         -------
@@ -1510,8 +1510,8 @@ class VAD(Pretrained):
         speech_th=0.50,
     ):
         """Detects speech segments within the input file. The input signal can
-        be both a short or a long recording. The function computes the 
-        posterior probabilities on large chunks (e.g, 30 sec), that are read 
+        be both a short or a long recording. The function computes the
+        posterior probabilities on large chunks (e.g, 30 sec), that are read
         sequentially (to avoid storing big signals in memory).
         Each large chunk is, in turn, split into smaller chunks (e.g, 10 seconds)
         that are processed in parallel. The pipeline for detecting the speech
@@ -1523,7 +1523,7 @@ class VAD(Pretrained):
             5- Merge segments that are too close.
             6- Remove segments that are too short.
             7- Double check speech segments (optional).
-        
+
 
         Arguments
         ---------
@@ -1538,11 +1538,11 @@ class VAD(Pretrained):
             Note that large_chunk_size/small_chunk_size must be an integer.
         overlap_small_chunk: bool
             If True, it creates overlapped small chunks (with 50% overal).
-            The probabilities of the overlapped chunks are combined using 
-            hamming windows.   
+            The probabilities of the overlapped chunks are combined using
+            hamming windows.
         apply_energy_VAD: bool
             If True, a energy-based VAD is used on the detected speech segments.
-            The neural network VAD often creates longer segments and tends to 
+            The neural network VAD often creates longer segments and tends to
             merge close segments together. The energy VAD post-processes can be
             useful for having a fine-grained voice activity detection.
             The energy thresholds is  managed by activation_th and
@@ -1553,9 +1553,9 @@ class VAD(Pretrained):
             posterior probabilities provided by the neural network is applied
             based on the speech_th parameter (see below).
         activation_th:  float
-    		Threshold of the neural posteriors above which starting a speech segment.
+            Threshold of the neural posteriors above which starting a speech segment.
         deactivation_th: float
-    		Threshold of the neural posteriors below which ending a speech segment.
+            Threshold of the neural posteriors below which ending a speech segment.
         en_activation_th: float
             A new speech segment is started it the energy is above activation_th.
             This is active only if apply_energy_VAD is True.
@@ -1564,21 +1564,21 @@ class VAD(Pretrained):
             This is active only if apply_energy_VAD is True.
         speech_th: float
             Threshold on the mean posterior probability within the candidate
-            speech segment. Below that threshold, the segment is re-assigned to 
-            a non-speech region. This is active only if double_check is True.        
+            speech segment. Below that threshold, the segment is re-assigned to
+            a non-speech region. This is active only if double_check is True.
         close_th: float
             If the distance between boundaries is smaller than close_th, the
             segments will be merged.
         len_th: float
             If the length of the segment is smaller than close_th, the segments
-            will be merged.         
-        
+            will be merged.
+
         Returns
         -------
         boundaries: torch.tensor
-            Tensor containing the start second of speech segments in even 
-            positions and their corresponding end in odd positions 
-            (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment; 
+            Tensor containing the start second of speech segments in even
+            positions and their corresponding end in odd positions
+            (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).
         """
 
