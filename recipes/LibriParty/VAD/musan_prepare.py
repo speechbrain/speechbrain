@@ -2,10 +2,10 @@ import os
 import logging
 import torchaudio
 import speechbrain as sb
-from speechbrain.lobes.augment import _prepare_csv
-from speechbrain.utils.data_utils import get_all_files, download_file
+from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)
+
 
 def prepare_musan(folder, music_csv, noise_csv, speech_csv, max_noise_len=None):
     """Prepare the musan dataset (music, noise, speech).
@@ -21,16 +21,16 @@ def prepare_musan(folder, music_csv, noise_csv, speech_csv, max_noise_len=None):
         than this will be cut into pieces.
     """
 
-    sub_folders = ['music','noise','speech']
+    sub_folders = ["music", "noise", "speech"]
     csv_files = [music_csv, noise_csv, speech_csv]
     logger.info("Musan Data Preparation...")
-    for sub_folder, csv_file in zip(sub_folders,csv_files):
-        wav_lst = get_all_files(os.path.join(folder, sub_folder), match_and=[".wav"])
+    for sub_folder, csv_file in zip(sub_folders, csv_files):
+        wav_lst = get_all_files(
+            os.path.join(folder, sub_folder), match_and=[".wav"]
+        )
         if not os.path.isfile(csv_file):
             logger.info(csv_file + " creation...")
             _prepare_csv(folder, wav_lst, csv_file, max_noise_len)
-
-
 
 
 def _prepare_csv(folder, filelist, csv_file, max_length=None):
@@ -94,4 +94,3 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                         )
     finally:
         sb.utils.distributed.ddp_barrier()
-
