@@ -52,7 +52,7 @@ class Pooling1d(nn.Module):
         kernel_size,
         input_dims=3,
         pool_axis=1,
-        ceil_mode=False,
+        ceil_mode=True,
         padding=0,
         dilation=1,
         stride=None,
@@ -67,7 +67,10 @@ class Pooling1d(nn.Module):
         self.stride = stride
         self.dilation = dilation
         self.padding = padding
+        self.ceil_mode = ceil_mode
+        self.pool_type = pool_type
         self.input_dims = input_dims
+        self.inf = 1e23
 
         if pool_type == "avg":
             if input_dims == 3:
@@ -112,6 +115,13 @@ class Pooling1d(nn.Module):
 
     def forward(self, x, mask=None):
 
+        if mask is not None:
+            if self.pool_type == "max":
+                # Avoid edge effect from paddings
+                x.masked_fill_(mask, -self.inf)
+            elif self.pool_type == "avg":
+                x = torch.cat([x, mask.expand(x.size())], dim=0)
+
         # Put the pooling axes as the last dimension for torch.nn.pool
         x = x.transpose(-1, self.pool_axis)
 
@@ -122,14 +132,27 @@ class Pooling1d(nn.Module):
         x = x.transpose(-1, self.pool_axis)
 
         if mask is not None:
+            # Avoid edge effect from paddings
+            if self.pool_type == "avg":
+                x_sum, mask_sum = x.split(x.size(0) // 2, dim=0)
+                print(x_sum, mask_sum)
+                x = x_sum / (mask_sum + 1 / self.inf)
+                print(x)
+
             mask = self.compute_mask(mask)
+            x.masked_fill_(mask, 0.0)
 
         return x, mask
 
     def compute_mask(self, mask):
+
+        if not self.ceil_mode:
+            raise ValueError("Masking when ceil_mode=False is not supported.")
+
         mask = mask.transpose(-1, self.pool_axis)
         mask = mask[..., :: self.stride]
         mask = mask.transpose(-1, self.pool_axis)
+
         return mask
 
 
@@ -169,7 +192,7 @@ class Pooling2d(nn.Module):
         pool_type,
         kernel_size,
         pool_axis=(1, 2),
-        ceil_mode=False,
+        ceil_mode=True,  # False,
         padding=0,
         dilation=1,
         stride=None,
@@ -181,6 +204,7 @@ class Pooling2d(nn.Module):
         self.ceil_mode = ceil_mode
         self.padding = padding
         self.dilation = dilation
+        self.inf = 1e23
 
         if stride is None:
             self.stride = kernel_size
@@ -203,6 +227,13 @@ class Pooling2d(nn.Module):
             )
 
     def forward(self, x, mask=None):
+
+        if mask is not None and self.pool_type == "max":
+            if self.pool_type == "max":
+                # Avoid edge effect from paddings
+                x.masked_fill_(mask, -self.inf)
+            elif self.pool_type == "avg":
+                x = torch.cat([x, mask.expand(x.size())], dim=0)
 
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
@@ -238,41 +269,42 @@ class Pooling2d(nn.Module):
             .squeeze(-1)
         )
 
-        return x
+        if mask is not None:
+            # Avoid edge effect from paddings
+            if self.pool_type == "avg":
+                x_sum, mask_sum = x.split(x.size(0) // 2, dim=0)
+                x = x_sum / (mask_sum + 1 / self.inf)
+
+            mask = self.compute_mask(mask)
+            x.masked_fill_(mask, 0.0)
+
+        return x, mask
 
     def compute_mask(self, mask):
-        mask = mask.transpose(1, -1)
-        # Unsqueeze
-        unsqueeze = mask.ndim == 3
-        if unsqueeze:
-            mask = mask.unsqueeze(1)
-        if self.padding == "same":
-            freq_end = mask.size(2)
-            time_end = mask.size(3)
-        elif self.padding == "valid":
-            freq_end = (
-                mask.size(2)
-                - self.dilation[-2] * (self.kernel_size[-2] - 1)
-                - 1
-            )
-            time_end = (
-                mask.size(3)
-                - self.dilation[-1] * (self.kernel_size[-1] - 1)
-                - 1
-            )
+
+        if not self.ceil_mode:
+            raise ValueError("Masking when ceil_mode=False is not supported.")
+
+        mask = (
+            mask.unsqueeze(-1)
+            .unsqueeze(-1)
+            .transpose(-2, self.pool_axis[0])
+            .transpose(-1, self.pool_axis[1])
+            .squeeze(self.pool_axis[1])
+            .squeeze(self.pool_axis[0])
+        )
 
         # Subsample mask
-        mask = mask[
-            :, :, : freq_end : self.stride[-1], : time_end : self.stride[-2]
-        ]
+        mask = mask[..., :: self.stride, :: self.stride]
 
-        # Make it to (batch, 1, time, freq)
-        mask = mask[:, :1]
-        # Make it to (batch, freq, time, 1)
-        mask = mask.transpose(1, -1)
-        # Squeeze
-        if unsqueeze:
-            mask = mask.squeeze(1)
+        mask = (
+            mask.unsqueeze(self.pool_axis[0])
+            .unsqueeze(self.pool_axis[1])
+            .transpose(-2, self.pool_axis[0])
+            .transpose(-1, self.pool_axis[1])
+            .squeeze(-1)
+            .squeeze(-1)
+        )
 
         return mask
 

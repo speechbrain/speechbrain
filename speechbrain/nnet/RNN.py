@@ -31,13 +31,12 @@ def pack_padded_sequence(inputs, lengths):
     lengths : torch.Tensor
         The length of each sequence.
     """
-    lengths = (lengths * inputs.size(1)).cpu()
     return torch.nn.utils.rnn.pack_padded_sequence(
         inputs, lengths, batch_first=True, enforce_sorted=False
     )
 
 
-def pad_packed_sequence(inputs):
+def pad_packed_sequence(inputs, max_length):
     """Returns speechbrain-formatted tensor from packed sequences.
 
     Arguments
@@ -46,7 +45,7 @@ def pad_packed_sequence(inputs):
         An input set of sequences to convert to a tensor.
     """
     outputs, lengths = torch.nn.utils.rnn.pad_packed_sequence(
-        inputs, batch_first=True
+        inputs, total_length=max_length, batch_first=True
     )
     return outputs
 
@@ -240,7 +239,7 @@ class LSTM(torch.nn.Module):
         if re_init:
             rnn_init(self.rnn)
 
-    def forward(self, x, hx=None, lengths=None):
+    def forward(self, x, hx=None, mask=None):
         """Returns the output of the LSTM.
 
         Arguments
@@ -256,12 +255,17 @@ class LSTM(torch.nn.Module):
         if self.reshape:
             if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
+            if mask is not None and mask.ndim == 4:
+                mask = mask[:, :, 0]
 
         # Flatten params for data parallel
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if lengths is not None:
+        if mask is not None:
+            lengths = torch.sum(~mask, dim=1).squeeze(-1).cpu()
+            max_length = x.size(1)
+            #print(x.shape, lengths, mask.shape)
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -271,10 +275,10 @@ class LSTM(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if lengths is not None:
-            output = pad_packed_sequence(output)
+        if mask is not None:
+            output = pad_packed_sequence(output, max_length)
 
-        return output, hn
+        return (output, hn), mask
 
 
 class GRU(torch.nn.Module):
@@ -1070,7 +1074,7 @@ class LiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[Tensor] = None, mask=None):
         """Returns the output of the liGRU.
 
         Arguments
@@ -1086,11 +1090,12 @@ class LiGRU(torch.nn.Module):
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         # run ligru
-        output, hh = self._forward_ligru(x, hx=hx)
+        print("rnn: mask", mask.shape, "x", x.shape)
+        output, hh, mask = self._forward_ligru(x, hx=hx, mask=mask)
 
-        return output, hh
+        return output, hh, mask
 
-    def _forward_ligru(self, x, hx: Optional[Tensor]):
+    def _forward_ligru(self, x, hx: Optional[Tensor], mask=None):
         """Returns the output of the vanilla liGRU.
 
         Arguments
@@ -1108,9 +1113,9 @@ class LiGRU(torch.nn.Module):
         # Processing the different layers
         for i, ligru_lay in enumerate(self.rnn):
             if hx is not None:
-                x = ligru_lay(x, hx=hx[i])
+                x, mask = ligru_lay(x, hx=hx[i], mask=mask)
             else:
-                x = ligru_lay(x, hx=None)
+                x, mask = ligru_lay(x, hx=None, mask=mask)
             h.append(x[:, -1, :])
         h = torch.stack(h, dim=1)
 
@@ -1119,7 +1124,7 @@ class LiGRU(torch.nn.Module):
         else:
             h = h.transpose(0, 1)
 
-        return x, h
+        return x, h, mask
 
 
 class LiGRU_Layer(torch.nn.Module):
@@ -1206,7 +1211,7 @@ class LiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[Tensor] = None, mask=None):
         # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the liGRU layer.
 
@@ -1216,7 +1221,12 @@ class LiGRU_Layer(torch.nn.Module):
             Input tensor.
         """
         if self.bidirectional:
-            x_flip = x.flip(1)
+            if mask is None:
+                x_flip = x.flip(1)
+            else:
+                lengths = mask.mean(-2).unsqueeze(-1).sum(1)
+                print(lengths.shape, mask.shape, x.shape)
+                x_flip = reverse_padded_sequence(x, lengths, batch_first=True)
             x = torch.cat([x, x_flip], dim=0)
 
         # Change batch size if needed
@@ -1241,7 +1251,7 @@ class LiGRU_Layer(torch.nn.Module):
             h_b = h_b.flip(1)
             h = torch.cat([h_f, h_b], dim=2)
 
-        return h
+        return h, mask
 
     def _ligru_cell(self, w, ht):
         """Returns the hidden states for each time step.
@@ -1606,3 +1616,68 @@ def rnn_init(module):
     for name, param in module.named_parameters():
         if "weight_hh" in name or ".u.weight" in name:
             nn.init.orthogonal_(param)
+
+
+def reverse_padded_sequence(input, lengths, batch_first=False):
+    # type: (Tensor, Tensor, bool) -> Tensor
+    r"""Reverses sequences according to their lengths.
+    ``input`` should have size ``T x B x *`` if ``batch_first`` is False, or
+    ``B x T x *`` if True. ``T`` is the length of the longest sequence (or
+    larger), ``B`` is the batch size, and ``*`` is any number of dimensions
+    (including 0). ``lengths`` must have size ``B`` and contain values between
+    ``0`` and ``T``, inclusive.
+    Example:
+        >>> input = torch.tensor([[1., 2.], [3., 4.], [5., 6.], [7., 8.]])
+        >>> lengths = torch.tensor([3, 2])
+        >>> reverse_padded_sequence(input, lengths)
+        tensor([[5., 4.],
+                [3., 2.],
+                [1., 0.],
+                [0., 0.]])
+        >>> input = torch.tensor([[1., 2., 3., 4.], [5., 6., 7., 8.]])
+        >>> lengths = torch.tensor([3, 2])
+        >>> reverse_padded_sequence(input, lengths, batch_first=True)
+        tensor([[3., 2., 1., 0.],
+                [6., 5., 0., 0.]])
+    Arguments:
+        input (Tensor): padded batch of variable length sequences.
+        lengths (Tensor): list of sequence lengths.
+        batch_first (bool, optional): if ``True``, input should be in
+            ``B x T x *`` format.
+    Returns:
+        Tensor of size ``T x B x *`` if :attr:`batch_first` is ``False``.
+        Tensor of size ``B x T x *`` otherwise
+    """
+    if batch_first:
+        input = input.transpose(0, 1)
+
+    max_length, batch_size, *trailing_dims = input.shape
+
+    if len(lengths) != batch_size:
+        raise ValueError('lengths has batch size {} while input has batch '
+                         'size {}'.format(len(lengths), batch_size))
+
+    # Compute the new (i.e. reversed) indices
+    tiled_indices = torch.arange(max_length, device=lengths.device)
+    tiled_indices = tiled_indices.view(
+            (max_length, 1) + (1,) * len(trailing_dims))
+    tiled_indices = tiled_indices.expand_as(input)
+
+    tiled_lengths = lengths.view(
+            (1, batch_size) + (1,) * len(trailing_dims))
+    tiled_lengths = tiled_lengths.expand_as(input)
+
+    new_tiled_indices = (tiled_lengths - tiled_indices - 1).clamp(min=0)
+
+    # Reverse the sequences
+    reversed_unmasked = input.gather(0, new_tiled_indices)
+
+    # Any sequence whose length is less than `max_length` will have its last
+    # element (which was previously the first) repeated in reversed_unmasked.
+    # We set those to zero here.
+    reversed_masked = reversed_unmasked * (tiled_indices < tiled_lengths)
+
+    if batch_first:
+        reversed_masked = reversed_masked.transpose(0, 1)
+
+    return reversed_masked
