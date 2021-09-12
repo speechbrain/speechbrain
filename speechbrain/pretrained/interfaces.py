@@ -477,121 +477,6 @@ class EncoderDecoderASR(Pretrained):
         return predicted_words, predicted_tokens
 
 
-class EncoderASR(Pretrained):
-    """A ready-to-use Encoder ASR model
-
-    The class can be used either to run only the encoder (encode()) to extract
-    features or to run the entire encoder + decoder function model
-    (transcribe()) to transcribe speech. The given YAML must contains the fields
-    specified in the *_NEEDED[] lists.
-
-    Example
-    -------
-    >>> from speechbrain.pretrained import EncoderASR
-    >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = EncoderASR.from_hparams(
-    ...     source="speechbrain/asr-wav2vec2-commonvoice-fr",
-    ...     savedir=tmpdir,
-    ... ) # doctest: +SKIP
-    >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
-    """
-
-    HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
-    MODULES_NEEDED = ["encoder"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.tokenizer = self.hparams.tokenizer
-        self.decoding_function = self.hparams.decoding_function
-
-    def transcribe_file(self, path):
-        """Transcribes the given audiofile into a sequence of words.
-
-        Arguments
-        ---------
-        path : str
-            Path to audio file which to transcribe.
-
-        Returns
-        -------
-        str
-            The audiofile transcription produced by this ASR system.
-        """
-        waveform = self.load_audio(path)
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
-        return str(predicted_words[0])
-
-    def encode_batch(self, wavs, wav_lens):
-        """Encodes the input audio into a sequence of hidden states
-
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = EncoderASR.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        torch.tensor
-            The encoded batch
-        """
-        wavs = wavs.float()
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        encoder_out = self.modules.encoder(wavs, wav_lens)
-        return encoder_out
-
-    def transcribe_batch(self, wavs, wav_lens):
-        """Transcribes the input audio into a sequence of words
-
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = EncoderASR.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        list
-            Each waveform in the batch transcribed.
-        tensor
-            Each predicted token id.
-        """
-        with torch.no_grad():
-            wav_lens = wav_lens.to(self.device)
-            encoder_out = self.encode_batch(wavs, wav_lens)
-            predictions = self.decoding_function(encoder_out, wav_lens)
-            predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predictions
-            ]
-        return predicted_words, predictions
-
-
 class EncoderClassifier(Pretrained):
     """A ready-to-use class for utterance-level classification (e.g, speaker-id,
     language-id, emotion recognition, keyword spotting, etc).
@@ -823,7 +708,7 @@ class SpeakerRecognition(EncoderClassifier):
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
-    def verify_files(self, path_x, path_y, threshold=0.25):
+    def verify_files(self, path_x, path_y):
         """Speaker verification with cosine distance
 
         Returns the score and the decision (0 different speakers,
@@ -844,9 +729,7 @@ class SpeakerRecognition(EncoderClassifier):
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
         # Verify:
-        score, decision = self.verify_batch(
-            batch_x, batch_y, threshold=threshold
-        )
+        score, decision = self.verify_batch(batch_x, batch_y)
         # Squeeze:
         return score[0], decision[0]
 
@@ -1157,8 +1040,16 @@ class VAD(Pretrained):
         prob_th_shifted[:, 0, :] = 0
         prob_th = prob_th + prob_th_shifted
 
-        # Needed to manage last time step
+        # Needed to first and last time step
+        prob_th[:, 0, :] = (prob_th[:, 0, :] >= 1).int()
         prob_th[:, -1, :] = (prob_th[:, -1, :] >= 1).int()
+
+        # Fix edge cases (when a new sentence starts in the last frame)
+        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 1:
+            prob_th[:, -2, :] = 2
+
+        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 0:
+            prob_th[:, -2, :] = 1
 
         # Where prob_th is 1 there is a change
         indexes = (prob_th == 1).nonzero()[:, 1].reshape(-1, 2)
@@ -1255,7 +1146,7 @@ class VAD(Pretrained):
         return new_boundaries
 
     def save_boundaries(
-        self, boundaries, save_path=None, print_boundaries=True
+        self, boundaries, save_path=None, print_boundaries=True, audio_file=None
     ):
         """Saves the boundaries on a file (and/or prints them)  in a readable format.
 
@@ -1268,10 +1159,19 @@ class VAD(Pretrained):
             When to store the text file containing the speech/non-speech intervals.
         print_boundaries: Bool
             Prints the speech/non-speech intervals in the standard outputs.
+        audio_file: path
+            Path of the audio file containing the recording. The file is read
+            with torchaudio. It is used here to detect the length of the
+            signal.
         """
         # Create a new file if needed
         if save_path is not None:
             f = open(save_path, mode="w", encoding="utf-8")
+
+        # Getting the total size of the input file
+        if audio_file is not None:
+            sample_rate, audio_len = self._get_audio_info(audio_file)
+            audio_len = audio_len / sample_rate
 
         # Setting the rights format for second- or sample-based boundaries
         if boundaries.dtype == torch.int:
@@ -1301,9 +1201,21 @@ class VAD(Pretrained):
             if print_boundaries:
                 print(print_str % (cnt_seg, begin_value, end_value))
             if save_path is not None:
-                f.write(print_str % (cnt_seg, last_end, begin_value) + "\n")
+                f.write(print_str % (cnt_seg, begin_value, end_value) + "\n")
 
             last_end = end_value
+
+        # Managing last segment
+        if audio_file is not None:
+            if last_end < audio_len:
+                cnt_seg = cnt_seg + 1
+                print_str = (
+                    "segment_%03d " + value_format + value_format + "NON_SPEECH"
+                )
+                if print_boundaries:
+                    print(print_str % (cnt_seg, end_value, audio_len))
+                if save_path is not None:
+                    f.write(print_str % (cnt_seg, end_value, audio_len) + "\n")
 
         if save_path is not None:
             f.close()
