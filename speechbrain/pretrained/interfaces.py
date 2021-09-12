@@ -1067,7 +1067,7 @@ class VAD(Pretrained):
             boundaries = samples
         return boundaries
 
-    def merge_short_segments(self, boundaries, close_th=0.250):
+    def merge_close_segments(self, boundaries, close_th=0.250):
         """Merges segments that are shorter than the given threshold.
 
         Arguments
@@ -1643,7 +1643,7 @@ class VAD(Pretrained):
             )
 
         # Merge short segments
-        boundaries = self.merge_short_segments(boundaries, close_th=close_th)
+        boundaries = self.merge_close_segments(boundaries, close_th=close_th)
 
         # Remove short segments
         boundaries = self.remove_short_segments(boundaries, len_th=len_th)
