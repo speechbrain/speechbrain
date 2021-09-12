@@ -10,9 +10,10 @@ Run the following command to train the model:
 | Release | hyperparams file | Val. Acc. | Test Acc. | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
 | 2021-07-04 | train.yaml |  65.3 | 65.7 | https://drive.google.com/drive/folders/1U9SiO4KkCNBKfxilXzJqBZ_k-vHz4ltV?usp=sharing | 1xV100 16GB |
-
+| 2021-09-12 | train_with_wav2vec2.yaml |  best 77.8 | best: 79.1 (avg 77.02) | Gdrive download | 1xV100 32GB |
 # Training Time
-About 40 sec for each epoch with a TESLA V100.
+About 40 sec for each epoch with a TESLA V100 (with ECAPA-TDNN).
+About 2min 50 sec for each epoch with a TESLA V100 (with wav2vec2 encoder).
 
 # Note on Data Preparation
 We here use only the audio part of the dataset. The assumpion is that the data folder is structured as:
