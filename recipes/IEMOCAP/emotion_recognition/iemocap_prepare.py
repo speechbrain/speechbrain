@@ -9,16 +9,19 @@ Authors:
 """
 
 import os
+import sys
 import re
 import json
 import random
 import logging
+import glob
 from scipy.io import wavfile
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
+NUMBER_UTT = 5531
 
 
 def prepare_data(
@@ -69,7 +72,7 @@ def prepare_data(
     Example
     -------
     >>> data_original = '/path/to/iemocap/IEMOCAP_full_release/Session'
-    >>> data_transformed = '/path/to/iemocap/IEMOCAP_ahsn_leave-two-speaker-out_0825'
+    >>> data_transformed = '/path/to/iemocap/IEMOCAP_ahsn_leave-two-speaker-out'
     >>> prepare_data(data_original, data_transformed, 'train.json', 'valid.json',
         'test.json')
     """
@@ -81,23 +84,37 @@ def prepare_data(
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed in previous run, skipping.")
         return
-    
-    # Transform data
-    #if not transformed
-    if  not check_folders(data_transformed):
+
+    # Check if the transformed data folder exist, generate it otherwise.
+    if not check_folders(data_transformed):
         logger.info(
             "The data transformed folder doesn't exist. Do the transformation step."
         )
-        print(data_original)
-        print(data_original + "/Session")
-        print(data_transformed)
-        transform_data(data_original, data_original + "/Session", data_transformed)
+        transform_data(data_original, data_transformed)
     else:
         logger.info("Data Transformation completed in previous run, skipping.")
 
-    if not check_folders(data_transformed + "session1/ang/psno1_ang_s084_orgn.wav"):
-        logger.info(
-            "The data folder is not in the expected format. Expected <session_id>/<emo_id>/<file_name>.wav (e.g., session1/ang/psno1_ang_s084_orgn.wav)"
+    if (
+        not len(list(glob.iglob(data_transformed + "/*/*/*", recursive=True)))
+        == NUMBER_UTT
+    ):
+        logger.error(
+            "Error: The data folder is not in the expected format. Expected <session_id>/<emo_id>/<file_name>.wav (e.g., session1/ang/psno1_ang_s084_orgn.wav)"
+        )
+        sys.exit(
+            "Data transformed dirctory "
+            + data_transformed
+            + "contains: "
+            + str(
+                len(
+                    list(
+                        glob.iglob(data_transformed + "/*/*/*", recursive=True)
+                    )
+                )
+            )
+            + " file. Expected "
+            + str(NUMBER_UTT)
+            + "."
         )
 
     # List files and create manifest from list
@@ -255,122 +272,84 @@ def split_sets(wav_list, split_ratio):
 
     return data_split
 
+
 # transform data from
 # https://github.com/eesungkim/Speech_Emotion_Recognition_DNN-ELM
 # author: eesungkim
-def transform_data(ROOT_PATH, path_loadSession, path_directory):
+def transform_data(path_loadSession, path_structured_data):
     """
-    Prepares the json files for the IEMOCAP dataset.
-
-    We here use only the audio part of the dataset. The assumpion is
-    that the data folder is structured as:
+    Process the original IEMOCAP folder to match the expected
+    folder structure. This function will transform data as:
 
     <session_id>/<emotion>/<file:name>.wav
 
     e.g.
     session1/ang/psno1_ang_s084_orgn.wav
 
-    Please, process the original IEMOCAP folder to match the expected
-    folder structure.
+    Please,
 
 
     Arguments
     ---------
-    ROOT_PATH : str
+    path_loadSession : str
         Path to the folder where the original IEMOCAP dataset is stored.
-    data_transformed : str
+    path_structured_data : str
         Path to the folder where the transformed IEMOCAP dataset will be stored.
-    save_json_train : str
-        Path where the train data specification file will be saved.
-    save_json_valid : str
-        Path where the validation data specification file will be saved.
-    save_json_test : str
-        Path where the test data specification file will be saved.
-    split_ratio: list
-        List composed of three integers that sets split ratios for train,
-        valid, and test sets, respecively.
-        For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
-        to training, 10% for validation, and 10% for test.
-    seed : int
-        Seed for reproducibility
 
     Example
     -------
     >>> data_original = '/path/to/iemocap/IEMOCAP_full_release/Session'
-    >>> data_transformed = '/path/to/iemocap/IEMOCAP_ahsn_leave-two-speaker-out_0825'
-    >>> transform_data(data_original, data_transformed, 'train.json', 'valid.json',
-        'test.json')
+    >>> data_transformed = '/path/to/iemocap/IEMOCAP_ahsn_leave-two-speaker-out'
+    >>> transform_data(data_original, data_transformed)
     """
-    
-    #make5thWaves("%s%s"%(path_loadSession,5))
+
     for k in range(5):
-        session_=[]
-        session = load_session("%s%s"%(path_loadSession,k+1))
+        session_ = []
+        session = load_session("%s%s" % (path_loadSession, k + 1))
         for idx in range(len(session)):
             session_.append(session[idx])
 
         dic_ = count_emotion(session_)
-        logger.info('='*50)
-        logger.info('Total Session_%d :'%(k+1) +" %d"%sum(dic_.values()))
+        logger.info("=" * 50)
+        logger.info("Total Session_%d :" % (k + 1) + " %d" % sum(dic_.values()))
         logger.info(dic_)
-        pathName1 = "%s/session%d/" %(path_directory,(k+1) )
-        logger.info('='*50)
-        if save_wavFile(session_,pathName1) == 0 :
-            logger.info('Completed to save session_%d Wave files successfully.' %(k+1))
-    logger.info('='*50)
+        pathName = "%s/session%d/" % (path_structured_data, (k + 1))
+        logger.info("=" * 50)
+        if save_wavFile(session_, pathName) == 0:
+            logger.info(
+                "Completed to save session_%d Wave files successfully."
+                % (k + 1)
+            )
+    logger.info("=" * 50)
+
 
 def load_utterInfo(inputFile):
     """
     Load utterInfo from original IEMOCAP database
     """
-    pattern = re.compile('[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]',re.IGNORECASE)
-    with open (inputFile, "r") as myfile:
-        data=myfile.read().replace('\n', ' ')
+    pattern = re.compile(
+        "[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
+        re.IGNORECASE,
+    )  # noqa
+    with open(inputFile, "r") as myfile:
+        data = myfile.read().replace("\n", " ")
     result = pattern.findall(data)
     out = []
     for i in result:
-        a = i.replace('[','')
-        b = a.replace(' - ','\t')
-        c = b.replace(']','')
-        x = c.replace(', ','\t')
-        out.append(x.split('\t'))
+        a = i.replace("[", "")
+        b = a.replace(" - ", "\t")
+        c = b.replace("]", "")
+        x = c.replace(", ", "\t")
+        out.append(x.split("\t"))
     return out
 
-def make5thWaves(pathSession):
-    """
 
-    Arguments
-    ---------
-        pathSession: str
-            Path folder of IEMOCAP session.
-    """
-    txtPattern = re.compile('[.]+(txt)$',re.IGNORECASE)
-    pathEmo = pathSession+'/dialog/EmoEvaluation/'
-    pathWav = pathSession+'/dialog/wav/'
-    pathWavFolder1 = pathSession+'/sentences/wav1/'
-    for emoFile in [f for f in listdir(pathEmo) if isfile(join(pathEmo, f))]:
-        path=pathWav+txtPattern.split(emoFile)[0]+'.wav'
-        (sr,signal) = wavfile.read(path,mmap=False)
-        for utterance in (load_utterInfo(pathEmo+emoFile)):
-                t0 = int(np.ceil(float(utterance[0])*sr))
-                tf = int(np.ceil(float(utterance[1])*sr))
-                
-                if(utterance[2][-4]=='F'): # Session 1만 L(0) channel : main, R(0): 보조
-                        mono = signal[t0:tf][:,0]
-                else:   
-                        mono = signal[t0:tf][:,1]
-                
-                folderpath=pathWavFolder1+utterance[2][:-5]
-                makedirs(folderpath)
-                fileName=pathWavFolder1+utterance[2][:-5]+'/'+utterance[2]+'.wav'
-                wavfile.write(fileName,16000, mono)
-                
 def load_session(pathSession):
     """
         Load wav file from IEMOCAP session
             and keep only the following 4 emotions:
             [neural, happy, sad, anger].
-    
+
     Arguments
     ---------
         pathSession: str
@@ -380,28 +359,47 @@ def load_session(pathSession):
         improvisedUtteranceList: list
             List of improvised utterancefor IEMOCAP session.
     """
-    pathEmo = pathSession+'/dialog/EmoEvaluation/'
-    pathWavFolder = pathSession+'/sentences/wav/'
-    
+    pathEmo = pathSession + "/dialog/EmoEvaluation/"
+    pathWavFolder = pathSession + "/sentences/wav/"
+
     improvisedUtteranceList = []
-    for emoFile in [f for f in os.listdir(pathEmo) if os.path.isfile(os.path.join(pathEmo, f))]:
-        for utterance in (load_utterInfo(pathEmo+emoFile)):
-            # if ((utterance[3] == 'neu') or (utterance[3] == 'hap') or (utterance[3] == 'sad') or (utterance[3] == 'fru') or (utterance[3] =='exc')):
-            if ((utterance[3] == 'neu') or (utterance[3] == 'hap') or (utterance[3] == 'sad') or (utterance[3] == 'ang') or (utterance[3] =='exc')):
-                path=pathWavFolder+utterance[2][:-5]+'/'+utterance[2]+'.wav'
-                (sr,signal) = wavfile.read(path,mmap=False)
-        
-                if(emoFile[7] != 'i'):
-                    if(utterance[2][7] =='s'):
-                        improvisedUtteranceList.append([signal,utterance[3],utterance[2][18]])
-                    else:
-                        improvisedUtteranceList.append([signal,utterance[3],utterance[2][15]])
+    for emoFile in [
+        f
+        for f in os.listdir(pathEmo)
+        if os.path.isfile(os.path.join(pathEmo, f))
+    ]:
+        for utterance in load_utterInfo(pathEmo + emoFile):
+            if (
+                (utterance[3] == "neu")
+                or (utterance[3] == "hap")
+                or (utterance[3] == "sad")
+                or (utterance[3] == "ang")
+                or (utterance[3] == "exc")
+            ):
+                path = (
+                    pathWavFolder
+                    + utterance[2][:-5]
+                    + "/"
+                    + utterance[2]
+                    + ".wav"
+                )
+                (sr, signal) = wavfile.read(path, mmap=False)
+
+                if emoFile[7] != "i" and utterance[2][7] == "s":
+                    improvisedUtteranceList.append(
+                        [signal, utterance[3], utterance[2][18]]
+                    )
+                else:
+                    improvisedUtteranceList.append(
+                        [signal, utterance[3], utterance[2][15]]
+                    )
     return improvisedUtteranceList
+
 
 def count_emotion(session):
     """
         Count number utterance per emotion for IEMOCAP session.
-    
+
     Arguments
     ---------
         session: list
@@ -411,48 +409,76 @@ def count_emotion(session):
         dic: dict
             Number of example per emotion for IEMOCAP session.
     """
-    dic={'neu':0, 'hap':0, 'sad':0, 'ang':0, 'sur':0, 'fea':0, 'dis':0, 'fru':0, 'exc':0, 'xxx':0}
+    dic = {
+        "neu": 0,
+        "hap": 0,
+        "sad": 0,
+        "ang": 0,
+        "sur": 0,
+        "fea": 0,
+        "dis": 0,
+        "fru": 0,
+        "exc": 0,
+        "xxx": 0,
+    }
     for i in range(len(session)):
-        if(session[i][1] == 'neu'): dic['neu']+=1
-        elif(session[i][1] == 'hap'): dic['hap']+=1
-        elif(session[i][1] == 'sad'): dic['sad']+=1
-        elif(session[i][1] == 'ang'): dic['ang']+=1
-        elif(session[i][1] == 'sur'): dic['sur']+=1
-        elif(session[i][1] == 'fea'): dic['fea']+=1
-        elif(session[i][1] == 'dis'): dic['dis']+=1
-        elif(session[i][1] == 'fru'): dic['fru']+=1
-        elif(session[i][1] == 'exc'): dic['exc']+=1
-        elif(session[i][1] == 'xxx'): dic['xxx']+=1
+        if session[i][1] == "neu":
+            dic["neu"] += 1
+        elif session[i][1] == "hap":
+            dic["hap"] += 1
+        elif session[i][1] == "sad":
+            dic["sad"] += 1
+        elif session[i][1] == "ang":
+            dic["ang"] += 1
+        elif session[i][1] == "sur":
+            dic["sur"] += 1
+        elif session[i][1] == "fea":
+            dic["fea"] += 1
+        elif session[i][1] == "dis":
+            dic["dis"] += 1
+        elif session[i][1] == "fru":
+            dic["fru"] += 1
+        elif session[i][1] == "exc":
+            dic["exc"] += 1
+        elif session[i][1] == "xxx":
+            dic["xxx"] += 1
     return dic
+
 
 def save_wavFile(session, pathName):
     """
         Save wav files for each  IEMOCAP session.
-    
+
     Arguments
     ---------
         session: str
-            IEMOCAP session name.    
+            IEMOCAP session name.
         pathName: str
                 Path folder where the wav files will be saved.
     """
     makedirs(pathName)
-    for idx,utterance in enumerate(session):
+    for idx, utterance in enumerate(session):
         label = utterance[1]
-        if(label=='exc'):
-            # label='exc'
-            label='hap'
-        directory = "%s/%s" % (pathName,label)
+        if label == "exc":
+            label = "hap"
+        directory = "%s/%s" % (pathName, label)
         makedirs(directory)
-        filename = "%s/psn%s%s_%s_s%03d_orgn.wav" % (directory,pathName[-4],pathName[-2],label,idx)      
-        wavfile.write(filename,16000, utterance[0])
+        filename = "%s/psn%s%s_%s_s%03d_orgn.wav" % (
+            directory,
+            pathName[-4],
+            pathName[-2],
+            label,
+            idx,
+        )
+        wavfile.write(filename, 16000, utterance[0])
 
     return 0
+
 
 def makedirs(path):
     """
         Create directory if not exist.
-    
+
     Arguments
     ---------
         path: str
