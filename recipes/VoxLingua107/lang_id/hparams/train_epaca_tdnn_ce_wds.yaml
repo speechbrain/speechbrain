@@ -6,7 +6,7 @@
 # Basic parameters
 seed: 1988
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/epaca_tdnn_wds/<seed>
+output_folder: !ref results/epaca_tdnn_ce_wds/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ./
@@ -14,7 +14,7 @@ data_folder: ./
 
 shards_url: /data/voxlingua107_shards
 # Uncomment the following if you want to train on Webdataset shards hosted on the web
-#shards__url: http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
+#shards_url: http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
 train_meta: !ref <shards_url>/train/meta.json
 val_meta: !ref <shards_url>/dev/meta.json
 train_shards: !ref <shards_url>/train/shard-{000000..000507}.tar
@@ -27,8 +27,8 @@ ckpt_interval_minutes: 5
 
 # Training parameters
 number_of_epochs: 30
-lr: 0.0001
-lr_final: 0.00001
+lr: 0.001
+lr_final: 0.0001
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
@@ -47,7 +47,7 @@ deltas: False
 out_n_neurons: 107
 
 train_dataloader_options:
-    num_workers: 8
+    num_workers: 4
     batch_size: 128
 
 val_dataloader_options:
@@ -69,8 +69,11 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     attention_channels: 128
     lin_neurons: 256
 
-classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    input_shape: [null, null, 256]
+    activation: !name:torch.nn.LeakyReLU
+    lin_blocks: 1
+    lin_neurons: 512
     out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -114,11 +117,7 @@ modules:
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
 
-compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-        margin: 0.2
-        scale: 30
-
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
