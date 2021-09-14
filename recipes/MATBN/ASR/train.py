@@ -11,14 +11,9 @@ class ASR(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, wavs_len = batch.sig
         tokens_bos, _ = batch.tokens_bos
-
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wavs_len, epoch=current_epoch)
-
-        # if stage == sb.Stage.TRAIN:
-        #     if hasattr(self.modules, "augmentation"):
-        #         feats = self.hparams.augmentation(feats)
 
         src = self.modules.CNN(feats)
         enc_out, pred = self.modules.Transformer(
@@ -28,7 +23,7 @@ class ASR(sb.core.Brain):
         logits = self.modules.ctc_lin(enc_out)
         p_ctc = self.hparams.log_softmax(logits)
 
-        pred = self.hparams.seq_lin(pred)
+        pred = self.modules.seq_lin(pred)
         p_seq = self.hparams.log_softmax(pred)
 
         hyps = None
@@ -38,8 +33,6 @@ class ASR(sb.core.Brain):
             hyps = None
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
-                # for the sake of efficiency, we only perform beamsearch with limited capacity
-                # and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wavs_len)
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wavs_len)
@@ -55,7 +48,7 @@ class ASR(sb.core.Brain):
         tokens, tokens_len = batch.tokens
 
         attention_loss = self.hparams.seq_cost(
-            p_seq, tokens_eos, tokens_eos_len
+            p_seq, tokens_eos, length=tokens_eos_len
         )
         ctc_loss = self.hparams.ctc_cost(p_ctc, tokens, wavs_len, tokens_len)
         loss = (
@@ -71,7 +64,7 @@ class ASR(sb.core.Brain):
                 stage == sb.Stage.TEST
             ):
                 predictions = [
-                    self.hparams.tokenizer.decode_ids(utt_seq).split(" ")
+                    hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     for utt_seq in hyps
                 ]
                 targets = [
@@ -218,11 +211,11 @@ class ASR(sb.core.Brain):
     def on_evaluate_start(self, max_key=None, min_key=None):
         super().on_evaluate_start()
 
-        checkpointer = self.checkpointer.find_checkpoints(
+        checkpointers = self.checkpointer.find_checkpoints(
             max_key=max_key, min_key=min_key
         )
         checkpointer = sb.utils.checkpoints.average_checkpoints(
-            checkpointer, recoverable_name="model", device=self.device
+            checkpointers, recoverable_name="model", device=self.device
         )
 
         self.hparams.model.load_state_dict(checkpointer, strict=True)
@@ -291,10 +284,11 @@ def dataio_prepare(hparams):
 
 if __name__ == "__main__":
     hparams_file_path, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file_path) as hparams_file:
-        hparams = load_hyperpyyaml(hparams_file, overrides)
 
     sb.utils.distributed.ddp_init_group(run_opts)
+
+    with open(hparams_file_path) as hparams_file:
+        hparams = load_hyperpyyaml(hparams_file, overrides)
 
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
