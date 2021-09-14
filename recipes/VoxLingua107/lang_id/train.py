@@ -191,9 +191,7 @@ def dataio_prep_shards(hparams):
 
     train_data = (
         wds.WebDataset(
-            hparams["train_shards"],
-            length=train_meta["num_data_samples"],
-            cache_dir=hparams["shard_cache_dir"],
+            hparams["train_shards"], cache_dir=hparams["shard_cache_dir"],
         )
         .repeat()
         .shuffle(1000)
@@ -206,9 +204,7 @@ def dataio_prep_shards(hparams):
 
     valid_data = (
         wds.WebDataset(
-            hparams["val_shards"],
-            length=val_meta["num_data_samples"],
-            cache_dir=hparams["shard_cache_dir"],
+            hparams["val_shards"], cache_dir=hparams["shard_cache_dir"],
         )
         .decode("pil")
         .map(partial(audio_pipeline, random_chunk=False))
@@ -217,7 +213,12 @@ def dataio_prep_shards(hparams):
         f"Validation data consist of {val_meta['num_data_samples']} samples"
     )
 
-    return train_data, valid_data
+    return (
+        train_data,
+        valid_data,
+        train_meta["num_data_samples"],
+        val_meta["num_data_samples"],
+    )
 
 
 if __name__ == "__main__":
@@ -236,14 +237,19 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    train_data, valid_data = dataio_prep_shards(hparams)
+    (
+        train_data,
+        valid_data,
+        num_train_samples,
+        num_valid_samples,
+    ) = dataio_prep_shards(hparams)
 
     # add collate_fn to dataloader options
     hparams["train_dataloader_options"]["collate_fn"] = PaddedBatch
     hparams["val_dataloader_options"]["collate_fn"] = PaddedBatch
 
     hparams["train_dataloader_options"]["looped_nominal_epoch"] = (
-        len(train_data) // hparams["train_dataloader_options"]["batch_size"]
+        num_train_samples // hparams["train_dataloader_options"]["batch_size"]
     )
 
     # Create experiment directory
