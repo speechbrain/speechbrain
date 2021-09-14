@@ -52,17 +52,17 @@ lr_sgd: 0.000025
 
 # Dataloader options
 train_dataloader_opts:
-    num_workers: !ref <num_workers>
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
     shuffle: True
 
 valid_dataloader_opts:
-    num_workers: !ref <num_workers>
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
 test_dataloader_opts:
+    batch_size: 2
     num_workers: !ref <num_workers>
-    batch_size: !ref <batch_size>
 
 ####################### Model parameters ###########################
 # Transformer
@@ -128,6 +128,7 @@ modules:
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
     ctc_lin: !ref <ctc_lin>
+    normalize: !ref <normalize>
 
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -198,18 +199,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
-
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
 
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]

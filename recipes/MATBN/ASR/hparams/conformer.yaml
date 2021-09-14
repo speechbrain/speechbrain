@@ -3,7 +3,7 @@ cer_file: !ref <output_folder>/cer.txt
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
 ckpt_interval_minutes: 15
-num_workers: 4
+num_workers: 8
 
 data_folder: results/prepare
 tokenizer_file: results/tokenizer_bpe5k/5000_unigram.model
@@ -38,9 +38,9 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
 
 # Training parameters
 number_of_epochs: 40
-batch_size: 1
+batch_size: 2
 ctc_weight: 0.3
-gradient_accumulation: 32
+gradient_accumulation: 16
 gradient_clipping: 5.0
 loss_reduction: batchmean
 sorting: random
@@ -54,6 +54,7 @@ lr_sgd: 0.000025
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
+    drop_last: True
     shuffle: True
 
 valid_dataloader_opts:
@@ -61,7 +62,7 @@ valid_dataloader_opts:
     num_workers: !ref <num_workers>
 
 test_dataloader_opts:
-    batch_size: 2
+    batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
 ####################### Model parameters ###########################
@@ -120,6 +121,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     kernel_size: !ref <kernel_size>
     encoder_module: !ref <encoder_module>
     normalize_before: True
+    causal: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
@@ -134,6 +136,7 @@ modules:
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
     ctc_lin: !ref <ctc_lin>
+    normalize: !ref <normalize>
 
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
