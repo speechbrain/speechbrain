@@ -13,7 +13,7 @@ class ASR(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
-        feats = self.hparams.normalize(feats, wavs_len, epoch=current_epoch)
+        feats = self.modules.normalize(feats, wavs_len, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
         enc_out, pred = self.modules.Transformer(
