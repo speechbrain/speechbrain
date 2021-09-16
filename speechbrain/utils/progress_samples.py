@@ -6,15 +6,22 @@ Authors
 """
 import os
 import torch
+import torchaudio
 import torchvision
 
+import speechbrain as sb
 from speechbrain.utils.data_utils import detach
+
+
+#Change parameter order to match ProgressSampleLogger API
+def save_audio(audio, filepath, sample_rate):
+    torchaudio.save(filepath, audio, sample_rate)
 
 
 class ProgressSampleLogger:
     _DEFAULT_FORMAT_DEFS = {
-        "raw": {"extension": "pth", "saver": torch.save},
-        "image": {"extension": "png", "saver": torchvision.utils.save_image},
+        "raw": {"extension": "pth", "saver": torch.save, "kwargs": {}},
+        "image": {"extension": "png", "saver": torchvision.utils.save_image, "kwargs": {}},
     }
     DEFAULT_FORMAT = "image"
 
@@ -30,11 +37,13 @@ class ProgressSampleLogger:
         output_path: output/samples
         progress_batch_sample_size: 3
         format_defs:
-            extension: my
-            saver: !speechbrain.dataio.mystuff.save_my_format
+            foo:
+                extension: bar
+                saver: !speechbrain.dataio.mystuff.save_my_format
+                kwargs:
+                    baz: qux
         formats:
-            foo: image
-            bar: my
+            foobar: foo
 
 
 
@@ -166,4 +175,4 @@ class ProgressSampleLogger:
             raise ValueError("Unsupported format {format}")
         file_name = f"{key}.{format_def['extension']}"
         effective_file_name = os.path.join(target_path, file_name)
-        format_def["saver"](data, effective_file_name)
+        format_def["saver"](data, effective_file_name, **format_def["kwargs"])
