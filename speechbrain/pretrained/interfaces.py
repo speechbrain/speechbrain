@@ -476,7 +476,7 @@ class EncoderDecoderASR(Pretrained):
             ]
         return predicted_words, predicted_tokens
 
-    
+
 class EncoderASR(Pretrained):
     """A ready-to-use Encoder ASR model
 
