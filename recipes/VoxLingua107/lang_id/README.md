@@ -65,7 +65,7 @@ wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.io
 ## 3rd option:
 
 Set `shards_url` to `http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/` (uncomment the line) and set the
-`shard_cache_dir` property in `hparams/train_epaca.yaml` to something, e.g. `/data/voxlingua107_shards`.
+`shard_cache_dir` property in `hparams/train_ecapa.yaml` to something, e.g. `/data/voxlingua107_shards`.
 
 
 ## Training
