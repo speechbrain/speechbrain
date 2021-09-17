@@ -484,7 +484,6 @@ class EncoderDecoderASR(Pretrained):
         """Runs full transcription - note: no gradients through decoding"""
         return self.transcribe_batch(wavs, wav_lens)
 
-
 class EncoderASR(Pretrained):
     """A ready-to-use Encoder ASR model
 
