@@ -108,11 +108,11 @@ Beyond providing recipes for training the models from scratch, SpeechBrain share
 | ------------- |:-------------:| -----:| 
 | Speech Recognition | LibriSpeech | [CNN + Transformer](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) |
 | Speech Recognition | LibriSpeech | [CRDNN](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) |
-| Speech Recognition | CommonVoice(English) | [wav2vect + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) |
-| Speech Recognition | CommonVoice(French) | [wav2vect + CTC](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) |
-| Speech Recognition | CommonVoice(Italian) | [wav2vect + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) |
-| Speech Recognition | CommonVoice(Kinyarwanda) | [wav2vect + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) |
-| Speech Recognition | AISHELL(Mandarin) | [wav2vect + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
+| Speech Recognition | CommonVoice(English) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) |
+| Speech Recognition | CommonVoice(French) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) |
+| Speech Recognition | CommonVoice(Italian) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) |
+| Speech Recognition | CommonVoice(Kinyarwanda) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) |
+| Speech Recognition | AISHELL(Mandarin) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
 | Speaker Recognition | Voxceleb | [ECAPA-TDNN](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb) |
 | Speech Separation | WHAMR! | [SepFormer](https://huggingface.co/speechbrain/sepformer-whamr) |
 | Speech Enhancement | Voicebank | [MetricGAN+](https://huggingface.co/speechbrain/metricgan-plus-voicebank) |
