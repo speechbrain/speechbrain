@@ -77,7 +77,7 @@ class SincConv(nn.Module):
         stride=1,
         dilation=1,
         padding="same",
-        padding_mode="reflect",
+        padding_mode="constant",
         sample_rate=16000,
         min_low_hz=50,
         min_band_hz=50,
@@ -347,7 +347,7 @@ class Conv1d(nn.Module):
         padding="same",
         groups=1,
         bias=True,
-        padding_mode="reflect",
+        padding_mode="constant",
         skip_transpose=False,
     ):
         super().__init__()
@@ -376,7 +376,7 @@ class Conv1d(nn.Module):
             bias=bias,
         )
 
-    def forward(self, x, masks=None):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -417,7 +417,42 @@ class Conv1d(nn.Module):
         if not self.skip_transpose:
             wx = wx.transpose(1, -1)
 
-        return wx
+        if mask is not None:
+            mask = self.compute_mask(mask)
+            wx.masked_fill_(mask, 0.0)
+
+        return wx, mask
+
+    def compute_mask(self, mask):
+        if not self.skip_transpose:
+            mask = mask.transpose(1, -1)
+
+        # Unsqueeze
+        unsqueeze = mask.ndim == 2
+        if unsqueeze:
+            mask = mask.unsqueeze(1)
+
+        length = math.ceil(
+            (mask.size(-1) - (self.dilation * (self.kernel_size - 1)))
+            / self.stride
+        )
+        if self.padding == "same":
+            length = length + 1
+
+        # Subsample mask
+        mask = mask[..., :: self.stride]
+
+        # Make it to (batch, 1, time)
+        mask = mask[:, :1, -length:]
+
+        # Squeeze
+        if unsqueeze:
+            mask = mask.squeeze(1)
+
+        if not self.skip_transpose:
+            mask = mask.transpose(1, -1)
+
+        return mask
 
     def _manage_padding(
         self, x, kernel_size: int, dilation: int, stride: int,
@@ -610,30 +645,28 @@ class Conv2d(nn.Module):
         unsqueeze = mask.ndim == 3
         if unsqueeze:
             mask = mask.unsqueeze(1)
+
+        freq_length = math.ceil(
+            (mask.size(2) - (self.dilation[-2] * (self.kernel_size[-2] - 1)))
+            / self.stride[-2]
+        )
+        time_length = math.ceil(
+            (mask.size(3) - (self.dilation[-1] * (self.kernel_size[-1] - 1)))
+            / self.stride[-1]
+        )
         if self.padding == "same":
-            freq_end = mask.size(2)
-            time_end = mask.size(3)
-        elif self.padding == "valid":
-            freq_end = (
-                mask.size(2)
-                - self.dilation[-2] * (self.kernel_size[-2] - 1)
-                - 1
-            )
-            time_end = (
-                mask.size(3)
-                - self.dilation[-1] * (self.kernel_size[-1] - 1)
-                - 1
-            )
+            freq_length = freq_length + 1
+            time_length = freq_length + 1
 
         # Subsample mask
-        mask = mask[
-            :, :, : freq_end : self.stride[-1], : time_end : self.stride[-2]
-        ]
+        mask = mask[:, :, :: self.stride[-1], :: self.stride[-2]]
 
-        # Make it to (batch, 1, time, freq)
-        mask = mask[:, :1]
-        # Make it to (batch, freq, time, 1)
+        # Make it to (batch, 1, freq, time)
+        mask = mask[:, :1, -freq_length:, -time_length:]
+
+        # Make it to (batch, time, freq, 1)
         mask = mask.transpose(1, -1)
+
         # Squeeze
         if unsqueeze:
             mask = mask.squeeze(1)
@@ -750,7 +783,7 @@ class Conv2dWithConstraint(Conv2d):
         self.max_norm = max_norm
         super(Conv2dWithConstraint, self).__init__(*args, **kwargs)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -762,7 +795,7 @@ class Conv2dWithConstraint(Conv2d):
         self.conv.weight.data = torch.renorm(
             self.conv.weight.data, p=2, dim=0, maxnorm=self.max_norm
         )
-        return super(Conv2dWithConstraint, self).forward(x)
+        return super(Conv2dWithConstraint, self).forward(x, mask)
 
 
 class ConvTranspose1d(nn.Module):
