@@ -118,9 +118,9 @@ class Pooling1d(nn.Module):
         if mask is not None:
             if self.pool_type == "max":
                 # Avoid edge effect from paddings
-                x.masked_fill_(mask, -self.inf)
+                x = x.masked_fill(mask, -self.inf)
             elif self.pool_type == "avg":
-                x = torch.cat([x, mask.expand(x.size())], dim=0)
+                x = torch.cat([x, ~mask.expand(x.size())], dim=0)
 
         # Put the pooling axes as the last dimension for torch.nn.pool
         x = x.transpose(-1, self.pool_axis)
@@ -135,9 +135,7 @@ class Pooling1d(nn.Module):
             # Avoid edge effect from paddings
             if self.pool_type == "avg":
                 x_sum, mask_sum = x.split(x.size(0) // 2, dim=0)
-                print(x_sum, mask_sum)
                 x = x_sum / (mask_sum + 1 / self.inf)
-                print(x)
 
             mask = self.compute_mask(mask)
             x.masked_fill_(mask, 0.0)
@@ -228,12 +226,12 @@ class Pooling2d(nn.Module):
 
     def forward(self, x, mask=None):
 
-        if mask is not None and self.pool_type == "max":
+        if mask is not None:
             if self.pool_type == "max":
                 # Avoid edge effect from paddings
-                x.masked_fill_(mask, -self.inf)
+                x = x.masked_fill(mask, -self.inf)
             elif self.pool_type == "avg":
-                x = torch.cat([x, mask.expand(x.size())], dim=0)
+                x = torch.cat([x, ~mask.expand(x.size())], dim=0)
 
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
@@ -295,7 +293,7 @@ class Pooling2d(nn.Module):
         )
 
         # Subsample mask
-        mask = mask[..., :: self.stride, :: self.stride]
+        mask = mask[..., :: self.stride[-2], :: self.stride[-1]]
 
         mask = (
             mask.unsqueeze(self.pool_axis[0])

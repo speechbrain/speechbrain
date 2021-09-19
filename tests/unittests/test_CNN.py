@@ -68,7 +68,7 @@ def test_Conv2d():
     assert torch.jit.trace(convolve, [input, input.eq(0.0)])
 
 
-def test_Conv1d_with_Mask():
+def test_Conv1d_with_padding():
 
     from speechbrain.nnet.CNN import Conv1d
 
@@ -100,7 +100,7 @@ def test_Conv1d_with_Mask():
     assert torch.jit.trace(convolve, [input_padded, input_mask])
 
 
-def test_Conv2d_with_Mask():
+def test_Conv2d_with_padding():
 
     from speechbrain.nnet.CNN import Conv2d
 
@@ -129,7 +129,3 @@ def test_Conv2d_with_Mask():
     )
 
     assert torch.jit.trace(convolve, [input_padded, input_mask])
-
-
-test_Conv2d_with_Mask()
-test_Conv1d_with_Mask()
