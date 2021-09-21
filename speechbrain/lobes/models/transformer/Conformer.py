@@ -113,7 +113,6 @@ class ConvolutionModule(nn.Module):
         out = out.transpose(1, 2)
         if mask is not None:
             out.masked_fill_(mask, 0.0)
-        print("sum", torch.sum(out[0][:6]))
         return out
 
 
