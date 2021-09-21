@@ -1372,37 +1372,42 @@ def rnn_init(module):
 
 
 def reverse_padded_sequence(input, lengths, batch_first=False):
-    # This function is borrowed from:
-    # https://github.com/pytorch/pytorch/commit/1b65ed072aa6908ee1266bd1e21275aa0b742a3e
-
-    # type: (Tensor, Tensor, bool) -> Tensor
-    r"""Reverses sequences according to their lengths.
+    """Reverses sequences according to their lengths.
     ``input`` should have size ``T x B x *`` if ``batch_first`` is False, or
     ``B x T x *`` if True. ``T`` is the length of the longest sequence (or
     larger), ``B`` is the batch size, and ``*`` is any number of dimensions
     (including 0). ``lengths`` must have size ``B`` and contain values between
     ``0`` and ``T``, inclusive.
-    Example:
-        >>> input = torch.tensor([[1., 2.], [3., 4.], [5., 6.], [7., 8.]])
-        >>> lengths = torch.tensor([3, 2])
-        >>> reverse_padded_sequence(input, lengths)
-        tensor([[5., 4.],
-                [3., 2.],
-                [1., 0.],
-                [0., 0.]])
-        >>> input = torch.tensor([[1., 2., 3., 4.], [5., 6., 7., 8.]])
-        >>> lengths = torch.tensor([3, 2])
-        >>> reverse_padded_sequence(input, lengths, batch_first=True)
-        tensor([[3., 2., 1., 0.],
-                [6., 5., 0., 0.]])
-    Arguments:
-        input (Tensor): padded batch of variable length sequences.
-        lengths (Tensor): list of sequence lengths.
-        batch_first (bool, optional): if ``True``, input should be in
-            ``B x T x *`` format.
+
+    This function is borrowed from:
+    https://github.com/pytorch/pytorch/commit/1b65ed072aa6908ee1266bd1e21275aa0b742a3e
+
+    Arguments
+    ---------
+    input (Tensor): padded batch of variable length sequences.
+    lengths (Tensor): list of sequence lengths.
+    batch_first (bool, optional): if ``True``, input should be in
+        ``B x T x *`` format.
+
     Returns:
-        Tensor of size ``T x B x *`` if :attr:`batch_first` is ``False``.
-        Tensor of size ``B x T x *`` otherwise
+    -------
+    Tensor of size ``T x B x *`` if :attr:`batch_first` is ``False``.
+    Tensor of size ``B x T x *`` otherwise
+
+    Example:
+    -------
+    >>> input = torch.tensor([[1., 2.], [3., 4.], [5., 6.], [7., 8.]])
+    >>> lengths = torch.tensor([3, 2])
+    >>> reverse_padded_sequence(input, lengths)
+    tensor([[5., 4.],
+            [3., 2.],
+            [1., 0.],
+            [0., 0.]])
+    >>> input = torch.tensor([[1., 2., 3., 4.], [5., 6., 7., 8.]])
+    >>> lengths = torch.tensor([3, 2])
+    >>> reverse_padded_sequence(input, lengths, batch_first=True)
+    tensor([[3., 2., 1., 0.],
+            [6., 5., 0., 0.]])
     """
     if batch_first:
         input = input.transpose(0, 1)
