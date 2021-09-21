@@ -64,7 +64,7 @@ class ASR(sb.core.Brain):
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
-        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
+        feats = self.modules.normalize(feats, wav_lens)
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
