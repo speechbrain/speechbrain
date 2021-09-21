@@ -238,6 +238,9 @@ class ConformerEncoderLayer(nn.Module):
         pos_embs: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the input sequence positional embeddings
         """
+        conv_mask = None
+        if src_key_padding_mask is not None:
+            conv_mask = src_key_padding_mask.unsqueeze(-1)
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
         # muti-head attention module
@@ -253,7 +256,7 @@ class ConformerEncoderLayer(nn.Module):
         )
         x = x + skip
         # convolution module
-        x = x + self.convolution_module(x, src_key_padding_mask.unsqueeze(-1))
+        x = x + self.convolution_module(x, conv_mask)
         # ffn module
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn

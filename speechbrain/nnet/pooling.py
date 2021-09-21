@@ -41,8 +41,11 @@ class Pooling1d(nn.Module):
     -------
     >>> pool = Pooling1d('max',3)
     >>> inputs = torch.rand(10, 12, 40)
-    >>> output=pool(inputs)
+    >>> mask = torch.zeros(10, 12, 40).bool()
+    >>> output, mask = pool(inputs, mask)
     >>> output.shape
+    torch.Size([10, 4, 40])
+    >>> mask.shape
     torch.Size([10, 4, 40])
     """
 
@@ -180,8 +183,11 @@ class Pooling2d(nn.Module):
     -------
     >>> pool = Pooling2d('max',(5,3))
     >>> inputs = torch.rand(10, 15, 12)
-    >>> output=pool(inputs)
+    >>> mask = torch.zeros(10, 15, 12).bool()
+    >>> output, mask =pool(inputs, mask)
     >>> output.shape
+    torch.Size([10, 3, 4])
+    >>> mask.shape
     torch.Size([10, 3, 4])
     """
 
@@ -327,7 +333,7 @@ class StatisticsPooling(nn.Module):
         # Small value for GaussNoise
         self.eps = 1e-5
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, mask=None):
         """Calculates mean and std for a batch (input tensor).
 
         Arguments
@@ -335,15 +341,16 @@ class StatisticsPooling(nn.Module):
         x : torch.Tensor
             It represents a tensor for a mini-batch.
         """
-        if lengths is None:
+        if mask is None:
             mean = x.mean(dim=1)
             std = x.std(dim=1)
         else:
             mean = []
             std = []
+            # Avoiding padded time steps
+            lengths = torch.sum(~mask, dim=1).squeeze(-1)
             for snt_id in range(x.shape[0]):
-                # Avoiding padded time steps
-                actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
+                actual_size = lengths[snt_id]
 
                 # computing statistics
                 mean.append(

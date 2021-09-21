@@ -328,12 +328,15 @@ class Conv1d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16])
+    >>> inp_mask = torch.zeros([10, 40, 1]).bool()
     >>> cnn_1d = Conv1d(
     ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=5
     ... )
-    >>> out_tensor = cnn_1d(inp_tensor)
+    >>> out_tensor, out_mask = cnn_1d(inp_tensor, inp_mask)
     >>> out_tensor.shape
     torch.Size([10, 40, 8])
+    >>> out_mask.shape
+    torch.Size([10, 40, 1])
     """
 
     def __init__(
@@ -544,12 +547,15 @@ class Conv2d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
+    >>> inp_mask = torch.zeros([10, 40, 16, 1]).bool()
     >>> cnn_2d = Conv2d(
     ...     input_shape=inp_tensor.shape, out_channels=5, kernel_size=(7, 3)
     ... )
-    >>> out_tensor = cnn_2d(inp_tensor)
+    >>> out_tensor, out_mask = cnn_2d(inp_tensor, inp_mask)
     >>> out_tensor.shape
     torch.Size([10, 40, 16, 5])
+    >>> out_mask.shape
+    torch.Size([10, 40, 16, 1])
     """
 
     def __init__(
@@ -778,11 +784,12 @@ class Conv2dWithConstraint(Conv2d):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
+    >>> inp_mask = torch.zeros([10, 40, 16, 1]).bool()
     >>> max_norm = 1
     >>> cnn_2d_constrained = Conv2dWithConstraint(
     ...     in_channels=inp_tensor.shape[-1], out_channels=5, kernel_size=(7, 3)
     ... )
-    >>> out_tensor = cnn_2d_constrained(inp_tensor)
+    >>> out_tensor, out_tensor = cnn_2d_constrained(inp_tensor, inp_mask)
     >>> torch.any(torch.norm(cnn_2d_constrained.conv.weight.data, p=2, dim=0)>max_norm)
     tensor(False)
     """
@@ -867,7 +874,7 @@ class ConvTranspose1d(nn.Module):
     >>> signal = torch.tensor([1,100])
     >>> signal = torch.rand([1,100]) #[batch, time]
     >>> conv1d = Conv1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2)
-    >>> conv_out = conv1d(signal)
+    >>> conv_out, _ = conv1d(signal)
     >>> conv_t = ConvTranspose1d(input_shape=conv_out.shape, out_channels=1, kernel_size=3, stride=2, padding=1)
     >>> signal_rec = conv_t(conv_out, output_size=[100])
     >>> signal_rec.shape
@@ -1041,10 +1048,13 @@ class DepthwiseSeparableConv1d(nn.Module):
     Example
     -------
     >>> inp = torch.randn([8, 120, 40])
+    >>> inp_mask = torch.zeros([8, 120, 1]).bool()
     >>> conv = DepthwiseSeparableConv1d(256, 3, input_shape=inp.shape)
-    >>> out = conv(inp)
+    >>> out, out_mask = conv(inp, inp_mask)
     >>> out.shape
     torch.Size([8, 120, 256])
+    >>> out_mask.shape
+    torch.Size([8, 120, 1])
     """
 
     def __init__(
@@ -1078,7 +1088,7 @@ class DepthwiseSeparableConv1d(nn.Module):
             out_channels, kernel_size=1, input_shape=input_shape,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -1086,7 +1096,9 @@ class DepthwiseSeparableConv1d(nn.Module):
         x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
         """
-        return self.pointwise(self.depthwise(x))
+        out, mask= self.depthwise(x, mask)
+        out, mask = self.pointwise(out, mask)
+        return out, mask
 
 
 class DepthwiseSeparableConv2d(nn.Module):
@@ -1119,10 +1131,13 @@ class DepthwiseSeparableConv2d(nn.Module):
     Example
     -------
     >>> inp = torch.randn([8, 120, 40, 1])
+    >>> inp_mask = torch.zeros([8, 120, 40, 1]).bool()
     >>> conv = DepthwiseSeparableConv2d(256, (3, 3), input_shape=inp.shape)
-    >>> out = conv(inp)
+    >>> out, out_mask = conv(inp, inp_mask)
     >>> out.shape
     torch.Size([8, 120, 40, 256])
+    >>> out_mask.shape
+    torch.Size([8, 120, 40, 1])
     """
 
     def __init__(
@@ -1165,7 +1180,7 @@ class DepthwiseSeparableConv2d(nn.Module):
             out_channels, kernel_size=(1, 1), input_shape=input_shape,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -1176,12 +1191,13 @@ class DepthwiseSeparableConv2d(nn.Module):
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        out = self.pointwise(self.depthwise(x))
+        out, mask = self.depthwise(x, mask)
+        out, mask = self.pointwise(out, mask)
 
         if self.unsqueeze:
             out = out.squeeze(1)
 
-        return out
+        return out, mask
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):

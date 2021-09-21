@@ -125,6 +125,7 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
                 pooling_size=inter_layer_pooling_size[block_index],
                 activation=activation,
                 dropout=dropout,
+                return_mask=True,
                 layer_name=f"block_{block_index}",
             )
 
@@ -240,8 +241,9 @@ class CNN_Block(sb.nnet.containers.MaskCapableSequential):
         using_2d_pool=False,
         pooling_size=2,
         dropout=0.15,
+        return_mask=False,
     ):
-        super().__init__(input_shape=input_shape, return_mask=True)
+        super().__init__(input_shape=input_shape, return_mask=return_mask)
 
         self.append(
             sb.nnet.CNN.Conv2d,
