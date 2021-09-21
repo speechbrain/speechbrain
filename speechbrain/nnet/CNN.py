@@ -419,7 +419,6 @@ class Conv1d(nn.Module):
 
         if mask is not None:
             mask = self.compute_mask(mask)
-            print(mask.shape, wx.shape)
             wx.masked_fill_(mask, 0.0)
 
         return wx, mask
