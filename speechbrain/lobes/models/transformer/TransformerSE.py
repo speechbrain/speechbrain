@@ -96,4 +96,7 @@ class CNNTransformerSE(TransformerInterface):
         output = self.output_layer(encoder_output)
         output = self.output_activation(output)
 
+        if src_key_padding_mask is not None:
+            encoder_out.masked_fill_(src_key_padding_mask.unsqueeze(-1), 0.0)
+
         return output

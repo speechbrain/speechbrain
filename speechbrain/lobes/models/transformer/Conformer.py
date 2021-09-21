@@ -100,7 +100,7 @@ class ConvolutionModule(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         out = self.layer_norm(x)
         out = out.transpose(1, 2)
         out = self.bottleneck(out)
@@ -111,6 +111,9 @@ class ConvolutionModule(nn.Module):
             out = out[..., : -self.padding]
         out = self.after_conv(out)
         out = out.transpose(1, 2)
+        if mask is not None:
+            out.masked_fill_(mask, 0.0)
+        print("sum", torch.sum(out[0][:6]))
         return out
 
 
@@ -225,17 +228,17 @@ class ConformerEncoderLayer(nn.Module):
     ):
 
         """
-                Arguments
-                ----------
-                src : torch.Tensor
-                    The sequence to the encoder layer.
-                src_mask : torch.Tensor, optional
-                    The mask for the src sequence.
-                src_key_padding_mask : torch.Tensor, optional
-                    The mask for the src keys per batch.
-                pos_embs: torch.Tensor, torch.nn.Module, optional
-                    Module or tensor containing the input sequence positional embeddings
-                """
+        Arguments
+        ----------
+        src : torch.Tensor
+            The sequence to the encoder layer.
+        src_mask : torch.Tensor, optional
+            The mask for the src sequence.
+        src_key_padding_mask : torch.Tensor, optional
+            The mask for the src keys per batch.
+        pos_embs: torch.Tensor, torch.nn.Module, optional
+            Module or tensor containing the input sequence positional embeddings
+        """
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
         # muti-head attention module
@@ -251,7 +254,7 @@ class ConformerEncoderLayer(nn.Module):
         )
         x = x + skip
         # convolution module
-        x = x + self.convolution_module(x)
+        x = x + self.convolution_module(x, src_key_padding_mask.unsqueeze(-1))
         # ffn module
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn

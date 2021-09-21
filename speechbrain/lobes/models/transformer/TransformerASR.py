@@ -194,6 +194,9 @@ class TransformerASR(TransformerInterface):
             pos_embs_target = None
             pos_embs_encoder = None
 
+        if src_key_padding_mask is not None:
+            encoder_out.masked_fill_(src_key_padding_mask.unsqueeze(-1), 0.0)
+
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
