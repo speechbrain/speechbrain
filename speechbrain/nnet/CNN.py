@@ -419,6 +419,7 @@ class Conv1d(nn.Module):
 
         if mask is not None:
             mask = self.compute_mask(mask)
+            print(mask.shape, wx.shape)
             wx.masked_fill_(mask, 0.0)
 
         return wx, mask
@@ -636,6 +637,7 @@ class Conv2d(nn.Module):
 
         if mask is not None:
             mask = self.compute_mask(mask)
+            print(mask.shape, wx.shape)
             wx.masked_fill_(mask, 0.0)
 
         return wx, mask
@@ -663,8 +665,8 @@ class Conv2d(nn.Module):
                 / self.stride[-1]
             )
         if self.padding == "same":
-            freq_length = mask.size(2) // self.stride[-1]
-            time_length = mask.size(3) // self.stride[-1]
+            freq_length = math.ceil(mask.size(2) / self.stride[-1])
+            time_length = math.ceil(mask.size(3) / self.stride[-1])
 
         # Subsample mask
         mask = mask[:, :, :: self.stride[-1], :: self.stride[-2]]

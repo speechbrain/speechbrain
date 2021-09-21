@@ -36,7 +36,6 @@ def test_RNN():
     assert torch.all(
         torch.lt(torch.add(hn_t, -hn), 1e-3)
     ), "GRU hidden states mismatch"
-    #assert torch.jit.trace(net, [inputs])
 
     # Check GRU
     inputs = torch.randn(4, 2, 7)
@@ -61,7 +60,6 @@ def test_RNN():
     assert torch.all(
         torch.lt(torch.add(hn_t, -hn), 1e-3)
     ), "GRU hidden states mismatch"
-    #assert torch.jit.trace(net, inputs)
 
     # Check LSTM
     inputs = torch.randn(4, 2, 7)
@@ -86,7 +84,6 @@ def test_RNN():
     assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LSTM hidden states mismatch"
-    #assert torch.jit.trace(net, inputs)
 
     # Check LiGRU
     inputs = torch.randn(1, 2, 2)
@@ -146,6 +143,5 @@ def test_RNN():
     assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "RNNCell hidden states mismatch"
-    #assert torch.jit.trace(rnn, inputs)
 
 test_RNN()
