@@ -438,7 +438,7 @@ class Conv1d(nn.Module):
                 / self.stride
             )
         if self.padding == "same":
-            mask.size(-1) // self.stride
+            length = mask.size(-1) // self.stride
 
         # Subsample mask
         mask = mask[..., :: self.stride]
