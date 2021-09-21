@@ -432,12 +432,13 @@ class Conv1d(nn.Module):
         if unsqueeze:
             mask = mask.unsqueeze(1)
 
-        length = math.ceil(
-            (mask.size(-1) - (self.dilation * (self.kernel_size - 1)))
-            / self.stride
-        )
+        if self.padding == "valid":
+            length = math.ceil(
+                (mask.size(-1) - (self.dilation * (self.kernel_size - 1)))
+                / self.stride
+            )
         if self.padding == "same":
-            length = length + 1
+            mask.size(-1) // self.stride
 
         # Subsample mask
         mask = mask[..., :: self.stride]
