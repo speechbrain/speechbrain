@@ -9,7 +9,6 @@ Authors
 """
 import torch
 import speechbrain as sb
-from speechbrain.lobes.models.convolution import ConvLayer
 
 
 class CRDNN(sb.nnet.containers.MaskCapableSequential):

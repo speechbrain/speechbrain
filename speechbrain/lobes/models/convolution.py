@@ -2,10 +2,11 @@
 
 Authors
  * Jianyuan Zhong 2020
+ * Sung-Lin Yeh 2021
 """
 import torch
 from speechbrain.nnet.CNN import Conv2d
-from speechbrain.nnet.containers import Sequential, MaskCapableSequential
+from speechbrain.nnet.containers import MaskCapableSequential
 from speechbrain.nnet.normalization import BatchNorm2d
 
 
