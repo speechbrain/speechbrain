@@ -646,17 +646,24 @@ class Conv2d(nn.Module):
         if unsqueeze:
             mask = mask.unsqueeze(1)
 
-        freq_length = math.ceil(
-            (mask.size(2) - (self.dilation[-2] * (self.kernel_size[-2] - 1)))
-            / self.stride[-2]
-        )
-        time_length = math.ceil(
-            (mask.size(3) - (self.dilation[-1] * (self.kernel_size[-1] - 1)))
-            / self.stride[-1]
-        )
+        if self.padding == "valid":
+            freq_length = math.ceil(
+                (
+                    mask.size(2)
+                    - (self.dilation[-2] * (self.kernel_size[-2] - 1))
+                )
+                / self.stride[-2]
+            )
+            time_length = math.ceil(
+                (
+                    mask.size(3)
+                    - (self.dilation[-1] * (self.kernel_size[-1] - 1))
+                )
+                / self.stride[-1]
+            )
         if self.padding == "same":
-            freq_length = freq_length + 1
-            time_length = freq_length + 1
+            freq_length = mask.size(2) // self.stride[-1]
+            time_length = mask.size(3) // self.stride[-1]
 
         # Subsample mask
         mask = mask[:, :, :: self.stride[-1], :: self.stride[-2]]
