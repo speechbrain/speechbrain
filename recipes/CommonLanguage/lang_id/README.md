@@ -12,7 +12,7 @@ Data augmentation and environmental corruption are done by concatenating wavefor
 better performance, at the cost of longer training time and higher compute resourses.
 
 # Performance
-| Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
+| Release | hyperparams file | Val. Err | Test Err | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
 | 21-06-28 | train.yaml |  13. 5 | 15.1 | https://drive.google.com/drive/folders/1btxc_H27AP_f6u4X47FM0LSteUdzhfFR?usp=sharing | 1xV100 16GB |
 
