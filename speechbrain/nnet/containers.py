@@ -206,12 +206,19 @@ class LengthsCapableSequential(Sequential):
 
 
 class MaskCapableSequential(Sequential):
-    def __init__(self, *args, input_shape=None, return_mask=False, **kwargs):
+    def __init__(
+        self,
+        *args,
+        input_shape=None,
+        init_mask=False,
+        return_mask=False,
+        **kwargs,
+    ):
         super().__init__(*args, input_shape=input_shape, **kwargs)
         self.takes_mask = []
-        self.mask = None
         self.pad_idx = 0.0
         self.return_mask = return_mask
+        self.init_mask = init_mask
 
     def append(self, *args, **kwargs):
         super().append(*args, **kwargs)
@@ -219,7 +226,7 @@ class MaskCapableSequential(Sequential):
         self.takes_mask.append(self._arg_exists("mask", latest_forward_method))
 
     def forward(self, x, mask=None):
-        if mask is None:
+        if mask is None and self.init_mask:
             mask = x.eq(self.pad_idx).detach()
         for layer, apply_mask in zip(self.values(), self.takes_mask):
             if apply_mask:
@@ -229,7 +236,8 @@ class MaskCapableSequential(Sequential):
             if isinstance(x, tuple):
                 x = x[0]
 
-        x.masked_fill_(mask, 0.0)
+        if mask is not None:
+            x.masked_fill_(mask, 0.0)
 
         if self.return_mask:
             return x, mask

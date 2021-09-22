@@ -15,7 +15,7 @@ from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
 
 
-class Xvector(torch.nn.Module):
+class Xvector(sb.nnet.containers.MaskCapableSequential):
     """This model extracts X-vectors for speaker recognition and diarization.
 
     Arguments
@@ -54,33 +54,33 @@ class Xvector(torch.nn.Module):
         tdnn_dilations=[1, 2, 3, 1, 1],
         lin_neurons=512,
         in_channels=40,
+        return_mask=False,
     ):
+        if in_channels is None:
+            raise ValueError("Must specify one of in_channels")
 
-        super().__init__()
-        self.blocks = nn.ModuleList()
+        input_shape = [None, None, in_channels]
+        super().__init__(input_shape=input_shape, return_mask=return_mask)
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
             out_channels = tdnn_channels[block_index]
-            self.blocks.extend(
-                [
-                    Conv1d(
-                        in_channels=in_channels,
-                        out_channels=out_channels,
-                        kernel_size=tdnn_kernel_sizes[block_index],
-                        dilation=tdnn_dilations[block_index],
-                    ),
-                    activation(),
-                    BatchNorm1d(input_size=out_channels),
-                ]
+            self.append(
+                Conv1d,
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=tdnn_kernel_sizes[block_index],
+                dilation=tdnn_dilations[block_index],
             )
+            self.append(activation())
+            self.append(BatchNorm1d)
             in_channels = tdnn_channels[block_index]
 
         # Statistical pooling
-        self.blocks.append(StatisticsPooling())
+        self.append(StatisticsPooling())
 
         # Final linear transformation
-        self.blocks.append(
+        self.append(
             Linear(
                 input_size=out_channels * 2,
                 n_neurons=lin_neurons,
@@ -88,21 +88,6 @@ class Xvector(torch.nn.Module):
                 combine_dims=False,
             )
         )
-
-    def forward(self, x, lens=None):
-        """Returns the x-vectors.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-        """
-
-        for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lens)
-            except TypeError:
-                x = layer(x)
-        return x
 
 
 class Classifier(sb.nnet.containers.Sequential):

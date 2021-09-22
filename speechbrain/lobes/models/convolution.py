@@ -62,8 +62,9 @@ class ConvolutionFrontEnd(MaskCapableSequential):
         activation=torch.nn.LeakyReLU,
         norm=BatchNorm2d,
         dropout=0.1,
+        return_mask=False,
     ):
-        super().__init__(input_shape=input_shape, return_mask=False)
+        super().__init__(input_shape=input_shape, return_mask=return_mask)
         for i in range(num_blocks):
             self.append(
                 ConvBlock,
@@ -113,10 +114,13 @@ class ConvBlock(torch.nn.Module):
     Example
     -------
     >>> x = torch.rand((8, 30, 10))
+    >>> mask = torch.zeros((8, 30, 10), dtype=torch.bool)
     >>> conv = ConvBlock(2, 16, input_shape=x.shape)
-    >>> out = conv(x)
+    >>> out, mask = conv(x, mask)
     >>> out.shape
     torch.Size([8, 30, 10, 16])
+    >>> mask.shape
+    torch.Size([8, 30, 10, 1])
     """
 
     def __init__(
@@ -136,7 +140,7 @@ class ConvBlock(torch.nn.Module):
         super().__init__()
 
         self.convs = MaskCapableSequential(
-            input_shape=input_shape, return_mask=True
+            input_shape=input_shape, return_mask=True, init_mask=True
         )
 
         for i in range(num_layers):
@@ -150,6 +154,7 @@ class ConvBlock(torch.nn.Module):
                 norm=norm,
                 activation=activation,
                 dropout=dropout,
+                return_mask=True,
                 layer_name=f"conv_layer_{i}",
             )
 
@@ -164,6 +169,7 @@ class ConvBlock(torch.nn.Module):
                 kernel_size=1,
                 stride=stride,
                 norm=norm,
+                return_mask=True,
                 layer_name=f"reduce_conv",
             )
             self.drop = torch.nn.Dropout(dropout)
@@ -219,8 +225,9 @@ class ConvLayer(MaskCapableSequential):
         activation=None,
         norm=None,
         dropout=0.0,
+        return_mask=False,
     ):
-        super().__init__(input_shape=input_shape, return_mask=True)
+        super().__init__(input_shape=input_shape, return_mask=return_mask)
 
         self.append(
             conv_module,

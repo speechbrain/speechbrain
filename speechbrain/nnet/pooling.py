@@ -321,10 +321,13 @@ class StatisticsPooling(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([5, 100, 50])
+    >>> inp_mask = torch.zeros([5, 100, 1]).bool()
     >>> sp_layer = StatisticsPooling()
-    >>> out_tensor = sp_layer(inp_tensor)
+    >>> out_tensor, out_mask = sp_layer(inp_tensor, inp_mask)
     >>> out_tensor.shape
     torch.Size([5, 1, 100])
+    >>> out_mask.shape
+    torch.Size([5, 100, 1])
     """
 
     def __init__(self):
@@ -372,7 +375,11 @@ class StatisticsPooling(nn.Module):
         pooled_stats = torch.cat((mean, std), dim=1)
         pooled_stats = pooled_stats.unsqueeze(1)
 
-        return pooled_stats
+        # Create summy mask for output
+        if mask is not None:
+            mask = torch.zeros([pooled_stats.size(0), 1, 1], dtype=torch.bool)
+
+        return pooled_stats, mask
 
     def _get_gauss_noise(self, shape_of_tensor, device="cpu"):
         """Returns a tensor of epsilon Gaussian noise.

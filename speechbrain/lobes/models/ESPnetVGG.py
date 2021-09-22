@@ -57,7 +57,9 @@ class ESPnetVGG(sb.nnet.containers.MaskCapableSequential):
         rnn_re_init=False,
         projection_neurons=512,
     ):
-        super().__init__(input_shape=input_shape, return_mask=return_mask)
+        super().__init__(
+            input_shape=input_shape, return_mask=return_mask, init_mask=True
+        )
 
         self.append(sb.nnet.containers.Sequential, layer_name="VGG")
 

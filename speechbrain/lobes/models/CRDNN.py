@@ -82,7 +82,6 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
         self,
         input_size=None,
         input_shape=None,
-        return_mask=False,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -102,6 +101,7 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
         dnn_neurons=512,
         projection_dim=-1,
         use_rnnp=False,
+        return_mask=False,
     ):
         if input_size is None and input_shape is None:
             raise ValueError("Must specify one of input_size or input_shape")
@@ -243,7 +243,9 @@ class CNN_Block(sb.nnet.containers.MaskCapableSequential):
         dropout=0.15,
         return_mask=False,
     ):
-        super().__init__(input_shape=input_shape, return_mask=return_mask)
+        super().__init__(
+            input_shape=input_shape, return_mask=return_mask, init_mask=True
+        )
 
         self.append(
             sb.nnet.CNN.Conv2d,
