@@ -1096,7 +1096,7 @@ class DepthwiseSeparableConv1d(nn.Module):
         x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
         """
-        out, mask= self.depthwise(x, mask)
+        out, mask = self.depthwise(x, mask)
         out, mask = self.pointwise(out, mask)
         return out, mask
 
