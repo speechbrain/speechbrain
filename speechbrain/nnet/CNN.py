@@ -354,6 +354,7 @@ class Conv1d(nn.Module):
         skip_transpose=False,
     ):
         super().__init__()
+        self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
@@ -440,8 +441,14 @@ class Conv1d(nn.Module):
                 (mask.size(-1) - (self.dilation * (self.kernel_size - 1)))
                 / self.stride
             )
-        if self.padding == "same":
+        elif self.padding == "same":
             length = mask.size(-1) // self.stride
+
+        elif self.padding == "causal":
+            # TODO (SLin) add length when self.padding == "causal".
+            raise ValueError(
+                "Masking for causal mode is not supported."
+            )
 
         # Subsample mask
         mask = mask[..., :: self.stride]
@@ -450,7 +457,7 @@ class Conv1d(nn.Module):
         mask = mask[:, :1, -length:]
 
         # Squeeze
-        if unsqueeze:
+        if unsqueeze and self.out_channels == 1:
             mask = mask.squeeze(1)
 
         if not self.skip_transpose:
@@ -581,6 +588,7 @@ class Conv2d(nn.Module):
         if isinstance(dilation, int):
             dilation = (dilation, dilation)
 
+        self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
@@ -682,7 +690,7 @@ class Conv2d(nn.Module):
         mask = mask.transpose(1, -1)
 
         # Squeeze
-        if unsqueeze:
+        if unsqueeze and self.out_channels == 1:
             mask = mask.squeeze(1)
 
         return mask
