@@ -1,6 +1,11 @@
 from speechbrain.pretrained import EncoderDecoderASR
 import pytest
 
+pytest.importorskip(
+    "speechbrain.alignment.ctc_segmentation",
+    reason="These tests require the ctc_segmentation library",
+)
+
 
 @pytest.fixture()
 def asr_model():
