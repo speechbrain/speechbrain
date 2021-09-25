@@ -620,10 +620,13 @@ class SBRNNBlock(nn.Module):
     Example
     ---------
     >>> x = torch.randn(10, 100, 64)
+    >>> mask = torch.zeros((10, 100, 1), dtype=torch.bool)
     >>> rnn = SBRNNBlock(64, 100, 1, bidirectional=True)
-    >>> x = rnn(x)
+    >>> x, mask = rnn(x, mask)
     >>> x.shape
     torch.Size([10, 100, 200])
+    >>> mask.shape
+    torch.Size([10, 100, 1])
     """
 
     def __init__(
@@ -645,7 +648,7 @@ class SBRNNBlock(nn.Module):
             bidirectional=bidirectional,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the transformed output.
 
         Arguments
@@ -656,8 +659,8 @@ class SBRNNBlock(nn.Module):
                    N = number of filters
                    L = time points
         """
-
-        return self.mdl(x)[0]
+        (x, h), mask = self.mdl(x, mask=mask)
+        return x, mask
 
 
 class DPTNetBlock(nn.Module):
@@ -760,15 +763,15 @@ class Dual_Computation_Block(nn.Module):
     ---------
     intra_mdl : torch.nn.module
         Model to process within the chunks.
-     inter_mdl : torch.nn.module
+    inter_mdl : torch.nn.module
         Model to process across the chunks.
-     out_channels : int
+    out_channels : int
         Dimensionality of inter/intra model.
-     norm : str
+    norm : str
         Normalization type.
-     skip_around_intra : bool
+    skip_around_intra : bool
         Skip connection around the intra layer.
-     linear_layer_after_inter_intra : bool
+    linear_layer_after_inter_intra : bool
         Linear layer or not after inter or intra.
 
     Example
