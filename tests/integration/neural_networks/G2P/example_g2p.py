@@ -19,10 +19,10 @@ class seq2seqBrain(sb.Brain):
         phns, phn_lens = batch.phn_encoded_bos
 
         emb_char = self.hparams.encoder_emb(chars)
-        x, _ = self.modules.enc(emb_char)
+        (x, _), _ = self.modules.enc(emb_char)
         e_in = self.modules.emb(phns)
 
-        (h, w), _ = self.modules.dec(e_in, x, char_lens)
+        h, w = self.modules.dec(e_in, x, char_lens)
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 
