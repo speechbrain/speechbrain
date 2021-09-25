@@ -446,9 +446,7 @@ class Conv1d(nn.Module):
 
         elif self.padding == "causal":
             # TODO (SLin) add length when self.padding == "causal".
-            raise ValueError(
-                "Masking for causal mode is not supported."
-            )
+            raise ValueError("Masking for causal mode is not supported.")
 
         # Subsample mask
         mask = mask[..., :: self.stride]

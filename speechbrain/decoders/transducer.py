@@ -500,7 +500,7 @@ class TransducerBeamSearcher(torch.nn.Module):
                 "LiGRU",
                 "LiGRU_Layer",
             ]:
-                out_PN, hidden = layer(out_PN, hidden)
+                (out_PN, hidden), _ = layer(out_PN, hidden)
             else:
                 out_PN = layer(out_PN)
         return out_PN, hidden

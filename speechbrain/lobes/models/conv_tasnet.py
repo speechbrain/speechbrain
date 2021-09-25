@@ -155,7 +155,9 @@ class TemporalBlocksSequential(sb.nnet.containers.MaskCapableSequential):
     torch.Size([14, 100, 10])
     """
 
-    def __init__(self, input_shape, H, P, R, X, norm_type, causal, return_mask=False):
+    def __init__(
+        self, input_shape, H, P, R, X, norm_type, causal, return_mask=False
+    ):
         super().__init__(input_shape=input_shape, return_mask=return_mask)
         for r in range(R):
             for x in range(X):
@@ -336,7 +338,9 @@ class TemporalBlock(torch.nn.Module):
         super().__init__()
         M, K, B = input_shape
 
-        self.layers = sb.nnet.containers.MaskCapableSequential(input_shape=input_shape, return_mask=True)
+        self.layers = sb.nnet.containers.MaskCapableSequential(
+            input_shape=input_shape, return_mask=True
+        )
 
         # [M, K, B] -> [M, K, H]
         self.layers.append(
