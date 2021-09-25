@@ -12,7 +12,7 @@ import json
 import sentencepiece as spm
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
-import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -153,39 +153,31 @@ class SentencePiece:
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
             if not os.path.isfile(self.text_file):
-                try:
-                    if sb.utils.distributed.if_main_process():
-                        if annotation_format == "csv":
-                            self._csv2text()
-                        elif annotation_format == "json":
-                            self._json2text()
-                        else:
-                            raise ValueError(
-                                "Annotation format not supported. Supported formats are csv and json. Got "
-                                + annotation_format
-                            )
-
-                finally:
-                    sb.utils.distributed.ddp_barrier()
-            try:
-                if sb.utils.distributed.if_main_process():
-                    self._train_BPE()
-            finally:
-                sb.utils.distributed.ddp_barrier()
+                if annotation_format == "csv":
+                    run_on_main(self._csv2text)
+                elif annotation_format == "json":
+                    run_on_main(self._json2text)
+                else:
+                    raise ValueError(
+                        "Annotation format not supported. Supported formats are csv and json. Got "
+                        + annotation_format
+                    )
+            run_on_main(self._train_BPE)
         else:
             logger.info("Tokenizer is already trained.")
+
         logger.info("==== Loading Tokenizer ===")
         logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
         logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
         logger.info("Tokenizer type: " + self.model_type)
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
-        try:
-            if sb.utils.distributed.if_main_process():
-                if annotation_list_to_check is not None:
-                    self._check_coverage_from_bpe(annotation_list_to_check)
-        finally:
-            sb.utils.distributed.ddp_barrier()
+
+        if annotation_list_to_check is not None:
+            run_on_main(
+                self._check_coverage_from_bpe,
+                kwargs={"list_annotation_files": annotation_list_to_check},
+            )
 
     def _csv2text(self):
         """Read CSV file and convert specific data entries into text file.

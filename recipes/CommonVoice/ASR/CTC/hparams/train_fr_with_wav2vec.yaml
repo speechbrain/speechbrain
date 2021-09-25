@@ -13,7 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest LeBenchmark wav2vec french.
-wav2vec2_hub: LeBenchmark/wav2vec2-FR-M-large
+wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-large
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
@@ -56,7 +56,7 @@ test_dataloader_options:
     num_workers: 6
 
 # BPE parameters
-token_type: unigram  # ["unigram", "bpe", "char"]
+token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
 # Model parameters
@@ -68,7 +68,7 @@ dec_neurons: 1024
 freeze_wav2vec: False
 
 # Outputs
-output_neurons: 500  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 76  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones

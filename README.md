@@ -10,6 +10,9 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
+**News:** the call for new sponsors (2022) is open. [Take a look here if you are interested!](https://drive.google.com/file/d/1Njn_T2qLJCLPmF2LJ_X7yxxobqK3-CPW/view?usp=sharing)
+
+
 | **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
 # Key features
@@ -51,6 +54,10 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Spectral clustering for speaker diarization (combined with speakers embeddings).
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
+### Speech Translation
+- Recipes for transformer and conformer-based end-to-end speech translation.
+- Possibility to choose between normal training (Attention), multi-objectives (CTC+Attention) and multitasks (ST + ASR).
+
 ### Speech enhancement and separation
 - Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
 - Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
@@ -69,14 +76,49 @@ The recipes released with speechbrain implement speech processing systems with c
 | LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
-| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC/Att. | WER=13.7% (test) |
+| CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
+| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC | WER=9.96% (test) |
+| CommonVoice (Italian) | Speech Recognition | wav2vec2 + seq2seq | WER=9.86% (test) |
+| CommonVoice (Kinyarwanda) | Speech Recognition | wav2vec2 + seq2seq | WER=18.91% (test) |
+| AISHELL (Mandarin) | Speech Recognition | wav2vec2 + seq2seq | CER=5.58% (test) |
+| Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
 | WSJ2MIX      | Speech Separation | SepFormer| SDRi=22.6 dB (test)|
 | WSJ3MIX      | Speech Separation | SepFormer| SDRi=20.0 dB (test)|
+| WHAM!     | Speech Separation | SepFormer| SDRi= 16.4 dB (test)|
+| WHAMR!     | Speech Separation | SepFormer| SDRi= 14.0 dB (test)|
+| Libri2Mix     | Speech Separation | SepFormer| SDRi= 20.6 dB (test-clean)|
+| Libri3Mix     | Speech Separation | SepFormer| SDRi= 18.7 dB (test-clean)|
+| LibryParty | Voice Activity Detection | CRDNN | F-score=0.9477 (test) |
+| IEMOCAP | Emotion Recognition | wav2vec | Accuracy=79.8% (test) |
+| CommonLanguage | Language Recognition | ECAPA-TDNN | Accuracy=84.9% (test) |
+| Timers and Such | Spoken Language Understanding | CRDNN | Sentence Accuracy=89.2% (test) |
+
+
 
 For more details, take a look into the corresponding implementation in recipes/dataset/.
+
+### Pretrained Models
+
+Beyond providing recipes for training the models from scratch, SpeechBrain shares several pre-trained models (coupled with easy-inference functions) on [HuggingFace](https://huggingface.co/speechbrain). In the following, we report some of them:
+
+| Task        | Dataset | Model |
+| ------------- |:-------------:| -----:| 
+| Speech Recognition | LibriSpeech | [CNN + Transformer](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) |
+| Speech Recognition | LibriSpeech | [CRDNN](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) |
+| Speech Recognition | CommonVoice(English) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) |
+| Speech Recognition | CommonVoice(French) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) |
+| Speech Recognition | CommonVoice(Italian) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) |
+| Speech Recognition | CommonVoice(Kinyarwanda) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) |
+| Speech Recognition | AISHELL(Mandarin) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
+| Speaker Recognition | Voxceleb | [ECAPA-TDNN](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb) |
+| Speech Separation | WHAMR! | [SepFormer](https://huggingface.co/speechbrain/sepformer-whamr) |
+| Speech Enhancement | Voicebank | [MetricGAN+](https://huggingface.co/speechbrain/metricgan-plus-voicebank) |
+| Spoken Language Understanding | Timers and Such | [CRDNN](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr) |
+| Language Identification | CommonLanguage | [ECAPA-TDNN](https://huggingface.co/speechbrain/lang-id-commonlanguage_ecapa) |
+
 
 ### Documentation & Tutorials
 SpeechBrain is designed to speed-up research and development of speech technologies. Hence, our code is backed-up with three different levels of documentation:

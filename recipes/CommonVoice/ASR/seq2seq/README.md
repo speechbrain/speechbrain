@@ -18,7 +18,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 
 | Language | CommonVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
-| French | 2020-12-11 | train_fr.yaml | No | 5.36 | 15.87 | 6.54 | 17.70 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) | [model](https://drive.google.com/drive/folders/13i7rdgVX7-qZ94Rtj6OdUgU-S6BbKKvw?usp=sharing) | 2xV100 16GB |
+| French | 2020-12-11 | train_fr.yaml | No | 5.22 | 13.92 | 6.43 | 15.99 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) | [model](https://drive.google.com/drive/folders/1GShpLaX9AOLklwBAOLB9B9lLTn0HsWwS?usp=sharing) | 2xV100 16GB |
 | French | 2020-12-11 | train_fr_with_wav2vec.yaml | No | 6.13 | 11.82 | 9.78 | 13.34 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-fr) | [model](https://drive.google.com/drive/folders/1tjz6IZmVRkuRE97E7h1cXFoGTer7pT73?usp=sharing) | 2xV100 32GB |
 | Kinyarwanda | 2020-12-11 | train_rw.yaml | No | 7.30 | 21.36 | 9.55 | 24.27 | Not Avail. | [model](https://drive.google.com/drive/folders/122efLUMYoc1LGoK7O6LIWkSklmjKVGxM?usp=sharing) | 2xV100 32GB |
 | Kinyarwanda | 2020-12-11 | train_rw_with_wav2vec.yaml | No | 5.08 | 15.88 | 8.33 | 18.91 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) | [model](https://drive.google.com/drive/folders/1ceHxyNojY0wXmXyPoyn9xUiH_5B5qgE4?usp=sharing) | 2xV100 16GB |
