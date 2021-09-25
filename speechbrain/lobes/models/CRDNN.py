@@ -112,8 +112,7 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
 
         if cnn_blocks > 0:
             self.append(
-                sb.nnet.containers.MaskCapableSequential,
-                layer_name="CNN",
+                sb.nnet.containers.MaskCapableSequential, layer_name="CNN",
             )
         for block_index in range(cnn_blocks):
             self.CNN.append(

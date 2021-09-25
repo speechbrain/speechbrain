@@ -22,7 +22,7 @@ class seq2seqBrain(sb.Brain):
         x, _ = self.modules.enc(emb_char)
         e_in = self.modules.emb(phns)
 
-        h, w = self.modules.dec(e_in, x, char_lens)
+        (h, w), _ = self.modules.dec(e_in, x, char_lens)
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 

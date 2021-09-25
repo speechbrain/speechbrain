@@ -16,7 +16,7 @@ class VADBrain(sb.Brain):
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
-        x, _ = self.modules.rnn(feats)
+        (x, _), _ = self.modules.rnn(feats)
         outputs = self.modules.lin(x)
 
         return outputs, lens
