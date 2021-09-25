@@ -154,7 +154,6 @@ class ConvBlock(torch.nn.Module):
                 norm=norm,
                 activation=activation,
                 dropout=dropout,
-                return_mask=True,
                 layer_name=f"conv_layer_{i}",
             )
 
@@ -169,7 +168,6 @@ class ConvBlock(torch.nn.Module):
                 kernel_size=1,
                 stride=stride,
                 norm=norm,
-                return_mask=True,
                 layer_name=f"reduce_conv",
             )
             self.drop = torch.nn.Dropout(dropout)

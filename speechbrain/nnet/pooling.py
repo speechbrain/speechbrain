@@ -327,7 +327,7 @@ class StatisticsPooling(nn.Module):
     >>> out_tensor.shape
     torch.Size([5, 1, 100])
     >>> out_mask.shape
-    torch.Size([5, 100, 1])
+    torch.Size([5, 1, 1])
     """
 
     def __init__(self):

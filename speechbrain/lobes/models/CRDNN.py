@@ -113,7 +113,6 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
         if cnn_blocks > 0:
             self.append(
                 sb.nnet.containers.MaskCapableSequential,
-                return_mask=True,
                 layer_name="CNN",
             )
         for block_index in range(cnn_blocks):
@@ -125,7 +124,6 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
                 pooling_size=inter_layer_pooling_size[block_index],
                 activation=activation,
                 dropout=dropout,
-                return_mask=True,
                 layer_name=f"block_{block_index}",
             )
 
@@ -148,7 +146,6 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
         if projection_dim != -1:
             self.append(
                 sb.nnet.containers.MaskCapableSequential,
-                return_mask=False,
                 layer_name="projection",
             )
             self.projection.append(

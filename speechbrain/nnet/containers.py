@@ -129,7 +129,7 @@ class Sequential(torch.nn.ModuleDict):
         with torch.no_grad():
             dummy_input = torch.ones(self.input_shape)
             dummy_output = self(dummy_input)
-            if isinstance(dummy_output, tuple):
+            while isinstance(dummy_output, tuple):
                 dummy_output = dummy_output[0]
         return dummy_output.shape
 
@@ -143,7 +143,7 @@ class Sequential(torch.nn.ModuleDict):
         """
         for layer in self.values():
             x = layer(x)
-            if isinstance(x, tuple):
+            while isinstance(x, tuple):
                 x = x[0]
 
         return x
@@ -224,6 +224,9 @@ class MaskCapableSequential(Sequential):
         super().append(*args, **kwargs)
         latest_forward_method = list(self.values())[-1].forward
         self.takes_mask.append(self._arg_exists("mask", latest_forward_method))
+        # Further check if it needs to propagate mask inside the container
+        if isinstance(list(self.values())[-1], MaskCapableSequential):
+            list(self.values())[-1].return_mask = True
 
     def forward(self, x, mask=None):
         if mask is None and self.init_mask:
@@ -233,7 +236,7 @@ class MaskCapableSequential(Sequential):
                 x, mask = layer(x, mask=mask)
             else:
                 x = layer(x)
-            if isinstance(x, tuple):
+            while isinstance(x, tuple):
                 x = x[0]
 
         if mask is not None:
