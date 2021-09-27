@@ -2,7 +2,7 @@
 This repository aims to add WFST decoding based on k2 for speechbrain with python.  You can know more details about how k2 implements WFST from [k2](https://github.com/k2-fsa/k2) and [icefall](https://github.com/k2-fsa/icefall). Here, we use the transformer trained by speechbrain as our acoustic model to compute the output probabilities. Based on the output probabilities, we implement WFST decoding with k2. 
 
 ## Environment
-Suggest run this script with a conda environment (Linux).  You can also config your environment from this [url](https://k2-fsa.github.io/k2/) based on your reality.
+Suggest run this script with a conda environment (Linux).  You can also config your environment according to this [url](https://k2-fsa.github.io/k2/) based on your reality.
 ```
 1. conda create -n k2-python python=3.8
 2. source activate k2-python
