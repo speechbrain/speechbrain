@@ -97,11 +97,9 @@ if __name__ == "__main__":
         
         with torch.no_grad():
             for sample in tqdm(samples):
-                #print(sample)
                 idx = sample[0]
-                #duration = sample[1]
                 wav = sample[1]
-                txt = sample[2]
+                txt = sample[2].rstrip('\n')
 
                 wav_lens = torch.tensor([1.0]).to(device)
                 wav_lens = wav_lens.to(device)
