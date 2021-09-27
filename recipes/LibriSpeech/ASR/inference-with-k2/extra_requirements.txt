@@ -1,3 +1,0 @@
-kaldilm
-# Make sur that the k2 wheel have the same version of pytorch with spbrain
-https://k2-fsa.org/nightly/whl/k2-1.3.dev20210817+cpu.torch1.8.1-cp38-cp38-linux_x86_64.whl
