@@ -33,6 +33,7 @@ CUDA_VISIBLE_DEVICES='0' python3 test_ctc.py
 |WER| 2.57% | 5.94% |
 
 CUDA_VISIBLE_DEVICES='0' python3 test_hlg.py
+
 |WER|
 ||test-clean|test-other|
 |--|--|--|
