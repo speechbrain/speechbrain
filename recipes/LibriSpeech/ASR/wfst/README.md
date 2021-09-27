@@ -27,13 +27,14 @@ The run.sh can unify all python files and complete them with just one command.
 
 ## Results
 CUDA_VISIBLE_DEVICES='0' python3 test_ctc.py
-```
+
 ||test-clean|test-other|
 |--|--|--|
 |WER| 2.57% | 5.94% |
-```
-CUDA_VISIBLE_DEVICES='0' python3 test_hlg.py
-```
 
-```
+CUDA_VISIBLE_DEVICES='0' python3 test_hlg.py
+|WER|
+||test-clean|test-other|
+|--|--|--|
+|WER| 2.57% | 5.94% |
 
