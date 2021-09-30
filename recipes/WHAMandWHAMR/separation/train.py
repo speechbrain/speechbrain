@@ -236,9 +236,14 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
-            )
+            if hasattr(self.hparams, 'save_all_checkpoints') and self.hparams.save_all_checkpoints:
+                self.checkpointer.save_checkpoint(
+                    meta={"si-snr": stage_stats["si-snr"]}
+                )
+            else:
+                self.checkpointer.save_and_keep_only(
+                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
