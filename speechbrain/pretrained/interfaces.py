@@ -976,13 +976,12 @@ class SNREstimator(Pretrained):
             min_T = min(predictions.shape[1], mix.shape[1])
             assert predictions.shape[1] == mix.shape[1], "lengths change"
 
-            if hasattr(self.hparams, "use_three_inputs") and self.hparams.use_three_inputs:
+            if (
+                hasattr(self.hparams, "use_three_inputs")
+                and self.hparams.use_three_inputs
+            ):
                 inp_cat = torch.cat(
-                    [
-                        predictions[:, :min_T],
-                        mix[:, :min_T]
-                    ],
-                    dim=0,
+                    [predictions[:, :min_T], mix[:, :min_T]], dim=0,
                 ).unsqueeze(0)
             else:
                 mix_repeat = mix.repeat(2, 1)
@@ -998,8 +997,13 @@ class SNREstimator(Pretrained):
             enc = enc.permute(0, 2, 1)
             enc_stats = self.hparams.stat_pooling(enc)
 
-            if hasattr(self.hparams, "joint_classification") and self.hparams.joint_classification:
-                enc_stats = enc_stats.reshape(enc_stats.shape[0] // 2, enc_stats.shape[-1] * 2)
+            if (
+                hasattr(self.hparams, "joint_classification")
+                and self.hparams.joint_classification
+            ):
+                enc_stats = enc_stats.reshape(
+                    enc_stats.shape[0] // 2, enc_stats.shape[-1] * 2
+                )
 
         snrhat = self.hparams.classifier_out(enc_stats).squeeze()
 
@@ -1040,6 +1044,5 @@ class SNREstimator(Pretrained):
             batch = batch.mean(dim=0, keepdim=True)
             batch = tf(batch)
 
-        snrhat = self.estimate_batch(mix, predictions)       
+        snrhat = self.estimate_batch(mix, predictions)
         return est_sources
-

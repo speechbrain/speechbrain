@@ -236,7 +236,10 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            if hasattr(self.hparams, 'save_all_checkpoints') and self.hparams.save_all_checkpoints:
+            if (
+                hasattr(self.hparams, "save_all_checkpoints")
+                and self.hparams.save_all_checkpoints
+            ):
                 self.checkpointer.save_checkpoint(
                     meta={"si-snr": stage_stats["si-snr"]}
                 )

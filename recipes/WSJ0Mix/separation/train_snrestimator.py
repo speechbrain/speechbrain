@@ -118,7 +118,7 @@ class Separation(sb.Brain):
                     ],
                     dim=-1,
                 )
-                
+
                 # T changed after conv1d in encoder, fix it here
                 T_origin = mix.size(1)
                 T_est = est_source.size(1)
@@ -129,7 +129,7 @@ class Separation(sb.Brain):
             else:
                 separator_model = np.random.choice(self.all_separators)
                 predictions = separator_model.separate_batch(mix)
-        
+
         if hasattr(self.hparams, "separation_norm_type"):
             if self.hparams.separation_norm_type == "max":
                 predictions = (
@@ -170,13 +170,12 @@ class Separation(sb.Brain):
             min_T = min(predictions.shape[1], mix.shape[1])
             assert predictions.shape[1] == mix.shape[1], "lengths change"
 
-            if hasattr(self.hparams, "use_three_inputs") and self.hparams.use_three_inputs:
+            if (
+                hasattr(self.hparams, "use_three_inputs")
+                and self.hparams.use_three_inputs
+            ):
                 inp_cat = torch.cat(
-                    [
-                        predictions[:, :min_T],
-                        mix[:, :min_T]
-                    ],
-                    dim=0,
+                    [predictions[:, :min_T], mix[:, :min_T]], dim=0,
                 ).unsqueeze(0)
             else:
                 mix_repeat = mix.repeat(2, 1)
@@ -192,8 +191,13 @@ class Separation(sb.Brain):
             enc = enc.permute(0, 2, 1)
             enc_stats = self.hparams.stat_pooling(enc)
 
-            if hasattr(self.hparams, "joint_classification") and self.hparams.joint_classification:
-                enc_stats = enc_stats.reshape(enc_stats.shape[0] // 2, enc_stats.shape[-1] * 2)
+            if (
+                hasattr(self.hparams, "joint_classification")
+                and self.hparams.joint_classification
+            ):
+                enc_stats = enc_stats.reshape(
+                    enc_stats.shape[0] // 2, enc_stats.shape[-1] * 2
+                )
 
         snrhat = self.hparams.classifier_out(enc_stats).squeeze()
         return predictions, snrhat, snr, snr_compressed
@@ -963,20 +967,29 @@ if __name__ == "__main__":
         import glob
         import shutil
         from speechbrain.pretrained import SepformerSeparation as separator
-        model = 'sepformer-whamr'
-        all_separators = []
-        for model in ['sepformer-whamr', 'dprnn-whamr', 'convtasnet-whamr']:
-            model_folder = hparams['separator_base_folder'] + model + '/3/'
-            model_paths = np.sort(glob.glob(os.path.join(model_folder, 'save', 'CKPT*'))).tolist()
 
-            for ind in np.round(np.linspace(0, len(model_paths) - 1, hparams['num_separators_per_model'])):
+        model = "sepformer-whamr"
+        all_separators = []
+        for model in ["sepformer-whamr", "dprnn-whamr", "convtasnet-whamr"]:
+            model_folder = hparams["separator_base_folder"] + model + "/3/"
+            model_paths = np.sort(
+                glob.glob(os.path.join(model_folder, "save", "CKPT*"))
+            ).tolist()
+
+            for ind in np.round(
+                np.linspace(
+                    0, len(model_paths) - 1, hparams["num_separators_per_model"]
+                )
+            ):
 
                 ckpt_path = model_paths[int(ind)]
 
-                shutil.copy(os.path.join(model_folder, 'hyperparams.yaml'), ckpt_path)
+                shutil.copy(
+                    os.path.join(model_folder, "hyperparams.yaml"), ckpt_path
+                )
                 separator_model = separator.from_hparams(source=ckpt_path)
-                separator_model.device = 'cuda'
-                separator_model.modules = separator_model.modules.to('cuda')
+                separator_model.device = "cuda"
+                separator_model.modules = separator_model.modules.to("cuda")
 
                 all_separators.append(separator_model)
         snrestimator.all_separators = all_separators
@@ -999,14 +1012,14 @@ if __name__ == "__main__":
     snrestimator.evaluate(test_data, min_key="si-snr")
     snrestimator.save_results(test_data)
 
-    #if separator.checkpointer is not None:
+    # if separator.checkpointer is not None:
     #    separator.checkpointer.recover_if_possible(
     #        min_key="si-snr", device=torch.device(separator.device),
     #    )
 
-    #wav_fl, fs = torchaudio.load("saved.wav")
+    # wav_fl, fs = torchaudio.load("saved.wav")
     # import librosa as lr
     # sr = 8000
     # wav_fl, _ = lr.load('mixture_240.mp3', sr=sr)
     # wav_fl = torch.from_numpy(wav_fl)
-    #preds = separator.compute_forward_testtime(wav_fl)
+    # preds = separator.compute_forward_testtime(wav_fl)
