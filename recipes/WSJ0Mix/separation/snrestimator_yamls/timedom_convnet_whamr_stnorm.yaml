@@ -38,7 +38,7 @@ base_folder_dm_whamr: /network/tmp1/subakany/wsj0-processed/si_tr_s
 use_whamr_train: True
 whamr_proportion: 0.8
 
-test_onwsj: False 
+test_onwsj: False
 
 skip_prep: False
 
@@ -67,7 +67,7 @@ training_signal_len: 32000000
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
 use_wham_noise: True
-use_reverb_augment: True 
+use_reverb_augment: True
 
 # Parameters for data augmentation
 use_wavedrop: False
@@ -165,7 +165,7 @@ latent_dim: 128
 n_inp: 256
 classifier_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, 2, null]
-    cnn1: !new:speechbrain.nnet.CNN.Conv1d       
+    cnn1: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: 2
         kernel_size: 16
         out_channels: !ref <latent_dim>
@@ -181,7 +181,7 @@ classifier_enc: !new:speechbrain.nnet.containers.Sequential
         skip_transpose: True
         padding: 'valid'
     relu2: !new:torch.nn.ReLU
-    cnn3: !new:speechbrain.nnet.CNN.Conv1d       
+    cnn3: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <latent_dim>
         kernel_size: 8
         out_channels: !ref <latent_dim>
@@ -189,7 +189,7 @@ classifier_enc: !new:speechbrain.nnet.containers.Sequential
         skip_transpose: True
         padding: 'valid'
     relu3: !new:torch.nn.ReLU
-    cnn4: !new:speechbrain.nnet.CNN.Conv1d       
+    cnn4: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <latent_dim>
         kernel_size: 8
         out_channels: !ref <latent_dim>
@@ -197,7 +197,7 @@ classifier_enc: !new:speechbrain.nnet.containers.Sequential
         skip_transpose: True
         padding: 'valid'
     relu4: !new:torch.nn.ReLU
-    cnn5: !new:speechbrain.nnet.CNN.Conv1d       
+    cnn5: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <latent_dim>
         kernel_size: 4
         out_channels: !ref <latent_dim>
@@ -206,7 +206,7 @@ classifier_enc: !new:speechbrain.nnet.containers.Sequential
         padding: 'valid'
 
 stat_pooling: !new:speechbrain.nnet.pooling.StatisticsPooling
-        
+
 
         # classifier_enc: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
         #     input_size: !ref <n_inp>

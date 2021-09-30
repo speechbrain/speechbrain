@@ -37,7 +37,7 @@ test_wsj_data: !ref <save_folder>/wham_tt.csv
 base_folder_dm_whamr: /network/tmp1/subakany/wsj0-processed/si_tr_s
 use_whamr_train: False
 
-test_onwsj: False 
+test_onwsj: False
 
 skip_prep: False
 
@@ -66,7 +66,7 @@ training_signal_len: 32000000
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
 use_wham_noise: True
-use_reverb_augment: True 
+use_reverb_augment: True
 
 # Parameters for data augmentation
 use_wavedrop: False
@@ -166,13 +166,13 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
 
 
-classifier_enc: !new:speechbrain.lobes.models.Xvector.Xvector         
+classifier_enc: !new:speechbrain.lobes.models.Xvector.Xvector
    tdnn_channels: [512, 512, 512, 512, 1500]
    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
-   tdnn_dilations: [1, 2, 3, 1, 1]  
+   tdnn_dilations: [1, 2, 3, 1, 1]
    in_channels: !ref <n_inp>
    lin_neurons: !ref <enc_outdim>
-  
+
   # classifier_enc: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
         #     input_size: !ref <n_inp>
         #     channels: [1024, 1024, 1024, 1024, 3072]
@@ -197,7 +197,7 @@ classifier_out: !new:speechbrain.nnet.containers.Sequential
 
 optimizer: !name:torch.optim.Adam
     lr: !ref <lr>
-    weight_decay: 0 
+    weight_decay: 0
 
 loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 
