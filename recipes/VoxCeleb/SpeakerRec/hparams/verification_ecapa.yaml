@@ -9,7 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
-data_folder: /localscratch/voxceleb1
+data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
 output_folder: results/voxceleb1_2/speaker_verification_ecapa_big
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -33,7 +33,7 @@ train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
 
-batch_size: 32
+batch_size: 8
 score_norm: 's-norm' # z-norm t-norm s-norm none
 cohort_size: 20000 # amount of imposter utterances in normalization cohort
 n_train_snts: 400000 # used for normalization stats

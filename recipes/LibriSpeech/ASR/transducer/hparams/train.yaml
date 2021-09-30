@@ -188,9 +188,18 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
    blank_index: !ref <blank_index>
 
-lm_model: !new:recipes.LibriSpeech.LM.pretrained.pretrained.LM
-   hparams_file: !ref <lm_hparam_file>
-   save_folder: !ref <save_folder>
+# This is the RNNLM that is used according to the Huggingface repository
+# NB: It has to match the pre-trained RNNLM!!
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+   output_neurons: !ref <output_neurons>
+   embedding_dim: 128
+   activation: !name:torch.nn.LeakyReLU
+   dropout: 0.0
+   rnn_layers: 2
+   rnn_neurons: 2048
+   dnn_blocks: 1
+   dnn_neurons: 512
+   return_hidden: True  # For inference
 
 # for MTL
 # update model if any HEAD module is added

@@ -3,7 +3,7 @@ This folder contains the scripts to train a seq2seq RNNN-based system using TIMI
 TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
 # How to run
-python train.py train/train.yaml
+python train.py hparams/train.yaml
 
 # Results
 
