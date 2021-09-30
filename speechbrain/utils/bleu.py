@@ -1,13 +1,5 @@
 from speechbrain.utils.metric_stats import MetricStats
 
-try:
-    import sacrebleu
-except ImportError:
-
-    print(
-        "Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric"
-    )
-
 
 def merge_words(sequences):
     """Merge successive words into phrase, putting space between each word
@@ -51,6 +43,7 @@ class BLEUStats(MetricStats):
     def __init__(
         self, lang="en", merge_words=True,
     ):
+
         self.clear()
         self.merge_words = merge_words
 
@@ -97,6 +90,14 @@ class BLEUStats(MetricStats):
         """Summarize the BLEU and return relevant statistics.
         * See MetricStats.summarize()
         """
+
+        # Check extra-dependency for computing the bleu score
+        try:
+            import sacrebleu
+        except ImportError:
+            print(
+                "Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric"
+            )
 
         scores = sacrebleu.corpus_bleu(self.predicts, self.targets)
         details = {}

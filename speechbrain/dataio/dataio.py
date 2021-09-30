@@ -277,7 +277,7 @@ def read_audio_multichannel(waveforms_obj):
     start = waveforms_obj.get("start", 0)
     # Default stop to start -> if not specified, num_frames becomes 0,
     # which is the torchaudio default
-    stop = waveforms_obj.get("stop", start)
+    stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
         audio, fs = torchaudio.load(

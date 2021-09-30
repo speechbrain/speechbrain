@@ -330,7 +330,9 @@ class MetricGanBrain(sb.Brain):
 
         if stage == sb.Stage.TRAIN:
             if self.hparams.target_metric == "pesq":
-                self.target_metric = MetricStats(metric=pesq_eval, n_jobs=5)
+                self.target_metric = MetricStats(
+                    metric=pesq_eval, n_jobs=1, batch_eval=False
+                )
             elif self.hparams.target_metric == "stoi":
                 self.target_metric = MetricStats(metric=stoi_loss)
             else:
@@ -346,7 +348,9 @@ class MetricGanBrain(sb.Brain):
                 print("Generator training by current data...")
 
         if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=5)
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, n_jobs=1, batch_eval=False
+            )
             self.stoi_metric = MetricStats(metric=stoi_loss)
 
     def train_discriminator(self):
