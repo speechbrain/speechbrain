@@ -90,6 +90,9 @@ class WithinSession(object):
                     x_valid = standardize(x_valid, m, s)
                     x_test = standardize(x_test, m, s)
 
+                    x_train = np.swapaxes(x_train, -1, -2)
+                    x_valid = np.swapaxes(x_valid, -1, -2)
+                    x_test = np.swapaxes(x_test, -1, -2)
                     # dataloaders
                     inps = torch.Tensor(
                         x_train.reshape(
@@ -242,6 +245,9 @@ class CrossSession(object):
                 x_valid = standardize(x_valid, m, s)
                 x_test = standardize(x_test, m, s)
 
+                x_train = np.swapaxes(x_train, -1, -2)
+                x_valid = np.swapaxes(x_valid, -1, -2)
+                x_test = np.swapaxes(x_test, -1, -2)
                 # dataloaders
                 inps = torch.Tensor(
                     x_train.reshape(
@@ -364,6 +370,9 @@ class LeaveOneSubjectOut(object):
             x_valid = standardize(x_valid, m, s)
             x_test = standardize(x_test, m, s)
 
+            x_train = np.swapaxes(x_train, -1, -2)
+            x_valid = np.swapaxes(x_valid, -1, -2)
+            x_test = np.swapaxes(x_test, -1, -2)
             # dataloaders
             inps = torch.Tensor(
                 x_train.reshape(
