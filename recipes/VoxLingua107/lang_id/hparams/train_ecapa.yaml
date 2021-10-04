@@ -13,13 +13,9 @@ data_folder: ./
 
 
 shards_url: /data/voxlingua107_shards
-# Uncomment the following if you want to train on Webdataset shards hosted on the web
-#shards_url: http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
 train_meta: !ref <shards_url>/train/meta.json
-#train_meta: !ref <shards_url>/dev/meta.json
 val_meta: !ref <shards_url>/dev/meta.json
 train_shards: !ref <shards_url>/train/shard-{000000..000507}.tar
-#train_shards: !ref <shards_url>/dev/shard-000000.tar
 val_shards: !ref <shards_url>/dev/shard-000000.tar
 
 # Set to directory on a large disk if you are training on Webdataset shards hosted on the web
