@@ -9,7 +9,7 @@ import torch
 import speechbrain as sb
 
 
-class ESPnetVGG(sb.nnet.containers.Sequential):
+class ESPnetVGG(sb.nnet.containers.MaskCapableSequential):
     """This model is a combination of CNNs and RNNs following
         the ESPnet encoder. (VGG+RNN+MLP+tanh())
 
@@ -46,6 +46,7 @@ class ESPnetVGG(sb.nnet.containers.Sequential):
     def __init__(
         self,
         input_shape,
+        return_mask=False,
         activation=torch.nn.ReLU,
         dropout=0.15,
         cnn_channels=[64, 128],
@@ -56,7 +57,9 @@ class ESPnetVGG(sb.nnet.containers.Sequential):
         rnn_re_init=False,
         projection_neurons=512,
     ):
-        super().__init__(input_shape=input_shape)
+        super().__init__(
+            input_shape=input_shape, return_mask=return_mask, init_mask=True
+        )
 
         self.append(sb.nnet.containers.Sequential, layer_name="VGG")
 

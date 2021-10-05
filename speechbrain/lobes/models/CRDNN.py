@@ -11,7 +11,7 @@ import torch
 import speechbrain as sb
 
 
-class CRDNN(sb.nnet.containers.Sequential):
+class CRDNN(sb.nnet.containers.MaskCapableSequential):
     """This model is a combination of CNNs, RNNs, and DNNs.
 
     This model expects 3-dimensional input [batch, time, feats] and
@@ -101,16 +101,19 @@ class CRDNN(sb.nnet.containers.Sequential):
         dnn_neurons=512,
         projection_dim=-1,
         use_rnnp=False,
+        return_mask=False,
     ):
         if input_size is None and input_shape is None:
             raise ValueError("Must specify one of input_size or input_shape")
 
         if input_shape is None:
             input_shape = [None, None, input_size]
-        super().__init__(input_shape=input_shape)
+        super().__init__(input_shape=input_shape, return_mask=return_mask)
 
         if cnn_blocks > 0:
-            self.append(sb.nnet.containers.Sequential, layer_name="CNN")
+            self.append(
+                sb.nnet.containers.MaskCapableSequential, layer_name="CNN",
+            )
         for block_index in range(cnn_blocks):
             self.CNN.append(
                 CNN_Block,
@@ -140,7 +143,10 @@ class CRDNN(sb.nnet.containers.Sequential):
         # often lead to very large flattened layers.
         # This layer projects it back to something reasonable.
         if projection_dim != -1:
-            self.append(sb.nnet.containers.Sequential, layer_name="projection")
+            self.append(
+                sb.nnet.containers.MaskCapableSequential,
+                layer_name="projection",
+            )
             self.projection.append(
                 sb.nnet.linear.Linear,
                 n_neurons=projection_dim,
@@ -155,22 +161,21 @@ class CRDNN(sb.nnet.containers.Sequential):
 
         if rnn_layers > 0:
             if use_rnnp:
-                self.append(sb.nnet.containers.Sequential, layer_name="RNN")
                 for _ in range(rnn_layers):
-                    self.append(
+                    self.RNN.append(
                         rnn_class,
                         hidden_size=rnn_neurons,
                         num_layers=1,
                         bidirectional=rnn_bidirectional,
                         re_init=rnn_re_init,
                     )
-                    self.append(
+                    self.RNN.append(
                         sb.nnet.linear.Linear,
                         n_neurons=dnn_neurons,
                         bias=True,
                         combine_dims=True,
                     )
-                    self.append(torch.nn.Dropout(p=dropout))
+                    self.RNN.append(torch.nn.Dropout(p=dropout))
             else:
                 self.append(
                     rnn_class,
@@ -194,7 +199,7 @@ class CRDNN(sb.nnet.containers.Sequential):
             )
 
 
-class CNN_Block(sb.nnet.containers.Sequential):
+class CNN_Block(sb.nnet.containers.MaskCapableSequential):
     """CNN Block, based on VGG blocks.
 
     Arguments
@@ -232,8 +237,12 @@ class CNN_Block(sb.nnet.containers.Sequential):
         using_2d_pool=False,
         pooling_size=2,
         dropout=0.15,
+        return_mask=False,
     ):
-        super().__init__(input_shape=input_shape)
+        super().__init__(
+            input_shape=input_shape, return_mask=return_mask, init_mask=True
+        )
+
         self.append(
             sb.nnet.CNN.Conv2d,
             out_channels=channels,

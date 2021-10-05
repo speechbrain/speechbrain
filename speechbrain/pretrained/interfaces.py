@@ -1081,7 +1081,7 @@ class VAD(Pretrained):
             outputs.shape[2] * outputs.shape[3],
         )
 
-        outputs, h = self.modules.rnn(outputs)
+        (outputs, h), _ = self.modules.rnn(outputs)
         outputs = self.modules.dnn(outputs)
         output_prob = torch.sigmoid(outputs)
 

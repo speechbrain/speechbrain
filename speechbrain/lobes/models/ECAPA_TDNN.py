@@ -4,7 +4,6 @@ Authors
  * Hwidong Na 2020
 """
 
-# import os
 import torch  # noqa: F401
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,10 +43,13 @@ class TDNNBlock(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
+    >>> inp_mask = torch.zeros([8, 120, 1], dtype=torch.bool).transpose(1, 2)
     >>> layer = TDNNBlock(64, 64, kernel_size=3, dilation=1)
-    >>> out_tensor = layer(inp_tensor).transpose(1, 2)
-    >>> out_tensor.shape
+    >>> out_tensor, out_mask = layer(inp_tensor, inp_mask)
+    >>> out_tensor.transpose(1, 2).shape
     torch.Size([8, 120, 64])
+    >>> out_mask.transpose(1, 2).shape
+    torch.Size([8, 120, 1])
     """
 
     def __init__(
@@ -68,8 +70,11 @@ class TDNNBlock(nn.Module):
         self.activation = activation()
         self.norm = BatchNorm1d(input_size=out_channels)
 
-    def forward(self, x):
-        return self.norm(self.activation(self.conv(x)))
+    def forward(self, x, mask=None):
+        out, mask = self.conv(x, mask)
+        out = self.activation(out)
+        out = self.norm(out)
+        return out, mask
 
 
 class Res2NetBlock(torch.nn.Module):
@@ -91,10 +96,13 @@ class Res2NetBlock(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
+    >>> inp_mask = torch.zeros([8, 120, 1], dtype=torch.bool).transpose(1, 2)
     >>> layer = Res2NetBlock(64, 64, scale=4, dilation=3)
-    >>> out_tensor = layer(inp_tensor).transpose(1, 2)
-    >>> out_tensor.shape
+    >>> out_tensor, out_mask = layer(inp_tensor, inp_mask)
+    >>> out_tensor.transpose(1, 2).shape
     torch.Size([8, 120, 64])
+    >>> out_mask.transpose(1, 2).shape
+    torch.Size([8, 120, 1])
     """
 
     def __init__(
@@ -120,18 +128,18 @@ class Res2NetBlock(torch.nn.Module):
         )
         self.scale = scale
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         y = []
         for i, x_i in enumerate(torch.chunk(x, self.scale, dim=1)):
             if i == 0:
                 y_i = x_i
             elif i == 1:
-                y_i = self.blocks[i - 1](x_i)
+                y_i, mask = self.blocks[i - 1](x_i, mask)
             else:
-                y_i = self.blocks[i - 1](x_i + y_i)
+                y_i, mask = self.blocks[i - 1](x_i + y_i, mask)
             y.append(y_i)
         y = torch.cat(y, dim=1)
-        return y
+        return y, mask
 
 
 class SEBlock(nn.Module):
@@ -150,38 +158,41 @@ class SEBlock(nn.Module):
     -------
     >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
     >>> se_layer = SEBlock(64, 16, 64)
-    >>> lengths = torch.rand((8,))
-    >>> out_tensor = se_layer(inp_tensor, lengths).transpose(1, 2)
-    >>> out_tensor.shape
+    >>> inp_mask = torch.zeros([8, 120, 1], dtype=torch.bool).transpose(1, 2)
+    >>> out_tensor, out_mask = se_layer(inp_tensor, inp_mask)
+    >>> out_tensor.transpose(1, 2).shape
     torch.Size([8, 120, 64])
+    >>> out_mask.transpose(1, 2).shape
+    torch.Size([8, 120, 1])
     """
 
     def __init__(self, in_channels, se_channels, out_channels):
         super(SEBlock, self).__init__()
 
         self.conv1 = Conv1d(
-            in_channels=in_channels, out_channels=se_channels, kernel_size=1
+            in_channels=in_channels, out_channels=se_channels, kernel_size=1,
         )
         self.relu = torch.nn.ReLU(inplace=True)
         self.conv2 = Conv1d(
-            in_channels=se_channels, out_channels=out_channels, kernel_size=1
+            in_channels=se_channels, out_channels=out_channels, kernel_size=1,
         )
         self.sigmoid = torch.nn.Sigmoid()
 
-    def forward(self, x, lengths=None):
-        L = x.shape[-1]
-        if lengths is not None:
-            mask = length_to_mask(lengths * L, max_len=L, device=x.device)
-            mask = mask.unsqueeze(1)
-            total = mask.sum(dim=2, keepdim=True)
-            s = (x * mask).sum(dim=2, keepdim=True) / total
+    def forward(self, x, mask=None):
+        if mask is not None:
+            nonpadded_mask = ~mask
+            total = nonpadded_mask.sum(dim=2, keepdim=True)
+            s = (x * nonpadded_mask).sum(dim=2, keepdim=True) / total
+            s_mask = mask[:, :, :1]
         else:
             s = x.mean(dim=2, keepdim=True)
+            s_mask = mask
+        s, s_mask = self.conv1(s, s_mask)
+        s = self.relu(s)
+        s, s_mask = self.conv2(s, s_mask)
+        s = self.sigmoid(s)
 
-        s = self.relu(self.conv1(s))
-        s = self.sigmoid(self.conv2(s))
-
-        return s * x
+        return s * x, mask
 
 
 class AttentiveStatisticsPooling(nn.Module):
@@ -199,8 +210,8 @@ class AttentiveStatisticsPooling(nn.Module):
     -------
     >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
     >>> asp_layer = AttentiveStatisticsPooling(64)
-    >>> lengths = torch.rand((8,))
-    >>> out_tensor = asp_layer(inp_tensor, lengths).transpose(1, 2)
+    >>> mask = torch.zeros((8, 120, 1), dtype=torch.bool)
+    >>> out_tensor = asp_layer(inp_tensor, mask).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 1, 128])
     """
@@ -216,10 +227,12 @@ class AttentiveStatisticsPooling(nn.Module):
             self.tdnn = TDNNBlock(channels, attention_channels, 1, 1)
         self.tanh = nn.Tanh()
         self.conv = Conv1d(
-            in_channels=attention_channels, out_channels=channels, kernel_size=1
+            in_channels=attention_channels,
+            out_channels=channels,
+            kernel_size=1,
         )
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, mask=None):
         """Calculates mean and std for a batch (input tensor).
 
         Arguments
@@ -236,20 +249,21 @@ class AttentiveStatisticsPooling(nn.Module):
             )
             return mean, std
 
-        if lengths is None:
-            lengths = torch.ones(x.shape[0], device=x.device)
+        if mask is None:
+            mask = torch.zeros(
+                (x.shape[0], L, 1), dtype=torch.bool, device=x.device
+            )
 
-        # Make binary mask of shape [N, 1, L]
-        mask = length_to_mask(lengths * L, max_len=L, device=x.device)
-        mask = mask.unsqueeze(1)
+        mask = mask.transpose(1, 2)
+        nonpadded_mask = ~mask
 
         # Expand the temporal context of the pooling layer by allowing the
         # self-attention to look at global properties of the utterance.
         if self.global_context:
             # torch.std is unstable for backward computation
             # https://github.com/pytorch/pytorch/issues/4320
-            total = mask.sum(dim=2, keepdim=True).float()
-            mean, std = _compute_statistics(x, mask / total)
+            total = nonpadded_mask.sum(dim=2, keepdim=True).float()
+            mean, std = _compute_statistics(x, nonpadded_mask / total)
             mean = mean.unsqueeze(2).repeat(1, 1, L)
             std = std.unsqueeze(2).repeat(1, 1, L)
             attn = torch.cat([x, mean, std], dim=1)
@@ -257,10 +271,12 @@ class AttentiveStatisticsPooling(nn.Module):
             attn = x
 
         # Apply layers
-        attn = self.conv(self.tanh(self.tdnn(attn)))
+        attn, mask = self.tdnn(attn, mask)
+        attn = self.tanh(attn)
+        attn, mask = self.conv(attn, mask)
 
         # Filter out zero-paddings
-        attn = attn.masked_fill(mask == 0, float("-inf"))
+        attn = attn.masked_fill(mask, float("-inf"))
 
         attn = F.softmax(attn, dim=2)
         mean, std = _compute_statistics(x, attn)
@@ -291,9 +307,10 @@ class SERes2NetBlock(nn.Module):
     Example
     -------
     >>> x = torch.rand(8, 120, 64).transpose(1, 2)
+    >>> mask = torch.zeros([8, 120, 1], dtype=torch.bool).transpose(1, 2)
     >>> conv = SERes2NetBlock(64, 64, res2net_scale=4)
-    >>> out = conv(x).transpose(1, 2)
-    >>> out.shape
+    >>> out, mask = conv(x, mask)
+    >>> out.transpose(1, 2).shape
     torch.Size([8, 120, 64])
     """
 
@@ -336,17 +353,17 @@ class SERes2NetBlock(nn.Module):
                 kernel_size=1,
             )
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, mask=None):
         residual = x
         if self.shortcut:
             residual = self.shortcut(x)
 
-        x = self.tdnn1(x)
-        x = self.res2net_block(x)
-        x = self.tdnn2(x)
-        x = self.se_block(x, lengths)
+        x, mask = self.tdnn1(x, mask)
+        x, mask = self.res2net_block(x, mask)
+        x, mask = self.tdnn2(x, mask)
+        x, mask = self.se_block(x, mask)
 
-        return x + residual
+        return x + residual, mask
 
 
 class ECAPA_TDNN(torch.nn.Module):
@@ -456,27 +473,33 @@ class ECAPA_TDNN(torch.nn.Module):
         x : torch.Tensor
             Tensor of shape (batch, time, channel).
         """
+        mask = None
+        if lengths is not None:
+            L = x.size(1)
+            # Create pad mask: (batch, time, 1)
+            mask = ~length_to_mask(
+                lengths * L, max_len=L, device=x.device
+            ).bool()
+            mask = mask.unsqueeze(-1)
+
         # Minimize transpose for efficiency
         x = x.transpose(1, 2)
 
         xl = []
         for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lengths)
-            except TypeError:
-                x = layer(x)
+            x, mask = layer(x, mask)
             xl.append(x)
 
         # Multi-layer feature aggregation
         x = torch.cat(xl[1:], dim=1)
-        x = self.mfa(x)
+        x, mask = self.mfa(x, mask)
 
         # Attentive Statistical Pooling
-        x = self.asp(x, lengths=lengths)
+        x = self.asp(x, mask)
         x = self.asp_bn(x)
 
         # Final linear transformation
-        x = self.fc(x)
+        x, mask = self.fc(x, mask)
 
         x = x.transpose(1, 2)
         return x

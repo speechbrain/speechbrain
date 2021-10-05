@@ -77,7 +77,7 @@ class SincConv(nn.Module):
         stride=1,
         dilation=1,
         padding="same",
-        padding_mode="reflect",
+        padding_mode="constant",
         sample_rate=16000,
         min_low_hz=50,
         min_band_hz=50,
@@ -328,12 +328,15 @@ class Conv1d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16])
+    >>> inp_mask = torch.zeros([10, 40, 1]).bool()
     >>> cnn_1d = Conv1d(
     ...     input_shape=inp_tensor.shape, out_channels=8, kernel_size=5
     ... )
-    >>> out_tensor = cnn_1d(inp_tensor)
+    >>> out_tensor, out_mask = cnn_1d(inp_tensor, inp_mask)
     >>> out_tensor.shape
     torch.Size([10, 40, 8])
+    >>> out_mask.shape
+    torch.Size([10, 40, 1])
     """
 
     def __init__(
@@ -347,10 +350,11 @@ class Conv1d(nn.Module):
         padding="same",
         groups=1,
         bias=True,
-        padding_mode="reflect",
+        padding_mode="constant",
         skip_transpose=False,
     ):
         super().__init__()
+        self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
@@ -376,7 +380,7 @@ class Conv1d(nn.Module):
             bias=bias,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -417,7 +421,47 @@ class Conv1d(nn.Module):
         if not self.skip_transpose:
             wx = wx.transpose(1, -1)
 
-        return wx
+        if mask is not None:
+            mask = self.compute_mask(mask)
+            wx.masked_fill_(mask, 0.0)
+
+        return wx, mask
+
+    def compute_mask(self, mask):
+        if not self.skip_transpose:
+            mask = mask.transpose(1, -1)
+
+        # Unsqueeze
+        unsqueeze = mask.ndim == 2
+        if unsqueeze:
+            mask = mask.unsqueeze(1)
+
+        if self.padding == "valid":
+            length = math.ceil(
+                (mask.size(-1) - (self.dilation * (self.kernel_size - 1)))
+                / self.stride
+            )
+        elif self.padding == "same":
+            length = mask.size(-1) // self.stride
+
+        elif self.padding == "causal":
+            # TODO (SLin) add length when self.padding == "causal".
+            raise ValueError("Masking for causal mode is not supported.")
+
+        # Subsample mask
+        mask = mask[..., :: self.stride]
+
+        # Make it to (batch, 1, time)
+        mask = mask[:, :1, -length:]
+
+        # Squeeze
+        if unsqueeze and self.out_channels == 1:
+            mask = mask.squeeze(1)
+
+        if not self.skip_transpose:
+            mask = mask.transpose(1, -1)
+
+        return mask
 
     def _manage_padding(
         self, x, kernel_size: int, dilation: int, stride: int,
@@ -508,12 +552,15 @@ class Conv2d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
+    >>> inp_mask = torch.zeros([10, 40, 16, 1]).bool()
     >>> cnn_2d = Conv2d(
     ...     input_shape=inp_tensor.shape, out_channels=5, kernel_size=(7, 3)
     ... )
-    >>> out_tensor = cnn_2d(inp_tensor)
+    >>> out_tensor, out_mask = cnn_2d(inp_tensor, inp_mask)
     >>> out_tensor.shape
     torch.Size([10, 40, 16, 5])
+    >>> out_mask.shape
+    torch.Size([10, 40, 16, 1])
     """
 
     def __init__(
@@ -527,7 +574,7 @@ class Conv2d(nn.Module):
         padding="same",
         groups=1,
         bias=True,
-        padding_mode="reflect",
+        padding_mode="constant",
     ):
         super().__init__()
 
@@ -539,6 +586,7 @@ class Conv2d(nn.Module):
         if isinstance(dilation, int):
             dilation = (dilation, dilation)
 
+        self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
@@ -564,7 +612,7 @@ class Conv2d(nn.Module):
             bias=bias,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -573,10 +621,12 @@ class Conv2d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
+        if mask is not None:
+            x.masked_fill_(mask, 0.0)
+
         x = x.transpose(1, -1)
         if self.unsqueeze:
             x = x.unsqueeze(1)
-
         if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
@@ -595,7 +645,53 @@ class Conv2d(nn.Module):
         if self.unsqueeze:
             wx = wx.squeeze(1)
         wx = wx.transpose(1, -1)
-        return wx
+
+        if mask is not None:
+            mask = self.compute_mask(mask)
+            wx.masked_fill_(mask, 0.0)
+
+        return wx, mask
+
+    def compute_mask(self, mask):
+        mask = mask.transpose(1, -1)
+        # Unsqueeze
+        unsqueeze = mask.ndim == 3
+        if unsqueeze:
+            mask = mask.unsqueeze(1)
+
+        if self.padding == "valid":
+            freq_length = math.ceil(
+                (
+                    mask.size(2)
+                    - (self.dilation[-2] * (self.kernel_size[-2] - 1))
+                )
+                / self.stride[-2]
+            )
+            time_length = math.ceil(
+                (
+                    mask.size(3)
+                    - (self.dilation[-1] * (self.kernel_size[-1] - 1))
+                )
+                / self.stride[-1]
+            )
+        if self.padding == "same":
+            freq_length = math.ceil(mask.size(2) / self.stride[-1])
+            time_length = math.ceil(mask.size(3) / self.stride[-1])
+
+        # Subsample mask
+        mask = mask[:, :, :: self.stride[-1], :: self.stride[-2]]
+
+        # Make it to (batch, 1, freq, time)
+        mask = mask[:, :1, -freq_length:, -time_length:]
+
+        # Make it to (batch, time, freq, 1)
+        mask = mask.transpose(1, -1)
+
+        # Squeeze
+        if unsqueeze and self.out_channels == 1:
+            mask = mask.squeeze(1)
+
+        return mask
 
     def _manage_padding(
         self,
@@ -694,11 +790,12 @@ class Conv2dWithConstraint(Conv2d):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
+    >>> inp_mask = torch.zeros([10, 40, 16, 1]).bool()
     >>> max_norm = 1
     >>> cnn_2d_constrained = Conv2dWithConstraint(
     ...     in_channels=inp_tensor.shape[-1], out_channels=5, kernel_size=(7, 3)
     ... )
-    >>> out_tensor = cnn_2d_constrained(inp_tensor)
+    >>> out_tensor, out_tensor = cnn_2d_constrained(inp_tensor, inp_mask)
     >>> torch.any(torch.norm(cnn_2d_constrained.conv.weight.data, p=2, dim=0)>max_norm)
     tensor(False)
     """
@@ -707,7 +804,7 @@ class Conv2dWithConstraint(Conv2d):
         self.max_norm = max_norm
         super(Conv2dWithConstraint, self).__init__(*args, **kwargs)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -719,7 +816,7 @@ class Conv2dWithConstraint(Conv2d):
         self.conv.weight.data = torch.renorm(
             self.conv.weight.data, p=2, dim=0, maxnorm=self.max_norm
         )
-        return super(Conv2dWithConstraint, self).forward(x)
+        return super(Conv2dWithConstraint, self).forward(x, mask)
 
 
 class ConvTranspose1d(nn.Module):
@@ -783,7 +880,7 @@ class ConvTranspose1d(nn.Module):
     >>> signal = torch.tensor([1,100])
     >>> signal = torch.rand([1,100]) #[batch, time]
     >>> conv1d = Conv1d(input_shape=signal.shape, out_channels=1, kernel_size=3, stride=2)
-    >>> conv_out = conv1d(signal)
+    >>> conv_out, _ = conv1d(signal)
     >>> conv_t = ConvTranspose1d(input_shape=conv_out.shape, out_channels=1, kernel_size=3, stride=2, padding=1)
     >>> signal_rec = conv_t(conv_out, output_size=[100])
     >>> signal_rec.shape
@@ -957,10 +1054,13 @@ class DepthwiseSeparableConv1d(nn.Module):
     Example
     -------
     >>> inp = torch.randn([8, 120, 40])
+    >>> inp_mask = torch.zeros([8, 120, 1]).bool()
     >>> conv = DepthwiseSeparableConv1d(256, 3, input_shape=inp.shape)
-    >>> out = conv(inp)
+    >>> out, out_mask = conv(inp, inp_mask)
     >>> out.shape
     torch.Size([8, 120, 256])
+    >>> out_mask.shape
+    torch.Size([8, 120, 1])
     """
 
     def __init__(
@@ -994,7 +1094,7 @@ class DepthwiseSeparableConv1d(nn.Module):
             out_channels, kernel_size=1, input_shape=input_shape,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -1002,7 +1102,9 @@ class DepthwiseSeparableConv1d(nn.Module):
         x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
         """
-        return self.pointwise(self.depthwise(x))
+        out, mask = self.depthwise(x, mask)
+        out, mask = self.pointwise(out, mask)
+        return out, mask
 
 
 class DepthwiseSeparableConv2d(nn.Module):
@@ -1035,10 +1137,13 @@ class DepthwiseSeparableConv2d(nn.Module):
     Example
     -------
     >>> inp = torch.randn([8, 120, 40, 1])
+    >>> inp_mask = torch.zeros([8, 120, 40, 1]).bool()
     >>> conv = DepthwiseSeparableConv2d(256, (3, 3), input_shape=inp.shape)
-    >>> out = conv(inp)
+    >>> out, out_mask = conv(inp, inp_mask)
     >>> out.shape
     torch.Size([8, 120, 40, 256])
+    >>> out_mask.shape
+    torch.Size([8, 120, 40, 1])
     """
 
     def __init__(
@@ -1081,7 +1186,7 @@ class DepthwiseSeparableConv2d(nn.Module):
             out_channels, kernel_size=(1, 1), input_shape=input_shape,
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """Returns the output of the convolution.
 
         Arguments
@@ -1092,12 +1197,13 @@ class DepthwiseSeparableConv2d(nn.Module):
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        out = self.pointwise(self.depthwise(x))
+        out, mask = self.depthwise(x, mask)
+        out, mask = self.pointwise(out, mask)
 
         if self.unsqueeze:
             out = out.squeeze(1)
 
-        return out
+        return out, mask
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):

@@ -283,6 +283,9 @@ class TransformerST(TransformerASR):
             pos_embs=pos_embs_encoder,
         )
 
+        if src_key_padding_mask is not None:
+            encoder_out.masked_fill_(src_key_padding_mask.unsqueeze(-1), 0.0)
+
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":

@@ -106,8 +106,7 @@ class Sequential(torch.nn.ModuleDict):
 
         # Check if it needs to be constructed with input shape
         if self.input_shape:
-            argspec = inspect.getfullargspec(layer)
-            if "input_shape" in argspec.args + argspec.kwonlyargs:
+            if self._arg_exists("input_shape", layer):
                 input_shape = self.get_output_shape()
                 layer = layer(*args, input_shape=input_shape, **kwargs)
 
@@ -128,8 +127,10 @@ class Sequential(torch.nn.ModuleDict):
         ``self.input_shape`` attribute.
         """
         with torch.no_grad():
-            dummy_input = torch.zeros(self.input_shape)
+            dummy_input = torch.ones(self.input_shape)
             dummy_output = self(dummy_input)
+            while isinstance(dummy_output, tuple):
+                dummy_output = dummy_output[0]
         return dummy_output.shape
 
     def forward(self, x):
@@ -142,10 +143,21 @@ class Sequential(torch.nn.ModuleDict):
         """
         for layer in self.values():
             x = layer(x)
-            if isinstance(x, tuple):
+            while isinstance(x, tuple):
                 x = x[0]
 
         return x
+
+    def _arg_exists(self, arg_name, func):
+        """Returns True if func takes ``arg_name`` keyword argument.
+
+        Arguments
+        ---------
+        func : callable
+            The function, method, or other callable to search for the arg.
+        """
+        spec = inspect.getfullargspec(func)
+        return arg_name in spec.args + spec.kwonlyargs
 
 
 class LengthsCapableSequential(Sequential):
@@ -191,6 +203,49 @@ class LengthsCapableSequential(Sequential):
             if isinstance(x, tuple):
                 x = x[0]
         return x
+
+
+class MaskCapableSequential(Sequential):
+    def __init__(
+        self,
+        *args,
+        input_shape=None,
+        init_mask=False,
+        return_mask=False,
+        **kwargs,
+    ):
+        super().__init__(*args, input_shape=input_shape, **kwargs)
+        self.takes_mask = []
+        self.pad_idx = 0.0
+        self.return_mask = return_mask
+        self.init_mask = init_mask
+
+    def append(self, *args, **kwargs):
+        super().append(*args, **kwargs)
+        latest_forward_method = list(self.values())[-1].forward
+        self.takes_mask.append(self._arg_exists("mask", latest_forward_method))
+        # Further check if it needs to propagate mask inside the container
+        if isinstance(list(self.values())[-1], MaskCapableSequential):
+            list(self.values())[-1].return_mask = True
+
+    def forward(self, x, mask=None):
+        if mask is None and self.init_mask:
+            mask = x.eq(self.pad_idx).detach()
+        for layer, apply_mask in zip(self.values(), self.takes_mask):
+            if apply_mask:
+                x, mask = layer(x, mask=mask)
+            else:
+                x = layer(x)
+            while isinstance(x, tuple):
+                x = x[0]
+
+        if mask is not None:
+            x.masked_fill_(mask, 0.0)
+
+        if self.return_mask:
+            return x, mask
+        else:
+            return x
 
 
 class ModuleList(torch.nn.Module):
