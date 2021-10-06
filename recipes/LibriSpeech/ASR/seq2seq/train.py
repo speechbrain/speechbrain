@@ -158,9 +158,22 @@ class ASR(sb.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
+        try:
+            predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
+            loss.backward()
+        except Exception as error:
+            from speechbrain.dataio.batch import PaddedBatch
+            from speechbrain.dataio.sampler import DynamicBatchSampler
+            assert isinstance(batch, PaddedBatch)
+            assert isinstance(self.train_sampler, DynamicBatchSampler)
+            durations = self.train_sampler.get_durations(batch.__dict__['id'])
+            logger.info('Something went wrong in this batch: {} - check durations ({}s in total): {}'.format(
+                batch.__dict__['id'],
+                sum(durations),
+                durations
+            ))
+            raise error
         if self.check_gradients(loss):
             self.optimizer.step()
         self.optimizer.zero_grad()
@@ -302,7 +315,11 @@ def dataio_prepare(hparams):
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         hop_size = dynamic_hparams["feats_hop_size"]
 
-        batch_sampler = DynamicBatchSampler(
+        num_quantiles = None
+        if "num_quantiles" in dynamic_hparams.keys():
+            num_quantiles = dynamic_hparams["num_quantiles"]
+
+        train_batch_sampler = DynamicBatchSampler(
             train_data,
             dynamic_hparams["max_batch_len"],
             dynamic_hparams["left_bucket_len"],
@@ -310,9 +327,23 @@ def dataio_prepare(hparams):
             length_func=lambda x: x["duration"] * (1 / hop_size),
             shuffle_examples=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
+            reduce_padding_afterwards=dynamic_hparams["reduce_padding_afterwards"],
+            num_quantiles=num_quantiles,
         )
 
-    return train_data, valid_data, test_datasets, batch_sampler
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["left_bucket_len"],
+            bucket_length_multiplier=dynamic_hparams["multiplier"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),
+            shuffle_examples=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+            reduce_padding_afterwards=dynamic_hparams["reduce_padding_afterwards"],
+            num_quantiles=num_quantiles,
+        )
+
+    return train_data, valid_data, test_datasets, train_batch_sampler, valid_batch_sampler
 
 
 if __name__ == "__main__":
@@ -353,7 +384,7 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, train_sampler = dataio_prepare(
+    train_data, valid_data, test_datasets, train_sampler, valid_batch_sampler = dataio_prepare(
         hparams
     )
 
@@ -377,9 +408,12 @@ if __name__ == "__main__":
 
     if hparams["dynamic_batching"]:
         train_dataloader_opts = {"batch_sampler": train_sampler}
+        valid_dataloader_opts = {"batch_sampler": valid_batch_sampler}
 
+        asr_brain.train_sampler = train_sampler
     else:
         train_dataloader_opts = hparams["train_dataloader_opts"]
+        valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     # Training
     asr_brain.fit(
@@ -387,7 +421,7 @@ if __name__ == "__main__":
         train_data,
         valid_data,
         train_loader_kwargs=train_dataloader_opts,
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        valid_loader_kwargs=valid_dataloader_opts,
     )
 
     # Testing
