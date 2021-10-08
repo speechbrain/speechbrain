@@ -1,7 +1,6 @@
 # ################################
-# Model: SepFormer for source separation
-# https://arxiv.org/abs/2010.13154
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Model: Neural SI-SNR Estimator with Single training strategy
+# Dataset : LibriMix and WHAMR!
 # ################################
 #
 # Basic parameters
@@ -19,11 +18,10 @@ data_folder: !PLACEHOLDER
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
-# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 rir_path: /yourpath
 
-experiment_name: snrtrain-timedomain-sbpooling-wwhamr-lessstride-maxnorm
+experiment_name: snrtrain-timedomain-sbpooling-wwhamr-lessstride-stnorm
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -150,10 +148,10 @@ Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
     bias: False
 
 snrmin: 0
-snrmax : 10
+snrmax: 10
 out_n_neurons: 16
 use_snr_compression: True
-separation_norm_type: max
+separation_norm_type: stnorm
 
 # compute_features: !new:speechbrain.lobes.features.Fbank
 #     n_mels: !ref <n_mels>
@@ -234,7 +232,6 @@ classifier_out: !new:speechbrain.nnet.containers.Sequential
         input_size: !ref <n_inp>
         n_neurons: 1
     sigm: !new:torch.nn.Sigmoid
-
 
 
 classifier_loss: !new:torch.nn.CrossEntropyLoss
