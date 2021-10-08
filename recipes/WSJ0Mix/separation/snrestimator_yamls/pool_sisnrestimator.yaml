@@ -1,7 +1,6 @@
 # ################################
-# Model: SepFormer for source separation
-# https://arxiv.org/abs/2010.13154
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Model: Neural SI-SNR Estimator with Pool training strategy
+# Dataset : LibriMix and WHAMR!
 # ################################
 #
 # Basic parameters
@@ -19,11 +18,10 @@ data_folder: !PLACEHOLDER
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
-# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 rir_path: /yourpath
 
-experiment_name: snrtrain-timedomain-sbpooling
+experiment_name: snrtrain-timedomain-sbpooling-wwhamr-lessstride-stnorm-manyseparators
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -35,7 +33,8 @@ wsj_data_folder: /network/tmp1/subakany/wham_original
 train_wsj_data: !ref <save_folder>/wham_tr.csv
 test_wsj_data: !ref <save_folder>/wham_tt.csv
 base_folder_dm_whamr: /network/tmp1/subakany/wsj0-processed/si_tr_s
-use_whamr_train: False
+use_whamr_train: True
+whamr_proportion: 0.6
 
 test_onwsj: False
 
@@ -149,9 +148,10 @@ Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
     bias: False
 
 snrmin: 0
-snrmax : 10
+snrmax: 10
 out_n_neurons: 16
 use_snr_compression: True
+separation_norm_type: stnorm
 
 # compute_features: !new:speechbrain.lobes.features.Fbank
 #     n_mels: !ref <n_mels>
@@ -165,33 +165,33 @@ classifier_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, 2, null]
     cnn1: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: 2
-        kernel_size: 16
+        kernel_size: 4
         out_channels: !ref <latent_dim>
-        stride: 8
+        stride: 1
         skip_transpose: True
         padding: 'valid'
     relu1: !new:torch.nn.ReLU
     cnn2: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <latent_dim>
-        kernel_size: 8
+        kernel_size: 4
         out_channels: !ref <latent_dim>
-        stride: 4
+        stride: 2
         skip_transpose: True
         padding: 'valid'
     relu2: !new:torch.nn.ReLU
     cnn3: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <latent_dim>
-        kernel_size: 8
+        kernel_size: 4
         out_channels: !ref <latent_dim>
-        stride: 4
+        stride: 2
         skip_transpose: True
         padding: 'valid'
     relu3: !new:torch.nn.ReLU
     cnn4: !new:speechbrain.nnet.CNN.Conv1d
         in_channels: !ref <latent_dim>
-        kernel_size: 8
+        kernel_size: 4
         out_channels: !ref <latent_dim>
-        stride: 4
+        stride: 2
         skip_transpose: True
         padding: 'valid'
     relu4: !new:torch.nn.ReLU
@@ -234,7 +234,6 @@ classifier_out: !new:speechbrain.nnet.containers.Sequential
     sigm: !new:torch.nn.Sigmoid
 
 
-
 classifier_loss: !new:torch.nn.CrossEntropyLoss
 
 optimizer: !name:torch.optim.Adam
@@ -270,14 +269,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-# For Librimix
-pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        encoder: !ref <Encoder>
-        decoder: !ref <Decoder>
-        masknet: !ref <MaskNet>
-    paths:
-        encoder: speechbrain/sepformer-whamr/encoder.ckpt
-        decoder: speechbrain/sepformer-whamr/decoder.ckpt
-        masknet: speechbrain/sepformer-whamr/masknet.ckpt
+num_separators_per_model: 3
+separator_base_folder: '/home/mila/s/subakany/speechbrain_new/recipes/WHAMandWHAMR/separation/results/'
