@@ -17,7 +17,7 @@ handled by the WebDataset library.
 
 ## Downloading the data
 
-You have three options how to download and prepare the VoxLingua107 dataset for training the model:
+You have two options how to download and prepare the VoxLingua107 dataset for training the model:
 
   - Download the VoxLingua107 language-specific zips from http://bark.phon.ioc.ee/voxlingua107/ and convert them
     to WebDataset format. This is the most flexible option, as it allows selecting a subset of VoxLingua107 languages,
@@ -25,8 +25,6 @@ You have three options how to download and prepare the VoxLingua107 dataset for 
 
   - Download the pre-compiled WebDataset shards from http://bark.phon.ioc.ee/voxlingua107/. It will require around 1.4T of disk space.
 
-  - Train directly on the WebDataset shards hosted on the web (i.e., the shards will be downloaded automatically during training). In this
-    case it is recomended to cache the shards (configurable in the hyperparameter configuration file).
 
 ### 1st option: download the VoxLingua107 zips and create the Webdataset shards
 
@@ -62,16 +60,11 @@ cd voxlingua107_shards
 wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
 ```
 
-## 3rd option:
-
-Set `shards_url` to `http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/` (uncomment the line) and set the
-`shard_cache_dir` property in `hparams/train_ecapa.yaml` to something, e.g. `/data/voxlingua107_shards`.
-
 
 ## Training
 
 ```
-python train.py hparams/train_epaca.yaml
+python train.py hparams/train_ecapa.yaml
 ```
 
 Training is run for 40 epochs. One epoch takes one hour and 40 minutes on a NVidia A100 GPU.
@@ -80,20 +73,20 @@ Training is run for 40 epochs. One epoch takes one hour and 40 minutes on a NVid
 # Performance
 | Release | hyperparams file | Dev error rate | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| :-----------:|
-| 21-08-24 | train_epaca_tdnn_ce_wds.yaml | 6.7 |https://drive.google.com/drive/folders/17SrXya9XE24wjG-rTCiSOCLGYcICMKZU?usp=sharing | 1xA100 40GB |
+| 21-08-24 | train_ecapa.yaml | 6.7 |https://drive.google.com/drive/folders/151QTW9oHVElLIkuzXjkuHpOCLNZF0Ufd?usp=sharing | 1xA100 40GB |
 
 
 
 # Inference
 The pre-trained model + easy inference is available on HuggingFace:
-- https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn-ce
+- https://huggingface.co/speechbrain/lang-id-voxlingua107-ecapa
 
 You can run inference with only few lines of code:
 
 ```python
 import torchaudio
 from speechbrain.pretrained import EncoderClassifier
-language_id = EncoderClassifier.from_hparams(source="TalTechNLP/voxlingua107-epaca-tdnn-ce", savedir="tmp")
+language_id = EncoderClassifier.from_hparams(source="speechbrain/lang-id-voxlingua107-ecapa", savedir="tmp")
 # Download Thai language sample from Omniglot and cvert to suitable form
 signal = language_id.load_audio("https://omniglot.com/soundfiles/udhr/udhr_th.mp3")
 prediction =  language_id.classify_batch(signal)
@@ -157,3 +150,14 @@ Please, cite SpeechBrain if you use it for your research or business.
 }
 ```
 
+# **Citing VoxLingua107**
+You can also cite the VoxLingua107 dataset paper if you use this model in research.
+
+```bibtex
+@inproceedings{valk2021slt,
+  title={{VoxLingua107}: a Dataset for Spoken Language Recognition},
+  author={J{\"o}rgen Valk and Tanel Alum{\"a}e},
+  booktitle={Proc. IEEE SLT Workshop},
+  year={2021},
+}
+```
