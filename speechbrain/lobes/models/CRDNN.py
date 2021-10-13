@@ -161,21 +161,22 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
 
         if rnn_layers > 0:
             if use_rnnp:
+                self.append(sb.nnet.containers.Sequential, layer_name="RNN")
                 for _ in range(rnn_layers):
-                    self.RNN.append(
+                    self.append(
                         rnn_class,
                         hidden_size=rnn_neurons,
                         num_layers=1,
                         bidirectional=rnn_bidirectional,
                         re_init=rnn_re_init,
                     )
-                    self.RNN.append(
+                    self.append(
                         sb.nnet.linear.Linear,
                         n_neurons=dnn_neurons,
                         bias=True,
                         combine_dims=True,
                     )
-                    self.RNN.append(torch.nn.Dropout(p=dropout))
+                    self.append(torch.nn.Dropout(p=dropout))
             else:
                 self.append(
                     rnn_class,
