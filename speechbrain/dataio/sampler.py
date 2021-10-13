@@ -629,6 +629,8 @@ class DynamicBatchSampler(Sampler):
                 batch_frames = [sum(self._ex_lengths[str(idx)] for idx in batch) for batch in self._batches]
                 # Remaining padding per batch
                 remaining_padding = self._max_batch_length - np.asarray(batch_frames)
+                # do not touch batches with too long samples (exponential memory usage) - 80% is arbitrary
+                remaining_padding[np.asarray(batch_frames) > 0.8*self._max_batch_length] = 0
                 # Find uncompleted buckets
                 non_zero_buckets_in_sorted = np.in1d(np.argsort(batch_frames), np.where(batch_frames), 1)
                 # Sort their IDs by unused padding
