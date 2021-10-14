@@ -29,9 +29,10 @@ train_data: !ref <save_folder>/libri2mix_train-360.csv
 valid_data: !ref <save_folder>/libri2mix_dev.csv
 test_data: !ref <save_folder>/libri2mix_test.csv
 
-wsj_data_folder: /network/tmp1/subakany/wham_original
-train_wsj_data: !ref <save_folder>/wham_tr.csv
-test_wsj_data: !ref <save_folder>/wham_tt.csv
+whamr_data_folder: /network/tmp1/subakany/whamr
+train_whamr_data: !ref <save_folder>/whamr_tr.csv
+valid_whamr_data: !ref <save_folder>/whamr_cv.csv
+test_whamr_data: !ref <save_folder>/whamr_tt.csv
 
 # the folder that would be used to form mixtures from the whamr dataset
 base_folder_dm_whamr: /network/tmp1/subakany/wsj0-processed/si_tr_s
