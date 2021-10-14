@@ -1962,7 +1962,7 @@ class SNREstimator(Pretrained):
     """A "ready-to-use" SNR estimator.
     """
 
-    MODULES_NEEDED = ["classifier_enc", "classifier_out"]
+    MODULES_NEEDED = ["encoder", "encoder_out"]
 
     def estimate_batch(self, mix, predictions):
         """Run source separation on batch of audio.
@@ -1996,90 +1996,21 @@ class SNREstimator(Pretrained):
                     dim=1, keepdim=True
                 )
 
-        if hasattr(self.hparams, "compute_features"):
-            feats_preds = self.hparams.compute_features(predictions)
-            feats_mix = self.hparams.compute_features(mix)
-            min_T = min(feats_preds.shape[1], feats_mix.shape[1])
+        min_T = min(predictions.shape[1], mix.shape[1])
+        assert predictions.shape[1] == mix.shape[1], "lengths change"
 
-            assert feats_preds.shape[1] == feats_mix.shape[1], "lengths change"
-            feats_preds = feats_preds[:, :min_T, :]
-            feats_mix = feats_mix[:, :min_T, :]
+        mix_repeat = mix.repeat(2, 1)
+        inp_cat = torch.cat(
+            [
+                predictions[:, :min_T].unsqueeze(1),
+                mix_repeat[:, :min_T].unsqueeze(1),
+            ],
+            dim=1,
+        )
 
-            feats_mix_repeat = feats_mix.repeat(feats_preds.shape[0], 1, 1)
-            inp_cat = torch.cat([feats_preds, feats_mix_repeat], dim=-1)
-
-            enc_stats = self.hparams.classifier_enc(inp_cat)
-        else:
-            min_T = min(predictions.shape[1], mix.shape[1])
-            assert predictions.shape[1] == mix.shape[1], "lengths change"
-
-            if (
-                hasattr(self.hparams, "use_three_inputs")
-                and self.hparams.use_three_inputs
-            ):
-                inp_cat = torch.cat(
-                    [predictions[:, :min_T], mix[:, :min_T]], dim=0,
-                ).unsqueeze(0)
-            else:
-                mix_repeat = mix.repeat(2, 1)
-                inp_cat = torch.cat(
-                    [
-                        predictions[:, :min_T].unsqueeze(1),
-                        mix_repeat[:, :min_T].unsqueeze(1),
-                    ],
-                    dim=1,
-                )
-
-            enc = self.hparams.classifier_enc(inp_cat)
-            enc = enc.permute(0, 2, 1)
-            enc_stats = self.hparams.stat_pooling(enc)
-
-            if (
-                hasattr(self.hparams, "joint_classification")
-                and self.hparams.joint_classification
-            ):
-                enc_stats = enc_stats.reshape(
-                    enc_stats.shape[0] // 2, enc_stats.shape[-1] * 2
-                )
+        enc = self.hparams.encoder(inp_cat)
+        enc = enc.permute(0, 2, 1)
+        enc_stats = self.hparams.stat_pooling(enc)
 
         snrhat = self.hparams.classifier_out(enc_stats).squeeze()
-
         return snrhat
-
-    def estimate_file(self, path, savedir="."):
-        """Separate sources from file.
-
-        Arguments
-        ---------
-        path : str
-            Path to file which has a mixture of sources. It can be a local
-            path, a web url, or a huggingface repo.
-        savedir : path
-            Path where to store the wav signals (when downloaded from the web).
-        Returns
-        -------
-        tensor
-            Separated sources
-        """
-        source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
-
-        batch, fs_file = torchaudio.load(path)
-        batch = batch.to(self.device)
-        fs_model = self.hparams.sample_rate
-
-        # resample the data if needed
-        if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
-            tf = torchaudio.transforms.Resample(
-                orig_freq=fs_file, new_freq=fs_model
-            )
-            batch = batch.mean(dim=0, keepdim=True)
-            batch = tf(batch)
-
-        snrhat = self.estimate_batch(mix, predictions)
-        return est_sources
