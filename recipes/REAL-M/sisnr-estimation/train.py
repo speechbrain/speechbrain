@@ -636,7 +636,7 @@ if __name__ == "__main__":
         from recipes.LibriMix.separation.dynamic_mixing import (
             dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
         )
-        from recipes.WHAMandWHAMR.separation.dynamic_mixing import (
+        from whamr_dynamic_mixing import (
             dynamic_mix_data_prep as dynamic_mix_data_prep_whamr,
         )
 
@@ -692,38 +692,48 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    if "pretrained_separator" not in hparams:
-        # import glob
-        # import shutil
-        from speechbrain.pretrained import SepformerSeparation as separator
+    from speechbrain.pretrained import SepformerSeparation as separator
+    from speechbrain.pretrained.interfaces import fetch
 
-        all_separators = []
-        # for model in ["sepformer-whamr", "dprnn-whamr", "convtasnet-whamr"]:
-        #    model_folder = hparams["separator_base_folder"] + model + "/3/"
-        #    model_paths = np.sort(
-        #        glob.glob(os.path.join(model_folder, "save", "CKPT*"))
-        #    ).tolist()
-
-        #    for ind in np.round(
-        #        np.linspace(
-        #            0, len(model_paths) - 1, hparams["num_separators_per_model"]
-        #        )
-        #    ):
-
-        #        ckpt_path = model_paths[int(ind)]
-
-        #        shutil.copy(
-        #            os.path.join(model_folder, "hyperparams.yaml"), ckpt_path
-        #        )
-        #        separator_model = separator.from_hparams(source=ckpt_path)
-        #        separator_model.device = "cuda"
-        #        separator_model.modules = separator_model.modules.to("cuda")
-
-        #        all_separators.append(separator_model)
-        for model in ["sepformer", "dprnn", "convtasnet"]:
-            separator_model = separator.from_hparams(
-                source="speechbrain/REAL-M-sisnr-estimator"
+    all_separators = []
+    for model in ["sepformer", "dprnn", "convtasnet"]:
+        for n_model in range(1, hparams["num_separators_per_model"] + 1):
+            model_prefix = model + str(n_model)
+            fetch(
+                model_prefix + "_encoder.ckpt",
+                source="speechbrain/REAL-M-sisnr-estimator",
+                savedir=model_prefix,
+                save_filename="encoder.ckpt",
             )
+
+            fetch(
+                model_prefix + "_decoder.ckpt",
+                source="speechbrain/REAL-M-sisnr-estimator",
+                savedir=model_prefix,
+                save_filename="decoder.ckpt",
+            )
+
+            fetch(
+                model_prefix + "_masknet.ckpt",
+                source="speechbrain/REAL-M-sisnr-estimator",
+                savedir=model_prefix,
+                save_filename="masknet.ckpt",
+            )
+
+            fetch(
+                model_prefix + "_hyperparams.yaml",
+                source="speechbrain/REAL-M-sisnr-estimator",
+                savedir=model_prefix,
+                save_filename="hyperparams.yaml",
+            )
+
+            separator_model = separator.from_hparams(
+                source=model_prefix,
+                run_opts={"device": "cuda"},
+                savedir=model_prefix,
+            )
+
+            all_separators.append(separator_model)
 
         snrestimator.all_separators = all_separators
 

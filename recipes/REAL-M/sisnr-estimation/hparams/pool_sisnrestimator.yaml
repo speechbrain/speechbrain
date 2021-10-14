@@ -18,7 +18,11 @@ data_folder: !PLACEHOLDER
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
+
+# base folder for librimix
 base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
+
+# base folder for RIRs to be used
 rir_path: /yourpath
 
 experiment_name: pool-sisnrestimator
@@ -195,4 +199,3 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 num_separators_per_model: 3
-separator_base_folder: '/home/mila/s/subakany/speechbrain_new/recipes/WHAMandWHAMR/separation/results/'
