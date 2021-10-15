@@ -1,6 +1,6 @@
 # The Blind SI-SNR estimation recipe
 
-* The goal of this recipe is to train a neural network to be able to estimate the scale-invariant source-to-noise ratio (SI-SNR) from the separated signals.
+* The goal of this recipe is to train a neural network to be able to estimate the scale-invariant signal-to-noise ratio (SI-SNR) from the separated signals.
 
 * This model is developed to estimate source separation performance on the REAL-M dataset which consists of real life mixtures.
 
