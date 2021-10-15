@@ -1,24 +1,11 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
-dataset. The system employs an encoder, a decoder, and a masking network.
+"""
+Recipe for training a Blind SI-SNR estimator
 
-To run this recipe, do the following:
-> python train.py hparams/sepformer.yaml
-> python train.py hparams/dualpath_rnn.yaml
-> python train.py hparams/convtasnet.yaml
-
-The experiment file is flexible enough to support different neural
-networks. By properly changing the parameter files, you can try
-different architectures. The script supports both wsj2mix and
-wsj3mix.
-
-
-Authors
- * Cem Subakan 2020
- * Mirco Ravanelli 2020
- * Samuele Cornell 2020
- * Mirko Bronzi 2020
- * Jianyuan Zhong 2020
+Authors:
+ * Cem Subakan 2021
+ * Mirco Ravanelli 2021
+ * Samuele Cornell 2021
 """
 
 import os
@@ -242,7 +229,7 @@ class Separation(sb.Brain):
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         # Compute/store important stats
-        stage_stats = {"si-snr": stage_loss}
+        stage_stats = {"error": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
 
@@ -267,7 +254,7 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                meta={"error": stage_stats["error"]}, min_keys=["error"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -748,5 +735,5 @@ if __name__ == "__main__":
         )
 
     # Eval
-    snrestimator.evaluate(test_data, min_key="si-snr")
+    snrestimator.evaluate(test_data, min_key="error")
     snrestimator.save_results(test_data)
