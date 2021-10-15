@@ -396,7 +396,7 @@ class DynamicBatchSampler(Sampler):
         buckets of highest padding among other buckets;
         until total remaining padding < max_batch_length.
     num_quantiles : int
-        If set, the sampler will map the distribution density function to a standard normal pdf,
+        If set, the sampler will map the distribution density function to a standard lognormal pdf,
         create num_quantiles quantile bins there, and return the corresponding duration values.
         This overrides left_bucket_length and bucket_length_multiplier parameters.
     drop_last : bool
@@ -452,7 +452,7 @@ class DynamicBatchSampler(Sampler):
 
         if num_quantiles is not None:
             self._bucket_boundaries = np.array(
-                self._get_boundaries_through_warped_gaussian(
+                self._get_boundaries_through_warping(
                     max_batch_length=max_batch_length,
                     bucket_boundaries=bucket_boundaries,
                     num_quantiles=num_quantiles,
@@ -511,7 +511,7 @@ class DynamicBatchSampler(Sampler):
     def get_durations(self, batch):
         return [self._dataset.data[str(idx)]['duration'] for idx in batch]
 
-    def _get_boundaries_through_warped_gaussian(
+    def _get_boundaries_through_warping(
             self,
             max_batch_length: int,
             bucket_boundaries: List[int],
@@ -519,31 +519,17 @@ class DynamicBatchSampler(Sampler):
     ) -> List[int]:
         # the following lines do not cover that there is only one example in the dataset
         if not bucket_boundaries:
-            # warp frames (duration) distribution of train data to standard Gaussian
-            logger.info('Batch quantisation in latent Gaussian')
-            # consider examples only of relevant length (not too long)
-            num_frames = np.asarray([duration for duration in self._ex_lengths.values() if duration < max_batch_length])
-            # arg sort them for warping integrals
-            arg_idx = np.argsort(num_frames)
-            # normalise (sorted) frames by their integral; make them relative likelihoods for their density estimate
-            total_frames = sum(num_frames)
-            relative_durations = num_frames[arg_idx] / total_frames
-            # prepare quantile warping
-            from scipy.stats import norm
-            # get quantiles of dataset's cdf
-            quantiles = norm.ppf(relative_durations.cumsum())
-            # default value for quantile_step as avg gap between quantiles
-            if num_quantiles is None:  # take average step; last element is `nan`
-                num_quantiles = 20  # some tractable number...
-            # latent quantisation & their idx
-            latent_boundaries = np.linspace(quantiles[0], quantiles[-2], num_quantiles+1)
-            latent_boundaries_idx = [np.searchsorted(quantiles, x) for x in latent_boundaries[1:]]
-            # find nearest relative duration
-            bucket_boundaries = relative_durations[latent_boundaries_idx] * total_frames
-        logger.info('Latent bucket boundary - left: {} - multipliers: {}'.format(
-            bucket_boundaries[0],
-            [bucket_boundaries[x+1] / bucket_boundaries[x]
-             for x in range(num_quantiles-1)]
+            # warp frames (duration) distribution of train data
+            logger.info('Batch quantisation in latent space')
+            # use lognormal distribution
+            from scipy.stats import lognorm
+            # get quantiles
+            quantiles = lognorm.ppf(np.linspace(1 / (num_quantiles+1), num_quantiles / (num_quantiles+1), num_quantiles), 1)
+            # scale up to to max_batch_length
+            bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
+        logger.info('Latent bucket boundary - buckets: {} - length multipliers: {}'.format(
+            list(map('{:.2f}'.format, bucket_boundaries)),
+            list(map('{:.2f}'.format, [bucket_boundaries[x+1] / bucket_boundaries[x] for x in range(num_quantiles-1)]))
         ))
         return list(sorted(bucket_boundaries))
 
@@ -680,7 +666,7 @@ class DynamicBatchSampler(Sampler):
             # logging
             logger.info(
                 ("DynamicBatchSampler: Created {} batches, {} buckets used" +
-                 " - with remaining frame paddings: min/µ/max ({}, {}, {}) and total/σ ({}, {}).").format(
+                 " - with remaining frame paddings: min/µ/max ({:.2f}, {:.2f}, {:.2f}) and total/σ ({:.2f}, {:.2f}).").format(
                     len(self._batches), len(self._bucket_boundaries),
                     remaining_padding.min(), remaining_padding.mean(), remaining_padding.max(),
                     remaining_padding.sum(), remaining_padding.std(),
@@ -689,7 +675,7 @@ class DynamicBatchSampler(Sampler):
             boundaries = [0] + self._bucket_boundaries.tolist()
             for i in range(len(self._bucket_boundaries)):
                 logger.info(
-                    "DynamicBatchSampler: Bucket {} with boundary {}-{} and batch_size {} has {} examples.".format(
+                    "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and batch_size {} has {} examples.".format(
                         i,
                         np.around(boundaries[i], 2),
                         np.around(boundaries[i + 1], 2),
@@ -697,10 +683,10 @@ class DynamicBatchSampler(Sampler):
                         bucket_stats[i],
                     )
                 )
+            padding_details = "Batch {} with {:.1f} frames in {} files - {:.1f} padding remains."
             if self._reduce_padding_afterwards:
-                padding_details = "DynamicBatchSampler: (post re-assigns) Batch {} with {} frames in {} files - {} padding remains."
-            else:
-                padding_details = "DynamicBatchSampler: Batch {} with {} frames in {} files - {} padding remains."
+                padding_details = "(post re-assigns) " + padding_details
+            padding_details = "DynamicBatchSampler: " + padding_details
             for i in range(len(batch_frames)):
                 logger.info(
                     padding_details.format(

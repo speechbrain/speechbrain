@@ -40,6 +40,7 @@ Authors
  * Abdel Heba 2020
  * Peter Plantinga 2020
  * Samuele Cornell 2020
+ * Andreas Nautsch 2021
 """
 
 import os
@@ -168,7 +169,7 @@ class ASR(sb.Brain):
             assert isinstance(batch, PaddedBatch)
             assert isinstance(self.train_sampler, DynamicBatchSampler)
             durations = self.train_sampler.get_durations(batch.__dict__['id'])
-            logger.info('Something went wrong in this batch: {} - check durations ({}s in total): {}'.format(
+            logger.info('Something went wrong in this batch: {} - check durations ({:.2f}s in total): {:.2f}'.format(
                 batch.__dict__['id'],
                 sum(durations),
                 durations
