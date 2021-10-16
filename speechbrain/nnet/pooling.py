@@ -256,9 +256,9 @@ class StatisticsPooling(nn.Module):
         self.return_std = return_std
         if not (self.return_mean or self.return_std):
             raise ValueError(
-                    "both of statistics are equal to False \n"
-                    "consider enabling mean and/or std statistic pooling"
-                )
+                "both of statistics are equal to False \n"
+                "consider enabling mean and/or std statistic pooling"
+            )
 
     def forward(self, x, lengths=None):
         """Calculates mean and std for a batch (input tensor).
@@ -285,7 +285,7 @@ class StatisticsPooling(nn.Module):
                     mean.append(
                         torch.mean(x[snt_id, 1 : actual_size - 1, ...], dim=0)
                     )
-                if slef.return_std:
+                if self.return_std:
                     std.append(
                         torch.std(x[snt_id, 1 : actual_size - 1, ...], dim=0)
                     )
