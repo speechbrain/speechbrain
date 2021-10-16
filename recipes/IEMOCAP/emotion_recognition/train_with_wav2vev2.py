@@ -25,8 +25,7 @@ class EmoIdBrain(sb.Brain):
         outputs = self.modules.wav2vec2(wavs)
 
         # last dim will be used for AdaptativeAVG pool
-        outputs = outputs.permute(0, 2, 1)
-        outputs = self.hparams.avg_pool(outputs)
+        outputs = self.hparams.avg_pool(outputs, lens)
         outputs = outputs.view(outputs.shape[0], -1)
 
         outputs = self.modules.output_mlp(outputs)
@@ -41,7 +40,6 @@ class EmoIdBrain(sb.Brain):
         """to meet the input form of nll loss"""
         emoid = emoid.squeeze(1)
         loss = self.hparams.compute_cost(predictions, emoid)
-
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(batch.id, predictions, emoid)
 

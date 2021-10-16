@@ -12,7 +12,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_original: !PLACEHOLDER  # e.g., /workspace/data/IEMOCAP/IEMOCAP_full_release/Session
 # Data prepare function will create a modified dataset with structured data
 data_folder: !PLACEHOLDER # e.g, /workspace/data/IEMOCAP/IEMOCAP_ahsn_leave-two-speaker-out
-output_folder: !ref results/test/<seed>
+output_folder: !ref results/wav2vec2_base_fold1/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -68,8 +68,8 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
     save_path: !ref <save_folder>/wav2vec2_checkpoint
 
-avg_pool: !new:torch.nn.AdaptiveAvgPool1d
-    output_size: 1
+avg_pool: !new:speechbrain.nnet.pooling.StatisticsPooling
+    return_std: False
 
 output_mlp: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <encoder_dim>
