@@ -20,15 +20,14 @@ try:
     from transformers import Wav2Vec2Config, HubertConfig
     from transformers import Wav2Vec2FeatureExtractor
 except ImportError:
-    print("Please install transformer from HuggingFace to use wav2vec2/Hubert !")
+    print(
+        "Please install transformer from HuggingFace to use wav2vec2/Hubert !"
+    )
 
-HF_models = {"wav2vec2": Wav2Vec2Model,
-             "hubert": HubertModel,
-            }
+HF_models = {"wav2vec2": Wav2Vec2Model, "hubert": HubertModel}
 
-HF_config = {"wav2vec2": Wav2Vec2Config,
-             "hubert": HubertConfig,
-            }
+HF_config = {"wav2vec2": Wav2Vec2Config, "hubert": HubertConfig}
+
 
 class HuggingFaceWav2Vec2(nn.Module):
     """This lobe enables the integration of HuggingFace
@@ -108,9 +107,7 @@ class HuggingFaceWav2Vec2(nn.Module):
             config = config.from_pretrained(source, cache_dir=save_path)
             self.model = model(config)
         else:
-            self.model = model.from_pretrained(
-                source, cache_dir=save_path
-            )
+            self.model = model.from_pretrained(source, cache_dir=save_path)
 
         # set apply_spec_augment
         self.model.config.apply_spec_augment = apply_spec_augment
