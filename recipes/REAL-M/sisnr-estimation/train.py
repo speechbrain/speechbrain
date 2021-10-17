@@ -87,11 +87,12 @@ class Separation(sb.Brain):
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
 
-        # Separation
+        # randomly select the separator to use, and separate
         with torch.no_grad():
             separator_model = np.random.choice(self.all_separators)
             predictions = separator_model.separate_batch(mix)
 
+        # normalize the separation results
         if hasattr(self.hparams, "separation_norm_type"):
             if self.hparams.separation_norm_type == "max":
                 predictions = (
@@ -109,17 +110,21 @@ class Separation(sb.Brain):
             else:
                 raise ValueError("Unknown type of normalization")
 
-        # added part
+        # calculate oracle sisnrs
         snr = self.compute_oracle_sisnrs(predictions, targets)
         snr = snr.to(self.device)
+
+        # compress the si-snr values to 0-1 range
         if self.hparams.use_snr_compression:
             snr_compressed = self.compress_snrrange(snr)
         predictions = predictions.permute(0, 2, 1)
         predictions = predictions.reshape(-1, predictions.size(-1))
 
+        # make sure signal lengths do not change
         min_T = min(predictions.shape[1], mix.shape[1])
         assert predictions.shape[1] == mix.shape[1], "lengths change"
 
+        # concat the mixtures to the separation results
         mix_repeat = mix.repeat(2, 1)
         inp_cat = torch.cat(
             [
@@ -129,10 +134,12 @@ class Separation(sb.Brain):
             dim=1,
         )
 
+        # get the encoder output and then calculate stats pooling
         enc = self.hparams.encoder(inp_cat)
         enc = enc.permute(0, 2, 1)
         enc_stats = self.hparams.stat_pooling(enc)
 
+        # get the si-snr estimate by passing through the output layers
         snrhat = self.hparams.encoder_out(enc_stats).squeeze()
         return predictions, snrhat, snr, snr_compressed
 
@@ -169,15 +176,13 @@ class Separation(sb.Brain):
         if self.hparams.auto_mix_prec:
             pass
         else:
+            # get the oracle snrs, estimated snrs, and the source estimates
             predictions, snrhat, snr, snr_compressed = self.compute_forward(
                 mixture, targets, sb.Stage.TRAIN, noise
             )
 
-            if self.hparams.use_snr_compression:
-                snr = snr.reshape(-1)
-                loss = ((snr_compressed - snrhat).abs()).mean()
-            else:
-                loss = ((snr - snrhat) ** 2).mean()
+            snr = snr.reshape(-1)
+            loss = ((snr_compressed - snrhat).abs()).mean()
 
             if (
                 loss < self.hparams.loss_upper_lim and loss.nelement() > 0
