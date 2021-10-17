@@ -342,21 +342,14 @@ class Separation(sb.Brain):
                 self.reset_layer_recursively(child_layer)
 
     def save_results(self, test_data):
-        """This script computes the SDR and SI-SNR metrics and saves
-        them into a csv file"""
-
-        # This package is required for SDR computation
-        # from mir_eval.separation import bss_eval_sources
+        """
+        This function calculates the oracle si-snrs and the estimated si-snr on the test set of WHAMR! dataset, and writes these results into a csv file
+        """
 
         # Create folders where to store audio
-        if self.hparams.test_onwsj:
-            save_file = os.path.join(
-                self.hparams.output_folder, "test_results_wsj.csv"
-            )
-        else:
-            save_file = os.path.join(
-                self.hparams.output_folder, "test_results_libri.csv"
-            )
+        save_file = os.path.join(
+            self.hparams.output_folder, "test_results_wsj.csv"
+        )
 
         # Variable init
         all_sisnr1s = []
