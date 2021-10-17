@@ -623,12 +623,21 @@ if __name__ == "__main__":
         from recipes.LibriMix.separation.dynamic_mixing import (
             dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
         )
-        from whamr_dynamic_mixing import (
+        from recipes.WHAMandWHAMR.separation.dynamic_mixing import (
             dynamic_mix_data_prep as dynamic_mix_data_prep_whamr,
         )
 
         if hparams["use_whamr_train"]:
-            train_data_whamr = dynamic_mix_data_prep_whamr(hparams)
+            train_data_whamr = dynamic_mix_data_prep_whamr(
+                tr_csv=hparams["train_whamr_data"],
+                data_root_folder=hparams["whamr_data_folder"],
+                base_folder_dm=hparams["base_folder_dm_whamr"],
+                sample_rate=hparams["sample_rate"],
+                num_spks=hparams["num_spks"],
+                max_training_signal_len=hparams["training_signal_len"],
+                batch_size=hparams["dataloader_opts"]["batch_size"],
+                num_workers=hparams["dataloader_opts"]["num_workers"],
+            )
             hparams["train_whamr_loader"] = it.cycle(iter(train_data_whamr))
 
         # if the base_folder for dm is not processed, preprocess them
@@ -683,46 +692,44 @@ if __name__ == "__main__":
     from speechbrain.pretrained.interfaces import fetch
 
     all_separators = []
-    for model in ["sepformer", "dprnn", "convtasnet"]:
-        for n_model in range(1, hparams["num_separators_per_model"] + 1):
-            model_prefix = model + str(n_model)
-            fetch(
-                model_prefix + "_encoder.ckpt",
-                source="speechbrain/REAL-M-sisnr-estimator",
-                savedir=model_prefix,
-                save_filename="encoder.ckpt",
-            )
+    for separator_model in hparams["separators_to_use"]:
+        fetch(
+            separator_model + "_encoder.ckpt",
+            source="speechbrain/REAL-M-sisnr-estimator",
+            savedir=separator_model,
+            save_filename="encoder.ckpt",
+        )
 
-            fetch(
-                model_prefix + "_decoder.ckpt",
-                source="speechbrain/REAL-M-sisnr-estimator",
-                savedir=model_prefix,
-                save_filename="decoder.ckpt",
-            )
+        fetch(
+            separator_model + "_decoder.ckpt",
+            source="speechbrain/REAL-M-sisnr-estimator",
+            savedir=separator_model,
+            save_filename="decoder.ckpt",
+        )
 
-            fetch(
-                model_prefix + "_masknet.ckpt",
-                source="speechbrain/REAL-M-sisnr-estimator",
-                savedir=model_prefix,
-                save_filename="masknet.ckpt",
-            )
+        fetch(
+            separator_model + "_masknet.ckpt",
+            source="speechbrain/REAL-M-sisnr-estimator",
+            savedir=separator_model,
+            save_filename="masknet.ckpt",
+        )
 
-            fetch(
-                model_prefix + "_hyperparams.yaml",
-                source="speechbrain/REAL-M-sisnr-estimator",
-                savedir=model_prefix,
-                save_filename="hyperparams.yaml",
-            )
+        fetch(
+            separator_model + "_hyperparams.yaml",
+            source="speechbrain/REAL-M-sisnr-estimator",
+            savedir=separator_model,
+            save_filename="hyperparams.yaml",
+        )
 
-            separator_model = separator.from_hparams(
-                source=model_prefix,
-                run_opts={"device": "cuda"},
-                savedir=model_prefix,
-            )
+        separator_loaded = separator.from_hparams(
+            source=separator_model,
+            run_opts={"device": "cuda"},
+            savedir=separator_model,
+        )
 
-            all_separators.append(separator_model)
+        all_separators.append(separator_loaded)
 
-        snrestimator.all_separators = all_separators
+    snrestimator.all_separators = all_separators
 
     if not hparams["test_only"]:
         # Training
