@@ -34,7 +34,7 @@ class EmoIdBrain(sb.Brain):
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
-        embeddings = self.modules.embedding_model(feats)
+        embeddings = self.modules.embedding_model(feats, lens)
         outputs = self.modules.classifier(embeddings)
 
         return outputs
