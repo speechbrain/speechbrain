@@ -21,7 +21,7 @@ from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
 
 
-class Pretrained:
+class Pretrained(torch.nn.Module):
     """Takes a trained model and makes predictions on new data.
 
     This is a base class which handles some common boilerplate.
@@ -31,6 +31,12 @@ class Pretrained:
     Subclasses of Pretrained should implement the actual logic of how
     the pretrained system runs, and add methods with descriptive names
     (e.g. transcribe_file() for ASR).
+
+    Pretrained is a torch.nn.Module so that methods like .to() or .eval() can
+    work. Subclasses should provide a suitable forward() implementation: by
+    convention, it should be a method that takes a batch of audio signals and
+    runs the full model (as applicable).
+
 
     Arguments
     ---------
@@ -319,10 +325,7 @@ class EndToEndSLU(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        with torch.no_grad():
-            ASR_encoder_out = self.asr_model.encode_batch(
-                wavs.detach(), wav_lens
-            )
+        ASR_encoder_out = self.asr_model.encode_batch(wavs.detach(), wav_lens)
         encoder_out = self.modules.slu_enc(ASR_encoder_out)
         return encoder_out
 
@@ -358,6 +361,10 @@ class EndToEndSLU(Pretrained):
                 for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full decoding - note: no gradients through decoding"""
+        return self.decode_batch(wavs, wav_lens)
 
 
 class EncoderDecoderASR(Pretrained):
@@ -476,6 +483,10 @@ class EncoderDecoderASR(Pretrained):
             ]
         return predicted_words, predicted_tokens
 
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
+
 
 class EncoderASR(Pretrained):
     """A ready-to-use Encoder ASR model
@@ -590,6 +601,10 @@ class EncoderASR(Pretrained):
                 for token_seq in predictions
             ]
         return predicted_words, predictions
+
+    def forward(self, wavs, wav_lens):
+        """Runs the encoder"""
+        return self.encode_batch(wavs, wav_lens)
 
 
 class EncoderClassifier(Pretrained):
@@ -748,6 +763,10 @@ class EncoderClassifier(Pretrained):
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
+
+    def forward(self, wavs, wav_lens=None):
+        """Runs the classification"""
+        return self.classify_batch(wavs, wav_lens)
 
 
 class SpeakerRecognition(EncoderClassifier):
@@ -1771,6 +1790,10 @@ class VAD(Pretrained):
 
         return boundaries
 
+    def forward(self, wavs, wav_lens=None):
+        """Gets frame-level speech-activity predictions"""
+        return self.get_speech_prob_chunk(wavs, wav_lens)
+
 
 class SepformerSeparation(Pretrained):
     """A "ready-to-use" speech separation model.
@@ -1869,6 +1892,10 @@ class SepformerSeparation(Pretrained):
         est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
         return est_sources
 
+    def forward(self, mix):
+        """Runs separation on the input mix"""
+        return self.separate_batch(mix)
+
 
 class SpectralMaskEnhancement(Pretrained):
     """A ready-to-use model for speech enhancement.
@@ -1956,3 +1983,7 @@ class SpectralMaskEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+    def forward(self, noisy, lengths=None):
+        """Runs enhancement on the noisy input"""
+        return self.separate_batch(noisy, lengths)
