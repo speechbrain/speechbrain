@@ -16,7 +16,6 @@ from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.processing.features import STFT, Filterbank, ContextWindow, DCT, InputNormalization
 from speechbrain.processing.features import spectral_magnitude, Deltas
-
 import csv
 
 """Recipe for training a multi-task self supervised learning model.
@@ -91,11 +90,11 @@ class SSL(sb.core.Brain):
         target_melf, target_mfcc, target_gammatone = other_targets
         # Loading the inloop targets
         self.workers_target = {
-    "gammatone": target_gammatone,
-    "melfs": target_melf,
-     "mfcc": target_mfcc}
+        "gammatone": target_gammatone,
+        "melfs": target_melf,
+        "mfcc": target_mfcc}
         exoworkers = [x for x in self.considered_workers if x not in ["melfs", "gammatone",
-                                                                 "mfcc"]]
+                                                                        "mfcc"]]
         # exoworkers : workers whose labels come from the csv files, and not
         # from in-loop computation
         if len(exoworkers) > 0:
@@ -104,15 +103,13 @@ class SSL(sb.core.Brain):
             Nb = len(batch.workers_targets)
             for ind, worker in enumerate(exoworkers):
                 if worker not in ["melfs", "mfcc", "gammatone"]:
-                    worker_values = [
-    workers_targets_values[i][worker] for i in range(Nb)]
+                    worker_values = [workers_targets_values[i][worker] for i in range(Nb)]
                     worker_values = pad_sequence(worker_values)
                     self.workers_target[worker] = torch.transpose(
                         torch.tensor(worker_values), 0, 1)
         workers_loss = dict()
         for worker in self.considered_workers:
-            workers_loss[worker] = self.workers_losses[worker]()(predictions[worker],
-                                                             self.workers_target[worker].to(self.device))
+            workers_loss[worker] = self.workers_losses[worker]()(predictions[worker],self.workers_target[worker].to(self.device))
         self.workers_loss = workers_loss
         workers_weights = self.hparams.workers_weights
         for x in workers_loss:
@@ -134,7 +131,7 @@ class SSL(sb.core.Brain):
             batch, sb.Stage.TRAIN)
         other_targets = [feats, mfcc, gammatone]
         loss, workers_loss = self.compute_objectives(
-    predictions, batch, other_targets, sb.Stage.TRAIN)
+            predictions, batch, other_targets, sb.Stage.TRAIN)
         loss.backward()
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -267,13 +264,13 @@ def dataio_prepare(hparams):
 
 if __name__ == "__main__":
 
-        # Load hyperparameters file with command-line overrides
+    # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-   # Defining the mfcc if needed :
-   if "mfcc" in hparams["workers"] :
+    # Defining the mfcc if needed :
+    if "mfcc" in hparams["workers"] :
        compute_STFT = STFT(
              sample_rate=hparams["sample_rate"], win_length=25, hop_length=10, n_fft=hparams["n_fft"]
             ).to(hparams["device"])
