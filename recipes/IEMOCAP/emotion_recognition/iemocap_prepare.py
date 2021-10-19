@@ -327,6 +327,10 @@ def load_utterInfo(inputFile):
     """
     Load utterInfo from original IEMOCAP database
     """
+
+    # this regx allow to create a list with:
+    # [START_TIME - END_TIME] TURN_NAME EMOTION [V, A, D]
+    # [V, A, D] means [Valence, Arousal, Dominance]
     pattern = re.compile(
         "[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
         re.IGNORECASE,
