@@ -626,6 +626,45 @@ if __name__ == "__main__":
         )
 
         if hparams["use_whamr_train"]:
+
+            if "processed" not in hparams["base_folder_dm_whamr"]:
+                # if the processed folder does not exist for whamr dynamic mixing, we do the necessary preprocessing
+
+                if not os.path.exists(
+                    os.path.normpath(hparams["base_folder_dm_whamr"])
+                    + "_processed"
+                ):
+                    from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
+                        resample_folder,
+                    )
+
+                    print("Resampling the base folder")
+                    run_on_main(
+                        resample_folder,
+                        kwargs={
+                            "input_folder": hparams["base_folder_dm_whamr"],
+                            "output_folder": os.path.normpath(
+                                hparams["base_folder_dm_whamr"]
+                            )
+                            + "_processed",
+                            "fs": hparams["sample_rate"],
+                            "regex": "**/*.wav",
+                        },
+                    )
+                    # adjust the base_folder_dm path
+                    hparams["base_folder_dm_whamr"] = (
+                        os.path.normpath(hparams["base_folder_dm_whamr"])
+                        + "_processed"
+                    )
+                else:
+                    print(
+                        "Using the existing processed folder on the same directory as base_folder_dm"
+                    )
+                    hparams["base_folder_dm_whamr"] = (
+                        os.path.normpath(hparams["base_folder_dm_whamr"])
+                        + "_processed"
+                    )
+
             train_data_whamr = dynamic_mix_data_prep_whamr(
                 tr_csv=hparams["train_whamr_data"],
                 data_root_folder=hparams["whamr_data_folder"],
@@ -638,7 +677,7 @@ if __name__ == "__main__":
             )
             hparams["train_whamr_loader"] = it.cycle(iter(train_data_whamr))
 
-        # if the base_folder for dm is not processed, preprocess them
+        # if the base_folder for dm is not processed for LibriMix, preprocess it
         if "processed" not in hparams["base_folder_dm"]:
             # if the processed folder already exists we just use it otherwise we do the preprocessing
             if not os.path.exists(

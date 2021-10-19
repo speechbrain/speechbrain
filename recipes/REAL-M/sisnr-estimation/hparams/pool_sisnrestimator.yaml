@@ -19,7 +19,8 @@ data_folder: !PLACEHOLDER
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
 
-# base folder for librimix an example path is given below
+# base folder for the training part of librimix
+# an example path is given below
 base_folder_dm: /yourpath/LibriSpeech/train-clean-360_processed/
 
 # base folder for RIRs to be used
@@ -33,9 +34,12 @@ train_data: !ref <save_folder>/libri2mix_train-360.csv
 valid_data: !ref <save_folder>/libri2mix_dev.csv
 test_data: !ref <save_folder>/libri2mix_test.csv
 
-# the data folder for the whamr dataset
+# the root data folder for the whamr dataset
+# the rest of the path is figured out according to sample_rate
 # an example path is given below
 whamr_data_folder: /yourpath/whamr
+
+# the paths where csv files will be save for the WHAMR! dataset
 train_whamr_data: !ref <save_folder>/whamr_tr.csv
 valid_whamr_data: !ref <save_folder>/whamr_cv.csv
 test_whamr_data: !ref <save_folder>/whamr_tt.csv
