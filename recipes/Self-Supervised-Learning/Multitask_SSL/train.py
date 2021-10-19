@@ -14,7 +14,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.features import STFT, Filterbank, ContextWindow,DCT, InputNormalization
+from speechbrain.processing.features import STFT, Filterbank, ContextWindow, DCT, InputNormalization
 from speechbrain.processing.features import spectral_magnitude, Deltas
 
 import csv
@@ -25,7 +25,7 @@ To run this recipe, do the following:
 > python train.py hparams/train.yaml
 With the default hyperparameters, the system employs a CRDNN encoder.
 
-Authors : 
+Authors :
     Salah Zaiem
     Titouan Parcollet
 
@@ -33,32 +33,34 @@ Authors :
 
 
 logger = logging.getLogger(__name__)
-  
+
 # Define training procedure
+
+
 class SSL(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        #print(batch.Loudness_sma2[0].size())
+        # print(batch.Loudness_sma2[0].size())
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         self.considered_workers = self.hparams.workers
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-        if "gammatone" in self.considered_workers : 
+        if "gammatone" in self.considered_workers:
             gammafeats = gammatone_filter(wavs)
-            gammafeats = torch.reshape(gammafeats, (feats.size()[0], -1,64))
-        else : 
-            gammafeats = 0 
+            gammafeats = torch.reshape(gammafeats, (feats.size()[0], -1, 64))
+        else:
+            gammafeats = 0
         feats = self.modules.normalize(feats, wav_lens)
-        if "mfcc" in self.considered_workers: 
+        if "mfcc" in self.considered_workers:
             mfcc_feats = MFCC(wavs)
             mfcc_feats = self.modules.mfcc_normalizer(mfcc_feats, wav_lens)
 
-        else : 
+        else:
             mfcc_feats = 0
-        #We only compute mfccs and gammatones if specified in the yaml in the list of workers
-        ## Add augmentation if specified
+        # We only compute mfccs and gammatones if specified in the yaml in the list of workers
+        # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
                 feats = self.hparams.augmentation(feats)
@@ -67,65 +69,72 @@ class SSL(sb.core.Brain):
         # We detach as we don't need the features to be on the backward graph
         z = self.modules.enc(feats.detach())
         workers_predictions = dict()
-        for worker in self.considered_workers : 
-            workers_predictions[worker] = self.workers_regressors[worker](z) 
-        for worker in self.considered_workers : 
-            if worker not in signal_workers: 
-                #The mean is used mainly for workers that yield one value per speech sample (e.g. speaker age, sample quality ... )  
-                workers_predictions[worker] =torch.mean(workers_predictions[worker], dim=1)
-            else :
+        for worker in self.considered_workers:
+            workers_predictions[worker] = self.workers_regressors[worker](z)
+        for worker in self.considered_workers:
+            if worker not in signal_workers:
+                # The mean is used mainly for workers that yield one value per
+                # speech sample (e.g. speaker age, sample quality ... )
+                workers_predictions[worker] = torch.mean(
+                    workers_predictions[worker], dim=1)
+            else:
 
-                workers_predictions[worker]=torch.squeeze(workers_predictions[worker])
+                workers_predictions[worker] = torch.squeeze(
+                    workers_predictions[worker])
         return workers_predictions, feats, mfcc_feats, gammafeats
 
-
-    def compute_objectives(self, predictions, batch,other_targets, stage):
-        #Load prediction 
-        for signal_worker in signal_workers : 
-            if signal_worker in self.considered_workers : 
-                self.workers_losses[signal_worker] =self.hparams.regression_loss
+    def compute_objectives(self, predictions, batch, other_targets, stage):
+        # Load prediction
+        for signal_worker in signal_workers:
+            if signal_worker in self.considered_workers:
+                self.workers_losses[signal_worker] = self.hparams.regression_loss
         target_melf, target_mfcc, target_gammatone = other_targets
-        #Loading the inloop targets
-        self.workers_target={"gammatone" : target_gammatone, "melfs" : target_melf, "mfcc": target_mfcc}
-        exoworkers = [x for x in self.considered_workers if x not in ["melfs","gammatone",
+        # Loading the inloop targets
+        self.workers_target = {
+    "gammatone": target_gammatone,
+    "melfs": target_melf,
+     "mfcc": target_mfcc}
+        exoworkers = [x for x in self.considered_workers if x not in ["melfs", "gammatone",
                                                                  "mfcc"]]
-        #exoworkers : workers whose labels come from the csv files, and not from in-loop computation
-        if len(exoworkers)>0 : 
+        # exoworkers : workers whose labels come from the csv files, and not
+        # from in-loop computation
+        if len(exoworkers) > 0:
 
             workers_targets_values = batch.workers_targets
-            Nb= len(batch.workers_targets)
-            for ind,worker in enumerate(exoworkers) : 
-                if worker not in ["melfs", "mfcc", "gammatone"] : 
-                    worker_values = [workers_targets_values[i][worker] for i in range(Nb)]
+            Nb = len(batch.workers_targets)
+            for ind, worker in enumerate(exoworkers):
+                if worker not in ["melfs", "mfcc", "gammatone"]:
+                    worker_values = [
+    workers_targets_values[i][worker] for i in range(Nb)]
                     worker_values = pad_sequence(worker_values)
-                    self.workers_target[worker] = torch.transpose(torch.tensor(worker_values),0,1)
-        workers_loss=dict()
-        for worker in self.considered_workers : 
+                    self.workers_target[worker] = torch.transpose(
+                        torch.tensor(worker_values), 0, 1)
+        workers_loss = dict()
+        for worker in self.considered_workers:
             workers_loss[worker] = self.workers_losses[worker]()(predictions[worker],
                                                              self.workers_target[worker].to(self.device))
         self.workers_loss = workers_loss
         workers_weights = self.hparams.workers_weights
-        for x in workers_loss : 
-            if x not in workers_weights: 
-                workers_weights[x] =1
-        #Weighting the losses of the workers
-        losses = [workers_loss[x] * workers_weights[x] for x in workers_loss] 
-        #Summing the Losses from every worker
+        for x in workers_loss:
+            if x not in workers_weights:
+                workers_weights[x] = 1
+        # Weighting the losses of the workers
+        losses = [workers_loss[x] * workers_weights[x] for x in workers_loss]
+        # Summing the Losses from every worker
         final_loss = losses[0]
         for i in range(1, len(losses)):
-            final_loss+= losses[i] 
+            final_loss += losses[i]
         return final_loss, workers_loss
-
-
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        self.hparams.batch_counter +=1
+        self.hparams.batch_counter += 1
 
-
-        predictions, feats,  mfcc, gammatone = self.compute_forward(batch, sb.Stage.TRAIN)
+        predictions, feats, mfcc, gammatone = self.compute_forward(
+            batch, sb.Stage.TRAIN)
         other_targets = [feats, mfcc, gammatone]
-        loss, workers_loss = self.compute_objectives(predictions, batch, other_targets, sb.Stage.TRAIN)
+        loss, workers_loss = self.compute_objectives(
+    predictions, batch, other_targets, sb.Stage.TRAIN)
         loss.backward()
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -134,14 +143,17 @@ class SSL(sb.core.Brain):
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
-        predictions,feats,  mfcc, gammatone = self.compute_forward(batch, stage=stage)
+        predictions, feats, mfcc, gammatone = self.compute_forward(
+            batch, stage=stage)
         other_targets = [feats, mfcc, gammatone]
         with torch.no_grad():
-            final_loss, losses = self.compute_objectives(predictions, batch,other_targets, stage=stage)
+            final_loss, losses = self.compute_objectives(
+                predictions, batch, other_targets, stage=stage)
         return final_loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
+
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
@@ -158,7 +170,6 @@ class SSL(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only()
-
 
 
 # Define custom data procedure
@@ -213,6 +224,7 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
     # 2. Define audio pipeline:
+
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
@@ -224,27 +236,27 @@ def dataio_prepare(hparams):
         return resampled
     needed_workers = [x for x in hparams["workers"] if x not in ["melfs",
                                                                  "gammatone", "mfcc"]]
-   
-    if len(needed_workers)>0 : 
+
+    if len(needed_workers) > 0:
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-        #Defining the csv reading pipeline
+        # Defining the csv reading pipeline
+
         @sb.utils.data_pipeline.takes("csv_path")
         @sb.utils.data_pipeline.provides("workers_targets")
-        def csv_pipeline(csv): 
+        def csv_pipeline(csv):
             workers_values = []
             feats = {}
             csv_tab = pd.read_pickle(csv)
-            for worker in needed_workers : 
+            for worker in needed_workers:
                 feats[worker] = torch.tensor(csv_tab[worker])
             return feats
-             
- 
+
         sb.dataio.dataset.add_dynamic_item(datasets, csv_pipeline)
         # 4. set output:
         sb.dataio.dataset.set_output_keys(
             datasets, ["id", "sig", "workers_targets"],
         )
-    else : 
+    else:
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
         sb.dataio.dataset.set_output_keys(
@@ -252,15 +264,15 @@ def dataio_prepare(hparams):
         )
     return train_data, valid_data, test_data
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
 
         # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-   
-   #Defining the mfcc if needed : 
+
+   # Defining the mfcc if needed :
    if "mfcc" in hparams["workers"] :
        compute_STFT = STFT(
              sample_rate=hparams["sample_rate"], win_length=25, hop_length=10, n_fft=hparams["n_fft"]
@@ -312,7 +324,7 @@ if __name__ == "__main__":
         opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],
     )
-    #Defining the workers regressors and losses
+    # Defining the workers regressors and losses
     ssl_brain.workers_regressors = {"age": ssl_brain.modules.age, "gen" : ssl_brain.modules.gen,
                                    "melfs": ssl_brain.modules.dec, "accent":ssl_brain.modules.accent,
                                    "quality" :ssl_brain.modules.quality,
@@ -351,7 +363,7 @@ if __name__ == "__main__":
     ssl_brain.modules.enc.DNN.block_1.dropout.p=0.0
 
     # Adding objects to trainer.
-    #print(train_data.data)
+    # print(train_data.data)
     # Training
     ssl_brain.fit(
         ssl_brain.hparams.epoch_counter,
