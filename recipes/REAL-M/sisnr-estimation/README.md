@@ -27,12 +27,10 @@ It takes about 5 hours for each epoch on a RTX8000 (48GB).
 You can find the pre-trained model with an easy-inference function on HuggingFace:
 - https://huggingface.co/speechbrain/REAL-M-sisnr-estimator-main
 
-
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
-
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
