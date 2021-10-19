@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-import numpy as np
 import pandas as pd
-import os
 import sys
 from torch.nn.utils.rnn import pad_sequence
 import torch
@@ -11,9 +9,6 @@ import speechbrain as sb
 import torchaudio
 from utils import MFCC
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main
 from speechbrain.processing.features import (
     STFT,
     Filterbank,
@@ -22,7 +17,6 @@ from speechbrain.processing.features import (
     InputNormalization,
 )
 from speechbrain.processing.features import spectral_magnitude, Deltas
-import csv
 
 """Recipe for training a multi-task self supervised learning model.
 
@@ -52,11 +46,7 @@ class SSL(sb.core.Brain):
         self.considered_workers = self.hparams.workers
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-        if "gammatone" in self.considered_workers:
-            gammafeats = gammatone_filter(wavs)
-            gammafeats = torch.reshape(gammafeats, (feats.size()[0], -1, 64))
-        else:
-            gammafeats = 0
+        gammafeats = 0
         feats = self.modules.normalize(feats, wav_lens)
         if "mfcc" in self.considered_workers:
             mfcc_feats = MFCC(wavs)
@@ -266,7 +256,6 @@ def dataio_prepare(hparams):
         @sb.utils.data_pipeline.takes("csv_path")
         @sb.utils.data_pipeline.provides("workers_targets")
         def csv_pipeline(csv):
-            workers_values = []
             feats = {}
             csv_tab = pd.read_pickle(csv)
             for worker in needed_workers:
