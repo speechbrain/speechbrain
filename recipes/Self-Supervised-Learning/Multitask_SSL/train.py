@@ -14,7 +14,13 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.features import STFT, Filterbank, ContextWindow, DCT, InputNormalization
+from speechbrain.processing.features import (
+    STFT,
+    Filterbank,
+    ContextWindow,
+    DCT,
+    InputNormalization,
+)
 from speechbrain.processing.features import spectral_magnitude, Deltas
 import csv
 
@@ -75,26 +81,34 @@ class SSL(sb.core.Brain):
                 # The mean is used mainly for workers that yield one value per
                 # speech sample (e.g. speaker age, sample quality ... )
                 workers_predictions[worker] = torch.mean(
-                    workers_predictions[worker], dim=1)
+                    workers_predictions[worker], dim=1
+                )
             else:
 
                 workers_predictions[worker] = torch.squeeze(
-                    workers_predictions[worker])
+                    workers_predictions[worker]
+                )
         return workers_predictions, feats, mfcc_feats, gammafeats
 
     def compute_objectives(self, predictions, batch, other_targets, stage):
         # Load prediction
         for signal_worker in signal_workers:
             if signal_worker in self.considered_workers:
-                self.workers_losses[signal_worker] = self.hparams.regression_loss
+                self.workers_losses[
+                    signal_worker
+                ] = self.hparams.regression_loss
         target_melf, target_mfcc, target_gammatone = other_targets
         # Loading the inloop targets
         self.workers_target = {
-        "gammatone": target_gammatone,
-        "melfs": target_melf,
-        "mfcc": target_mfcc}
-        exoworkers = [x for x in self.considered_workers if x not in ["melfs", "gammatone",
-                                                                        "mfcc"]]
+            "gammatone": target_gammatone,
+            "melfs": target_melf,
+            "mfcc": target_mfcc,
+        }
+        exoworkers = [
+            x
+            for x in self.considered_workers
+            if x not in ["melfs", "gammatone", "mfcc"]
+        ]
         # exoworkers : workers whose labels come from the csv files, and not
         # from in-loop computation
         if len(exoworkers) > 0:
@@ -103,13 +117,18 @@ class SSL(sb.core.Brain):
             Nb = len(batch.workers_targets)
             for ind, worker in enumerate(exoworkers):
                 if worker not in ["melfs", "mfcc", "gammatone"]:
-                    worker_values = [workers_targets_values[i][worker] for i in range(Nb)]
+                    worker_values = [
+                        workers_targets_values[i][worker] for i in range(Nb)
+                    ]
                     worker_values = pad_sequence(worker_values)
                     self.workers_target[worker] = torch.transpose(
-                        torch.tensor(worker_values), 0, 1)
+                        torch.tensor(worker_values), 0, 1
+                    )
         workers_loss = dict()
         for worker in self.considered_workers:
-            workers_loss[worker] = self.workers_losses[worker]()(predictions[worker],self.workers_target[worker].to(self.device))
+            workers_loss[worker] = self.workers_losses[worker]()(
+                predictions[worker], self.workers_target[worker].to(self.device)
+            )
         self.workers_loss = workers_loss
         workers_weights = self.hparams.workers_weights
         for x in workers_loss:
@@ -128,10 +147,12 @@ class SSL(sb.core.Brain):
         self.hparams.batch_counter += 1
 
         predictions, feats, mfcc, gammatone = self.compute_forward(
-            batch, sb.Stage.TRAIN)
+            batch, sb.Stage.TRAIN
+        )
         other_targets = [feats, mfcc, gammatone]
         loss, workers_loss = self.compute_objectives(
-            predictions, batch, other_targets, sb.Stage.TRAIN)
+            predictions, batch, other_targets, sb.Stage.TRAIN
+        )
         loss.backward()
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -141,11 +162,13 @@ class SSL(sb.core.Brain):
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
         predictions, feats, mfcc, gammatone = self.compute_forward(
-            batch, stage=stage)
+            batch, stage=stage
+        )
         other_targets = [feats, mfcc, gammatone]
         with torch.no_grad():
             final_loss, losses = self.compute_objectives(
-                predictions, batch, other_targets, stage=stage)
+                predictions, batch, other_targets, stage=stage
+            )
         return final_loss.detach()
 
     def on_stage_start(self, stage, epoch):
@@ -231,8 +254,10 @@ def dataio_prepare(hparams):
             info.sample_rate, hparams["sample_rate"],
         )(sig)
         return resampled
-    needed_workers = [x for x in hparams["workers"] if x not in ["melfs",
-                                                                 "gammatone", "mfcc"]]
+
+    needed_workers = [
+        x for x in hparams["workers"] if x not in ["melfs", "gammatone", "mfcc"]
+    ]
 
     if len(needed_workers) > 0:
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
@@ -270,19 +295,24 @@ if __name__ == "__main__":
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Defining the mfcc if needed :
-    if "mfcc" in hparams["workers"] :
-       compute_STFT = STFT(
-             sample_rate=hparams["sample_rate"], win_length=25, hop_length=10, n_fft=hparams["n_fft"]
-            ).to(hparams["device"])
-         
+    if "mfcc" in hparams["workers"]:
+        compute_STFT = STFT(
+            sample_rate=hparams["sample_rate"],
+            win_length=25,
+            hop_length=10,
+            n_fft=hparams["n_fft"],
+        ).to(hparams["device"])
         compute_fbanks = Filterbank(n_mels=40).to(hparams["device"])
 
-        compute_cw = ContextWindow(left_frames=5, right_frames=5).to(hparams["device"])
+        compute_cw = ContextWindow(left_frames=5, right_frames=5).to(
+            hparams["device"]
+        )
         compute_mfccs = DCT(input_size=40, n_out=20).to(hparams["device"])
 
         compute_deltas = Deltas(input_size=20).to(hparams["device"])
         inputnorm = InputNormalization().to(hparams["device"])
-        def MFCC(signal) : 
+
+        def MFCC(signal):
             features = compute_STFT(signal)
             features = spectral_magnitude(features)
             features = compute_fbanks(features)
@@ -291,16 +321,14 @@ if __name__ == "__main__":
             delta1 = compute_deltas(features)
             delta2 = compute_deltas(delta1)
             features = torch.cat([features, delta1, delta2], dim=2)
-         
             return features
-
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Dataset preparation (parsing CommonVoice) uncomment if using Commonvoice
-    #from common_voice_prepare import prepare_common_voice  # noqa
+    # from common_voice_prepare import prepare_common_voice  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -322,42 +350,47 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     # Defining the workers regressors and losses
-    ssl_brain.workers_regressors = {"age": ssl_brain.modules.age, "gen" : ssl_brain.modules.gen,
-                                   "melfs": ssl_brain.modules.dec, "accent":ssl_brain.modules.accent,
-                                   "quality" :ssl_brain.modules.quality,
-                                   'F0semitoneFrom27.5Hz_sma3nz_amean': ssl_brain.modules.f0semitone,
-                               'jitterLocal_sma3nz_stddevNorm' :ssl_brain.modules.jitter,
-                               'F1bandwidth_sma3nz_stddevNorm' :ssl_brain.modules.f1std,
-                               'alphaRatioV_sma3nz_amean' :ssl_brain.modules.aratio,
-                               'MeanVoicedSegmentLengthSec':ssl_brain.modules.meanvoiced,
-                                   "Loudness_sma3": ssl_brain.modules.loudness,
-                                   "F0final_sma" : ssl_brain.modules.f0_lld,
-                                   "jitterLocal_sma": ssl_brain.modules.jitterLocal,
-                                   "voicingFinalUnclipped_sma" :ssl_brain.modules.voicing, 
-                                   "alphaRatio_sma3" :ssl_brain.modules.alpharatio_lld ,
-                                   "pcm_zcr_sma": ssl_brain.modules.pcmzcr,
-                                   "audspecRasta_lengthL1norm_sma" :ssl_brain.modules.audspec_rasta , 
-                                   "audspec_lengthL1norm_sma0":ssl_brain.modules.audspec_L1 ,
-                                   "shimmerLocal_sma": ssl_brain.modules.shimmerLocal,
-                                   "logHNR_sma" : ssl_brain.modules.loghnr,
-                                   "pcm_RMSenergy_sma": ssl_brain.modules.pcm,
-                                   "mfcc" :  ssl_brain.modules.mfcc,
-                                   "gammatone" : ssl_brain.modules.gammatone}
-    ssl_brain.workers_losses = {"age": ssl_brain.hparams.classification_loss,"gen":
-                               ssl_brain.hparams.classification_loss, "melfs":
-                               ssl_brain.hparams.reconstruction_loss, "gammatone" :
-                               ssl_brain.hparams.reconstruction_loss, "accent":
-                               ssl_brain.hparams.classification_loss,
-                               "quality":ssl_brain.hparams.regression_loss,
-                               "mfcc" : ssl_brain.hparams.reconstruction_loss}  
+    ssl_brain.workers_regressors = {
+        "age": ssl_brain.modules.age,
+        "gen": ssl_brain.modules.gen,
+        "melfs": ssl_brain.modules.dec,
+        "accent": ssl_brain.modules.accent,
+        "quality": ssl_brain.modules.quality,
+        "F0semitoneFrom27.5Hz_sma3nz_amean": ssl_brain.modules.f0semitone,
+        "jitterLocal_sma3nz_stddevNorm": ssl_brain.modules.jitter,
+        "F1bandwidth_sma3nz_stddevNorm": ssl_brain.modules.f1std,
+        "alphaRatioV_sma3nz_amean": ssl_brain.modules.aratio,
+        "MeanVoicedSegmentLengthSec": ssl_brain.modules.meanvoiced,
+        "Loudness_sma3": ssl_brain.modules.loudness,
+        "F0final_sma": ssl_brain.modules.f0_lld,
+        "jitterLocal_sma": ssl_brain.modules.jitterLocal,
+        "voicingFinalUnclipped_sma": ssl_brain.modules.voicing,
+        "alphaRatio_sma3": ssl_brain.modules.alpharatio_lld,
+        "pcm_zcr_sma": ssl_brain.modules.pcmzcr,
+        "audspecRasta_lengthL1norm_sma": ssl_brain.modules.audspec_rasta,
+        "audspec_lengthL1norm_sma0": ssl_brain.modules.audspec_L1,
+        "shimmerLocal_sma": ssl_brain.modules.shimmerLocal,
+        "logHNR_sma": ssl_brain.modules.loghnr,
+        "pcm_RMSenergy_sma": ssl_brain.modules.pcm,
+        "mfcc": ssl_brain.modules.mfcc,
+        "gammatone": ssl_brain.modules.gammatone,
+    }
+    ssl_brain.workers_losses = {
+        "age": ssl_brain.hparams.classification_loss,
+        "gen": ssl_brain.hparams.classification_loss,
+        "melfs": ssl_brain.hparams.reconstruction_loss,
+        "gammatone": ssl_brain.hparams.reconstruction_loss,
+        "accent": ssl_brain.hparams.classification_loss,
+        "quality": ssl_brain.hparams.regression_loss,
+        "mfcc": ssl_brain.hparams.reconstruction_loss,
+    }
 
     ssl_brain.workers_loss_recap = {}
-    for worker in ssl_brain.hparams.workers  : 
+    for worker in ssl_brain.hparams.workers:
         ssl_brain.workers_loss_recap[worker] = []
-    
 
     # removing the dropout from last layer
-    ssl_brain.modules.enc.DNN.block_1.dropout.p=0.0
+    ssl_brain.modules.enc.DNN.block_1.dropout.p = 0.0
 
     # Adding objects to trainer.
     # print(train_data.data)
@@ -369,5 +402,3 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
-
-
