@@ -1971,6 +1971,11 @@ class SNREstimator(Pretrained):
         ---------
         mix : torch.tensor
             The mixture of sources.
+        predictions : torch.tensor
+            of size (B x T x C),
+            where B is batch size
+                  T is number of time points
+                  C is number of sources
 
         Returns
         -------
@@ -2012,5 +2017,5 @@ class SNREstimator(Pretrained):
         enc = enc.permute(0, 2, 1)
         enc_stats = self.hparams.stat_pooling(enc)
 
-        snrhat = self.hparams.classifier_out(enc_stats).squeeze()
+        snrhat = self.hparams.encoder_out(enc_stats).squeeze()
         return snrhat
