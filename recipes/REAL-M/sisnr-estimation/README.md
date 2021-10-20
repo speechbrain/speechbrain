@@ -8,21 +8,22 @@
 
 # How to Run
 
-* To train with dynamic mixing
+* To train with dynamic mixing:
+
 ```python train.py hparams/pool_sisnrestimator.yaml --data_folder /yourLibri2Mixpath --base_folder_dm /yourLibriSpeechpath --rir_path /yourpathforwhamrRIRs --dynamic_mixing True --use_whamr_train True --whamr_data_folder /yourpath/whamr --base_folder_dm_whamr /yourpath/wsj0-processed/si_tr_s```
 
 # Results
 
-| Release | hyperparams file | L1-Error | HuggingFace link | Full model link | GPUs |
+| Release | hyperparams file | L1-Error (DB) | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 18-10-21 | pool_sisnrestimator.yaml | 1.71 | [HuggingFace](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator-main) | Not Available| RTX8000 48GB |
+| 18-10-21 | pool_sisnrestimator.yaml | 1.71 | [HuggingFace](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator) | Not Available| RTX8000 48GB |
 
 # Training Time
 It takes about 5 hours for each epoch on a RTX8000 (48GB).
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace:
-- https://huggingface.co/speechbrain/REAL-M-sisnr-estimator-main
+- https://huggingface.co/speechbrain/REAL-M-sisnr-estimator
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
