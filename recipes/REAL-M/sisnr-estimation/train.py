@@ -15,11 +15,12 @@ import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
+from torch.cuda.amp import autocast
 import itertools as it
+from tqdm import tqdm
+import numpy as np
+import logging
+import csv
 
 
 # Define training procedure
@@ -174,7 +175,36 @@ class Separation(sb.Brain):
             targets.append(batch.s3_sig)
 
         if self.hparams.auto_mix_prec:
-            pass
+            with autocast():
+                predictions, snrhat, snr, snr_compressed = self.compute_forward(
+                    mixture, targets, sb.Stage.TRAIN, noise
+                )
+
+                snr = snr.reshape(-1)
+                loss = ((snr_compressed - snrhat).abs()).mean()
+
+                if (
+                    loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                ):  # the fix for computational problems
+
+                    self.scaler.scale(loss).backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
+                    )
+                    loss.data = torch.tensor(0).to(self.device)
+
         else:
             # get the oracle snrs, estimated snrs, and the source estimates
             predictions, snrhat, snr, snr_compressed = self.compute_forward(
@@ -533,6 +563,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    run_opts["auto_mix_prec"] = hparams["auto_mix_prec"]
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
