@@ -732,28 +732,28 @@ if __name__ == "__main__":
     for separator_model in hparams["separators_to_use"]:
         fetch(
             separator_model + "_encoder.ckpt",
-            source="speechbrain/REAL-M-sisnr-estimator",
+            source=hparams["separator_repo"],
             savedir=separator_model,
             save_filename="encoder.ckpt",
         )
 
         fetch(
             separator_model + "_decoder.ckpt",
-            source="speechbrain/REAL-M-sisnr-estimator",
+            source=hparams["separator_repo"],
             savedir=separator_model,
             save_filename="decoder.ckpt",
         )
 
         fetch(
             separator_model + "_masknet.ckpt",
-            source="speechbrain/REAL-M-sisnr-estimator",
+            source=hparams["separator_repo"],
             savedir=separator_model,
             save_filename="masknet.ckpt",
         )
 
         fetch(
             separator_model + "_hyperparams.yaml",
-            source="speechbrain/REAL-M-sisnr-estimator",
+            source=hparams["separator_repo"],
             savedir=separator_model,
             save_filename="hyperparams.yaml",
         )
