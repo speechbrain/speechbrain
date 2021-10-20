@@ -283,12 +283,10 @@ class StatisticsPooling(nn.Module):
                 # computing statistics
                 if self.return_mean:
                     mean.append(
-                        torch.mean(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                        torch.mean(x[snt_id, 0:actual_size, ...], dim=0)
                     )
                 if self.return_std:
-                    std.append(
-                        torch.std(x[snt_id, 1 : actual_size - 1, ...], dim=0)
-                    )
+                    std.append(torch.std(x[snt_id, 0:actual_size, ...], dim=0))
             if self.return_mean:
                 mean = torch.stack(mean)
             if self.return_std:
