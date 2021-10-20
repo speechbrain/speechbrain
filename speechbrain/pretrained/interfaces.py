@@ -68,7 +68,7 @@ class Pretrained(torch.nn.Module):
     def __init__(
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
-
+        super().__init__()
         # Arguments passed via the run opts dictionary. Set a limited
         # number of these, since some don't apply to inference.
         run_opt_defaults = {
