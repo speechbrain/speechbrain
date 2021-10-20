@@ -1,0 +1,4 @@
+# For Self-supervised recipes (HuggingFace)
+transformers
+# For Self-supervised recipe (Fairsec)
+#fairseq
