@@ -14,6 +14,7 @@ or with wav2vec2 model:
 | 2021-10-17 | train_with_wav2vec2.yaml (wav2vec2 base) |  best 78.1 | best: 78.7 (avg 75.3) | https://drive.google.com/drive/u/0/folders/11iZkcxvXYPnhf1yfYO_WVfRpGbN6HmNw | 1xV100 32GB |
 | 2021-10-17 | train_with_wav2vec2.yaml (voxpopuli base) |  best 73.3 | best: 73.3 (avg 70.5) | https://drive.google.com/drive/u/0/folders/1hCL2vCQe2WS5wv5LU7JYkh7QSHNH9m4d | 1xV100 32GB |
 | 2021-10-17 | train_with_wav2vec2.yaml (hubert base) |  best 74.9  | best: 79.1 (avg 73,4) | https://drive.google.com/drive/u/0/folders/1m8xggbhbsXHedMbF6dNVkNEW1bfGTjvi | 1xV100 32GB |
+
 # Training Time
 About 40 sec for each epoch with a TESLA V100 (with ECAPA-TDNN).
 About 3min 14 sec for each epoch with a TESLA V100 (with wav2vec2 BASE encoder).
@@ -28,6 +29,10 @@ e.g. ```session1/ang/psno1_ang_s084_orgn.wav```
 Our `iemocap_prepare.py` will:
 1- Do labelling transformation to 4 emitions [neural, happy, sad, anger]
 2- Prepare IEMOCAP data with random split. (Note for becnhmarking: you need to run 5 folds)
+
+# PreTrained Model + Easy-Inference
+You can find the wav2vec2 pre-trained model with an easy-inference function on HuggingFace:
+- https://huggingface.co/speechbrain/emotion-recognition-wav2vec2-IEMOCAP/
 
 
 # **About IEMOCAP**
