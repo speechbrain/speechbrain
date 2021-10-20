@@ -161,6 +161,12 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+#annealing_function
+lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
+    initial_value: !ref <learning_rate>
+    decay_factor: !ref <weight_decay>
+    decay_drop: 0.0
+
 #checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -168,7 +174,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         generator: !ref <generator>
         discriminator: !ref <discriminator>
         counter: !ref <epoch_counter>
-        #scheduler: !ref <lr_annealing>
 
 datasets:
     train:

@@ -40,6 +40,8 @@ class HifiGanBrain(sb.Brain):
                 self.checkpointer.add_recoverable("optimizer_g", self.optimizer_g)
                 self.checkpointer.add_recoverable("optimizer_d", self.optimizer_d)
 
+        
+
 
     def compute_forward(self, batch, stage):
         """
@@ -244,8 +246,10 @@ class HifiGanBrain(sb.Brain):
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
-            lr_g = self.optimizer_g.param_groups[-1]["lr"]
-            lr_d = self.optimizer_d.param_groups[-1]["lr"]
+            _, lr_g = self.hparams.lr_annealing(epoch)
+            _, lr_d = self.hparams.lr_annealing(epoch)
+            self.optimizer_g.param_groups[-1]["lr"] = lr_g
+            self.optimizer_d.param_groups[-1]["lr"] = lr_d
             self.last_epoch = epoch
 
             # The train_logger writes a summary to stdout and to the logfile.
@@ -296,7 +300,7 @@ class HifiGanBrain(sb.Brain):
             inputs, y = self.last_batch
             sig_out = self.modules.generator(inputs)
 
-            spec_out = mel_spectogram(self.hparams, sig_out.cpu())
+            spec_out = mel_spectogram(self.hparams, sig_out.squeeze(0).cpu())
             self.hparams.progress_sample_logger.remember(
                 target_mel=self.get_spectrogram_sample(inputs),
                 inference_mel=self.get_spectrogram_sample(spec_out),
