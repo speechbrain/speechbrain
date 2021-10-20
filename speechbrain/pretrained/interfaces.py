@@ -2113,3 +2113,66 @@ class SpectralMaskEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+
+class SNREstimator(Pretrained):
+    """A "ready-to-use" SNR estimator.
+    """
+
+    MODULES_NEEDED = ["encoder", "encoder_out"]
+
+    def estimate_batch(self, mix, predictions):
+        """Run source separation on batch of audio.
+
+        Arguments
+        ---------
+        mix : torch.tensor
+            The mixture of sources.
+        predictions : torch.tensor
+            of size (B x T x C),
+            where B is batch size
+                  T is number of time points
+                  C is number of sources
+
+        Returns
+        -------
+        tensor
+            Separated sources
+        """
+
+        predictions = predictions.permute(0, 2, 1)
+        predictions = predictions.reshape(-1, predictions.size(-1))
+
+        if hasattr(self.hparams, "separation_norm_type"):
+            if self.hparams.separation_norm_type == "max":
+                predictions = (
+                    predictions / predictions.max(dim=1, keepdim=True)[0]
+                )
+                mix = mix / mix.max(dim=1, keepdim=True)[0]
+
+            elif self.hparams.separation_norm_type == "stnorm":
+                predictions = (
+                    predictions - predictions.mean(dim=1, keepdim=True)
+                ) / predictions.std(dim=1, keepdim=True)
+                mix = (mix - mix.mean(dim=1, keepdim=True)) / mix.std(
+                    dim=1, keepdim=True
+                )
+
+        min_T = min(predictions.shape[1], mix.shape[1])
+        assert predictions.shape[1] == mix.shape[1], "lengths change"
+
+        mix_repeat = mix.repeat(2, 1)
+        inp_cat = torch.cat(
+            [
+                predictions[:, :min_T].unsqueeze(1),
+                mix_repeat[:, :min_T].unsqueeze(1),
+            ],
+            dim=1,
+        )
+
+        enc = self.hparams.encoder(inp_cat)
+        enc = enc.permute(0, 2, 1)
+        enc_stats = self.hparams.stat_pooling(enc)
+
+        snrhat = self.hparams.encoder_out(enc_stats).squeeze()
+        return snrhat
