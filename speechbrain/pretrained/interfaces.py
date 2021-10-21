@@ -2153,6 +2153,7 @@ class SNREstimator(Pretrained):
     """
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
+    HPARAMS_NEEDED = ["stat_pooling"]
 
     def estimate_batch(self, mix, predictions):
         """Run source separation on batch of audio.
