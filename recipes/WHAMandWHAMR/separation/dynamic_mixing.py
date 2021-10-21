@@ -18,20 +18,24 @@ Authors
 """
 
 
-def build_spk_hashtable(hparams):
+def build_spk_hashtable(base_folder_dm, sample_rate):
     """
     This function builds a dictionary of speaker-utterance pairs to be used in dynamic mixing
+
+    arguments:
+        base_folder_dm (str) : specifies the base folder for dynamic mixing.
+        sample (int) : sampling frequency
     """
 
     wsj0_utterances = glob.glob(
-        os.path.join(hparams["base_folder_dm"], "**/*.wav"), recursive=True
+        os.path.join(base_folder_dm, "**/*.wav"), recursive=True
     )
 
     spk_hashtable = {}
     for utt in wsj0_utterances:
 
         spk_id = Path(utt).stem[:3]
-        assert torchaudio.info(utt).sample_rate == hparams["sample_rate"]
+        assert torchaudio.info(utt).sample_rate == sample_rate
 
         # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
         # id of speaker 1 is 019 utterance id is o031a
@@ -48,51 +52,65 @@ def build_spk_hashtable(hparams):
     return spk_hashtable, spk_weights
 
 
-def get_wham_noise_filenames(hparams):
-    "This function lists the WHAM! noise files to be used in dynamic mixing"
+def get_wham_noise_filenames(data_root_folder, sample_rate):
+    """
+    This function lists the WHAM! noise files to be used in dynamic mixing
 
-    if "Libri" in hparams["data_folder"]:
-        # Data folder should point to Libri2Mix folder
-        if hparams["sample_rate"] == 8000:
-            noise_path = "wav8k/min/train-360/noise/"
-        elif hparams["sample_rate"] == 16000:
-            noise_path = "wav16k/min/train-360/noise/"
-        else:
-            raise ValueError("Unsupported Sampling Rate")
+        data_root_folder (str) : specifies the system path for the top folder for the WHAM!, WHAMR! dataset
+        sample_rate (int) : specifies the sample rate in Hz
+
+    """
+
+    if sample_rate == 8000:
+        noise_path = "wav8k/min/tr/noise/"
+    elif sample_rate == 16000:
+        noise_path = "wav16k/min/tr/noise/"
     else:
-        if hparams["sample_rate"] == 8000:
-            noise_path = "wav8k/min/tr/noise/"
-        elif hparams["sample_rate"] == 16000:
-            noise_path = "wav16k/min/tr/noise/"
-        else:
-            raise ValueError("Unsupported Sampling Rate")
+        raise ValueError("Unsupported Sampling Rate")
 
-    noise_files = glob.glob(
-        os.path.join(hparams["data_folder"], noise_path, "*.wav")
-    )
+    noise_files = glob.glob(os.path.join(data_root_folder, noise_path, "*.wav"))
     return noise_files
 
 
-def dynamic_mix_data_prep(hparams):
+def dynamic_mix_data_prep(
+    tr_csv,
+    data_root_folder,
+    base_folder_dm,
+    sample_rate,
+    num_spks,
+    max_training_signal_len,
+    batch_size=1,
+    num_workers=1,
+):
     """
     Dynamic mixing for WSJ0-2/3Mix and WHAM!/WHAMR!
+
+        tr_csv (str) : the system path for the csv
+        data_root_folder (str) : the system path for the root folder of the WHAM! / WHAMR! dataset
+        base_folder_dm (str) : the system path for the wsj0 root folder
+        sample_rate (int) : sampling frequency in Hz
+        num_spks (int) : number of speakers (2 or 3)
+        max_training_signal_len (int) : upper limit for the max_training_signal_len (in number of samples)
+        batch_size (int) : batch_size
+        num_workers (int) : number of workers for the dataloader
     """
 
     # 1. Define datasets
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_data"],
-        replacements={"data_root": hparams["data_folder"]},
+        csv_path=tr_csv, replacements={"data_root": data_root_folder},
     )
 
     # we build an dictionary where keys are speakers id and entries are list
     # of utterances files of that speaker
-    spk_hashtable, spk_weights = build_spk_hashtable(hparams)
+    spk_hashtable, spk_weights = build_spk_hashtable(
+        base_folder_dm=base_folder_dm, sample_rate=sample_rate
+    )
 
     spk_list = [x for x in spk_hashtable.keys()]
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
-    if "wham" in Path(hparams["data_folder"]).stem:
-        noise_files = get_wham_noise_filenames(hparams)
+    if "wham" in Path(data_root_folder).stem:
+        noise_files = get_wham_noise_filenames(data_root_folder, sample_rate)
 
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides(
@@ -106,16 +124,14 @@ def dynamic_mix_data_prep(hparams):
         """
 
         speakers = np.random.choice(
-            spk_list, hparams["num_spks"], replace=False, p=spk_weights
+            spk_list, num_spks, replace=False, p=spk_weights
         )
 
-        if "wham" in Path(hparams["data_folder"]).stem:
+        if "wham" in Path(data_root_folder).stem:
             noise_file = np.random.choice(noise_files, 1, replace=False)
 
             noise, fs_read = torchaudio.load(noise_file[0])
             noise = noise.squeeze()
-            # gain = np.clip(random.normalvariate(1, 10), -4, 15)
-            # noise = rescale(noise, torch.tensor(len(noise)), gain, scale="dB").squeeze()
 
         # select two speakers randomly
         sources = []
@@ -128,7 +144,7 @@ def dynamic_mix_data_prep(hparams):
 
         minlen = min(
             *[torchaudio.info(x).num_frames for x in spk_files],
-            hparams["training_signal_len"],
+            max_training_signal_len,
         )
 
         for i, spk_file in enumerate(spk_files):
@@ -145,33 +161,23 @@ def dynamic_mix_data_prep(hparams):
                 spk_file, frame_offset=start, num_frames=stop - start,
             )
 
-            # peak = float(Path(spk_file).stem.split("_peak_")[-1])
             tmp = tmp[0]  # * peak  # remove channel dim and normalize
 
             if i == 0:
                 gain = np.clip(random.normalvariate(-27.43, 2.57), -45, 0)
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
-                # assert not torch.all(torch.isnan(tmp))
                 first_lvl = gain
             else:
                 gain = np.clip(
                     first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
                 )
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
-                # assert not torch.all(torch.isnan(tmp))
             sources.append(tmp)
 
         # we mix the sources together
-        # here we can also use augmentations ! -> runs on cpu and for each
-        # mixture parameters will be different rather than for whole batch.
-        # no difference however for bsz=1 :)
-
-        # padding left
-        # sources, _ = batch_pad_right(sources)
-
         sources = torch.stack(sources)
         mixture = torch.sum(sources, 0)
-        if "wham" in Path(hparams["data_folder"]).stem:
+        if "wham" in Path(data_root_folder).stem:
             len_noise = len(noise)
             len_mix = len(mixture)
             min_len = min(len_noise, len_mix)
@@ -186,14 +192,14 @@ def dynamic_mix_data_prep(hparams):
         mixture = mix_scaling * mixture
 
         yield mixture
-        for i in range(hparams["num_spks"]):
+        for i in range(num_spks):
             yield sources[i]
 
         # If the number of speakers is 2, yield None for the 3rd speaker
-        if hparams["num_spks"] == 2:
+        if num_spks == 2:
             yield None
 
-        if "wham" in Path(hparams["data_folder"]).stem:
+        if "wham" in Path(data_root_folder).stem:
             mean_source_lvl = sources.abs().mean()
             mean_noise_lvl = noise.abs().mean()
             noise = (mean_source_lvl / mean_noise_lvl) * noise
@@ -209,8 +215,8 @@ def dynamic_mix_data_prep(hparams):
 
     train_data = torch.utils.data.DataLoader(
         train_data,
-        batch_size=hparams["dataloader_opts"]["batch_size"],
-        num_workers=hparams["dataloader_opts"]["num_workers"],
+        batch_size=batch_size,
+        num_workers=num_workers,
         collate_fn=PaddedBatch,
         worker_init_fn=lambda x: np.random.seed(
             int.from_bytes(os.urandom(4), "little") + x
