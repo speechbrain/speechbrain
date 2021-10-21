@@ -2170,7 +2170,7 @@ class SNREstimator(Pretrained):
         Returns
         -------
         tensor
-            Separated sources
+            Estimate of SNR
         """
 
         predictions = predictions.permute(0, 2, 1)
@@ -2203,11 +2203,11 @@ class SNREstimator(Pretrained):
             dim=1,
         )
 
-        enc = self.hparams.encoder(inp_cat)
+        enc = self.mods.encoder(inp_cat)
         enc = enc.permute(0, 2, 1)
         enc_stats = self.hparams.stat_pooling(enc)
 
-        snrhat = self.hparams.encoder_out(enc_stats).squeeze()
+        snrhat = self.mods.encoder_out(enc_stats).squeeze()
         return snrhat
 
     def forward(self, mix, predictions):
