@@ -1554,7 +1554,7 @@ class VAD(Pretrained):
                 segment, chunk_size=chunk_len, chunk_stride=chunk_len
             )
 
-            # Energy computtion within each chunk
+            # Energy computation within each chunk
             energy_chunks = segment_chunks.abs().sum(-1).log()
 
             # Energy normalization
