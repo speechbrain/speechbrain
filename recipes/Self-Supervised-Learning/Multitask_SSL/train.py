@@ -341,13 +341,13 @@ if __name__ == "__main__":
     ssl_brain.workers_regressors = {
         "melfs": ssl_brain.modules.dec,
         "mfcc": ssl_brain.modules.mfcc,
-        #"pitch_feature": ssl_brain.modules.pitch_feature
+    #"pitch_feature": ssl_brain.modules.pitch_feature
     }
     # Same for the losses
     ssl_brain.workers_losses = {
         "melfs": ssl_brain.hparams.reconstruction_loss,
         "mfcc": ssl_brain.hparams.reconstruction_loss,
-       # "pitch_feature": ssl_brain.hparams.pitch_feature_loss,
+    # "pitch_feature": ssl_brain.hparams.pitch_feature_loss,
     }
 
     ssl_brain.workers_loss_recap = {}
