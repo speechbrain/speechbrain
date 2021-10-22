@@ -6,6 +6,7 @@ Authors:
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
+ * Abdel Heba 2021
 """
 import torch
 import torchaudio
@@ -19,6 +20,41 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.superpowers import import_from_path
+
+
+def foreign_class(
+    source,
+    hparams_file="hyperparams.yaml",
+    pymodule_file="interface.py",
+    classname="Custom",
+    overrides={},
+    savedir=None,
+    use_auth_token=False,
+    **kwargs,
+):
+    if savedir is None:
+        savedir = f"./pretrained_models/{classname}-{hash(source)}"
+    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
+    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+
+    # Load the modules:
+    with open(hparams_local_path) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
+
+    # Pretraining:
+    pretrainer = hparams["pretrainer"]
+    pretrainer.set_collect_in(savedir)
+    # For distributed setups, have this here:
+    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    # Load on the CPU. Later the params can be moved elsewhere by specifying
+    # run_opts={"device": ...}
+    pretrainer.load_collected(device="cpu")
+
+    # Import class and create instance
+    module = import_from_path(pymodule_local_path)
+    cls = getattr(module, classname)
+    return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
 
 
 class Pretrained(torch.nn.Module):
