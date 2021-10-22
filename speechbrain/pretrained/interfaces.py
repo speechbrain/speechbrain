@@ -21,7 +21,7 @@ from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
 
 
-class Pretrained:
+class Pretrained(torch.nn.Module):
     """Takes a trained model and makes predictions on new data.
 
     This is a base class which handles some common boilerplate.
@@ -32,11 +32,17 @@ class Pretrained:
     the pretrained system runs, and add methods with descriptive names
     (e.g. transcribe_file() for ASR).
 
+    Pretrained is a torch.nn.Module so that methods like .to() or .eval() can
+    work. Subclasses should provide a suitable forward() implementation: by
+    convention, it should be a method that takes a batch of audio signals and
+    runs the full model (as applicable).
+
     Arguments
     ---------
     modules : dict of str:torch.nn.Module pairs
         The Torch modules that make up the learned system. These can be treated
-        in special ways (put on the right device, frozen, etc.)
+        in special ways (put on the right device, frozen, etc.). These are available
+        as attributes under ``self.mods``, like self.mods.model(x)
     hparams : dict
         Each key:value pair should consist of a string key and a hyperparameter
         that is used within the overridden methods. These will
@@ -62,7 +68,7 @@ class Pretrained:
     def __init__(
         self, modules=None, hparams=None, run_opts=None, freeze_params=True
     ):
-
+        super().__init__()
         # Arguments passed via the run opts dictionary. Set a limited
         # number of these, since some don't apply to inference.
         run_opt_defaults = {
@@ -85,11 +91,10 @@ class Pretrained:
                     setattr(self, arg, default)
 
         # Put modules on the right device, accessible with dot notation
-        self.modules = torch.nn.ModuleDict(modules)
-        for mod in self.modules:
-            self.modules[mod].to(self.device)
+        self.mods = torch.nn.ModuleDict(modules)
+        for mod in self.mods:
+            self.mods[mod].to(self.device)
 
-        for mod in self.MODULES_NEEDED:
             if mod not in modules:
                 raise ValueError(f"Need modules['{mod}']")
 
@@ -127,8 +132,8 @@ class Pretrained:
 
         # If we don't want to backprop, freeze the pretrained parameters
         if freeze_params:
-            self.modules.eval()
-            for p in self.modules.parameters():
+            self.mods.eval()
+            for p in self.mods.parameters():
                 p.requires_grad = False
 
     def load_audio(self, path, savedir="."):
@@ -152,28 +157,28 @@ class Pretrained:
             return
 
         for name in self.jit_module_keys:
-            if name not in self.modules:
+            if name not in self.mods:
                 raise ValueError(
                     "module " + name + " cannot be jit compiled because "
                     "it is not defined in your hparams file."
                 )
-            module = torch.jit.script(self.modules[name])
-            self.modules[name] = module.to(self.device)
+            module = torch.jit.script(self.mods[name])
+            self.mods[name] = module.to(self.device)
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""
         if not self.distributed_launch and not self.data_parallel_backend:
             return
         elif self.distributed_launch:
-            for name, module in self.modules.items():
+            for name, module in self.mods.items():
                 if any(p.requires_grad for p in module.parameters()):
                     # for ddp, all module must run on same GPU
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
                     module = DDP(module, device_ids=[self.device])
-                    self.modules[name] = module
+                    self.mods[name] = module
         else:
             # data_parallel_backend
-            for name, module in self.modules.items():
+            for name, module in self.mods.items():
                 if any(p.requires_grad for p in module.parameters()):
                     # if distributed_count = -1 then use all gpus
                     # otherwise, specify the set of gpu to use
@@ -183,7 +188,7 @@ class Pretrained:
                         module = DP(
                             module, [i for i in range(self.data_parallel_count)]
                         )
-                    self.modules[name] = module
+                    self.mods[name] = module
 
     @classmethod
     def from_hparams(
@@ -319,11 +324,8 @@ class EndToEndSLU(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        with torch.no_grad():
-            ASR_encoder_out = self.asr_model.encode_batch(
-                wavs.detach(), wav_lens
-            )
-        encoder_out = self.modules.slu_enc(ASR_encoder_out)
+        ASR_encoder_out = self.asr_model.encode_batch(wavs.detach(), wav_lens)
+        encoder_out = self.mods.slu_enc(ASR_encoder_out)
         return encoder_out
 
     def decode_batch(self, wavs, wav_lens):
@@ -350,7 +352,7 @@ class EndToEndSLU(Pretrained):
         with torch.no_grad():
             wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.modules.beam_searcher(
+            predicted_tokens, scores = self.mods.beam_searcher(
                 encoder_out, wav_lens
             )
             predicted_words = [
@@ -358,6 +360,10 @@ class EndToEndSLU(Pretrained):
                 for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full decoding - note: no gradients through decoding"""
+        return self.decode_batch(wavs, wav_lens)
 
 
 class EncoderDecoderASR(Pretrained):
@@ -435,7 +441,7 @@ class EncoderDecoderASR(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        encoder_out = self.modules.encoder(wavs, wav_lens)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
@@ -467,14 +473,16 @@ class EncoderDecoderASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.modules.decoder(
-                encoder_out, wav_lens
-            )
+            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
             predicted_words = [
                 self.tokenizer.decode_ids(token_seq)
                 for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
 
 
 class EncoderASR(Pretrained):
@@ -552,7 +560,7 @@ class EncoderASR(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        encoder_out = self.modules.encoder(wavs, wav_lens)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
@@ -590,6 +598,10 @@ class EncoderASR(Pretrained):
                 for token_seq in predictions
             ]
         return predicted_words, predictions
+
+    def forward(self, wavs, wav_lens):
+        """Runs the encoder"""
+        return self.encode_batch(wavs, wav_lens)
 
 
 class EncoderClassifier(Pretrained):
@@ -675,9 +687,9 @@ class EncoderClassifier(Pretrained):
         wavs = wavs.float()
 
         # Computing features and embeddings
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.mean_var_norm(feats, wav_lens)
-        embeddings = self.modules.embedding_model(feats, wav_lens)
+        feats = self.mods.compute_features(wavs)
+        feats = self.mods.mean_var_norm(feats, wav_lens)
+        embeddings = self.mods.embedding_model(feats, wav_lens)
         if normalize:
             embeddings = self.hparams.mean_var_norm_emb(
                 embeddings, torch.ones(embeddings.shape[0], device=self.device)
@@ -714,7 +726,7 @@ class EncoderClassifier(Pretrained):
             (label encoder should be provided).
         """
         emb = self.encode_batch(wavs, wav_lens)
-        out_prob = self.modules.classifier(emb).squeeze(1)
+        out_prob = self.mods.classifier(emb).squeeze(1)
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
@@ -744,10 +756,14 @@ class EncoderClassifier(Pretrained):
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
         emb = self.encode_batch(batch, rel_length)
-        out_prob = self.modules.classifier(emb).squeeze(1)
+        out_prob = self.mods.classifier(emb).squeeze(1)
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
+
+    def forward(self, wavs, wav_lens=None):
+        """Runs the classification"""
+        return self.classify_batch(wavs, wav_lens)
 
 
 class EncoderWav2vecClassifier(Pretrained):
@@ -832,10 +848,10 @@ class EncoderWav2vecClassifier(Pretrained):
         wavs = wavs.float()
 
         # Computing features and embeddings
-        outputs = self.modules.wav2vec2(wavs)
+        outputs = self.mods.wav2vec2(wavs)
 
         # last dim will be used for AdaptativeAVG pool
-        outputs = self.modules.avg_pool(outputs, wav_lens)
+        outputs = self.mods.avg_pool(outputs, wav_lens)
         outputs = outputs.view(outputs.shape[0], -1)
         return outputs
 
@@ -869,7 +885,7 @@ class EncoderWav2vecClassifier(Pretrained):
             (label encoder should be provided).
         """
         outputs = self.encode_batch(wavs, wav_lens)
-        outputs = self.modules.output_mlp(outputs)
+        outputs = self.mods.output_mlp(outputs)
         out_prob = self.hparams.softmax(outputs)
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
@@ -900,11 +916,16 @@ class EncoderWav2vecClassifier(Pretrained):
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
         outputs = self.encode_batch(batch, rel_length)
-        outputs = self.modules.output_mlp(outputs).squeeze(1)
+        outputs = self.mods.output_mlp(outputs).squeeze(1)
         out_prob = self.hparams.softmax(outputs)
         score, index = torch.max(out_prob, dim=-1)
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
+
+    def forward(self, wavs, wav_lens=None, normalize=False):
+        return self.encode_batch(
+            wavs=wavs, wav_lens=wav_lens, normalize=normalize
+        )
 
 
 class SpeakerRecognition(EncoderClassifier):
@@ -1228,9 +1249,9 @@ class VAD(Pretrained):
         wavs = wavs.float()
 
         # Computing features and embeddings
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.mean_var_norm(feats, wav_lens)
-        outputs = self.modules.cnn(feats)
+        feats = self.mods.compute_features(wavs)
+        feats = self.mods.mean_var_norm(feats, wav_lens)
+        outputs = self.mods.cnn(feats)
 
         outputs = outputs.reshape(
             outputs.shape[0],
@@ -1238,8 +1259,8 @@ class VAD(Pretrained):
             outputs.shape[2] * outputs.shape[3],
         )
 
-        outputs, h = self.modules.rnn(outputs)
-        outputs = self.modules.dnn(outputs)
+        outputs, h = self.mods.rnn(outputs)
+        outputs = self.mods.dnn(outputs)
         output_prob = torch.sigmoid(outputs)
 
         return output_prob
@@ -1928,6 +1949,10 @@ class VAD(Pretrained):
 
         return boundaries
 
+    def forward(self, wavs, wav_lens=None):
+        """Gets frame-level speech-activity predictions"""
+        return self.get_speech_prob_chunk(wavs, wav_lens)
+
 
 class SepformerSeparation(Pretrained):
     """A "ready-to-use" speech separation model.
@@ -1964,15 +1989,15 @@ class SepformerSeparation(Pretrained):
 
         # Separation
         mix = mix.to(self.device)
-        mix_w = self.modules.encoder(mix)
-        est_mask = self.modules.masknet(mix_w)
+        mix_w = self.mods.encoder(mix)
+        est_mask = self.mods.masknet(mix_w)
         mix_w = torch.stack([mix_w] * self.hparams.num_spks)
         sep_h = mix_w * est_mask
 
         # Decoding
         est_source = torch.cat(
             [
-                self.modules.decoder(sep_h[i]).unsqueeze(-1)
+                self.mods.decoder(sep_h[i]).unsqueeze(-1)
                 for i in range(self.hparams.num_spks)
             ],
             dim=-1,
@@ -2025,6 +2050,10 @@ class SepformerSeparation(Pretrained):
         est_sources = self.separate_batch(batch)
         est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
         return est_sources
+
+    def forward(self, mix):
+        """Runs separation on the input mix"""
+        return self.separate_batch(mix)
 
 
 class SpectralMaskEnhancement(Pretrained):
@@ -2084,9 +2113,9 @@ class SpectralMaskEnhancement(Pretrained):
 
         # Perform masking-based enhancement, multiplying output with input.
         if lengths is not None:
-            mask = self.modules.enhance_model(noisy_features, lengths=lengths)
+            mask = self.mods.enhance_model(noisy_features, lengths=lengths)
         else:
-            mask = self.modules.enhance_model(noisy_features)
+            mask = self.mods.enhance_model(noisy_features)
         enhanced = torch.mul(mask, noisy_features)
 
         # Return resynthesized waveforms
@@ -2114,12 +2143,17 @@ class SpectralMaskEnhancement(Pretrained):
 
         return enhanced.squeeze(0)
 
+    def forward(self, noisy, lengths=None):
+        """Runs enhancement on the noisy input"""
+        return self.separate_batch(noisy, lengths)
+
 
 class SNREstimator(Pretrained):
     """A "ready-to-use" SNR estimator.
     """
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
+    HPARAMS_NEEDED = ["stat_pooling"]
 
     def estimate_batch(self, mix, predictions):
         """Run source separation on batch of audio.
@@ -2137,7 +2171,7 @@ class SNREstimator(Pretrained):
         Returns
         -------
         tensor
-            Separated sources
+            Estimate of SNR
         """
 
         predictions = predictions.permute(0, 2, 1)
@@ -2170,9 +2204,13 @@ class SNREstimator(Pretrained):
             dim=1,
         )
 
-        enc = self.hparams.encoder(inp_cat)
+        enc = self.mods.encoder(inp_cat)
         enc = enc.permute(0, 2, 1)
         enc_stats = self.hparams.stat_pooling(enc)
 
-        snrhat = self.hparams.encoder_out(enc_stats).squeeze()
+        snrhat = self.mods.encoder_out(enc_stats).squeeze()
         return snrhat
+
+    def forward(self, mix, predictions):
+        """Just run the batch estimate"""
+        return self.estimate_batch(mix, predictions)
