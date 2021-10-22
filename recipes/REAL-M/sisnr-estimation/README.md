@@ -4,6 +4,10 @@
 
 * This model is developed to estimate source separation performance on the REAL-M dataset which consists of real life mixtures.
 
+* The REAL-M dataset can downloaded from [this link](https://sourceseparationresearch.com/static/REAL-M-v0.1.0.tar.gz).
+
+* The paper for the REAL-M dataset can be found on [this arxiv link](https://arxiv.org/pdf/2110.10812.pdf).
+
 * The model is trained with the LibriMix and WHAMR! datasets. You can download LibriMix by following the instructions [here](https://github.com/JorisCos/LibriMix). Instructions on WHAMR! can be found [here](https://wham.whisper.ai/)
 
 # How to Run
@@ -29,6 +33,20 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
+
+# **Citing REAL-M**
+Please, cite our paper for the REAL-M dataset, if you use it for your research or business.
+
+```bibtex
+@misc{subakan2021realm,
+      title={REAL-M: Towards Speech Separation on Real Mixtures},
+      author={Cem Subakan and Mirco Ravanelli and Samuele Cornell and François Grondin},
+      year={2021},
+      eprint={2110.10812},
+      archivePrefix={arXiv},
+      primaryClass={eess.AS}
+}
+```
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
