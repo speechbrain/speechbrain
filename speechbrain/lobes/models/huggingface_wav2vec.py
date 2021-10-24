@@ -19,6 +19,11 @@ try:
     from transformers import Wav2Vec2Model, HubertModel
     from transformers import Wav2Vec2Config, HubertConfig
     from transformers import Wav2Vec2FeatureExtractor
+    from transformers import Wav2Vec2ForPreTraining
+    from transformers.models.wav2vec2.modeling_wav2vec2 import (
+        _compute_mask_indices,
+    )
+
 except ImportError:
     print(
         "Please install transformer from HuggingFace to use wav2vec2/Hubert !"
@@ -161,3 +166,84 @@ class HuggingFaceWav2Vec2(nn.Module):
             out = F.layer_norm(out, out.shape)
 
         return out
+
+
+class HuggingFaceWav2Vec2Pretrain(nn.Module):
+    """This lobe enables the integration of HuggingFace
+     wav2vec2.0 models to be pretrained.
+
+    Source paper: https://arxiv.org/abs/2006.11477
+    Transformer from HuggingFace needs to be installed:
+    https://huggingface.co/transformers/installation.html
+
+    The return is an HuggingFace format and the mask indices that contains:
+    https://huggingface.co/transformers/model_doc/wav2vec2.html#wav2vec2forpretraining
+
+    For instance, it returns the loss that can be accessed with .loss
+
+    Arguments
+    ---------
+    source : str
+        HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+    save_path : str
+        Path (dir) of the downloaded model.
+    mask_prob : float (default: 0.65)
+        Probability of masking a given frame. Default is taken from the paper.
+    mask_length : float (default: 10)
+        Length (i.e. number of consecutive masked frames). Default is taken from
+        the paper.
+    Example
+    -------
+    >>> inputs = torch.rand([10, 600])
+    >>> model_hub = "facebook/wav2vec2-base-960h"
+    >>> save_path = "savedir"
+    >>> model = HuggingFaceWav2Vec2Pretrain(model_hub, save_path)
+    >>> outputs = model(inputs)
+    >>> outputs.shape
+    torch.Size([10, 1,  768])
+    """
+
+    def __init__(
+        self, source, save_path, mask_prob=0.65, mask_length=10,
+    ):
+        super().__init__()
+
+        self.mask_prob = mask_prob
+        self.mask_length = mask_length
+
+        # Download the config of the model from HuggingFace.
+        config = Wav2Vec2Config.from_pretrained(source, cache_dir=save_path)
+        config.gradient_checkpointing = (
+            False  # This cause errors with DDP if True.
+        )
+        config.output_hidden_states = True  # We want the hidden states as well!
+
+        self.model = Wav2Vec2ForPreTraining(config)
+        self.model.train()
+
+        # We check if inputs need to be normalized w.r.t pretrained wav2vec2
+
+    def forward(self, wav):
+        """Takes an input waveform and return its corresponding wav2vec encoding.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        """
+        batch_size, raw_sequence_length = wav.shape
+
+        # We must compute the masking before forward. This is used by the loss.
+        sequence_length = self.model._get_feat_extract_output_lengths(
+            raw_sequence_length
+        )
+        mask_time_indices = _compute_mask_indices(
+            (batch_size, sequence_length),
+            mask_prob=self.mask_prob,
+            mask_length=self.mask_length,
+        )
+
+        return (
+            self.model(wav, mask_time_indices=mask_time_indices),
+            mask_time_indices,
+        )
