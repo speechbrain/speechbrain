@@ -230,12 +230,12 @@ class CTCSegmentation:
         """Initialize the CTCSegmentation module."""
         # Prepare ASR model
         if not (
-            hasattr(asr_model, "modules")
-            and hasattr(asr_model.modules, "decoder")
-            and hasattr(asr_model.modules.decoder, "ctc_weight")
+            hasattr(asr_model, "mods")
+            and hasattr(asr_model.mods, "decoder")
+            and hasattr(asr_model.mods.decoder, "ctc_weight")
         ):
             raise AttributeError(
-                "The given asr_model has no CTC decoder in asr_model.modules.decoder!"
+                "The given asr_model has no CTC decoder in asr_model.mods.decoder!"
             )
         if not hasattr(asr_model, "tokenizer"):
             raise AttributeError(
@@ -244,7 +244,7 @@ class CTCSegmentation:
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
         # Assumption: log-softmax is already included in ctc_forward_step
-        self._ctc = self.asr_model.modules.decoder.ctc_forward_step
+        self._ctc = self.asr_model.mods.decoder.ctc_forward_step
         self._tokenizer = self.asr_model.tokenizer
 
         # Apply configuration

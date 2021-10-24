@@ -11,9 +11,10 @@
 seed: 1968
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-# Set up folders for reading from and writing to
-# Dataset will be downloaded to the `data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/IEMOCAP_ahsn_leave-two-speaker-out/
+# Dataset will be downloaded to the `data_original`
+data_original: !PLACEHOLDER  # e.g., /workspace/data/IEMOCAP/IEMOCAP_full_release/Session
+# Data prepare function will create a modified dataset with structured data
+data_folder: !PLACEHOLDER # e.g, /workspace/data/IEMOCAP/IEMOCAP_ahsn_leave-two-speaker-out
 output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt

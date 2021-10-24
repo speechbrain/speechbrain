@@ -39,7 +39,7 @@ def run_shell(cmd):
     Example
     -------
     >>> out, err, code = run_shell("echo 'hello world'")
-    >>> out.decode("utf-8")
+    >>> out.decode(errors="ignore")
     'hello world\n'
     """
 
@@ -52,10 +52,10 @@ def run_shell(cmd):
     (output, err) = p.communicate()
 
     if p.returncode != 0:
-        raise OSError(err.decode("utf-8"))
+        raise OSError(err.decode(errors="replace"))
 
     # Adding information in the logger
-    msg = output.decode("utf-8") + "\n" + err.decode("utf-8")
+    msg = output.decode(errors="replace") + "\n" + err.decode(errors="replace")
     logger.debug(msg)
 
     return output, err, p.returncode
