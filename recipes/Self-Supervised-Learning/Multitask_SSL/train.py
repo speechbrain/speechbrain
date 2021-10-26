@@ -45,9 +45,11 @@ class SSL(sb.core.Brain):
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         online_values = {"melfs": feats}
-        for worker in hparams["online_workers"] : 
-            values_nonnorm =hparams["online_computation"][worker](wavs)
-            online_values[worker] = hparams["online_normalization"][worker](values_nonnorm)
+        for worker in hparams["online_workers"]:
+            values_nonnorm = hparams["online_computation"][worker](wavs)
+            online_values[worker] = hparams["online_normalization"][worker](
+                values_nonnorm, wav_lens
+            )
         feats = self.modules.normalize(feats, wav_lens)
         # Forward pass
         z = self.modules.enc(feats.detach())
@@ -55,14 +57,15 @@ class SSL(sb.core.Brain):
         for worker in self.considered_workers:
             workers_predictions[worker] = self.workers_regressors[worker](z)
         for worker in self.considered_workers:
-            if worker not in signal_workers:
+            if worker not in signal_workers + hparams["online_workers"]:
                 # The mean is used mainly for workers that yield one value per
                 # speech sample (e.g. speaker age, sample quality ... )
                 workers_predictions[worker] = torch.mean(
                     workers_predictions[worker], dim=1
                 )
             else:
-
+                # For other classic workers : spectrograms and signal features
+                # As the labels are present per frame, no need to take the mean
                 workers_predictions[worker] = torch.squeeze(
                     workers_predictions[worker]
                 )
@@ -85,11 +88,11 @@ class SSL(sb.core.Brain):
             batch_size = len(batch.workers_targets)
             for ind, worker in enumerate(exoworkers):
                 worker_values = [
-                        workers_targets_values[i][worker] for i in range(batch_size)
+                    workers_targets_values[i][worker] for i in range(batch_size)
                 ]
                 worker_values = pad_sequence(worker_values)
                 self.workers_target[worker] = torch.transpose(
-                        torch.tensor(worker_values), 0, 1
+                    torch.tensor(worker_values), 0, 1
                 )
         workers_loss = dict()
         for worker in self.considered_workers:
@@ -112,9 +115,7 @@ class SSL(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        predictions, online_values = self.compute_forward(
-            batch, sb.Stage.TRAIN
-        )
+        predictions, online_values = self.compute_forward(batch, sb.Stage.TRAIN)
         loss, workers_loss = self.compute_objectives(
             predictions, batch, online_values, sb.Stage.TRAIN
         )
@@ -126,9 +127,7 @@ class SSL(sb.core.Brain):
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
-        predictions, online_values= self.compute_forward(
-            batch, stage=stage
-        )
+        predictions, online_values = self.compute_forward(batch, stage=stage)
         with torch.no_grad():
             final_loss, losses = self.compute_objectives(
                 predictions, batch, online_values, stage=stage
@@ -218,9 +217,10 @@ def dataio_prepare(hparams):
             info.sample_rate, hparams["sample_rate"],
         )(sig)
         return resampled
+
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
-    needed_workers=signal_workers
+    needed_workers = signal_workers
     if len(needed_workers) > 0:
         # Defining the csv reading pipeline
         @sb.utils.data_pipeline.takes("csv_path")
@@ -231,6 +231,7 @@ def dataio_prepare(hparams):
             for worker in needed_workers:
                 feats[worker] = torch.tensor(csv_tab[worker])
             return feats
+
         sb.dataio.dataset.add_dynamic_item(datasets, csv_pipeline)
         # 4. set output:
         sb.dataio.dataset.set_output_keys(
@@ -263,6 +264,13 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+    signal_workers = list(
+        set(hparams["workers"]) - set(hparams["online_workers"])
+    )
+    for worker in hparams["online_workers"]:
+        hparams["online_computation"][worker] = hparams["online_computation"][
+            worker
+        ].to(hparams["device"])
 
     # Due to DDP, we do the preparation ONLY on the main python process
     # Create the datasets objects as well as tokenization and encoding :-D
@@ -281,16 +289,13 @@ if __name__ == "__main__":
     # When adding new pretext tasks, you will have to add the corresponding
     # regression worker
     # an example is provided with a pitch_feature
-    ssl_brain.workers_regressors = hparams["workers_regressors"] 
+    ssl_brain.workers_regressors = hparams["workers_regressors"]
     # Same for the losses
-    ssl_brain.workers_losses= hparams["workers_losses"]
+    ssl_brain.workers_losses = hparams["workers_losses"]
 
     ssl_brain.workers_loss_recap = {}
     for worker in ssl_brain.hparams.workers:
         ssl_brain.workers_loss_recap[worker] = []
-
-    signal_workers = list(set(hparams["workers"]) -
-                          set(hparams["online_workers"]))
 
     # Adding objects to trainer.
     # Training
