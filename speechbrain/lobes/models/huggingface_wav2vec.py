@@ -223,7 +223,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
 
-    def forward(self, wav):
+    def forward(self, wav, mask_device):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -241,6 +241,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             (batch_size, sequence_length),
             mask_prob=self.mask_prob,
             mask_length=self.mask_length,
+            device=mask_device,
         )
 
         return (
