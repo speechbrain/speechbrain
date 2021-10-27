@@ -50,12 +50,12 @@ class W2VBrain(sb.core.Brain):
         wavs = self.modules.normalize(wavs, wav_lens)
 
         # Forward on w2v2 and take the loss.
-        out, mask = self.modules.wav2vec2(wavs, device=self.device)
+        out, mask = self.modules.wav2vec2(wavs, mask_device=self.device)
         loss = out.loss
 
         if stage != sb.Stage.TRAIN:
             with torch.no_grad():
-                out, mask = self.modules.wav2vec2(wavs, device=self.device)
+                out, mask = self.modules.wav2vec2(wavs, mask_device=self.device)
 
             return out.loss, out, mask
 
