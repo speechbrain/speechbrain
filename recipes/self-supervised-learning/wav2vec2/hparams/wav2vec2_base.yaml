@@ -34,7 +34,7 @@ avoid_if_shorter_than: 0.5
 # paper (for the masking).
 mask_length: 10
 mask_prob: 0.65
-number_of_epochs: 100
+number_of_epochs: 75
 lr_adam: 2.0 # This will get reduced by the training scheduler
 weight_decay: 0.01
 d_model: 768  # Needed by the scheduler. 768 is for the BASE w2v2
