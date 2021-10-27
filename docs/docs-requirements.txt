@@ -1,6 +1,6 @@
 better-apidoc>=0.3.1
+numba
 recommonmark>=0.7.1
+six
 sphinx-rtd-theme>=0.4.3
 Sphinx>=3.4.3
-six
-numba

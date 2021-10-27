@@ -41,17 +41,17 @@ class ASR(sb.core.Brain):
                 feats = self.hparams.augmentation(feats)
 
         # forward modules
-        src = self.hparams.CNN(feats)
-        enc_out, pred = self.hparams.Transformer(
+        src = self.modules.CNN(feats)
+        enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
 
         # output layer for ctc log-probabilities
-        logits = self.hparams.ctc_lin(enc_out)
+        logits = self.modules.ctc_lin(enc_out)
         p_ctc = self.hparams.log_softmax(logits)
 
         # output layer for seq2seq log-probabilities
-        pred = self.hparams.seq_lin(pred)
+        pred = self.modules.seq_lin(pred)
         p_seq = self.hparams.log_softmax(pred)
 
         # Compute outputs
@@ -62,7 +62,7 @@ class ASR(sb.core.Brain):
             hyps = None
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
-                # for the sake of efficeincy, we only perform beamsearch with limited capacity
+                # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
@@ -173,7 +173,7 @@ class ASR(sb.core.Brain):
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
 
-            # report different epoch stages acccording current stage
+            # report different epoch stages according current stage
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.stage_one_epochs:
                 lr = self.hparams.noam_annealing.current_lr
@@ -209,7 +209,7 @@ class ASR(sb.core.Brain):
             with open(self.hparams.cer_file, "w") as w:
                 self.cer_metric.write_stats(w)
 
-            # save the averaged checkpoint at the end of the evalation stage
+            # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
             # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
             self.checkpointer.save_and_keep_only(
@@ -238,10 +238,10 @@ class ASR(sb.core.Brain):
             self.switched = True
 
     def on_fit_start(self):
-        """Initilaize the right optimizer on the training start"""
+        """Initialize the right optimizer on the training start"""
         super().on_fit_start()
 
-        # if the model is resumed from stage two, reinitilaize the optimizer
+        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         current_optimizer = self.optimizer
         if current_epoch > self.hparams.stage_one_epochs:

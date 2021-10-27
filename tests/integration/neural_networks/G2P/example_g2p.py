@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a graphene-to-phoneme (G2P) converter
+"""This minimal example trains a grapheme-to-phoneme (G2P) converter
 that turns a sequence of characters into a sequence of phonemes. The system uses
 a standard attention-based encoder-decoder pipeline. The encoder is based on an
  LSTM, while the decoder is based on a GRU. Greedy search applied on the top of
@@ -14,7 +14,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 class seq2seqBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input charss it computes the phonems probabilities"
+        "Given input chars it computes the phoneme's probabilities"
         chars, char_lens = batch.char_encoded
         phns, phn_lens = batch.phn_encoded_bos
 
