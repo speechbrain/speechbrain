@@ -23,7 +23,7 @@ class CLinear(torch.nn.Module):
     numbers. A complex number is written as: r + xi. A tensor of
     complex numbers x = [batch, 32] can be understood as
     [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
-    dimension is cut in half (must be dividible by 2).
+    dimension is cut in half (must be divisible by 2).
 
     Arguments
     ---------

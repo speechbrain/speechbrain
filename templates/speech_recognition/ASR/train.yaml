@@ -136,7 +136,7 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
 
-# Adds speech change + time and frequnecy dropouts (time-domain implementation).
+# Adds speech change + time and frequency dropouts (time-domain implementation).
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]

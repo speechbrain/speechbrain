@@ -761,7 +761,7 @@ def affect_conv_init(
     init_criterion,
 ):
     """ Applies the weight initialization function given to the parameters.
-    This is specificaly written for convolutional layers.
+    This is specifically written for convolutional layers.
 
     Arguments
     ---------
@@ -813,6 +813,6 @@ def check_quaternion_input(input_shape):
 
     if nb_hidden % 4 != 0:
         raise Exception(
-            "Quaternion Tensors must have a dimensions dividible by 4."
+            "Quaternion Tensors must have dimensions divisible by 4."
             " input.size()[1] = " + str(nb_hidden)
         )

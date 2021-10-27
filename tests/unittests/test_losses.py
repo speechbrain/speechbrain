@@ -137,3 +137,90 @@ def test_transducer_loss():
     )
     out_cost.backward()
     assert out_cost.item() == 2.247833251953125
+
+
+def test_guided_attention_loss_mask():
+    from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+
+    loss = GuidedAttentionLoss()
+    input_lengths = torch.tensor([3, 2, 6])
+    output_lengths = torch.tensor([4, 3, 5])
+    soft_mask = loss.guided_attentions(input_lengths, output_lengths)
+    ref_soft_mask = torch.tensor(
+        [
+            [
+                [0.0, 0.54216665, 0.9560631, 0.9991162, 0.0],
+                [0.7506478, 0.08314464, 0.2933517, 0.8858382, 0.0],
+                [0.9961341, 0.8858382, 0.2933517, 0.08314464, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+            [
+                [0.0, 0.7506478, 0.9961341, 0.0, 0.0],
+                [0.9560631, 0.2933517, 0.2933517, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+            [
+                [0.0, 0.39346933, 0.86466473, 0.988891, 0.99966455],
+                [0.2933517, 0.01379288, 0.49366438, 0.90436554, 0.993355],
+                [0.7506478, 0.1992626, 0.05404053, 0.5888877, 0.93427145],
+                [0.9560631, 0.6753475, 0.1175031, 0.1175031, 0.6753475],
+                [0.9961341, 0.93427145, 0.5888877, 0.05404053, 0.1992626],
+                [0.9998301, 0.993355, 0.90436554, 0.49366438, 0.01379288],
+            ],
+        ]
+    )
+    assert torch.allclose(soft_mask, ref_soft_mask)
+
+
+def test_guided_attention_loss_value():
+    from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+
+    loss = GuidedAttentionLoss()
+    input_lengths = torch.tensor([2, 3])
+    target_lengths = torch.tensor([3, 4])
+    alignments = torch.tensor(
+        [
+            [
+                [0.8, 0.2, 0.0],
+                [0.4, 0.6, 0.0],
+                [0.2, 0.8, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+            [
+                [0.6, 0.2, 0.2],
+                [0.1, 0.7, 0.2],
+                [0.3, 0.4, 0.3],
+                [0.2, 0.3, 0.5],
+            ],
+        ]
+    )
+    loss_value = loss(alignments, input_lengths, target_lengths)
+    ref_loss_value = torch.tensor(0.1142)
+    assert torch.isclose(loss_value, ref_loss_value, 0.0001, 0.0001).item()
+
+
+def test_guided_attention_loss_shapes():
+    from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+
+    loss = GuidedAttentionLoss()
+    input_lengths = torch.tensor([3, 2, 6])
+    output_lengths = torch.tensor([4, 3, 5])
+    soft_mask = loss.guided_attentions(input_lengths, output_lengths)
+    assert soft_mask.shape == (3, 6, 5)
+    soft_mask = loss.guided_attentions(
+        input_lengths, output_lengths, max_input_len=10
+    )
+    assert soft_mask.shape == (3, 10, 5)
+    soft_mask = loss.guided_attentions(
+        input_lengths, output_lengths, max_target_len=12
+    )
+    assert soft_mask.shape == (3, 6, 12)
+    soft_mask = loss.guided_attentions(
+        input_lengths, output_lengths, max_input_len=10, max_target_len=12
+    )
+    assert soft_mask.shape == (3, 10, 12)
