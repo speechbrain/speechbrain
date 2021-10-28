@@ -34,6 +34,8 @@ avoid_if_shorter_than: 1.0
 # paper (for the masking).
 mask_length: 10
 mask_prob: 0.65
+freeze_wav2vec: False
+
 number_of_epochs: 75
 lr_adam: 2.0 # This will get reduced by the training scheduler
 weight_decay: 0.01
@@ -59,31 +61,6 @@ dataloader_options:
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
     num_workers: 4
-
-# Model parameters
-activation: !name:torch.nn.LeakyReLU
-dnn_layers: 2
-dnn_neurons: 1024
-emb_size: 128
-dec_neurons: 1024
-freeze_wav2vec: False
-
-# Outputs
-output_neurons: 1000  # BPE size, index(blank/eos/bos) = 0
-
-# Decoding parameters
-# Be sure that the bos and eos index match with the BPEs ones
-blank_index: 0
-bos_index: 1
-eos_index: 2
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 80
-eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 140
-ctc_weight_decode: 0.0
-temperature: 1.50
 
 #
 # Functions and classes
