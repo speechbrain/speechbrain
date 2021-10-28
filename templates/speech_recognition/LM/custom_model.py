@@ -57,7 +57,7 @@ class CustomModel(torch.nn.Module):
             input_size=embedding_dim,
             hidden_size=rnn_size,
             bidirectional=False,
-            num_layers=layers
+            num_layers=layers,
         )
 
         # Final output transformation + softmax
