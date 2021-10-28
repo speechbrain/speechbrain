@@ -13,7 +13,9 @@ trained with ANY dataset as long as you provide the correct JSON or CSV file.
 
 The HuggingFace implementation of the wav2vec 2.0 pretraining is used and wrapped
 to fit properly the SpeechBrain framework. Models have been compared to the original
-fairseq implementation with success.
+fairseq implementation with success. The Transformers HuggingFace library is
+required:
+> pip install extra_requirements.txt
 
 Hence the process is the following:
 1. Indicate a HuggingFace repository that stores the wav2vec 2.0 config file.
