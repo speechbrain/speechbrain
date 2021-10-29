@@ -159,9 +159,16 @@ def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=8):
         predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
         target = [t[:length].cpu() for t, length in zip(target, lengths)]
 
-    scores = Parallel(n_jobs=n_jobs)(
-        delayed(metric)(p, t) for p, t in zip(predict, target)
-    )
+    while True:
+        try:
+            scores = Parallel(n_jobs=n_jobs, timeout=30)(
+                delayed(metric)(p, t) for p, t in zip(predict, target)
+            )
+            break
+        except Exception as e:
+            print(e)
+            print("Evaluation timeout...... (will try again)")
+
     return scores
 
 
