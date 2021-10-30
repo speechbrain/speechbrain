@@ -32,7 +32,7 @@ E.g., to train EEGNet to decode motor imagery on BNCI2014001:\
 
 In the following, results are reported for each MOABB dataset and each architecture using different training strategies.
 
-The model scoring the optimal value for a target key was loaded (e.g., max accuracy). Then, results were aggregated as follows:
+The model scoring the optimal value on the validation set for a target key  was loaded (e.g., max accuracy). Then, results were aggregated as follows:
 * Within-session. For each subject and for each session, performance metrics were computed on each test set of each cross-validation fold (stored in the metrics.pkl file). Then, these were averaged across folds. The so averaged metrics were reported for each session (average value ± standard deviation across subjects).
 * Leave-one-session-out. For each subject, performance metrics were computed on each held-out session (stored in the metrics.pkl file). Then, these metrics were reported for each held-out session (average value ± standard deviation across subjects).
 * Cross-session. For each subject, performance metrics were computed on each test set of each cross-validation fold (stored in the metrics.pkl file). Then, these metrics were reported (average value ± standard deviation across subjects).
