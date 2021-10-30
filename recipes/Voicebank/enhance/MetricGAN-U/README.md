@@ -1,4 +1,4 @@
-# MetricGAN+ Recipe for Enhancement
+# MetricGAN-U Recipe for Enhancement
 
 This recipe implements MetricGAN-U recipe for enhancement as described in the paper
 [MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech](https://arxiv.org/abs/2110.05866)
@@ -14,7 +14,7 @@ python train.py hparams/train_dnsmos.yaml --data_folder /path/to/data_folder
 ## Results
 
 Experiment Date | DNSMOS
--|-|-|-|-
+-|-
 2021-10-31 | 3.15
 
 
