@@ -1,13 +1,11 @@
 #!/usr/bin/python
 """
-Recipe for training a compact CNN to decode motor imagery from single EEG trials.
-The CNN is based on EEGNet and the dataset is BNCI2014001.
-Reference to EEGNet: V. J. Lawhern et al., J Neural Eng 2018 (https://doi.org/10.1088/1741-2552/aace8c).
-Reference to BNCI2014001:  (https://doi.org/10.1016/j.neuroimage.2020.117465).
+Recipe for training neural networks to decode single EEG trials with different paradigms on MOABB datasets.
+See the supported datasets and paradigms at http://moabb.neurotechx.com/docs/api.html.
 
-To run this recipe:
+To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001):
 
-    > python3 train.py train.yaml --data_folder '/path/to/MOABB_BNCI2014001'
+    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001'
 
 Author
 ------
@@ -27,12 +25,10 @@ from sklearn.metrics import (
     roc_auc_score,
     balanced_accuracy_score,
 )
+import logging
 import multiprocessing as mp
-
-# sys.path.append("/home/davide/Documents/codes/shared_speechbrain-1")
 import speechbrain as sb
 
-# from torchsummary import summary
 mp.set_start_method("spawn", force=True)
 
 
@@ -65,6 +61,7 @@ class MOABBBrain(sb.Brain):
             ),
         )
         if stage != sb.Stage.TRAIN:
+            # From log to linear predictions
             tmp_preds = torch.exp(predictions)
             self.preds.extend(tmp_preds.detach().cpu().numpy())
             self.targets.extend(batch[1].detach().cpu().numpy())
@@ -158,6 +155,15 @@ def run_experiment(hparams, run_opts, datasets):
     hparams["train_logger"] = sb.utils.train_logger.FileTrainLogger(
         save_file=os.path.join(hparams["exp_dir"], "train_log.txt")
     )
+    logger = logging.getLogger(__name__)
+    logger.info("Experiment directory: {0}".format(hparams["exp_dir"]))
+    datasets_summary = "Number of examples: {0} (training), {1} (validation), {2} (test)".format(
+        datasets["train"].dataset.tensors[0].shape[0],
+        datasets["valid"].dataset.tensors[0].shape[0],
+        datasets["test"].dataset.tensors[0].shape[0],
+    )
+    logger.info(datasets_summary)
+
     brain = MOABBBrain(
         modules={"model": hparams["model"]},
         opt_class=hparams["optimizer"],
@@ -172,15 +178,17 @@ def run_experiment(hparams, run_opts, datasets):
         valid_set=datasets["valid"],
         progressbar=False,
     )
-    # evaluation
-    min_key, max_key = None, None
-    if "min_key" in hparams.keys():
-        min_key = hparams["min_key"]
-    if "max_key" in hparams.keys():
-        max_key = hparams["max_key"]
-    if min_key is not None or max_key is not None:
-        # perform evaluation only if min_key and max_key were specified
-
+    # evaluation after loading model using different keys
+    results = {}
+    keys = ["f1", "auc", "acc", "loss"]
+    for key in keys:
+        results[key] = {}
+        min_key, max_key = None, None
+        if key == "loss":
+            min_key = key
+        else:
+            max_key = key
+        # perform evaluation
         brain.evaluate(
             datasets["test"],
             progressbar=False,
@@ -194,24 +202,22 @@ def run_experiment(hparams, run_opts, datasets):
             brain.last_eval_auc,
             brain.last_eval_cm,
         )
-
-        # saving metrics on the test set in a pickle file
-        metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
-        with open(metrics_fpath, "wb",) as handle:
-            pickle.dump(
-                {
-                    "loss": test_loss,
-                    "f1": test_f1,
-                    "acc": test_acc,
-                    "auc": test_auc,
-                    "cm": test_cm,
-                },
-                handle,
-                protocol=pickle.HIGHEST_PROTOCOL,
-            )
+        results[key]["loss"] = test_loss
+        results[key]["f1"] = test_f1
+        results[key]["acc"] = test_acc
+        results[key]["auc"] = test_auc
+        results[key]["cm"] = test_cm
+    # saving metrics on the test set in a pickle file
+    metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
+    with open(metrics_fpath, "wb",) as handle:
+        pickle.dump(
+            results, handle, protocol=pickle.HIGHEST_PROTOCOL,
+        )
 
 
 def run_single_process(argv, tail_path, datasets):
+    """This function wraps up a single process (e.g., the training of a single cross-validation fold
+    with a specific hparams file and experiment directory)"""
     # loading hparams for the each training and evaluation processes
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -228,7 +234,6 @@ def run_single_process(argv, tail_path, datasets):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    # argv = ['train_BNCI2014001.yaml', '--data_folder', '/home/davide/Documents/data']
     # loading hparams to prepare the dataset and the data iterators
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -240,7 +245,6 @@ if __name__ == "__main__":
     # defining data iterators to use
     data_its = hparams["data_iterators"]
 
-    # summary(hparams['model'], hparams['input_shape'][1:])
     # defining the job list
     jobs = []
     for data_it in data_its:

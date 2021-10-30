@@ -17,7 +17,7 @@ class ShallowConvNet(torch.nn.Module):
     input_shape : tuple
         The shape of the input.
     sf : int
-        The sampling frequency of the input EEG signals.
+        The sampling frequency of the input EEG signals (Hz).
     cnn_temporal_kernels : int
         Number of kernels in the 2d temporal convolution.
     cnn_temporal_kernelsize : tuple
@@ -37,7 +37,7 @@ class ShallowConvNet(torch.nn.Module):
     def __init__(
         self,
         input_shape=None,
-        sf=256,
+        sf=250,
         cnn_temporal_kernels=40,
         cnn_temporal_kernelsize=(25, 1),
         cnn_spatial_kernels=40,
@@ -49,7 +49,7 @@ class ShallowConvNet(torch.nn.Module):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
-        self.default_sf = 256  # sampling rate of the original publication
+        self.default_sf = 250  # sampling rate of the original publication (Hz)
         # scaling temporal kernel and pooling sizes/strides if different sampling rate was used
         # respect to the original publication
         if sf != self.default_sf:
@@ -134,9 +134,9 @@ class ShallowConvNet(torch.nn.Module):
         """
         x = self.conv_module(x)
         # square-pool-log-dropout module
-        x = torch.square(x)
+        x = torch.square(x)  # conv non-lin
         x = self.pool(x)
-        x = torch.log(torch.clamp(x, min=1e-6))
+        x = torch.log(torch.clamp(x, min=1e-6))  # pool non-lin
         x = self.dropout(x)
         x = self.dense_module(x)
         return x

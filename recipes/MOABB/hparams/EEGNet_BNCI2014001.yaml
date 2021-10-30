@@ -1,4 +1,7 @@
 ###################################################
+# Classification of imagined movements (right hand, left hand, feet, tongue) of BNCI2014001 MOABB dataset using EEGNet.
+# EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
+# BNCI2014001 from https://doi.org/10.3389/fnins.2012.00055.
 #
 # Author
 # ------
@@ -6,21 +9,18 @@
 ###################################################
 seed: 1234
 __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
-#__set_numpyseed: !apply:numpy.random.seed [!ref <seed>]
+
 # DIRECTORIES
-data_folder: !PLACEHOLDER  #'/path/to/MOABB_BNCI2014001'
-output_folder: !ref /home/davide/Documents/results/MOABB_BNCI2014001/<seed>
-#!ref results/MOABB_BNCI2014001/<seed>
+data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'
+output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
 
 # DATASET HPARS
+# Defining the MOABB dataset.
 dataset: !new:moabb.datasets.BNCI2014001
-
 subject_list: [1, 2, 3, 4, 5, 6, 7, 8, 9]  # subject list
-
 events: ['left_hand', 'right_hand', 'feet', 'tongue']
 n_classes: 4
-sf: 128 # Target sampling rate
-
+sf: 128  # Target sampling rate (Hz)
 # tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
 # trial begins (0 s), cue (2 s, 1.25 s long); each trial is 6 s long
 # dataset interval starts from 2
@@ -28,7 +28,6 @@ sf: 128 # Target sampling rate
 tmin: 0.5
 tmax: 2.5
 T: !ref <sf> * (<tmax> - <tmin>)
-
 # fmin, fmax band-pass filtering
 fmin: 4
 fmax: 40
@@ -37,7 +36,7 @@ channels: ['Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4',
            'C6', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4',
            'P1', 'Pz', 'P2', 'POz']
 C: 22
-
+# Defining the MOABB paradigm and setting the pre-processing hyper-parameters for the specific dataset.
 paradigm: !new:moabb.paradigms.MotorImagery
   events: !ref <events>
   n_classes: !ref <n_classes>
@@ -47,6 +46,7 @@ paradigm: !new:moabb.paradigms.MotorImagery
   tmax: !ref <tmax>
   channels: !ref <channels>
   resample: !ref <sf>
+
 # TRAINING HPARS
 num_parallel_processes: 6  # number of parallel processes to run
 nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
@@ -55,35 +55,29 @@ lr: 0.001 # learning rate
 loss: !name:torch.nn.functional.nll_loss
 optimizer: !name:torch.optim.Adam
   lr: !ref <lr>
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
   limit: !ref <number_of_epochs>
-
 batch_size: 32
 valid_ratio: 0.2
-
-max_key: 'acc' # key to use when loading the target model during inference
-
 # data iterators
 within_session_it: !new:recipes.MOABB.dataio_iterators.WithinSession
-  paradigm: !ref <paradigm>
-  nfolds: !ref <nfolds>
-  seed: !ref <seed>
-cross_session_it: !new:recipes.MOABB.dataio_iterators.CrossSession
   paradigm: !ref <paradigm>
   nfolds: !ref <nfolds>
   seed: !ref <seed>
 leave_one_session_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSessionOut
   paradigm: !ref <paradigm>
   seed: !ref <seed>
+cross_session_it: !new:recipes.MOABB.dataio_iterators.CrossSession
+  paradigm: !ref <paradigm>
+  nfolds: !ref <nfolds>
+  seed: !ref <seed>
 leave_one_subject_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSubjectOut
   paradigm: !ref <paradigm>
   seed: !ref <seed>
-
 data_iterators: [!ref <within_session_it>,
                  !ref <leave_one_session_out_it>,
-                 #!ref <cross_session_it>,
-                 #!ref <leave_one_subject_out_it>,
+                 !ref <cross_session_it>,
+                 !ref <leave_one_subject_out_it>,
 ]
 
 # MODEL: EEGNET
@@ -105,14 +99,3 @@ model: !new:speechbrain.lobes.models.EEGNet.EEGNet
   dense_n_neurons: !ref <n_classes>
   dense_max_norm: !ref <dense_max_norm>
   dropout: !ref <dropout>
-
-# MODEL: SHALLOWCONVNET
-#cnn_temporal_kernels: 40  # number of temporal filters in the temporal conv. layer
-#cnn_spatial_kernels: 40  # number of spatial filters in the spatial conv. layer
-#model: !new:speechbrain.lobes.models.ShallowNet.ShallowNet
-#  input_shape: !ref <input_shape>
-#  sf: !ref <sf>
-#  cnn_temporal_kernels: !ref <cnn_temporal_kernels>
-#  cnn_spatial_kernels: !ref <cnn_spatial_kernels>
-#  dense_n_neurons: !ref <n_classes>
-#  dropout: !ref <dropout>

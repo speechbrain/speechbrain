@@ -17,7 +17,7 @@ class EEGNet(torch.nn.Module):
     input_shape : tuple
         The shape of the input.
     sf : int
-        The sampling frequency of the input EEG signals.
+        The sampling frequency of the input EEG signals (Hz).
     cnn_temporal_kernels : int
         Number of kernels in the 2d temporal convolution.
     cnn_temporal_kernelsize : tuple
@@ -64,7 +64,7 @@ class EEGNet(torch.nn.Module):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
-        self.default_sf = 128  # sampling rate of the original publication
+        self.default_sf = 128  # sampling rate of the original publication (Hz)
         # scaling temporal kernel and pooling sizes/strides if different sampling rate was used
         # respect to the original publication
         if sf != self.default_sf:
