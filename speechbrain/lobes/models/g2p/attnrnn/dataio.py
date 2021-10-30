@@ -53,7 +53,7 @@ def grapheme_pipeline(
     grapheme_encoder=None,
     space_separated=False,
     uppercase=True,
-    takes="char",
+    takes="char"
 ):
     """Creates a pipeline element for grapheme encoding
 
@@ -75,6 +75,7 @@ def grapheme_pipeline(
     """
     if grapheme_encoder is None:
         grapheme_encoder = sb.dataio.encoder.TextEncoder()
+
     grapheme_encoder.update_from_iterable(graphemes)
     grapheme_set = set(graphemes)
 
@@ -107,7 +108,7 @@ def tokenizer_encode_pipeline(
     word_separator=" ",
     token_space_index=512,
     space_separated=True,
-    char_map=None,
+    char_map=None
 ):
     """A pipeline element that uses a pretrained tokenizer
 
@@ -134,6 +135,7 @@ def tokenizer_encode_pipeline(
         of one or two-character tokens (e.g. ["DH", "UH", " ", "S", "AW",
         "N", "D"]). The character map makes it possible to map these
         to arbitrarily selected characters
+
 
     """
     token_set = set(tokens)
@@ -172,7 +174,7 @@ def _add_bos(encoder, seq):
 
     Arguments
     ---------
-    encoder: speechbrain.dataio.encoder.TextEncoder.
+    encoder: speechbrain.dataio.encoder.TextEncoder
         a text encoder instance.
     seq: torch.Tensor
         an encoded sequence
@@ -253,8 +255,13 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
         the result
 
     """
+    if isinstance(sequence, str) and sequence == '':
+        return ''
     if token_separator not in sequence:
-        return tokenizer.sp.decode_ids(sequence)
+        sequence_list = (
+            sequence if isinstance(sequence, list)
+            else sequence.tolist())
+        return tokenizer.sp.decode_ids(sequence_list)
     words = list(_split_list(sequence, token_separator))
     encoded_words = [
         tokenizer.sp.decode_ids(word_tokens) for word_tokens in words
@@ -286,7 +293,7 @@ def _split_list(items, separator):
             yield items[last_idx + 1 :]
 
 
-def _enable_eos_bos(tokens, encoder, bos_index, eos_index):
+def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     """
     Initializs the phoneme encoder with EOS/BOS sequences
 
@@ -327,7 +334,7 @@ def _enable_eos_bos(tokens, encoder, bos_index, eos_index):
     return encoder
 
 
-def phoneme_pipeline(phoneme_encoder=None, space_separated=True):
+def phoneme_pipeline(phoneme_encoder=None, space_separated=True, takes="phn", provides_prefix="phn"):
     """Creates a pipeline element for phoneme encoding
 
     Arguments
@@ -342,9 +349,11 @@ def phoneme_pipeline(phoneme_encoder=None, space_separated=True):
         a pipeline element
     """
 
-    @sb.utils.data_pipeline.takes("phn")
+    @sb.utils.data_pipeline.takes(takes)
     @sb.utils.data_pipeline.provides(
-        "phn_list", "phn_encoded_list", "phn_encoded"
+        f"{provides_prefix}_list",
+        f"{provides_prefix}_encoded_list",
+        f"{provides_prefix}_encoded"
     )
     def f(phn):
         phn_list = phn.strip().split(" ") if space_separated else phn
@@ -438,7 +447,7 @@ def phoneme_decoder_pipeline(
     result: DymamicItem
         a pipeline element
     """
-    phoneme_encoder = _enable_eos_bos(
+    phoneme_encoder = enable_eos_bos(
         phonemes, phoneme_encoder, bos_index, eos_index
     )
 

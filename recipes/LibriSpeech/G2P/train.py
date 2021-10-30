@@ -20,17 +20,21 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
+from torch import optim
+from speechbrain.dataio.dataset import FilteredSortedDynamicItemDataset
 from speechbrain.dataio.sampler import BalancingDataSampler
 import sys
 
 import speechbrain as sb
 import os
+import random
 from enum import Enum
 from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.pretrained.training import PretrainedModelMixin
 from speechbrain.lobes.models.g2p.attnrnn.dataio import (
+    enable_eos_bos,
     grapheme_pipeline,
     phoneme_pipeline,
     tokenizer_encode_pipeline,
@@ -69,12 +73,38 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         self.mode = TrainMode(train_step.get("mode", TrainMode.NORMAL))
         self.last_attn = None
         self.use_word_emb = getattr(self.hparams, "use_word_emb", False)
+        self.phn_tokenize = getattr(self.hparams, "phn_tokenize", False)
+        self.lr_annealing_mode = getattr(self.hparams, "lr_annealing_mode", "epoch")
+        self.ckpt_frequency = getattr(self.hparams, "ckpt_frequency", 1)
+        self.enable_metrics = getattr(self.hparams, "enable_metrics", True)
+        self.lr_annealing = getattr(
+            self.train_step,
+            "lr_annealing",
+            self.hparams.lr_annealing
+        )
+        self.phn_key = self._get_sequence_key(
+            key="phn_encoded",
+            mode=getattr(self.hparams, "phoneme_sequence_mode", "bos")
+        )
+        self.grapheme_key = self._get_sequence_key(
+            key="grapheme_encoded",
+            mode=getattr(self.hparams, "grapheme_sequence_mode", "bos")
+        )
+        self.beam_searcher = self.hparams.beam_searcher
+        self.beam_searcher_valid = getattr(
+            self.hparams,
+            "beam_searcher_valid",
+            self.hparams.beam_searcher)
+
+    def _get_sequence_key(self, key, mode):
+        return key if mode == "raw" else f"{key}_{mode}"
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
         batch = batch.to(self.device)
 
-        graphemes, grapheme_lens = batch.grapheme_encoded
+        graphemes, grapheme_lens = getattr(batch, self.grapheme_key)
+        phn_encoded = getattr(batch, self.phn_key)
         word_emb = None
         if self.use_word_emb:
             word_emb = self.modules.word_emb.batch_embeddings(batch.char)
@@ -84,10 +114,12 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 seq_len=grapheme_lens,
                 word_separator=self.grapheme_word_separator_idx,
             )
+        else:
+            word_emb, char_word_emb = None, None
 
         p_seq, char_lens, encoder_out, attn = self.modules["model"](
             grapheme_encoded=(graphemes.detach(), grapheme_lens),
-            phn_encoded=batch.phn_encoded_bos,
+            phn_encoded=phn_encoded,
             word_emb=char_word_emb,
         )
         self.last_attn = attn
@@ -99,8 +131,11 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             ctc_logits = self.modules.ctc_lin(encoder_out)
             ctc_logprobs = self.hparams.log_softmax(ctc_logits)
 
-        if stage != sb.Stage.TRAIN:
-            hyps, scores = self.hparams.beam_searcher(encoder_out, char_lens)
+        if stage != sb.Stage.TRAIN and self.enable_metrics:
+            beam_searcher = (
+                self.beam_searcher_valid if stage == sb.Stage.VALID
+                else self.beam_searcher)
+            hyps, scores = beam_searcher(encoder_out, char_lens)
 
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 
@@ -123,8 +158,14 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             loss = seq_weight * loss_seq + self.hparams.ctc_weight * loss_ctc
         else:
             loss = loss_seq
-
         if self.mode == TrainMode.HOMOGRAPH:
+            # When tokenization is used, the length of the words
+            # in the original phoneme space is not equal to the tokenized
+            # words but the raw data only supplies non-tokenized information
+            phns_base, phn_lens_base = (
+                batch.phn_raw_encoded if self.phn_tokenize
+                else (None, None)
+            )
             homograph_loss = (
                 self.hparams.homograph_loss_weight
                 * self.hparams.homograph_cost(
@@ -133,28 +174,35 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                     p_seq=predictions.p_seq,
                     subsequence_phn_start=batch.homograph_phn_start,
                     subsequence_phn_end=batch.homograph_phn_end,
+                    phns_base=phns_base,
+                    phn_lens_base=phn_lens_base
                 )
             )
             loss += homograph_loss
 
         # Record losses for posterity
-        if stage != sb.Stage.TRAIN:
-            self.seq_metrics.append(ids, predictions.p_seq, phns_eos, phn_lens)
-            self.per_metrics.append(
-                ids,
-                predictions.hyps,
-                phns,
-                None,
-                phn_lens,
-                self.hparams.out_phoneme_decoder,
-            )
-            if self.mode == TrainMode.HOMOGRAPH:
-                self._add_homograph_metrics(predictions, batch)
+        if self.enable_metrics:
+            if stage != sb.Stage.TRAIN:
+                self.seq_metrics.append(ids, predictions.p_seq, phns_eos, phn_lens)
+                self.per_metrics.append(
+                    ids,
+                    predictions.hyps,
+                    phns,
+                    None,
+                    phn_lens,
+                    self.hparams.out_phoneme_decoder,
+                )
+                if self.mode == TrainMode.HOMOGRAPH:
+                    self._add_homograph_metrics(predictions, batch)
 
         return loss
 
     def _add_homograph_metrics(self, predictions, batch):
         phns, phn_lens = batch.phn_encoded
+        phns_base, phn_base_lens = (
+            batch.phn_raw_encoded
+            if self.phn_tokenize
+            else (None, None))
         ids = batch.id
         (
             p_seq_homograph,
@@ -166,9 +214,11 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             predictions.p_seq,
             subsequence_phn_start=batch.homograph_phn_start,
             subsequence_phn_end=batch.homograph_phn_end,
+            phns_base=phns_base,
+            phn_base_lens=phn_base_lens
         )
         hyps_homograph = self.hparams.homograph_extractor.extract_hyps(
-            phns, predictions.hyps, batch.homograph_phn_start
+            phns_base, predictions.hyps, batch.homograph_phn_start
         )
         self.seq_metrics_homograph.append(
             ids, p_seq_homograph, phns_homograph, phn_lens_homograph
@@ -210,9 +260,13 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
+
         if self.check_gradients(loss):
             self.optimizer.step()
         self.optimizer.zero_grad()
+        if self.hparams.lr_annealing is not None and self.lr_annealing_mode == "step":
+            self.hparams.lr_annealing(self.optimizer)
+
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -225,17 +279,18 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         """Gets called at the beginning of each epoch"""
         self.seq_metrics = self.hparams.seq_stats()
 
-        if stage != sb.Stage.TRAIN:
-            self.per_metrics = self.hparams.per_stats()
-
-        if self.mode == TrainMode.HOMOGRAPH:
-            self.seq_metrics_homograph = self.hparams.seq_stats_homograph()
-            self.classification_metrics_homograph = (
-                self.hparams.classification_stats_homograph()
-            )
-
+        if self.enable_metrics:
             if stage != sb.Stage.TRAIN:
-                self.per_metrics_homograph = self.hparams.per_stats_homograph()
+                self.per_metrics = self.hparams.per_stats()
+
+            if self.mode == TrainMode.HOMOGRAPH:
+                self.seq_metrics_homograph = self.hparams.seq_stats_homograph()
+                self.classification_metrics_homograph = (
+                    self.hparams.classification_stats_homograph()
+                )
+
+                if stage != sb.Stage.TRAIN:
+                    self.per_metrics_homograph = self.hparams.per_stats_homograph()
 
             self._set_word_separator()
         self.grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
@@ -245,69 +300,98 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
     def _set_word_separator(self):
-        word_separator_idx = self.phoneme_encoder.lab2ind[" "]
+        if self.phn_tokenize:
+            word_separator_idx = self.hparams.token_space_index
+            word_separator_base_idx = self.phoneme_encoder.lab2ind[" "]
+        else:
+            word_separator_base_idx = word_separator_idx = (
+                self.phoneme_encoder.lab2ind[" "])
+
         self.hparams.homograph_cost.word_separator = word_separator_idx
+        self.hparams.homograph_cost.word_separator_base = word_separator_base_idx
         self.hparams.homograph_extractor.word_separator = word_separator_idx
+        self.hparams.homograph_extractor.word_separator_base = word_separator_base_idx
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-        else:
+        elif self.enable_metrics:
             per = self.per_metrics.summarize("error_rate")
-
+        ckpt_predicate, ckpt_meta, min_keys = None, {}, None
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            if self.hparams.lr_annealing is not None and self.lr_annealing_mode == "epoch":
+                if isinstance(self.hparams.lr_annealing, sb.nnet.schedulers.NewBobScheduler) and self.enable_metrics:
+                    old_lr, new_lr = self.hparams.lr_annealing(per)
+                elif isinstance(self.hparams.lr_annealing, sb.nnet.schedulers.ReduceLROnPlateau):
+                    old_lr, new_lr = self.hparams.lr_annealing(
+                        optim_list=[self.optimizer],
+                        current_epoch=epoch,
+                        current_loss=self.train_loss)
+                else:
+                    old_lr, new_lr = self.hparams.lr_annealing(epoch)
+                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            else:
+                # No annealing - the LR stays the same
+                old_lr = new_lr = self.optimizer.param_groups[0]["lr"]
 
             stats = {
                 "stats_meta": {"epoch": epoch, "lr": old_lr},
                 "train_stats": {"loss": self.train_loss},
                 "valid_stats": {
                     "loss": stage_loss,
-                    "seq_loss": self.seq_metrics.summarize("average"),
-                    "PER": per,
                 },
             }
-
-            if self.mode == TrainMode.HOMOGRAPH:
-                per_homograph = self.per_metrics_homograph.summarize(
-                    "error_rate"
-                )
+            if self.enable_metrics:
                 stats["valid_stats"].update(
                     {
-                        "seq_loss_homograph": self.seq_metrics_homograph.summarize(
-                            "average"
-                        ),
-                        "PER_homograph": per_homograph,
+                        "seq_loss": self.seq_metrics.summarize("average"),
+                        "PER": per,
                     }
                 )
-                ckpt_meta = {"PER_homograph": per}
-                min_keys = ["PER_homograph"]
-                ckpt_predicate = self._has_homograph_per
-            else:
-                ckpt_meta = {"PER": per}
-                min_keys = ["PER"]
-                ckpt_predicate = None
+
+                if self.mode == TrainMode.HOMOGRAPH:
+                    per_homograph = self.per_metrics_homograph.summarize(
+                        "error_rate"
+                    )
+                    stats["valid_stats"].update(
+                        {
+                            "seq_loss_homograph": self.seq_metrics_homograph.summarize(
+                                "average"
+                            ),
+                            "PER_homograph": per_homograph,
+                        }
+                    )
+                    ckpt_meta = {"PER_homograph": per}
+                    min_keys = ["PER_homograph"]
+                    ckpt_predicate = self._has_homograph_per
+                else:
+                    ckpt_meta = {"PER": per}
+                    min_keys = ["PER"]
 
             stats = self._add_stats_prefix(stats)
             self.hparams.train_logger.log_stats(**stats)
             if self.hparams.use_tensorboard:
                 self.hparams.tensorboard_train_logger.log_stats(**stats)
                 self.save_samples()
-
-            self.checkpointer.save_and_keep_only(
-                meta=ckpt_meta, min_keys=min_keys, ckpt_predicate=ckpt_predicate
-            )
+            if epoch % self.ckpt_frequency == 0:
+                self.checkpointer.save_and_keep_only(
+                    meta=ckpt_meta, min_keys=min_keys, ckpt_predicate=ckpt_predicate
+                )
             if self.hparams.enable_interim_reports:
-                self._write_reports(epoch, final=False)
+                if self.enable_metrics:
+                    self._write_reports(epoch, final=False)
 
         if stage == sb.Stage.TEST:
+            test_stats = {"loss": stage_loss}
+            if self.enable_metrics:
+                test_stats["PER"] = per
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.epoch_counter.current},
-                test_stats={"loss": stage_loss, "PER": per},
+                test_stats=test_stats
             )
-            self._write_reports(epoch)
+            if self.enable_metrics:
+                self._write_reports(epoch)
 
     def _has_homograph_per(self, ckpt):
         return "PER_homograph" in ckpt.meta
@@ -375,6 +459,8 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         self._save_text_alignments()
 
     def _save_text_alignments(self):
+        if not self.enable_metrics:
+            return
         last_batch_sample = self.per_metrics.scores[
             -self.hparams.eval_prediction_sample_size :
         ]
@@ -404,6 +490,8 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
 
     def _save_attention_alignment(self):
         attention = self.last_attn[0]
+        if attention.dim() > 2:
+            attention = attention[0]
         alignments_max = (
             attention.max(dim=-1)
             .values.max(dim=-1)
@@ -434,7 +522,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         self.tb_writer.add_text(tag, alignments_sample_md, self.tb_global_step)
 
 
-def sort_data(data, hparams):
+def sort_data(data, hparams, train_step):
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
         data = data.filtered_sorted(sort_key="duration")
@@ -449,6 +537,14 @@ def sort_data(data, hparams):
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+
+    sample = train_step.get("sample")
+    if sample:
+        sample_ids = list(data.data_ids)
+        if train_step.get("sample_random"):
+            random.shuffle(sample_ids)
+        sample_ids = sample_ids[:sample]
+        data = FilteredSortedDynamicItemDataset(data, sample_ids)
 
     return data
 
@@ -489,22 +585,26 @@ def dataio_prep(hparams, train_step=None):
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+    is_homograph = (
+        TrainMode(train_step.get("mode", TrainMode.NORMAL))
+        == TrainMode.HOMOGRAPH)
 
-    train_data = sort_data(train_data, hparams)
+    train_data = sort_data(train_data, hparams, train_step)
 
     valid_data = data_load(
         train_step["valid_data"], replacements={"data_root": data_folder},
     )
-    valid_data = sort_data(valid_data, hparams)
+    valid_data = sort_data(valid_data, hparams, train_step)
 
     test_data = data_load(
         train_step["test_data"], replacements={"data_root": data_folder},
     )
-    test_data = sort_data(test_data, hparams)
+    test_data = sort_data(test_data, hparams, train_step)
 
     datasets = [train_data, valid_data, test_data]
 
-    phoneme_encoder = sb.dataio.encoder.TextEncoder()
+    phoneme_encoder = hparams["phoneme_encoder"]
+    grapheme_encoder = hparams["grapheme_encoder"]
 
     # 2. Define grapheme and phoneme pipelines:
     if hparams.get("char_tokenize"):
@@ -522,6 +622,7 @@ def dataio_prep(hparams, train_step=None):
             graphemes=hparams["graphemes"],
             space_separated=hparams["graphemes_space_separated"],
         )
+
     if hparams.get("phn_tokenize"):
         phoneme_pipeline_item = tokenizer_encode_pipeline(
             tokenizer=hparams["phoneme_tokenizer"],
@@ -538,24 +639,48 @@ def dataio_prep(hparams, train_step=None):
             hparams["grapheme_tokenizer"]()
         if "phoneme_tokenizer" in hparams:
             hparams["phoneme_tokenizer"]()
+        enable_eos_bos(
+            tokens=hparams["phonemes"],
+            encoder=phoneme_encoder,
+            bos_index=hparams["bos_index"],
+            eos_index=hparams["eos_index"])
     else:
         phoneme_pipeline_item = phoneme_pipeline(
             phoneme_encoder=phoneme_encoder,
             space_separated=hparams["phonemes_space_separated"],
         )
 
-    bos_eos_pipeline_item = add_bos_eos(
+    phn_bos_eos_pipeline_item = add_bos_eos(
         tokens=hparams["phonemes"],
         encoder=phoneme_encoder,
         bos_index=hparams["bos_index"],
         eos_index=hparams["eos_index"],
         prefix="phn",
     )
+    grapheme_bos_eos_pipeline_item = add_bos_eos(
+        tokens=hparams["graphemes"],
+        encoder=phoneme_encoder,
+        bos_index=hparams["bos_index"],
+        eos_index=hparams["eos_index"],
+        prefix="grapheme",
+    )
     dynamic_items = [
         grapheme_pipeline_item,
         phoneme_pipeline_item,
-        bos_eos_pipeline_item,
+        phn_bos_eos_pipeline_item,
+        grapheme_bos_eos_pipeline_item
     ]
+
+    if hparams.get("phn_tokenize") and is_homograph:
+        # A raw tokenizer is needed to determine the correct
+        # word boundaries from data
+        phoneme_raw_pipeline = phoneme_pipeline(
+            phoneme_encoder=phoneme_encoder,
+            space_separated=hparams["phonemes_space_separated"],
+            provides_prefix="phn_raw"
+        )
+        dynamic_items.append(phoneme_raw_pipeline)
+
     for dynamic_item in dynamic_items:
         sb.dataio.dataset.add_dynamic_item(datasets, dynamic_item)
 
@@ -563,19 +688,20 @@ def dataio_prep(hparams, train_step=None):
     output_keys = [
         "id",
         "grapheme_encoded",
+        "grapheme_encoded_bos",
+        "grapheme_encoded_eos",
         "phn_encoded",
         "phn_encoded_eos",
         "phn_encoded_bos",
     ]
-    if (
-        TrainMode(train_step.get("mode", TrainMode.NORMAL))
-        == TrainMode.HOMOGRAPH
-    ):
+    if is_homograph:
         output_keys += [
             "homograph_wordid",
             "homograph_phn_start",
             "homograph_phn_end",
+            "phn_raw_encoded"
         ]
+
     if hparams.get("use_word_emb", False):
         output_keys.append("char")
     sb.dataio.dataset.set_output_keys(
@@ -584,6 +710,12 @@ def dataio_prep(hparams, train_step=None):
     if "origins" in hparams:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
         train_data, valid_data, test_data = datasets
+
+    sample, sample_random = hparams.get("sample"), hparams.get("sample_random")
+    if sample:
+        datasets = [filter_origins(dataset, hparams) for dataset in datasets]
+    train_data, valid_data, test_data = datasets
+
 
     return train_data, valid_data, test_data, phoneme_encoder
 
