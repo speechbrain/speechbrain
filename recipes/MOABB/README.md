@@ -40,13 +40,13 @@ The model scoring the optimal value on the validation set for a target key  was 
 
 | Release | Hyperparams file | Training strategy | Session | Key loaded model | Test Accuracy |  GPUs |
 |:-------------:|:---------------------------:|:---------------------------:|  -----:|-----:| -----:| :-----------:|
-| 30-10-04 | EEGNet_BNCI2014001.yaml | within-session | session_T | 'acc'|62.92±15.43% | 1xTITAN V 12GB |
-| 30-10-04 | EEGNet_BNCI2014001.yaml | within-session | session_E | 'acc'|61.46±18.88% | 1xTITAN V 12GB |
-| 30-10-04 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_T | 'acc'|62.89±18.31% | 1xTITAN V 12GB |
-| 30-10-04 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'acc'|64.04±13.66% | 1xTITAN V 12GB |
-| 30-10-04 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'loss'|66.13±13.63% | 1xTITAN V 12GB |
-| 30-10-04 | EEGNet_BNCI2014001.yaml | cross-session | - | 'acc'|69.06±17.90% | 1xTITAN V 12GB |
-| 30-10-04 | EEGNet_BNCI2014001.yaml | leave-one-subject-out | - | 'acc'|37.77±11.65% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | within-session | session_T | 'acc'|62.92±15.43% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | within-session | session_E | 'acc'|61.46±18.88% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_T | 'acc'|62.89±18.31% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'acc'|64.04±13.66% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'loss'|66.13±13.63% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | cross-session | - | 'acc'|69.06±17.90% | 1xTITAN V 12GB |
+| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-subject-out | - | 'acc'|37.77±11.65% | 1xTITAN V 12GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
