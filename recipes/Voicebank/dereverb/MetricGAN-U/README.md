@@ -5,24 +5,21 @@ This recipe implements MetricGAN-U recipe for enhancement as described in the pa
 
 !!! Note: To access DNSMOS, you have to ask the key from the DNS organizer first: dns_challenge@microsoft.com !!!
 
-Use the `download_vctk` function in `voicebank_prepare.py` to download the dataset
-and resample it to 16000 Hz. To run an experiment, execute the following command in
+Please First "Manually" Download VoiceBank-SLR dataset from [here] (https://bio-asplab.citi.sinica.edu.tw/Opensource.html#VB-SLR):
+
+To run an experiment, execute the following command in
 the current folder:
 
 ```bash
-python train.py hparams/train_dnsmos.yaml --data_folder /path/to/data_folder
+python train.py hparams/train_dereverb.yaml --data_folder /path/to/data_folder
 ```
 
 ## Results
 
-Experiment Date | DNSMOS
--|-
-2021-10-31 | 3.15
+Experiment Date | PESQ | SRMR
+-|-|-
+2021-10-31 | 2.07 | 8.265
 
-
-
-You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/14KpZnUhnCAhoeRDwbIBu_zTq26y7BZdt
 
 
 
