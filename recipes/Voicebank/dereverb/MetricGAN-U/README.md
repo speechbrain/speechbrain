@@ -1,11 +1,11 @@
-# MetricGAN-U Recipe for Enhancement
+# MetricGAN-U Recipe for dereverberation
 
-This recipe implements MetricGAN-U recipe for enhancement as described in the paper
+This recipe implements MetricGAN-U recipe for dereverberation as described in the paper
 [MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech](https://arxiv.org/abs/2110.05866)
 
 !!! Note: To access DNSMOS, you have to ask the key from the DNS organizer first: dns_challenge@microsoft.com !!!
 
-Please First "Manually" Download VoiceBank-SLR dataset from [here] (https://bio-asplab.citi.sinica.edu.tw/Opensource.html#VB-SLR):
+Please First "Manually" Download VoiceBank-SLR dataset from [here](https://bio-asplab.citi.sinica.edu.tw/Opensource.html#VB-SLR):
 
 To run an experiment, execute the following command in
 the current folder:
