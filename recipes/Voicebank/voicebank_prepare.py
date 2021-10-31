@@ -453,9 +453,8 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
             # Save downsampled file
             torchaudio.save(
                 os.path.join(dirname_16k, filename[-12:]),
-                downsampled_signal[0].cpu(),
-                sample_rate=16000,
-                channels_first=False,
+                downsampled_signal.cpu(),
+                sample_rate=16000
             )
 
             # Remove old file
