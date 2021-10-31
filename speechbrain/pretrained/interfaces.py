@@ -2153,15 +2153,15 @@ class SNREstimator(Pretrained):
     """
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
-    HPARAMS_NEEDED = ["stat_pooling"]
+    HPARAMS_NEEDED = ["stat_pooling", "snrmax", "snrmin"]
 
     def estimate_batch(self, mix, predictions):
-        """Run source separation on batch of audio.
+        """Run SI-SNR estimation on the estimated sources, and mixture.
 
         Arguments
         ---------
         mix : torch.tensor
-            The mixture of sources.
+            The mixture of sources of shape B X T
         predictions : torch.tensor
             of size (B x T x C),
             where B is batch size
@@ -2208,9 +2208,20 @@ class SNREstimator(Pretrained):
         enc = enc.permute(0, 2, 1)
         enc_stats = self.hparams.stat_pooling(enc)
 
+        # this gets the SI-SNR estimate in the compressed range 0-1
         snrhat = self.mods.encoder_out(enc_stats).squeeze()
+
+        # get the SI-SNR estimate in the true range
+        snrhat = self.gettrue_snrrange(snrhat)
         return snrhat
 
     def forward(self, mix, predictions):
         """Just run the batch estimate"""
         return self.estimate_batch(mix, predictions)
+
+    def gettrue_snrrange(self, inp):
+        """Convert from 0-1 range to true snr range"""
+        rnge = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * rnge
+        inp = inp + self.hparams.snrmin
+        return inp
