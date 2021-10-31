@@ -75,8 +75,8 @@ def test_filterbank():
     fbank1 = compute_fbanks(input1)
     fbank2 = compute_fbanks(input2)
     fbank3 = compute_fbanks(input3)
-    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < 5e-05
-    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < 5e-05
+    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < 8e-05
+    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < 8e-05
 
 
 def test_dtc():
