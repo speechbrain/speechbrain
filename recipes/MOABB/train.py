@@ -7,6 +7,8 @@ To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001):
 
     > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001'
 
+The dataset will be automatically downloaded in the specified folder.
+
 Author
 ------
 Davide Borra, 2021
@@ -112,16 +114,22 @@ class MOABBBrain(sb.Brain):
                     train_stats={"loss": self.train_loss},
                     valid_stats=last_eval_stats,
                 )
-                self.checkpointer.save_and_keep_only(
-                    meta={
-                        "loss": self.last_eval_loss,
-                        "f1": self.last_eval_f1,
-                        "auc": self.last_eval_auc,
-                        "acc": self.last_eval_acc,
-                    },
-                    min_keys=["loss"],
-                    max_keys=["f1", "auc", "acc"],
-                )
+                if epoch == 1:
+                    self.best_eval_stats = last_eval_stats
+
+                # The current model is saved if it is the best or the last
+                is_best = self.check_if_best(last_eval_stats, self.best_eval_stats)
+                is_last = self.hparams.number_of_epochs == epoch
+
+                if is_best or is_last:
+                    self.checkpointer.save_and_keep_only(
+                        meta={
+                            "loss": self.last_eval_loss,
+                            "f1": self.last_eval_f1,
+                            "auc": self.last_eval_auc,
+                            "acc": self.last_eval_acc,
+                        }
+                    )
 
             elif stage == sb.Stage.TEST:
                 self.hparams.train_logger.log_stats(
@@ -130,6 +138,28 @@ class MOABBBrain(sb.Brain):
                     },
                     test_stats=last_eval_stats,
                 )
+
+    def check_if_best(
+        self,
+        last_eval_stats,
+        best_eval_stats,
+        keys=["loss","f1", "auc", "acc"],
+    ):
+        """Checks if the current model is the best according at least to 
+        one of the monitored metrics. """
+        is_best = False
+        for key in keys:
+            if key == "loss":
+                if last_eval_stats[key] < best_eval_stats[key]:
+                    is_best = True
+                    best_eval_stats[key] = last_eval_stats[key]
+                    break
+            else:
+                if last_eval_stats[key] > best_eval_stats[key]:
+                    is_best = True
+                    best_eval_stats[key] = last_eval_stats[key]
+                    break
+        return is_best
 
 
 def run_experiment(hparams, run_opts, datasets):
@@ -180,7 +210,7 @@ def run_experiment(hparams, run_opts, datasets):
     )
     # evaluation after loading model using different keys
     results = {}
-    keys = ["f1", "auc", "acc", "loss"]
+    keys = hparams["test_keys"]
     for key in keys:
         results[key] = {}
         min_key, max_key = None, None
@@ -247,6 +277,7 @@ if __name__ == "__main__":
 
     # defining the job list
     jobs = []
+    print("Prepare dataset iterators...")
     for data_it in data_its:
         for i, (tail_path, datasets) in enumerate(
             data_it.prepare(
@@ -260,6 +291,8 @@ if __name__ == "__main__":
     processes_start_idx = np.arange(len(jobs))[
         :: hparams["num_parallel_processes"]
     ]
+
+    print("Training experiments (in parallel different iterators)...")
     for start_idx in processes_start_idx:
         stop_idx = start_idx + hparams["num_parallel_processes"]
         stop_idx = min(stop_idx, len(jobs))

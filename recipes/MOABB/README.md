@@ -28,6 +28,8 @@ All sets were extracted balanced across subjects, sessions and classes.
 E.g., to train EEGNet to decode motor imagery on BNCI2014001:\
 \>>> python train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001'
 
+The dataset will be automaticallt downloaded in the specified folder.
+
 # Results
 
 In the following, results are reported for each MOABB dataset and each architecture using different training strategies.

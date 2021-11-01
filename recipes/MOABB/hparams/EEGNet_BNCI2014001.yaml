@@ -11,7 +11,7 @@ seed: 1234
 __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 
 # DIRECTORIES
-data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'
+data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'. The dataset will be automatically downloaded in this folder
 output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
 
 # DATASET HPARS
@@ -52,6 +52,10 @@ num_parallel_processes: 6  # number of parallel processes to run
 nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
 number_of_epochs: 500 # number of training epochs
 lr: 0.001 # learning rate
+
+# Test is done with the best model according to the following metrics
+test_keys: ["acc"] # Possible opts: "loss", "f1", "auc", "acc"
+
 loss: !name:torch.nn.functional.nll_loss
 optimizer: !name:torch.optim.Adam
   lr: !ref <lr>
