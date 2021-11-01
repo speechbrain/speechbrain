@@ -147,7 +147,7 @@ class MOABBBrain(sb.Brain):
         best_eval_stats,
         keys=["loss", "f1", "auc", "acc"],
     ):
-        """Checks if the current model is the best according at least to 
+        """Checks if the current model is the best according at least to
         one of the monitored metrics. """
         is_best = False
         for key in keys:
