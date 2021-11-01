@@ -7,12 +7,13 @@
 # Training: Librispeech 960h
 # Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga,
 # Samuele Cornell 2020
+# Andreas Nautsch 2021
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
+output_folder: !ref results/CRDNN_BPE_1000_dyn_batching/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -30,16 +31,16 @@ data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder> # where to store noisy data for augment (change it if needed)
 
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
+train_splits: ["train-clean-5"]
+dev_splits: ["dev-clean-2"]
+test_splits: ["test-clean"]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev-clean.csv
+valid_csv: !ref <output_folder>/dev-clean-2.csv
 test_csv:
    - !ref <output_folder>/test-clean.csv
-   - !ref <output_folder>/test-other.csv
+   #- !ref <output_folder>/test-other.csv
 
 # Training parameters
 number_of_epochs: 15
@@ -47,7 +48,18 @@ number_of_ctc_epochs: 5
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
-sorting: ascending
+sorting: descending
+dynamic_batching: True
+
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 7000 # in terms of frames
+   left_bucket_len: 200
+   multiplier: 1.2
+   shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+   batch_ordering: descending
+   reduce_padding_afterwards: True
+   num_quantiles: 20
 
 # Feature parameters
 sample_rate: 16000
