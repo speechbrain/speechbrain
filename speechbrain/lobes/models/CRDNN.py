@@ -161,7 +161,9 @@ class CRDNN(sb.nnet.containers.MaskCapableSequential):
 
         if rnn_layers > 0:
             if use_rnnp:
-                self.append(sb.nnet.containers.MaskCapableSequential, layer_name="RNN")
+                self.append(
+                    sb.nnet.containers.MaskCapableSequential, layer_name="RNN"
+                )
                 for _ in range(rnn_layers):
                     self.append(
                         rnn_class,

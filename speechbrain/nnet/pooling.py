@@ -360,9 +360,9 @@ class StatisticsPooling(nn.Module):
         """
         if mask is None:
             if self.return_mean:
-              mean = x.mean(dim=1)
+                mean = x.mean(dim=1)
             if self.return_std:
-              std = x.std(dim=1)
+                std = x.std(dim=1)
         else:
             mean = []
             std = []
