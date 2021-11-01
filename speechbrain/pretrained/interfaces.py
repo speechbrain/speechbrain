@@ -2043,7 +2043,7 @@ class SepformerSeparation(Pretrained):
             )
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
-            )
+            ).to(self.device)
             batch = batch.mean(dim=0, keepdim=True)
             batch = tf(batch)
 
