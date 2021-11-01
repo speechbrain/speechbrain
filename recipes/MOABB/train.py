@@ -118,7 +118,9 @@ class MOABBBrain(sb.Brain):
                     self.best_eval_stats = last_eval_stats
 
                 # The current model is saved if it is the best or the last
-                is_best = self.check_if_best(last_eval_stats, self.best_eval_stats)
+                is_best = self.check_if_best(
+                    last_eval_stats, self.best_eval_stats
+                )
                 is_last = self.hparams.number_of_epochs == epoch
 
                 if is_best or is_last:
@@ -143,7 +145,7 @@ class MOABBBrain(sb.Brain):
         self,
         last_eval_stats,
         best_eval_stats,
-        keys=["loss","f1", "auc", "acc"],
+        keys=["loss", "f1", "auc", "acc"],
     ):
         """Checks if the current model is the best according at least to 
         one of the monitored metrics. """
