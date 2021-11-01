@@ -508,6 +508,10 @@ class Conv2d(nn.Module):
         If True, the additive bias b is adopted.
     max_norm: float
         kernel max-norm.
+    transpose: bool
+        If True, the convolution is done with the format (B, C, H, W).
+        If False, the convolution is dine with (B, H, W, C).
+
     Example
     -------
     >>> inp_tensor = torch.rand([10, 40, 16, 8])
@@ -532,6 +536,7 @@ class Conv2d(nn.Module):
         bias=True,
         padding_mode="reflect",
         max_norm=None,
+        transpose=False,
     ):
         super().__init__()
 
@@ -550,6 +555,7 @@ class Conv2d(nn.Module):
         self.padding_mode = padding_mode
         self.unsqueeze = False
         self.max_norm = max_norm
+        self.transpose = transpose
 
         if input_shape is None and in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
@@ -579,7 +585,8 @@ class Conv2d(nn.Module):
 
         """
         x = x.transpose(1, -1)  # (B, H, W, C)-->(B, C, W, H)
-        x = x.transpose(-1, -2)  # (B, C, W, H)-->(B, C, H, W)
+        if self.transpose:
+            x = x.transpose(-1, -2)  # (B, C, W, H)-->(B, C, H, W)
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
@@ -605,8 +612,9 @@ class Conv2d(nn.Module):
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
-        wx = wx.transpose(-1, -2)  # (B, C, H, W)-->(B, C, W, H)
-        wx = wx.transpose(1, -1)  # (B, C, W, H)-->(B, H, W, C)
+        if self.transpose:
+            wx = wx.transpose(-1, -2)  # (B, C, H, W)-->(B, C, W, H)
+        wx = wx.transpose(1, -1)  # (B, H, W, C)
         return wx
 
     def _manage_padding(

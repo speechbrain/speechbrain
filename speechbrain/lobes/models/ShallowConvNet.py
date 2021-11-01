@@ -77,6 +77,7 @@ class ShallowConvNet(torch.nn.Module):
                 kernel_size=cnn_temporal_kernelsize,
                 padding="valid",
                 bias=True,
+                transpose=True,
             ),
         )
 
@@ -89,6 +90,7 @@ class ShallowConvNet(torch.nn.Module):
                 kernel_size=(1, C),
                 padding="valid",
                 bias=False,
+                transpose=True,
             ),
         )
         self.conv_module.add_module(
