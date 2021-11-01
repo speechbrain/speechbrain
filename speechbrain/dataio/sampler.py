@@ -381,6 +381,8 @@ class DynamicBatchSampler(Sampler):
         if duration key in the annotation is in seconds and the file has 16kHz sampling freq.
     shuffle : bool
         Whether or not shuffle examples between each epoch.
+    batch_ordering : string
+        If ``random``, batches are randomly permuted; otherwise ``ascending`` or ``descending`` sorted by length.
     bucket_boundaries : list
         Overrides bucket_length_multiplier and left_bucket_length by specifying manually
         the buckets right boundaries.
@@ -509,7 +511,7 @@ class DynamicBatchSampler(Sampler):
         return list(sorted(bucket_boundaries))
 
     def get_durations(self, batch):
-        return [self._dataset.data[str(idx)]['duration'] for idx in batch]
+        return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
             self,
@@ -521,15 +523,22 @@ class DynamicBatchSampler(Sampler):
         if not bucket_boundaries:
             # warp frames (duration) distribution of train data
             logger.info('Batch quantisation in latent space')
+            # linspace set-up
+            num_boundaries = num_quantiles + 1
+            # create latent linearly equal spaced buckets
+            latent_boundaries = np.linspace(1 / num_boundaries, num_quantiles / num_boundaries, num_quantiles)
             # use lognormal distribution
             from scipy.stats import lognorm
             # get quantiles
-            quantiles = lognorm.ppf(np.linspace(1 / (num_quantiles+1), num_quantiles / (num_quantiles+1), num_quantiles), 1)
+            quantiles = lognorm.ppf(latent_boundaries, 1)
             # scale up to to max_batch_length
             bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
+        # compute resulting bucket length multipliers
+        length_multipliers = [bucket_boundaries[x + 1] / bucket_boundaries[x] for x in range(num_quantiles - 1)]
+        # logging
         logger.info('Latent bucket boundary - buckets: {} - length multipliers: {}'.format(
             list(map('{:.2f}'.format, bucket_boundaries)),
-            list(map('{:.2f}'.format, [bucket_boundaries[x+1] / bucket_boundaries[x] for x in range(num_quantiles-1)]))
+            list(map('{:.2f}'.format, length_multipliers))
         ))
         return list(sorted(bucket_boundaries))
 
@@ -560,6 +569,56 @@ class DynamicBatchSampler(Sampler):
             )
         else:
             raise NotImplementedError
+
+    def _reduce_padding(self):
+        # copy for rolling back a re-assignment when batch size exceed maximum
+        from copy import deepcopy
+        # repeat twice - sometimes a fallback will cause non-depleted batches that could actually be depleted
+        for cnt in range(2):
+            # number of frames per batch
+            batch_frames = [sum(self._ex_lengths[str(idx)] for idx in batch) for batch in self._batches]
+            # Remaining padding per batch
+            remaining_padding = self._max_batch_length - np.asarray(batch_frames)
+            # do not touch batches with too long samples (exponential memory usage) - 80% is arbitrary
+            remaining_padding[np.asarray(batch_frames) > 0.8*self._max_batch_length] = 0
+            # Find uncompleted buckets
+            non_zero_buckets_in_sorted = np.in1d(np.argsort(batch_frames), np.where(batch_frames), 1)
+            # Sort their IDs by unused padding
+            unused_padding_sorted = np.argsort(batch_frames)[non_zero_buckets_in_sorted]
+            # Re-assign examples from remaining batches
+            for batch_id in unused_padding_sorted:
+                batch = self._batches[batch_id]
+                # prepare fallback if batch cannot be depleted
+                if batch:
+                    # prepare 'call-by-value'
+                    # create tmp objects to manipulate (play with)
+                    tmp_remaining_padding = deepcopy(remaining_padding)
+                    tmp_batches = deepcopy(self._batches)
+                    # avoid that any other batch wants to put sth in this batch which is about to be depleted
+                    remaining_padding[batch_id] = 0
+                # re-assign each example in the uncompleted bucket batch
+                for pos in reversed(range(len(batch))):
+                    # pop first example in batch
+                    idx = batch.pop(pos)  # 'pos' is necessary for potential later re-append
+                    # length of pre-sampled audio
+                    item_len = self._ex_lengths[str(idx)]
+                    # where is enough padding
+                    possible_batches = np.argwhere(np.array(remaining_padding) >= item_len)
+                    if len(possible_batches) == 0:
+                        # stop re-assign -OR- put back & move on
+                        remaining_padding = deepcopy(tmp_remaining_padding)
+                        self._batches = deepcopy(tmp_batches)
+                        # next one
+                        continue
+                    else:
+                        # random idx selection of where is enough padding; exclude self
+                        rand_batch_idx = np.random.choice(possible_batches.flatten())
+                        # assign to batch
+                        self._batches[rand_batch_idx].append(idx)
+                        # keep track of durations
+                        remaining_padding[rand_batch_idx] -= item_len
+        # remove empty elements
+        self._batches = [batch for batch in self._batches if batch]
 
     def _generate_batches(self):
         logger.info("DynamicBatchSampler: Generating dynamic batches")
@@ -608,53 +667,7 @@ class DynamicBatchSampler(Sampler):
 
         # sort in remaining batches & re-assign badly filled buckets
         if self._reduce_padding_afterwards:
-            from copy import deepcopy
-            # repeat twice - sometimes a fallback will cause non-depleted batches that could actually be depleted
-            for cnt in range(2):
-                # number of frames per batch
-                batch_frames = [sum(self._ex_lengths[str(idx)] for idx in batch) for batch in self._batches]
-                # Remaining padding per batch
-                remaining_padding = self._max_batch_length - np.asarray(batch_frames)
-                # do not touch batches with too long samples (exponential memory usage) - 80% is arbitrary
-                remaining_padding[np.asarray(batch_frames) > 0.8*self._max_batch_length] = 0
-                # Find uncompleted buckets
-                non_zero_buckets_in_sorted = np.in1d(np.argsort(batch_frames), np.where(batch_frames), 1)
-                # Sort their IDs by unused padding
-                unused_padding_sorted = np.argsort(batch_frames)[non_zero_buckets_in_sorted]
-                # Re-assign examples from remaining batches
-                for batch_id in unused_padding_sorted:
-                    batch = self._batches[batch_id]
-                    # prepare fallback if batch cannot be depleted
-                    if batch:
-                        # prepare 'call-by-value'
-                        # create tmp objects to manipulate (play with)
-                        tmp_remaining_padding = deepcopy(remaining_padding)
-                        tmp_batches = deepcopy(self._batches)
-                        # avoid that any other batch wants to put sth in this batch which is about to be depleted
-                        remaining_padding[batch_id] = 0
-                    # re-assign each example in the uncompleted bucket batch
-                    for pos in reversed(range(len(batch))):
-                        # pop first example in batch
-                        idx = batch.pop(pos)  # 'pos' is necessary for potential later re-append
-                        # length of pre-sampled audio
-                        item_len = self._ex_lengths[str(idx)]
-                        # where is enough padding
-                        possible_batches = np.argwhere(np.array(remaining_padding) >= item_len)
-                        if len(possible_batches) == 0:
-                            # stop re-assign -OR- put back & move on
-                            remaining_padding = deepcopy(tmp_remaining_padding)
-                            self._batches = deepcopy(tmp_batches)
-                            # next one
-                            continue
-                        else:
-                            # random idx selection of where is enough padding
-                            rand_batch_idx = np.random.choice(possible_batches.flatten())
-                            # assign to batch
-                            self._batches[rand_batch_idx].append(idx)
-                            # keep track of durations
-                            remaining_padding[rand_batch_idx] -= item_len
-            # remove empty elements
-            self._batches = [batch for batch in self._batches if batch]
+            self._reduce_padding()
 
         if not self._shuffle_ex:
             self._permute_batches()  # reorder batches

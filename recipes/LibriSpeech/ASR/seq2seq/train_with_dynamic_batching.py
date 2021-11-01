@@ -5,7 +5,7 @@ between them. Decoding is performed with beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train.py hparams/train_BPE1000.yaml
+> python train_with_dynamic_batching.py hparams/train_BPE1000.yaml
 
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
@@ -40,6 +40,7 @@ Authors
  * Abdel Heba 2020
  * Peter Plantinga 2020
  * Samuele Cornell 2020
+ * Andreas Nautsch 2021
 """
 
 import os
@@ -59,6 +60,7 @@ class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
+        print(batch.id)
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
@@ -157,9 +159,22 @@ class ASR(sb.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
+        try:
+            predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
+            loss.backward()
+        except Exception as error:
+            from speechbrain.dataio.batch import PaddedBatch
+            from speechbrain.dataio.sampler import DynamicBatchSampler
+            assert isinstance(batch, PaddedBatch)
+            assert isinstance(self.train_sampler, DynamicBatchSampler)
+            durations = self.train_sampler.get_durations(batch.__dict__['id'])
+            logger.info('Something went wrong in this batch: {} - check example lengths ({:.2f} in total): {:.2f}'.format(
+                batch.__dict__['id'],
+                sum(durations),
+                durations
+            ))
+            raise error
         if self.check_gradients(loss):
             self.optimizer.step()
         self.optimizer.zero_grad()
@@ -292,7 +307,44 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_datasets
+
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.batch import PaddedBatch  # noqa
+
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        hop_size = dynamic_hparams["feats_hop_size"]
+
+        num_quantiles = None
+        if "num_quantiles" in dynamic_hparams.keys():
+            num_quantiles = dynamic_hparams["num_quantiles"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["left_bucket_len"],
+            bucket_length_multiplier=dynamic_hparams["multiplier"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),
+            shuffle_examples=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+            reduce_padding_afterwards=dynamic_hparams["reduce_padding_afterwards"],
+            num_quantiles=num_quantiles,
+        )
+
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["left_bucket_len"],
+            bucket_length_multiplier=dynamic_hparams["multiplier"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),
+            shuffle_examples=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+            reduce_padding_afterwards=dynamic_hparams["reduce_padding_afterwards"],
+            num_quantiles=num_quantiles,
+        )
+
+    return train_data, valid_data, test_datasets, train_batch_sampler, valid_batch_sampler
 
 
 if __name__ == "__main__":
@@ -333,7 +385,9 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets = dataio_prepare(hparams)
+    train_data, valid_data, test_datasets, train_sampler, valid_batch_sampler = dataio_prepare(
+        hparams
+    )
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
@@ -353,13 +407,22 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
 
+    if hparams["dynamic_batching"]:
+        train_dataloader_opts = {"batch_sampler": train_sampler}
+        valid_dataloader_opts = {"batch_sampler": valid_batch_sampler}
+
+        asr_brain.train_sampler = train_sampler
+    else:
+        train_dataloader_opts = hparams["train_dataloader_opts"]
+        valid_dataloader_opts = hparams["valid_dataloader_opts"]
+
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=valid_dataloader_opts,
     )
 
     # Testing
