@@ -24,7 +24,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loader and dataset style and enables users to customize the i/o pipelines (e.g adding on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
-- A nice integration of sharded data with WebDataset optimized for very large datasets on Nested File Systems (NFS).
+- On-the-fly dynamic batching extension for WebDataset supports very large datasets and Network File Systems (NFS).
 
 
 ### Speech recognition

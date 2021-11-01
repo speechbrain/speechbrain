@@ -1,0 +1,216 @@
+# ################################
+# Model: Neural SI-SNR Estimator with Pool training strategy
+# Dataset : LibriMix and WHAMR!
+# ################################
+#
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+#
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data params
+
+# e.g. '/yourpath/wsj0-mix/2speakers'
+# end with 2speakers for wsj0-2mix or 3speakers for wsj0-3mix
+data_folder: !PLACEHOLDER
+
+# the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
+# e.g. /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+
+# base folder for the training part of librimix
+# an example path is given below
+base_folder_dm: /yourpath/LibriSpeech/train-clean-360_processed/
+
+# base folder for RIRs to be used
+rir_path: /yourpath
+
+experiment_name: pool-sisnrestimator
+output_folder: !ref results/<experiment_name>/<seed>
+train_log: !ref <output_folder>/train_log.txt
+save_folder: !ref <output_folder>/save
+train_data: !ref <save_folder>/libri2mix_train-360.csv
+valid_data: !ref <save_folder>/libri2mix_dev.csv
+test_data: !ref <save_folder>/libri2mix_test.csv
+
+# the root data folder for the whamr dataset
+# the rest of the path is figured out automatically according to sample_rate
+# an example path is given below
+whamr_data_folder: /yourpath/whamr
+
+# the paths where csv files will be save for the WHAMR! dataset
+train_whamr_data: !ref <save_folder>/whamr_tr.csv
+valid_whamr_data: !ref <save_folder>/whamr_cv.csv
+test_whamr_data: !ref <save_folder>/whamr_tt.csv
+
+# the folder that would be used to form mixtures from the whamr dataset
+# an example path is given below
+base_folder_dm_whamr: /yourpath/wsj0-processed/si_tr_s
+
+# if true we use the whamr dataset for training as well
+use_whamr_train: True
+
+# The probability to use a dataitem from whamr
+whamr_proportion: 0.6
+
+test_onwsj: False
+skip_prep: False
+
+ckpt_interval_minutes: 60
+
+# Experiment params
+auto_mix_prec: False # Set this to True for mixed precision
+test_only: False # if True, we only do Testing (no training)
+
+# for the currently supported datasets (Libri2Mix, WHAMR!), this should be set 2
+num_spks: 2
+progressbar: True
+sample_rate: 8000
+
+# Training parameters
+N_epochs: 200
+batch_size: 1
+lr: 0.0001
+clip_grad_norm: 5
+loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
+# if True, the training sequences are cut to a specified length
+limit_training_signal_len: False
+# this is the length of sequences if we choose to limit
+# the signal length of training sequences
+training_signal_len: 32000000
+
+# Set it to True to dynamically create mixtures at training time
+dynamic_mixing: False
+use_wham_noise: True
+use_reverb_augment: True
+
+# Parameters for data augmentation
+use_wavedrop: False
+use_speedperturb: True
+use_speedperturb_sameforeachsource: False
+use_rand_shift: False
+min_shift: -8000
+max_shift: 8000
+
+speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 1.0
+    drop_freq_prob: 0.0
+    drop_chunk_prob: 0.0
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 0.0
+    drop_freq_prob: 1.0
+    drop_chunk_prob: 1.0
+    sample_rate: !ref <sample_rate>
+
+# Dataloader options
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: 0
+
+# Specifying the network
+snrmin: 0
+snrmax: 10
+use_snr_compression: True
+
+# normalization to be applied to the separation results
+# 'max' for division by max or 'stnorm' for unitnorm
+separation_norm_type: stnorm
+
+latent_dim: 128
+n_inp: 256
+encoder: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, 2, null]
+    cnn1: !new:speechbrain.nnet.CNN.Conv1d
+        in_channels: 2
+        kernel_size: 4
+        out_channels: !ref <latent_dim>
+        stride: 1
+        skip_transpose: True
+        padding: 'valid'
+    relu1: !new:torch.nn.ReLU
+    cnn2: !new:speechbrain.nnet.CNN.Conv1d
+        in_channels: !ref <latent_dim>
+        kernel_size: 4
+        out_channels: !ref <latent_dim>
+        stride: 2
+        skip_transpose: True
+        padding: 'valid'
+    relu2: !new:torch.nn.ReLU
+    cnn3: !new:speechbrain.nnet.CNN.Conv1d
+        in_channels: !ref <latent_dim>
+        kernel_size: 4
+        out_channels: !ref <latent_dim>
+        stride: 2
+        skip_transpose: True
+        padding: 'valid'
+    relu3: !new:torch.nn.ReLU
+    cnn4: !new:speechbrain.nnet.CNN.Conv1d
+        in_channels: !ref <latent_dim>
+        kernel_size: 4
+        out_channels: !ref <latent_dim>
+        stride: 2
+        skip_transpose: True
+        padding: 'valid'
+    relu4: !new:torch.nn.ReLU
+    cnn5: !new:speechbrain.nnet.CNN.Conv1d
+        in_channels: !ref <latent_dim>
+        kernel_size: 4
+        out_channels: !ref <latent_dim>
+        stride: 2
+        skip_transpose: True
+        padding: 'valid'
+
+stat_pooling: !new:speechbrain.nnet.pooling.StatisticsPooling
+
+encoder_out: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, !ref <n_inp>]
+    layer1: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <n_inp>
+        n_neurons: !ref <n_inp>
+    relu: !new:torch.nn.ReLU
+    layer2: !new:speechbrain.nnet.linear.Linear
+        input_size: !ref <n_inp>
+        n_neurons: 1
+    sigm: !new:torch.nn.Sigmoid
+
+classifier_loss: !new:torch.nn.CrossEntropyLoss
+
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0
+
+loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
+
+lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 2
+    dont_halve_until_epoch: 25
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+modules:
+    encoder: !ref <encoder>
+    encoder_out: !ref <encoder_out>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        counter: !ref <epoch_counter>
+        encoder: !ref <encoder>
+        encoder_out: !ref <encoder_out>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# the repo for separators from huggingface
+separator_repo: "speechbrain/REAL-M-sisnr-estimator-training"
+
+# which separators to use
+separators_to_use: ['sepformer1', 'sepformer2', 'sepformer3',
+                    'dprnn1', 'dprnn2', 'dprnn3',
+                    'convtasnet1', 'convtasnet2', 'convtasnet3']

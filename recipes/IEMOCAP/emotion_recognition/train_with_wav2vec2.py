@@ -1,24 +1,17 @@
 #!/usr/bin/env python3
 """Recipe for training an emotion recognition system from speech data only using IEMOCAP.
-The system classifies 4 emotions ( anger, happiness, sadness, neutrality)
-with an ECAPA-TDNN model.
+The system classifies 4 emotions ( anger, happiness, sadness, neutrality) with wav2vec2.
 
 To run this recipe, do the following:
-
-> python train.py hparams/train.yaml --data_folder /path/to/IEMOCAP
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml --data_folder /path/to/IEMOCAP
 
 Authors
- * Pierre-Yves Yanni 2021
+ * Yingzhi WANG 2021
 """
 
 import os
 import sys
-import csv
 import speechbrain as sb
-import torch
-from torch.utils.data import DataLoader
-from enum import Enum, auto
-from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
 
 
@@ -29,55 +22,46 @@ class EmoIdBrain(sb.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.mean_var_norm(feats, lens)
+        outputs = self.modules.wav2vec2(wavs)
 
-        # Embeddings + speaker classifier
-        embeddings = self.modules.embedding_model(feats, lens)
-        outputs = self.modules.classifier(embeddings)
+        # last dim will be used for AdaptativeAVG pool
+        outputs = self.hparams.avg_pool(outputs, lens)
+        outputs = outputs.view(outputs.shape[0], -1)
 
+        outputs = self.modules.output_mlp(outputs)
+        outputs = self.hparams.log_softmax(outputs)
         return outputs
+
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss using speaker-id as label.
+        """
+        emoid, _ = batch.emo_encoded
+
+        """to meet the input form of nll loss"""
+        emoid = emoid.squeeze(1)
+        loss = self.hparams.compute_cost(predictions, emoid)
+        if stage != sb.Stage.TRAIN:
+            self.error_metrics.append(batch.id, predictions, emoid)
+
+        return loss
 
     def fit_batch(self, batch):
         """Trains the parameters given a single batch in input"""
 
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not finite
-            self.check_gradients(loss)
+        loss.backward()
+        if self.check_gradients(loss):
+            self.wav2vec2_optimizer.step()
             self.optimizer.step()
-            self.optimizer.zero_grad()
+
+        self.wav2vec2_optimizer.zero_grad()
+        self.optimizer.zero_grad()
 
         return loss.detach()
 
-    def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
-        _, lens = batch.sig
-        emoid, _ = batch.emo_encoded
-
-        # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-
-            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-                self.hparams.lr_annealing.on_batch_end(self.optimizer)
-
-        loss = self.hparams.compute_cost(predictions, emoid, lens)
-
-        if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(batch.id, predictions, emoid, lens)
-
-        return loss
-
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
-
         Arguments
         ---------
         stage : sb.Stage
@@ -98,7 +82,6 @@ class EmoIdBrain(sb.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
-
         Arguments
         ---------
         stage : sb.Stage
@@ -118,24 +101,34 @@ class EmoIdBrain(sb.Brain):
         else:
             stats = {
                 "loss": stage_loss,
-                "error": self.error_metrics.summarize("average"),
+                "error_rate": self.error_metrics.summarize("average"),
             }
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
 
-            old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            old_lr, new_lr = self.hparams.lr_annealing(stats["error_rate"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            (
+                old_lr_wav2vec2,
+                new_lr_wav2vec2,
+            ) = self.hparams.lr_annealing_wav2vec2(stats["error_rate"])
+            sb.nnet.schedulers.update_learning_rate(
+                self.wav2vec2_optimizer, new_lr_wav2vec2
+            )
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
-                {"Epoch": epoch, "lr": old_lr},
+                {"Epoch": epoch, "lr": old_lr, "wave2vec_lr": old_lr_wav2vec2},
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
+            self.checkpointer.save_and_keep_only(
+                meta=stats, min_keys=["error_rate"]
+            )
 
         # We also write statistics about test data to stdout and to logfile.
         if stage == sb.Stage.TEST:
@@ -144,85 +137,18 @@ class EmoIdBrain(sb.Brain):
                 test_stats=stats,
             )
 
-    def output_predictions_test_set(
-        self,
-        test_set,
-        max_key=None,
-        min_key=None,
-        progressbar=None,
-        test_loader_kwargs={},
-    ):
-        """Iterate test_set and create output file (id, predictions, true values).
+    def init_optimizers(self):
+        "Initializes the wav2vec2 optimizer and model optimizer"
+        self.wav2vec2_optimizer = self.hparams.wav2vec2_opt_class(
+            self.modules.wav2vec2.parameters()
+        )
+        self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
-        Arguments
-        ---------
-        test_set : Dataset, DataLoader
-            If a DataLoader is given, it is iterated directly. Otherwise passed
-            to ``self.make_dataloader()``.
-        max_key : str
-            Key to use for finding best checkpoint, passed to
-            ``on_evaluate_start()``.
-        min_key : str
-            Key to use for finding best checkpoint, passed to
-            ``on_evaluate_start()``.
-        progressbar : bool
-            Whether to display the progress in a progressbar.
-        test_loader_kwargs : dict
-            Kwargs passed to ``make_dataloader()`` if ``test_set`` is not a
-            DataLoader. NOTE: ``loader_kwargs["ckpt_prefix"]`` gets
-            automatically overwritten to ``None`` (so that the test DataLoader
-            is not added to the checkpointer).
-        """
-        if progressbar is None:
-            progressbar = not self.noprogressbar
-
-        if not isinstance(test_set, DataLoader):
-            test_loader_kwargs["ckpt_prefix"] = None
-            test_set = self.make_dataloader(
-                test_set, Stage.TEST, **test_loader_kwargs
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "wav2vec2_opt", self.wav2vec2_optimizer
             )
-
-            save_file = os.path.join(
-                self.hparams.output_folder, "predictions.csv"
-            )
-            with open(save_file, "w", newline="") as csvfile:
-                outwriter = csv.writer(csvfile, delimiter=",")
-                outwriter.writerow(["id", "prediction", "true_value"])
-
-        self.on_evaluate_start(max_key=max_key, min_key=min_key)  # done before
-        self.modules.eval()
-        with torch.no_grad():
-            for batch in tqdm(
-                test_set, dynamic_ncols=True, disable=not progressbar
-            ):
-                self.step += 1
-
-                emo_ids = batch.id
-                true_vals = batch.emo_encoded.data.squeeze(dim=1).tolist()
-                output = self.compute_forward(batch, stage=Stage.TEST)
-                predictions = (
-                    torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
-                )
-
-                with open(save_file, "a", newline="") as csvfile:
-                    outwriter = csv.writer(csvfile, delimiter=",")
-                    for emo_id, prediction, true_val in zip(
-                        emo_ids, predictions, true_vals
-                    ):
-                        outwriter.writerow([emo_id, prediction, true_val])
-
-                # Debug mode only runs a few batches
-                if self.debug and self.step == self.debug_batches:
-                    break
-        self.step = 0
-
-
-class Stage(Enum):
-    """Simple enum to track stage of experiments."""
-
-    TRAIN = auto()
-    VALID = auto()
-    TEST = auto()
+            self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
 def dataio_prep(hparams):
@@ -231,13 +157,11 @@ def dataio_prep(hparams):
     functions. We expect `prepare_mini_librispeech` to have been called before
     this, so that the `train.json`, `valid.json`,  and `valid.json` manifest
     files are available.
-
     Arguments
     ---------
     hparams : dict
         This dictionary is loaded from the `train.yaml` file, and it includes
         all the hyperparameters needed for dataset construction and loading.
-
     Returns
     -------
     datasets : dict
@@ -330,6 +254,11 @@ if __name__ == "__main__":
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)
 
+    hparams["wav2vec2"] = hparams["wav2vec2"].to("cuda:0")
+    # freeze the feature extractor part when unfreezing
+    if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:
+        hparams["wav2vec2"].model.feature_extractor._freeze_parameters()
+
     # Initialize the Brain object to prepare for mask training.
     emo_id_brain = EmoIdBrain(
         modules=hparams["modules"],
@@ -354,13 +283,6 @@ if __name__ == "__main__":
     # Load the best checkpoint for evaluation
     test_stats = emo_id_brain.evaluate(
         test_set=datasets["test"],
-        min_key="error",
-        test_loader_kwargs=hparams["dataloader_options"],
-    )
-
-    # Create output file with predictions
-    emo_id_brain.output_predictions_test_set(
-        test_set=datasets["test"],
-        min_key="error",
+        min_key="error_rate",
         test_loader_kwargs=hparams["dataloader_options"],
     )

@@ -134,20 +134,15 @@ class Fbank(torch.nn.Module):
             Relative length of each sentence in the batch
             (e.g, [0.7, 0.9, 1.0]).
         """
-        with torch.no_grad():
-
-            STFT = self.compute_STFT(wav, lengths)
-            mag = spectral_magnitude(STFT)
-            fbanks = self.compute_fbanks(mag)
-
-            if self.deltas:
-                delta1 = self.compute_deltas(fbanks, lengths)
-                delta2 = self.compute_deltas(delta1, lengths)
-                fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
-
-            if self.context:
-                fbanks = self.context_window(fbanks, lengths)
-
+        STFT = self.compute_STFT(wav)
+        mag = spectral_magnitude(STFT)
+        fbanks = self.compute_fbanks(mag)
+        if self.deltas:
+            delta1 = self.compute_deltas(fbanks)
+            delta2 = self.compute_deltas(delta1)
+            fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
+        if self.context:
+            fbanks = self.context_window(fbanks)
         return fbanks
 
 
@@ -275,18 +270,14 @@ class MFCC(torch.nn.Module):
             Relative length of each sentence in the batch
             (e.g, [0.7, 0.9, 1.0]).
         """
-        with torch.no_grad():
-            STFT = self.compute_STFT(wav, lengths)
-            mag = spectral_magnitude(STFT)
-            fbanks = self.compute_fbanks(mag)
-            mfccs = self.compute_dct(fbanks)
-
-            if self.deltas:
-                delta1 = self.compute_deltas(mfccs, lengths)
-                delta2 = self.compute_deltas(delta1, lengths)
-                mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
-
-            if self.context:
-                mfccs = self.context_window(mfccs, lengths)
-
+        STFT = self.compute_STFT(wav)
+        mag = spectral_magnitude(STFT)
+        fbanks = self.compute_fbanks(mag)
+        mfccs = self.compute_dct(fbanks)
+        if self.deltas:
+            delta1 = self.compute_deltas(mfccs)
+            delta2 = self.compute_deltas(delta1)
+            mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
+        if self.context:
+            mfccs = self.context_window(mfccs)
         return mfccs
