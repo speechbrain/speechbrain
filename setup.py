@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 import os
+import sys
+import site
 import setuptools
 from distutils.core import setup
+
+
+# Editable install in user site directory can be allowed with this hack:
+# https://github.com/pypa/pip/issues/7953.
+site.ENABLE_USER_SITE = "--user" in sys.argv[1:]
 
 with open("README.md") as f:
     long_description = f.read()
@@ -26,7 +33,7 @@ setup(
         "packaging",
         "scipy",
         "sentencepiece",
-        "torch",
+        "torch>=1.7,<=1.11",
         "torchaudio",
         "tqdm",
         "huggingface_hub",

@@ -1,0 +1,89 @@
+# #######################################
+# Recipe for training a speech enhancement system with the Voicebank dataset
+# based on the SEGAN model architecture.
+# (based on the paper: Pascual et al. https://arxiv.org/pdf/1703.09452.pdf).
+#
+# To run this recipe, do the following:
+# > python train.py hparams/train.yaml
+#
+# Authors
+#  * Francis Carter 2021
+# #######################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+data_folder: !PLACEHOLDED #e.g., /localscratch/noisy-vctk-16k
+test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
+
+output_folder: !ref results/SEGAN/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+enhanced_folder: !ref <output_folder>/enhanced
+
+# Tensorboar (optional)
+use_tensorboard: False
+tensorboard_logs: !ref <output_folder>/logs/
+
+# Data files
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: False
+
+# Model and loss parameters
+sample_rate: 16000
+chunk_size: 16384
+chunk_stride: 8192
+kernelSize: 5 # For both generator and discriminator
+latentVAE: False # Whether or not to convert the autoencoder to a vae
+zProb: False  # Whether to remove the latent variable concatenation
+l1LossCoeff: 100 # Weight of the l1 loss
+klLossCoeff: 1 # Weight of the kl loss
+
+# Training Parameters
+number_of_epochs: 120
+batch_size: 8
+lr: 0.0002
+sorting: ascending
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+modules:
+    model_d: !new:speechbrain.lobes.models.segan_model.Discriminator
+        kernel_size: !ref <kernelSize>
+    model_g: !new:speechbrain.lobes.models.segan_model.Generator
+        kernel_size: !ref <kernelSize>
+        latent_vae: !ref <latentVAE>
+        z_prob: !ref <zProb>
+
+opt_class: !name:torch.optim.RMSprop
+    lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model_d: !ref <modules[model_d]>
+        model_g: !ref <modules[model_g]>
+        counter: !ref <epoch_counter>
+
+# Change this cost function to use different loss
+compute_cost:
+    d1: !name:speechbrain.lobes.models.segan_model.d1_loss
+    d2: !name:speechbrain.lobes.models.segan_model.d2_loss
+    g3: !name:speechbrain.lobes.models.segan_model.g3_loss
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

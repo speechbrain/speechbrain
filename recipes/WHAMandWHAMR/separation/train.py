@@ -236,9 +236,17 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
-            )
+            if (
+                hasattr(self.hparams, "save_all_checkpoints")
+                and self.hparams.save_all_checkpoints
+            ):
+                self.checkpointer.save_checkpoint(
+                    meta={"si-snr": stage_stats["si-snr"]}
+                )
+            else:
+                self.checkpointer.save_and_keep_only(
+                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -593,23 +601,50 @@ if __name__ == "__main__":
 
         # if the base_folder for dm is not processed, preprocess them
         if "processed" not in hparams["base_folder_dm"]:
-            from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
-                resample_folder,
-            )
+            # if the processed folder already exists we just use it otherwise we do the preprocessing
+            if not os.path.exists(
+                os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+            ):
+                from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
+                    resample_folder,
+                )
 
-            print("Resampling the base folder (WSJ0 for this dataset)")
-            run_on_main(
-                resample_folder,
-                kwargs={
-                    "input_folder": hparams["base_folder_dm"],
-                    "output_folder": hparams["base_folder_dm"] + "_processed",
-                    "fs": hparams["sample_rate"],
-                    "regex": "**/*.wav",
-                },
-            )
-            # adjust the base_folder_dm path
-            hparams["base_folder_dm"] = hparams["base_folder_dm"] + "_processed"
-        train_data = dynamic_mix_data_prep(hparams)
+                print("Resampling the base folder")
+                run_on_main(
+                    resample_folder,
+                    kwargs={
+                        "input_folder": hparams["base_folder_dm"],
+                        "output_folder": os.path.normpath(
+                            hparams["base_folder_dm"]
+                        )
+                        + "_processed",
+                        "fs": hparams["sample_rate"],
+                        "regex": "**/*.wav",
+                    },
+                )
+                # adjust the base_folder_dm path
+                hparams["base_folder_dm"] = (
+                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                )
+            else:
+                print(
+                    "Using the existing processed folder on the same directory as base_folder_dm"
+                )
+                hparams["base_folder_dm"] = (
+                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                )
+
+        train_data = dynamic_mix_data_prep(
+            tr_csv=hparams["train_data"],
+            data_root_folder=hparams["data_folder"],
+            base_folder_dm=hparams["base_folder_dm"],
+            sample_rate=hparams["sample_rate"],
+            num_spks=hparams["num_spks"],
+            max_training_signal_len=hparams["training_signal_len"],
+            batch_size=hparams["dataloader_opts"]["batch_size"],
+            num_workers=hparams["dataloader_opts"]["num_workers"],
+        )
+
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
