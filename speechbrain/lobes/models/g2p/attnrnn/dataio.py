@@ -390,6 +390,12 @@ def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
     result: DymamicItem
         a pipeline element
     """
+    if encoder is not None and not hasattr(encoder, "bos_label"):
+        enable_eos_bos(
+            tokens=tokens,
+            encoder=encoder,
+            bos_index=bos_index,
+            eos_index=eos_index)
 
     @sb.utils.data_pipeline.takes(f"{prefix}_encoded_list")
     @sb.utils.data_pipeline.provides(

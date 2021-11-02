@@ -96,7 +96,7 @@ embedding_type: regular
 # bos: a beginning-of-sequence token is added
 # eos: an end-of-sequence token is added
 grapheme_sequence_mode: eos
-phoneme_sequence_mode: eos
+phoneme_sequence_mode: bos
 
 enc_kdim: null
 enc_vdim: null

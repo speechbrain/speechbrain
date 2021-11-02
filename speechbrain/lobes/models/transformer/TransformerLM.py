@@ -128,15 +128,14 @@ class TransformerLM(TransformerInterface):
             )
 
         if self.num_decoder_layers > 0:
-            encoder_out, _ = self.decoder(
-                src=src,
+            encoder_out, _, _ = self.decoder(
                 tgt=src,
+                memory=encoder_out,
                 tgt_mask=src_mask,
                 tgt_key_padding_mask=src_key_padding_mask,
             )
 
         pred = self.output_proj(encoder_out)
-
         return pred
 
     def _reset_params(self):
