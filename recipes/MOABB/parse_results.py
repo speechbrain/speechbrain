@@ -7,8 +7,6 @@ To run this script (e.g., exp_results: results/MOABB/EEGNet_BNCI2014001/<seed>; 
 
     > python3 parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 acc loss f1
 
-The dataset will be automatically downloaded in the specified folder.
-
 Author
 ------
 Francesco Paissan, 2021
@@ -49,7 +47,7 @@ def visualize_results(paradigm: str, results: dict, vis_metrics: list) -> None:
     :param vis_metrics: [description]
     :type vis_metrics: list
     """
-    print("----", paradigm.name, "----")
+    print("\n----", paradigm.name, "----")
     for key in results:
         if type(results[key]) == dict:
             for m in vis_metrics:
@@ -57,7 +55,7 @@ def visualize_results(paradigm: str, results: dict, vis_metrics: list) -> None:
                     key,
                     m,
                     round(mean(results[key][m]), 4),
-                    "+-",
+                    "±",
                     round(std(results[key][m]), 4),
                 )
         else:
@@ -65,7 +63,7 @@ def visualize_results(paradigm: str, results: dict, vis_metrics: list) -> None:
                 print(
                     key,
                     round(mean(results[key]), 4),
-                    "+-",
+                    "±",
                     round(std(results[key]), 4),
                 )
 

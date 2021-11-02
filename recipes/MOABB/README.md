@@ -30,7 +30,11 @@ E.g., to train EEGNet to decode motor imagery on BNCI2014001:\
 
 The dataset will be automaticallt downloaded in the specified folder.
 
+
 # Results
+After training, you can aggregate and visualize the performance of all the experiments with:
+\>>> python parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 acc loss f1
+
 
 In the following, results are reported for each MOABB dataset and each architecture using different training strategies.
 
