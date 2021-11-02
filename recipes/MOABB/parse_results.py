@@ -91,19 +91,25 @@ def parse_cross_section(paradigm: Path) -> dict:
     :return: [description]
     :rtype: dict
     """
-    out_stat = {key.name: {metric: [] for metric in stat_metrics} for key in sorted(folds[0].iterdir())}
+    out_stat = {metric: [] for metric in stat_metrics}
             
     for f in folds:
         child = sorted(f.iterdir())
+        sess_metrics = {metric: [] for metric in stat_metrics}
+        
         for sess in child:
             metrics = load_metrics(sess.joinpath("metrics.pkl"))
             if metrics is not None:
                 for m in stat_metrics:
-                    out_stat[sess.name][m].append(
-                        metrics[m]
-                    )
+                    sess_metrics[m].append(metrics[m])
+                    
             else:
                 print("Something was wrong when computing ", f)
+        
+        for m in stat_metrics:
+            out_stat[m].append(
+                mean(sess_metrics[m])
+            )
                 
     return out_stat
 
