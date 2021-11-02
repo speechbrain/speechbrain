@@ -33,7 +33,7 @@ def load_metrics(filepath: Path) -> dict:
         with open(filepath, "rb") as f:
             temp = load(f)
 
-        return temp["acc"]
+        return temp
     except Exception as e:
         print(f"Error on {str(filepath)} - {str(e)}")
         return None

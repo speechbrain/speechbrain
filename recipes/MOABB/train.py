@@ -243,7 +243,7 @@ def run_experiment(hparams, run_opts, datasets):
     metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
     with open(metrics_fpath, "wb",) as handle:
         pickle.dump(
-            results, handle, protocol=pickle.HIGHEST_PROTOCOL,
+            results[key], handle, protocol=pickle.HIGHEST_PROTOCOL,
         )
 
 
