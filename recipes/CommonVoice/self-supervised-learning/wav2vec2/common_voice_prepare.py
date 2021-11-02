@@ -1,1 +1,1 @@
-../../CommonVoice/common_voice_prepare.py
+../../common_voice_prepare.py
