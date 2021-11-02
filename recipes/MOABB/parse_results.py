@@ -3,9 +3,9 @@
 Snippet to aggregate results based on four different EEG training paradigms
 (within-session, cross-session, leave-one-session-out, leave-one-subject-out).
 
-To run this script (e.g., exp: hparams/EEGNet_BNCI2014001.yaml; dataset: BNCI2014001):
+To run this script (e.g., exp_results: results/MOABB/EEGNet_BNCI2014001/<seed>;):
 
-    > python3 parse_results.py hparams/EEGNet_BNCI2014001.yaml
+    > python3 parse_results.py results/MOABB/EEGNet_BNCI2014001/1234
 
 The dataset will be automatically downloaded in the specified folder.
 
@@ -170,12 +170,8 @@ def parse_within_session(paradigm: Path) -> dict:
 stat_metrics = ["loss", "f1", "acc", "auc"]
 vis_metrics = ["acc"] # select which metrics to show
 if __name__ == "__main__":
-    exp_yaml = Path(sys.argv[1])
-    with open(exp_yaml) as fin:
-        hparams = load_hyperpyyaml(fin, "data_folder: None")
-    
-    results_folder = Path(hparams["output_folder"])
-    
+    results_folder = Path(sys.argv[1])
+        
     for paradigm in results_folder.iterdir():
         folds = sorted(paradigm.iterdir())
         
