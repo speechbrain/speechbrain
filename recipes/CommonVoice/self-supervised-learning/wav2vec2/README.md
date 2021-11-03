@@ -6,11 +6,10 @@ The HuggingFace *transformers* library must be installed first.
 `pip install -r extra_requirements.txt`
 
 # Principle
-
 The idea is extremely simple. <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> provides a wav2vec 2.0 loss calculation. In practice, it means that forwarding throughout their wav2vec 2.0 models returns the loss. Hence, we simply use this interface as a lobes wrapper in SpeechBrain so anyone can fully pretrain a wav2vec 2.0 model.
 
 At a high level, the steps of this integration are:
-1. Indicate a <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> repository that stores the wav2vec 2.0 config file. This is necessary to determine the architecture of the model that will be instantiated (see `wav2vec2_hub` in the yaml). You can browse all the existing HUggingFace architectures online and use them ! In practice, SpeechBrain will download the configuration file corresponding (or load it locally), and instantiate in PyTorch the wav2vec 2.0 model.
+1. Indicate a <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> repository that stores the wav2vec 2.0 config file. This is necessary to determine the architecture of the model that will be instantiated (see `wav2vec2_hub` in the yaml). You can browse all the existing HUggingFace architectures online and use them! In practice, SpeechBrain will download the configuration file corresponding (or load it locally), and instantiate in PyTorch the wav2vec 2.0 model.
 2. Train it using our wrapper and this recipe.
 3. Save it to be reused as a finetunable or frozen encoder with SpeechBrain recipes (as we already have for several task).
 
@@ -21,7 +20,7 @@ Simply type:
 Do not forget to replace the `!PLACEHOLDER` variables in the yaml corresponding to your local path to the data.
 
 # Advices
-Training wav2vec 2.0 models is crazy w.r.t compute resources. For instance, this recipe only trains a BASE wav2vec 2.0 architecture, and it already requires fro 20 to 32 Tesla V100 for 30 to 48 hours. Of course, you can scale this to your need (i.e. it will work with 2 GPUs only), but it will take ages ! Welcome to the wav2vec 2.0 world !
+Training wav2vec 2.0 models is crazy w.r.t compute resources. For instance, this recipe only trains a BASE wav2vec 2.0 architecture, and it already requires from 20 to 32 Tesla V100 for 30 to 48 hours. Of course, you can scale this to your needs (e.g., you can work with 2 GPUs only), but it will take ages! Welcome to the wav2vec 2.0 world!
 
 You will find different advices in the yaml, but just in case, here is a list of the most important ones:
 - To train w2v2 model, we recommand to have the effective batch_size higher than 200 (batch_size * nb_gpu * gradient_accumulation). Examples are: 32 Tesla V100 32GB — 12 * 32 * 1.
