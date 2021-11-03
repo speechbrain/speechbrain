@@ -22,7 +22,7 @@ class HifiGanBrain(sb.Brain):
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
         if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
-        self.hparams.progress_sample_logger.reset()
+        #self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
         self.last_loss_stats = {}
@@ -33,15 +33,18 @@ class HifiGanBrain(sb.Brain):
         after parameters are fully configured (e.g. DDP, jit).
         """
         if self.opt_class is not None:
-            self.optimizer_g = self.opt_class[0](self.modules.generator.parameters())
-            self.optimizer_d = self.opt_class[1](self.modules.discriminator.parameters())
+            (opt_g_class, opt_d_class, sch_g_class, sch_d_class) = self.opt_class
+
+            self.optimizer_g = opt_g_class(self.modules.generator.parameters())
+            self.optimizer_d = opt_d_class(self.modules.discriminator.parameters())
+            self.scheduler_g = sch_g_class(self.optimizer_g)
+            self.scheduler_d = sch_d_class(self.optimizer_d)
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer_g", self.optimizer_g)
                 self.checkpointer.add_recoverable("optimizer_d", self.optimizer_d)
-
-        
-
+                self.checkpointer.add_recoverable("scheduler_g", self.scheduler_d)
+                self.checkpointer.add_recoverable("scheduler_d", self.scheduler_d)
 
     def compute_forward(self, batch, stage):
         """
@@ -120,8 +123,7 @@ class HifiGanBrain(sb.Brain):
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
-        loss_d = loss["D_loss"]
-        return loss_g.detach().cpu() + loss_d.detach().cpu()
+        return loss_g.detach().cpu()
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -167,19 +169,19 @@ class HifiGanBrain(sb.Brain):
         mel, sig = batch
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
 
-        self.hparams.progress_sample_logger.remember(
-            raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
-                {
-                    "input": self.get_spectrogram_sample(mel),
-                    "target": sig,
-                    "prediction": y_hat,
-                    "scores_fake": scores_fake,
-                    "feats_fake": feats_fake,
-                    "scores_real": scores_real,
-                    "feats_real": feats_real,
-                }
-            ),
-        )
+        # self.hparams.progress_sample_logger.remember(
+        #     raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
+        #         {
+        #             "input": self.get_spectrogram_sample(mel),
+        #             "target": sig,
+        #             "prediction": y_hat,
+        #             "scores_fake": scores_fake,
+        #             "feats_fake": feats_fake,
+        #             "scores_real": scores_real,
+        #             "feats_real": feats_real,
+        #         }
+        #     ),
+        # )
 
     def batch_to_device(self, batch):
         """
@@ -246,11 +248,10 @@ class HifiGanBrain(sb.Brain):
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
-            _, lr_g = self.hparams.lr_annealing(epoch)
-            _, lr_d = self.hparams.lr_annealing(epoch)
-            self.optimizer_g.param_groups[-1]["lr"] = lr_g
-            self.optimizer_d.param_groups[-1]["lr"] = lr_d
-            self.last_epoch = epoch
+            self.scheduler_g.step()
+            self.scheduler_d.step()
+            lr_g = self.optimizer_g.param_groups[-1]["lr"]
+            lr_d = self.optimizer_d.param_groups[-1]["lr"]
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
@@ -266,6 +267,7 @@ class HifiGanBrain(sb.Brain):
             }
             self.checkpointer.save_and_keep_only(
                 meta=epoch_metadata,
+                end_of_epoch=True,
                 min_keys=["loss"],
                 ckpt_predicate=(
                     lambda ckpt: (
@@ -283,30 +285,35 @@ class HifiGanBrain(sb.Brain):
             )
             if output_progress_sample:
                 self.run_inference_sample()
-                self.hparams.progress_sample_logger.save(epoch)
+                #self.hparams.progress_sample_logger.save(epoch)
 
         # We also write statistics about test data to stdout and to the logfile.
-        if stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
-                {"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=self.last_loss_stats[sb.Stage.VALID],
-            )
+        # if stage == sb.Stage.TEST:
+        #     self.hparams.train_logger.log_stats(
+        #         {"Epoch loaded": self.hparams.epoch_counter.current},
+        #         test_stats=self.last_loss_stats[sb.Stage.VALID],
+        #     )
 
     def run_inference_sample(self):
             """Produces a sample in inference mode. This is called when producing
             samples and can be useful because"""
             if self.last_batch is None:
                 return
-            inputs, y = self.last_batch
-            sig_out = self.modules.generator(inputs)
-
+            x, y = self.last_batch
+            sig_out = self.modules.generator(x)
             spec_out = mel_spectogram(self.hparams, sig_out.squeeze(0).cpu())
-            self.hparams.progress_sample_logger.remember(
-                target_mel=self.get_spectrogram_sample(inputs),
-                inference_mel=self.get_spectrogram_sample(spec_out),
-                audio_target=sig_out.squeeze(0),
-                audio_source=y.squeeze(0)
-            )
+
+            # self.hparams.progress_sample_logger.remember(
+            #     target_mel=x[0],
+            #     inference_mel=spec_out[0],
+            #     audio_target=sig_out.squeeze(0),
+            #     audio_source=y.squeeze(0)
+            # )
+
+            self.hparams.train_logger.log_audio("Valid/audio_target", y.squeeze(0), self.hparams.sample_rate)
+            self.hparams.train_logger.log_audio("Valid/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate)
+            self.hparams.train_logger.log_figure("Valid/mel_target", x)
+            self.hparams.train_logger.log_figure("Valid/mel_pred", spec_out)
 
 
 def load_datasets(hparams, dataset_prep):
@@ -384,10 +391,16 @@ def mel_spectogram(hparams, audio):
         f_max=hparams.mel_fmax,
         power=hparams.power,
         normalized=hparams.mel_normalized,
-        norm=hparams.norm,
-        mel_scale=hparams.mel_scale,
+        #norm=hparams.norm,
+        #mel_scale=hparams.mel_scale,
     )
-    return audio_to_mel(audio)
+
+    mel = audio_to_mel(audio)
+
+    if hparams.dynamic_range_compression:
+        mel = dynamic_range_compression(mel)
+
+    return mel
 
 # TODO: Modularize and decouple this
 def audio_pipeline(hparams, split):
@@ -414,8 +427,8 @@ def audio_pipeline(hparams, split):
         f_max=hparams["mel_fmax"],
         power=hparams["power"],
         normalized=hparams["mel_normalized"],
-        norm=hparams["norm"],
-        mel_scale=hparams["mel_scale"],
+        #norm=hparams["norm"],
+        #mel_scale=hparams["mel_scale"],
     )
 
     wav_folder = hparams.get("wav_folder")
@@ -452,6 +465,7 @@ if __name__ == "__main__":
     #########
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
+
     #############
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
@@ -476,11 +490,18 @@ if __name__ == "__main__":
     # Brain class initialization
     hifi_gan_brain = HifiGanBrain(
         modules=hparams["modules"],
-        opt_class=[hparams["opt_class_generator"], hparams["opt_class_discriminator"]],
+        opt_class=[
+            hparams["opt_class_generator"],
+            hparams["opt_class_discriminator"],
+            hparams["sch_class_generator"],
+            hparams["sch_class_discriminator"]
+            ],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+
 
     # Training
     hifi_gan_brain.fit(
