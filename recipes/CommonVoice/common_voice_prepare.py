@@ -135,7 +135,7 @@ def prepare_common_voice(
     if dev_tsv_file is not None:
 
         create_csv(
-            dev_tsv_file, save_csv_dev, data_folder, accented_letters, language,
+            dev_tsv_file, save_csv_dev, data_folder, accented_letters, language
         )
 
     # Creating csv file for test data
@@ -177,7 +177,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
 
 def create_csv(
-    orig_tsv_file, csv_file, data_folder, accented_letters=False, language="en",
+    orig_tsv_file, csv_file, data_folder, accented_letters=False, language="en"
 ):
     """
     Creates the csv file given a list of wav files.
@@ -228,6 +228,12 @@ def create_csv(
         file_name = mp3_path.split(".")[-2].split("/")[-1]
         spk_id = line.split("\t")[0]
         snt_id = file_name
+
+        # Setting torchaudio backend to sox-io (needed to read mp3 files)
+        if torchaudio.get_audio_backend() != "sox_io":
+            logger.warning("This recipe needs the sox-io backend of torchaudio")
+            logger.warning("The torchaudio backend is changed to sox_io")
+            torchaudio.set_audio_backend("sox_io")
 
         # Reading the signal (to retrieve duration in seconds)
         if os.path.isfile(mp3_path):
