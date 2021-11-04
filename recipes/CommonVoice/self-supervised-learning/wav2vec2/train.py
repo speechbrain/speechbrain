@@ -116,7 +116,7 @@ class W2VBrain(sb.core.Brain):
             stage_stats["acc"] = sum(self.acc_metric) / len(self.acc_metric)
 
         # Perform end-of-iteration things, like annealing, logging, etc.
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             lr = self.hparams.noam_annealing.current_lr
             steps = self.hparams.noam_annealing.n_steps
             optimizer = self.optimizer.__class__.__name__
