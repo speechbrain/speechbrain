@@ -54,7 +54,7 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # 32 Tesla V100 32GB — 12 * 32 * 1
 # 4 Tesla V100 32GB — 12 * 4 * {6-8}
 batch_size: 12
-test_batch_size: 4
+test_batch_size: 8
 gradient_accumulation: 8
 
 dataloader_options:
