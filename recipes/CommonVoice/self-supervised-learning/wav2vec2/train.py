@@ -56,10 +56,10 @@ class W2VBrain(sb.core.Brain):
         loss = out.loss
 
         if stage != sb.Stage.TRAIN:
-            with torch.no_grad():
-                out, mask = self.modules.wav2vec2(wavs, mask_device=self.device)
+            # with torch.no_grad():
+            #    out, mask = self.modules.wav2vec2(wavs, mask_device=self.device)
 
-            return out.loss, out, mask
+            return loss, out, mask
 
         return loss
 
