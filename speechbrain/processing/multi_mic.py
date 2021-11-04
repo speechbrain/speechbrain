@@ -36,7 +36,9 @@ Example
 >>> istft = ISTFT(sample_rate=fs)
 
 >>> Xs = stft(xs_diffused_noise)
+>>> Ns = stft(nn_diff)
 >>> XXs = cov(Xs)
+>>> NNs = cov(Ns)
 >>> tdoas = gccphat(XXs)
 >>> Ys_ds = delaysum(Xs, tdoas)
 >>> ys_ds = istft(Ys_ds)
@@ -50,22 +52,22 @@ Example
 >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
 >>> srpphat = SrpPhat(mics=mics)
 >>> doas = srpphat(XXs)
->>> Ys_mvdr = mvdr(Xs, XXs, doas, doa_mode=True, mics=mics, fs=fs)
+>>> Ys_mvdr = mvdr(Xs, NNs, doas, doa_mode=True, mics=mics, fs=fs)
 >>> ys_mvdr = istft(Ys_mvdr)
 
 >>> # Mvdr Beamforming with MUSIC localization
 >>> music = Music(mics=mics)
 >>> doas = music(XXs)
->>> Ys_mvdr2 = mvdr(Xs, XXs, doas, doa_mode=True, mics=mics, fs=fs)
+>>> Ys_mvdr2 = mvdr(Xs, NNs, doas, doa_mode=True, mics=mics, fs=fs)
 >>> ys_mvdr2 = istft(Ys_mvdr2)
 
 >>> # GeV Beamforming
 >>> gev = Gev()
 >>> Xs = stft(xs_localized_noise)
 >>> Ss = stft(ss)
->>> Nn = stft(nn_loc)
+>>> Ns = stft(nn_loc)
 >>> SSs = cov(Ss)
->>> NNs = cov(Nn)
+>>> NNs = cov(Ns)
 >>> Ys_gev = gev(Xs, SSs, NNs)
 >>> ys_gev = istft(Ys_gev)
 
@@ -361,9 +363,11 @@ class Mvdr(torch.nn.Module):
         >>> istft = ISTFT(sample_rate=fs)
         >>>
         >>> Xs = stft(xs)
+        >>> Ns = stft(xs_noise)
         >>> XXs = cov(Xs)
+        >>> NNs = cov(Ns)
         >>> tdoas = gccphat(XXs)
-        >>> Ys = mvdr(Xs, XXs, tdoas)
+        >>> Ys = mvdr(Xs, NNs, tdoas)
         >>> ys = istft(Ys)
     """
 
@@ -376,7 +380,7 @@ class Mvdr(torch.nn.Module):
     def forward(
         self,
         Xs,
-        XXs,
+        NNs,
         localization_tensor,
         doa_mode=False,
         mics=None,
@@ -393,8 +397,8 @@ class Mvdr(torch.nn.Module):
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
-        XXs : tensor
-            The covariance matrices of the input signal. The tensor must
+        NNs : tensor
+            The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
         localization_tensor : tensor
             A tensor containing either time differences of arrival (TDOAs)
@@ -433,12 +437,12 @@ class Mvdr(torch.nn.Module):
         As = steering(taus=taus, n_fft=n_fft)
 
         # Perform mvdr
-        Ys = Mvdr._mvdr(Xs=Xs, XXs=XXs, As=As)
+        Ys = Mvdr._mvdr(Xs=Xs, NNs=NNs, As=As)
 
         return Ys
 
     @staticmethod
-    def _mvdr(Xs, XXs, As, eps=1e-20):
+    def _mvdr(Xs, NNs, As, eps=1e-20):
         """Perform minimum variance distortionless response beamforming.
 
         Arguments
@@ -447,8 +451,8 @@ class Mvdr(torch.nn.Module):
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics).
-        XXs : tensor
-            The covariance matrices of the input signal. The tensor must
+        NNs : tensor
+            The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
         As : tensor
             The steering vector to point in the direction of
@@ -457,14 +461,14 @@ class Mvdr(torch.nn.Module):
         """
 
         # Get unique covariance values to reduce the number of computations
-        XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=1)
+        NNs_val, NNs_idx = torch.unique(NNs, return_inverse=True, dim=1)
 
         # Inverse covariance matrices
-        XXs_inv = eig.inv(XXs_val)
+        NNs_inv = eig.inv(NNs_val)
 
         # Capture real and imaginary parts, and restore time steps
-        XXs_inv_re = XXs_inv[..., 0][:, XXs_idx]
-        XXs_inv_im = XXs_inv[..., 1][:, XXs_idx]
+        NNs_inv_re = NNs_inv[..., 0][:, NNs_idx]
+        NNs_inv_im = NNs_inv[..., 1][:, NNs_idx]
 
         # Decompose steering vector
         AsC_re = As[..., 0, :].unsqueeze(4)
@@ -473,22 +477,22 @@ class Mvdr(torch.nn.Module):
         AsT_im = -1.0 * AsC_im.transpose(3, 4)
 
         # Project
-        XXs_inv_AsC_re = torch.matmul(XXs_inv_re, AsC_re) - torch.matmul(
-            XXs_inv_im, AsC_im
+        NNs_inv_AsC_re = torch.matmul(NNs_inv_re, AsC_re) - torch.matmul(
+            NNs_inv_im, AsC_im
         )
-        XXs_inv_AsC_im = torch.matmul(XXs_inv_re, AsC_im) + torch.matmul(
-            XXs_inv_im, AsC_re
+        NNs_inv_AsC_im = torch.matmul(NNs_inv_re, AsC_im) + torch.matmul(
+            NNs_inv_im, AsC_re
         )
 
         # Compute the gain
         alpha = 1.0 / (
-            torch.matmul(AsT_re, XXs_inv_AsC_re)
-            - torch.matmul(AsT_im, XXs_inv_AsC_im)
+            torch.matmul(AsT_re, NNs_inv_AsC_re)
+            - torch.matmul(AsT_im, NNs_inv_AsC_im)
         )
 
         # Get the unmixing coefficients
-        Ws_re = torch.matmul(XXs_inv_AsC_re, alpha).squeeze(4)
-        Ws_im = -torch.matmul(XXs_inv_AsC_im, alpha).squeeze(4)
+        Ws_re = torch.matmul(NNs_inv_AsC_re, alpha).squeeze(4)
+        Ws_im = -torch.matmul(NNs_inv_AsC_im, alpha).squeeze(4)
 
         # Applying MVDR
         Xs_re = Xs[..., 0, :]
