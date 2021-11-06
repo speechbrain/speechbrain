@@ -130,7 +130,7 @@ class HuggingFaceWav2Vec2(nn.Module):
                 self.model.gradient_checkpointing_disable()  # Required by DDP
                 # We transfer the parameters from the checkpoint.
                 sb.utils.checkpoints.torch_parameter_transfer(
-                    self.model, ckpt_file
+                    self.model, ckpt_file, device="cpu"
                 )
             else:
                 self.model = model.from_pretrained(source, cache_dir=save_path)
