@@ -123,7 +123,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         else:
             # We check if the pretrained model comes from HF or SpeechBrain.
             # and we load it accordingly.
-            is_sb, is_hf, ckpt_file = self.check_model_source(source)
+            is_sb, ckpt_file = self.check_model_source(source)
             if is_sb:
                 config = config.from_pretrained(source, cache_dir=save_path)
                 self.model = model(config)
@@ -189,39 +189,26 @@ class HuggingFaceWav2Vec2(nn.Module):
         return out
 
     def check_model_source(self, path):
-        """Checks if the pretrained model has been trained with HuggingFace
-        or SpeechBrain.
+        """Checks if the pretrained model has been trained with SpeechBrain.
         """
-        is_hf = False
-        is_sb = False
         checkpoint_filename = ""
         source = pathlib.Path(path)
 
         # If path isn't a path but a HuggingFace repository, return.
         if not source.exists():
-            is_hf = True
-            return is_sb, is_hf
+            return False, checkpoint_filename
 
         # Test for HuggingFace model
         if any(File.endswith(".bin") for File in os.listdir(path)):
-            is_hf = True
+            return False, checkpoint_filename
 
         # Test for SpeechBrain model and get the filename.
         for File in os.listdir(path):
             if File.endswith(".ckpt"):
-                is_sb = True
                 checkpoint_filename = os.path.join(path, File)
+                return True, checkpoint_filename
 
-        # If we have both we raise a warning to mention that we will use SB
-        if is_sb and is_hf:
-            msg = (
-                "HuggingFace and SpeechBrain pretrained models have been found."
-            )
-            msg += " SpeechBrain pretrained model will be used instead."
-            logger.info(msg)
-            is_hf = False
-
-        return is_sb, is_hf, checkpoint_filename
+        return False, checkpoint_filename
 
 
 class HuggingFaceWav2Vec2Pretrain(nn.Module):
