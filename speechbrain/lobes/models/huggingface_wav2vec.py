@@ -128,10 +128,8 @@ class HuggingFaceWav2Vec2(nn.Module):
                 self.model = model.from_pretrained(source, cache_dir=save_path)
             if is_sb:
                 config = config.from_pretrained(source, cache_dir=save_path)
-                config.gradient_checkpointing = (
-                    False  # This cause errors with DDP if True.
-                )
                 self.model = model(config)
+                self.model.gradient_checkpointing_disable()  # Required by DDP
                 # We transfer the parameters from the checkpoint.
                 sb.utils.checkpoints.torch_parameter_transfer(
                     self.model, ckpt_file
@@ -277,12 +275,10 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
 
         # Download the config of the model from HuggingFace.
         config = Wav2Vec2Config.from_pretrained(source, cache_dir=save_path)
-        config.gradient_checkpointing = (
-            False  # This cause errors with DDP if True.
-        )
         config.output_hidden_states = True  # We want the hidden states as well!
 
         self.model = Wav2Vec2ForPreTraining(config)
+        self.model.gradient_checkpointing_disable()  # Required by DDP
         self.model.train()
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
