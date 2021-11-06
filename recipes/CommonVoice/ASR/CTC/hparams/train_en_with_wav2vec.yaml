@@ -85,7 +85,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, 1024]
+    input_shape: [null, null, 768]
     linear1: !name:speechbrain.nnet.linear.Linear
         n_neurons: !ref <dnn_neurons>
         bias: True
