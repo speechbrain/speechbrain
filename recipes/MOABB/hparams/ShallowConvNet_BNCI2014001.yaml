@@ -52,6 +52,12 @@ num_parallel_processes: 6  # number of parallel processes to run
 nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
 number_of_epochs: 500 # number of training epochs
 lr: 0.001 # learning rate
+
+# Learning rate scheduling (cyclic learning rate is used here)
+max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
+base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
+step_size: 100 # number of training iterations per half cycle (lower step_size => faster cycles)
+
 # Test is done with the best model according to the following metrics
 test_keys: ["acc"] # Possible opts: "loss", "f1", "auc", "acc"
 loss: !name:torch.nn.functional.nll_loss
@@ -94,3 +100,8 @@ model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
   cnn_spatial_kernels: !ref <cnn_spatial_kernels>
   dense_n_neurons: !ref <n_classes>
   dropout: !ref <dropout>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>

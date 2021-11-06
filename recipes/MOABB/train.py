@@ -67,6 +67,8 @@ class MOABBBrain(sb.Brain):
             tmp_preds = torch.exp(predictions)
             self.preds.extend(tmp_preds.detach().cpu().numpy())
             self.targets.extend(batch[1].detach().cpu().numpy())
+        else:
+            self.hparams.lr_annealing.on_batch_end(self.optimizer)
         return loss
 
     def on_fit_start(self,):
@@ -109,8 +111,11 @@ class MOABBBrain(sb.Brain):
             }
 
             if stage == sb.Stage.VALID:
+                # Learning rate scheduler
+                old_lr, new_lr = self.hparams.lr_annealing(epoch)
+                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
                 self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch},
+                    stats_meta={"epoch": epoch, "lr": old_lr},
                     train_stats={"loss": self.train_loss},
                     valid_stats=last_eval_stats,
                 )

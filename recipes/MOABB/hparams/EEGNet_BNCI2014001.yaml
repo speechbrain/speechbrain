@@ -12,7 +12,7 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'. The dataset will be automatically downloaded in this folder
-output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
+output_folder: !ref results/MOABB/EEGNet_BNCI2014001_linear_cyclic_fast/<seed>
 
 # DATASET HPARS
 # Defining the MOABB dataset.
@@ -51,7 +51,12 @@ paradigm: !new:moabb.paradigms.MotorImagery
 num_parallel_processes: 6  # number of parallel processes to run
 nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
 number_of_epochs: 500 # number of training epochs
-lr: 0.001 # learning rate
+lr: 0.001
+
+# Learning rate scheduling (cyclic learning rate is used here)
+max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
+base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
+step_size: 100 # number of training iterations per half cycle (lower step_size => faster cycles)
 
 # Test is done with the best model according to the following metrics
 test_keys: ["acc"] # Possible opts: "loss", "f1", "auc", "acc"
@@ -63,7 +68,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
   limit: !ref <number_of_epochs>
 batch_size: 32
 valid_ratio: 0.2
-# data iterators
+
+# Data iterators
 within_session_it: !new:recipes.MOABB.dataio_iterators.WithinSession
   paradigm: !ref <paradigm>
   nfolds: !ref <nfolds>
@@ -103,3 +109,9 @@ model: !new:speechbrain.lobes.models.EEGNet.EEGNet
   dense_n_neurons: !ref <n_classes>
   dense_max_norm: !ref <dense_max_norm>
   dropout: !ref <dropout>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
+
