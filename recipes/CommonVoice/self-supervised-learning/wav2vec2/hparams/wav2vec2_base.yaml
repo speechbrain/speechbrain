@@ -98,7 +98,7 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        wav2vec2: !ref <wav2vec2.model>
+        wav2vec2: !ref <wav2vec2.model.wav2vec2>
         scheduler: !ref <noam_annealing>
         counter: !ref <epoch_counter>
 
