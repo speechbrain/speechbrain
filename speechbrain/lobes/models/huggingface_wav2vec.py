@@ -124,8 +124,6 @@ class HuggingFaceWav2Vec2(nn.Module):
             # We check if the pretrained model comes from HF or SpeechBrain.
             # and we load it accordingly.
             is_sb, is_hf, ckpt_file = self.check_model_source(source)
-            if is_hf:
-                self.model = model.from_pretrained(source, cache_dir=save_path)
             if is_sb:
                 config = config.from_pretrained(source, cache_dir=save_path)
                 self.model = model(config)
@@ -134,6 +132,8 @@ class HuggingFaceWav2Vec2(nn.Module):
                 sb.utils.checkpoints.torch_parameter_transfer(
                     self.model, ckpt_file
                 )
+            else:
+                self.model = model.from_pretrained(source, cache_dir=save_path)
 
         # set apply_spec_augment
         self.model.config.apply_spec_augment = apply_spec_augment
