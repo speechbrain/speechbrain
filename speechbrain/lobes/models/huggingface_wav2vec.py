@@ -204,12 +204,18 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
     """
 
     def __init__(
-        self, source, save_path, mask_prob=0.65, mask_length=10,
+        self,
+        source,
+        save_path,
+        mask_prob=0.65,
+        mask_length=10,
+        normalize_wav=True,
     ):
         super().__init__()
 
         self.mask_prob = mask_prob
         self.mask_length = mask_length
+        self.normalize_wav = normalize_wav
 
         # Download the config of the model from HuggingFace.
         config = Wav2Vec2Config.from_pretrained(source, cache_dir=save_path)
@@ -232,6 +238,9 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             A batch of audio signals to transform to features.
         """
         batch_size, raw_sequence_length = wav.shape
+
+        if self.normalize_wav:
+            wav = F.layer_norm(wav, wav.shape)
 
         # We must compute the masking before forward. This is used by the loss.
         sequence_length = self.model._get_feat_extract_output_lengths(

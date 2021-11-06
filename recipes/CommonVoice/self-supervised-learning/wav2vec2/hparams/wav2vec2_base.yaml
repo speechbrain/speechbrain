@@ -68,9 +68,6 @@ test_dataloader_options:
 #
 # Functions and classes
 #
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 

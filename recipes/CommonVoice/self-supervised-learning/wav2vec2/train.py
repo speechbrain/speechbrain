@@ -48,9 +48,6 @@ class W2VBrain(sb.core.Brain):
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Normalize wav signal
-        wavs = self.modules.normalize(wavs, wav_lens)
-
         # Forward on w2v2 and take the loss.
         # It has to be on train mode even for eval. Otherwise it would deactivate
         # the loss computation ...
