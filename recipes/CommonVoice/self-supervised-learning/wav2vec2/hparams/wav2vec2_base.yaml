@@ -83,7 +83,7 @@ modules:
 opt_class: !name:torch.optim.AdamW
     lr: 0 # Will be changed by the scheduler, but we start at 0!
     betas: (0.9, 0.98)
-    eps: 0.000000001
+    eps: 1e-9
     weight_decay: !ref <weight_decay>
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
