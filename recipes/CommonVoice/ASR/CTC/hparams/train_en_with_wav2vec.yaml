@@ -17,7 +17,7 @@ wav2vec2_hub: facebook/wav2vec2-large-lv60
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
-train_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: False
@@ -85,7 +85,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, 768]
+    input_shape: [null, null, 1024]
     linear1: !name:speechbrain.nnet.linear.Linear
         n_neurons: !ref <dnn_neurons>
         bias: True
