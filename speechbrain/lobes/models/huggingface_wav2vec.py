@@ -10,9 +10,13 @@ Authors
  * Boumadane Abdelmoumene 2021
 """
 
+import os
 import torch
+import logging
+import pathlib
 import torch.nn.functional as F
 from torch import nn
+import speechbrain as sb
 
 # We check if transformers is installed.
 try:
@@ -28,6 +32,8 @@ except ImportError:
     print(
         "Please install transformer from HuggingFace to use wav2vec2/Hubert !"
     )
+
+logger = logging.getLogger(__name__)
 
 HF_models = {"wav2vec2": Wav2Vec2Model, "hubert": HubertModel}
 
@@ -115,7 +121,21 @@ class HuggingFaceWav2Vec2(nn.Module):
             )
             self.model = model(config)
         else:
-            self.model = model.from_pretrained(source, cache_dir=save_path)
+            # We check if the pretrained model comes from HF or SpeechBrain.
+            # and we load it accordingly.
+            is_sb, is_hf, ckpt_file = self.check_model_source(source)
+            if is_hf:
+                self.model = model.from_pretrained(source, cache_dir=save_path)
+            if is_sb:
+                config = config.from_pretrained(source, cache_dir=save_path)
+                config.gradient_checkpointing = (
+                    False  # This cause errors with DDP if True.
+                )
+                self.model = model(config)
+                # We transfer the parameters from the checkpoint.
+                sb.utils.checkpoints.torch_parameter_transfer(
+                    self.model, ckpt_file
+                )
 
         # set apply_spec_augment
         self.model.config.apply_spec_augment = apply_spec_augment
@@ -169,6 +189,41 @@ class HuggingFaceWav2Vec2(nn.Module):
             out = F.layer_norm(out, out.shape)
 
         return out
+
+    def check_model_source(self, path):
+        """Checks if the pretrained model has been trained with HuggingFace
+        or SpeechBrain.
+        """
+        is_hf = False
+        is_sb = False
+        checkpoint_filename = ""
+        source = pathlib.Path(path)
+
+        # If path isn't a path but a HuggingFace repository, return.
+        if not source.exists():
+            is_hf = True
+            return is_sb, is_hf
+
+        # Test for HuggingFace model
+        if any(File.endswith(".bin") for File in os.listdir(path)):
+            is_hf = True
+
+        # Test for SpeechBrain model and get the filename.
+        for File in os.listdir(path):
+            if File.endswith(".ckpt"):
+                is_hf = True
+                checkpoint_filename = os.path.join(path, File)
+
+        # If we have both we raise a warning to mention that we will use SB
+        if is_sb and is_hf:
+            msg = (
+                "HuggingFace and SpeechBrain pretrained models have been found."
+            )
+            msg += " SpeechBrain pretrained model will be used instead."
+            logger.info(msg)
+            is_hf = False
+
+        return is_sb, is_hf, checkpoint_filename
 
 
 class HuggingFaceWav2Vec2Pretrain(nn.Module):
