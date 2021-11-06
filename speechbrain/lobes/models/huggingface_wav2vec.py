@@ -110,6 +110,9 @@ class HuggingFaceWav2Vec2(nn.Module):
         # it it is True, we download and load them.
         if not (pretrain):
             config = config.from_pretrained(source, cache_dir=save_path)
+            config.gradient_checkpointing = (
+                False  # This cause errors with DDP if True.
+            )
             self.model = model(config)
         else:
             self.model = model.from_pretrained(source, cache_dir=save_path)
