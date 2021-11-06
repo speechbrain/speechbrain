@@ -209,7 +209,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         # Test for SpeechBrain model and get the filename.
         for File in os.listdir(path):
             if File.endswith(".ckpt"):
-                is_hf = True
+                is_sb = True
                 checkpoint_filename = os.path.join(path, File)
 
         # If we have both we raise a warning to mention that we will use SB
