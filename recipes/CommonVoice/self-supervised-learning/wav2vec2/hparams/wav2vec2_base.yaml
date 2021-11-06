@@ -78,7 +78,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2P
     mask_length: !ref <mask_length>
 
 modules:
-    normalize: !ref <normalize>
     wav2vec2: !ref <wav2vec2>
 
 opt_class: !name:torch.optim.AdamW
