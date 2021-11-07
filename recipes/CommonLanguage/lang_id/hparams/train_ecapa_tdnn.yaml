@@ -120,7 +120,7 @@ compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
         scale: 30
 
 # Learning rates
-lr: 0.0001
+lr: 0.00001
 lr_final: 0.00001
 
 
