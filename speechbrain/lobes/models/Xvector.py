@@ -7,6 +7,7 @@ Authors
 
 # import os
 import torch  # noqa: F401
+import time
 import torch.nn as nn
 import speechbrain as sb
 from speechbrain.nnet.pooling import StatisticsPooling
@@ -98,13 +99,13 @@ class Xvector(torch.nn.Module):
         """
 
         for layer in self.blocks:
-            # print(layer)
-            # start = time.time()
+            print(layer)
+            start = time.time()
             try:
                 x = layer(x, lengths=lens)
             except TypeError:
                 x = layer(x)
-            # print(time.time() - start)
+            print(time.time() - start)
         return x
 
 
