@@ -40,11 +40,11 @@ class LID(sb.Brain):
         # concatenate the original and the augment batches in a single bigger
         # batch. This is more memory-demanding, but helps to improve the
         # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            wavs_noise = self.modules.env_corrupt(wavs, lens)
-            wavs = torch.cat([wavs, wavs_noise], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
-            wavs = self.hparams.augmentation(wavs, lens)
+        # if stage == sb.Stage.TRAIN:
+        #    wavs_noise = self.modules.env_corrupt(wavs, lens)
+        #    wavs = torch.cat([wavs, wavs_noise], dim=0)
+        #    lens = torch.cat([lens, lens], dim=0)
+        #    wavs = self.hparams.augmentation(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
