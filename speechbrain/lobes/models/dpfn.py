@@ -1079,7 +1079,7 @@ class DualPath_Model(nn.Module):
     >>> x = torch.randn(10, 64, 2000)
     >>> x = dualpath_model(x)
     >>> x.shape
-    torch.Size([2, 10, 64, 2000])
+    torch.Size([10, 64, 2000])
     """
 
     def __init__(
