@@ -83,7 +83,7 @@ class Xvector(torch.nn.Module):
         # Final linear transformation
         self.blocks.append(
             Linear(
-                input_size=out_channels * 2,
+                input_size=out_channels,
                 n_neurons=lin_neurons,
                 bias=True,
                 combine_dims=True,
