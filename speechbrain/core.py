@@ -860,9 +860,10 @@ class Brain:
                 self.optimizer.step()
             self.optimizer.zero_grad()
             backward = time.time()
-            print(forward - start)
-            print(loss_t - start)
-            print(backward - start)
+            print("forward " + str(forward - start))
+            print("loss_t " + str(loss_t - start))
+            print("backward " + str(backward - start))
+
         return loss.detach().cpu()
 
     def check_gradients(self, loss):
