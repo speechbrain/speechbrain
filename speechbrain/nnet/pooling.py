@@ -275,6 +275,7 @@ class StatisticsPooling(nn.Module):
             if self.return_std:
                 std = x.std(dim=1)
         else:
+            return x[:, 0, :]
             mean = []
             std = []
             for snt_id in range(x.shape[0]):
