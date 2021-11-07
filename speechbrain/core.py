@@ -851,23 +851,12 @@ class Brain:
                 self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
-            with profile(
-                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                record_shapes=True,
-            ) as prof:
-                with record_function("model_inference"):
-                    outputs = self.compute_forward(batch, Stage.TRAIN)
-                with record_function("model_backward"):
-                    loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-                    loss.backward()
-                    if self.check_gradients(loss):
-                        self.optimizer.step()
-                        self.optimizer.zero_grad()
-            print(
-                prof.key_averages().table(
-                    sort_by="cuda_time_total", row_limit=10
-                )
-            )
+            outputs = self.compute_forward(batch, Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            loss.backward()
+            if self.check_gradients(loss):
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
         return loss.detach().cpu()
 
@@ -1042,7 +1031,15 @@ class Brain:
             ) as t:
                 for batch in t:
                     self.step += 1
-                    loss = self.fit_batch(batch)
+                    with profile(
+                        activities=[
+                            ProfilerActivity.CPU,
+                            ProfilerActivity.CUDA,
+                        ],
+                        record_shapes=True,
+                    ) as prof:
+                        with record_function("model_inference"):
+                            loss = self.fit_batch(batch)
                     self.avg_train_loss = self.update_average(
                         loss, self.avg_train_loss
                     )
@@ -1061,6 +1058,11 @@ class Brain:
                         run_on_main(self._save_intra_epoch_ckpt)
                         last_ckpt_time = time.time()
 
+            print(
+                prof.key_averages().table(
+                    sort_by="cuda_time_total", row_limit=20
+                )
+            )
             # Run train "on_stage_end" on all processes
             self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
             self.avg_train_loss = 0.0
