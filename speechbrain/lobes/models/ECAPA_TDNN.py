@@ -545,12 +545,10 @@ class Classifier(torch.nn.Module):
             input_size = lin_neurons
 
         # Final Layer
-        # self.weight = nn.Parameter(
-        #    torch.FloatTensor(out_neurons, input_size, device=device)
-        # )
-        # nn.init.xavier_uniform_(self.weight)
-
-        self.test = Linear(input_size=input_size, n_neurons=out_neurons)
+        self.weight = nn.Parameter(
+            torch.FloatTensor(out_neurons, input_size, device=device)
+        )
+        nn.init.xavier_uniform_(self.weight)
 
     def forward(self, x):
         """Returns the output probabilities over speakers.
@@ -560,10 +558,9 @@ class Classifier(torch.nn.Module):
         x : torch.Tensor
             Torch tensor.
         """
-        # for layer in self.blocks:
-        #    x = layer(x)
+        for layer in self.blocks:
+            x = layer(x)
 
         # Need to be normalized
-        x = torch.sigmoid(self.test(x))
-        # x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
-        return x
+        x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
+        return x.unsqueeze(1)
