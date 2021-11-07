@@ -545,10 +545,10 @@ class Classifier(torch.nn.Module):
             input_size = lin_neurons
 
         # Final Layer
-        self.weight = nn.Parameter(
-            torch.FloatTensor(out_neurons, input_size, device=device)
-        )
-        nn.init.xavier_uniform_(self.weight)
+        # self.weight = nn.Parameter(
+        #    torch.FloatTensor(out_neurons, input_size, device=device)
+        # )
+        # nn.init.xavier_uniform_(self.weight)
 
         self.test = Linear(input_size=input_size, n_neurons=out_neurons)
 
