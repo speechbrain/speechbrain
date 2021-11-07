@@ -302,7 +302,7 @@ if __name__ == "__main__":
     # stopped at any point, and will be resumed on next call.
     lid_brain.fit(
         epoch_counter=lid_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
+        train_set=datasets["dev"],
         valid_set=datasets["dev"],
         train_loader_kwargs=hparams["train_dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
