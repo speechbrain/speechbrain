@@ -346,7 +346,7 @@ class Conv1d(nn.Module):
         in_channels=None,
         stride=1,
         dilation=1,
-        padding="same",
+        padding="valid",
         groups=1,
         bias=True,
         padding_mode="reflect",
