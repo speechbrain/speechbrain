@@ -275,6 +275,7 @@ class StatisticsPooling(nn.Module):
             if self.return_std:
                 std = x.std(dim=1)
         else:
+            print("please2")
             return x[:, 0, :]
             mean = []
             std = []
