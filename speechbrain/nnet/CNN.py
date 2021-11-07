@@ -14,7 +14,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -284,7 +283,7 @@ class SincConv(nn.Module):
         stride : int
             Stride.
         """
-        start = time.time()
+
         # Detecting input shape
         L_in = x.shape[-1]
 
@@ -293,7 +292,7 @@ class SincConv(nn.Module):
 
         # Applying padding
         x = F.pad(x, padding, mode=self.padding_mode)
-        print(time.time() - start)
+
         return x
 
 
