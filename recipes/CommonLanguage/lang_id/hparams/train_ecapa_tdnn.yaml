@@ -102,7 +102,7 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_channels: [512, 512, 512, 512, 1500]
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
-    lin_neurons: 128
+    lin_neurons: !ref <emb_dim>
 
 # classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 #    input_shape: [null, null, 128]
