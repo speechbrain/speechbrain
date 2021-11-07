@@ -35,7 +35,6 @@ from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
-from torch.profiler import profile, record_function, ProfilerActivity
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -856,7 +855,7 @@ class Brain:
             loss.backward()
             if self.check_gradients(loss):
                 self.optimizer.step()
-                self.optimizer.zero_grad()
+            self.optimizer.zero_grad()
 
         return loss.detach().cpu()
 
@@ -1031,15 +1030,7 @@ class Brain:
             ) as t:
                 for batch in t:
                     self.step += 1
-                    with profile(
-                        activities=[
-                            ProfilerActivity.CPU,
-                            ProfilerActivity.CUDA,
-                        ],
-                        record_shapes=True,
-                    ) as prof:
-                        with record_function("model_inference"):
-                            loss = self.fit_batch(batch)
+                    loss = self.fit_batch(batch)
                     self.avg_train_loss = self.update_average(
                         loss, self.avg_train_loss
                     )
@@ -1057,11 +1048,7 @@ class Brain:
                     ):
                         run_on_main(self._save_intra_epoch_ckpt)
                         last_ckpt_time = time.time()
-            print(
-                prof.key_averages().table(
-                    sort_by="cuda_time_total", row_limit=100
-                )
-            )
+
             # Run train "on_stage_end" on all processes
             self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
             self.avg_train_loss = 0.0
