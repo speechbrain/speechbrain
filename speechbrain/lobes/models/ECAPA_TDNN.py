@@ -476,10 +476,10 @@ class ECAPA_TDNN(torch.nn.Module):
 
         xl = []
         for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lengths)
-            except TypeError:
-                x = layer(x)
+            # try:
+            #    x = layer(x, lengths=lengths)
+            # except TypeError:
+            x = layer(x)
             xl.append(x)
 
         # Multi-layer feature aggregation
