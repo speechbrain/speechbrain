@@ -8,6 +8,8 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from common_language_prepare import prepare_common_language
 
+torch.set_num_threads(10)
+
 """Recipe for training a LID system with CommonLanguage.
 
 To run this recipe, do the following:
@@ -48,7 +50,7 @@ class LID(sb.Brain):
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
-        # feats = self.modules.mean_var_norm_input(feats, lens)
+        feats = self.modules.mean_var_norm_input(feats, lens)
 
         return feats, lens
 
