@@ -268,8 +268,7 @@ class StatisticsPooling(nn.Module):
         x : torch.Tensor
             It represents a tensor for a mini-batch.
         """
-        print(x[:, 0, :].squeeze(1).shape())
-        return x[:, 0, :].squeeze(1)
+        # return x[:, 0, :].squeeze(1)
         if lengths is None:
             if self.return_mean:
                 mean = x.mean(dim=1)
@@ -310,6 +309,7 @@ class StatisticsPooling(nn.Module):
         elif self.return_std:
             pooled_stats = std.unsqueeze(1)
 
+        print(pooled_stats.shape)
         return pooled_stats
 
     def _get_gauss_noise(self, shape_of_tensor, device="cpu"):
