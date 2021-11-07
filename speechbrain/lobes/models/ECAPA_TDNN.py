@@ -335,7 +335,7 @@ class SERes2NetBlock(nn.Module):
             activation=activation,
             groups=groups,
         )
-        # self.se_block = SEBlock(out_channels, se_channels, out_channels)
+        self.se_block = SEBlock(out_channels, se_channels, out_channels)
 
         self.shortcut = None
         if in_channels != out_channels:
@@ -353,7 +353,7 @@ class SERes2NetBlock(nn.Module):
         x = self.tdnn1(x)
         x = self.res2net_block(x)
         x = self.tdnn2(x)
-        # x = self.se_block(x, lengths)
+        x = self.se_block(x, lengths)
 
         return x + residual
 
@@ -476,10 +476,10 @@ class ECAPA_TDNN(torch.nn.Module):
 
         xl = []
         for layer in self.blocks:
-            # try:
-            #    x = layer(x, lengths=lengths)
-            # except TypeError:
-            # x = layer(x)
+            try:
+                x = layer(x, lengths=lengths)
+            except TypeError:
+                x = layer(x)
             xl.append(x)
 
         # Multi-layer feature aggregation
