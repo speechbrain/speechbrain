@@ -73,12 +73,11 @@ class LID(sb.Brain):
         batch = batch.to(self.device)
 
         # Compute features, embeddings and output
-        # feats, lens = self.prepare_features(batch.sig, stage)
-        feats = torch.rand(8, 200, 80)
+        feats, lens = self.prepare_features(batch.sig, stage)
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
-        return outputs, 0
+        return outputs, lens
 
     def compute_objectives(self, inputs, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
