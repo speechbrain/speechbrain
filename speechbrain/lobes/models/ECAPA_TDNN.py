@@ -424,19 +424,19 @@ class ECAPA_TDNN(torch.nn.Module):
         )
 
         # SE-Res2Net layers
-        for i in range(1, len(channels) - 1):
-            self.blocks.append(
-                SERes2NetBlock(
-                    channels[i - 1],
-                    channels[i],
-                    res2net_scale=res2net_scale,
-                    se_channels=se_channels,
-                    kernel_size=kernel_sizes[i],
-                    dilation=dilations[i],
-                    activation=activation,
-                    groups=groups[i],
-                )
-            )
+        # for i in range(1, len(channels) - 1):
+        #    self.blocks.append(
+        #        SERes2NetBlock(
+        #            channels[i - 1],
+        #            channels[i],
+        #            res2net_scale=res2net_scale,
+        #            se_channels=se_channels,
+        #            kernel_size=kernel_sizes[i],
+        #            dilation=dilations[i],
+        #            activation=activation,
+        #            groups=groups[i],
+        #        )
+        #    )
 
         # Multi-layer feature aggregation
         self.mfa = TDNNBlock(
