@@ -128,10 +128,13 @@ modules:
     classifier: !ref <classifier>
 
 # Additive Angular Margin
-compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-        margin: 0.2
-        scale: 30
+# compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+#    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+#        margin: 0.2
+#        scale: 30
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: 0.1
 
 # Learning rates
 lr: 0.0001
