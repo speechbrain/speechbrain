@@ -35,7 +35,6 @@ class LID(sb.Brain):
             The current stage of training.
         """
         wavs, lens = wavs
-        wavs, lens = wavs.to(self.device), lens.to(self.device)
 
         # Add augmentation if specified. In this version of augmentation, we
         # concatenate the original and the augment batches in a single bigger
@@ -49,7 +48,7 @@ class LID(sb.Brain):
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
-        feats = self.modules.mean_var_norm_input(feats, lens)
+        # feats = self.modules.mean_var_norm_input(feats, lens)
 
         return feats, lens
 
