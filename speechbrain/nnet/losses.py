@@ -1095,3 +1095,42 @@ def nll_loss_kd(
     # Loss averaging
     loss = torch.sum(loss.reshape(N_snt, max_len) * mask) / torch.sum(mask)
     return loss
+
+
+def dpfn_loss(
+    targets, predictions, pred_spec, spec, pred_spks, ids, weight, kind
+):
+    """
+    Arguments
+    -----
+    targets & predictions: [B, T, spk]
+    pred_spec & spec: [B, spk, N, L]
+
+    Returns
+    -----
+    loss: [B]
+    """
+    targets = targets.permute(1, 0, 2).contiguous()
+    predictions = predictions.permute(1, 0, 2).contiguous()
+    si_snr = cal_si_snr(targets, predictions).squeeze(0)
+    si_snr = torch.mean(si_snr, -1)
+
+    if weight < 1:
+        B, spk, N, L = spec.shape
+        if kind == "l1":
+            spk_loss = l1_loss(pred_spec.flatten(0, 1), spec.flatten(0, 1))
+        elif kind == "mse":
+            spk_loss = mse_loss(pred_spec.flatten(0, 1), spec.flatten(0, 1))
+        elif kind == "spk":
+            spk_criterion = nn.CrossEntropyLoss(reduction="mean")
+            spk_loss = spk_criterion(pred_spks.flatten(0, 1), ids.flatten(0, 1))
+        else:
+            raise NotImplementedError(
+                f"We only implemented DPFN loss of l1, mse, spk but we got {kind}"
+            )
+        spk_loss = spk_loss.view(B, spk)
+        spk_loss = torch.mean(spk_loss, -1)
+
+        return {"si_snr": si_snr, "spk_loss": spk_loss}
+    else:
+        return si_snr
