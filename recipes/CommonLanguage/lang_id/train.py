@@ -2,6 +2,7 @@
 import os
 import sys
 import torch
+import time
 import logging
 import torchaudio
 import speechbrain as sb
@@ -70,12 +71,20 @@ class LID(sb.Brain):
         """
 
         # We first move the batch to the appropriate device.
+        start = time.time()
         batch = batch.to(self.device)
-
+        to_d = time.time()
         # Compute features, embeddings and output
         feats, lens = self.prepare_features(batch.sig, stage)
+        feats_t = time.time()
         embeddings = self.modules.embedding_model(feats)
+        emb = time.time()
         outputs = self.modules.classifier(embeddings)
+        out = time.time()
+        print("to_d " + str(to_d - start))
+        print("feats " + str(feats_t - start))
+        print("emb " + str(emb - start))
+        print("out " + str(out - start))
 
         return outputs, lens
 
