@@ -479,7 +479,7 @@ class ECAPA_TDNN(torch.nn.Module):
             # try:
             #    x = layer(x, lengths=lengths)
             # except TypeError:
-            x = layer(x)
+            # x = layer(x)
             xl.append(x)
 
         # Multi-layer feature aggregation
