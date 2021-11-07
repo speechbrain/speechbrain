@@ -100,7 +100,7 @@ class LID(sb.Brain):
         predictions, lens = inputs
 
         targets = batch.language_encoded.data
-        torch.max(0)
+        torch.max(targets)
         # Concatenate labels (due to data augmentation)
         # if stage == sb.Stage.TRAIN:
         #    targets = torch.cat([targets, targets], dim=0)
