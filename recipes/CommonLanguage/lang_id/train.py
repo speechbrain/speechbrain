@@ -8,8 +8,6 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from common_language_prepare import prepare_common_language
 
-torch.set_num_threads(4)
-
 """Recipe for training a LID system with CommonLanguage.
 
 To run this recipe, do the following:
