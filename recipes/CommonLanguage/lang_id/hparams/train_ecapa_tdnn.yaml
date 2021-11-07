@@ -43,6 +43,7 @@ train_dataloader_options:
     batch_size: !ref <batch_size>
     drop_last: True
     shuffle: True
+    num_workers: 2
 
 test_dataloader_options:
     batch_size: !ref <batch_size>
