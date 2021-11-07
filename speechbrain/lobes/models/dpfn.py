@@ -644,7 +644,7 @@ class SBRNNBlock(nn.Module):
         hidden_channels = hidden_channels * cond_group
         input_size = input_size * cond_group
         self.mdl = getattr(SBRNN, rnn_type)(
-            hidden_channels // 2 if bidirectional else hidden_channels,
+            hidden_channels,
             input_size=input_size,
             num_layers=num_layers,
             dropout=dropout,
@@ -825,12 +825,27 @@ class Dual_Computation_Block(nn.Module):
 
         # Linear
         if linear_layer_after_inter_intra:
-            self.intra_linear = Linear(
-                out_channels * cond_group, input_size=out_channels * cond_group
-            )
-            self.inter_linear = Linear(
-                out_channels * cond_group, input_size=out_channels * cond_group
-            )
+            if isinstance(intra_mdl, SBRNNBlock):
+                self.intra_linear = Linear(
+                    out_channels * cond_group,
+                    input_size=2 * out_channels * cond_group,
+                )
+            else:
+                self.intra_linear = Linear(
+                    out_channels * cond_group,
+                    input_size=out_channels * cond_group,
+                )
+
+            if isinstance(inter_mdl, SBRNNBlock):
+                self.inter_linear = Linear(
+                    out_channels * cond_group,
+                    input_size=2 * out_channels * cond_group,
+                )
+            else:
+                self.inter_linear = Linear(
+                    out_channels * cond_group,
+                    input_size=out_channels * cond_group,
+                )
 
         # Set conditional layers
         self.group = cond_group
@@ -875,7 +890,7 @@ class Dual_Computation_Block(nn.Module):
             self.cond_in_intra = None
             self.cond_in_inter = None
 
-    def forward(self, x, C):
+    def forward(self, x, C=None):
         """Returns the output tensor.
 
         Arguments
@@ -902,8 +917,8 @@ class Dual_Computation_Block(nn.Module):
         x = x.view(-1, N * Group, K, S)
 
         # [B/G, N_c*G]
-        _, N_c = C.shape
         if C is not None:
+            _, N_c = C.shape
             C = C.view(-1, N_c * Group)
 
         # intra RNN
@@ -1131,7 +1146,7 @@ class Dual_Path_Model(nn.Module):
             nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
         )
 
-    def forward(self, x, C):
+    def forward(self, x, C=None):
         """Returns the output tensor.
 
         Arguments
@@ -1418,10 +1433,10 @@ class SepformerWrapper(nn.Module):
             if layer != child_layer:
                 self.reset_layer_recursively(child_layer)
 
-    def forward(self, mix):
+    def forward(self, mix, C=None):
 
         mix_w = self.encoder(mix)
-        est_mask = self.masknet(mix_w)
+        est_mask = self.masknet(mix_w, C)
         mix_w = torch.stack([mix_w] * self.num_spks)
         sep_h = mix_w * est_mask
 
