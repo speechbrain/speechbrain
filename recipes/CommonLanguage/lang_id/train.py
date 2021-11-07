@@ -8,7 +8,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from common_language_prepare import prepare_common_language
 
-torch.backends.cudnn.enabled = False
+torch.backends.cudnn.enabled = True
 
 """Recipe for training a LID system with CommonLanguage.
 
