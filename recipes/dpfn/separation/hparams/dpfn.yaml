@@ -118,7 +118,7 @@ inter: !new:speechbrain.lobes.models.dpfn.SBRNNBlock
     dropout: 0
     bidirectional: True
 
-MaskNet: !new:speechbrain.lobes.models.dpfn.Dual_Path_Model
+MaskNet: !new:speechbrain.lobes.models.dpfn.DualPath_Model
     num_spks: !ref <num_spks>
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>

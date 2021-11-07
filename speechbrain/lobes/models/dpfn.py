@@ -1041,7 +1041,7 @@ class Dual_Computation_Block(nn.Module):
             return self.cond_nl_inter(Ca * X + Cb)
 
 
-class Dual_Path_Model(nn.Module):
+class DualPath_Model(nn.Module):
     """The dual path model which is the basis for dualpathrnn, sepformer, dptnet.
 
     Arguments
@@ -1075,9 +1075,9 @@ class Dual_Path_Model(nn.Module):
     ---------
     >>> intra_block = SBTransformerBlock(1, 64, 8)
     >>> inter_block = SBTransformerBlock(1, 64, 8)
-    >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
+    >>> dualpath_model = DualPath_Model(64, 64, intra_block, inter_block, num_spks=2)
     >>> x = torch.randn(10, 64, 2000)
-    >>> x = dual_path_model(x)
+    >>> x = dualpath_model(x)
     >>> x.shape
     torch.Size([2, 10, 64, 2000])
     """
@@ -1102,7 +1102,7 @@ class Dual_Path_Model(nn.Module):
         use_global_pos_enc=False,
         max_length=20000,
     ):
-        super(Dual_Path_Model, self).__init__()
+        super(DualPath_Model, self).__init__()
         self.K = K
         self.num_spks = num_spks
         self.num_layers = num_layers
@@ -1400,7 +1400,7 @@ class SepformerWrapper(nn.Module):
             norm_before=inter_norm_before,
         )
 
-        self.masknet = Dual_Path_Model(
+        self.masknet = DualPath_Model(
             in_channels=encoder_out_nchannels,
             out_channels=encoder_out_nchannels,
             intra_model=intra_model,
