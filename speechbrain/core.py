@@ -1057,10 +1057,9 @@ class Brain:
                     ):
                         run_on_main(self._save_intra_epoch_ckpt)
                         last_ckpt_time = time.time()
-
             print(
                 prof.key_averages().table(
-                    sort_by="cuda_time_total", row_limit=20
+                    sort_by="cuda_time_total", row_limit=100
                 )
             )
             # Run train "on_stage_end" on all processes
