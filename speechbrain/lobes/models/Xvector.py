@@ -9,8 +9,7 @@ Authors
 import torch  # noqa: F401
 import torch.nn as nn
 import speechbrain as sb
-
-# from speechbrain.nnet.pooling import StatisticsPooling
+from speechbrain.nnet.pooling import StatisticsPooling
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
@@ -78,15 +77,15 @@ class Xvector(torch.nn.Module):
             in_channels = tdnn_channels[block_index]
 
         # Statistical pooling
-        # self.blocks.append(StatisticsPooling())
+        self.blocks.append(StatisticsPooling())
 
         # Final linear transformation
         self.blocks.append(
             Linear(
-                input_size=out_channels,
+                input_size=out_channels * 2,
                 n_neurons=lin_neurons,
                 bias=True,
-                combine_dims=True,
+                combine_dims=False,
             )
         )
 

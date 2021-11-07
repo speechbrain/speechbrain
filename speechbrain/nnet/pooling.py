@@ -269,6 +269,7 @@ class StatisticsPooling(nn.Module):
             It represents a tensor for a mini-batch.
         """
         if lengths is None:
+            print("please")
             if self.return_mean:
                 mean = x.mean(dim=1)
             if self.return_std:
