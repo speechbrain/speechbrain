@@ -97,7 +97,7 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
 embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
-    tdnn_blocks: 2
+    tdnn_blocks: 3
     tdnn_channels: [512, 512, 1500]
     tdnn_kernel_sizes: [5, 3, 1]
     tdnn_dilations: [1, 2, 1]
