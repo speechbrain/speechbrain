@@ -74,7 +74,7 @@ class LID(sb.Brain):
 
         # Compute features, embeddings and output
         # feats, lens = self.prepare_features(batch.sig, stage)
-        feats = torch.rand(4, 200, 80)
+        feats = torch.rand(8, 200, 80)
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
