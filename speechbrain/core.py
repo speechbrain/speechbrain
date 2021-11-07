@@ -23,14 +23,12 @@ from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
-
-# from torch.nn import SyncBatchNorm
+from torch.nn import SyncBatchNorm
 from torch.utils.data import DataLoader
 from torch.nn import DataParallel as DP
 from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
-
-# from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import LoopedLoader
@@ -1121,16 +1119,15 @@ class Brain:
         if not self.distributed_launch and not self.data_parallel_backend:
             return
         elif self.distributed_launch:
-            # for name, module in self.modules.items():
-            #    if any(p.requires_grad for p in module.parameters()):
-            #        module = SyncBatchNorm.convert_sync_batchnorm(module)
-            #        module = DDP(
-            #            module,
-            #            device_ids=[self.device],
-            #            find_unused_parameters=self.find_unused_parameters,
-            #        )
-            #        self.modules[name] = module
-            print(" ")
+            for name, module in self.modules.items():
+                if any(p.requires_grad for p in module.parameters()):
+                    module = SyncBatchNorm.convert_sync_batchnorm(module)
+                    module = DDP(
+                        module,
+                        device_ids=[self.device],
+                        find_unused_parameters=self.find_unused_parameters,
+                    )
+                    self.modules[name] = module
         else:
             # data_parallel_backend
             for name, module in self.modules.items():
