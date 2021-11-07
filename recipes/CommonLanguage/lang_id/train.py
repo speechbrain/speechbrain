@@ -8,8 +8,6 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from common_language_prepare import prepare_common_language
 
-torch.backends.cudnn.enabled = True
-
 """Recipe for training a LID system with CommonLanguage.
 
 To run this recipe, do the following:
@@ -42,11 +40,11 @@ class LID(sb.Brain):
         # concatenate the original and the augment batches in a single bigger
         # batch. This is more memory-demanding, but helps to improve the
         # performance. Change it if you run OOM.
-        # if stage == sb.Stage.TRAIN:
-        #    wavs_noise = self.modules.env_corrupt(wavs, lens)
-        #    wavs = torch.cat([wavs, wavs_noise], dim=0)
-        #    lens = torch.cat([lens, lens], dim=0)
-        #    wavs = self.hparams.augmentation(wavs, lens)
+        if stage == sb.Stage.TRAIN:
+            wavs_noise = self.modules.env_corrupt(wavs, lens)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            lens = torch.cat([lens, lens], dim=0)
+            wavs = self.hparams.augmentation(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -72,20 +70,12 @@ class LID(sb.Brain):
         """
 
         # We first move the batch to the appropriate device.
-        # start = time.time()
         batch = batch.to(self.device)
-        # to_d = time.time()
+
         # Compute features, embeddings and output
         feats, lens = self.prepare_features(batch.sig, stage)
-        # feats_t = time.time()
         embeddings = self.modules.embedding_model(feats)
-        # emb = time.time()
         outputs = self.modules.classifier(embeddings)
-        # out = time.time()
-        # print("to_d " + str(to_d - start))
-        # print("feats " + str(feats_t - start))
-        # print("emb " + str(emb - start))
-        # print("out " + str(out - start))
 
         return outputs, lens
 
@@ -110,14 +100,14 @@ class LID(sb.Brain):
         predictions, lens = inputs
 
         targets = batch.language_encoded.data
-        torch.max(targets)
-        # Concatenate labels (due to data augmentation)
-        # if stage == sb.Stage.TRAIN:
-        #    targets = torch.cat([targets, targets], dim=0)
-        #    lens = torch.cat([lens, lens], dim=0)
 
-        #    if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-        #        self.hparams.lr_annealing.on_batch_end(self.optimizer)
+        # Concatenate labels (due to data augmentation)
+        if stage == sb.Stage.TRAIN:
+            targets = torch.cat([targets, targets], dim=0)
+            lens = torch.cat([lens, lens], dim=0)
+
+            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+                self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         loss = self.hparams.compute_cost(predictions, targets)
 
@@ -294,8 +284,8 @@ if __name__ == "__main__":
     datasets, language_encoder = dataio_prep(hparams)
 
     # Fetch and laod pretrained modules
-    # sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
-    # hparams["pretrainer"].load_collected(device=run_opts["device"])
+    sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Initialize the Brain object to prepare for mask training.
     lid_brain = LID(
@@ -312,7 +302,7 @@ if __name__ == "__main__":
     # stopped at any point, and will be resumed on next call.
     lid_brain.fit(
         epoch_counter=lid_brain.hparams.epoch_counter,
-        train_set=datasets["dev"],
+        train_set=datasets["train"],
         valid_set=datasets["dev"],
         train_loader_kwargs=hparams["train_dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
