@@ -268,8 +268,8 @@ class StatisticsPooling(nn.Module):
         x : torch.Tensor
             It represents a tensor for a mini-batch.
         """
-        print(x[:, 0, :].shape)
-        return x[:, 0, :]
+        print(x[:, 0, :].unsqueeze(1).shape)
+        return x[:, 0, :].unsqueeze(1)
         if lengths is None:
             if self.return_mean:
                 mean = x.mean(dim=1)
