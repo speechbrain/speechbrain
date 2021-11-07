@@ -863,11 +863,11 @@ class Brain:
                     if self.check_gradients(loss):
                         self.optimizer.step()
                         self.optimizer.zero_grad()
-                print(
-                    prof.key_averages().table(
-                        sort_by="cuda_time_total", row_limit=10
-                    )
+            print(
+                prof.key_averages().table(
+                    sort_by="cuda_time_total", row_limit=10
                 )
+            )
 
         return loss.detach().cpu()
 
