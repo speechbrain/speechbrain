@@ -14,7 +14,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple
-import time
+
+# import time
 
 logger = logging.getLogger(__name__)
 
@@ -411,9 +412,9 @@ class Conv1d(nn.Module):
                 "Padding must be 'same', 'valid' or 'causal'. Got "
                 + self.padding
             )
-        start = time.time()
+        # start = time.time()
         wx = self.conv(x)
-        print(time.time() - start)
+        # print(time.time() - start)
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
