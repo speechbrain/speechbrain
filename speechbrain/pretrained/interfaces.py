@@ -148,7 +148,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(path, channels_first=False)
+        signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
