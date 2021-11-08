@@ -548,7 +548,7 @@ class Brain:
                     )
             # force the models to start and remain synchronized
             torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.benchmark = True
 
         # Prepare iterating variables
         self.avg_train_loss = 0.0
