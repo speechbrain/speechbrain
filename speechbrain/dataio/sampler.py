@@ -580,7 +580,7 @@ class DynamicBatchSampler(Sampler):
             # Remaining padding per batch
             remaining_padding = self._max_batch_length - np.asarray(batch_frames)
             # do not touch batches with too long samples (exponential memory usage) - 80% is arbitrary
-            remaining_padding[np.asarray(batch_frames) > 0.8*self._max_batch_length] = 0
+            remaining_padding[np.asarray(batch_frames) > 0.8 * self._max_batch_length] = 0
             # Find uncompleted buckets
             non_zero_buckets_in_sorted = np.in1d(np.argsort(batch_frames), np.where(batch_frames), 1)
             # Sort their IDs by unused padding
@@ -678,8 +678,8 @@ class DynamicBatchSampler(Sampler):
             remaining_padding = self._max_batch_length - np.asarray(batch_frames)
             # logging
             logger.info(
-                ("DynamicBatchSampler: Created {} batches, {} buckets used" +
-                 " - with remaining frame paddings: min/µ/max ({:.2f}, {:.2f}, {:.2f}) and total/σ ({:.2f}, {:.2f}).").format(
+                ("DynamicBatchSampler: Created {} batches, {} buckets used - with remaining frame paddings: "
+                 + "min/µ/max ({:.2f}, {:.2f}, {:.2f}) and total/σ ({:.2f}, {:.2f}).").format(
                     len(self._batches), len(self._bucket_boundaries),
                     remaining_padding.min(), remaining_padding.mean(), remaining_padding.max(),
                     remaining_padding.sum(), remaining_padding.std(),
@@ -688,7 +688,8 @@ class DynamicBatchSampler(Sampler):
             boundaries = [0] + self._bucket_boundaries.tolist()
             for i in range(len(self._bucket_boundaries)):
                 logger.info(
-                    "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and batch_size {} has {} examples.".format(
+                    ("DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
+                     + "batch_size {} has {} examples.").format(
                         i,
                         np.around(boundaries[i], 2),
                         np.around(boundaries[i + 1], 2),
