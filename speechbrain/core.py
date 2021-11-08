@@ -547,7 +547,7 @@ class Brain:
                         "all other subprocess were killed."
                     )
             # force the models to start and remain synchronized
-            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.deterministic = False
             torch.backends.cudnn.benchmark = True
 
         # Prepare iterating variables
