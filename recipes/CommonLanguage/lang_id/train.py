@@ -296,6 +296,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    torch.backends.cudnn.benchmark = True
+
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
