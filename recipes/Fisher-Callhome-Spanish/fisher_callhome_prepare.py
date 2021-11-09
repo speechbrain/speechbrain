@@ -21,7 +21,7 @@ import torchaudio
 
 from tqdm import tqdm
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 from speechbrain.processing.speech_augmentation import Resample
 
 try:
@@ -32,8 +32,7 @@ except ImportError:
     raise ImportError(err_msg)
 
 logger = logging.getLogger(__name__)
-torchaudio_backend = get_torchaudio_backend()
-torchaudio.set_audio_backend(torchaudio_backend)
+check_torchaudio_backend()
 
 es_normalizer = MosesPunctNormalizer(lang="es")
 en_normalizer = MosesPunctNormalizer(lang="en")
@@ -77,7 +76,7 @@ class Data:
 
 
 def prepare_fisher_callhome_spanish(
-    data_folder: str, save_folder: str, device: str = "cpu",
+    data_folder: str, save_folder: str, device: str = "cpu"
 ):
 
     """
@@ -396,9 +395,7 @@ def segment_audio(
     data = resampler(data)
     data = torch.unsqueeze(data[channel], 0)
 
-    torchaudio.save(
-        save_path, src=data, sample_rate=sample_rate,
-    )
+    torchaudio.save(save_path, src=data, sample_rate=sample_rate)
 
 
 def get_transcription_files_by_dataset(

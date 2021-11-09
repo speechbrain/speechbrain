@@ -318,6 +318,8 @@ class Conv1d(nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
+    groups: int
+        Number of blocked connections from input channels to output channels.
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -1111,14 +1113,16 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     dilation : int
     """
     if stride > 1:
-        n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
-        L_out = stride * (n_steps - 1) + kernel_size * dilation
-        padding = [kernel_size // 2, kernel_size // 2]
+        padding = [math.floor(kernel_size / 2), math.floor(kernel_size / 2)]
 
     else:
-        L_out = (L_in - dilation * (kernel_size - 1) - 1) // stride + 1
-
-        padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
+        L_out = (
+            math.floor((L_in - dilation * (kernel_size - 1) - 1) / stride) + 1
+        )
+        padding = [
+            math.floor((L_in - L_out) / 2),
+            math.floor((L_in - L_out) / 2),
+        ]
     return padding
 
 

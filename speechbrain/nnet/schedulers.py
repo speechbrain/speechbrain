@@ -553,6 +553,7 @@ class ReduceLROnPlateau:
         self.patience_counter = data["patience_counter"]
 
 
+@checkpoints.register_checkpoint_hooks
 class CyclicLRScheduler:
     """This implements a cyclical learning rate policy (CLR).
     The method cycles the learning rate between two boundaries with

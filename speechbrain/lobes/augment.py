@@ -22,16 +22,15 @@ from speechbrain.processing.speech_augmentation import (
     AddNoise,
     AddReverb,
 )
-from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
-torchaudio_backend = get_torchaudio_backend()
-torchaudio.set_audio_backend(torchaudio_backend)
+check_torchaudio_backend()
 
 OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
 class SpecAugment(torch.nn.Module):
-    """An implementation of SpecAugment algorithm.
+    """An implementation of the SpecAugment algorithm.
 
     Reference:
         https://arxiv.org/abs/1904.08779
@@ -160,7 +159,7 @@ class SpecAugment(torch.nn.Module):
             Corresponding dimension to mask.
         """
         original_size = x.shape
-        if x.shape == 4:
+        if x.dim() == 4:
             x = x.view(-1, x.shape[2], x.shape[3])
 
         batch, time, fea = x.shape
@@ -266,7 +265,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
     ):
         super().__init__()
         self.speed_perturb = SpeedPerturb(
-            perturb_prob=perturb_prob, orig_freq=sample_rate, speeds=speeds,
+            perturb_prob=perturb_prob, orig_freq=sample_rate, speeds=speeds
         )
         self.drop_freq = DropFreq(
             drop_prob=drop_freq_prob,
