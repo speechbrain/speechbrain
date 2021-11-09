@@ -354,7 +354,7 @@ class DynamicBatchSampler(Sampler):
     >>> dataset = DynamicItemDataset(dataset)
     >>> dataset.set_output_keys(["wav"])
     >>> length_func = lambda x : len(x) # trivial in this example
-    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func, shuffle=False)
+    >>> bsampler = DynamicBatchSampler(dataset, 20, 10, 1.1, length_func, shuffle=False, batch_ordering='descending')
     >>> dataloader = SaveableDataLoader(dataset, batch_sampler=bsampler, collate_fn=PaddedBatch)
     >>> for i, b in enumerate(dataloader):
     ...     data, length = b["wav"]
@@ -413,7 +413,7 @@ class DynamicBatchSampler(Sampler):
         left_bucket_length: int,
         bucket_length_multiplier: float = 1.1,
         length_func=lambda x: x["duration"],
-        shuffle_examples: bool = True,
+        shuffle: bool = True,
         batch_ordering: str = "random",
         bucket_boundaries: List[int] = [],
         lengths_list: List[int] = None,
@@ -471,7 +471,7 @@ class DynamicBatchSampler(Sampler):
             )
 
         self._max_batch_length = max_batch_length
-        self._shuffle_ex = shuffle_examples
+        self._shuffle_ex = shuffle
         self._batch_ordering = batch_ordering
         self._seed = seed
         self._reduce_padding_afterwards = reduce_padding_afterwards
