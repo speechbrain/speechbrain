@@ -3,6 +3,7 @@
 # Augmentation: SpecAugment
 # Authors: Titouan Parcollet, Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou,
 # and Abdel HEBA 2020
+# edited: Andreas Nautsch, 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -14,7 +15,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-7.0-2021-07-21/de
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
