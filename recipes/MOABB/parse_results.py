@@ -14,6 +14,7 @@ Francesco Paissan, 2021
 
 from pathlib import Path
 from pickle import load
+from typing import Tuple
 from numpy import mean, std, round
 import sys
 
@@ -77,6 +78,7 @@ def parse_one_session_out(paradigm: Path) -> dict:
     :return: [description]
     :rtype: dict
     """
+    folds = sorted(paradigm.iterdir())
     out_stat = {
         key.name: {metric: [] for metric in stat_metrics}
         for key in sorted(folds[0].iterdir())
@@ -104,6 +106,7 @@ def parse_cross_section(paradigm: Path) -> dict:
     :return: [description]
     :rtype: dict
     """
+    folds = sorted(paradigm.iterdir())
     out_stat = {metric: [] for metric in stat_metrics}
 
     for f in folds:
@@ -134,6 +137,7 @@ def parse_one_sub_out(paradigm: Path) -> dict:
     :return: [description]
     :rtype: dict
     """
+    folds = sorted(paradigm.iterdir())
     out_stat = {metric: [] for metric in stat_metrics}
 
     for f in folds:
@@ -156,6 +160,7 @@ def parse_within_session(paradigm: Path) -> dict:
     :return: [description]
     :rtype: dict
     """
+    folds = sorted(paradigm.iterdir())
     out_stat = {
         key.name: {metric: [] for metric in stat_metrics}
         for key in sorted(folds[0].iterdir())
@@ -181,26 +186,72 @@ def parse_within_session(paradigm: Path) -> dict:
 
 
 stat_metrics = ["loss", "f1", "acc", "auc"]
+def aggregate_metrics() -> Tuple:
+    """Parses results and computes statistics over all
+    paradigms.
 
-if __name__ == "__main__":
+    :return: [mean and std on different paradigms]
+    :rtype: [Tuple]
+    """
     results_folder = Path(sys.argv[1])
     vis_metrics = sys.argv[2:]
 
+    overall_stat = {
+        key: [] for key in stat_metrics
+    }
+    
     for paradigm in results_folder.iterdir():
-        folds = sorted(paradigm.iterdir())
-
         if paradigm.name == "leave-one-session-out":
             results = parse_one_session_out(paradigm)
             visualize_results(paradigm, results, vis_metrics)
+            
+            temp = {key: [] for key in stat_metrics} 
+            for _, v in results.items():
+                for k, r in v.items():
+                    temp[k].append(mean(r))
+            
+            for k in temp.keys():
+                overall_stat[k].append(mean(temp[k]))
 
         elif paradigm.name == "cross-session":
             results = parse_cross_section(paradigm)
             visualize_results(paradigm, results, vis_metrics)
-
+            
+            temp = {key: [] for key in stat_metrics} 
+            for k, r in results.items():
+                temp[k].append(mean(r))
+            
+            for k in temp.keys():
+                overall_stat[k].append(mean(temp[k]))
+            
         elif paradigm.name == "leave-one-subject-out":
             results = parse_one_sub_out(paradigm)
             visualize_results(paradigm, results, vis_metrics)
-
+            
+            temp = {key: [] for key in stat_metrics} 
+            for k, v in results.items():
+                temp[k].append(mean(r))
+            
+            for k in temp.keys():
+                overall_stat[k].append(mean(temp[k]))
+            
         elif paradigm.name == "within-session":
             results = parse_within_session(paradigm)
             visualize_results(paradigm, results, vis_metrics)
+            
+            temp = {key: [] for key in stat_metrics} 
+            for _, v in results.items():
+                for k, r in v.items():
+                    temp[k].append(mean(r))
+            
+            for k in temp.keys():
+                overall_stat[k].append(mean(temp[k]))
+    
+    for k in stat_metrics:
+        overall_stat[k+"_std"] = std(overall_stat[k])
+        overall_stat[k] = mean(overall_stat[k]) 
+        
+    return overall_stat
+
+if __name__ == "__main__":
+    print("Aggregated results\n", aggregate_metrics())
