@@ -26,7 +26,7 @@ class QLinear(torch.nn.Module):
     A tensor of quaternion numbers x = [batch, 32] can be understood as
     [batch, 0:7] = R, [batch, 8:15] = Xi, [batch, 16:23] = Yi, and
     [batch, 24:31] = Xi. Thus the features dimension is cut in four
-    (must be dividible by 4).
+    (must be divisible by 4).
 
     Arguments
     ---------

@@ -1,0 +1,185 @@
+# ################################
+# Model: Speech enhancement modules
+# Taken from the enhance/spectral_mask recipe in VoiceBank
+# Authors:  Sreeramadas Sai Aravind & Émile Dimas & Nicolas Duchêne 2021
+# ################################
+drop_rate: 0.1
+num_blocks: 8
+intermediate_size: 512
+causal: False
+kernel_size: 3
+base_channels: 1024
+padding_type: same
+
+n_fft: !PLACEHOLDER
+nhead: !PLACEHOLDER
+
+se_0: !new:CoopNet.MaskedCNNTransformerSE
+    d_model: !ref <base_channels> // 4
+    output_size: !ref <n_fft> // 2 + 1
+    output_activation: !name:torch.nn.Sigmoid
+    activation: !name:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    dropout: !ref <drop_rate>
+    num_layers: !ref <num_blocks>
+    d_ffn: !ref <intermediate_size>
+    nhead: !ref <nhead>
+    causal: !ref <causal>
+    custom_emb_module: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        conv1: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels>
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm1: !name:speechbrain.nnet.normalization.LayerNorm
+        act1: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv2: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 2
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm2: !name:speechbrain.nnet.normalization.LayerNorm
+        act2: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv3: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 8
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm3: !name:speechbrain.nnet.normalization.LayerNorm
+        act3: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv4: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 4
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm4: !name:speechbrain.nnet.normalization.LayerNorm
+        act4: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+
+se_1: !new:CoopNet.MaskedCNNTransformerSE
+    d_model: !ref <base_channels> // 4
+    output_size: !ref <n_fft> // 2 + 1
+    output_activation: !name:torch.nn.Sigmoid
+    activation: !name:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    dropout: !ref <drop_rate>
+    num_layers: !ref <num_blocks>
+    d_ffn: !ref <intermediate_size>
+    nhead: !ref <nhead>
+    causal: !ref <causal>
+    custom_emb_module: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        conv1: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels>
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm1: !name:speechbrain.nnet.normalization.LayerNorm
+        act1: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv2: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 2
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm2: !name:speechbrain.nnet.normalization.LayerNorm
+        act2: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv3: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 8
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm3: !name:speechbrain.nnet.normalization.LayerNorm
+        act3: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv4: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 4
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm4: !name:speechbrain.nnet.normalization.LayerNorm
+        act4: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+
+
+se_2: !new:CoopNet.MaskedCNNTransformerSE
+    d_model: !ref <base_channels> // 4
+    output_size: !ref <n_fft> // 2 + 1
+    output_activation: !name:torch.nn.Sigmoid
+    activation: !name:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    dropout: !ref <drop_rate>
+    num_layers: !ref <num_blocks>
+    d_ffn: !ref <intermediate_size>
+    nhead: !ref <nhead>
+    causal: !ref <causal>
+    custom_emb_module: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        conv1: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels>
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm1: !name:speechbrain.nnet.normalization.LayerNorm
+        act1: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv2: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 2
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm2: !name:speechbrain.nnet.normalization.LayerNorm
+        act2: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv3: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 8
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm3: !name:speechbrain.nnet.normalization.LayerNorm
+        act3: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv4: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 4
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm4: !name:speechbrain.nnet.normalization.LayerNorm
+        act4: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+
+
+se_3: !new:CoopNet.MaskedCNNTransformerSE
+    d_model: !ref <base_channels> // 4
+    output_size: !ref <n_fft> // 2 + 1
+    output_activation: !name:torch.nn.Sigmoid
+    activation: !name:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    dropout: !ref <drop_rate>
+    num_layers: !ref <num_blocks>
+    d_ffn: !ref <intermediate_size>
+    nhead: !ref <nhead>
+    causal: !ref <causal>
+    custom_emb_module: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <n_fft> // 2 + 1]
+        conv1: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels>
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm1: !name:speechbrain.nnet.normalization.LayerNorm
+        act1: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv2: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 2
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm2: !name:speechbrain.nnet.normalization.LayerNorm
+        act2: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv3: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 8
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm3: !name:speechbrain.nnet.normalization.LayerNorm
+        act3: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv4: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 4
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm4: !name:speechbrain.nnet.normalization.LayerNorm
+        act4: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01

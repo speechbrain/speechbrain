@@ -241,6 +241,8 @@ pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.pesq_eval
     n_jobs: 30
 err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    merge_tokens: True
+    space_token: " "
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

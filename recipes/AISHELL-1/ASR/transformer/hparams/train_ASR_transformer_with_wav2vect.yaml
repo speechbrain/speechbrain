@@ -1,0 +1,251 @@
+# ############################################################################
+# Model: E2E ASR with Transformer + wav2vec 2 pretraining
+# Encoder: Transformer Encoder
+# Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch
+# Tokens: BPE with unigram
+# losses: CTC + KLdiv (Label Smoothing loss)
+# Training: AISHELL-1
+# Authors:  Jianyuan Zhong, Titouan Parcollet, Mirco Ravanelli
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 8886
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/transformer_with_wav2vect/<seed>
+cer_file: !ref <output_folder>/cer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/aishell
+# noise/ris dataset will automatically be downloaded
+data_folder_rirs: !ref <data_folder> # Change this is needed
+skip_prep: False
+ckpt_interval_minutes: 30 # save checkpoint every N min
+train_data: !ref <output_folder>/train.csv
+valid_data: !ref <output_folder>/dev.csv
+test_data: !ref <output_folder>/test.csv
+tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
+
+# Self-supervised pre-training
+wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
+freeze_wav2vec: False
+
+
+# Training parameters
+number_of_epochs: 80
+batch_size: 2
+ctc_weight: 0.3
+gradient_accumulation: 16
+gradient_clipping: 5.0
+loss_reduction: 'batchmean'
+sorting: random
+
+# stages related parameters
+stage_one_epochs: 40
+lr_adam: 1.0
+lr_sgd: 0.000025
+lr_wav2vec: 0.0001
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+####################### Model parameters ###########################
+# Transformer
+d_model: 256
+nhead: 4
+num_encoder_layers: 2
+num_decoder_layers: 6
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 5000
+vocab_size: 5000
+
+# Outputs
+blank_index: 0
+label_smoothing: 0.1
+pad_index: 0
+bos_index: 1
+eos_index: 2
+unk_index: 0
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0 # 1.0
+valid_search_interval: 10
+valid_beam_size: 10
+test_beam_size: 10
+ctc_weight_decode: 0.40
+
+############################## models ################################
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+    input_size: 1024
+    tgt_vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    normalize_before: True
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
+
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
+
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    Transformer: !ref <Transformer>
+    seq_lin: !ref <seq_lin>
+    ctc_lin: !ref <ctc_lin>
+    env_corrupt: !ref <env_corrupt>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+
+# define two optimizers here for two-stage training
+Adam: !name:torch.optim.Adam
+    lr: 0
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+SGD: !name:torch.optim.SGD
+    lr: !ref <lr_sgd>
+    momentum: 0.99
+    nesterov: True
+
+wav2vec_opt_class: !name:torch.optim.Adam
+    lr: 0
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <valid_beam_size>
+    ctc_weight: !ref <ctc_weight_decode>
+    using_eos_threshold: False
+    length_normalization: True
+
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    ctc_weight: !ref <ctc_weight_decode>
+    using_eos_threshold: False
+    length_normalization: True
+
+log_softmax: !new:torch.nn.LogSoftmax
+    dim: -1
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+    reduction: !ref <loss_reduction>
+
+seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_adam>
+    n_warmup_steps: 25000
+    model_size: !ref <d_model>
+
+noam_annealing_wav2vect: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_adam>
+    n_warmup_steps: 25000
+    model_size: !ref <d_model>
+
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        wav2vec2: !ref <wav2vec2>
+        model: !ref <model>
+        noam_scheduler: !ref <noam_annealing>
+        noam_annealing_wav2vect: !ref <noam_annealing_wav2vect>
+        counter: !ref <epoch_counter>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+augmentation: !new:speechbrain.lobes.augment.SpecAugment
+    time_warp: True
+    time_warp_window: 5
+    time_warp_mode: bicubic
+    freq_mask: True
+    n_freq_mask: 2
+    time_mask: True
+    n_time_mask: 2
+    replace_with_zero: False
+    freq_mask_width: 30
+    time_mask_width: 40
+
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# AISHELL-1 has spaces between words in the transcripts,
+# which Chinese writing normally does not do.
+# If remove_spaces, spaces are removed
+# from the transcript before computing CER.
+# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
+remove_spaces: True
+split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: !ref <split_tokens>
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>

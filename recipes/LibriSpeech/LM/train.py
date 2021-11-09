@@ -144,7 +144,7 @@ def dataio_prepare(hparams):
     tokenizer = hparams["tokenizer"]
 
     """Define text pipeline"""
-    # TODO: implement text augmentations piplines
+    # TODO: implement text augmentations pipelines
     @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides("text", "tokens_bos", "tokens_eos")
     def text_pipeline(text):

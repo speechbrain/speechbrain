@@ -72,7 +72,7 @@ def emb_computation_loop(split, set_loader, stat_file):
                 modelset = modelset + mod
                 segset = segset + seg
 
-                # Enrolment and test embeddings
+                # Enrollment and test embeddings
                 embs = compute_embeddings(wavs, lens)
                 xv = embs.squeeze().cpu().numpy()
                 embeddings = numpy.concatenate((embeddings, xv), axis=0)
@@ -175,7 +175,7 @@ def dataio_prep(params):
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["test_data"], replacements={"data_root": data_folder},
     )
-    test_data = enrol_data.filtered_sorted(sort_key="duration")
+    test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, enrol_data, test_data]
 
@@ -246,12 +246,11 @@ if __name__ == "__main__":
         verification_pairs_file=veri_file_path,
         splits=["train", "test"],
         split_ratio=[90, 10],
-        seg_dur=300,
-        rand_seed=params["seed"],
+        seg_dur=3,
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_dataloader, test_dataloader, enrol_dataloader = dataio_prep(params)
+    train_dataloader, enrol_dataloader, test_dataloader = dataio_prep(params)
 
     # Initialize PLDA vars
     modelset, segset = [], []
@@ -270,7 +269,7 @@ if __name__ == "__main__":
     params["embedding_model"].eval()
     params["embedding_model"].to(params["device"])
 
-    # Computing training embeddigs (skip it of if already extracted)
+    # Computing training embeddings (skip it of if already extracted)
     if not os.path.exists(xv_file):
         logger.info("Extracting embeddings from Training set..")
         with tqdm(train_dataloader, dynamic_ncols=True) as t:
