@@ -59,7 +59,8 @@ lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
 ckpt_interval_minutes: 15 # save checkpoint every N min
-enable_ckpt: True
+ckpt_enabled: True
+skip_pretrained_model: False
 label_smoothing: 0.1
 
 # Dataloader options

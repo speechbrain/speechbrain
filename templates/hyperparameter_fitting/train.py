@@ -284,7 +284,7 @@ class ASR(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            if self.hparams.enable_ckpt:
+            if self.hparams.ckpt_enabled:
                 # Save the current checkpoint and delete previous checkpoints.
                 self.checkpointer.save_and_keep_only(
                     meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
@@ -458,6 +458,9 @@ if __name__ == "__main__":
         # you can train from scratch and avoid this step.
         # We download the pretrained LM from HuggingFace (or elsewhere depending on
         # the path given in the YAML file). The tokenizer is loaded at the same time.
+        if hparams["skip_pretrained_model"]:
+            del hparams["pretrainer"].paths["model"]
+            del hparams["pretrainer"].loadables["model"]
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(device=run_opts["device"])
 

@@ -3,4 +3,5 @@ number_of_ctc_epochs: 1
 train_sample: 500
 valid_sample: 100
 ckpt_interval_minutes: 99999
-enable_ckpt: False
+ckpt_enabled: False
+skip_pretrained_model: True
