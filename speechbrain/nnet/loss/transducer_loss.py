@@ -56,7 +56,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
 
-    # paralalize the forward algorithm over batch and target length dim
+    # parallelize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
     t = 0
@@ -133,7 +133,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     lock : tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
-    # paralalize the forward algorithm over batch and target length dim
+    # parallelize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
     t = T[b] - 1
@@ -207,7 +207,7 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     lock : int
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
-    # paralalize the gradient computation over batch and timeseq length dim
+    # parallelize the gradient computation over batch and timeseq length dim
     t = cuda.blockIdx.x
     b = cuda.threadIdx.x
     if t < T[b]:

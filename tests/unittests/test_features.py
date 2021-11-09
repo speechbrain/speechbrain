@@ -56,6 +56,28 @@ def test_filterbank():
     inputs = torch.ones([10, 101, 201])
     assert torch.jit.trace(compute_fbanks, inputs)
 
+    # Check amin (-100 dB)
+    inputs = torch.zeros([10, 101, 201])
+    fbanks = compute_fbanks(inputs)
+    assert torch.equal(fbanks, torch.ones_like(fbanks) * -100)
+
+    # Check top_db
+    fbanks = torch.zeros([1, 1, 1])
+    expected = torch.Tensor([[[-100]]])
+    fbanks_db = compute_fbanks._amplitude_to_DB(fbanks)
+    assert torch.equal(fbanks_db, expected)
+
+    # Making sure independent computation gives same results
+    # as the batch computation
+    input1 = torch.rand([1, 101, 201]) * 10
+    input2 = torch.rand([1, 101, 201])
+    input3 = torch.cat([input1, input2], dim=0)
+    fbank1 = compute_fbanks(input1)
+    fbank2 = compute_fbanks(input2)
+    fbank3 = compute_fbanks(input3)
+    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < 5e-05
+    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < 5e-05
+
 
 def test_dtc():
 
@@ -81,3 +103,16 @@ def test_input_normalization():
     out_norm = norm(inputs, inp_len).squeeze()
     target = torch.FloatTensor([-1, 0, 1, -2, -2, -2])
     assert torch.equal(out_norm, target)
+
+
+def test_features_multimic():
+
+    from speechbrain.processing.features import Filterbank
+
+    compute_fbanks = Filterbank()
+    inputs = torch.rand([10, 101, 201])
+    output = compute_fbanks(inputs)
+    inputs_ch2 = torch.stack((inputs, inputs), -1)
+    output_ch2 = compute_fbanks(inputs_ch2)
+    output_ch2 = output_ch2[..., 0]
+    assert torch.sum(output - output_ch2) < 1e-05

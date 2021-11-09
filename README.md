@@ -10,6 +10,9 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
+**News:** the call for new sponsors (2022) is open. [Take a look here if you are interested!](https://drive.google.com/file/d/1Njn_T2qLJCLPmF2LJ_X7yxxobqK3-CPW/view?usp=sharing)
+
+
 | **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
 # Key features
@@ -21,11 +24,13 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loader and dataset style and enables users to customize the i/o pipelines (e.g adding on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
+- A nice integration of sharded data with WebDataset optimized for very large datasets on Nested File Systems (NFS).
 
 
 ### Speech recognition
 
 SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
+- Support of wav2vec 2.0 pretrained model with finetuning.
 - State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models including RNNLM and TransformerLM. We also propose few pre-trained models to save you computations (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
@@ -49,6 +54,10 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Spectral clustering for speaker diarization (combined with speakers embeddings).
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
+### Speech Translation
+- Recipes for transformer and conformer-based end-to-end speech translation.
+- Possibility to choose between normal training (Attention), multi-objectives (CTC+Attention) and multitasks (ST + ASR).
+
 ### Speech enhancement and separation
 - Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
 - Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
@@ -66,14 +75,50 @@ The recipes released with speechbrain implement speech processing systems with c
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
-| CommonVoice (French) | Speech Recognition | CRDNN | WER=17.7% (test) |
+| TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
+| CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
+| CommonVoice (French) | Speech Recognition | wav2vec2 + CTC | WER=9.96% (test) |
+| CommonVoice (Italian) | Speech Recognition | wav2vec2 + seq2seq | WER=9.86% (test) |
+| CommonVoice (Kinyarwanda) | Speech Recognition | wav2vec2 + seq2seq | WER=18.91% (test) |
+| AISHELL (Mandarin) | Speech Recognition | wav2vec2 + seq2seq | CER=5.58% (test) |
+| Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
-| AMI      | Speaker Diarization | ECAPA-TDNN | DER=2.13% (lapel-mix)|
+| AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
 | WSJ2MIX      | Speech Separation | SepFormer| SDRi=22.6 dB (test)|
 | WSJ3MIX      | Speech Separation | SepFormer| SDRi=20.0 dB (test)|
+| WHAM!     | Speech Separation | SepFormer| SDRi= 16.4 dB (test)|
+| WHAMR!     | Speech Separation | SepFormer| SDRi= 14.0 dB (test)|
+| Libri2Mix     | Speech Separation | SepFormer| SDRi= 20.6 dB (test-clean)|
+| Libri3Mix     | Speech Separation | SepFormer| SDRi= 18.7 dB (test-clean)|
+| LibryParty | Voice Activity Detection | CRDNN | F-score=0.9477 (test) |
+| IEMOCAP | Emotion Recognition | wav2vec | Accuracy=79.8% (test) |
+| CommonLanguage | Language Recognition | ECAPA-TDNN | Accuracy=84.9% (test) |
+| Timers and Such | Spoken Language Understanding | CRDNN | Sentence Accuracy=89.2% (test) |
+
+
 
 For more details, take a look into the corresponding implementation in recipes/dataset/.
+
+### Pretrained Models
+
+Beyond providing recipes for training the models from scratch, SpeechBrain shares several pre-trained models (coupled with easy-inference functions) on [HuggingFace](https://huggingface.co/speechbrain). In the following, we report some of them:
+
+| Task        | Dataset | Model |
+| ------------- |:-------------:| -----:| 
+| Speech Recognition | LibriSpeech | [CNN + Transformer](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) |
+| Speech Recognition | LibriSpeech | [CRDNN](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) |
+| Speech Recognition | CommonVoice(English) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) |
+| Speech Recognition | CommonVoice(French) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) |
+| Speech Recognition | CommonVoice(Italian) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) |
+| Speech Recognition | CommonVoice(Kinyarwanda) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) |
+| Speech Recognition | AISHELL(Mandarin) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
+| Speaker Recognition | Voxceleb | [ECAPA-TDNN](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb) |
+| Speech Separation | WHAMR! | [SepFormer](https://huggingface.co/speechbrain/sepformer-whamr) |
+| Speech Enhancement | Voicebank | [MetricGAN+](https://huggingface.co/speechbrain/metricgan-plus-voicebank) |
+| Spoken Language Understanding | Timers and Such | [CRDNN](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr) |
+| Language Identification | CommonLanguage | [ECAPA-TDNN](https://huggingface.co/speechbrain/lang-id-commonlanguage_ecapa) |
+
 
 ### Documentation & Tutorials
 SpeechBrain is designed to speed-up research and development of speech technologies. Hence, our code is backed-up with three different levels of documentation:
@@ -140,6 +185,10 @@ In SpeechBrain, you can run experiments in this way:
 
 The results will be saved in the `output_folder` specified in the yaml file. The folder is created by calling `sb.core.create_experiment_directory()` in `experiment.py`. Both detailed logs and experiment outputs are saved there. Furthermore, less verbose logs are output to stdout.
 
+# SpeechBrain Roadmap
+
+As a community-based and open source project, SpeechBrain needs the help of its community to grow in the right direction. Opening the roadmap to our users enable the toolkit to benefit from new ideas, new research axes or even new technologies. The roadmap, available on our [Discourse](https://speechbrain.discourse.group/t/speechbrain-a-community-roadmap/179) lists all the changes and updates that need to be done in the current version of SpeechBrain. Users are more than welcome to propose new items via new Discourse topics!
+
 # Learning SpeechBrain
 
 Instead of a long and boring README, we prefer to provide you with different resources that can be used to learn how to customize SpeechBrain to adapt it to your needs:
@@ -149,3 +198,19 @@ Instead of a long and boring README, we prefer to provide you with different res
 
 # License
 SpeechBrain is released under the Apache License, version 2.0. The Apache license is a popular BSD-like license. SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances, you may have to distribute a license document). Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
+
+# Citing SpeechBrain
+Please, cite SpeechBrain if you use it for your research or business.
+
+```bibtex
+@misc{speechbrain,
+  title={{SpeechBrain}: A General-Purpose Speech Toolkit},
+  author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
+  year={2021},
+  eprint={2106.04624},
+  archivePrefix={arXiv},
+  primaryClass={eess.AS},
+  note={arXiv:2106.04624}
+}
+```
+

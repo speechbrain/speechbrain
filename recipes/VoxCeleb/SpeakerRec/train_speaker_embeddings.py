@@ -88,7 +88,9 @@ class SpeakerBrain(sb.core.Brain):
 
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
-        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+        if stage == sb.Stage.TRAIN and hasattr(
+            self.hparams.lr_annealing, "on_batch_end"
+        ):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         if stage != sb.Stage.TRAIN:
@@ -222,7 +224,7 @@ if __name__ == "__main__":
             "verification_pairs_file": veri_file_path,
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
-            "seg_dur": int(hparams["sentence_len"]) * 100,
+            "seg_dur": hparams["sentence_len"],
         },
     )
 

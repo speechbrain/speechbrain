@@ -99,7 +99,7 @@ unk_index: 0
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_beam_size: 80
+valid_beam_size: 8
 test_beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
@@ -136,7 +136,7 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
 
-# Adds speech change + time and frequnecy dropouts (time-domain implementation).
+# Adds speech change + time and frequency dropouts (time-domain implementation).
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]

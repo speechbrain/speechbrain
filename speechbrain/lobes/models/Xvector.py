@@ -192,10 +192,10 @@ class Discriminator(sb.nnet.containers.Sequential):
     >>> input_feats = torch.rand([5, 10, 40])
     >>> compute_xvect = Xvector()
     >>> xvects = compute_xvect(input_feats)
-    >>> classify = Classifier(xvects.shape)
-    >>> output = classify(xvects)
+    >>> discriminate = Discriminator(xvects.shape)
+    >>> output = discriminate(xvects)
     >>> output.shape
-    torch.Size([5, 1, 1211])
+    torch.Size([5, 1, 1])
     """
 
     def __init__(

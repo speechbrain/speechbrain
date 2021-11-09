@@ -1,0 +1,4 @@
+sklearn
+matplotlib
+pandas
+tensorboard

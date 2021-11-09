@@ -289,7 +289,7 @@ def affect_conv_init(
     real_weight, imag_weight, kernel_size, init_func, criterion
 ):
     """ Applies the weight initialization function given to the parameters.
-    This is specificaly written for convolutional layers.
+    This is specifically written for convolutional layers.
 
     Arguments
     ---------
