@@ -514,32 +514,42 @@ class DynamicBatchSampler(Sampler):
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
-            self,
-            max_batch_length: int,
-            bucket_boundaries: List[int],
-            num_quantiles: int,
+        self,
+        max_batch_length: int,
+        bucket_boundaries: List[int],
+        num_quantiles: int,
     ) -> List[int]:
         # the following lines do not cover that there is only one example in the dataset
         if not bucket_boundaries:
             # warp frames (duration) distribution of train data
-            logger.info('Batch quantisation in latent space')
+            logger.info("Batch quantisation in latent space")
             # linspace set-up
             num_boundaries = num_quantiles + 1
             # create latent linearly equal spaced buckets
-            latent_boundaries = np.linspace(1 / num_boundaries, num_quantiles / num_boundaries, num_quantiles)
+            latent_boundaries = np.linspace(
+                1 / num_boundaries,
+                num_quantiles / num_boundaries,
+                num_quantiles,
+            )
             # use lognormal distribution
             from scipy.stats import lognorm
+
             # get quantiles
             quantiles = lognorm.ppf(latent_boundaries, 1)
             # scale up to to max_batch_length
             bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
         # compute resulting bucket length multipliers
-        length_multipliers = [bucket_boundaries[x + 1] / bucket_boundaries[x] for x in range(num_quantiles - 1)]
+        length_multipliers = [
+            bucket_boundaries[x + 1] / bucket_boundaries[x]
+            for x in range(num_quantiles - 1)
+        ]
         # logging
-        logger.info('Latent bucket boundary - buckets: {} - length multipliers: {}'.format(
-            list(map('{:.2f}'.format, bucket_boundaries)),
-            list(map('{:.2f}'.format, length_multipliers))
-        ))
+        logger.info(
+            "Latent bucket boundary - buckets: {} - length multipliers: {}".format(
+                list(map("{:.2f}".format, bucket_boundaries)),
+                list(map("{:.2f}".format, length_multipliers)),
+            )
+        )
         return list(sorted(bucket_boundaries))
 
     def _permute_batches(self):
@@ -573,18 +583,30 @@ class DynamicBatchSampler(Sampler):
     def _reduce_padding(self):
         # copy for rolling back a re-assignment when batch size exceed maximum
         from copy import deepcopy
+
         # repeat twice - sometimes a fallback will cause non-depleted batches that could actually be depleted
         for cnt in range(2):
             # number of frames per batch
-            batch_frames = [sum(self._ex_lengths[str(idx)] for idx in batch) for batch in self._batches]
+            batch_frames = [
+                sum(self._ex_lengths[str(idx)] for idx in batch)
+                for batch in self._batches
+            ]
             # Remaining padding per batch
-            remaining_padding = self._max_batch_length - np.asarray(batch_frames)
+            remaining_padding = self._max_batch_length - np.asarray(
+                batch_frames
+            )
             # do not touch batches with too long samples (exponential memory usage) - 80% is arbitrary
-            remaining_padding[np.asarray(batch_frames) > 0.8 * self._max_batch_length] = 0
+            remaining_padding[
+                np.asarray(batch_frames) > 0.8 * self._max_batch_length
+            ] = 0
             # Find uncompleted buckets
-            non_zero_buckets_in_sorted = np.in1d(np.argsort(batch_frames), np.where(batch_frames), 1)
+            non_zero_buckets_in_sorted = np.in1d(
+                np.argsort(batch_frames), np.where(batch_frames), 1
+            )
             # Sort their IDs by unused padding
-            unused_padding_sorted = np.argsort(batch_frames)[non_zero_buckets_in_sorted]
+            unused_padding_sorted = np.argsort(batch_frames)[
+                non_zero_buckets_in_sorted
+            ]
             # Re-assign examples from remaining batches
             for batch_id in unused_padding_sorted:
                 batch = self._batches[batch_id]
@@ -599,11 +621,15 @@ class DynamicBatchSampler(Sampler):
                 # re-assign each example in the uncompleted bucket batch
                 for pos in reversed(range(len(batch))):
                     # pop first example in batch
-                    idx = batch.pop(pos)  # 'pos' is necessary for potential later re-append
+                    idx = batch.pop(
+                        pos
+                    )  # 'pos' is necessary for potential later re-append
                     # length of pre-sampled audio
                     item_len = self._ex_lengths[str(idx)]
                     # where is enough padding
-                    possible_batches = np.argwhere(np.array(remaining_padding) >= item_len)
+                    possible_batches = np.argwhere(
+                        np.array(remaining_padding) >= item_len
+                    )
                     if len(possible_batches) == 0:
                         # stop re-assign -OR- put back & move on
                         remaining_padding = deepcopy(tmp_remaining_padding)
@@ -612,7 +638,9 @@ class DynamicBatchSampler(Sampler):
                         continue
                     else:
                         # random idx selection of where is enough padding; exclude self
-                        rand_batch_idx = np.random.choice(possible_batches.flatten())
+                        rand_batch_idx = np.random.choice(
+                            possible_batches.flatten()
+                        )
                         # assign to batch
                         self._batches[rand_batch_idx].append(idx)
                         # keep track of durations
@@ -674,22 +702,35 @@ class DynamicBatchSampler(Sampler):
 
         if self._epoch == 0:  # only log at first epoch
             # frames per batch & their padding remaining
-            batch_frames = [sum(self._ex_lengths[str(idx)] for idx in batch) for batch in self._batches]
-            remaining_padding = self._max_batch_length - np.asarray(batch_frames)
+            batch_frames = [
+                sum(self._ex_lengths[str(idx)] for idx in batch)
+                for batch in self._batches
+            ]
+            remaining_padding = self._max_batch_length - np.asarray(
+                batch_frames
+            )
             # logging
             logger.info(
-                ("DynamicBatchSampler: Created {} batches, {} buckets used - with remaining frame paddings: "
-                 + "min/µ/max ({:.2f}, {:.2f}, {:.2f}) and total/σ ({:.2f}, {:.2f}).").format(
-                    len(self._batches), len(self._bucket_boundaries),
-                    remaining_padding.min(), remaining_padding.mean(), remaining_padding.max(),
-                    remaining_padding.sum(), remaining_padding.std(),
+                (
+                    "DynamicBatchSampler: Created {} batches, {} buckets used - with remaining frame paddings: "
+                    + "min/µ/max ({:.2f}, {:.2f}, {:.2f}) and total/σ ({:.2f}, {:.2f})."
+                ).format(
+                    len(self._batches),
+                    len(self._bucket_boundaries),
+                    remaining_padding.min(),
+                    remaining_padding.mean(),
+                    remaining_padding.max(),
+                    remaining_padding.sum(),
+                    remaining_padding.std(),
                 )
             )
             boundaries = [0] + self._bucket_boundaries.tolist()
             for i in range(len(self._bucket_boundaries)):
                 logger.info(
-                    ("DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
-                     + "batch_size {} has {} examples.").format(
+                    (
+                        "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
+                        + "batch_size {} has {} examples."
+                    ).format(
                         i,
                         np.around(boundaries[i], 2),
                         np.around(boundaries[i + 1], 2),
@@ -707,7 +748,7 @@ class DynamicBatchSampler(Sampler):
                         i,
                         batch_frames[i],
                         len(self._batches[i]),
-                        remaining_padding[i]
+                        remaining_padding[i],
                     )
                 )
 

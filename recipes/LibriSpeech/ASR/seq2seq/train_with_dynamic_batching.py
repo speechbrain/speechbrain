@@ -166,14 +166,15 @@ class ASR(sb.Brain):
         except Exception as error:
             from speechbrain.dataio.batch import PaddedBatch
             from speechbrain.dataio.sampler import DynamicBatchSampler
+
             assert isinstance(batch, PaddedBatch)
             assert isinstance(self.train_sampler, DynamicBatchSampler)
-            durations = self.train_sampler.get_durations(batch.__dict__['id'])
-            logger.info('Something went wrong in this batch: {} - check example lengths ({:.2f} in total): {:.2f}'.format(
-                batch.__dict__['id'],
-                sum(durations),
-                durations
-            ))
+            durations = self.train_sampler.get_durations(batch.__dict__["id"])
+            logger.info(
+                "Something went wrong in this batch: {} - check example lengths ({:.2f} in total): {:.2f}".format(
+                    batch.__dict__["id"], sum(durations), durations,
+                )
+            )
             raise error
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -320,6 +321,8 @@ def dataio_prepare(hparams):
         if "num_quantiles" in dynamic_hparams.keys():
             num_quantiles = dynamic_hparams["num_quantiles"]
 
+        flag_reduce_padding = dynamic_hparams["reduce_padding_afterwards"]
+
         train_batch_sampler = DynamicBatchSampler(
             train_data,
             dynamic_hparams["max_batch_len"],
@@ -328,7 +331,7 @@ def dataio_prepare(hparams):
             length_func=lambda x: x["duration"] * (1 / hop_size),
             shuffle_examples=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
-            reduce_padding_afterwards=dynamic_hparams["reduce_padding_afterwards"],
+            reduce_padding_afterwards=flag_reduce_padding,
             num_quantiles=num_quantiles,
         )
 
@@ -340,11 +343,17 @@ def dataio_prepare(hparams):
             length_func=lambda x: x["duration"] * (1 / hop_size),
             shuffle_examples=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
-            reduce_padding_afterwards=dynamic_hparams["reduce_padding_afterwards"],
+            reduce_padding_afterwards=flag_reduce_padding,
             num_quantiles=num_quantiles,
         )
 
-    return train_data, valid_data, test_datasets, train_batch_sampler, valid_batch_sampler
+    return (
+        train_data,
+        valid_data,
+        test_datasets,
+        train_batch_sampler,
+        valid_batch_sampler,
+    )
 
 
 if __name__ == "__main__":
@@ -385,9 +394,13 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, train_sampler, valid_batch_sampler = dataio_prepare(
-        hparams
-    )
+    (
+        train_data,
+        valid_data,
+        test_datasets,
+        train_sampler,
+        valid_batch_sampler,
+    ) = dataio_prepare(hparams)
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
