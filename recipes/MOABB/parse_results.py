@@ -200,7 +200,7 @@ def aggregate_metrics() -> Tuple:
         key: [] for key in stat_metrics
     }
     
-    for paradigm in results_folder.iterdir():
+    for paradigm in sorted(results_folder.iterdir()):
         if paradigm.name == "leave-one-session-out":
             results = parse_one_session_out(paradigm)
             visualize_results(paradigm, results, vis_metrics)
@@ -229,7 +229,7 @@ def aggregate_metrics() -> Tuple:
             visualize_results(paradigm, results, vis_metrics)
             
             temp = {key: [] for key in stat_metrics} 
-            for k, v in results.items():
+            for k, r in results.items():
                 temp[k].append(mean(r))
             
             for k in temp.keys():
