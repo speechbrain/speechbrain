@@ -179,8 +179,8 @@ class HuggingFaceWav2Vec2(nn.Module):
             )
         for unexpected_key in incompatible_keys.unexpected_keys:
             logger.warning(
-                f"The object with the key: {unexpected_key} is discarded as it "
-                + "useless for wav2vec 2.0 finetuning."
+                f"The param with the key: {unexpected_key} is discarded as it "
+                + "is useless for wav2vec 2.0 finetuning."
             )
 
     def forward(self, wav):
