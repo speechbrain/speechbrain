@@ -124,18 +124,30 @@ class MOABBBrain(sb.Brain):
 
                 # The current model is saved if it is the best or the last
                 is_best = self.check_if_best(
-                    last_eval_stats, self.best_eval_stats
+                    last_eval_stats,
+                    self.best_eval_stats,
+                    keys=self.hparams.test_keys,
                 )
-                is_last = self.hparams.number_of_epochs == epoch
+                is_last = epoch > self.hparams.number_of_epochs - self.hparams.avg_models
 
-                if is_best or is_last:
+                # Check if we have to save the model
+                if self.hparams.test_with == "last" and is_last:
+                    save_ckpt = True
+                elif self.hparams.test_with == "best" and is_best:
+                    save_ckpt = True
+                else:
+                    save_ckpt = False
+
+                # Saving the checkpoint
+                if save_ckpt:
                     self.checkpointer.save_and_keep_only(
                         meta={
                             "loss": self.last_eval_loss,
                             "f1": self.last_eval_f1,
                             "auc": self.last_eval_auc,
                             "acc": self.last_eval_acc,
-                        }
+                        },
+                        num_to_keep=self.hparams.avg_models,
                     )
 
             elif stage == sb.Stage.TEST:
@@ -145,6 +157,29 @@ class MOABBBrain(sb.Brain):
                     },
                     test_stats=last_eval_stats,
                 )
+                # save the averaged checkpoint at the end of the evaluation stage
+                # delete the rest of the intermediate checkpoints
+                # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
+                if self.hparams.avg_models > 1:
+                    self.checkpointer.save_and_keep_only(
+                        meta={"acc": 1.1, "epoch": epoch},
+                        max_keys=["acc"],
+                        num_to_keep=1,
+                    )
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint averge if needed"""
+        super().on_evaluate_start()
+
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model", device=self.device
+        )
+
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
 
     def check_if_best(
         self,

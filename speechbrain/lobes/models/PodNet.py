@@ -7,21 +7,25 @@ import torch
 import speechbrain as sb
 from numpy import ceil
 
+
 class PodNet(torch.nn.Module):
     """
     TO BE UPDATED
     """
+
     @staticmethod
-    def _create_pod(in_shape_time=1500,
-                    in_filters=1,
-                    pod_cnn_filter=(30, 1),
-                    pod_pool_kernel=(2, 2),
-                    pod_pool_stride=(2, 2),
-                    pod_pool_pad=1,
-                    pod_dp_rate=0.5,
-                    filters_pod=100,
-                    pod_activation=torch.nn.ReLU(),
-                    pod_id="1") -> torch.nn.Sequential:
+    def _create_pod(
+        in_shape_time=1500,
+        in_filters=1,
+        pod_cnn_filter=(30, 1),
+        pod_pool_kernel=(2, 2),
+        pod_pool_stride=(2, 2),
+        pod_pool_pad=1,
+        pod_dp_rate=0.5,
+        filters_pod=100,
+        pod_activation=torch.nn.ReLU(),
+        pod_id="1",
+    ) -> torch.nn.Sequential:
         pod = torch.nn.Sequential()
         pod.add_module(
             f"pod_{pod_id}_conv",
@@ -35,18 +39,18 @@ class PodNet(torch.nn.Module):
                 transpose=True,
             ),
         )
-        
+
         pod.add_module(f"pod_{pod_id}_dropout", torch.nn.Dropout(p=pod_dp_rate))
-        
+
         pod.add_module(
             f"pod_{pod_id}_batchnorm",
             sb.nnet.normalization.BatchNorm2d(
                 input_size=filters_pod, momentum=0.01, affine=True,
             ),
         )
-        
+
         pod.add_module(f"pod_{pod_id}_act", pod_activation)
-     
+
         pod.add_module(
             f"pod_{pod_id}_maxpool",
             sb.nnet.pooling.Pooling2d(
@@ -57,9 +61,9 @@ class PodNet(torch.nn.Module):
                 pool_axis=[1, 2],
             ),
         )
-        
-        return pod, ceil(float(in_shape_time - pod_cnn_filter[0]) / 2  + 1)
-    
+
+        return pod, ceil(float(in_shape_time - pod_cnn_filter[0]) / 2 + 1)
+
     def __init__(
         self,
         input_shape=None,  # (1, T, C, 1)
@@ -76,7 +80,7 @@ class PodNet(torch.nn.Module):
         T = input_shape[1]
         C = input_shape[2]
         self.conv_module = torch.nn.Sequential()
-        
+
         out_shapes = []
         pod1, temp = self._create_pod(
             in_shape_time=T,
@@ -88,10 +92,10 @@ class PodNet(torch.nn.Module):
             pod_dp_rate=dropout,
             filters_pod=filters_pod,
             pod_activation=activation,
-            pod_id="1"
+            pod_id="1",
         )
         out_shapes.append(temp)
-                
+
         self.conv_module.add_module("pod0", pod1)
 
         for i in range(1, 1 + n_pods):
@@ -105,7 +109,7 @@ class PodNet(torch.nn.Module):
                 pod_dp_rate=dropout,
                 filters_pod=filters_pod,
                 pod_activation=torch.nn.ReLU(),
-                pod_id=i
+                pod_id=i,
             )
             out_shapes.append(temp)
             self.conv_module.add_module(f"pod{i}", pod_i)
@@ -120,21 +124,18 @@ class PodNet(torch.nn.Module):
             pod_dp_rate=0,
             filters_pod=filters_pod,
             pod_activation=torch.nn.ReLU(),
-            pod_id="last"
+            pod_id="last",
         )
         out_shapes.append(temp)
-        self.conv_module.add_module(
-            "pod_last",
-            pod_last
-        )
-        
+        self.conv_module.add_module("pod_last", pod_last)
+
         # # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
         self.dense_module.add_module(
             "flatten", torch.nn.Flatten(),
         )
-        
-        dense_input_size = int(out_shapes[-1])*filters_pod
+
+        dense_input_size = int(out_shapes[-1]) * filters_pod
         self.dense_module.add_module(
             "fc_out",
             sb.nnet.linear.Linear(
@@ -144,7 +145,7 @@ class PodNet(torch.nn.Module):
             ),
         )
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
-    
+
     def forward(self, x):
         """Returns the output of the model.
 
@@ -155,5 +156,5 @@ class PodNet(torch.nn.Module):
         """
         x = self.conv_module(x)
         x = self.dense_module(x)
-        
+
         return x

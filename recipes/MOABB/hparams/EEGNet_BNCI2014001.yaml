@@ -12,7 +12,7 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'. The dataset will be automatically downloaded in this folder
-output_folder: !ref results/MOABB/EEGNet_BNCI2014001_linear_cyclic_fast/<seed>
+output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
 
 # DATASET HPARS
 # Defining the MOABB dataset.
@@ -58,10 +58,18 @@ max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
 base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
 step_size: 100 # number of training iterations per half cycle (lower step_size => faster cycles)
 
-# Test is done with the best model according to the following metrics
+# We here specify how to perfom test:
+# - If test_with: 'last' we perform test with the latest model.
+# - if test_with: 'best, we perform test with the best model (according to the metric specified in test_keys)
+# The variable avg_models can be used to average the parameters of the last (or best) N saved models before testing.
+# This can have a regularization effect. If avg_models: 1, the last (or best) model is used directly.
+test_with: 'best' # 'last' or 'best'
 test_keys: ["acc"] # Possible opts: "loss", "f1", "auc", "acc"
+avg_models: 1 # checkpoints to average
 
-loss: !name:torch.nn.functional.nll_loss
+loss: !name:speechbrain.nnet.losses.nll_loss
+  label_smoothing: 0.0
+
 optimizer: !name:torch.optim.Adam
   lr: !ref <lr>
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
