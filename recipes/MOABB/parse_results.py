@@ -198,9 +198,11 @@ def aggregate_metrics(verbose=1) -> Tuple:
     results_folder = Path(sys.argv[1])
     vis_metrics = sys.argv[2:]
 
-    overall_stat = {key: [] for key in stat_metrics}
-
-    for paradigm in results_folder.iterdir():
+    overall_stat = {
+        key: [] for key in stat_metrics
+    }
+    
+    for paradigm in sorted(results_folder.iterdir()):
         if paradigm.name == "leave-one-session-out":
             results = parse_one_session_out(paradigm)
             if verbose:
