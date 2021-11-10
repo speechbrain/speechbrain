@@ -186,7 +186,9 @@ def parse_within_session(paradigm: Path) -> dict:
 
 
 stat_metrics = ["loss", "f1", "acc", "auc"]
-def aggregate_metrics() -> Tuple:
+
+
+def aggregate_metrics(verbose=1) -> Tuple:
     """Parses results and computes statistics over all
     paradigms.
 
@@ -196,62 +198,69 @@ def aggregate_metrics() -> Tuple:
     results_folder = Path(sys.argv[1])
     vis_metrics = sys.argv[2:]
 
-    overall_stat = {
-        key: [] for key in stat_metrics
-    }
-    
+    overall_stat = {key: [] for key in stat_metrics}
+
     for paradigm in results_folder.iterdir():
         if paradigm.name == "leave-one-session-out":
             results = parse_one_session_out(paradigm)
-            visualize_results(paradigm, results, vis_metrics)
-            
-            temp = {key: [] for key in stat_metrics} 
+            if verbose:
+                visualize_results(paradigm, results, vis_metrics)
+
+            temp = {key: [] for key in stat_metrics}
             for _, v in results.items():
                 for k, r in v.items():
                     temp[k].append(mean(r))
-            
+
             for k in temp.keys():
-                overall_stat[k].append(mean(temp[k]))
+                overall_stat[k].extend(temp[k])
 
         elif paradigm.name == "cross-session":
             results = parse_cross_section(paradigm)
-            visualize_results(paradigm, results, vis_metrics)
-            
-            temp = {key: [] for key in stat_metrics} 
+            if verbose:
+                visualize_results(paradigm, results, vis_metrics)
+
+            temp = {key: [] for key in stat_metrics}
             for k, r in results.items():
                 temp[k].append(mean(r))
-            
+
             for k in temp.keys():
-                overall_stat[k].append(mean(temp[k]))
-            
+                overall_stat[k].extend(temp[k])
+
         elif paradigm.name == "leave-one-subject-out":
             results = parse_one_sub_out(paradigm)
-            visualize_results(paradigm, results, vis_metrics)
-            
-            temp = {key: [] for key in stat_metrics} 
+            if verbose:
+                visualize_results(paradigm, results, vis_metrics)
+
+            temp = {key: [] for key in stat_metrics}
             for k, v in results.items():
-                temp[k].append(mean(r))
-            
+                temp[k].append(mean(v))
+
             for k in temp.keys():
-                overall_stat[k].append(mean(temp[k]))
-            
+                overall_stat[k].extend(temp[k])
+
         elif paradigm.name == "within-session":
             results = parse_within_session(paradigm)
-            visualize_results(paradigm, results, vis_metrics)
-            
-            temp = {key: [] for key in stat_metrics} 
+            if verbose:
+                visualize_results(paradigm, results, vis_metrics)
+
+            temp = {key: [] for key in stat_metrics}
             for _, v in results.items():
                 for k, r in v.items():
                     temp[k].append(mean(r))
-            
+
             for k in temp.keys():
-                overall_stat[k].append(mean(temp[k]))
-    
+                overall_stat[k].extend(temp[k])
+
     for k in stat_metrics:
-        overall_stat[k+"_std"] = std(overall_stat[k])
-        overall_stat[k] = mean(overall_stat[k]) 
-        
+        overall_stat[k + "_std"] = std(overall_stat[k])
+        overall_stat[k] = mean(overall_stat[k])
+
     return overall_stat
 
+
 if __name__ == "__main__":
-    print("Aggregated results\n", aggregate_metrics())
+    temp = aggregate_metrics(verbose=1)
+
+    print("\nAggregated results")
+    for k in sys.argv[2:]:
+        print(k, temp[k], "+-", temp[k + "_std"])
