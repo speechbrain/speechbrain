@@ -16,7 +16,6 @@ import logging
 import pathlib
 import torch.nn.functional as F
 from torch import nn
-import speechbrain as sb
 
 # We check if transformers is installed.
 try:
@@ -129,9 +128,7 @@ class HuggingFaceWav2Vec2(nn.Module):
                 self.model = model(config)
                 self.model.gradient_checkpointing_disable()  # Required by DDP
                 # We transfer the parameters from the checkpoint.
-                sb.utils.checkpoints.torch_parameter_transfer(
-                    self.model, ckpt_file, device="cpu"
-                )
+                self._load_sb_pretrained_w2v2_parameters(ckpt_file)
             else:
                 self.model = model.from_pretrained(source, cache_dir=save_path)
 
@@ -150,6 +147,42 @@ class HuggingFaceWav2Vec2(nn.Module):
             self.model.train()
             if self.freeze_feature_extractor:
                 self.model.feature_extractor._freeze_parameters()
+
+    def _load_sb_pretrained_w2v2_parameters(self, ckpt_file):
+        """Loads the parameter of a w2v2 model pretrained with SpeechBrain and the
+        HuggingFaceWav2Vec2Pretrain Object. It is necessary to perform a custom
+        loading because HuggingFace adds a level to the checkpoint when storing
+        the model breaking the compatibility between HuggingFaceWav2Vec2Pretrain
+        and HuggingFaceWav2Vec2.
+
+        In practice a typical HuggingFaceWav2Vec2 checkpoint for a given parameter
+        would be: model.conv.weight.data while for HuggingFaceWav2Vec2Pretrain it
+        is: model.wav2vec2.weight.data (wav2vec2 must be removed before loading).
+        """
+
+        modified_state_dict = {}
+        orig_state_dict = torch.load(ckpt_file, map_location="cpu")
+
+        # We remove the .wav2vec2 in the state dict.
+        for key, params in orig_state_dict.state_dict():
+            save_key = key.replace(".wav2vec2", "")
+            modified_state_dict[save_key] = params
+
+        incompatible_keys = self.model.load_state_dict(
+            modified_state_dict, strict=False
+        )
+        for missing_key in incompatible_keys.missing_keys:
+            logger.warning(
+                f"During parameter transfer to {self.model} loading from "
+                + f"{ckpt_file}, the transferred parameters did not have "
+                + f"parameters for the key: {missing_key}"
+            )
+        for unexpected_key in incompatible_keys.unexpected_keys:
+            logger.warning(
+                f"During parameter transfer to {self.model} loading from "
+                + f"{ckpt_file}, the object could not use the parameters loaded "
+                + f"with the key: {unexpected_key}"
+            )
 
     def forward(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.
