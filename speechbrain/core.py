@@ -546,9 +546,6 @@ class Brain:
                         "Only the main process is alive, "
                         "all other subprocess were killed."
                     )
-            # force the models to start and remain synchronized
-            torch.backends.cudnn.deterministic = False
-            torch.backends.cudnn.benchmark = True
 
         # Prepare iterating variables
         self.avg_train_loss = 0.0
