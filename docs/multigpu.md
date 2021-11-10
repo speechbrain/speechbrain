@@ -27,7 +27,7 @@ Using DDP in speechbrain with a single server (node) is quite easy:
 
 ```
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 ```
 
 Where:
