@@ -164,7 +164,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         orig_state_dict = torch.load(ckpt_file, map_location="cpu")
 
         # We remove the .wav2vec2 in the state dict.
-        for key, params in orig_state_dict.state_dict():
+        for key, params in orig_state_dict:
             save_key = key.replace(".wav2vec2", "")
             modified_state_dict[save_key] = params
 
