@@ -164,8 +164,8 @@ class HuggingFaceWav2Vec2(nn.Module):
         orig_state_dict = torch.load(ckpt_file, map_location="cpu")
 
         # We remove the .wav2vec2 in the state dict.
-        for key, params in orig_state_dict:
-            save_key = key.replace(".wav2vec2", "")
+        for key, params in orig_state_dict.items():
+            save_key = key.replace("wav2vec2.", "")
             modified_state_dict[save_key] = params
 
         incompatible_keys = self.model.load_state_dict(
@@ -179,9 +179,8 @@ class HuggingFaceWav2Vec2(nn.Module):
             )
         for unexpected_key in incompatible_keys.unexpected_keys:
             logger.warning(
-                f"During parameter transfer to {self.model} loading from "
-                + f"{ckpt_file}, the object could not use the parameters loaded "
-                + f"with the key: {unexpected_key}"
+                f"The object with the key: {unexpected_key} is discarded as it "
+                + "useless for wav2vec 2.0 finetuning."
             )
 
     def forward(self, wav):
