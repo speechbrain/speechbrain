@@ -799,11 +799,7 @@ class EncoderWav2vecClassifier(Pretrained):
     >>> prediction =  classifier .classify_batch(signal)
     """
 
-    MODULES_NEEDED = [
-        "wav2vec2",
-        "avg_pool",
-        "output_mlp",
-    ]
+    MODULES_NEEDED = ["wav2vec2", "avg_pool", "output_mlp"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2093,7 +2089,7 @@ class SpectralMaskEnhancement(Pretrained):
         feats = self.hparams.spectral_magnitude(feats)
         return torch.log1p(feats)
 
-    def enhance_batch(self, noisy, lengths=None):
+    def enhance_batch(self, noisy, lengths):
         """Enhance a batch of noisy waveforms.
 
         Arguments
@@ -2112,10 +2108,7 @@ class SpectralMaskEnhancement(Pretrained):
         noisy_features = self.compute_features(noisy)
 
         # Perform masking-based enhancement, multiplying output with input.
-        if lengths is not None:
-            mask = self.mods.enhance_model(noisy_features, lengths=lengths)
-        else:
-            mask = self.mods.enhance_model(noisy_features)
+        mask = self.mods.enhance_model(noisy_features, lengths=lengths)
         enhanced = torch.mul(mask, noisy_features)
 
         # Return resynthesized waveforms
@@ -2136,7 +2129,10 @@ class SpectralMaskEnhancement(Pretrained):
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
-        enhanced = self.enhance_batch(batch)
+        rel_length = torch.tensor([1.0])
+
+        # Perform enhancement
+        enhanced = self.enhance_batch(batch, rel_length)
 
         if output_filename is not None:
             torchaudio.save(output_filename, enhanced, channels_first=False)
