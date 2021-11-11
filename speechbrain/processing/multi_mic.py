@@ -429,7 +429,7 @@ class Mvdr(torch.nn.Module):
         NNs = NNs.to(Xs.device)
         if mics is not None:
             mics = mics.to(Xs.device)
-        
+
         # Convert the tdoas to taus
         if doa_mode:
             taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
