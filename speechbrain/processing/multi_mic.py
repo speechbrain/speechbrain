@@ -279,7 +279,7 @@ class DelaySum(torch.nn.Module):
 
         # Get useful dimensions
         n_fft = Xs.shape[2]
-
+        localization_tensor = localization_tensor.to(Xs.device)
         # Convert the tdoas to taus
         if doa_mode:
             taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
@@ -425,6 +425,9 @@ class Mvdr(torch.nn.Module):
         """
         # Get useful dimensions
         n_fft = Xs.shape[2]
+        localization_tensor = localization_tensor.to(Xs.device)
+        mics = mics.to(Xs.device)
+        NNs = NNs.to(Xs.device)
 
         # Convert the tdoas to taus
         if doa_mode:
@@ -940,7 +943,7 @@ class SrpPhat(torch.nn.Module):
         n_fft = XXs.shape[2]
 
         # Generate the steering vector
-        As = steering(self.taus, n_fft)
+        As = steering(self.taus.to(XXs.device), n_fft)
 
         # Perform srp-phat
         doas = SrpPhat._srp_phat(XXs=XXs, As=As, doas=self.doas, eps=self.eps)
@@ -1128,7 +1131,7 @@ class Music(torch.nn.Module):
         n_fft = XXs.shape[2]
 
         # Generate the steering vector
-        As = steering(self.taus, n_fft)
+        As = steering(self.taus.to(XXs.device), n_fft)
 
         # Perform music
         doas = Music._music(
