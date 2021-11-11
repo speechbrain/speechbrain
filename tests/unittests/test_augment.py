@@ -112,7 +112,7 @@ def test_babble():
     from speechbrain.processing.speech_augmentation import AddBabble
 
     test_waveform = torch.stack(
-        (torch.sin(torch.arange(16000.0)), torch.cos(torch.arange(16000.0)),)
+        (torch.sin(torch.arange(16000.0)), torch.cos(torch.arange(16000.0)))
     )
     lengths = torch.ones(2)
 
@@ -203,3 +203,54 @@ def test_clip():
     expected = test_waveform.clamp(min=-0.5, max=0.5)
     half_clip = DoClip(clip_low=0.5, clip_high=0.5)
     assert half_clip(test_waveform).allclose(expected)
+
+
+def test_augment_pipeline():
+    from speechbrain.processing.speech_augmentation import DropFreq, DropChunk
+    from speechbrain.processing.augmentation import Augmenter
+
+    freq_dropper = DropFreq()
+    chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
+    pipeline = {"freq_drop": freq_dropper, "chunk_dropper": chunk_dropper}
+    augment = Augmenter(
+        pipeline=pipeline, parallel_augment=False, concat_original=False
+    )
+    signal = torch.rand([4, 16000])
+    output_signal, lenghts = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+
+    assert len(output_signal) == 4
+    assert len(lenghts) == 4
+
+    augment = Augmenter(
+        pipeline=pipeline, parallel_augment=False, concat_original=True
+    )
+    output_signal, lenghts = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+
+    assert len(output_signal) == 8
+    assert len(lenghts) == 8
+    assert torch.equal(output_signal[0:4], signal[0:4])
+
+    augment = Augmenter(
+        pipeline=pipeline, parallel_augment=True, concat_original=False
+    )
+    output_signal, lenghts = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+
+    assert len(output_signal) == 8
+    assert len(lenghts) == 8
+
+    augment = Augmenter(
+        pipeline=pipeline, parallel_augment=True, concat_original=True
+    )
+    output_signal, lenghts = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+
+    assert len(output_signal) == 12
+    assert len(lenghts) == 12
+    assert torch.equal(output_signal[0:4], signal[0:4])
