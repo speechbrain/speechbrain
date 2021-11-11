@@ -594,6 +594,10 @@ class Gev(torch.nn.Module):
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
         """
 
+        # Putting on the right device
+        SSs = SSs.to(Xs.device)
+        NNs = NNs.to(Xs.device)
+
         # Get useful dimensions
         n_mics = Xs.shape[4]
         n_mics_pairs = SSs.shape[4]
@@ -971,6 +975,10 @@ class SrpPhat(torch.nn.Module):
             tensor must have the format (n_doas, 3).
         """
 
+        # Putting on the right device
+        As = As.to(XXs.device)
+        doas = doas.to(XXs.device)
+
         # Get useful dimensions
         n_mics = As.shape[3]
 
@@ -1161,6 +1169,10 @@ class Music(torch.nn.Module):
         n_sig : int
             The number of signals in the signal + noise subspace (default is 1).
         """
+
+        # Putting on the right device
+        As = As.to(XXs.device)
+        doas = doas.to(XXs.device)
 
         # Collecting data
         n_mics = As.shape[3]
