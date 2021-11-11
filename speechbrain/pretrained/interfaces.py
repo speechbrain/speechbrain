@@ -2071,7 +2071,7 @@ class SpectralMaskEnhancement(Pretrained):
     ... )
     >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
     >>> # Channel dimension is interpreted as batch dimension here
-    >>> enhanced = enhancer.enhance_batch(noisy)
+    >>> enhanced = enhancer.enhance_batch(noisy, lengths=torch.tensor([1.]))
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
