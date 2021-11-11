@@ -426,9 +426,10 @@ class Mvdr(torch.nn.Module):
         # Get useful dimensions
         n_fft = Xs.shape[2]
         localization_tensor = localization_tensor.to(Xs.device)
-        mics = mics.to(Xs.device)
         NNs = NNs.to(Xs.device)
-
+        if mics is not None:
+            mics = mics.to(Xs.device)
+        
         # Convert the tdoas to taus
         if doa_mode:
             taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
