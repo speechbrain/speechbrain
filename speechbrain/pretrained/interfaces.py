@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.callchains import lengths_arg_exists
 
 
 class Pretrained(torch.nn.Module):
@@ -2071,7 +2072,7 @@ class SpectralMaskEnhancement(Pretrained):
     ... )
     >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
     >>> # Channel dimension is interpreted as batch dimension here
-    >>> enhanced = enhancer.enhance_batch(noisy, lengths=torch.tensor([1.]))
+    >>> enhanced = enhancer.enhance_batch(noisy)
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
@@ -2089,7 +2090,7 @@ class SpectralMaskEnhancement(Pretrained):
         feats = self.hparams.spectral_magnitude(feats)
         return torch.log1p(feats)
 
-    def enhance_batch(self, noisy, lengths):
+    def enhance_batch(self, noisy, lengths=None):
         """Enhance a batch of noisy waveforms.
 
         Arguments
@@ -2108,7 +2109,10 @@ class SpectralMaskEnhancement(Pretrained):
         noisy_features = self.compute_features(noisy)
 
         # Perform masking-based enhancement, multiplying output with input.
-        mask = self.mods.enhance_model(noisy_features, lengths=lengths)
+        if lengths is not None:
+            mask = self.mods.enhance_model(noisy_features, lengths=lengths)
+        else:
+            mask = self.mods.enhance_model(noisy_features)
         enhanced = torch.mul(mask, noisy_features)
 
         # Return resynthesized waveforms
@@ -2129,10 +2133,10 @@ class SpectralMaskEnhancement(Pretrained):
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-
-        # Perform enhancement
-        enhanced = self.enhance_batch(batch, rel_length)
+        if lengths_arg_exists(self.enhance_batch):
+            enhanced = self.enhance_batch(batch, lengths=torch.tensor([1.0]))
+        else:
+            enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
             torchaudio.save(output_filename, enhanced, channels_first=False)
