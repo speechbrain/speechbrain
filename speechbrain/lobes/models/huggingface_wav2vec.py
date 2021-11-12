@@ -169,7 +169,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         # We remove the .wav2vec2 in the state dict.
         for key, params in orig_state_dict.items():
             if "wav2vec2." in key:
-                save_key = key.replace("wav2vec2.", "")
+                save_key = key.replace("model.wav2vec2.", "")
                 modified_state_dict[save_key] = params
 
         incompatible_keys = self.model.load_state_dict(
