@@ -137,7 +137,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         # 3. Download (if appropriate) and load with respect to 1. and 2.
         """
 
-        is_sb, ckpt_file = self.check_model_source(source)
+        is_sb, ckpt_file = self._check_model_source(source)
         if is_sb:
             config = config.from_pretrained(source, cache_dir=save_path)
             self.model = model(config)
