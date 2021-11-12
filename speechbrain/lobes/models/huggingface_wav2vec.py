@@ -111,7 +111,7 @@ class HuggingFaceWav2Vec2(nn.Module):
 
         # Download and load the model
         self.model = self._from_pretrained(
-            source, config=config, model=model, cache_dir=save_path
+            source, config=config, model=model, save_path=save_path
         )
 
         # set apply_spec_augment
