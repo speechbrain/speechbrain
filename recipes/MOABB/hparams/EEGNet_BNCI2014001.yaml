@@ -69,6 +69,7 @@ avg_models: 1 # checkpoints to average
 
 loss: !name:speechbrain.nnet.losses.nll_loss
   label_smoothing: 0.0
+  weight: torch.Tensor([1, 1, 1, 1])  # class weight to address class imbalance
 
 optimizer: !name:torch.optim.Adam
   lr: !ref <lr>
