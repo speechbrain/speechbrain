@@ -218,15 +218,15 @@ class HuggingFaceWav2Vec2(nn.Module):
             ).siblings  # get the list of files of the Hub
 
             # Test if it's an HuggingFace model or a SB one
-            for File in files.rfilename:
-                if File.endswith(".ckpt"):
-                    checkpoint_filename = path / File
+            for File in files:
+                if File.rfilename.endswith(".ckpt"):
+                    checkpoint_filename = File
                     is_sb = True
                     return is_sb, checkpoint_filename
 
-            for File in files.rfilename:
-                if File.endswith(".bin"):
-                    checkpoint_filename = path / File
+            for File in files:
+                if File.rfilename.endswith(".bin"):
+                    checkpoint_filename = File
                     is_sb = False
                     return is_sb, checkpoint_filename
 
