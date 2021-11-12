@@ -27,6 +27,7 @@ try:
     from transformers import Wav2Vec2ForPreTraining
     from transformers.models.wav2vec2.modeling_wav2vec2 import (
         _compute_mask_indices,
+        _sample_negative_indices,
     )
 
 except ImportError:
@@ -320,10 +321,14 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         self.normalize_wav = normalize_wav
 
         # Download the config of the model from HuggingFace.
-        config = Wav2Vec2Config.from_pretrained(source, cache_dir=save_path)
-        config.output_hidden_states = True  # We want the hidden states as well!
+        self.config = Wav2Vec2Config.from_pretrained(
+            source, cache_dir=save_path
+        )
+        self.config.output_hidden_states = (
+            True  # We want the hidden states as well!
+        )
 
-        self.model = Wav2Vec2ForPreTraining(config)
+        self.model = Wav2Vec2ForPreTraining(self.config)
         self.model.gradient_checkpointing_disable()  # Required by DDP
         self.model.train()
 
@@ -355,8 +360,21 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             device=wav.device,
             dtype=torch.bool,
         )
+        negative_sample_indices = torch.tensor(
+            _sample_negative_indices(
+                (batch_size, sequence_length),
+                num_negatives=self.config.num_negatives,
+                mask_time_indices=mask_time_indices,
+            ),
+            device=wav.device,
+            dtype=torch.bool,
+        )
 
         return (
-            self.model(wav, mask_time_indices=mask_time_indices),
+            self.model(
+                wav,
+                mask_time_indices=mask_time_indices,
+                sampled_negative_indices=negative_sample_indices,
+            ),
             mask_time_indices,
         )
