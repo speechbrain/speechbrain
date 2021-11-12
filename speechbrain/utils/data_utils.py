@@ -415,7 +415,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
             t, max_shape, mode=mode, value=value
         )
         batched.append(padded)
-        valid.append(valid_percent[0])
+        valid.append(valid_percent[-1])
 
     batched = torch.stack(batched)
 
