@@ -162,7 +162,7 @@ class HyperparameterFittingContext:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if self.result is not None:
+        if exc_type is None and self.result is not None:
             self.reporter.report_objective(self.result)
         _context["current"] = None
 
