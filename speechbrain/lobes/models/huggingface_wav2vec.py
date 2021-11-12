@@ -110,7 +110,7 @@ class HuggingFaceWav2Vec2(nn.Module):
             model = HF_models.get("wav2vec2")
 
         # Download and load the model
-        self.model = self._from_pretrained(
+        self._from_pretrained(
             source, config=config, model=model, save_path=save_path
         )
 
@@ -170,7 +170,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         for key, params in orig_state_dict.items():
             if "wav2vec2." in key:
                 save_key = key.replace("wav2vec2.", "")
-            modified_state_dict[save_key] = params
+                modified_state_dict[save_key] = params
 
         incompatible_keys = self.model.load_state_dict(
             modified_state_dict, strict=False
