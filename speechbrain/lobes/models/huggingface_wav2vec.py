@@ -16,6 +16,8 @@ import logging
 import pathlib
 import torch.nn.functional as F
 from torch import nn
+from huggingface_hub import model_info
+from speechbrain.pretrained.fetching import fetch
 
 # We check if transformers is installed.
 try:
@@ -40,7 +42,7 @@ HF_config = {"wav2vec2": Wav2Vec2Config, "hubert": HubertConfig}
 
 
 class HuggingFaceWav2Vec2(nn.Module):
-    """This lobe enables the integration of HuggingFace
+    """This lobe enables the integration of HuggingFace and SpeechBrain
     pretrained wav2vec2.0/Hubert models.
 
     Source paper wav2vec2.0: https://arxiv.org/abs/2006.11477
@@ -49,7 +51,7 @@ class HuggingFaceWav2Vec2(nn.Module):
     https://huggingface.co/transformers/installation.html
 
     The model can be used as a fixed feature extractor or can be finetuned. It
-    will download automatically the model from HuggingFace.
+    will download automatically the model from HuggingFace or use a local path.
 
     Arguments
     ---------
@@ -66,9 +68,6 @@ class HuggingFaceWav2Vec2(nn.Module):
     freeze_feature_extractor :  bool (default: False)
         When freeze = False and freeze_feature_extractor True, the featue_extractor module of the model is Frozen. If False
         all the wav2vec model will be trained including featue_extractor module.
-    pretrain : bool (default: True)
-        If True, the model is pretrained with the specified source.
-        If False, the randomly-initialized model is instantiated.
     apply_spec_augment : bool (default: False)
         If True, the model will apply spec augment on the output of feature extractor
         (inside huggingface Wav2VecModel() class).
@@ -91,13 +90,12 @@ class HuggingFaceWav2Vec2(nn.Module):
         output_norm=True,
         freeze=True,
         freeze_feature_extractor=False,
-        pretrain=True,
         apply_spec_augment=False,
     ):
         super().__init__()
 
         # Download the extractor from HuggingFace.
-        # The extractor is only used to retrieve the normalisation
+        # The extractor is only used to retrieve the normalisation information
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
             source, cache_dir=save_path
         )
@@ -110,27 +108,10 @@ class HuggingFaceWav2Vec2(nn.Module):
             config = HF_config.get("wav2vec2")
             model = HF_models.get("wav2vec2")
 
-        # Download the model from HuggingFace.
-        # if pretrain is False, we do not download the pretrained weights
-        # it it is True, we download and load them.
-        if not (pretrain):
-            config = config.from_pretrained(source, cache_dir=save_path)
-            config.gradient_checkpointing = (
-                False  # This cause errors with DDP if True.
-            )
-            self.model = model(config)
-        else:
-            # We check if the pretrained model comes from HF or SpeechBrain.
-            # and we load it accordingly.
-            is_sb, ckpt_file = self.check_model_source(source)
-            if is_sb:
-                config = config.from_pretrained(source, cache_dir=save_path)
-                self.model = model(config)
-                self.model.gradient_checkpointing_disable()  # Required by DDP
-                # We transfer the parameters from the checkpoint.
-                self._load_sb_pretrained_w2v2_parameters(ckpt_file)
-            else:
-                self.model = model.from_pretrained(source, cache_dir=save_path)
+        # Download and load the model
+        self.model = self._from_pretrained(
+            source, config=config, model=model, cache_dir=save_path
+        )
 
         # set apply_spec_augment
         self.model.config.apply_spec_augment = apply_spec_augment
@@ -148,7 +129,28 @@ class HuggingFaceWav2Vec2(nn.Module):
             if self.freeze_feature_extractor:
                 self.model.feature_extractor._freeze_parameters()
 
-    def _load_sb_pretrained_w2v2_parameters(self, ckpt_file):
+    def _from_pretrained(self, source, config, model, save_path):
+        """This function manages the source checking and loading of the params.
+        # 1. Is the model from HF or a local path
+        # 2. Is the model pretrained with HF or SpeechBrain
+        # 3. Download (if appropriate) and load with respect to 1. and 2.
+        """
+
+        is_sb, ckpt_file = self.check_model_source(source)
+        if is_sb:
+            config = config.from_pretrained(source, cache_dir=save_path)
+            self.model = model(config)
+            self.model.gradient_checkpointing_disable()  # Required by DDP
+            # fetch the checkpoint file
+            ckpt_full_path = fetch(
+                filename=ckpt_file, source=source, savedir=save_path
+            )
+            # We transfer the parameters from the checkpoint.
+            self._load_sb_pretrained_w2v2_parameters(ckpt_full_path)
+        else:
+            self.model = model.from_pretrained(source, cache_dir=save_path)
+
+    def _load_sb_pretrained_w2v2_parameters(self, path):
         """Loads the parameter of a w2v2 model pretrained with SpeechBrain and the
         HuggingFaceWav2Vec2Pretrain Object. It is necessary to perform a custom
         loading because HuggingFace adds a level to the checkpoint when storing
@@ -161,11 +163,12 @@ class HuggingFaceWav2Vec2(nn.Module):
         """
 
         modified_state_dict = {}
-        orig_state_dict = torch.load(ckpt_file, map_location="cpu")
+        orig_state_dict = torch.load(path, map_location="cpu")
 
         # We remove the .wav2vec2 in the state dict.
         for key, params in orig_state_dict.items():
-            save_key = key.replace("wav2vec2.", "")
+            if "wav2vec2." in key:
+                save_key = key.replace("wav2vec2.", "")
             modified_state_dict[save_key] = params
 
         incompatible_keys = self.model.load_state_dict(
@@ -174,7 +177,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         for missing_key in incompatible_keys.missing_keys:
             logger.warning(
                 f"During parameter transfer to {self.model} loading from "
-                + f"{ckpt_file}, the transferred parameters did not have "
+                + f"{path}, the transferred parameters did not have "
                 + f"parameters for the key: {missing_key}"
             )
         for unexpected_key in incompatible_keys.unexpected_keys:
@@ -182,6 +185,52 @@ class HuggingFaceWav2Vec2(nn.Module):
                 f"The param with the key: {unexpected_key} is discarded as it "
                 + "is useless for wav2vec 2.0 finetuning."
             )
+
+    def _check_model_source(self, path):
+        """Checks if the pretrained model has been trained with SpeechBrain and
+        is hosted locally or on a HuggingFace hub.
+        """
+        checkpoint_filename = ""
+        source = pathlib.Path(path)
+        is_local = True
+        is_sb = True
+
+        # If path is a huggingface hub.
+        if not source.exists():
+            is_local = False
+
+        if is_local:
+            # Test for HuggingFace model
+            if any(File.endswith(".bin") for File in os.listdir(path)):
+                is_sb = False
+                return is_sb, checkpoint_filename
+
+            # Test for SpeechBrain model and get the filename.
+            for File in os.listdir(path):
+                if File.endswith(".ckpt"):
+                    checkpoint_filename = os.path.join(path, File)
+                    is_sb = True
+                    return is_sb, checkpoint_filename
+        else:
+            files = model_info(
+                path
+            ).siblings  # get the list of files of the Hub
+
+            # Test if it's an HuggingFace model or a SB one
+            for File in files.rfilename:
+                if File.endswith(".ckpt"):
+                    checkpoint_filename = path / File
+                    is_sb = True
+                    return is_sb, checkpoint_filename
+
+            for File in files.rfilename:
+                if File.endswith(".bin"):
+                    checkpoint_filename = path / File
+                    is_sb = False
+                    return is_sb, checkpoint_filename
+
+        err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
+        raise FileNotFoundError(err_msg)
 
     def forward(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.
@@ -219,28 +268,6 @@ class HuggingFaceWav2Vec2(nn.Module):
             out = F.layer_norm(out, out.shape)
 
         return out
-
-    def check_model_source(self, path):
-        """Checks if the pretrained model has been trained with SpeechBrain.
-        """
-        checkpoint_filename = ""
-        source = pathlib.Path(path)
-
-        # If path isn't a path but a HuggingFace repository, return.
-        if not source.exists():
-            return False, checkpoint_filename
-
-        # Test for HuggingFace model
-        if any(File.endswith(".bin") for File in os.listdir(path)):
-            return False, checkpoint_filename
-
-        # Test for SpeechBrain model and get the filename.
-        for File in os.listdir(path):
-            if File.endswith(".ckpt"):
-                checkpoint_filename = os.path.join(path, File)
-                return True, checkpoint_filename
-
-        return False, checkpoint_filename
 
 
 class HuggingFaceWav2Vec2Pretrain(nn.Module):
