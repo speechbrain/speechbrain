@@ -42,13 +42,6 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 |SpeedAugment | |
 |DynamicMixing | 11.2|
 
-# Pretrained Models:
-Pretrained models for SepFormer on Aishell1Mix2, Aishell1Mix3, and WHAM! datasets can be found through huggingface:
-* https://huggingface.co/speechbrain/sepformer-aishell1mix2
-* https://huggingface.co/speechbrain/sepformer-aishell1mix3
-
-
-You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-wsj02mix).
 
 # Example calls for running the training scripts
 
