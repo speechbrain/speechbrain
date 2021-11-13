@@ -132,9 +132,13 @@ class AddNoise(torch.nn.Module):
         SNR = torch.rand(len(waveforms), 1, device=waveforms.device)
         SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
         noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
-        new_noise_amplitude = noise_amplitude_factor * clean_amplitude
+
+        # Support for multichannel waveforms
+        if len(noisy_waveform.shape) == 3:
+            noise_amplitude_factor = noise_amplitude_factor.unsqueeze(1)
 
         # Scale clean signal appropriately
+        new_noise_amplitude = noise_amplitude_factor * clean_amplitude
         noisy_waveform *= 1 - noise_amplitude_factor
 
         # Loop through clean samples and create mixture
@@ -144,7 +148,7 @@ class AddNoise(torch.nn.Module):
         else:
             tensor_length = waveforms.shape[1]
             noise_waveform, noise_length = self._load_noise(
-                lengths, tensor_length,
+                lengths, tensor_length
             )
 
             # Rescale and add
@@ -431,9 +435,7 @@ class SpeedPerturb(torch.nn.Module):
     torch.Size([1, 46956])
     """
 
-    def __init__(
-        self, orig_freq, speeds=[90, 100, 110], perturb_prob=1.0,
-    ):
+    def __init__(self, orig_freq, speeds=[90, 100, 110], perturb_prob=1.0):
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
@@ -506,9 +508,7 @@ class Resample(torch.nn.Module):
     torch.Size([1, 26087])
     """
 
-    def __init__(
-        self, orig_freq=16000, new_freq=16000, lowpass_filter_width=6,
-    ):
+    def __init__(self, orig_freq=16000, new_freq=16000, lowpass_filter_width=6):
         super().__init__()
         self.orig_freq = orig_freq
         self.new_freq = new_freq
@@ -606,8 +606,7 @@ class Resample(torch.nn.Module):
         window_size = self.weights.size(1)
         tot_output_samp = self._output_samples(wave_len)
         resampled_waveform = torch.zeros(
-            (batch_size, num_channels, tot_output_samp),
-            device=waveforms.device,
+            (batch_size, num_channels, tot_output_samp), device=waveforms.device
         )
         self.weights = self.weights.to(waveforms.device)
 
@@ -741,7 +740,7 @@ class Resample(torch.nn.Module):
 
         assert lowpass_cutoff < min(self.orig_freq, self.new_freq) / 2
         output_t = torch.arange(
-            start=0.0, end=self.output_samples, device=waveforms.device,
+            start=0.0, end=self.output_samples, device=waveforms.device
         )
         output_t /= self.new_freq
         min_t = output_t - window_width
@@ -816,9 +815,7 @@ class AddBabble(torch.nn.Module):
     >>> noisy = babbler(speech, lengths)
     """
 
-    def __init__(
-        self, speaker_count=3, snr_low=0, snr_high=0, mix_prob=1,
-    ):
+    def __init__(self, speaker_count=3, snr_low=0, snr_high=0, mix_prob=1):
         super().__init__()
         self.speaker_count = speaker_count
         self.snr_low = snr_low
@@ -946,7 +943,7 @@ class DropFreq(torch.nn.Module):
 
         # Pick number of frequencies to drop
         drop_count = torch.randint(
-            low=self.drop_count_low, high=self.drop_count_high + 1, size=(1,),
+            low=self.drop_count_low, high=self.drop_count_high + 1, size=(1,)
         )
 
         # Pick a frequency to drop
@@ -966,12 +963,25 @@ class DropFreq(torch.nn.Module):
         # Subtract each frequency
         for frequency in drop_frequency:
             notch_kernel = notch_filter(
-                frequency, filter_length, self.drop_width,
+                frequency, filter_length, self.drop_width
             ).to(waveforms.device)
             drop_filter = convolve1d(drop_filter, notch_kernel, pad)
 
+        # Manage multiple channels
+        if len(waveforms.shape) == 3:
+            dropped_waveform = dropped_waveform.reshape(
+                dropped_waveform.shape[0] * dropped_waveform.shape[2],
+                dropped_waveform.shape[1],
+                1,
+            )
+
         # Apply filter
         dropped_waveform = convolve1d(dropped_waveform, drop_filter, pad)
+
+        if len(waveforms.shape) == 3:
+            dropped_waveform = dropped_waveform.reshape(
+                waveforms.shape[0], waveforms.shape[1], waveforms.shape[2]
+            )
 
         # Remove channels dimension if added
         return dropped_waveform.squeeze(-1)
@@ -1118,7 +1128,7 @@ class DropChunk(torch.nn.Module):
 
             # Pick starting locations
             start = torch.randint(
-                low=start_min, high=start_max + 1, size=(drop_times[i],),
+                low=start_min, high=start_max + 1, size=(drop_times[i],)
             )
 
             end = start + length
@@ -1163,9 +1173,7 @@ class DoClip(torch.nn.Module):
     '0.01'
     """
 
-    def __init__(
-        self, clip_low=0.5, clip_high=1, clip_prob=1,
-    ):
+    def __init__(self, clip_low=0.5, clip_high=1, clip_prob=1):
         super().__init__()
         self.clip_low = clip_low
         self.clip_high = clip_high
@@ -1189,9 +1197,210 @@ class DoClip(torch.nn.Module):
 
         # Randomly select clip value
         clipping_range = self.clip_high - self.clip_low
-        clip_value = torch.rand(1,)[0] * clipping_range + self.clip_low
+        clip_value = torch.rand(1)[0] * clipping_range + self.clip_low
 
         # Apply clipping
         clipped_waveform = waveforms.clamp(-clip_value, clip_value)
 
         return clipped_waveform
+
+
+class RandAmp(torch.nn.Module):
+    """This function multiples the signal by a random amplitude
+
+    Arguments
+    ---------
+    amp_low : float
+        The minumum amplitude multiplication factor.
+    amp_high : float
+        The maximum amplitude multiplication factor.
+
+    Example
+    -------
+    >>> from speechbrain.dataio.dataio import read_audio
+    >>> rand_amp = RandAmp(amp_low=0.25, amp_high=1.75)
+    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> output_signal = rand_amp(signal.unsqueeze(0))
+    """
+
+    def __init__(self, amp_low=0.5, amp_high=1.5):
+        super().__init__()
+        self.amp_low = amp_low
+        self.amp_high = amp_high
+
+    def forward(self, waveforms):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+
+        # Pick a frequency to drop
+        rand_range = self.amp_high - self.amp_low
+        amp = (
+            torch.rand(waveforms.shape[0], device=waveforms.device) * rand_range
+            + self.amp_low
+        )
+        amp = amp.unsqueeze(1)
+        if len(waveforms.shape) == 3:
+            amp = amp.unsqueeze(2)
+        waveforms = waveforms * amp
+
+        return waveforms
+
+
+class ChannelDrop(torch.nn.Module):
+    """This function drops random channels in the multi-channel nput waveform.
+
+    Arguments
+    ---------
+    drop_rate : float
+        The channel droput factor
+
+    Example
+    -------
+    >>> signal = torch.rand(4, 256, 8)
+    >>> ch_drop = ChannelDrop(drop_rate=0.5)
+    >>> output_signal = ch_drop(signal)
+    """
+
+    def __init__(self, drop_rate=0.1):
+        super().__init__()
+        self.drop_rate = drop_rate
+
+    def forward(self, waveforms):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+
+        # Pick a frequency to drop
+        waveforms = waveforms.detach().clone()
+        x = torch.rand(waveforms.shape[-1], device=waveforms.device)
+        channel_mask = x.ge(self.drop_rate)
+        waveforms = waveforms * channel_mask.unsqueeze(0).unsqueeze(1)
+        return waveforms
+
+
+class ChannelSwap(torch.nn.Module):
+    """This function randomly swaps N channels.
+
+    Arguments
+    ---------
+    min_swap : int
+        The mininum number of channels to swap.
+    max_swap : int
+        The maximum number of channels to swap.
+
+    Example
+    -------
+    >>> signal = torch.rand(4, 256, 8)
+    >>> ch_swap = ChannelSwap()
+    >>> output_signal = ch_swap(signal)
+    """
+
+    def __init__(self, min_swap=0, max_swap=0):
+        super().__init__()
+        self.min_swap = min_swap
+        self.max_swap = max_swap
+
+        # Check arguments
+        if self.min_swap < 0:
+            raise ValueError("min_swap must be  >= 0.")
+        if self.max_swap < 0:
+            raise ValueError("max_swap must be  >= 0.")
+        if self.max_swap < self.min_swap:
+            raise ValueError("max_swap must be  >= min_swap")
+
+    def forward(self, waveforms):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+
+        # Pick a frequency to drop
+        waveforms = waveforms.detach().clone()
+        rand_perm1 = torch.randperm(waveforms.shape[-1])
+        rand_perm2 = torch.randperm(waveforms.shape[-1])
+        N_swaps = torch.randint(
+            low=self.min_swap, high=self.max_swap + 1, size=(1,)
+        )
+
+        if N_swaps < waveforms.shape[-1]:
+            for i in range(N_swaps):
+                store_channel = waveforms[:, :, rand_perm2[i]]
+                waveforms[:, :, rand_perm2[i]] = waveforms[:, :, rand_perm1[i]]
+                waveforms[:, :, rand_perm1[i]] = store_channel
+        else:
+            # Full swap
+            waveforms = waveforms[:, :, rand_perm1]
+
+        return waveforms
+
+
+class RandomShift(torch.nn.Module):
+    """This function shifts the input tensor by a random amount. Depending
+    on the axis it can perform time pr channel shift.
+
+    Arguments
+    ---------
+    min_shift : int
+        The mininum channel shift.
+    max_shift : int
+        The maximum channel shift.
+    dim: int
+        The dimension to shift.
+
+    Example
+    -------
+    >>> signal = torch.rand(4, 256, 8)
+    >>> rand_shift =  RandomShift()
+    >>> output_signal = rand_shift(signal)
+    """
+
+    def __init__(self, min_shift=0, max_shift=0, dim=1):
+        super().__init__()
+        self.min_shift = min_shift
+        self.max_shift = max_shift
+        self.dim = dim
+
+        # Check arguments
+        if self.max_shift < self.min_shift:
+            raise ValueError("max_shift must be  >= min_shift")
+
+    def forward(self, waveforms):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+
+        # Pick a frequency to drop
+        waveforms = waveforms.detach().clone()
+        N_shifts = torch.randint(
+            low=self.min_shift, high=self.max_shift + 1, size=(1,)
+        )
+        waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
+        return waveforms

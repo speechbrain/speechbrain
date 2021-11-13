@@ -52,6 +52,9 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
             out = torch.mean(torch.abs(waveforms), dim=1, keepdim=True)
         else:
             wav_sum = torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True)
+            # Manage multi-channel waveforms
+            if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
+                lengths = lengths.unsqueeze(2)
             out = wav_sum / lengths
     elif amp_type == "peak":
         out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
@@ -218,7 +221,7 @@ def convolve1d(
     # Padding can be a tuple (left_pad, right_pad) or an int
     if isinstance(padding, tuple):
         waveform = torch.nn.functional.pad(
-            input=waveform, pad=padding, mode=pad_type,
+            input=waveform, pad=padding, mode=pad_type
         )
 
     # This approach uses FFT, which is more efficient if the kernel is large

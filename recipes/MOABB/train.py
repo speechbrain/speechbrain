@@ -50,6 +50,11 @@ class MOABBBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the model output."
         inputs = batch[0].to(self.device)
+        print(inputs.shape)
+        torch.save(inputs, "example.pt")
+        import sys
+
+        sys.exit(0)
         return self.modules.model(inputs)
 
     def compute_objectives(self, predictions, batch, stage):
@@ -128,7 +133,10 @@ class MOABBBrain(sb.Brain):
                     self.best_eval_stats,
                     keys=self.hparams.test_keys,
                 )
-                is_last = epoch > self.hparams.number_of_epochs - self.hparams.avg_models
+                is_last = (
+                    epoch
+                    > self.hparams.number_of_epochs - self.hparams.avg_models
+                )
 
                 # Check if we have to save the model
                 if self.hparams.test_with == "last" and is_last:
@@ -281,10 +289,8 @@ def run_experiment(hparams, run_opts, datasets):
         results[key]["cm"] = test_cm
     # saving metrics on the test set in a pickle file
     metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
-    with open(metrics_fpath, "wb",) as handle:
-        pickle.dump(
-            results[key], handle, protocol=pickle.HIGHEST_PROTOCOL,
-        )
+    with open(metrics_fpath, "wb") as handle:
+        pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def run_single_process(argv, tail_path, datasets):
