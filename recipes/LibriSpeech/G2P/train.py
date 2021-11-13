@@ -43,7 +43,9 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import (
 from speechbrain.dataio.wer import print_alignments
 from speechbrain.wordemb.util import expand_to_chars
 from io import StringIO
+from speechbrain.utils import hpfit as hp
 import numpy as np
+
 
 
 G2PPredictions = namedtuple(
@@ -368,13 +370,14 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 else:
                     ckpt_meta = {"PER": per}
                     min_keys = ["PER"]
+                hp.report_result(stats["valid_stats"])
 
             stats = self._add_stats_prefix(stats)
             self.hparams.train_logger.log_stats(**stats)
             if self.hparams.use_tensorboard:
                 self.hparams.tensorboard_train_logger.log_stats(**stats)
                 self.save_samples()
-            if epoch % self.ckpt_frequency == 0:
+            if self.hparams.ckpt_enable and epoch % self.ckpt_frequency == 0:
                 self.checkpointer.save_and_keep_only(
                     meta=ckpt_meta, min_keys=min_keys, ckpt_predicate=ckpt_predicate
                 )
@@ -751,107 +754,108 @@ def check_tensorboard(hparams):
 
 if __name__ == "__main__":
     # CLI:
-    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    with hp.hyperparameter_fitting(objective_key="PER") as hp_ctx:
+        hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
 
-    # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+        # Load hyperparameters file with command-line overrides
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin, overrides)
 
-    # Initialize ddp (useful only for multi-GPU DDP training)
-    sb.utils.distributed.ddp_init_group(run_opts)
+        # Initialize ddp (useful only for multi-GPU DDP training)
+        sb.utils.distributed.ddp_init_group(run_opts)
 
-    check_language_model(hparams, run_opts)
-    check_tensorboard(hparams)
+        check_language_model(hparams, run_opts)
+        check_tensorboard(hparams)
 
-    from librispeech_prepare import prepare_librispeech  # noqa
-    from tokenizer_prepare import prepare_tokenizer  # noqa
+        from librispeech_prepare import prepare_librispeech  # noqa
+        from tokenizer_prepare import prepare_tokenizer  # noqa
 
-    # Create experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["output_folder"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
-    if hparams["build_lexicon"]:
-        # multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_librispeech,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["save_folder"],
-                "create_lexicon": True,
-                "skip_prep": hparams["skip_prep"],
-                "select_n_sentences": hparams.get("select_n_sentences"),
-            },
+        # Create experiment directory
+        sb.create_experiment_directory(
+            experiment_directory=hparams["output_folder"],
+            hyperparams_to_save=hparams_file,
+            overrides=overrides,
         )
-    if hparams.get("char_tokenize") or hparams.get("phn_tokenize"):
-        path_keys = [
-            "grapheme_tokenizer_output_folder",
-            "phoneme_tokenizer_output_folder",
-        ]
-        paths = [hparams[key] for key in path_keys]
-        for path in paths:
-            if not os.path.exists(path):
-                os.makedirs(path)
-        run_on_main(
-            prepare_tokenizer,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["save_folder"],
-                "phonemes": hparams["phonemes"],
-            },
-        )
-    for train_step in hparams["train_steps"]:
-        epochs = train_step["epoch_counter"].limit
-        if epochs < 1:
-            print(f"Skipping training step: {train_step['name']}")
-            continue
-        print(f"Running training step: {train_step['name']}")
-        # Dataset IO prep: creating Dataset objects and proper encodings for phones
-        train_data, valid_data, test_data, phoneme_encoder = dataio_prep(
-            hparams, train_step
-        )
+        if hparams["build_lexicon"]:
+            # multi-gpu (ddp) save data preparation
+            run_on_main(
+                prepare_librispeech,
+                kwargs={
+                    "data_folder": hparams["data_folder"],
+                    "save_folder": hparams["save_folder"],
+                    "create_lexicon": True,
+                    "skip_prep": hparams["skip_prep"],
+                    "select_n_sentences": hparams.get("select_n_sentences"),
+                },
+            )
+        if hparams.get("char_tokenize") or hparams.get("phn_tokenize"):
+            path_keys = [
+                "grapheme_tokenizer_output_folder",
+                "phoneme_tokenizer_output_folder",
+            ]
+            paths = [hparams[key] for key in path_keys]
+            for path in paths:
+                if not os.path.exists(path):
+                    os.makedirs(path)
+            run_on_main(
+                prepare_tokenizer,
+                kwargs={
+                    "data_folder": hparams["data_folder"],
+                    "save_folder": hparams["save_folder"],
+                    "phonemes": hparams["phonemes"],
+                },
+            )
+        for train_step in hparams["train_steps"]:
+            epochs = train_step["epoch_counter"].limit
+            if epochs < 1:
+                print(f"Skipping training step: {train_step['name']}")
+                continue
+            print(f"Running training step: {train_step['name']}")
+            # Dataset IO prep: creating Dataset objects and proper encodings for phones
+            train_data, valid_data, test_data, phoneme_encoder = dataio_prep(
+                hparams, train_step
+            )
 
-        # Trainer initialization
-        g2p_brain = G2PBrain(
-            train_step_name=train_step["name"],
-            modules=hparams["modules"],
-            opt_class=hparams["opt_class"],
-            hparams=hparams,
-            run_opts=run_opts,
-            checkpointer=hparams["checkpointer"],
-        )
-        g2p_brain.phoneme_encoder = phoneme_encoder
+            # Trainer initialization
+            g2p_brain = G2PBrain(
+                train_step_name=train_step["name"],
+                modules=hparams["modules"],
+                opt_class=hparams["opt_class"],
+                hparams=hparams,
+                run_opts=run_opts,
+                checkpointer=hparams["checkpointer"],
+            )
+            g2p_brain.phoneme_encoder = phoneme_encoder
 
-        # NOTE: This gets modified after the first run and causes a double
-        # agument issue
-        dataloader_opts = train_step.get(
-            "dataloader_opts", hparams.get("dataloader_opts", {})
-        )
-        if (
-            "ckpt_prefix" in dataloader_opts
-            and dataloader_opts["ckpt_prefix"] is None
-        ):
-            del dataloader_opts["ckpt_prefix"]
+            # NOTE: This gets modified after the first run and causes a double
+            # agument issue
+            dataloader_opts = train_step.get(
+                "dataloader_opts", hparams.get("dataloader_opts", {})
+            )
+            if (
+                "ckpt_prefix" in dataloader_opts
+                and dataloader_opts["ckpt_prefix"] is None
+            ):
+                del dataloader_opts["ckpt_prefix"]
 
-        train_dataloader_opts = dataloader_opts
-        if train_step.get("balance"):
-            sampler = BalancingDataSampler(train_data, train_step["balance_on"])
-            train_dataloader_opts = dict(dataloader_opts, sampler=sampler)
+            train_dataloader_opts = dataloader_opts
+            if train_step.get("balance"):
+                sampler = BalancingDataSampler(train_data, train_step["balance_on"])
+                train_dataloader_opts = dict(dataloader_opts, sampler=sampler)
 
-        # Training/validation loop
-        g2p_brain.fit(
-            train_step["epoch_counter"],
-            train_data,
-            valid_data,
-            train_loader_kwargs=train_dataloader_opts,
-            valid_loader_kwargs=dataloader_opts,
-        )
+            # Training/validation loop
+            g2p_brain.fit(
+                train_step["epoch_counter"],
+                train_data,
+                valid_data,
+                train_loader_kwargs=train_dataloader_opts,
+                valid_loader_kwargs=dataloader_opts,
+            )
 
-        # Test
-        g2p_brain.evaluate(
-            test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
-        )
+            # Test
+            g2p_brain.evaluate(
+                test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
+            )
 
-        if hparams.get("save_for_pretrained"):
-            g2p_brain.save_for_pretrained()
+            if hparams.get("save_for_pretrained"):
+                g2p_brain.save_for_pretrained()
