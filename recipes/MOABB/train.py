@@ -50,16 +50,25 @@ class MOABBBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the model output."
         inputs = batch[0].to(self.device)
-        print(inputs.shape)
-        torch.save(inputs, "example.pt")
-        import sys
 
-        sys.exit(0)
+        # Perform data augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
+            inputs, _ = self.hparams.augment(
+                inputs.squeeze(3),
+                lengths=torch.ones(inputs.shape[0], device=self.device),
+            )
+            inputs = inputs.unsqueeze(3)
+
         return self.modules.model(inputs)
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computes the loss."
         targets = batch[1].to(self.device)
+
+        # Target augmentation
+        N_augments = int(predictions.shape[0] / targets.shape[0])
+        targets = torch.cat(N_augments * [targets], dim=0)
+
         loss = self.hparams.loss(
             predictions,
             targets,

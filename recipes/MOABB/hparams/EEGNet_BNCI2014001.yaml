@@ -99,6 +99,30 @@ data_iterators: [!ref <within_session_it>,
                  !ref <leave_one_subject_out_it>,
 ]
 
+# DATA AUGMENTATION
+#channel_dropper: !new:speechbrain.processing.speech_augmentation.ChannelDrop
+#    drop_rate: 0.1
+      
+#chunk_dropper: !new:speechbrain.processing.speech_augmentation.DropChunk
+#    drop_length_low: 10
+#    drop_length_high: 30
+#    drop_count_low: 1
+#    drop_count_high: 3
+#    drop_start: 0
+#    drop_prob: 1
+#    noise_factor: 0.0
+
+#augment: !new:speechbrain.processing.augmentation.Augmenter
+#    parallel_augment: False
+#    concat_original: True
+#    min_augmentations: 1
+#    max_augmentations: 2
+#    repeat_augment: 1
+#    shuffle_augmentations: False
+#    chunk_dropper: !ref <chunk_dropper>
+#    channel_dropper: !ref <channel_dropper>
+    
+    
 # MODEL: EEGNET
 input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels: 8  # number of temporal filters in the temporal conv. layer
