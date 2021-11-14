@@ -42,7 +42,7 @@ def test_istft():
     compute_istft = ISTFT(sample_rate=fs)
     out = compute_istft(compute_stft(inp), sig_length=16000)
 
-    assert torch.sum(torch.abs(inp - out) < 1e-6) >= inp.numel() - 5
+    assert torch.sum(torch.abs(inp - out) < 5e-5) >= inp.numel() - 5
 
     assert torch.jit.trace(compute_stft, inp)
     assert torch.jit.trace(compute_istft, compute_stft(inp))
@@ -75,8 +75,8 @@ def test_filterbank():
     fbank1 = compute_fbanks(input1)
     fbank2 = compute_fbanks(input2)
     fbank3 = compute_fbanks(input3)
-    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < 5e-05
-    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < 5e-05
+    assert torch.sum(torch.abs(fbank1[0] - fbank3[0])) < 8e-05
+    assert torch.sum(torch.abs(fbank2[0] - fbank3[1])) < 8e-05
 
 
 def test_dtc():

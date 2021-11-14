@@ -336,3 +336,48 @@ def test_checkpoint_hook_register(tmpdir):
                 del end_of_epoch  # Unused
                 with open(path) as fi:
                     self.param = int(fi.read())
+
+
+def test_torch_defaults(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+
+    module = torch.nn.Linear(10, 10)
+    optimizer = torch.optim.Adam(module.parameters())
+    lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
+        optimizer, 0.1, 1.0, cycle_momentum=False
+    )
+    # ReduceLROnPlateau is on an _LRScheduler for some reason, so have a separate test for it
+    another_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    checkpointer = Checkpointer(
+        tmpdir,
+        recoverables={
+            "module": module,
+            "optimizer": optimizer,
+            "scheduler": lr_scheduler,
+            "scheduler2": another_scheduler,
+        },
+    )
+    ckpt = checkpointer.save_checkpoint()
+    # test the module:
+    inp = torch.randn((3, 10))
+    prev_output = module(inp)
+
+    # Re-initialize everything
+    module = torch.nn.Linear(10, 10)
+    optimizer = torch.optim.Adam(module.parameters())
+    lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
+        optimizer, 0.1, 1.0, cycle_momentum=False
+    )
+    another_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    checkpointer = Checkpointer(
+        tmpdir,
+        recoverables={
+            "module": module,
+            "optimizer": optimizer,
+            "scheduler": lr_scheduler,
+            "scheduler2": another_scheduler,
+        },
+    )
+    checkpointer.load_checkpoint(ckpt)
+    assert torch.allclose(module(inp), prev_output)
