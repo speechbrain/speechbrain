@@ -20,6 +20,8 @@ from torch.utils.data import (
 import numpy as np
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
+from scipy.stats import lognorm
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -410,22 +412,27 @@ class DynamicBatchSampler(Sampler):
         self,
         dataset,
         max_batch_length: int,
-        left_bucket_length: int,
-        bucket_length_multiplier: float = 1.1,
+        num_quantiles: int = None,
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
         batch_ordering: str = "random",
+        max_batch_ex: int = None,
         bucket_boundaries: List[int] = [],
         lengths_list: List[int] = None,
         seed: int = 42,
         epoch: int = 0,
         reduce_padding_afterwards: bool = False,
-        num_quantiles: int = None,
         drop_last: bool = False,
     ):
         self._dataset = dataset
         self._ex_lengths = {}
         ex_ids = self._dataset.data_ids
+
+        if num_quantiles is None and len(bucket_boundaries) == 0:
+            raise RuntimeError(
+                "Please specify either num_quantiles or bucket boundaries. "
+                "Check the docs, and/or the tutorial !"
+            )
 
         if lengths_list is not None:
             # take length of examples from this argument and bypass length_key
@@ -452,21 +459,14 @@ class DynamicBatchSampler(Sampler):
                     "Bucket_boundaries should not contain duplicates."
                 )
 
-        if num_quantiles is not None:
+            self._bucket_boundaries = np.array(bucket_boundaries)
+        else:
+            # use num_quantiles
             self._bucket_boundaries = np.array(
                 self._get_boundaries_through_warping(
                     max_batch_length=max_batch_length,
                     bucket_boundaries=bucket_boundaries,
                     num_quantiles=num_quantiles,
-                )
-            )
-        else:
-            self._bucket_boundaries = np.array(
-                self._get_data_boundaries(
-                    max_batch_length=max_batch_length,
-                    bucket_boundaries=bucket_boundaries,
-                    left_bucket_length=left_bucket_length,
-                    bucket_length_multiplier=bucket_length_multiplier,
                 )
             )
 
@@ -476,6 +476,7 @@ class DynamicBatchSampler(Sampler):
         self._seed = seed
         self._reduce_padding_afterwards = reduce_padding_afterwards
         self._drop_last = drop_last
+        self._max_batch_ex = max_batch_ex
         # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
         self._bucket_lens = [
             max(1, int(max_batch_length / self._bucket_boundaries[i]))
@@ -531,10 +532,7 @@ class DynamicBatchSampler(Sampler):
                 num_quantiles / num_boundaries,
                 num_quantiles,
             )
-            # use lognormal distribution
-            from scipy.stats import lognorm
-
-            # get quantiles
+            # get quantiles using lognormal distribution
             quantiles = lognorm.ppf(latent_boundaries, 1)
             # scale up to to max_batch_length
             bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
@@ -582,8 +580,6 @@ class DynamicBatchSampler(Sampler):
 
     def _reduce_padding(self):
         # copy for rolling back a re-assignment when batch size exceed maximum
-        from copy import deepcopy
-
         # repeat twice - sometimes a fallback will cause non-depleted batches that could actually be depleted
         for cnt in range(2):
             # number of frames per batch
