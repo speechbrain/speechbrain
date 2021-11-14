@@ -32,8 +32,10 @@ def test_hpfit_orion():
     mock_orion = MockOrion()
 
     reporter = OrionHyperparameterFitReporter(
-        orion_client=mock_orion, objective_key="valid_loss"
+        objective_key="valid_loss"
     )
+    reporter.orion_client = mock_orion
+
     result = {"train_loss": 0.9, "valid_loss": 1.2, "per": 0.10}
     reporter.report_objective(result)
     assert results["value"] == pytest.approx(1.2)
@@ -49,7 +51,8 @@ def test_hpfit_context():
         objective_key="per", output=output
     )
 
-    with hp.hyperparameter_fitting(reporter):
+    with hp.hyperparameter_fitting() as hp_ctx:
+        hp_ctx.reporter = reporter
         result = {"per": 10, "loss": 1.2}
         hp.report_result(result)
 

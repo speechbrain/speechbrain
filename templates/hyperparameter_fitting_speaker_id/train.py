@@ -35,7 +35,6 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 from speechbrain.utils import hpfit as hp
 
 
-
 # Brain class for speech enhancement training
 class SpkIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
@@ -197,7 +196,9 @@ class SpkIdBrain(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints,
             if self.hparams.ckpt_enable:
-                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
+                self.checkpointer.save_and_keep_only(
+                    meta=stats, min_keys=["error"]
+                )
             hp.report_result(stats)
 
         # We also write statistics about test data to stdout and to the logfile.
