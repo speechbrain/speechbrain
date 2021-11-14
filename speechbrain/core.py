@@ -690,14 +690,13 @@ class Brain:
     def _train_loader_specifics(self, dataset, loader_kwargs):
         sampler = loader_kwargs.get("sampler", None)
         # Shuffling should really only matter for the train stage. Shuffling
-
         # will also lead to more padding in batches if the order was otherwise
         # sorted by length.
         shuffle = loader_kwargs.get("shuffle", False)
         if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both shuffle=True "
+                    "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
             sampler = ReproducibleRandomSampler(dataset)
@@ -717,22 +716,17 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     sampler,
                     rank=self.rank,
-                    # drop_last=drop_last,
-                    # shuffle=shuffle,
+                    drop_last=drop_last,
+                    shuffle=shuffle,
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
                 loader_kwargs["sampler"] = self.train_sampler
             elif loader_kwargs.get("batch_sampler") is None:
-                # Currently to get here, shuffle == False, so not passing it.
-                # Otherwise we'd have to handle deleting it (but it is already
-                # deleted).
+                # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset,
-                    rank=self.rank,
-                    shuffle=shuffle,
-                    drop_last=drop_last,
+                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
