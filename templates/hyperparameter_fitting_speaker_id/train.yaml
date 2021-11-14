@@ -39,7 +39,7 @@ error_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.classification_error
         reduction: batch
 
-ckpt_enable: true
+ckpt_enable: True
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Feature parameters
