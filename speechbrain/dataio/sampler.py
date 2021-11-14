@@ -416,7 +416,7 @@ class DynamicBatchSampler(Sampler):
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
         batch_ordering: str = "random",
-        max_batch_ex: int = None,
+        max_batch_ex: int = -1,
         bucket_boundaries: List[int] = [],
         lengths_list: List[int] = None,
         seed: int = 42,
@@ -428,6 +428,8 @@ class DynamicBatchSampler(Sampler):
         self._ex_lengths = {}
         ex_ids = self._dataset.data_ids
 
+        # We do not put a default on num_quantiles to encourage users to use this class only after checking
+        # the distribution of the lengths in their dataset.
         if num_quantiles is None and len(bucket_boundaries) == 0:
             raise RuntimeError(
                 "Please specify either num_quantiles or bucket boundaries. "
@@ -450,22 +452,25 @@ class DynamicBatchSampler(Sampler):
                 )
 
         if bucket_boundaries is not None:
-            if not all([x >= 1 for x in bucket_boundaries]):
+            if not all([x >= 0 for x in bucket_boundaries]):
                 raise ValueError(
-                    "All elements in bucket boundaries should be >= 1."
+                    "All elements in bucket boundaries should be non-negative (>= 0)."
                 )
             if not len(set(bucket_boundaries)) == len(bucket_boundaries):
                 raise ValueError(
                     "Bucket_boundaries should not contain duplicates."
                 )
-
-            self._bucket_boundaries = np.array(bucket_boundaries)
+            np.testing.assert_array_equal(
+                np.array(bucket_boundaries),
+                np.array(sorted(bucket_boundaries)),
+                err_msg="The arg bucket_boundaries should be an ascending sorted list of non negative values values!",
+            )
+            self._bucket_boundaries = np.array(sorted(bucket_boundaries))
         else:
             # use num_quantiles
             self._bucket_boundaries = np.array(
                 self._get_boundaries_through_warping(
                     max_batch_length=max_batch_length,
-                    bucket_boundaries=bucket_boundaries,
                     num_quantiles=num_quantiles,
                 )
             )
@@ -485,57 +490,26 @@ class DynamicBatchSampler(Sampler):
         self._epoch = epoch
         self._generate_batches()
 
-    def _get_data_boundaries(
-        self,
-        max_batch_length: int,
-        bucket_boundaries: List[int],
-        left_bucket_length: int,
-        bucket_length_multiplier: float,
-    ) -> List[int]:
-        if not bucket_boundaries:
-            if left_bucket_length <= 0:
-                raise ValueError(
-                    "left_bucket_length must be >0 if no bucket_boundaries set"
-                )
-            if bucket_length_multiplier < 1.0:
-                raise ValueError(
-                    "bucket_length_multiplier must be >1.0 if no bucket_boundaries set"
-                )
-            bucket_boundaries = {left_bucket_length}
-            bucket_boundary = float(left_bucket_length)
-            while True:
-                bucket_boundary *= bucket_length_multiplier
-                if bucket_boundary >= max_batch_length:
-                    break
-                bucket_boundaries.add(bucket_boundary)
-
-        return list(sorted(bucket_boundaries))
-
     def get_durations(self, batch):
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
-        self,
-        max_batch_length: int,
-        bucket_boundaries: List[int],
-        num_quantiles: int,
+        self, max_batch_length: int, num_quantiles: int,
     ) -> List[int]:
-        # the following lines do not cover that there is only one example in the dataset
-        if not bucket_boundaries:
-            # warp frames (duration) distribution of train data
-            logger.info("Batch quantisation in latent space")
-            # linspace set-up
-            num_boundaries = num_quantiles + 1
-            # create latent linearly equal spaced buckets
-            latent_boundaries = np.linspace(
-                1 / num_boundaries,
-                num_quantiles / num_boundaries,
-                num_quantiles,
-            )
-            # get quantiles using lognormal distribution
-            quantiles = lognorm.ppf(latent_boundaries, 1)
-            # scale up to to max_batch_length
-            bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
+
+        # NOTE: the following lines do not cover that there is only one example in the dataset
+        # warp frames (duration) distribution of train data
+        logger.info("Batch quantisation in latent space")
+        # linspace set-up
+        num_boundaries = num_quantiles + 1
+        # create latent linearly equal spaced buckets
+        latent_boundaries = np.linspace(
+            1 / num_boundaries, num_quantiles / num_boundaries, num_quantiles,
+        )
+        # get quantiles using lognormal distribution
+        quantiles = lognorm.ppf(latent_boundaries, 1)
+        # scale up to to max_batch_length
+        bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
         # compute resulting bucket length multipliers
         length_multipliers = [
             bucket_boundaries[x + 1] / bucket_boundaries[x]
@@ -675,7 +649,10 @@ class DynamicBatchSampler(Sampler):
             if self._reduce_padding_afterwards:
                 bucket_frames[bucket_id] += item_len
             # if full, put bucket to the end
-            if len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]:
+            if (
+                len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]
+                or len(bucket_batches[bucket_id]) <= self._max_batch_ex
+            ):
                 self._batches.append(bucket_batches[bucket_id])
                 bucket_batches[bucket_id] = []
                 # keep track of durations
