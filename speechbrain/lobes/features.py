@@ -131,20 +131,15 @@ class Fbank(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        with torch.no_grad():
-
-            STFT = self.compute_STFT(wav)
-            mag = spectral_magnitude(STFT)
-            fbanks = self.compute_fbanks(mag)
-
-            if self.deltas:
-                delta1 = self.compute_deltas(fbanks)
-                delta2 = self.compute_deltas(delta1)
-                fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
-
-            if self.context:
-                fbanks = self.context_window(fbanks)
-
+        STFT = self.compute_STFT(wav)
+        mag = spectral_magnitude(STFT)
+        fbanks = self.compute_fbanks(mag)
+        if self.deltas:
+            delta1 = self.compute_deltas(fbanks)
+            delta2 = self.compute_deltas(delta1)
+            fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
+        if self.context:
+            fbanks = self.context_window(fbanks)
         return fbanks
 
 
@@ -269,18 +264,14 @@ class MFCC(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        with torch.no_grad():
-            STFT = self.compute_STFT(wav)
-            mag = spectral_magnitude(STFT)
-            fbanks = self.compute_fbanks(mag)
-            mfccs = self.compute_dct(fbanks)
-
-            if self.deltas:
-                delta1 = self.compute_deltas(mfccs)
-                delta2 = self.compute_deltas(delta1)
-                mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
-
-            if self.context:
-                mfccs = self.context_window(mfccs)
-
+        STFT = self.compute_STFT(wav)
+        mag = spectral_magnitude(STFT)
+        fbanks = self.compute_fbanks(mag)
+        mfccs = self.compute_dct(fbanks)
+        if self.deltas:
+            delta1 = self.compute_deltas(mfccs)
+            delta2 = self.compute_deltas(delta1)
+            mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
+        if self.context:
+            mfccs = self.context_window(mfccs)
         return mfccs
