@@ -31,9 +31,7 @@ def test_hpfit_orion():
 
     mock_orion = MockOrion()
 
-    reporter = OrionHyperparameterFitReporter(
-        objective_key="valid_loss"
-    )
+    reporter = OrionHyperparameterFitReporter(objective_key="valid_loss")
     reporter.orion_client = mock_orion
 
     result = {"train_loss": 0.9, "valid_loss": 1.2, "per": 0.10}
