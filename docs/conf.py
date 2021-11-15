@@ -69,7 +69,7 @@ intersphinx_mapping = {
 autodoc_default_options = {}
 
 # Autodoc mock extra dependencies:
-autodoc_mock_imports = ["numba", "sklearn"]
+autodoc_mock_imports = ["numba", "sklearn", "ctc_segmentation"]
 
 # Order of API items:
 autodoc_member_order = "bysource"
