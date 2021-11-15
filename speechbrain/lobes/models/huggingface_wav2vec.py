@@ -344,17 +344,15 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         """
         batch_size, raw_sequence_length = wav.shape
 
-        if self.normalize_wav:
-            wav = F.layer_norm(wav, wav.shape)
+        # if self.normalize_wav:
+        #    wav = F.layer_norm(wav, wav.shape)
 
         # We must compute the masking before forward. This is used by the loss.
         sequence_length = self.model._get_feat_extract_output_lengths(
             raw_sequence_length
         )
         mask_time_indices = _compute_mask_indices(
-            (batch_size, sequence_length),
-            mask_prob=self.mask_prob,
-            mask_length=self.mask_length,
+            (batch_size, sequence_length), mask_prob=0.65, mask_length=10,
         )
         negative_sample_indices = torch.tensor(
             _sample_negative_indices(
@@ -363,10 +361,10 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
                 mask_time_indices=mask_time_indices,
             ),
             device=wav.device,
-            dtype=torch.bool,
+            dtype=torch.long,
         )
         mask_time_indices = torch.tensor(
-            mask_time_indices, device=wav.device, dtype=torch.bool,
+            mask_time_indices, device=wav.device, dtype=torch.long,
         )
 
         return (
