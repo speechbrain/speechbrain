@@ -9,6 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
 hpfit: false
+trial_id: null
 output_folder: !ref results/RNN/<seed>
 data_folder: /localscratch/librig2p
 save_folder: !ref <output_folder>/save
