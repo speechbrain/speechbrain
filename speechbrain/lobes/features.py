@@ -123,13 +123,16 @@ class Fbank(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    def forward(self, wav):
+    def forward(self, wav, lengths=None):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
         ---------
         wav : tensor
             A batch of audio signals to transform to features.
+        lengths: tensor
+            Relative length of each sentence in the batch
+            (e.g, [0.7, 0.9, 1.0]).
         """
         STFT = self.compute_STFT(wav)
         mag = spectral_magnitude(STFT)
@@ -256,13 +259,16 @@ class MFCC(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    def forward(self, wav):
+    def forward(self, wav, lengths=None):
         """Returns a set of mfccs generated from the input waveforms.
 
         Arguments
         ---------
         wav : tensor
             A batch of audio signals to transform to features.
+        lengths: tensor
+            Relative length of each sentence in the batch
+            (e.g, [0.7, 0.9, 1.0]).
         """
         STFT = self.compute_STFT(wav)
         mag = spectral_magnitude(STFT)

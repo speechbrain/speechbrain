@@ -98,7 +98,7 @@ class RNNLM(nn.Module):
             input_size=dnn_neurons, n_neurons=output_neurons
         )
 
-    def forward(self, x, hx=None):
+    def forward(self, x, hx=None, mask=None):
 
         x = self.embedding(x)
         x = self.dropout(x)
@@ -109,12 +109,15 @@ class RNNLM(nn.Module):
             x = x.unsqueeze(dim=1)
             self.reshape = True
 
-        x, hidden = self.rnn(x, hx)
+        (x, hidden), mask = self.rnn(x, hx, mask)
         x = self.dnn(x)
         out = self.out(x)
 
         if self.reshape:
             out = out.squeeze(dim=1)
+
+        if mask is not None:
+            out.masked_fill_(mask, 0.0)
 
         if self.return_hidden:
             return out, hidden

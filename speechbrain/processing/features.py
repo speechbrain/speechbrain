@@ -31,18 +31,20 @@ Example
 >>> features = norm(features, torch.tensor([1]).float())
 
 Authors
- * Mirco Ravanelli 2020
+ * Mirco Ravanelli 2020, 2021
 """
 import math
 import torch
 import logging
 from packaging import version
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
     mark_as_transfer,
     register_checkpoint_hooks,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +78,8 @@ class STFT(torch.nn.Module):
         t-th frame is centered at time t×hop_length. Otherwise, the t-th frame
         begins at time t×hop_length.
     pad_mode : str
-        It can be 'constant','reflect','replicate', 'circular', 'reflect'
-        (default). 'constant' pads the input tensor boundaries with a
+        It can be 'constant' (default),'reflect','replicate', 'circular', 'reflect'.
+        'constant' pads the input tensor boundaries with a
         constant value. 'reflect' pads the input tensor using the reflection
         of the input boundary. 'replicate' pads the input tensor using
         replication of the input boundary. 'circular' pads using  circular
@@ -130,13 +132,17 @@ class STFT(torch.nn.Module):
 
         self.window = window_fn(self.win_length)
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Returns the STFT generated from the input waveforms.
 
         Arguments
         ---------
         x : tensor
             A batch of audio signals to transform.
+        lengths: tensor
+            Relative length of each sentence in the batch
+            (e.g, [0.7, 0.9, 1.0]). It is used to mask the
+            extra-steps introduced by the STFT function.
         """
 
         # Managing multi-channel stft
@@ -184,6 +190,27 @@ class STFT(torch.nn.Module):
         else:
             # (batch, time, channels)
             stft = stft.transpose(2, 1)
+
+        if lengths is not None:
+
+            # This ensures that the STFT of a sentence is the same even if the
+            # STFT is computed in a batch with other sentences.
+            # For some reason, STFT of torch adds an extra non-zero time step
+            # at the end when doing a batch STFT. We here use wav_len to remove
+            # such an extra step. Please, for more details see:
+            # https://colab.research.google.com/drive/1xQizKw11EJiIRzBNGo95RR1VXC5NGMkM?usp=sharing
+
+            lengths_abs = (x.shape[1] * lengths).int()
+            mask_elem = torch.floor(lengths_abs / self.hop_length + 1).int()
+            mask = length_to_mask(
+                mask_elem, max_len=stft.shape[1], device=stft.device
+            )
+            mask = mask.unsqueeze(2).unsqueeze(3)
+
+            # Manage multi-channel inputs
+            if len(x.shape) == 5:
+                mask = mask.unsqueeze(4)
+            stft = stft * mask
 
         return stft
 
@@ -455,13 +482,10 @@ class Filterbank(torch.nn.Module):
 
         # Make sure f_min < f_max
         if self.f_min >= self.f_max:
-            err_msg = "Require f_min: %f < f_max: %f" % (
-                self.f_min,
-                self.f_max,
-            )
+            err_msg = "Require f_min: %f < f_max: %f" % (self.f_min, self.f_max)
             logger.error(err_msg, exc_info=True)
 
-        # Filter definition
+        # Filter definition (equally-spaced filters in the mel domain)
         mel = torch.linspace(
             self._to_mel(self.f_min), self._to_mel(self.f_max), self.n_mels + 2
         )
@@ -545,7 +569,13 @@ class Filterbank(torch.nn.Module):
             )
 
         # FBANK computation
+        # Note torch.matmul is not fully deterministic.
+        # There might be (very) minor differences when computing fbanks of a
+        # single sentence vs same sentence within a batch.
+        # For more info, see
+        # https://colab.research.google.com/drive/1lklKrRRYTKTXwMbFMh62biQokjmA95is?usp=sharing
         fbanks = torch.matmul(spectrogram, fbank_matrix)
+
         if self.log_mel:
             fbanks = self._amplitude_to_DB(fbanks)
 
@@ -585,6 +615,29 @@ class Filterbank(torch.nn.Module):
 
     def _triangular_filters(self, all_freqs, f_central, band):
         """Returns fbank matrix using triangular filters.
+
+        To compute the lines corresponding to the left and right parts of the
+        triangular filters you have to derive the line passing for two points.
+        For the left part of the triangular filter (positive slope), you have to
+        compute the equation of the line passing from these two points:
+
+        p1 = (f_central-band, 0)
+        p2 = (f_central, 1)
+
+        the "x" in this case is the all_freq variable.
+        The equation resulting is ((all_freqs - f_central) / band) + 1
+
+        Similarly, you can compute the left part of the triangular (negative slope)
+        by computing the line passing between these two points:
+
+        p1 = (f_central, 1)
+        p2 = (f_central + B, 0)
+
+        The resulting equation is  (-(all_freqs - f_central) / band) + 1
+
+        You then have to remove the negative parts of the lines and apply
+        min(left_side, right_side). The result is a triangular filter.
+
 
         Arguments
         ---------
@@ -737,9 +790,7 @@ class DCT(torch.nn.Module):
     torch.Size([10, 101, 20])
     """
 
-    def __init__(
-        self, input_size, n_out=20, ortho_norm=True,
-    ):
+    def __init__(self, input_size, n_out=20, ortho_norm=True):
         super().__init__()
 
         if n_out > input_size:
@@ -775,6 +826,11 @@ class DCT(torch.nn.Module):
             x = x.reshape(x.shape[0] * x.shape[3], x.shape[1], x.shape[2])
 
         # apply the DCT transform
+        # Note torch.matmul is not fully deterministic.
+        # There might be (very) minor differences when computing mfccs of a
+        # single sentence vs same sentence within a batch.
+        # For more info, see
+        # https://colab.research.google.com/drive/1lklKrRRYTKTXwMbFMh62biQokjmA95is?usp=sharing
         dct = torch.matmul(x, self.dct_mat.to(x.device))
 
         # Reshape in the case of multi-channels
@@ -803,27 +859,29 @@ class Deltas(torch.nn.Module):
     torch.Size([10, 101, 20])
     """
 
-    def __init__(
-        self, input_size, window_length=5,
-    ):
+    def __init__(self, input_size, window_length=5):
         super().__init__()
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
         self.register_buffer(
             "kernel",
-            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
+            torch.arange(-self.n, self.n + 1, dtype=torch.float32).repeat(
                 input_size, 1, 1
             ),
         )
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Returns the delta coefficients.
 
         Arguments
         ---------
         x : tensor
             A batch of tensors.
+        lengths: tensor
+            Tensor containing relative lengths of each sentence in the batch.
+            (e.g, [0.7, 0.9, 1.0]). It can be used here to avoid the extra
+            non-zero steps due to the convolution tail.
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
@@ -832,7 +890,7 @@ class Deltas(torch.nn.Module):
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1], or_shape[3])
 
         # Padding for time borders
-        x = torch.nn.functional.pad(x, (self.n, self.n), mode="replicate")
+        x = torch.nn.functional.pad(x, (self.n, self.n), mode="constant")
 
         # Derivative estimation (with a fixed convolutional kernel)
         delta_coeff = (
@@ -843,9 +901,26 @@ class Deltas(torch.nn.Module):
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
             delta_coeff = delta_coeff.reshape(
-                or_shape[0], or_shape[1], or_shape[2], or_shape[3],
+                or_shape[0], or_shape[1], or_shape[2], or_shape[3]
             )
         delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
+
+        if lengths is not None:
+            # This ensures that the delta coefficiets are the same even if the
+            # deltas are computed in a batch with other sentences.
+            # In particular, the length information  is used to remove the
+            # convolution tail.
+            len_abs = torch.round(delta_coeff.shape[1] * lengths).int()
+            mask = length_to_mask(
+                len_abs, max_len=delta_coeff.shape[1], device=delta_coeff.device
+            )
+            mask = mask.unsqueeze(2)
+
+            # Manage multi-channel inputs
+            if len(delta_coeff.shape) == 4:
+                mask = mask.unsqueeze(3)
+
+            delta_coeff = delta_coeff * mask
 
         return delta_coeff
 
@@ -874,9 +949,7 @@ class ContextWindow(torch.nn.Module):
     torch.Size([10, 101, 220])
     """
 
-    def __init__(
-        self, left_frames=0, right_frames=0,
-    ):
+    def __init__(self, left_frames=0, right_frames=0):
         super().__init__()
         self.left_frames = left_frames
         self.right_frames = right_frames
@@ -892,13 +965,17 @@ class ContextWindow(torch.nn.Module):
 
         self.first_call = True
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
         x : tensor
             A batch of tensors.
+        lengths: tensor
+            Tensor containing relative lengths of each sentence in the batch.
+            (e.g, [0.7, 0.9, 1.0]). It can be used here to avoid the extra
+            non-zero steps due to the convolution tail.
         """
 
         x = x.transpose(1, 2)
@@ -907,7 +984,7 @@ class ContextWindow(torch.nn.Module):
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
-                .view(x.shape[1] * self.context_len, self.kernel_len,)
+                .view(x.shape[1] * self.context_len, self.kernel_len)
                 .unsqueeze(1)
             )
 
@@ -932,6 +1009,22 @@ class ContextWindow(torch.nn.Module):
 
         cw_x = cw_x.transpose(1, 2)
 
+        if lengths is not None:
+            # This ensures that the contexts are the same even if the
+            # context are computed in a batch with other sentences.
+            # In particular, the length information  is used to remove the
+            # convolution tail.
+            len_abs = torch.round(cw_x.shape[1] * lengths).int()
+            mask = length_to_mask(
+                len_abs, max_len=cw_x.shape[1], device=cw_x.device
+            )
+            mask = mask.unsqueeze(2)
+
+            # Manage multi-channel inputs
+            if len(cw_x.shape) == 4:
+                mask = mask.unsqueeze(3)
+
+            cw_x = cw_x * mask
         return cw_x
 
 
@@ -947,13 +1040,9 @@ class InputNormalization(torch.nn.Module):
          If True, the standard deviation will be normalized.
     norm_type : str
          It defines how the statistics are computed ('sentence' computes them
-         at sentence level, 'batch' at batch level, 'speaker' at speaker
-         level, while global computes a single normalization vector for all
-         the sentences in the dataset). Speaker and global statistics are
-         computed with a moving average approach.
-    avg_factor : float
-         It can be used to manually set the weighting factor between
-         current statistics and accumulated ones.
+         at sentence level, while global computes a single normalization vector
+         for all the sentences in the dataset).
+         Speaker and global statistics are computed with a moving average approach.
 
     Example
     -------
@@ -966,36 +1055,17 @@ class InputNormalization(torch.nn.Module):
 
     from typing import Dict
 
-    spk_dict_mean: Dict[int, torch.Tensor]
-    spk_dict_std: Dict[int, torch.Tensor]
-    spk_dict_count: Dict[int, int]
-
-    def __init__(
-        self,
-        mean_norm=True,
-        std_norm=True,
-        norm_type="global",
-        avg_factor=None,
-        requires_grad=False,
-        update_until_epoch=3,
-    ):
+    def __init__(self, mean_norm=True, std_norm=True, norm_type="global"):
         super().__init__()
         self.mean_norm = mean_norm
         self.std_norm = std_norm
+        self.glob_mean = torch.Tensor([0])
+        self.glob_std = torch.Tensor([1])
         self.norm_type = norm_type
-        self.avg_factor = avg_factor
-        self.requires_grad = requires_grad
-        self.glob_mean = torch.tensor([0])
-        self.glob_std = torch.tensor([0])
-        self.spk_dict_mean = {}
-        self.spk_dict_std = {}
-        self.spk_dict_count = {}
-        self.weight = 1.0
         self.count = 0
         self.eps = 1e-10
-        self.update_until_epoch = update_until_epoch
 
-    def forward(self, x, lengths, spk_ids=torch.tensor([]), epoch=0):
+    def forward(self, x, lengths):
         """Returns the tensor with the surrounding context.
 
         Arguments
@@ -1006,129 +1076,119 @@ class InputNormalization(torch.nn.Module):
             A batch of tensors containing the relative length of each
             sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
             computing stats on zero-padded steps.
-        spk_ids : tensor containing the ids of each speaker (e.g, [0 10 6]).
-            It is used to perform per-speaker normalization when
-            norm_type='speaker'.
         """
-        N_batches = x.shape[0]
+        # NOTE (SLin): Assume x is single channel feature in the shape of (batch, time, fea)
+        # Avoiding padded time steps with masks
+        actual_lens = torch.round(lengths * x.shape[1]).int()
+        masks = length_to_mask(actual_lens, max_len=x.shape[1], device=x.device)
+        x = x * masks.unsqueeze(-1)
 
-        current_means = []
-        current_stds = []
+        # Compute current statistics
+        if self._require_current_stats():
+            current_means, current_stds = self._compute_current_stats(x, masks)
 
-        for snt_id in range(N_batches):
+        if self.norm_type == "sentence":
+            x = (x - current_means.unsqueeze(1)) / current_stds.unsqueeze(1)
 
-            # Avoiding padded time steps
-            actual_size = torch.round(lengths[snt_id] * x.shape[1]).int()
+        elif self.norm_type == "global":
 
-            # computing statistics
-            current_mean, current_std = self._compute_current_stats(
-                x[snt_id, 0:actual_size, ...]
-            )
+            # Perform Normalization
+            if self.count == 0:
+                self.glob_mean = torch.mean(current_means, dim=0)
+                self.glob_std = torch.mean(current_stds, dim=0)
 
-            current_means.append(current_mean)
-            current_stds.append(current_std)
+            x = (x - self.glob_mean.data) / (self.glob_std.data)
 
-            if self.norm_type == "sentence":
+            # Update statistics for the next training batch
+            if self.training:
+                # Average statistics within the batch
+                current_mean = torch.mean(current_means, dim=0)
+                current_std = torch.mean(current_stds, dim=0)
 
-                x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
+                # Update counter
+                self.count = self.count + x.shape[0]
 
-            if self.norm_type == "speaker":
+                # Update stats
+                weight = x.shape[0] / self.count
+                self.glob_mean = self._update_stats(
+                    self.glob_mean, current_mean, weight
+                )
+                self.glob_std = self._update_stats(
+                    self.glob_std, current_std, weight
+                )
 
-                spk_id = int(spk_ids[snt_id][0])
+                # Detach tensors (to avoid memory leak)
+                self.glob_mean = self.glob_mean.detach()
+                self.glob_std = self.glob_std.detach()
 
-                if spk_id not in self.spk_dict_mean:
+        else:
+            raise ValueError("norm_type must be one of : [sentence, global]")
 
-                    # Initialization of the dictionary
-                    self.spk_dict_mean[spk_id] = current_mean
-                    self.spk_dict_std[spk_id] = current_std
-                    self.spk_dict_count[spk_id] = 1
-
-                else:
-                    self.spk_dict_count[spk_id] = (
-                        self.spk_dict_count[spk_id] + 1
-                    )
-
-                    if self.avg_factor is None:
-                        self.weight = 1 / self.spk_dict_count[spk_id]
-                    else:
-                        self.weight = self.avg_factor
-
-                    self.spk_dict_mean[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_mean[spk_id] + self.weight * current_mean
-                    self.spk_dict_std[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_std[spk_id] + self.weight * current_std
-
-                    self.spk_dict_mean[spk_id].detach()
-                    self.spk_dict_std[spk_id].detach()
-
-                x[snt_id] = (
-                    x[snt_id] - self.spk_dict_mean[spk_id].data
-                ) / self.spk_dict_std[spk_id].data
-
-        if self.norm_type == "batch" or self.norm_type == "global":
-            current_mean = torch.mean(torch.stack(current_means), dim=0)
-            current_std = torch.mean(torch.stack(current_stds), dim=0)
-
-            if self.norm_type == "batch":
-                x = (x - current_mean.data) / (current_std.data)
-
-            if self.norm_type == "global":
-
-                if self.count == 0:
-                    self.glob_mean = current_mean
-                    self.glob_std = current_std
-
-                elif epoch < self.update_until_epoch:
-                    if self.avg_factor is None:
-                        self.weight = 1 / (self.count + 1)
-                    else:
-                        self.weight = self.avg_factor
-
-                    self.glob_mean = (
-                        1 - self.weight
-                    ) * self.glob_mean + self.weight * current_mean
-
-                    self.glob_std = (
-                        1 - self.weight
-                    ) * self.glob_std + self.weight * current_std
-
-                self.glob_mean.detach()
-                self.glob_std.detach()
-
-                x = (x - self.glob_mean.data) / (self.glob_std.data)
-
-        self.count = self.count + 1
+        # Mask padding part after normalization
+        x = masks.unsqueeze(-1) * x
 
         return x
 
-    def _compute_current_stats(self, x):
+    def _compute_current_stats(self, x, masks):
         """Returns the tensor with the surrounding context.
 
         Arguments
         ---------
         x : tensor
-            A batch of tensors.
+            A batch of tensors. (batch, time, fea).
+        masks : tensor
+            A batch of masks to block padding elements.
+
+        Returns
+        ---------
+        current_means : tensor
+            Means of inputs.
+        current_stds : tensor
+            Stds of inputs.
         """
+        batch = x.size(0)
+        fea_dim = x.size(-1)
+        num_nonpad = torch.sum(masks, dim=1).unsqueeze(-1)
+
         # Compute current mean
         if self.mean_norm:
-            current_mean = torch.mean(x, dim=0).detach().data
+            current_means = torch.sum(x, dim=1).detach() / num_nonpad
         else:
-            current_mean = torch.tensor([0.0], device=x.device)
+            current_means = torch.zeros(batch, fea_dim, device=x.device)
 
         # Compute current std
         if self.std_norm:
-            current_std = torch.std(x, dim=0).detach().data
+            current_vars = (
+                current_means ** 2 * num_nonpad
+                - 2 * current_means * torch.sum(x, dim=1).detach()
+                + torch.sum(x ** 2, dim=1).detach()
+            ) / (num_nonpad - 1)
+            current_stds = torch.sqrt(current_vars)
+
         else:
-            current_std = torch.tensor([1.0], device=x.device)
+            current_stds = torch.ones(batch, fea_dim, device=x.device)
 
         # Improving numerical stability of std
-        current_std = torch.max(
-            current_std, self.eps * torch.ones_like(current_std)
+        current_stds = torch.max(
+            current_stds, self.eps * torch.ones_like(current_stds)
         )
 
-        return current_mean, current_std
+        return current_means, current_stds
+
+    def _update_stats(self, norm_stats, current_stats, weight):
+        """Update normalization statistics from current statistics.
+        """
+        norm_stats = (1 - weight) * norm_stats + weight * current_stats
+
+        return norm_stats
+
+    def _require_current_stats(self):
+        """Checks if the computation of current statistics is required.
+        """
+        if self.norm_type == "global" and not self.training and self.count != 0:
+            return False
+
+        return True
 
     def _statistics_dict(self):
         """Fills the dictionary containing the normalization statistics.
@@ -1137,9 +1197,6 @@ class InputNormalization(torch.nn.Module):
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
         state["glob_std"] = self.glob_std
-        state["spk_dict_mean"] = self.spk_dict_mean
-        state["spk_dict_std"] = self.spk_dict_std
-        state["spk_dict_count"] = self.spk_dict_count
 
         return state
 
@@ -1158,23 +1215,6 @@ class InputNormalization(torch.nn.Module):
         else:
             self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
             self.glob_std = state["glob_std"]  # .to(self.device_inp)
-
-        # Loading the spk_dict_mean in the right device
-        self.spk_dict_mean = {}
-        for spk in state["spk_dict_mean"]:
-            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk].to(
-                self.device_inp
-            )
-
-        # Loading the spk_dict_std in the right device
-        self.spk_dict_std = {}
-        for spk in state["spk_dict_std"]:
-            self.spk_dict_std[spk] = state["spk_dict_std"][spk].to(
-                self.device_inp
-            )
-
-        self.spk_dict_count = state["spk_dict_count"]
-
         return state
 
     def to(self, device):
@@ -1183,9 +1223,6 @@ class InputNormalization(torch.nn.Module):
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)
-        for spk in self.spk_dict_mean:
-            self.spk_dict_mean[spk] = self.spk_dict_mean[spk].to(device)
-            self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
         return self
 
     @mark_as_saver

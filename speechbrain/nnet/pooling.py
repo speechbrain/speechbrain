@@ -41,8 +41,11 @@ class Pooling1d(nn.Module):
     -------
     >>> pool = Pooling1d('max',3)
     >>> inputs = torch.rand(10, 12, 40)
-    >>> output=pool(inputs)
+    >>> mask = torch.zeros(10, 12, 40).bool()
+    >>> output, mask = pool(inputs, mask)
     >>> output.shape
+    torch.Size([10, 4, 40])
+    >>> mask.shape
     torch.Size([10, 4, 40])
     """
 
@@ -52,7 +55,7 @@ class Pooling1d(nn.Module):
         kernel_size,
         input_dims=3,
         pool_axis=1,
-        ceil_mode=False,
+        ceil_mode=True,
         padding=0,
         dilation=1,
         stride=None,
@@ -62,6 +65,15 @@ class Pooling1d(nn.Module):
 
         if stride is None:
             stride = kernel_size
+
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.ceil_mode = ceil_mode
+        self.pool_type = pool_type
+        self.input_dims = input_dims
+        self.inf = 1e23
 
         if pool_type == "avg":
             if input_dims == 3:
@@ -104,7 +116,14 @@ class Pooling1d(nn.Module):
         else:
             raise ValueError("pool_type must be 'avg' or 'max'")
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
+
+        if mask is not None:
+            if self.pool_type == "max":
+                # Avoid edge effect from paddings
+                x = x.masked_fill(mask, -self.inf)
+            elif self.pool_type == "avg":
+                x = torch.cat([x, ~mask.expand(x.size())], dim=0)
 
         # Put the pooling axes as the last dimension for torch.nn.pool
         x = x.transpose(-1, self.pool_axis)
@@ -115,7 +134,27 @@ class Pooling1d(nn.Module):
         # Recover input shape
         x = x.transpose(-1, self.pool_axis)
 
-        return x
+        if mask is not None:
+            # Avoid edge effect from paddings
+            if self.pool_type == "avg":
+                x_sum, mask_sum = x.split(x.size(0) // 2, dim=0)
+                x = x_sum / (mask_sum + 1 / self.inf)
+
+            mask = self.compute_mask(mask)
+            x.masked_fill_(mask, 0.0)
+
+        return x, mask
+
+    def compute_mask(self, mask):
+
+        if not self.ceil_mode:
+            raise ValueError("Masking when ceil_mode=False is not supported.")
+
+        mask = mask.transpose(-1, self.pool_axis)
+        mask = mask[..., :: self.stride]
+        mask = mask.transpose(-1, self.pool_axis)
+
+        return mask
 
 
 class Pooling2d(nn.Module):
@@ -144,8 +183,11 @@ class Pooling2d(nn.Module):
     -------
     >>> pool = Pooling2d('max',(5,3))
     >>> inputs = torch.rand(10, 15, 12)
-    >>> output=pool(inputs)
+    >>> mask = torch.zeros(10, 15, 12).bool()
+    >>> output, mask =pool(inputs, mask)
     >>> output.shape
+    torch.Size([10, 3, 4])
+    >>> mask.shape
     torch.Size([10, 3, 4])
     """
 
@@ -154,7 +196,7 @@ class Pooling2d(nn.Module):
         pool_type,
         kernel_size,
         pool_axis=(1, 2),
-        ceil_mode=False,
+        ceil_mode=True,  # False,
         padding=0,
         dilation=1,
         stride=None,
@@ -166,6 +208,7 @@ class Pooling2d(nn.Module):
         self.ceil_mode = ceil_mode
         self.padding = padding
         self.dilation = dilation
+        self.inf = 1e23
 
         if stride is None:
             self.stride = kernel_size
@@ -187,7 +230,14 @@ class Pooling2d(nn.Module):
                 ceil_mode=self.ceil_mode,
             )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
+
+        if mask is not None:
+            if self.pool_type == "max":
+                # Avoid edge effect from paddings
+                x = x.masked_fill(mask, -self.inf)
+            elif self.pool_type == "avg":
+                x = torch.cat([x, ~mask.expand(x.size())], dim=0)
 
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
@@ -223,7 +273,44 @@ class Pooling2d(nn.Module):
             .squeeze(-1)
         )
 
-        return x
+        if mask is not None:
+            # Avoid edge effect from paddings
+            if self.pool_type == "avg":
+                x_sum, mask_sum = x.split(x.size(0) // 2, dim=0)
+                x = x_sum / (mask_sum + 1 / self.inf)
+
+            mask = self.compute_mask(mask)
+            x.masked_fill_(mask, 0.0)
+
+        return x, mask
+
+    def compute_mask(self, mask):
+
+        if not self.ceil_mode:
+            raise ValueError("Masking when ceil_mode=False is not supported.")
+
+        mask = (
+            mask.unsqueeze(-1)
+            .unsqueeze(-1)
+            .transpose(-2, self.pool_axis[0])
+            .transpose(-1, self.pool_axis[1])
+            .squeeze(self.pool_axis[1])
+            .squeeze(self.pool_axis[0])
+        )
+
+        # Subsample mask
+        mask = mask[..., :: self.stride[-2], :: self.stride[-1]]
+
+        mask = (
+            mask.unsqueeze(self.pool_axis[0])
+            .unsqueeze(self.pool_axis[1])
+            .transpose(-2, self.pool_axis[0])
+            .transpose(-1, self.pool_axis[1])
+            .squeeze(-1)
+            .squeeze(-1)
+        )
+
+        return mask
 
 
 class StatisticsPooling(nn.Module):
@@ -241,10 +328,13 @@ class StatisticsPooling(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([5, 100, 50])
+    >>> inp_mask = torch.zeros([5, 100, 1]).bool()
     >>> sp_layer = StatisticsPooling()
-    >>> out_tensor = sp_layer(inp_tensor)
+    >>> out_tensor, out_mask = sp_layer(inp_tensor, inp_mask)
     >>> out_tensor.shape
     torch.Size([5, 1, 100])
+    >>> out_mask.shape
+    torch.Size([5, 1, 1])
     """
 
     def __init__(self, return_mean=True, return_std=True):
@@ -260,7 +350,7 @@ class StatisticsPooling(nn.Module):
                 "consider enabling mean and/or std statistic pooling"
             )
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, mask=None):
         """Calculates mean and std for a batch (input tensor).
 
         Arguments
@@ -268,7 +358,7 @@ class StatisticsPooling(nn.Module):
         x : torch.Tensor
             It represents a tensor for a mini-batch.
         """
-        if lengths is None:
+        if mask is None:
             if self.return_mean:
                 mean = x.mean(dim=1)
             if self.return_std:
@@ -276,9 +366,10 @@ class StatisticsPooling(nn.Module):
         else:
             mean = []
             std = []
+            # Avoiding padded time steps
+            lengths = torch.sum(~mask, dim=1).squeeze(-1)
             for snt_id in range(x.shape[0]):
-                # Avoiding padded time steps
-                actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
+                actual_size = lengths[snt_id]
 
                 # computing statistics
                 if self.return_mean:
@@ -308,7 +399,11 @@ class StatisticsPooling(nn.Module):
         elif self.return_std:
             pooled_stats = std.unsqueeze(1)
 
-        return pooled_stats
+        # Create summy mask for output
+        if mask is not None:
+            mask = torch.zeros([pooled_stats.size(0), 1, 1], dtype=torch.bool)
+
+        return pooled_stats, mask
 
     def _get_gauss_noise(self, shape_of_tensor, device="cpu"):
         """Returns a tensor of epsilon Gaussian noise.

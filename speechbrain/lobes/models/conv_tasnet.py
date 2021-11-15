@@ -23,10 +23,13 @@ class Encoder(nn.Module):
     Example
     -------
     >>> inp = torch.rand(10, 100)
+    >>> inp_mask = torch.zeros((10, 100), dtype=torch.bool)
     >>> encoder = Encoder(11, 20)
-    >>> h = encoder(inp)
+    >>> h, h_mask = encoder(inp, inp_mask)
     >>> h.shape
     torch.Size([10, 20, 20])
+    >>> h_mask.shape
+    torch.Size([10, 20, 1])
     """
 
     def __init__(self, L, N):
@@ -41,7 +44,7 @@ class Encoder(nn.Module):
             bias=False,
         )
 
-    def forward(self, mixture):
+    def forward(self, mixture, mask=None):
         """
         Arguments
         ---------
@@ -54,9 +57,9 @@ class Encoder(nn.Module):
             Tensor shape is [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
         mixture = torch.unsqueeze(mixture, -1)  # [M, T, 1]
-        conv_out = self.conv1d_U(mixture)
+        conv_out, mask = self.conv1d_U(mixture, mask)
         mixture_w = F.relu(conv_out)  # [M, K, N]
-        return mixture_w
+        return mixture_w, mask
 
 
 class Decoder(nn.Module):
@@ -119,7 +122,7 @@ class Decoder(nn.Module):
         return est_source.permute(0, 2, 1)  # M x T x C
 
 
-class TemporalBlocksSequential(sb.nnet.containers.Sequential):
+class TemporalBlocksSequential(sb.nnet.containers.MaskCapableSequential):
     """
     A wrapper for the temporal-block layer to replicate it
 
@@ -152,8 +155,10 @@ class TemporalBlocksSequential(sb.nnet.containers.Sequential):
     torch.Size([14, 100, 10])
     """
 
-    def __init__(self, input_shape, H, P, R, X, norm_type, causal):
-        super().__init__(input_shape=input_shape)
+    def __init__(
+        self, input_shape, H, P, R, X, norm_type, causal, return_mask=False
+    ):
+        super().__init__(input_shape=input_shape, return_mask=return_mask)
         for r in range(R):
             for x in range(X):
                 dilation = 2 ** x
@@ -236,7 +241,7 @@ class MaskNet(nn.Module):
         # [M, K, B] -> [M, K, B]
         in_shape = (None, None, B)
         self.temporal_conv_net = TemporalBlocksSequential(
-            in_shape, H, P, R, X, norm_type, causal
+            in_shape, H, P, R, X, norm_type, causal, True
         )
 
         # [M, K, B] -> [M, K, C*N]
@@ -244,7 +249,7 @@ class MaskNet(nn.Module):
             in_channels=B, out_channels=C * N, kernel_size=1, bias=False
         )
 
-    def forward(self, mixture_w):
+    def forward(self, mixture_w, mask=None):
         """Keep this API same with TasNet.
 
         Arguments
@@ -260,9 +265,12 @@ class MaskNet(nn.Module):
         mixture_w = mixture_w.permute(0, 2, 1)
         M, K, N = mixture_w.size()
         y = self.layer_norm(mixture_w)
-        y = self.bottleneck_conv1x1(y)
-        y = self.temporal_conv_net(y)
-        score = self.mask_conv1x1(y)
+        y, mask = self.bottleneck_conv1x1(y, mask)
+        y, mask = self.temporal_conv_net(y, mask)
+        score, mask = self.mask_conv1x1(y, mask)
+
+        if mask is not None:
+            score.masked_fill_(-1e23)
 
         # score = self.network(mixture_w)  # [M, K, N] -> [M, K, C*N]
         score = score.contiguous().reshape(
@@ -307,10 +315,13 @@ class TemporalBlock(torch.nn.Module):
     Example:
     ---------
     >>> x = torch.randn(14, 100, 10)
+    >>> mask = torch.zeros((14, 100, 1), dtype=torch.bool)
     >>> TemporalBlock = TemporalBlock(x.shape, 10, 11, 1, 'same', 1)
-    >>> y = TemporalBlock(x)
+    >>> y, mask = TemporalBlock(x, mask)
     >>> y.shape
     torch.Size([14, 100, 10])
+    >>> mask.shape
+    torch.Size([14, 100, 1])
     """
 
     def __init__(
@@ -327,7 +338,9 @@ class TemporalBlock(torch.nn.Module):
         super().__init__()
         M, K, B = input_shape
 
-        self.layers = sb.nnet.containers.Sequential(input_shape=input_shape)
+        self.layers = sb.nnet.containers.MaskCapableSequential(
+            input_shape=input_shape, return_mask=True
+        )
 
         # [M, K, B] -> [M, K, H]
         self.layers.append(
@@ -355,7 +368,7 @@ class TemporalBlock(torch.nn.Module):
             layer_name="DSconv",
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """
         Arguments
         ---------
@@ -368,11 +381,11 @@ class TemporalBlock(torch.nn.Module):
             Tensor shape is [M, K, B].
         """
         residual = x
-        x = self.layers(x)
-        return x + residual
+        x, mask = self.layers(x, mask)
+        return x + residual, mask
 
 
-class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
+class DepthwiseSeparableConv(sb.nnet.containers.MaskCapableSequential):
     """Building block for the Temporal Blocks of Masknet in ConvTasNet.
 
     Arguments
