@@ -344,8 +344,8 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         """
         batch_size, raw_sequence_length = wav.shape
 
-        # if self.normalize_wav:
-        #    wav = F.layer_norm(wav, wav.shape)
+        if self.normalize_wav:
+            wav = F.layer_norm(wav, wav.shape)
 
         # We must compute the masking before forward. This is used by the loss.
         sequence_length = self.model._get_feat_extract_output_lengths(
