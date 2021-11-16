@@ -34,11 +34,10 @@ def build_spk_hashtable_aishell1mix(hparams):
         == hparams["sample_rate"]
     )
     for utt in tqdm(aishell1_utterances):
-        
+
         path = os.path.normpath(utt)
         path_list = path.split(os.sep)
         spk_id = path_list[-2]
-
 
         if spk_id not in spk_hashtable.keys():
             spk_hashtable[spk_id] = [utt]
@@ -92,7 +91,7 @@ def dynamic_mix_data_prep_aishell1mix(hparams):
 
     print("Building the speaker hashtable for dynamic mixing")
     spk_hashtable, spk_weights = build_spk_hashtable_aishell1mix(hparams)
-    
+
     spk_list = [x for x in spk_hashtable.keys()]
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
