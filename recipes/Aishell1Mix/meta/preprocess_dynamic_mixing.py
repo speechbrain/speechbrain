@@ -54,11 +54,8 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
     files = glob.glob(os.path.join(input_folder, regex), recursive=True)
     for f in tqdm.tqdm(files):
-        try:
-            audio, fs_read = torchaudio.load(f)
-        except:
-            print("torchaudio load {} error: unknown length".format(f))
-            continue
+        
+        audio, fs_read = torchaudio.load(f)
         audio = audio[0].numpy()
         audio = signal.resample_poly(audio, fs, fs_read)
 
