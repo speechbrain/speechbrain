@@ -1264,7 +1264,7 @@ def doas2taus(doas, mics, fs, c=343.0):
     >>> taus = doas2taus(doas, mics, fs)
     """
 
-    taus = (fs / c) * torch.matmul(doas, mics.transpose(0, 1))
+    taus = (fs / c) * torch.matmul(doas.to(mics.device), mics.transpose(0, 1))
 
     return taus
 
