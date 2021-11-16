@@ -1,5 +1,6 @@
 import pytest
 import torch
+import numpy as np
 
 
 def test_batch_pad_right_to():
@@ -10,16 +11,22 @@ def test_batch_pad_right_to():
     batch_lens = [1, 5]
 
     for b in batch_lens:
-        tensors = [
-            torch.ones(n_channels, random.randint(10, 53),) for x in range(b)
-        ]
+        rand_lens = [random.randint(10, 53) for x in range(b)]
+        tensors = [torch.ones((rand_lens[x], n_channels)) for x in range(b)]
         batched, lens = batch_pad_right(tensors)
         assert batched.shape[0] == b
+        np.testing.assert_almost_equal(
+            lens, [x / max(rand_lens) for x in rand_lens], decimal=3
+        )
 
     for b in batch_lens:
-        tensors = [torch.ones(random.randint(10, 53),) for x in range(b)]
+        rand_lens = [random.randint(10, 53) for x in range(b)]
+        tensors = [torch.ones(rand_lens[x],) for x in range(b)]
         batched, lens = batch_pad_right(tensors)
         assert batched.shape[0] == b
+        np.testing.assert_almost_equal(
+            lens, [x / max(rand_lens) for x in rand_lens], decimal=3
+        )
 
 
 def test_paddedbatch():
