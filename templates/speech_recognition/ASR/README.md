@@ -12,7 +12,7 @@ To train the speech recognition model, just execute the following on the command
 
 ```bash
 python train.py train.yaml
-```        
+```
 
 We assume you already trained the tokenizer (see ../Tokenizer) and the language model (../LM).
 Training is done with the mini-librispeech dataset using a CRDNN model for encoding and a GRU for decoding.

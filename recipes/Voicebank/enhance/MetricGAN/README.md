@@ -46,8 +46,8 @@ If you find the code useful in your research, please cite:
       booktitle = {International Conference on Machine Learning (ICML)},
       year      = {2019}
     }
-    
-    
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
