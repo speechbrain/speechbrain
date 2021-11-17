@@ -38,12 +38,22 @@ class EnhancementGenerator(nn.Module):
         Number of neurons to use in the LSTM layers.
     num_layers : int
         Number of layers to use in the LSTM.
+    lin_dim: int
+        Number of neurons in the last two linear layers.
     dropout : int
         Fraction of neurons to drop during training.
+
+    Example
+    -------
+    >>> inputs = torch.rand([10, 100, 40])
+    >>> model = EnhancementGenerator(input_size=40, hidden_size=50)
+    >>> outputs = model(inputs, lengths=torch.ones([10]))
+    >>> outputs.shape
+    torch.Size([10, 100, 40])
     """
 
     def __init__(
-        self, input_size=257, hidden_size=200, num_layers=2, dropout=0,
+        self, input_size=257, hidden_size=200, num_layers=2, lin_dim = 300, dropout=0,
     ):
         super().__init__()
         self.activation = nn.LeakyReLU(negative_slope=0.3)
@@ -67,8 +77,8 @@ class EnhancementGenerator(nn.Module):
             elif "weight_hh" in name:
                 nn.init.orthogonal_(param)
 
-        self.linear1 = xavier_init_layer(400, 300, spec_norm=False)
-        self.linear2 = xavier_init_layer(300, 257, spec_norm=False)
+        self.linear1 = xavier_init_layer(hidden_size * 2, lin_dim, spec_norm=False)
+        self.linear2 = xavier_init_layer(lin_dim, input_size, spec_norm=False)
 
         self.sigmoid = nn.Sigmoid()
 
@@ -98,11 +108,24 @@ class MetricDiscriminator(nn.Module):
         The dimensions of the 2-d kernel used for convolution.
     base_channels : int
         Number of channels used in each conv layer.
+    lin_dim1: int
+	Dimensionality of the first linear layer.
+    lin_dim2: int
+        Dimensionality of the second linear layer.
+
+
+    Example
+    -------
+    >>> inputs = torch.rand([1, 1, 100, 257])
+    >>> model = MetricDiscriminator()
+    >>> outputs = model(inputs)
+    >>> outputs.shape
+    torch.Size([1, 1])
     """
 
     # FCN
     def __init__(
-        self, kernel_size=(5, 5), base_channels=15, activation=nn.LeakyReLU,
+        self, kernel_size=(5, 5), base_channels=15, activation=nn.LeakyReLU, lin_dim1=50, lin_dim2=10
     ):
         super().__init__()
 
@@ -123,9 +146,9 @@ class MetricDiscriminator(nn.Module):
             base_channels, layer_type=nn.Conv2d, kernel_size=kernel_size
         )
 
-        self.Linear1 = xavier_init_layer(base_channels, out_size=50)
-        self.Linear2 = xavier_init_layer(in_size=50, out_size=10)
-        self.Linear3 = xavier_init_layer(in_size=10, out_size=1)
+        self.Linear1 = xavier_init_layer(base_channels, out_size=lin_dim1)
+        self.Linear2 = xavier_init_layer(in_size=lin_dim1, out_size=lin_dim2)
+        self.Linear3 = xavier_init_layer(in_size=lin_dim2, out_size=1)
 
     def forward(self, x):
 
