@@ -38,6 +38,7 @@ The following results were obtained on a 48 GB RTX 8000 (the recipe has also bee
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Word-F1 | Char-F1 | SLU-F1 | Training time |
 |:------:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
 | Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch |
+| Direct (w2v) | 91.24 | 88.47 | 87.54 | 72.93 | 77.40 | 75.10 | 4 hours per epoch |
 
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Training time |
 |:---:|:-----:|:-----:|:-----:|:-----:|
