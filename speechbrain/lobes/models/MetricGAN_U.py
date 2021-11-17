@@ -53,7 +53,12 @@ class EnhancementGenerator(nn.Module):
     """
 
     def __init__(
-        self, input_size=257, hidden_size=200, num_layers=2, lin_dim = 300, dropout=0,
+        self,
+        input_size=257,
+        hidden_size=200,
+        num_layers=2,
+        lin_dim=300,
+        dropout=0,
     ):
         super().__init__()
         self.activation = nn.LeakyReLU(negative_slope=0.3)
@@ -77,7 +82,9 @@ class EnhancementGenerator(nn.Module):
             elif "weight_hh" in name:
                 nn.init.orthogonal_(param)
 
-        self.linear1 = xavier_init_layer(hidden_size * 2, lin_dim, spec_norm=False)
+        self.linear1 = xavier_init_layer(
+            hidden_size * 2, lin_dim, spec_norm=False
+        )
         self.linear2 = xavier_init_layer(lin_dim, input_size, spec_norm=False)
 
         self.sigmoid = nn.Sigmoid()
@@ -109,7 +116,7 @@ class MetricDiscriminator(nn.Module):
     base_channels : int
         Number of channels used in each conv layer.
     lin_dim1: int
-	Dimensionality of the first linear layer.
+        Dimensionality of the first linear layer.
     lin_dim2: int
         Dimensionality of the second linear layer.
 
@@ -125,7 +132,12 @@ class MetricDiscriminator(nn.Module):
 
     # FCN
     def __init__(
-        self, kernel_size=(5, 5), base_channels=15, activation=nn.LeakyReLU, lin_dim1=50, lin_dim2=10
+        self,
+        kernel_size=(5, 5),
+        base_channels=15,
+        activation=nn.LeakyReLU,
+        lin_dim1=50,
+        lin_dim2=10,
     ):
         super().__init__()
 
