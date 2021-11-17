@@ -10,6 +10,7 @@ Set tokenizer_file in the yaml files to the directory where the trained tokenize
 Also, set data_folder in the yaml file to the result of ksponspeech_prepare.py.
 
 Run the following to start training the language model.
+
 ```bash
 python train.py hparams/transformer.yaml
 ```
