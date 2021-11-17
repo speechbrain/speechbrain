@@ -46,7 +46,7 @@ To train a full speech recognition system the pipeline is the following:
 SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information
 can be found on the HuggingFace repositories corresponding to our models for KsponSpeech:
 
-- [Conformer + ctc + TransformerLM](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech)
+- [Conformer + ctc + TransformerLM](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)
 - [Colab example](https://colab.research.google.com/drive/10N98aGoeLGfh6Hu6xOCH5BbjVTVYgCyB?usp=sharing)
 
 # Citing SpeechBrain
