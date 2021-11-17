@@ -125,13 +125,14 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def parse_arguments(arg_list):
+def parse_arguments(arg_list=None):
     r"""Parse command-line arguments to the experiment.
 
     Arguments
     ---------
-    arg_list : list
-        A list of arguments to parse, most often from `sys.argv[1:]`.
+    arg_list : list, None
+        A list of arguments to parse.  If not given, this is read from
+        `sys.argv[1:]`
 
     Returns
     -------
@@ -153,6 +154,8 @@ def parse_arguments(arg_list):
     >>> overrides
     'seed: 10'
     """
+    if arg_list is None:
+        arg_list = sys.argv[1:]
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
     )
@@ -369,10 +372,8 @@ class Brain:
             If a non-positive number is passed, all epochs are run.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
-        distributed_count (int)
-            Number of devices to run on.
         distributed_backend (str)
-            One of ``ddp_nccl``, ``ddp_gloo``, ``ddp_mpi``, ``data_parallel``.
+            One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
             The location for performing computations.
         auto_mix_prec (bool)
