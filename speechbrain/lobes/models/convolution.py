@@ -42,7 +42,7 @@ class ConvolutionFrontEnd(Sequential):
     >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
     >>> out = conv(x)
     >>> out.shape
-    torch.Size([8, 30, 10])
+    torch.Size([8, 8, 3, 512])
     """
 
     def __init__(
@@ -103,8 +103,8 @@ class ConvBlock(torch.nn.Module):
     >>> x = torch.rand((8, 30, 10))
     >>> conv = ConvBlock(2, 16, input_shape=x.shape)
     >>> out = conv(x)
-    >>> x.shape
-    torch.Size([8, 30, 10])
+    >>> out.shape
+    torch.Size([8, 30, 10, 16])
     """
 
     def __init__(
@@ -158,7 +158,7 @@ class ConvBlock(torch.nn.Module):
     def forward(self, x):
         out = self.convs(x)
         if self.reduce_conv:
-            out = out + self.reduce_conv(out)
+            out = out + self.reduce_conv(x)
             out = self.drop(out)
 
         return out
