@@ -17,7 +17,7 @@ python train.py hparams/transformer.yaml
 
 | Release | hyperparams file | eval clean loss | eval other loss | Model link | GPUs |Training time|
 |:----:|:----:|:----:|:----:|:----:|:----:|:----:|
-|09-05-21|transformer.yaml|4.41|4.68|[HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/lm.ckpt)|1xA100 80GB|5 hours 35 mins|
+|09-05-21|transformer.yaml|4.41|4.68|[GoogleDrive](https://drive.google.com/drive/folders/1NmpE7aThLogxVhPrpWqFcw1dzd-fqzVA?usp=sharing)|1xA100 80GB|5 hours 35 mins|
 
 # About SpeechBrain
 - Website: https://speechbrain.github.io/
