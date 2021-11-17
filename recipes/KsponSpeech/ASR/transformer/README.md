@@ -23,9 +23,9 @@ python train.py hparams/conformer_medium.yaml
 ```
 
 # Results
-| Release | hyperparams file | eval clean WER | eval other WER | eval clean CER | eval other CER | HuggingFace link | Model link | GPUs |Training time|
-|:----:|:----:|:----:|:----:|:----:|:----:|:----:|:----:|:----:|:----:|
-|09-05-21|conformer_medium.yaml|21.68%|27.55%|7.86%|8.93%|[HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech) | [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/asr.ckpt)|6xA100 80GB|2 days 13 hours|
+| Release  |   hyperparams file    | eval clean WER | eval other WER | eval clean CER | eval other CER |                                   HuggingFace link                                   |                                               Model link                                                |    GPUs     |  Training time  |
+| :------: | :-------------------: | :------------: | :------------: | :------------: | :------------: | :----------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------: | :-------------: |
+| 09-05-21 | conformer_medium.yaml |     21.00%     |     25.69%     |     7.48%      |     8.38%      | [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech) | [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/asr.ckpt) | 6xA100 80GB | 2 days 13 hours |
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace: [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech)

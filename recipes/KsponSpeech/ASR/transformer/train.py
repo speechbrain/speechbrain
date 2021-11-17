@@ -29,6 +29,11 @@ other possible variations.
 
 
 Authors
+ * Jianyuan Zhong 2020
+ * Mirco Ravanelli 2020
+ * Peter Plantinga 2020
+ * Samuele Cornell 2020
+ * Titouan Parcollet 2021
  * Dongwon Kim, Dongwoo Kim 2021
 """
 import os
