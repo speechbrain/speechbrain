@@ -390,6 +390,11 @@ class Brain:
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
+
+        Typically in a script this comes from ``speechbrain.parse_args``, which
+        has different defaults than Brain. If an option is not defined here
+        (keep in mind that parse_args will inject some options by default),
+        then the option is also searched for in hparams (by key).
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
