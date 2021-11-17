@@ -158,7 +158,7 @@ class ConvBlock(torch.nn.Module):
     def forward(self, x):
         out = self.convs(x)
         if self.reduce_conv:
-            out = out + self.reduce_conv(x)
-            out = self.drop(x)
+            out = out + self.reduce_conv(out)
+            out = self.drop(out)
 
         return out
