@@ -5,7 +5,7 @@
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: KsponSpeech 965.2h
-# Authors: Dongwon Kim, Dongwoo Kim
+# Authors: Jianyuan Zhong, Titouan Parcollet, Samuele Cornell, Dongwon Kim, Dongwoo Kim
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 7774
@@ -92,7 +92,7 @@ max_decode_ratio: 1.0
 valid_search_interval: 10
 valid_beam_size: 10
 test_beam_size: 60
-lm_weight: 0.60
+lm_weight: 0.20
 ctc_weight_decode: 0.40
 
 ############################## models ################################
@@ -192,8 +192,8 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     ctc_weight: !ref <ctc_weight_decode>
     lm_weight: !ref <lm_weight>
     lm_modules: !ref <lm_model>
-    temperature: 1.15
-    temperature_lm: 1.15
+    temperature: 1.25
+    temperature_lm: 1.25
     using_eos_threshold: False
     length_normalization: True
 

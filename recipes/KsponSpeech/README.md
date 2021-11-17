@@ -3,8 +3,12 @@
 ## About the corpus
 
 KsponSpeech is a large-scale spontaneous speech corpus of Korean. This corpus contains 965.2 hours of general
-open-domain dialog utterances with transcriptions. More information can be found
+open-domain dialog utterances with transcriptions.
+
+More information can be found
 at https://www.mdpi.com/2076-3417/10/19/6936
+
+Training and evaluation transcripts were generated the same way as in the above paper.
 
 ## Prepare data
 
@@ -45,14 +49,7 @@ can be found on the HuggingFace repositories corresponding to our models for Ksp
 - [Conformer + ctc + TransformerLM](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech)
 - [Colab example](https://colab.research.google.com/drive/10N98aGoeLGfh6Hu6xOCH5BbjVTVYgCyB?usp=sharing)
 
-# About SpeechBrain
-
-- Website: https://speechbrain.github.io/
-- Code: https://github.com/speechbrain/speechbrain/
-- HuggingFace: https://huggingface.co/speechbrain/
-
 # Citing SpeechBrain
-
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
@@ -64,5 +61,31 @@ Please, cite SpeechBrain if you use it for your research or business.
   archivePrefix={arXiv},
   primaryClass={eess.AS},
   note={arXiv:2106.04624}
+}
+```
+
+# Citing this recipe
+```bibtex
+@misc{returnzero,
+  title = {ReturnZero Conformer Korean ASR model},
+  author = {Dongwon Kim and Dongwoo Kim and Roh Jeongkyu},
+  year = {2021},
+  howpublished = {\url{https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech}},
+}
+```
+
+# Citing KsponSpeech dataset
+```bibtex
+@Article{app10196936,
+AUTHOR = {Bang, Jeong-Uk and Yun, Seung and Kim, Seung-Hi and Choi, Mu-Yeol and Lee, Min-Kyu and Kim, Yeo-Jeong and Kim, Dong-Hyun and Park, Jun and Lee, Young-Jik and Kim, Sang-Hun},
+TITLE = {KsponSpeech: Korean Spontaneous Speech Corpus for Automatic Speech Recognition},
+JOURNAL = {Applied Sciences},
+VOLUME = {10},
+YEAR = {2020},
+NUMBER = {19},
+ARTICLE-NUMBER = {6936},
+URL = {https://www.mdpi.com/2076-3417/10/19/6936},
+ISSN = {2076-3417},
+DOI = {10.3390/app10196936}
 }
 ```

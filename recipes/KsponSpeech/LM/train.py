@@ -8,6 +8,8 @@ To run this recipe, do the following:
     --data_folder <local_path_to_librispeech_dataset>
 
 Authors
+ * Jianyuan Zhong 2021
+ * Ju-Chieh Chou 2020
  * Dongwon Kim, Dongwoo Kim 2021
 """
 import sys
