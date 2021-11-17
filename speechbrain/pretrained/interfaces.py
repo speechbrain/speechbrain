@@ -8,6 +8,7 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
 """
+import sys
 import torch
 import torchaudio
 from types import SimpleNamespace
@@ -20,23 +21,67 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
 
 
 def foreign_class(
     source,
     hparams_file="hyperparams.yaml",
-    pymodule_file="interface.py",
-    classname="Custom",
+    pymodule_file="custom.py",
+    classname="CustomInterface",
     overrides={},
     savedir=None,
     use_auth_token=False,
     **kwargs,
 ):
+    """Fetch and load an interface from an outside source
+
+    The source can be a location on the filesystem or online/huggingface
+
+    The pymodule file should contain a class with the given classname. An
+    instance of that class is returned. The idea is to have a custom Pretrained
+    subclass in the file. The pymodule file is also added to the python path.
+
+    The hyperparams file should contain a "modules" key, which is a
+    dictionary of torch modules used for computation.
+
+    The hyperparams file should contain a "pretrainer" key, which is a
+    speechbrain.utils.parameter_transfer.Pretrainer
+
+    Arguments
+    ---------
+    source : str
+        The location to use for finding the model. See
+        ``speechbrain.pretrained.fetching.fetch`` for details.
+    hparams_file : str
+        The name of the hyperparameters file to use for constructing
+        the modules necessary for inference. Must contain two keys:
+        "modules" and "pretrainer", as described.
+    pymodule_file : str
+        The name of the Python file that should be fetched.
+    classname : str
+        The name of the Class, of which an instance is created and returned
+    overrides : dict
+        Any changes to make to the hparams file when it is loaded.
+    savedir : str or Path
+        Where to put the pretraining material. If not given, will use
+        ./pretrained_models/<class-name>-hash(source).
+    use_auth_token : bool (default: False)
+        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        default is False because majority of models are public.
+
+    Returns
+    -------
+    object
+        An instance of a class with the given classname from the given pymodule file.
+    """
     if savedir is None:
         savedir = f"./pretrained_models/{classname}-{hash(source)}"
     hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
     pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+
+    sys.path.append(pymodule_local_path)
 
     # Load the modules:
     with open(hparams_local_path) as fin:
@@ -184,7 +229,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(path, channels_first=False)
+        signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
@@ -835,11 +880,7 @@ class EncoderWav2vecClassifier(Pretrained):
     >>> prediction =  classifier .classify_batch(signal)
     """
 
-    MODULES_NEEDED = [
-        "wav2vec2",
-        "avg_pool",
-        "output_mlp",
-    ]
+    MODULES_NEEDED = ["wav2vec2", "avg_pool", "output_mlp"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2079,7 +2120,7 @@ class SepformerSeparation(Pretrained):
             )
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
-            )
+            ).to(self.device)
             batch = batch.mean(dim=0, keepdim=True)
             batch = tf(batch)
 
@@ -2172,7 +2213,10 @@ class SpectralMaskEnhancement(Pretrained):
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
-        enhanced = self.enhance_batch(batch)
+        if lengths_arg_exists(self.enhance_batch):
+            enhanced = self.enhance_batch(batch, lengths=torch.tensor([1.0]))
+        else:
+            enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
             torchaudio.save(output_filename, enhanced, channels_first=False)
@@ -2189,15 +2233,15 @@ class SNREstimator(Pretrained):
     """
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
-    HPARAMS_NEEDED = ["stat_pooling"]
+    HPARAMS_NEEDED = ["stat_pooling", "snrmax", "snrmin"]
 
     def estimate_batch(self, mix, predictions):
-        """Run source separation on batch of audio.
+        """Run SI-SNR estimation on the estimated sources, and mixture.
 
         Arguments
         ---------
         mix : torch.tensor
-            The mixture of sources.
+            The mixture of sources of shape B X T
         predictions : torch.tensor
             of size (B x T x C),
             where B is batch size
@@ -2244,9 +2288,20 @@ class SNREstimator(Pretrained):
         enc = enc.permute(0, 2, 1)
         enc_stats = self.hparams.stat_pooling(enc)
 
+        # this gets the SI-SNR estimate in the compressed range 0-1
         snrhat = self.mods.encoder_out(enc_stats).squeeze()
+
+        # get the SI-SNR estimate in the true range
+        snrhat = self.gettrue_snrrange(snrhat)
         return snrhat
 
     def forward(self, mix, predictions):
         """Just run the batch estimate"""
         return self.estimate_batch(mix, predictions)
+
+    def gettrue_snrrange(self, inp):
+        """Convert from 0-1 range to true snr range"""
+        rnge = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * rnge
+        inp = inp + self.hparams.snrmin
+        return inp
