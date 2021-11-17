@@ -1,4 +1,4 @@
-# SpeechBrain lint and unit tests to ease continuous integration
+# SpeechBrain  unit tests to ease continuous integration
 # NOTE: Caching these offers no speedup
 name: SpeechBrain toolkit CI
 
@@ -9,16 +9,6 @@ on:    # yamllint disable-line rule:truthy
     pull_request:
 
 jobs:
-    linters:
-        name: Linters
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions/setup-python@v2
-              with:
-                  python-version: '3.8'
-            - uses: pre-commit/action@v2.0.3
-
     tests:
         name: Tests
         runs-on: ubuntu-latest
