@@ -12,7 +12,7 @@ def test_BatchNorm1d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=0).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -22,7 +22,7 @@ def test_BatchNorm1d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=0).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -34,7 +34,7 @@ def test_BatchNorm1d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=0).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -45,7 +45,7 @@ def test_BatchNorm1d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=0).mean()
-    assert torch.abs(current_mean) < 5e-06
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -63,7 +63,7 @@ def test_BatchNorm2d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=0).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=0).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -81,7 +81,7 @@ def test_LayerNorm():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=2).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=2).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -92,7 +92,7 @@ def test_LayerNorm():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=[2, 3]).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=[2, 3]).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -110,7 +110,7 @@ def test_InstanceNorm1d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=2).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=2).mean()
     assert torch.abs(1.0 - current_std) < 0.01
@@ -128,7 +128,7 @@ def test_InstanceNorm2d():
     assert input.shape == output.shape
 
     current_mean = output.mean(dim=[2, 3]).mean()
-    assert torch.abs(current_mean) < 1e-07
+    assert torch.abs(current_mean) < 1e-06
 
     current_std = output.std(dim=[2, 3]).mean()
     assert torch.abs(1.0 - current_std) < 0.01
