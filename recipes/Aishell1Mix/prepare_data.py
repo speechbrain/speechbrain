@@ -39,12 +39,16 @@ def prepare_aishell1mix(
             assert (
                 "Aishell1Mix2" in datapath
             ), "Inconsistent number of speakers and datapath"
-            create_aishell1mix2_csv(datapath, savepath, addnoise=aishell1mix_addnoise)
+            create_aishell1mix2_csv(
+                datapath, savepath, addnoise=aishell1mix_addnoise
+            )
         elif n_spks == 3:
             assert (
                 "Aishell1Mix3" in datapath
             ), "Inconsistent number of speakers and datapath"
-            create_aishell1mix3_csv(datapath, savepath, addnoise=aishell1mix_addnoise)
+            create_aishell1mix3_csv(
+                datapath, savepath, addnoise=aishell1mix_addnoise
+            )
         else:
             raise ValueError("Unsupported Number of Speakers")
     else:
@@ -96,7 +100,9 @@ def create_aishell1mix2_csv(
             "noise_wav_opts",
         ]
 
-        with open(savepath + "/aishell1mix2_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/aishell1mix2_" + set_type + ".csv", "w"
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
@@ -172,7 +178,9 @@ def create_aishell1mix3_csv(
             "noise_wav_opts",
         ]
 
-        with open(savepath + "/aishell1mix3_" + set_type + ".csv", "w") as csvfile:
+        with open(
+            savepath + "/aishell1mix3_" + set_type + ".csv", "w"
+        ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for (
