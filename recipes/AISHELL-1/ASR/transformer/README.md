@@ -17,6 +17,8 @@ specify a different tokenizer in the speech recognition recipe.
 python train.py hparams/train_ASR_transformer.yaml --data_folder=/localscratch/aishell/
 ```
 
+Make sure to have "transformers" installed if you use the wav2vec2 recipe (see extra-requirements.txt) 
+
 # Performance summary
 Results are reported in terms of Character Error Rate (CER).
 

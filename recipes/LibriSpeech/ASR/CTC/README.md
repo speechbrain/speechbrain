@@ -5,6 +5,8 @@ You can download LibriSpeech at http://www.openslr.org/12
 # How to run
 python train_with_wav2vec.py hparams/file.yaml
 
+Make sure you have "transformers" installed in your environment (see extra-requirements.txt)
+
 # Results
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Full model link | GPUs |
