@@ -21,7 +21,7 @@ enhanced_folder: !ref <output_folder>/enhanced_wavs
 historical_file: !ref <output_folder>/historical.txt
 
 # Basic parameters
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
 # FFT paremeters
@@ -60,7 +60,7 @@ valid_dataloader_options:
     batch_size: !ref <valid_N_batch>
 
 # Change this import to use a different model
-models: !include:../models/MetricGAN_U.yaml
+models: !include:models/MetricGAN_U.yaml
     N_fft: !ref <N_fft>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter

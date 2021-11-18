@@ -1,6 +1,6 @@
-# MetricGAN-U Recipe for dereverberation
+# Spectral-Mask Recipe for dereverberation
 
-This recipe implements MetricGAN-U recipe for dereverberation as described in the paper
+This recipe implements the Spectral-Mask baseline for dereverberation as described in the paper
 [MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech](https://arxiv.org/abs/2110.05866)
 
 Notes: 
@@ -21,13 +21,11 @@ python train.py hparams/train_dereverb.yaml --data_folder /path/to/data_folder
 ## Results
 Experiment Date | Hyperparams file | PESQ | SRMR | HuggingFace link |
 -|-|-|-|-|
-2021-10-31 | train_dereverb.yaml | 2.07 | 8.265 | [HuggingFace]() |
+2021-10-31 | train.yaml | -.-- | -.--- | [HuggingFace]() |
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://drive.google.com/drive/folders/15uUZ21HYnw4KyOPW3tx8bLrS9RoBZfS7?usp=sharing)
-
+You can find the full experiment folder (i.e., checkpoints, logs, etc) [here]()
 
 ## Citation
-
 If you find the code useful in your research, please cite:
 
 	@article{fu2021metricgan,
