@@ -39,7 +39,7 @@ class SLU(sb.Brain):
 
         #  encoder forward pass
         wav2vec2_out = self.modules.wav2vec2(wavs)
-        
+
         # SLU forward pass
         e_in = self.hparams.output_emb(tokens_bos)
         h, _ = self.hparams.dec(e_in, wav2vec2_out, wav_lens)
@@ -210,7 +210,6 @@ class SLU(sb.Brain):
                 "wav2vec2_opt", self.wav2vec2_optimizer
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
