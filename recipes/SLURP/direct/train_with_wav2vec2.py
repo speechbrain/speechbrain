@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """
 Recipe for "direct" (speech -> semantics) SLU.
-We encode input waveforms into features using the wav2vec2 model,
+We encode input waveforms into features using the wav2vec2/HuBert model,
 then feed the features into a seq2seq model to map them to semantics.
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 Run using:
@@ -55,7 +55,9 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(wav2vec2_out, wav_lens)
+            p_tokens, scores = self.hparams.beam_searcher(
+                wav2vec2_out, wav_lens
+            )
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -171,9 +173,10 @@ class SLU(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
-            old_lr_wav2vec2, new_lr_wav2vec2 = self.hparams.lr_annealing_wav2vec2(
-                stage_stats["WER"]
-            )
+            (
+                old_lr_wav2vec2,
+                new_lr_wav2vec2,
+            ) = self.hparams.lr_annealing_wav2vec2(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             sb.nnet.schedulers.update_learning_rate(
                 self.wav2vec2_optimizer, new_lr_wav2vec2
