@@ -9,4 +9,4 @@ base_channels: 15
 
 N_fft: !PLACEHOLDER
 
-generator: !new:speechbrain.lobes.models.MetricGAN_U_srmr.EnhancementGenerator
+generator: !new:speechbrain.lobes.models.MetricGAN_U.EnhancementGenerator
