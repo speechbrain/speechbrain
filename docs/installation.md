@@ -44,7 +44,11 @@ Any modification made to the `speechbrain` package will be automatically interpr
 Please, run the following script  from the main folder to make sure your installation is working:
 ```
 pytest tests
-pytest --doctest-modules speechbrain
+```
+You can run doctests as well with:
+
+```
+tests/.run-doctests.sh
 ```
 
 ## Operating Systems
@@ -65,7 +69,7 @@ Anaconda can be installed by simply following [this tutorial](https://docs.anaco
 Once Anaconda is installed, you can create a new environment with:
 
 ```
-conda create --name speechbrain python=3.8
+conda create --name speechbrain python=3.9
 ```
 
 Then, activate it with:
