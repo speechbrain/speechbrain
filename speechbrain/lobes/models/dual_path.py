@@ -263,14 +263,26 @@ class Decoder(nn.ConvTranspose1d):
 
         if x.dim() != 3:
             x = torch.unsqueeze(x, 1)
-        output_padding = self._output_padding(x, None, self.stride, self.padding, self.kernel_size, self.dilation)
-        x = F.conv_transpose1d(x, self.weight, self.bias, self.stride, self.padding, output_padding, self.groups, self.dilation)
+        output_padding = self._output_padding(
+            x, None, self.stride, self.padding, self.kernel_size, self.dilation
+        )
+        x = F.conv_transpose1d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            output_padding,
+            self.groups,
+            self.dilation,
+        )
 
         if torch.squeeze(x).dim() == 1:
             x = torch.squeeze(x, dim=1)
         else:
             x = torch.squeeze(x)
         return x
+
 
 class FastTransformerBlock(nn.Module):
     """This block is used to implement fast transformer models with efficient attention.
