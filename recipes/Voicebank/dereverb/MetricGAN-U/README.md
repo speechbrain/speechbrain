@@ -19,11 +19,11 @@ python train.py hparams/train_dereverb.yaml --data_folder /path/to/data_folder
 ```
 
 ## Results
-Experiment Date | Hyperparams file | PESQ | SRMR | HuggingFace link |
--|-|-|-|-|
-2021-10-31 | train_dereverb.yaml | 2.07 | 8.265 | [HuggingFace]() |
+Experiment Date | Hyperparams file | PESQ | SRMR |
+-|-|-|-|
+2021-10-31 | train_dereverb.yaml | 2.07 | 8.265 | 
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://drive.google.com/drive/folders/1CFHE3lFYyIUWAxW8Ccx3hReACQ70qdE1?usp=sharing)
+You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://drive.google.com/drive/folders/1CFHE3lFYyIUWAxW8Ccx3hReACQ70qdE1?usp=sharing).
 
 
 ## Citation
