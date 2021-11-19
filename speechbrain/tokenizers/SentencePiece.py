@@ -407,7 +407,7 @@ class SentencePiece:
             # Convert list of words/chars to bpe ids
             bpe = []
             max_bpe_len = 0
-            batch_lens = (batch_lens * batch.shape[1]).int()
+            batch_lens = (batch_lens * batch.shape[1]).round().int()
             for i, utt_seq in enumerate(batch):
                 tokens = [
                     ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]
@@ -439,7 +439,7 @@ class SentencePiece:
         elif task == "decode":
             # From a batch tensor and a length tensor
             # find the absolute batch lengths and do decoding
-            batch_lens = (batch_lens * batch.shape[1]).int()
+            batch_lens = (batch_lens * batch.shape[1]).round().int()
             return [
                 self.sp.decode_ids(
                     utt_seq[: batch_lens[i]].int().tolist()
