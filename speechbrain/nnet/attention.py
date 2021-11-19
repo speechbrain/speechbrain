@@ -701,7 +701,7 @@ class MultiheadAttention(nn.Module):
         value,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
-        return_attn_weights: Optional[torch.Tensor] = True,
+        need_weights: bool = True,
         pos_embs: Optional[torch.Tensor] = None,
     ):
         """
@@ -759,23 +759,18 @@ class MultiheadAttention(nn.Module):
             else:
                 attn_mask = pos_embs
 
-        output = self.att(
+        output, attention_weights = self.att(
             query,
             key,
             value,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
-            need_weights=return_attn_weights,
+            need_weights=need_weights,
         )
 
-        if return_attn_weights:
-            output, attention_weights = output
-            # reshape the output back to (batch, time, fea)
-            output = output.permute(1, 0, 2)
-            return output, attention_weights
-        else:
-            output = output.permute(1, 0, 2)
-            return output
+        # reshape the output back to (batch, time, fea)
+        output = output.permute(1, 0, 2)
+        return output, attention_weights
 
 
 class PositionalwiseFeedForward(nn.Module):

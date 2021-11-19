@@ -253,12 +253,18 @@ class Decoder(nn.ConvTranspose1d):
                        N = number of filters
                        L = time points
         """
+        # Ensure scriptability
+        # if x.dim() not in [2, 3]:
+        #     raise RuntimeError(
+        #         "{} accept 3/4D tensor as input".format(self.__name__)
+        #     )
+        # x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
+        # is not scriptable
 
-        if x.dim() not in [2, 3]:
-            raise RuntimeError(
-                "{} accept 3/4D tensor as input".format(self.__name__)
-            )
-        x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
+        if x.dim() != 3:
+            x = torch.unsqueeze(x, 1)
+        output_padding = self._output_padding(x, None, self.stride, self.padding, self.kernel_size, self.dilation)
+        x = F.conv_transpose1d(x, self.weight, self.bias, self.stride, self.padding, output_padding, self.groups, self.dilation)
 
         if torch.squeeze(x).dim() == 1:
             x = torch.squeeze(x, dim=1)
@@ -267,7 +273,7 @@ class Decoder(nn.ConvTranspose1d):
         return x
 
 
-class IdentityBlock:
+class IdentityBlock(nn.Module):
     """This block is used when we want to have identity transformation within the Dual_path block.
 
     Example
@@ -280,7 +286,7 @@ class IdentityBlock:
     def _init__(self, **kwargs):
         pass
 
-    def __call__(self, x):
+    def forward(self, x):
         return x
 
 
@@ -804,8 +810,10 @@ class Dual_Computation_Block(nn.Module):
             self.intra_norm = select_norm(norm, out_channels, 4)
             self.inter_norm = select_norm(norm, out_channels, 4)
 
+        self.intra_linear = IdentityBlock()
+        self.inter_linear = IdentityBlock()
         # Linear
-        if linear_layer_after_inter_intra:
+        if self.linear_layer_after_inter_intra:
             if isinstance(intra_mdl, SBRNNBlock):
                 self.intra_linear = Linear(
                     out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
@@ -951,6 +959,7 @@ class Dual_Path_Model(nn.Module):
         self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
         self.use_global_pos_enc = use_global_pos_enc
 
+        self.pos_enc = IdentityBlock()
         if self.use_global_pos_enc:
             self.pos_enc = PositionalEncoding(max_length)
 
@@ -1017,8 +1026,8 @@ class Dual_Path_Model(nn.Module):
         x, gap = self._Segmentation(x, self.K)
 
         # [B, N, K, S]
-        for i in range(self.num_layers):
-            x = self.dual_mdl[i](x)
+        for layer in self.dual_mdl:
+            x = layer(x)
         x = self.prelu(x)
 
         # [B, N*spks, K, S]
@@ -1045,15 +1054,13 @@ class Dual_Path_Model(nn.Module):
 
         return x
 
-    def _padding(self, input, K):
+    def _padding(self, input, K: int):
         """Padding the audio times.
 
         Arguments
         ---------
         K : int
             Chunks of length.
-        P : int
-            Hop size.
         input : torch.Tensor
             Tensor of size [B, N, L].
             where, B = Batchsize,
@@ -1064,15 +1071,15 @@ class Dual_Path_Model(nn.Module):
         P = K // 2
         gap = K - (P + L % K) % K
         if gap > 0:
-            pad = torch.Tensor(torch.zeros(B, N, gap)).type(input.type())
+            pad = torch.zeros(B, N, gap, dtype=input.dtype, device=input.device)
             input = torch.cat([input, pad], dim=2)
 
-        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.type())
+        _pad = torch.zeros(B, N, P, dtype=input.dtype, device=input.device)
         input = torch.cat([_pad, input, _pad], dim=2)
 
         return input, gap
 
-    def _Segmentation(self, input, K):
+    def _Segmentation(self, input, K: int):
         """The segmentation stage splits
 
         Arguments
@@ -1104,7 +1111,7 @@ class Dual_Path_Model(nn.Module):
 
         return input.contiguous(), gap
 
-    def _over_add(self, input, gap):
+    def _over_add(self, input, gap: int):
         """Merge the sequence with the overlap-and-add method.
 
         Arguments

@@ -5,6 +5,8 @@ Authors
 * Samuele Cornell 2021
 """
 import math
+import typing
+
 import torch
 import torch.nn as nn
 import speechbrain as sb
@@ -439,7 +441,7 @@ class TransformerEncoder(nn.Module):
             The mask for the src keys per batch (optional).
         """
         output = src
-        attention_lst = []
+        attention_lst: typing.List[Optional[torch.Tensor]] = []
         for enc_layer in self.layers:
             output, attention = enc_layer(
                 output,
