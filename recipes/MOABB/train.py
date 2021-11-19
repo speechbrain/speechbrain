@@ -327,7 +327,8 @@ if __name__ == "__main__":
         hparams = load_hyperpyyaml(fin, overrides)
 
     moabb_dataset = hparams["dataset"]
-    moabb_dataset.subject_list = hparams["subject_list"]
+    if hparams["subject_list"] is not None:
+        moabb_dataset.subject_list = hparams["subject_list"]
     moabb_dataset.download(path=hparams["data_folder"])
     # defining data iterators to use
     data_its = hparams["data_iterators"]
