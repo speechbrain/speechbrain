@@ -36,12 +36,13 @@ window_fn: !name:torch.hamming_window
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
-skip_prep: True
+skip_prep: False
 
 # The target metrics that you want to optimize.
 # Right now we only support 'pesq' and 'stoi'.
 # (Of course, it can be any arbitrary metric.)
 target_metric: pesq
+n_jobs: 1 # Jobs for metric eval (increase to speed up)
 # Training Parameters
 number_of_epochs: 750
 number_of_samples: 100

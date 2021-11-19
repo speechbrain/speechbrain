@@ -106,7 +106,7 @@ class SEBrain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=5, batch_eval=False
+                metric=pesq_eval, n_jobs=hparams["n_jobs"], batch_eval=False
             )
             self.stoi_metric = MetricStats(metric=stoi_loss)
 
