@@ -2,8 +2,10 @@
 """
 Data preparation.
 
-Download and resample, use ``download_vctk`` below.
-https://datashare.is.ed.ac.uk/handle/10283/2791
+First "Manually" Download VoiceBank-SLR [1] from:
+https://bio-asplab.citi.sinica.edu.tw/Opensource.html#VB-SLR
+
+[1] “MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech”
 
 Authors:
  * Szu-Wei Fu, 2020
@@ -13,20 +15,15 @@ Authors:
 import os
 import json
 import string
-import urllib
-import shutil
 import logging
-import tempfile
-import torchaudio
-from torchaudio.transforms import Resample
-from speechbrain.utils.data_utils import get_all_files, download_file
+from speechbrain.utils.data_utils import get_all_files
 from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
-TRAIN_JSON = "train.json"
-TEST_JSON = "test.json"
-VALID_JSON = "valid.json"
+TRAIN_JSON = "train_revb.json"
+TEST_JSON = "test_revb.json"
+VALID_JSON = "valid_revb.json"
 SAMPLERATE = 16000
 TRAIN_SPEAKERS = [
     "p226",
@@ -159,7 +156,7 @@ def prepare_voicebank(
     Prepares the json files for the Voicebank dataset.
 
     Expects the data folder to be the same format as the output of
-    ``download_vctk()`` below.
+    ``download_vctk_slr()`` below.
 
     Arguments
     ---------
@@ -178,8 +175,10 @@ def prepare_voicebank(
     >>> save_folder = 'exp/Voicebank_exp'
     >>> prepare_voicebank(data_folder, save_folder)
     """
+
     if skip_prep:
         return
+
     # Setting ouput files
     save_json_train = os.path.join(save_folder, TRAIN_JSON)
     save_json_valid = os.path.join(save_folder, VALID_JSON)
@@ -194,17 +193,16 @@ def prepare_voicebank(
         data_folder, "clean_trainset_28spk_wav_16k"
     )
     train_noisy_folder = os.path.join(
-        data_folder, "noisy_trainset_28spk_wav_16k"
+        data_folder, "reverb_trainset_28spk_wav_16k"
     )
-    train_txts = os.path.join(data_folder, "trainset_28spk_txt")
+
     test_clean_folder = os.path.join(data_folder, "clean_testset_wav_16k")
-    test_noisy_folder = os.path.join(data_folder, "noisy_testset_wav_16k")
-    test_txts = os.path.join(data_folder, "testset_txt")
+    test_noisy_folder = os.path.join(data_folder, "reverb_testset_wav_16k")
 
     # Setting the save folder
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-
+        """
     # Additional checks to make sure the data folder contains Voicebank
     check_voicebank_folders(
         train_clean_folder,
@@ -214,32 +212,25 @@ def prepare_voicebank(
         test_noisy_folder,
         test_txts,
     )
-
+    """
     logger.debug("Creating lexicon...")
-    lexicon = create_lexicon(os.path.join(data_folder, "lexicon.txt"))
     logger.info("Creating json files for noisy VoiceBank...")
 
     logger.debug("Collecting files...")
     extension = [".wav"]
     valid_speakers = TRAIN_SPEAKERS[:valid_speaker_count]
     wav_lst_train = get_all_files(
-        train_noisy_folder, match_and=extension, exclude_or=valid_speakers
+        train_noisy_folder, match_and=extension, exclude_or=valid_speakers,
     )
     wav_lst_valid = get_all_files(
-        train_noisy_folder, match_and=extension, match_or=valid_speakers
+        train_noisy_folder, match_and=extension, match_or=valid_speakers,
     )
     wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
 
-    logger.debug("Creating json files for noisy VoiceBank...")
-    create_json(
-        wav_lst_train, save_json_train, train_clean_folder, train_txts, lexicon
-    )
-    create_json(
-        wav_lst_valid, save_json_valid, train_clean_folder, train_txts, lexicon
-    )
-    create_json(
-        wav_lst_test, save_json_test, test_clean_folder, test_txts, lexicon
-    )
+    logger.debug("Creating json files for reverb VoiceBank...")
+    create_json(wav_lst_train, save_json_train, train_clean_folder)
+    create_json(wav_lst_valid, save_json_valid, train_clean_folder)
+    create_json(wav_lst_test, save_json_test, test_clean_folder)
 
 
 def skip(*filenames):
@@ -264,43 +255,7 @@ def remove_punctuation(a_string):
     return a_string.translate(str.maketrans("", "", string.punctuation))
 
 
-def create_lexicon(lexicon_save_filepath):
-    """
-    Creates the lexicon object, downloading if it hasn't been done yet.
-
-    Arguments
-    ---------
-    lexicon_save_filepath : str
-        Path to save the lexicon when downloading
-    """
-    if not os.path.isfile(lexicon_save_filepath):
-        download_file(LEXICON_URL, lexicon_save_filepath)
-
-    # Iterate lexicon file and add the first pronunciation in the file for
-    # each word to our lexicon dictionary
-    lexicon = MISSING_LEXICON
-    delayed_words = {}
-    for line in open(lexicon_save_filepath):
-        line = line.split()
-        phns = " ".join(p.strip("012") for p in line[1:])
-
-        # Don't add words with punctuation until we can be sure they won't
-        # overwrite words without punctuation.
-        clean_word = remove_punctuation(line[0])
-        if clean_word != line[0] and clean_word not in delayed_words:
-            delayed_words[clean_word] = phns
-        elif clean_word == line[0] and clean_word not in lexicon:
-            lexicon[clean_word] = phns
-
-    # Add words with punctuation if they won't overwrite non-punctuated words
-    for word, phns in delayed_words.items():
-        if word not in lexicon:
-            lexicon[word] = phns
-
-    return lexicon
-
-
-def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
+def create_json(wav_lst, json_file, clean_folder):
     """
     Creates the json file given a list of wav files.
 
@@ -312,8 +267,6 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
         The path of the output json file
     clean_folder : str
         The location of parallel clean samples.
-    txt_folder : str
-        The location of the transcript files.
     """
     logger.debug(f"Creating json lists in {json_file}")
 
@@ -334,23 +287,11 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
 
         # Read text
         snt_id = filename.replace(".wav", "")
-        with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
-            word_string = f.read()
-        word_string = remove_punctuation(word_string).strip().upper()
-        phones = [
-            phn for word in word_string.split() for phn in lexicon[word].split()
-        ]
-
-        # Remove duplicate phones
-        phones = [i for i, j in zip(phones, phones[1:] + [None]) if i != j]
-        phone_string = " ".join(phones)
 
         json_dict[snt_id] = {
             "noisy_wav": noisy_rel_path,
             "clean_wav": clean_rel_path,
             "length": duration,
-            "words": word_string,
-            "phones": phone_string,
         }
 
     # Writing the json lines
@@ -368,106 +309,3 @@ def check_voicebank_folders(*folders):
                 f"the folder {folder} does not exist (it is expected in "
                 "the Voicebank dataset)"
             )
-
-
-def download_vctk(destination, tmp_dir=None, device="cpu"):
-    """Download dataset and perform resample to 16000 Hz.
-
-    Arguments
-    ---------
-    destination : str
-        Place to put final zipped dataset.
-    tmp_dir : str
-        Location to store temporary files. Will use `tempfile` if not provided.
-    device : str
-        Passed directly to pytorch's ``.to()`` method. Used for resampling.
-    """
-    dataset_name = "noisy-vctk-16k"
-    if tmp_dir is None:
-        tmp_dir = tempfile.gettempdir()
-    final_dir = os.path.join(tmp_dir, dataset_name)
-
-    if not os.path.isdir(tmp_dir):
-        os.mkdir(tmp_dir)
-
-    if not os.path.isdir(final_dir):
-        os.mkdir(final_dir)
-
-    prefix = "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-    noisy_vctk_urls = [
-        prefix + "clean_testset_wav.zip",
-        prefix + "noisy_testset_wav.zip",
-        prefix + "testset_txt.zip",
-        prefix + "clean_trainset_28spk_wav.zip",
-        prefix + "noisy_trainset_28spk_wav.zip",
-        prefix + "trainset_28spk_txt.zip",
-    ]
-
-    zip_files = []
-    for url in noisy_vctk_urls:
-        filename = os.path.join(tmp_dir, url.split("/")[-1])
-        zip_files.append(filename)
-        if not os.path.isfile(filename):
-            logger.info("Downloading " + url)
-            with urllib.request.urlopen(url) as response:
-                with open(filename, "wb") as tmp_file:
-                    logger.info("... to " + tmp_file.name)
-                    shutil.copyfileobj(response, tmp_file)
-
-    # Unzip
-    for zip_file in zip_files:
-        logger.info("Unzipping " + zip_file)
-        shutil.unpack_archive(zip_file, tmp_dir, "zip")
-        os.remove(zip_file)
-
-    # Move transcripts to final dir
-    shutil.move(os.path.join(tmp_dir, "testset_txt"), final_dir)
-    shutil.move(os.path.join(tmp_dir, "trainset_28spk_txt"), final_dir)
-
-    # Downsample
-    dirs = [
-        "noisy_testset_wav",
-        "clean_testset_wav",
-        "noisy_trainset_28spk_wav",
-        "clean_trainset_28spk_wav",
-    ]
-
-    downsampler = Resample(orig_freq=48000, new_freq=16000)
-
-    for directory in dirs:
-        logger.info("Resampling " + directory)
-        dirname = os.path.join(tmp_dir, directory)
-
-        # Make directory to store downsampled files
-        dirname_16k = os.path.join(final_dir, directory + "_16k")
-        if not os.path.isdir(dirname_16k):
-            os.mkdir(dirname_16k)
-
-        # Load files and downsample
-        for filename in get_all_files(dirname, match_and=[".wav"]):
-            signal, rate = torchaudio.load(filename)
-            downsampled_signal = downsampler(signal.view(1, -1).to(device))
-
-            # Save downsampled file
-            torchaudio.save(
-                os.path.join(dirname_16k, filename[-12:]),
-                downsampled_signal.cpu(),
-                sample_rate=16000,
-            )
-
-            # Remove old file
-            os.remove(filename)
-
-        # Remove old directory
-        os.rmdir(dirname)
-
-    logger.info("Zipping " + final_dir)
-    final_zip = shutil.make_archive(
-        base_name=final_dir,
-        format="zip",
-        root_dir=os.path.dirname(final_dir),
-        base_dir=os.path.basename(final_dir),
-    )
-
-    logger.info(f"Moving {final_zip} to {destination}")
-    shutil.move(final_zip, os.path.join(destination, dataset_name + ".zip"))

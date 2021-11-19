@@ -1,4 +1,4 @@
-"""Generator and discriminator used in MetricGAN
+"""Generator and discriminator used in MetricGAN-U
 
 Authors:
 * Szu-Wei Fu 2020
@@ -27,23 +27,6 @@ def xavier_init_layer(
     return layer
 
 
-def shifted_sigmoid(x):
-    return 1.2 / (1 + torch.exp(-(1 / 1.6) * x))
-
-
-class Learnable_sigmoid(nn.Module):
-    def __init__(self, in_features=257):
-        super().__init__()
-        self.slope = nn.Parameter(torch.ones(in_features))
-        self.slope.requiresGrad = True  # set requiresGrad to true!
-
-        # self.scale = nn.Parameter(torch.ones(1))
-        # self.scale.requiresGrad = True # set requiresGrad to true!
-
-    def forward(self, x):
-        return 1.2 * torch.sigmoid(self.slope * x)
-
-
 class EnhancementGenerator(nn.Module):
     """Simple LSTM for enhancement with custom initialization.
 
@@ -55,12 +38,27 @@ class EnhancementGenerator(nn.Module):
         Number of neurons to use in the LSTM layers.
     num_layers : int
         Number of layers to use in the LSTM.
+    lin_dim: int
+        Number of neurons in the last two linear layers.
     dropout : int
         Fraction of neurons to drop during training.
+
+    Example
+    -------
+    >>> inputs = torch.rand([10, 100, 40])
+    >>> model = EnhancementGenerator(input_size=40, hidden_size=50)
+    >>> outputs = model(inputs, lengths=torch.ones([10]))
+    >>> outputs.shape
+    torch.Size([10, 100, 40])
     """
 
     def __init__(
-        self, input_size=257, hidden_size=200, num_layers=2, dropout=0,
+        self,
+        input_size=257,
+        hidden_size=200,
+        num_layers=2,
+        lin_dim=300,
+        dropout=0,
     ):
         super().__init__()
         self.activation = nn.LeakyReLU(negative_slope=0.3)
@@ -84,10 +82,11 @@ class EnhancementGenerator(nn.Module):
             elif "weight_hh" in name:
                 nn.init.orthogonal_(param)
 
-        self.linear1 = xavier_init_layer(400, 300, spec_norm=False)
-        self.linear2 = xavier_init_layer(300, 257, spec_norm=False)
+        self.linear1 = xavier_init_layer(
+            hidden_size * 2, lin_dim, spec_norm=False
+        )
+        self.linear2 = xavier_init_layer(lin_dim, input_size, spec_norm=False)
 
-        self.Learnable_sigmoid = Learnable_sigmoid()
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, lengths):
@@ -97,7 +96,7 @@ class EnhancementGenerator(nn.Module):
         out = self.activation(out)
 
         out = self.linear2(out)
-        out = self.Learnable_sigmoid(out)
+        out = self.sigmoid(out)
 
         return out
 
@@ -116,19 +115,38 @@ class MetricDiscriminator(nn.Module):
         The dimensions of the 2-d kernel used for convolution.
     base_channels : int
         Number of channels used in each conv layer.
+    lin_dim1: int
+        Dimensionality of the first linear layer.
+    lin_dim2: int
+        Dimensionality of the second linear layer.
+
+
+    Example
+    -------
+    >>> inputs = torch.rand([1, 1, 100, 257])
+    >>> model = MetricDiscriminator()
+    >>> outputs = model(inputs)
+    >>> outputs.shape
+    torch.Size([1, 1])
     """
 
+    # FCN
     def __init__(
-        self, kernel_size=(5, 5), base_channels=15, activation=nn.LeakyReLU,
+        self,
+        kernel_size=(5, 5),
+        base_channels=15,
+        activation=nn.LeakyReLU,
+        lin_dim1=50,
+        lin_dim2=10,
     ):
         super().__init__()
 
         self.activation = activation(negative_slope=0.3)
 
-        self.BN = nn.BatchNorm2d(num_features=2, momentum=0.01)
+        self.BN = nn.BatchNorm2d(num_features=1, momentum=0.01)
 
         self.conv1 = xavier_init_layer(
-            2, base_channels, layer_type=nn.Conv2d, kernel_size=kernel_size
+            1, base_channels, layer_type=nn.Conv2d, kernel_size=kernel_size
         )
         self.conv2 = xavier_init_layer(
             base_channels, layer_type=nn.Conv2d, kernel_size=kernel_size
@@ -140,14 +158,13 @@ class MetricDiscriminator(nn.Module):
             base_channels, layer_type=nn.Conv2d, kernel_size=kernel_size
         )
 
-        self.Linear1 = xavier_init_layer(base_channels, out_size=50)
-        self.Linear2 = xavier_init_layer(in_size=50, out_size=10)
-        self.Linear3 = xavier_init_layer(in_size=10, out_size=1)
+        self.Linear1 = xavier_init_layer(base_channels, out_size=lin_dim1)
+        self.Linear2 = xavier_init_layer(in_size=lin_dim1, out_size=lin_dim2)
+        self.Linear3 = xavier_init_layer(in_size=lin_dim2, out_size=1)
 
     def forward(self, x):
-        out = self.BN(x)
 
-        out = self.conv1(out)
+        out = self.conv1(x)
         out = self.activation(out)
 
         out = self.conv2(out)
