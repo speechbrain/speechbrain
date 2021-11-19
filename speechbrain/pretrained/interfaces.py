@@ -1349,7 +1349,7 @@ class VAD(Pretrained):
 
         # From indexes to samples
         seconds = (indexes * self.time_resolution).float()
-        samples = (self.sample_rate * seconds).int()
+        samples = (self.sample_rate * seconds).round().int()
 
         if output_value == "seconds":
             boundaries = seconds
