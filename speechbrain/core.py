@@ -233,7 +233,7 @@ def parse_arguments(arg_list=None):
     )
     parser.add_argument(
         "--auto_mix_prec",
-        default=False,
+        default=None,
         action="store_true",
         help="This flag enables training with automatic mixed-precision.",
     )
@@ -250,7 +250,7 @@ def parse_arguments(arg_list=None):
     )
     parser.add_argument(
         "--noprogressbar",
-        default=False,
+        default=None,
         action="store_true",
         help="This flag disables the data loop progressbars.",
     )
