@@ -272,24 +272,6 @@ class Decoder(nn.ConvTranspose1d):
             x = torch.squeeze(x)
         return x
 
-
-class IdentityBlock(nn.Module):
-    """This block is used when we want to have identity transformation within the Dual_path block.
-
-    Example
-    -------
-    >>> x = torch.randn(10, 100)
-    >>> IB = IdentityBlock()
-    >>> xhat = IB(x)
-    """
-
-    def _init__(self, **kwargs):
-        pass
-
-    def forward(self, x):
-        return x
-
-
 class FastTransformerBlock(nn.Module):
     """This block is used to implement fast transformer models with efficient attention.
 
@@ -810,8 +792,8 @@ class Dual_Computation_Block(nn.Module):
             self.intra_norm = select_norm(norm, out_channels, 4)
             self.inter_norm = select_norm(norm, out_channels, 4)
 
-        self.intra_linear = IdentityBlock()
-        self.inter_linear = IdentityBlock()
+        self.intra_linear = nn.Identity()
+        self.inter_linear = nn.Identity()
         # Linear
         if self.linear_layer_after_inter_intra:
             if isinstance(intra_mdl, SBRNNBlock):
@@ -959,7 +941,7 @@ class Dual_Path_Model(nn.Module):
         self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
         self.use_global_pos_enc = use_global_pos_enc
 
-        self.pos_enc = IdentityBlock()
+        self.pos_enc = nn.Identity()
         if self.use_global_pos_enc:
             self.pos_enc = PositionalEncoding(max_length)
 
