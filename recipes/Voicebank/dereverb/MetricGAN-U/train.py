@@ -460,11 +460,15 @@ class MetricGanBrain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             if self.hparams.target_metric == "srmr":
                 self.target_metric = MetricStats(
-                    metric=srmrpy_eval, n_jobs=1, batch_eval=False
+                    metric=srmrpy_eval,
+                    n_jobs=hparams["n_jobs"],
+                    batch_eval=False,
                 )
             elif self.hparams.target_metric == "dnsmos":
                 self.target_metric = MetricStats(
-                    metric=dnsmos_eval, n_jobs=1, batch_eval=False
+                    metric=dnsmos_eval,
+                    n_jobs=hparams["n_jobs"],
+                    batch_eval=False,
                 )
             else:
                 raise NotImplementedError(
@@ -480,14 +484,18 @@ class MetricGanBrain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=5, batch_eval=False
+                metric=pesq_eval, n_jobs=hparams["n_jobs"], batch_eval=False
             )
             self.stoi_metric = MetricStats(metric=stoi_loss)
             self.srmr_metric = MetricStats(
-                metric=srmrpy_eval_valid, n_jobs=5, batch_eval=False
+                metric=srmrpy_eval_valid,
+                n_jobs=hparams["n_jobs"],
+                batch_eval=False,
             )
             self.dnsmos_metric = MetricStats(
-                metric=dnsmos_eval_valid, n_jobs=5, batch_eval=False
+                metric=dnsmos_eval_valid,
+                n_jobs=hparams["n_jobs"],
+                batch_eval=False,
             )
 
     def train_discriminator(self):

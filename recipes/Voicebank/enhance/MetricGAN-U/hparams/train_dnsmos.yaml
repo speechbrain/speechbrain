@@ -35,7 +35,7 @@ window_fn: !name:torch.hamming_window
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
-skip_prep: True
+skip_prep: False
 
 # The target metrics that you want to optimize.
 # Right now we only support 'dnsmos', and 'srmr'.
@@ -43,6 +43,8 @@ skip_prep: True
 target_metric: dnsmos
 calculate_dnsmos_on_validation_set: True
 target_score: 1
+n_jobs: 1 # number of jobs for metric computation (increase to speed up)
+
 # Training Parameters
 number_of_epochs: 600
 number_of_samples: 100

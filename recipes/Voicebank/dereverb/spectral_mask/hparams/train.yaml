@@ -33,12 +33,13 @@ window_fn: !name:torch.hamming_window
 train_annotation: !ref <data_folder>/train_revb.json
 valid_annotation: !ref <data_folder>/valid_revb.json
 test_annotation: !ref <data_folder>/test_revb.json
-skip_prep: True
+skip_prep: False
 
 # Training Parameters
 number_of_epochs: 150
 N_batch: 8
 lr: 0.00013
+n_jobs: 1 # number of jobs for metric evaluation (increase it for a speed up)
 sorting: ascending
 dataloader_options:
     batch_size: !ref <N_batch>
