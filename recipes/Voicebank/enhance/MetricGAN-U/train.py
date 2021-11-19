@@ -1,22 +1,28 @@
 #!/usr/bin/env/python3
 """
-Recipe for training a speech enhancement system with the Voicebank dataset.
+Recipe for training MetricGAN-U (Unsupervised) with the Voicebank dataset.
 
 To run this recipe, do the following:
 > python train.py hparams/{hyperparam_file}.yaml
 
 Authors
- * Szu-Wei Fu 2020
- * Peter Plantinga 2021
+ * Szu-Wei Fu 2021/09
 """
 
 import os
 import sys
 import shutil
-import pickle
 import torch
 import torchaudio
 import speechbrain as sb
+import numpy as np
+import json
+import pickle
+import requests
+import time
+
+from urllib.parse import urlparse, urljoin
+from srmrpy import srmr
 from pesq import pesq
 from enum import Enum, auto
 from hyperpyyaml import load_hyperpyyaml
@@ -26,13 +32,127 @@ from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 
+### For DNSMSOS
+# URL for the web service
+SCORING_URI = "https://dnsmos-4.azurewebsites.net/score"
+# If the service is authenticated, set the key or token
+AUTH_KEY = ""
+if AUTH_KEY == "":
+    print(
+        "To access DNSMOS, you have to ask the key from the DNS organizer: dns_challenge@microsoft.com"
+    )
+# Set the content type
+headers = {"Content-Type": "application/json"}
+# If authentication is enabled, set the authorization header
+headers["Authorization"] = f"Basic {AUTH_KEY }"
 
-def pesq_eval(pred_wav, target_wav):
+
+def sigmoid(x):
+    s = 1 / (1 + np.exp(-x))
+    return s
+
+
+def pesq_eval(predict, target):
     """Normalized PESQ (to 0-1)"""
     return (
-        pesq(fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb")
-        + 0.5
+        pesq(fs=16000, ref=target.numpy(), deg=predict.numpy(), mode="wb") + 0.5
     ) / 5
+
+
+def srmrpy_eval(predict, target):
+    """ Note target is not used in the srmr function !!!
+        Normalize the score to 0~1 for training.
+    """
+    return float(
+        sigmoid(
+            0.1
+            * srmr(
+                predict.numpy(),
+                fs=16000,
+                n_cochlear_filters=23,
+                low_freq=125,
+                min_cf=4,
+                max_cf=128,
+                fast=True,
+                norm=False,
+            )[0]
+        )
+    )
+
+
+def srmrpy_eval_valid(predict, target):
+    """ Note target is not used in the srmr function !!!
+        Show the unnormalized score for valid and test set.
+    """
+    return float(
+        srmr(
+            predict.numpy(),
+            fs=16000,
+            n_cochlear_filters=23,
+            low_freq=125,
+            min_cf=4,
+            max_cf=128,
+            fast=True,
+            norm=False,
+        )[0]
+    )
+
+
+def dnsmos_eval(predict, target):
+    """ Note target is not used in the dnsmos function !!!
+        Normalize the score to 0~1 for training.
+    """
+    pred_wav = predict
+
+    pred_wav = pred_wav.numpy()
+    pred_wav = pred_wav / max(abs(pred_wav))
+    data = {"data": pred_wav.tolist()}
+
+    input_data = json.dumps(data)
+    while True:
+        try:
+            u = urlparse(SCORING_URI)
+            resp = requests.post(
+                urljoin("https://" + u.netloc, "score"),
+                data=input_data,
+                headers=headers,
+            )
+            score_dict = resp.json()
+            score = float(
+                sigmoid(score_dict["mos"])
+            )  # normalize the score to 0~1
+            break
+        except Exception as e:  # sometimes, access the dnsmos server too ofen may disable the service.
+            print(e)
+            time.sleep(10)  # wait for 10 secs
+    return score
+
+
+def dnsmos_eval_valid(predict, target):
+    """ Note target is not used in the dnsmos function !!!
+        Show the unnormalized score for valid and test set.
+    """
+    pred_wav = predict
+
+    pred_wav = pred_wav.numpy()
+    pred_wav = pred_wav / max(abs(pred_wav))
+    data = {"data": pred_wav.tolist()}
+    input_data = json.dumps(data)
+    while True:
+        try:
+            u = urlparse(SCORING_URI)
+            resp = requests.post(
+                urljoin("https://" + u.netloc, "score"),
+                data=input_data,
+                headers=headers,
+            )
+            score_dict = resp.json()
+            score = float(score_dict["mos"])
+            break
+        except Exception as e:  # sometimes, access the dnsmos server too ofen may disable the service.
+            print(e)
+            time.sleep(10)  # wait for 10 secs
+    return score
 
 
 class SubStage(Enum):
@@ -52,9 +172,8 @@ class MetricGanBrain(sb.Brain):
     def compute_feats(self, wavs):
         """Feature computation pipeline"""
         feats = self.hparams.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
-        feats = torch.log1p(feats)
-        return feats
+        spec = spectral_magnitude(feats, power=0.5)
+        return spec
 
     def compute_forward(self, batch, stage):
         "Given an input batch computes the enhanced signal"
@@ -62,67 +181,65 @@ class MetricGanBrain(sb.Brain):
 
         if self.sub_stage == SubStage.HISTORICAL:
             predict_wav, lens = batch.enh_sig
+            return predict_wav
         else:
             noisy_wav, lens = batch.noisy_sig
             noisy_spec = self.compute_feats(noisy_wav)
 
-            # mask with "signal approximation (SA)"
             mask = self.modules.generator(noisy_spec, lengths=lens)
             mask = mask.clamp(min=self.hparams.min_mask).squeeze(2)
             predict_spec = torch.mul(mask, noisy_spec)
 
             # Also return predicted wav
-            predict_wav = self.hparams.resynth(
-                torch.expm1(predict_spec), noisy_wav
-            )
+            predict_wav = self.hparams.resynth(predict_spec, noisy_wav)
 
-        return predict_wav
+            return predict_wav, mask
 
     def compute_objectives(self, predictions, batch, stage, optim_name=""):
         "Given the network predictions and targets compute the total loss"
-        predict_wav = predictions
+        if self.sub_stage == SubStage.HISTORICAL:
+            predict_wav = predictions
+        else:
+            predict_wav, mask = predictions
         predict_spec = self.compute_feats(predict_wav)
 
-        clean_wav, lens = batch.clean_sig
-        clean_spec = self.compute_feats(clean_wav)
-
         ids = self.compute_ids(batch.id, optim_name)
+        if self.sub_stage != SubStage.HISTORICAL:
+            noisy_wav, lens = batch.noisy_sig
 
-        # One is real, zero is fake
         if optim_name == "generator":
-            target_score = torch.ones(self.batch_size, 1, device=self.device)
-            est_score = self.est_score(predict_spec, clean_spec)
-            self.mse_metric.append(
-                ids, predict_spec, clean_spec, lens, reduction="batch"
+            est_score = self.est_score(predict_spec)
+            target_score = self.hparams.target_score * torch.ones(
+                self.batch_size, 1, device=self.device
             )
-            mse_cost = self.hparams.compute_cost(predict_spec, clean_spec, lens)
 
-        # D Learns to estimate the scores of clean speech
-        elif optim_name == "D_clean":
-            target_score = torch.ones(self.batch_size, 1, device=self.device)
-            est_score = self.est_score(clean_spec, clean_spec)
+            noisy_wav, lens = batch.noisy_sig
+            noisy_spec = self.compute_feats(noisy_wav)
+            mse_cost = self.hparams.compute_cost(predict_spec, noisy_spec, lens)
 
         # D Learns to estimate the scores of enhanced speech
         elif optim_name == "D_enh" and self.sub_stage == SubStage.CURRENT:
-            target_score = self.score(ids, predict_wav, clean_wav, lens)
-            est_score = self.est_score(predict_spec, clean_spec)
+            target_score = self.score(
+                ids, predict_wav, predict_wav, lens
+            )  # no clean_wav is needed
+            est_score = self.est_score(predict_spec)
 
             # Write enhanced wavs during discriminator training, because we
             # compute the actual score here and we can save it
-            self.write_wavs(batch.id, ids, predict_wav, target_score, lens)
+            self.write_wavs(ids, predict_wav, target_score, lens)
 
         # D Relearns to estimate the scores of previous epochs
         elif optim_name == "D_enh" and self.sub_stage == SubStage.HISTORICAL:
             target_score = batch.score.unsqueeze(1).float()
-            est_score = self.est_score(predict_spec, clean_spec)
+            est_score = self.est_score(predict_spec)
 
         # D Learns to estimate the scores of noisy speech
         elif optim_name == "D_noisy":
-            noisy_wav, _ = batch.noisy_sig
             noisy_spec = self.compute_feats(noisy_wav)
-            target_score = self.score(ids, noisy_wav, clean_wav, lens)
-            est_score = self.est_score(noisy_spec, clean_spec)
-
+            target_score = self.score(
+                ids, noisy_wav, noisy_wav, lens
+            )  # no clean_wav is needed
+            est_score = self.est_score(noisy_spec)
             # Save scores of noisy wavs
             self.save_noisy_scores(ids, target_score)
 
@@ -135,8 +252,10 @@ class MetricGanBrain(sb.Brain):
             else:
                 self.metrics["D"].append(cost.detach())
 
-        # On validation data compute scores
+        # Compute scores on validation data
         if stage != sb.Stage.TRAIN:
+            clean_wav, lens = batch.clean_sig
+
             cost = self.hparams.compute_si_snr(predict_wav, clean_wav, lens)
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
@@ -145,6 +264,15 @@ class MetricGanBrain(sb.Brain):
             self.pesq_metric.append(
                 batch.id, predict=predict_wav, target=clean_wav, lengths=lens
             )
+            if (
+                self.hparams.calculate_dnsmos_on_validation_set
+            ):  # Note: very time consuming........
+                self.dnsmos_metric.append(
+                    batch.id,
+                    predict=predict_wav,
+                    target=predict_wav,
+                    lengths=lens,  # no clean_wav is needed
+                )
 
             # Write wavs to file, for evaluation
             lens = lens * clean_wav.shape[1]
@@ -191,29 +319,20 @@ class MetricGanBrain(sb.Brain):
 
         if len(new_ids) == 0:
             pass
-        elif self.hparams.target_metric == "pesq":
+        elif self.hparams.target_metric == "srmr" or "dnsmos":
             self.target_metric.append(
                 ids=[batch_id[i] for i in new_ids],
                 predict=deg_wav[new_ids].detach(),
-                target=ref_wav[new_ids].detach(),
+                target=ref_wav[
+                    new_ids
+                ].detach(),  # target is not used in the function !!!
                 lengths=lens[new_ids],
             )
             score = torch.tensor(
                 [[s] for s in self.target_metric.scores], device=self.device,
             )
-        elif self.hparams.target_metric == "stoi":
-            self.target_metric.append(
-                [batch_id[i] for i in new_ids],
-                deg_wav[new_ids],
-                ref_wav[new_ids],
-                lens[new_ids],
-                reduction="batch",
-            )
-            score = torch.tensor(
-                [[-s] for s in self.target_metric.scores], device=self.device,
-            )
         else:
-            raise ValueError("Expected 'pesq' or 'stoi' for target_metric")
+            raise ValueError("Expected 'srmr' or 'dnsmos' for target_metric")
 
         # Clear metric scores to prepare for next batch
         self.target_metric.clear()
@@ -230,7 +349,7 @@ class MetricGanBrain(sb.Brain):
 
         return torch.tensor(final_score, device=self.device)
 
-    def est_score(self, deg_spec, ref_spec):
+    def est_score(self, deg_spec):
         """Returns score as estimated by discriminator
 
         Arguments
@@ -240,12 +359,15 @@ class MetricGanBrain(sb.Brain):
         ref_spec : torch.Tensor
             The spectral features of the reference utterance
         """
+
+        """
         combined_spec = torch.cat(
             [deg_spec.unsqueeze(1), ref_spec.unsqueeze(1)], 1
         )
-        return self.modules.discriminator(combined_spec)
+        """
+        return self.modules.discriminator(deg_spec.unsqueeze(1))
 
-    def write_wavs(self, clean_id, batch_id, wavs, scores, lens):
+    def write_wavs(self, batch_id, wavs, score, lens):
         """Write wavs to files, for historical discriminator training
 
         Arguments
@@ -254,29 +376,23 @@ class MetricGanBrain(sb.Brain):
             A list of the utterance ids for the batch
         wavs : torch.Tensor
             The wavs to write to files
-        scores : torch.Tensor
+        score : torch.Tensor
             The actual scores for the corresponding utterances
         lens : torch.Tensor
             The relative lengths of each utterance
         """
         lens = lens * wavs.shape[1]
         record = {}
-        for i, (cleanid, name, pred_wav, length) in enumerate(
-            zip(clean_id, batch_id, wavs, lens)
-        ):
+        for i, (name, pred_wav, length) in enumerate(zip(batch_id, wavs, lens)):
             path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
             torchaudio.save(path, data, self.hparams.Sample_rate)
 
             # Make record of path and score for historical training
-            score = float(scores[i][0])
-            clean_path = os.path.join(
-                self.hparams.train_clean_folder, cleanid + ".wav"
-            )
+            score = float(score[i][0])
             record[name] = {
                 "enh_wav": path,
                 "score": score,
-                "clean_wav": clean_path,
             }
 
         # Update records for historical training
@@ -290,7 +406,7 @@ class MetricGanBrain(sb.Brain):
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss_tracker = 0
         if self.sub_stage == SubStage.CURRENT:
-            for mode in ["clean", "enh", "noisy"]:
+            for mode in ["enh", "noisy"]:
                 loss = self.compute_objectives(
                     predictions, batch, sb.Stage.TRAIN, f"D_{mode}"
                 )
@@ -314,12 +430,10 @@ class MetricGanBrain(sb.Brain):
                     param.data = torch.clamp(
                         param, max=3.5
                     )  # to prevent gradient goes to infinity
-                    param.data[param != param] = 3.5  # set 'nan' to 3.5
 
             loss = self.compute_objectives(
                 predictions, batch, sb.Stage.TRAIN, "generator"
             )
-
             self.g_optimizer.zero_grad()
             loss.backward()
             if self.check_gradients(loss):
@@ -335,19 +449,24 @@ class MetricGanBrain(sb.Brain):
         before proceeding with generator training.
         """
 
-        self.mse_metric = MetricStats(metric=self.hparams.compute_cost)
         self.metrics = {"G": [], "D": []}
 
         if stage == sb.Stage.TRAIN:
-            if self.hparams.target_metric == "pesq":
+            if self.hparams.target_metric == "srmr":
                 self.target_metric = MetricStats(
-                    metric=pesq_eval, n_jobs=hparams["n_jobs"], batch_eval=False
+                    metric=srmrpy_eval,
+                    n_jobs=hparams["n_jobs"],
+                    batch_eval=False,
                 )
-            elif self.hparams.target_metric == "stoi":
-                self.target_metric = MetricStats(metric=stoi_loss)
+            elif self.hparams.target_metric == "dnsmos":
+                self.target_metric = MetricStats(
+                    metric=dnsmos_eval,
+                    n_jobs=hparams["n_jobs"],
+                    batch_eval=False,
+                )
             else:
                 raise NotImplementedError(
-                    "Right now we only support 'pesq' and 'stoi'"
+                    "Right now we only support 'srmr' and 'dnsmos'"
                 )
 
             # Train discriminator before we start generator training
@@ -362,10 +481,20 @@ class MetricGanBrain(sb.Brain):
                 metric=pesq_eval, n_jobs=hparams["n_jobs"], batch_eval=False
             )
             self.stoi_metric = MetricStats(metric=stoi_loss)
+            self.srmr_metric = MetricStats(
+                metric=srmrpy_eval_valid,
+                n_jobs=hparams["n_jobs"],
+                batch_eval=False,
+            )
+            self.dnsmos_metric = MetricStats(
+                metric=dnsmos_eval_valid,
+                n_jobs=hparams["n_jobs"],
+                batch_eval=False,
+            )
 
     def train_discriminator(self):
         """A total of 3 data passes to update discriminator."""
-        # First, iterate train subset w/ updates for clean, enh, noisy
+        # First, iterate train subset w/ updates for enh, noisy
         print("Discriminator training by current data...")
         self.sub_stage = SubStage.CURRENT
         self.fit(
@@ -406,28 +535,50 @@ class MetricGanBrain(sb.Brain):
             print("Avg G loss: %.3f" % torch.mean(g_loss))
             print("Avg D loss: %.3f" % torch.mean(d_loss))
         else:
-            stats = {
-                "SI-SNR": -stage_loss,
-                "pesq": 5 * self.pesq_metric.summarize("average") - 0.5,
-                "stoi": -self.stoi_metric.summarize("average"),
-            }
-
-        if stage == sb.Stage.VALID:
-            if self.hparams.use_tensorboard:
-                valid_stats = {
+            if self.hparams.calculate_dnsmos_on_validation_set:
+                stats = {
+                    "SI-SNR": -stage_loss,
+                    "pesq": 5 * self.pesq_metric.summarize("average") - 0.5,
+                    "stoi": -self.stoi_metric.summarize("average"),
+                    "dnsmos": self.dnsmos_metric.summarize("average"),
+                }
+            else:
+                stats = {
                     "SI-SNR": -stage_loss,
                     "pesq": 5 * self.pesq_metric.summarize("average") - 0.5,
                     "stoi": -self.stoi_metric.summarize("average"),
                 }
-                self.hparams.tensorboard_train_logger.log_stats(valid_stats)
+
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(5.0 - stats["pesq"])
+            sb.nnet.schedulers.update_learning_rate(self.g_optimizer, new_lr)
+
+            if self.hparams.use_tensorboard:
+                if (
+                    self.hparams.calculate_dnsmos_on_validation_set
+                ):  # Note: very time consuming........
+                    valid_stats = {
+                        "SI-SNR": -stage_loss,
+                        "pesq": 5 * self.pesq_metric.summarize("average") - 0.5,
+                        "stoi": -self.stoi_metric.summarize("average"),
+                        "dnsmos": self.dnsmos_metric.summarize("average"),
+                    }
+                else:
+                    valid_stats = {
+                        "SI-SNR": -stage_loss,
+                        "pesq": 5 * self.pesq_metric.summarize("average") - 0.5,
+                        "stoi": -self.stoi_metric.summarize("average"),
+                    }
+
+                self.hparams.tensorboard_train_logger.log_stats(
+                    {"lr": old_lr}, valid_stats
+                )
             self.hparams.train_logger.log_stats(
-                {"Epoch": epoch},
+                {"Epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
-            self.checkpointer.save_and_keep_only(
-                meta=stats, max_keys=[self.hparams.target_metric]
-            )
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -446,7 +597,7 @@ class MetricGanBrain(sb.Brain):
                 dataset = sb.dataio.dataset.DynamicItemDataset(
                     data=dataset,
                     dynamic_items=[enh_pipeline],
-                    output_keys=["id", "enh_sig", "clean_sig", "score"],
+                    output_keys=["id", "enh_sig", "score"],
                 )
                 samples = round(len(dataset) * self.hparams.history_portion)
             else:
@@ -490,20 +641,26 @@ class MetricGanBrain(sb.Brain):
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
 
 
-# Define audio piplines
+# Define audio piplines for training set
+@sb.utils.data_pipeline.takes("noisy_wav")
+@sb.utils.data_pipeline.provides("noisy_sig")
+def audio_pipeline_train(noisy_wav):
+    yield sb.dataio.dataio.read_audio(noisy_wav)
+
+
+# Define audio piplines for validation/test set
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
-def audio_pipeline(noisy_wav, clean_wav):
+def audio_pipeline_valid(noisy_wav, clean_wav):
     yield sb.dataio.dataio.read_audio(noisy_wav)
     yield sb.dataio.dataio.read_audio(clean_wav)
 
 
 # For historical data
-@sb.utils.data_pipeline.takes("enh_wav", "clean_wav")
-@sb.utils.data_pipeline.provides("enh_sig", "clean_sig")
-def enh_pipeline(enh_wav, clean_wav):
+@sb.utils.data_pipeline.takes("enh_wav")
+@sb.utils.data_pipeline.provides("enh_sig")
+def enh_pipeline(enh_wav):
     yield sb.dataio.dataio.read_audio(enh_wav)
-    yield sb.dataio.dataio.read_audio(clean_wav)
 
 
 def dataio_prep(hparams):
@@ -511,11 +668,19 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+
+    dataset = "train"
+    datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams[f"{dataset}_annotation"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[audio_pipeline_train],
+        output_keys=["id", "noisy_sig"],
+    )
+    for dataset in ["valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline],
+            dynamic_items=[audio_pipeline_valid],
             output_keys=["id", "noisy_sig", "clean_sig"],
         )
 
@@ -599,6 +764,6 @@ if __name__ == "__main__":
     # Load best checkpoint for evaluation
     test_stats = se_brain.evaluate(
         test_set=datasets["test"],
-        max_key=hparams["target_metric"],
+        max_key="pesq",
         test_loader_kwargs=hparams["dataloader_options"],
     )

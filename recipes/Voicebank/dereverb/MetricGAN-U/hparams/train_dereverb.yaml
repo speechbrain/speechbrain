@@ -8,24 +8,23 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 4234
+seed: 12234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER # e.g, /data/member1/user_jasonfu/noisy-vctk-16k
-train_clean_folder: !ref <data_folder>/clean_trainset_28spk_wav_16k/
 
 MetricGAN_folder: !ref <output_folder>/enhanced_wavs
-output_folder: !ref ./results/MetricGAN/<seed>
+output_folder: !ref ./results/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced_wavs
 historical_file: !ref <output_folder>/historical.txt
 
 # Basic parameters
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
-# FFT parameters
+# FFT paremeters
 Sample_rate: 16000
 Win_length: 32
 Hop_length: 16
@@ -33,26 +32,28 @@ N_fft: 512
 window_fn: !name:torch.hamming_window
 
 # Data files
-train_annotation: !ref <data_folder>/train.json
-valid_annotation: !ref <data_folder>/valid.json
-test_annotation: !ref <data_folder>/test.json
+train_annotation: !ref <data_folder>/train_revb.json
+valid_annotation: !ref <data_folder>/valid_revb.json
+test_annotation: !ref <data_folder>/test_revb.json
 skip_prep: False
 
 # The target metrics that you want to optimize.
-# Right now we only support 'pesq' and 'stoi'.
-# (Of course, it can be any arbitrary metric.)
-target_metric: pesq
-n_jobs: 1 # Jobs for metric eval (increase to speed up)
+# Right now we only support 'dnsmos', and 'srmr'.
+# (Of course, it can be any arbitary metric.)
+target_metric: srmr
+calculate_dnsmos_on_validation_set: False
+target_score: 1
+n_jobs: 1 # Number of jobs to compute metrics (increase it for a speed up)
 # Training Parameters
-number_of_epochs: 750
+number_of_epochs: 250
 number_of_samples: 100
-min_mask: 0.05
+min_mask: 0.2
 train_N_batch: 1
 valid_N_batch: 20
 history_portion: 0.2
-G_lr: 0.0005
+G_lr: 0.000002
 D_lr: 0.0005
-mse_weight: 0
+mse_weight: 0.6
 
 dataloader_options:
     batch_size: !ref <train_N_batch>
@@ -60,7 +61,7 @@ valid_dataloader_options:
     batch_size: !ref <valid_N_batch>
 
 # Change this import to use a different model
-models: !include:../models/MetricGAN.yaml
+models: !include:models/MetricGAN_U.yaml
     N_fft: !ref <N_fft>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -81,6 +82,12 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         generator: !ref <models[generator]>
         discriminator: !ref <models[discriminator]>
         counter: !ref <epoch_counter>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <G_lr>
+    annealing_factor: 1
+    improvement_threshold: 0.0
+    patient: 0
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
