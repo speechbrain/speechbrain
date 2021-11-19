@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Recipe for training a speaker-id system, with hyperparameter fitting support.
+"""Recipe for training a speaker-id system, with hyperparameter optimization support.
+
+For a tutorial on hyperparameter optimization, refer to this tutorial:
+
+https://colab.research.google.com/drive/1b-5EOjZC7M9RvfWZ0Pq0HMV0KmQKu730#scrollTo=lJup9mNnYw_0
+
 The template can use used as a
 basic example for any signal classification task such as language_id,
 emotion recognition, command classification, etc. The proposed task classifies
@@ -32,7 +37,7 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
-from speechbrain.utils import hpfit as hp
+from speechbrain.utils import hpopt as hp
 
 
 # Brain class for speech enhancement training
@@ -278,7 +283,7 @@ def dataio_prep(hparams):
 # Recipe begins!
 if __name__ == "__main__":
 
-    with hp.hyperparameter_fitting(objective_key="error") as hp_ctx:
+    with hp.hyperparameter_optimization(objective_key="error") as hp_ctx:
 
         # Reading command line arguments
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])

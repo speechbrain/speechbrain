@@ -1,15 +1,14 @@
-from speechbrain.utils.hpfit import OrionHyperparameterFitReporter
 import pytest
 
 
-def test_hpfit_generic():
+def test_hpopt_generic():
     from io import StringIO
-    from speechbrain.utils.hpfit import GenericHyperparameterFitReporter
+    from speechbrain.utils import hpopt as hp
     import json
 
     output = StringIO()
 
-    reporter = GenericHyperparameterFitReporter(
+    reporter = hp.GenericHyperparameterOptimizationReporter(
         objective_key="per", output=output
     )
     result = {"train_loss": 0.9, "valid_loss": 1.2, "per": 0.10}
@@ -22,7 +21,9 @@ def test_hpfit_generic():
     assert output_result["objective"] == pytest.approx(0.10)
 
 
-def test_hpfit_orion():
+def test_hpopt_orion():
+    from speechbrain.utils import hpopt as hp
+
     results = {}
 
     class MockOrion:
@@ -31,7 +32,9 @@ def test_hpfit_orion():
 
     mock_orion = MockOrion()
 
-    reporter = OrionHyperparameterFitReporter(objective_key="valid_loss")
+    reporter = hp.OrionHyperparameterOptimizationReporter(
+        objective_key="valid_loss"
+    )
     reporter.orion_client = mock_orion
 
     result = {"train_loss": 0.9, "valid_loss": 1.2, "per": 0.10}
@@ -39,17 +42,17 @@ def test_hpfit_orion():
     assert results["value"] == pytest.approx(1.2)
 
 
-def test_hpfit_context():
+def test_hpopt_context():
     import json
-    from speechbrain.utils import hpfit as hp
+    from speechbrain.utils import hpopt as hp
     from io import StringIO
 
     output = StringIO()
-    reporter = hp.GenericHyperparameterFitReporter(
+    reporter = hp.GenericHyperparameterOptimizationReporter(
         objective_key="per", output=output
     )
 
-    with hp.hyperparameter_fitting() as hp_ctx:
+    with hp.hyperparameter_optimization() as hp_ctx:
         hp_ctx.reporter = reporter
         result = {"per": 10, "loss": 1.2}
         hp.report_result(result)
