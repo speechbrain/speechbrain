@@ -1150,6 +1150,190 @@ class DropChunk(torch.nn.Module):
         return dropped_waveform
 
 
+class FastDropChunk(torch.nn.Module):
+    """This class drops portions of the input signal. The difference with
+    DropChunk is that in this case we pre-compute the dropping masks in the
+    first time the forward function is called. For all the other calls, we only
+    shuffle and apply them. This makes the code faster and more suitable for
+    data augmentation of large batches.
+
+    It can be used only for fixed-length sequences.
+
+    Arguments
+    ---------
+    drop_length_low : int
+        The low end of lengths for which to set the
+        signal to zero, in samples.
+    drop_length_high : int
+        The high end of lengths for which to set the
+        signal to zero, in samples.
+    drop_count_low : int
+        The low end of number of times that the signal
+        can be dropped to zero.
+    drop_count_high : int
+        The high end of number of times that the signal
+        can be dropped to zero.
+    drop_start : int
+        The first index for which dropping will be allowed.
+    drop_end : int
+        The last index for which dropping will be allowed.
+    n_masks : int
+        The number of precomputed masks.
+
+    Example
+    -------
+    >>> from speechbrain.dataio.dataio import read_audio
+    >>> dropper = FastDropChunk(drop_start=100, drop_end=200)
+    >>> signal = torch.rand(10, 250, 22)
+    >>> dropped_signal = dropper(signal)
+    """
+
+    def __init__(
+        self,
+        drop_length_low=100,
+        drop_length_high=1000,
+        drop_count_low=1,
+        drop_count_high=10,
+        drop_start=0,
+        drop_end=None,
+        n_masks=1000,
+    ):
+        super().__init__()
+        self.drop_length_low = drop_length_low
+        self.drop_length_high = drop_length_high
+        self.drop_count_low = drop_count_low
+        self.drop_count_high = drop_count_high
+        self.drop_start = drop_start
+        self.drop_end = drop_end
+        self.n_masks = n_masks
+        self.first = True
+
+        # Validate low < high
+        if drop_length_low > drop_length_high:
+            raise ValueError("Low limit must not be more than high limit")
+        if drop_count_low > drop_count_high:
+            raise ValueError("Low limit must not be more than high limit")
+
+        # Make sure the length doesn't exceed end - start
+        if drop_end is not None and drop_end >= 0:
+            if drop_start > drop_end:
+                raise ValueError("Low limit must not be more than high limit")
+            drop_range = drop_end - drop_start
+            self.drop_length_low = min(drop_length_low, drop_range)
+            self.drop_length_high = min(drop_length_high, drop_range)
+
+    def initialize_masks(self, waveforms):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+`.
+        Returns
+        -------
+        dropped_masks: tensor
+            Tensor of size `[n_masks, time]` with the dropped chunks. Dropped
+            regions are assigned to 0.
+        """
+
+        if self.n_masks < waveforms.shape[0]:
+            raise ValueError("n_mask cannot be smaller than the batch size")
+
+        # Initiaizing the drop mask
+        dropped_masks = torch.ones(
+            [self.n_masks, self.sig_len], device=waveforms.device
+        )
+
+        # Pick a number of times to drop
+        drop_times = torch.randint(
+            low=self.drop_count_low,
+            high=self.drop_count_high + 1,
+            size=(self.n_masks,),
+            device=waveforms.device,
+        )
+
+        # Iterate batch to set mask
+        for i in range(self.n_masks):
+            if drop_times[i] == 0:
+                continue
+
+            # Pick lengths
+            length = torch.randint(
+                low=self.drop_length_low,
+                high=self.drop_length_high + 1,
+                size=(drop_times[i],),
+                device=waveforms.device,
+            )
+
+            # Compute range of starting locations
+            start_min = self.drop_start
+            if start_min < 0:
+                start_min += self.sig_len
+            start_max = self.drop_end
+            if start_max is None:
+                start_max = self.sig_len
+            if start_max < 0:
+                start_max += self.sig_len
+            start_max = max(0, start_max - length.max())
+
+            # Pick starting locations
+            start = torch.randint(
+                low=start_min,
+                high=start_max + 1,
+                size=(drop_times[i],),
+                device=waveforms.device,
+            )
+
+            end = start + length
+
+            # Update waveform
+            for j in range(drop_times[i]):
+                dropped_masks[i, start[j] : end[j]] = 0.0
+
+        return dropped_masks
+
+    def forward(self, waveforms):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+
+        dropped_waveforms = waveforms.clone()
+
+        # Initialize the masks
+        if self.first:
+            self.sig_len = waveforms.shape[1]
+            self.dropped_masks = self.initialize_masks(waveforms)
+            self.first = False
+
+        # Random Permutation
+        rand_perm = torch.randperm(self.dropped_masks.shape[0])
+        self.dropped_masks = self.dropped_masks[rand_perm, :]
+
+        # Random shift in time
+        rand_shifts = torch.randint(low=0, high=self.sig_len, size=(1,))
+        self.dropped_masks = torch.roll(
+            self.dropped_masks, shifts=rand_shifts.item(), dims=1
+        )
+
+        if len(waveforms.shape) == 3:
+            dropped_waveforms = dropped_waveforms * self.dropped_masks[
+                0 : waveforms.shape[0]
+            ].unsqueeze(2)
+        else:
+            dropped_waveforms = (
+                dropped_waveforms * self.dropped_masks[0 : waveforms.shape[0]]
+            )
+
+        return dropped_waveforms
+
+
 class DoClip(torch.nn.Module):
     """This function mimics audio clipping by clamping the input tensor.
 

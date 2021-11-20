@@ -188,6 +188,20 @@ def test_drop_chunk():
     assert drop_amplitude.allclose(orig_amplitude, atol=1e-2)
 
 
+def test_fast_drop_chunk():
+    from speechbrain.processing.speech_augmentation import FastDropChunk
+
+    test_waveform = torch.ones([8, 200, 12])
+
+    # Edge cases
+    no_drop = FastDropChunk(drop_length_low=0, drop_length_high=0)
+    assert no_drop(test_waveform).allclose(test_waveform)
+    no_drop = FastDropChunk(drop_count_low=0, drop_count_high=0)
+    assert no_drop(test_waveform).allclose(test_waveform)
+    no_drop = FastDropChunk(drop_start=0, drop_end=0)
+    assert no_drop(test_waveform).allclose(test_waveform)
+
+
 def test_clip():
     from speechbrain.processing.speech_augmentation import DoClip
 
