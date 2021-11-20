@@ -41,7 +41,9 @@ def foreign_class(
 
     The pymodule file should contain a class with the given classname. An
     instance of that class is returned. The idea is to have a custom Pretrained
-    subclass in the file. The pymodule file is also added to the python path.
+    subclass in the file. The pymodule file is also added to the python path
+    before the Hyperparams YAML file is loaded, so it can contain any custom
+    implementations that are needed.
 
     The hyperparams file should contain a "modules" key, which is a
     dictionary of torch modules used for computation.
@@ -285,6 +287,11 @@ class Pretrained(torch.nn.Module):
 
         The source can be a location on the filesystem or online/huggingface
 
+        You can use the pymodule_file to include any custom implementations
+        that are needed: if that file exists, then its location is added to
+        sys.path before Hyperparams YAML is loaded, so it can be referenced
+        in the YAML.
+
         The hyperparams file should contain a "modules" key, which is a
         dictionary of torch modules used for computation.
 
@@ -300,6 +307,15 @@ class Pretrained(torch.nn.Module):
             The name of the hyperparameters file to use for constructing
             the modules necessary for inference. Must contain two keys:
             "modules" and "pretrainer", as described.
+        pymodule_file : str
+            A Python file can be fetched. This allows any custom
+            implementations to be included. The file's location is added to
+            sys.path before the hyperparams YAML file is loaded, so it can be
+            referenced in YAML.
+            This is optional, but has a default: "custom.py". If the default
+            file is not found, this is simply ignored, but if you give a
+            different filename, then this will raise in case the file is not
+            found.
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
@@ -321,8 +337,14 @@ class Pretrained(torch.nn.Module):
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
-            # The optional custom Python module file did not exist
-            pass
+            if pymodule_file == "custom.py":
+                # The optional custom Python module file did not exist
+                # and had the default name
+                pass
+            else:
+                # Custom Python module file not found, but some other
+                # filename than the default was given.
+                raise
 
         # Load the modules:
         with open(hparams_local_path) as fin:
