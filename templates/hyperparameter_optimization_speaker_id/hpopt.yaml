@@ -1,0 +1,4 @@
+number_of_epochs: 1
+ckpt_enable: False
+trial_id: hpfit
+output_folder: !ref ./results/speaker_id/<trial_id>
