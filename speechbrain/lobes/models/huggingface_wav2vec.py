@@ -27,8 +27,6 @@ try:
     from transformers import Wav2Vec2ForPreTraining
     from transformers.models.wav2vec2.modeling_wav2vec2 import (
         _compute_mask_indices,
-    )
-    from transformers.models.wav2vec2.modeling_flax_wav2vec2.py import (
         _sample_negative_indices,
     )
 
