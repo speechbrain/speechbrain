@@ -80,8 +80,7 @@ def foreign_class(
         savedir = f"./pretrained_models/{classname}-{hash(source)}"
     hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
     pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
-
-    sys.path.append(pymodule_local_path)
+    sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
     with open(hparams_local_path) as fin:
@@ -276,6 +275,7 @@ class Pretrained(torch.nn.Module):
         cls,
         source,
         hparams_file="hyperparams.yaml",
+        pymodule_file="custom.py",
         overrides={},
         savedir=None,
         use_auth_token=False,
@@ -315,6 +315,14 @@ class Pretrained(torch.nn.Module):
         hparams_local_path = fetch(
             hparams_file, source, savedir, use_auth_token
         )
+        try:
+            pymodule_local_path = fetch(
+                pymodule_file, source, savedir, use_auth_token
+            )
+            sys.path.append(str(pymodule_local_path.parent))
+        except ValueError:
+            # The optional custom Python module file did not exist
+            pass
 
         # Load the modules:
         with open(hparams_local_path) as fin:
