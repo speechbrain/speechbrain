@@ -27,6 +27,8 @@ try:
     from transformers import Wav2Vec2ForPreTraining
     from transformers.models.wav2vec2.modeling_wav2vec2 import (
         _compute_mask_indices,
+    )
+    from transformers.models.wav2vec2.modeling_flax_wav2vec2.py import (
         _sample_negative_indices,
     )
 
@@ -352,7 +354,9 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             raw_sequence_length
         )
         mask_time_indices = _compute_mask_indices(
-            (batch_size, sequence_length), mask_prob=0.65, mask_length=10,
+            (batch_size, sequence_length),
+            mask_prob=self.mask_prob,
+            mask_length=self.mask_length,
         )
         negative_sample_indices = torch.tensor(
             _sample_negative_indices(
