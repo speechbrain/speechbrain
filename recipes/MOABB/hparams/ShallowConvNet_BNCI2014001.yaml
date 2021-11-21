@@ -102,6 +102,6 @@ model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
   dropout: !ref <dropout>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
+  base_lr: !ref <base_lr>
+  max_lr: !ref <max_lr>
+  step_size: !ref <step_size>

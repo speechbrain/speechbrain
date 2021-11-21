@@ -412,7 +412,9 @@ def nll_loss(
         log_probabilities = log_probabilities.transpose(1, -1)
 
     # Pass the loss function but apply reduction="none" first
-    loss = functools.partial(torch.nn.functional.nll_loss, weight=weight, reduction="none")
+    loss = functools.partial(
+        torch.nn.functional.nll_loss, weight=weight, reduction="none"
+    )
     return compute_masked_loss(
         loss,
         log_probabilities,

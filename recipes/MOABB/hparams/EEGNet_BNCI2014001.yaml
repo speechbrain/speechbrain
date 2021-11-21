@@ -102,7 +102,7 @@ data_iterators: [!ref <within_session_it>,
 # DATA AUGMENTATION
 #channel_dropper: !new:speechbrain.processing.speech_augmentation.ChannelDrop
 #    drop_rate: 0.1
-      
+
 #chunk_dropper: !new:speechbrain.processing.speech_augmentation.DropChunk
 #    drop_length_low: 10
 #    drop_length_high: 30
@@ -121,8 +121,8 @@ data_iterators: [!ref <within_session_it>,
 #    shuffle_augmentations: False
 #    chunk_dropper: !ref <chunk_dropper>
 #    channel_dropper: !ref <channel_dropper>
-    
-    
+
+
 # MODEL: EEGNET
 input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels: 8  # number of temporal filters in the temporal conv. layer
@@ -144,7 +144,6 @@ model: !new:speechbrain.lobes.models.EEGNet.EEGNet
   dropout: !ref <dropout>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
-
+  base_lr: !ref <base_lr>
+  max_lr: !ref <max_lr>
+  step_size: !ref <step_size>
