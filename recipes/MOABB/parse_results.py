@@ -69,7 +69,7 @@ def visualize_results(paradigm: str, results: dict, vis_metrics: list) -> None:
                 )
 
 
-def parse_one_session_out(paradigm: Path) -> dict:
+def parse_one_session_out(paradigm: Path, vis_metrics: list = []) -> dict:
     """Aggregates results obtain by helding back one session as test set and
     using the remaining ones to train the neural nets
 
@@ -94,10 +94,13 @@ def parse_one_session_out(paradigm: Path) -> dict:
             else:
                 print("Something was wrong when computing ", paradigm)
 
+    if len(vis_metrics) != 0:
+        visualize_results(paradigm, out_stat, vis_metrics)
+
     return out_stat
 
 
-def parse_cross_section(paradigm: Path) -> dict:
+def parse_cross_section(paradigm: Path, vis_metrics: list = []) -> dict:
     """Aggregates results obtained using all session' signals merged together.
     Training and test sets are defined using a stratified cross-validation partitioning.
 
@@ -125,10 +128,13 @@ def parse_cross_section(paradigm: Path) -> dict:
         for m in stat_metrics:
             out_stat[m].append(mean(sess_metrics[m]))
 
+    if len(vis_metrics) != 0:
+        visualize_results(paradigm, out_stat, vis_metrics)
+
     return out_stat
 
 
-def parse_one_sub_out(paradigm: Path) -> dict:
+def parse_one_sub_out(paradigm: Path, vis_metrics: list = []) -> dict:
     """Aggregates results obtained helding out one subject
     as test set and using the remaining ones for training.
 
@@ -148,10 +154,13 @@ def parse_one_sub_out(paradigm: Path) -> dict:
         else:
             print("Something was wrong when computing ", f)
 
+    if len(vis_metrics) != 0:
+        visualize_results(paradigm, out_stat, vis_metrics)
+
     return out_stat
 
 
-def parse_within_session(paradigm: Path) -> dict:
+def parse_within_session(paradigm: Path, vis_metrics: list = []) -> dict:
     """For each subject and for each session, the training
     and test sets were defined using a stratified cross-validation partitioning.
 
@@ -182,7 +191,27 @@ def parse_within_session(paradigm: Path) -> dict:
             for k in sub_perf.keys():
                 out_stat[sess.name][k].append(mean(sub_perf[k]))
 
+    if len(vis_metrics) != 0:
+        visualize_results(paradigm, out_stat, vis_metrics)
+
     return out_stat
+
+
+def aggregate_nested(results: dict):
+    temp = {key: [] for key in stat_metrics}
+    for _, v in results.items():
+        for k, r in v.items():
+            temp[k].append(mean(r))
+
+    return temp
+
+
+def aggregate_single(results: dict):
+    temp = {key: [] for key in stat_metrics}
+    for k, r in results.items():
+        temp[k].append(mean(r))
+
+    return temp
 
 
 stat_metrics = ["loss", "f1", "acc", "auc"]
@@ -200,56 +229,26 @@ def aggregate_metrics(verbose=1) -> Tuple:
 
     overall_stat = {key: [] for key in stat_metrics}
 
+    parsers = {
+        "leave-one-session-out": parse_one_session_out,
+        "cross-session": parse_cross_section,
+        "leave-one-subject-out": parse_one_sub_out,
+        "within-session": parse_within_session,
+    }
+
+    aggr = {
+        "leave-one-session-out": aggregate_nested,
+        "within-session": aggregate_nested,
+        "leave-one-subject-out": aggregate_single,
+        "cross-session": aggregate_single,
+    }
+
     for paradigm in sorted(results_folder.iterdir()):
-        if paradigm.name == "leave-one-session-out":
-            results = parse_one_session_out(paradigm)
-            if verbose:
-                visualize_results(paradigm, results, vis_metrics)
+        results = parsers[paradigm.name](paradigm, vis_metrics)
+        temp = aggr[paradigm.name](results)
 
-            temp = {key: [] for key in stat_metrics}
-            for _, v in results.items():
-                for k, r in v.items():
-                    temp[k].append(mean(r))
-
-            for k in temp.keys():
-                overall_stat[k].extend(temp[k])
-
-        elif paradigm.name == "cross-session":
-            results = parse_cross_section(paradigm)
-            if verbose:
-                visualize_results(paradigm, results, vis_metrics)
-
-            temp = {key: [] for key in stat_metrics}
-            for k, r in results.items():
-                temp[k].append(mean(r))
-
-            for k in temp.keys():
-                overall_stat[k].extend(temp[k])
-
-        elif paradigm.name == "leave-one-subject-out":
-            results = parse_one_sub_out(paradigm)
-            if verbose:
-                visualize_results(paradigm, results, vis_metrics)
-
-            temp = {key: [] for key in stat_metrics}
-            for k, v in results.items():
-                temp[k].append(mean(v))
-
-            for k in temp.keys():
-                overall_stat[k].extend(temp[k])
-
-        elif paradigm.name == "within-session":
-            results = parse_within_session(paradigm)
-            if verbose:
-                visualize_results(paradigm, results, vis_metrics)
-
-            temp = {key: [] for key in stat_metrics}
-            for _, v in results.items():
-                for k, r in v.items():
-                    temp[k].append(mean(r))
-
-            for k in temp.keys():
-                overall_stat[k].extend(temp[k])
+        for k in temp.keys():
+            overall_stat[k].extend(temp[k])
 
     for k in stat_metrics:
         overall_stat[k + "_std"] = std(overall_stat[k])
