@@ -18,7 +18,6 @@ output_folder: !ref results/MOABB/EEGNet_Nakanishi2015/<seed>
 # Defining the MOABB dataset.
 dataset: !new:moabb.datasets.Nakanishi2015
 subject_list: ~  # subject list
-events: ['left_hand', 'right_hand', 'feet', 'tongue']
 n_classes: 12
 sf: 250  # Target sampling rate (Hz)
 # tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
@@ -45,7 +44,7 @@ paradigm: !new:moabb.paradigms.SSVEP
   resample: !ref <sf>
 
 # TRAINING HPARS
-num_parallel_processes: 3  # number of parallel processes to run
+num_parallel_processes: 2  # number of parallel processes to run
 nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
 number_of_epochs: 500 # number of training epochs
 lr: 0.001 # learning rate
@@ -74,9 +73,9 @@ leave_one_subject_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSubjectOut
   paradigm: !ref <paradigm>
   seed: !ref <seed>
 data_iterators: [
-  # !ref <within_session_it>,
+  !ref <within_session_it>,
   # !ref <leave_one_session_out_it>,
-  # !ref <cross_session_it>,
+  !ref <cross_session_it>,
   !ref <leave_one_subject_out_it>,
 ]
 
