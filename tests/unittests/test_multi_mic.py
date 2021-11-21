@@ -1,7 +1,7 @@
 import torch
 
 
-def test_gccphat():
+def test_gccphat(device):
 
     from speechbrain.processing.features import STFT
     from speechbrain.processing.multi_mic import Covariance, GccPhat
@@ -11,19 +11,21 @@ def test_gccphat():
 
     delay = 60
 
-    sig = torch.randn([10, fs])
-    sig_delayed = torch.cat((torch.zeros([10, delay]), sig[:, 0:-delay]), 1)
+    sig = torch.randn([10, fs], device=device)
+    sig_delayed = torch.cat(
+        (torch.zeros([10, delay], device=device), sig[:, 0:-delay]), 1
+    )
 
     xs = torch.stack((sig_delayed, sig), -1)
 
-    stft = STFT(sample_rate=fs)
+    stft = STFT(sample_rate=fs).to(device)
     Xs = stft(xs)
 
     # Computing the covariance matrix for GCC-PHAT
-    cov = Covariance()
-    gccphat = GccPhat()
+    cov = Covariance().to(device)
+    gccphat = GccPhat().to(device)
 
-    XXs = cov(Xs)
+    XXs = cov(Xs).to(device)
     tdoas = torch.abs(gccphat(XXs))
 
     n_valid_tdoas = torch.sum(torch.abs(tdoas[..., 1] - delay) < 1e-3)

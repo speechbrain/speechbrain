@@ -14,8 +14,9 @@ from hyperpyyaml import load_hyperpyyaml
 class ASRBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the output probabilities."
+        batch = batch.to(self.device)
         wavs, lens = batch.sig
-        feats = self.hparams.compute_features(wavs)
+        feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         x = self.modules.linear1(feats)
@@ -95,7 +96,7 @@ def data_prep(data_folder, hparams):
     return train_data, valid_data
 
 
-def main():
+def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
@@ -109,7 +110,12 @@ def main():
     train_data, valid_data = data_prep(data_folder, hparams)
 
     # Trainer initialization
-    asr_brain = ASRBrain(hparams["modules"], hparams["opt_class"], hparams)
+    asr_brain = ASRBrain(
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts={"device": device},
+    )
 
     # Training/validation loop
     asr_brain.fit(
@@ -130,5 +136,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_error():
-    main()
+def test_error(device):
+    main(device)

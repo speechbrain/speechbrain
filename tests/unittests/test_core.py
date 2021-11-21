@@ -9,12 +9,12 @@ def test_parse_arguments():
     assert overrides == "seed: 3\ndata_folder: TIMIT"
 
 
-def test_brain():
+def test_brain(device):
     import torch
     from speechbrain.core import Brain, Stage
     from torch.optim import SGD
 
-    model = torch.nn.Linear(in_features=10, out_features=10)
+    model = torch.nn.Linear(in_features=10, out_features=10, device=device)
 
     class SimpleBrain(Brain):
         def compute_forward(self, batch, stage):
@@ -23,10 +23,12 @@ def test_brain():
         def compute_objectives(self, predictions, batch, stage):
             return torch.nn.functional.l1_loss(predictions, batch[1])
 
-    brain = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1))
+    brain = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
 
-    inputs = torch.rand(10, 10)
-    targets = torch.rand(10, 10)
+    inputs = torch.rand(10, 10, device=device)
+    targets = torch.rand(10, 10, device=device)
     train_set = ([inputs, targets],)
     valid_set = ([inputs, targets],)
 

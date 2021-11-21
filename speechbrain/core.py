@@ -156,9 +156,7 @@ def parse_arguments(arg_list=None):
     """
     if arg_list is None:
         arg_list = sys.argv[1:]
-    parser = argparse.ArgumentParser(
-        description="Run a SpeechBrain experiment",
-    )
+    parser = argparse.ArgumentParser(description="Run a SpeechBrain experiment")
     parser.add_argument(
         "param_file",
         type=str,
@@ -191,9 +189,7 @@ def parse_arguments(arg_list=None):
         help="A file storing the configuration options for logging",
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument(
-        "--local_rank", type=int, help="Rank on local machine",
-    )
+    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
     parser.add_argument(
         "--device",
         type=str,
@@ -486,7 +482,9 @@ class Brain:
             )
 
         # Switch to the right context
-        if "cuda" in self.device:
+        if self.device == "cuda":
+            torch.cuda.set_device(0)
+        elif "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
 
         # Put modules on the right device, accessible with dot notation
@@ -630,7 +628,7 @@ class Brain:
         pass
 
     def make_dataloader(
-        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs,
+        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs
     ):
         """Creates DataLoaders for Datasets.
 
@@ -1220,10 +1218,7 @@ class Brain:
 
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):
-        save_dict = {
-            "step": self.step,
-            "avg_train_loss": self.avg_train_loss,
-        }
+        save_dict = {"step": self.step, "avg_train_loss": self.avg_train_loss}
         with open(path, "w") as w:
             w.write(yaml.dump(save_dict))
 

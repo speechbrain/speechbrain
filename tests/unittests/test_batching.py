@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 
-def test_batch_pad_right_to():
+def test_batch_pad_right_to(device):
     from speechbrain.utils.data_utils import batch_pad_right
     import random
 
@@ -12,7 +12,10 @@ def test_batch_pad_right_to():
 
     for b in batch_lens:
         rand_lens = [random.randint(10, 53) for x in range(b)]
-        tensors = [torch.ones((rand_lens[x], n_channels)) for x in range(b)]
+        tensors = [
+            torch.ones((rand_lens[x], n_channels), device=device)
+            for x in range(b)
+        ]
         batched, lens = batch_pad_right(tensors)
         assert batched.shape[0] == b
         np.testing.assert_almost_equal(
@@ -21,7 +24,7 @@ def test_batch_pad_right_to():
 
     for b in batch_lens:
         rand_lens = [random.randint(10, 53) for x in range(b)]
-        tensors = [torch.ones(rand_lens[x],) for x in range(b)]
+        tensors = [torch.ones(rand_lens[x], device=device) for x in range(b)]
         batched, lens = batch_pad_right(tensors)
         assert batched.shape[0] == b
         np.testing.assert_almost_equal(
@@ -29,20 +32,20 @@ def test_batch_pad_right_to():
         )
 
 
-def test_paddedbatch():
+def test_paddedbatch(device):
     from speechbrain.dataio.batch import PaddedBatch
 
     batch = PaddedBatch(
         [
             {
                 "id": "ex1",
-                "foo": torch.Tensor([1.0]),
-                "bar": torch.Tensor([1.0, 2.0, 3.0]),
+                "foo": torch.Tensor([1.0]).to(device),
+                "bar": torch.Tensor([1.0, 2.0, 3.0]).to(device),
             },
             {
                 "id": "ex2",
-                "foo": torch.Tensor([2.0, 1.0]),
-                "bar": torch.Tensor([2.0]),
+                "foo": torch.Tensor([2.0, 1.0]).to(device),
+                "bar": torch.Tensor([2.0]).to(device),
             },
         ]
     )
