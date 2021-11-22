@@ -97,6 +97,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             self.hparams,
             "beam_searcher_valid",
             self.hparams.beam_searcher)
+        self.start_epoch = None
 
     def _get_sequence_key(self, key, mode):
         return key if mode == "raw" else f"{key}_{mode}"
@@ -220,7 +221,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             phn_base_lens=phn_base_lens
         )
         hyps_homograph = self.hparams.homograph_extractor.extract_hyps(
-            phns_base, predictions.hyps, batch.homograph_phn_start
+            phns_base if phns_base is not None else phns,
+            predictions.hyps,
+            batch.homograph_phn_start
         )
         self.seq_metrics_homograph.append(
             ids, p_seq_homograph, phns_homograph, phn_lens_homograph
@@ -280,6 +283,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         self.seq_metrics = self.hparams.seq_stats()
+
+        if self.start_epoch is None:
+            self.start_epoch = epoch
 
         if self.enable_metrics:
             if stage != sb.Stage.TRAIN:
@@ -702,11 +708,11 @@ def dataio_prep(hparams, train_step=None):
             "homograph_wordid",
             "homograph_phn_start",
             "homograph_phn_end",
-            "phn_raw_encoded"
         ]
 
     if hparams.get("use_word_emb", False):
         output_keys.append("char")
+        output_keys.append("phn_raw_encoded")
     sb.dataio.dataset.set_output_keys(
         datasets, output_keys,
     )
@@ -842,6 +848,7 @@ if __name__ == "__main__":
             if train_step.get("balance"):
                 sampler = BalancingDataSampler(train_data, train_step["balance_on"])
                 train_dataloader_opts = dict(dataloader_opts, sampler=sampler)
+            start_epoch = train_step["epoch_counter"].current
 
             # Training/validation loop
             g2p_brain.fit(
@@ -853,9 +860,11 @@ if __name__ == "__main__":
             )
 
             # Test
-            g2p_brain.evaluate(
-                test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
-            )
+            # NOTE: Testing will not be re-run if this step has already been completed
+            if g2p_brain.start_epoch is not None:
+                g2p_brain.evaluate(
+                    test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
+                )
 
             if hparams.get("save_for_pretrained"):
                 g2p_brain.save_for_pretrained()
