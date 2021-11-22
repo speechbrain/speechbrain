@@ -43,7 +43,7 @@ from speechbrain.lobes.models.g2p.attnrnn.dataio import (
 from speechbrain.dataio.wer import print_alignments
 from speechbrain.wordemb.util import expand_to_chars
 from io import StringIO
-from speechbrain.utils import hpfit as hp
+from speechbrain.utils import hpopt as hp
 import numpy as np
 
 
@@ -760,7 +760,7 @@ def check_tensorboard(hparams):
 
 if __name__ == "__main__":
     # CLI:
-    with hp.hyperparameter_fitting(objective_key="PER") as hp_ctx:
+    with hp.hyperparameter_optimization(objective_key="PER") as hp_ctx:
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
 
         # Load hyperparameters file with command-line overrides
