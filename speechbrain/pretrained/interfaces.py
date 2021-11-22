@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.callchains import lengths_arg_exists
 
 
 class Pretrained(torch.nn.Module):
@@ -148,7 +149,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(path, channels_first=False)
+        signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
@@ -799,11 +800,7 @@ class EncoderWav2vecClassifier(Pretrained):
     >>> prediction =  classifier .classify_batch(signal)
     """
 
-    MODULES_NEEDED = [
-        "wav2vec2",
-        "avg_pool",
-        "output_mlp",
-    ]
+    MODULES_NEEDED = ["wav2vec2", "avg_pool", "output_mlp"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1352,7 +1349,7 @@ class VAD(Pretrained):
 
         # From indexes to samples
         seconds = (indexes * self.time_resolution).float()
-        samples = (self.sample_rate * seconds).int()
+        samples = (self.sample_rate * seconds).round().int()
 
         if output_value == "seconds":
             boundaries = seconds
@@ -2136,7 +2133,10 @@ class SpectralMaskEnhancement(Pretrained):
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
-        enhanced = self.enhance_batch(batch)
+        if lengths_arg_exists(self.enhance_batch):
+            enhanced = self.enhance_batch(batch, lengths=torch.tensor([1.0]))
+        else:
+            enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
             torchaudio.save(output_filename, enhanced, channels_first=False)
