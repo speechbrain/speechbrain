@@ -45,7 +45,10 @@ Please, run the following script  from the main folder to make sure your install
 ```
 pytest tests
 ```
-You can run doctests as well with:
+
+If you have a GPU, you can run the tests with `pytest tests --device='cuda'`
+
+You can run doctests with:
 
 ```
 tests/.run-doctests.sh

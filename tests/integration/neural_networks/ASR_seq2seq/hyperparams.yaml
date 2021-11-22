@@ -65,6 +65,7 @@ softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
+    compute_features: !ref <compute_features>
     enc: !ref <enc>
     emb: !ref <emb>
     dec: !ref <dec>
