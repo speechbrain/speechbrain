@@ -119,7 +119,7 @@ class SLU(sb.Brain):
                                     "scenario": "none",
                                     "action": "none",
                                     "entities": [],
-                                }  
+                                }
                         except SyntaxError:  # need this if the output is not a valid dictionary
                             _dict = {
                                 "scenario": "none",
