@@ -451,7 +451,7 @@ class DynamicBatchSampler(Sampler):
                     self._dataset.data[ex_ids[indx]]
                 )
 
-        if bucket_boundaries is not None:
+        if len(bucket_boundaries) > 0:
             if not all([x >= 0 for x in bucket_boundaries]):
                 raise ValueError(
                     "All elements in bucket boundaries should be non-negative (>= 0)."
