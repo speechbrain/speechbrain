@@ -14,6 +14,7 @@ from hyperpyyaml import load_hyperpyyaml
 class AutoBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Appling encoder and decoder to the input features"
+        batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -93,7 +94,7 @@ def data_prep(data_folder):
     return train_data, valid_data
 
 
-def main():
+def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
@@ -107,7 +108,12 @@ def main():
     train_data, valid_data = data_prep(data_folder)
 
     # Trainer initialization
-    auto_brain = AutoBrain(hparams["modules"], hparams["opt_class"], hparams)
+    auto_brain = AutoBrain(
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts={"device": device},
+    )
 
     # Training/validation loop
     auto_brain.fit(
@@ -128,5 +134,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_error():
-    main()
+def test_error(device):
+    main(device)
