@@ -117,6 +117,7 @@ lm_d_model: 128
 lm_enc_num_layers: 3
 lm_dec_num_layers: 3
 lm_d_ffn: 2048
+lm_num_heads: 4
 lm_dropout: 0.1
 
 # Beam Searcher
@@ -327,6 +328,8 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
     num_decoder_layers: !ref <lm_dec_num_layers>
     d_ffn: !ref <lm_d_ffn>
     dropout: !ref <lm_dropout>
+    nhead: !ref <lm_num_heads>
+    activation: !name:torch.nn.GELU
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
