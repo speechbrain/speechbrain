@@ -298,11 +298,13 @@ def run_experiment(hparams, run_opts, datasets):
         results[key]["auc"] = test_auc
         results[key]["cm"] = test_cm
     # saving metrics on the test set in a pickle file
+    void_saves = 0
     metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
-    while not exists(metrics_fpath):
+    while not exists(metrics_fpath) or void_saves > 15:
         print(f"Issues creating metrics.pkl in {hparams['exp_dir']}")
         with open(metrics_fpath, "wb") as handle:
             pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
+        void_saves += 1
 
 
 def run_single_process(argv, tail_path, datasets):

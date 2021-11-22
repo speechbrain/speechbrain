@@ -74,17 +74,17 @@ leave_one_subject_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSubjectOut
   seed: !ref <seed>
 
 data_iterators: [
-  # !ref <within_session_it>,
+  !ref <within_session_it>,
   # !ref <leave_one_session_out_it>,
   !ref <cross_session_it>,
-  # !ref <leave_one_subject_out_it>,
+  !ref <leave_one_subject_out_it>,
 ]
 
 input_shape: [null, !ref <T>, !ref <C>, null]
 n_pods: 1
 dense_max_norm: 0.5  # kernel max-norm constaint of the dense layer
 dropout: 0.5  # dropout rate
-filters_per_pod: 4  # n. of filters for pod convolutions
+filters_per_pod: 100  # n. of filters for pod convolutions
 
 model: !new:speechbrain.lobes.models.PodNet.PodNet
   input_shape: !ref <input_shape>
