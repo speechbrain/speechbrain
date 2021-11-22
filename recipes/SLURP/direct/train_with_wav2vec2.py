@@ -114,7 +114,7 @@ class SLU(sb.Brain):
                                     "|", ","
                                 )
                             )
-                            if not isinstance(_dict,dict):
+                            if not isinstance(_dict, dict):
                                 _dict = {
                                     "scenario": "none",
                                     "action": "none",
