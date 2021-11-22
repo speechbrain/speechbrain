@@ -30,6 +30,7 @@ from sklearn.metrics import (
 import logging
 import multiprocessing as mp
 import speechbrain as sb
+from os.path import exists
 
 mp.set_start_method("spawn", force=True)
 
@@ -298,8 +299,10 @@ def run_experiment(hparams, run_opts, datasets):
         results[key]["cm"] = test_cm
     # saving metrics on the test set in a pickle file
     metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
-    with open(metrics_fpath, "wb") as handle:
-        pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
+    while not exists(metrics_fpath):
+        print(f"Issues creating metrics.pkl in {hparams['exp_dir']}")
+        with open(metrics_fpath, "wb") as handle:
+            pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def run_single_process(argv, tail_path, datasets):
