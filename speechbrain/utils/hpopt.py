@@ -1,4 +1,4 @@
-"""Utilities for hyperparameter fitting.
+"""Utilities for hyperparameter optimization.
 This wrapper has an optional dependency on
 Oríon
 
@@ -23,22 +23,22 @@ logger = logging.getLogger(__name__)
 
 MODULE_ORION = "orion.client"
 FORMAT_TIMESTAMP = "%Y%m%d%H%M%S%f"
-DEFAULT_TRIAL_ID = "hpfit"
+DEFAULT_TRIAL_ID = "hpopt"
 DEFAULT_REPORTER = "generic"
 ORION_TRIAL_ID_ENV = [
     "ORION_EXPERIMENT_NAME",
     "ORION_EXPERIMENT_VERSION",
     "ORION_TRIAL_ID",
 ]
-KEY_HPFIT = "hpfit"
-KEY_HPFIT_MODE = "hpfit_mode"
+KEY_HPOPT = "hpopt"
+KEY_HPOPT_MODE = "hpopt_mode"
 
-_hpfit_modes = {}
+_hpopt_modes = {}
 
 
-def hpfit_mode(mode):
+def hpopt_mode(mode):
     """A decorator to register a reporter implementation for
-    a hyperparameter fitting mode
+    a hyperparameter optimization mode
 
     Arguments
     ---------
@@ -50,16 +50,31 @@ def hpfit_mode(mode):
     f: callable
         a callable function that registers and returns the
         reporter class
+
+    Example
+    -------
+    >>> @hpopt_mode("raw")
+    ... class RawHyperparameterOptimizationReporter(HyperparameterOptimizationReporter):
+    ...    def __init__(self, *args, **kwargs):
+    ...        super().__init__(    *args, **kwargs)
+    ...    def report_objective(self, result):
+    ...        objective = result[self.objective_key]
+    ...        print(f"Objective: {objective}")
+
+    >>> reporter = get_reporter("raw", objective_key="error")
+    >>> result = {"error": 1.2, "train_loss": 7.2}
+    >>> reporter.report_objective(result)
+    Objective: 1.2
     """
 
     def f(cls):
-        _hpfit_modes[mode] = cls
+        _hpopt_modes[mode] = cls
         return cls
 
     return f
 
 
-class HyperparameterFitReporter:
+class HyperparameterOptimizationReporter:
     """A base class for hyperparameter fit reporters
 
     Arguments
@@ -72,7 +87,7 @@ class HyperparameterFitReporter:
         self.objective_key = objective_key
 
     def report_objective(self, result):
-        """Reports the objective for hyperparameter fitting.
+        """Reports the objective for hyperparameter optimization.
 
         Arguments
         ---------
@@ -92,8 +107,10 @@ class HyperparameterFitReporter:
         return DEFAULT_TRIAL_ID
 
 
-@hpfit_mode("generic")
-class GenericHyperparameterFitReporter(HyperparameterFitReporter):
+@hpopt_mode("generic")
+class GenericHyperparameterOptimizationReporter(
+    HyperparameterOptimizationReporter
+):
     """
     A generic hyperparameter fit reporter that outputs the result as
     JSON to an arbitrary data stream, which may be read as a third-party
@@ -106,18 +123,28 @@ class GenericHyperparameterFitReporter(HyperparameterFitReporter):
 
     """
 
-    def __init__(self, output=None, *args, **kwargs):
+    def __init__(self, reference_date=None, output=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.output = output or sys.stdout
+        self.reference_date = reference_date
         self._trial_id = None
 
     def report_objective(self, result):
-        """Reports the objective for hyperparameter fitting.
+        """Reports the objective for hyperparameter optimization.
 
         Arguments
         ---------
         result: dict
             a dictionary with the run result.
+
+        Example
+        -------
+        >>> reporter = GenericHyperparameterOptimizationReporter(
+        ...     objective_key="error"
+        ... )
+        >>> result = {"error": 1.2, "train_loss": 7.2}
+        >>> reporter.report_objective(result)
+        {"error": 1.2, "train_loss": 7.2, "objective": 1.2}
         """
         json.dump(
             dict(result, objective=result[self.objective_key]), self.output
@@ -125,14 +152,28 @@ class GenericHyperparameterFitReporter(HyperparameterFitReporter):
 
     @property
     def trial_id(self):
-        """The unique ID of this trial (used mainly for folder naming)"""
+        """The unique ID of this trial (used mainly for folder naming)
+
+        Example
+        -------
+        >>> import datetime
+        >>> reporter = GenericHyperparameterOptimizationReporter(
+        ...     objective_key="error",
+        ...     reference_date=datetime.datetime(2021, 1, 3)
+        ... )
+        >>> print(reporter.trial_id)
+        20210103000000000000
+        """
         if self._trial_id is None:
-            self._trial_id = datetime.now().strftime(FORMAT_TIMESTAMP)
+            date = self.reference_date or datetime.now()
+            self._trial_id = date.strftime(FORMAT_TIMESTAMP)
         return self._trial_id
 
 
-@hpfit_mode("orion")
-class OrionHyperparameterFitReporter(HyperparameterFitReporter):
+@hpopt_mode("orion")
+class OrionHyperparameterOptimizationReporter(
+    HyperparameterOptimizationReporter
+):
     """A result reporter implementation based on Orion
 
     Arguments
@@ -151,7 +192,7 @@ class OrionHyperparameterFitReporter(HyperparameterFitReporter):
         try:
             self.orion_client = importlib.import_module(MODULE_ORION)
         except ImportError:
-            logger.warn("Orion is not available")
+            logger.warning("Orion is not available")
             self.orion_client = None
 
     def _format_message(self, result):
@@ -169,7 +210,7 @@ class OrionHyperparameterFitReporter(HyperparameterFitReporter):
         return ", ".join(f"{key} = {value}" for key, value in result.items())
 
     def report_objective(self, result):
-        """Reports the objective for hyperparameter fitting.
+        """Reports the objective for hyperparameter optimization.
 
         Arguments
         ---------
@@ -210,22 +251,29 @@ def get_reporter(mode, *args, **kwargs):
     ---------
     mode: str
         a string identifier for a registered hyperparametr
-        fitting mode, corresponding to a specific reporter
+        optimization mode, corresponding to a specific reporter
         instance
 
     Returns
     -------
-    reporter: HyperparameterFitReporter
+    reporter: HyperparameterOptimizationReporter
         a reporter instance
+
+    Example
+    -------
+    >>> reporter = get_reporter("generic", objective_key="error")
+    >>> result = {"error": 3.4, "train_loss": 1.2}
+    >>> reporter.report_objective(result)
+    {"error": 3.4, "train_loss": 1.2, "objective": 3.4}
     """
-    reporter_cls = _hpfit_modes.get(mode)
+    reporter_cls = _hpopt_modes.get(mode)
     if reporter_cls is None:
-        logger.warn(f"hpfit_mode {mode} is not supported, reverting to generic")
-        reporter_cls = _hpfit_modes[DEFAULT_REPORTER]
+        logger.warn(f"hpopt_mode {mode} is not supported, reverting to generic")
+        reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
     reporter = reporter_cls(*args, **kwargs)
     if not reporter.is_available:
         logger.warn("Reverting to a generic reporter")
-        reporter_cls = _hpfit_modes[DEFAULT_REPORTER]
+        reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
         reporter = reporter_cls(*args, **kwargs)
     return reporter
 
@@ -233,10 +281,10 @@ def get_reporter(mode, *args, **kwargs):
 _context = {"current": None}
 
 
-class HyperparameterFittingContext:
+class HyperparameterOptimizationContext:
     """
     A convenience context manager that makes it possible to conditionally
-    enable hyperparameter fitting for a recipe.
+    enable hyperparameter optimization for a recipe.
 
     Arguments
     ---------
@@ -244,27 +292,33 @@ class HyperparameterFittingContext:
         arguments to the reporter class
     reporter_kwargs: dict
         keyword arguments to the reporter class
+
+    Example
+    -------
+    >>> ctx = HyperparameterOptimizationContext(
+    ...     reporter_args=[],
+    ...     reporter_kwargs={"objective_key": "error"}
+    ... )
     """
 
-    def __init__(self, reporter_args, reporter_kwargs):
-        self.reporter_args = reporter_args
-        self.reporter_kwargs = reporter_kwargs
+    def __init__(self, reporter_args=None, reporter_kwargs=None):
+        self.reporter_args = reporter_args or []
+        self.reporter_kwargs = reporter_kwargs or {}
         self.reporter = None
         self.enabled = False
         self.result = {"objective": 0.0}
 
     def parse_arguments(self, arg_list):
-        """A version of speechbrain.parse_arguments enhanced for hyperparameter
-        fitting.
+        """A version of speechbrain.parse_arguments enhanced for hyperparameter optimization.
 
-        If a parameter named 'hpfit' is provided, hyperparameter
-        fitting and reporting will be enabled.
+        If a parameter named 'hpopt' is provided, hyperparameter
+        optimization and reporting will be enabled.
 
         If the parameter value corresponds to a filename, it will
         be read as a hyperpyaml file, and the contents will be added
         to "overrides". This is useful for cases where the values of
         certain hyperparameters are different during hyperparameter
-        fitting vs during full training (e.g. number of epochs, saving
+        optimization vs during full training (e.g. number of epochs, saving
         files, etc)
 
         Arguments
@@ -279,26 +333,34 @@ class HyperparameterFittingContext:
             Run options, such as distributed, device, etc.
         overrides : dict
             The overrides to pass to ``load_hyperpyyaml``.
+
+        Example
+        -------
+        >>> ctx = HyperparameterOptimizationContext()
+        >>> arg_list = ["hparams.yaml", "--x", "1", "--y", "2"]
+        >>> hparams_file, run_opts, overrides = ctx.parse_arguments(arg_list)
+        >>> print(f"File: {hparams_file}, Overrides: {overrides}")
+        File: hparams.yaml, Overrides: {'x': 1, 'y': 2}
         """
         hparams_file, run_opts, overrides_yaml = sb.parse_arguments(arg_list)
         overrides = load_hyperpyyaml(overrides_yaml)
-        hpfit = overrides.get(KEY_HPFIT, False)
-        hpfit_mode = overrides.get(KEY_HPFIT_MODE) or DEFAULT_REPORTER
-        if hpfit:
+        hpopt = overrides.get(KEY_HPOPT, False)
+        hpopt_mode = overrides.get(KEY_HPOPT_MODE) or DEFAULT_REPORTER
+        if hpopt:
             self.enabled = True
             self.reporter = get_reporter(
-                hpfit_mode, *self.reporter_args, **self.reporter_kwargs
+                hpopt_mode, *self.reporter_args, **self.reporter_kwargs
             )
-            if isinstance(hpfit, str) and os.path.exists(hpfit):
-                with open(hpfit) as hpfit_file:
+            if isinstance(hpopt, str) and os.path.exists(hpopt):
+                with open(hpopt) as hpopt_file:
                     trial_id = get_trial_id()
-                    hpfit_overrides = load_hyperpyyaml(
-                        hpfit_file,
+                    hpopt_overrides = load_hyperpyyaml(
+                        hpopt_file,
                         overrides={"trial_id": trial_id},
                         overrides_must_match=False,
                     )
-                    overrides = dict(hpfit_overrides, **overrides)
-                    for key in [KEY_HPFIT, KEY_HPFIT_MODE]:
+                    overrides = dict(hpopt_overrides, **overrides)
+                    for key in [KEY_HPOPT, KEY_HPOPT_MODE]:
                         if key in overrides:
                             del overrides[key]
         return hparams_file, run_opts, overrides
@@ -308,29 +370,45 @@ class HyperparameterFittingContext:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if (
-            exc_type is None
-            and self.result is not None
-            and self.reporter is not None
-        ):
-            self.reporter.report_objective(self.result)
+        if exc_type is None and self.result is not None:
+            reporter = self.reporter
+            if not reporter:
+                reporter = get_reporter(
+                    hpopt_mode, *self.reporter_args, **self.reporter_kwargs
+                )
+            reporter.report_objective(self.result)
         _context["current"] = None
 
 
-def hyperparameter_fitting(*args, **kwargs):
-    """Initializes the hyperparameter fitting context"""
-    hpfit = HyperparameterFittingContext(args, kwargs)
+def hyperparameter_optimization(*args, **kwargs):
+    """Initializes the hyperparameter optimization context
+
+    Example
+    -------
+    >>> import sys
+    >>> with hyperparameter_optimization(objective_key="error", output=sys.stdout) as hp_ctx:
+    ...     result = {"error": 3.5, "train_loss": 2.1}
+    ...     report_result(result)
+    ...
+    {"error": 3.5, "train_loss": 2.1, "objective": 3.5}
+    """
+    hpfit = HyperparameterOptimizationContext(args, kwargs)
     return hpfit
 
 
 def report_result(result):
     """Reports the result using the current reporter, if available.
-    When not in hyperparameter fitting mode, this function does nothing.
+    When not in hyperparameter optimization mode, this function does nothing.
 
     Arguments
     ---------
     result: dict
         A dictionary of stats to be reported
+
+    Example
+    -------
+    >>> result = {"error": 3.5, "train_loss": 2.1}
+    >>> report_result(result["error"])
     """
     ctx = _context["current"]
     if ctx:
@@ -339,13 +417,23 @@ def report_result(result):
 
 def get_trial_id():
     """
-    Returns the ID of the current hyperparameter fitting trial,
-    used primarily for the name of experiment folders
+    Returns the ID of the current hyperparameter optimization trial,
+    used primarily for the name of experiment folders.
+
+    When using a context, the convention for identifying the trial ID
+    will depend on the reporter being used. The default implementation
+    returns a fixed value ("hpopt")
 
     Returns
     -------
     trial_id: str
         the trial identifier
+
+    Example
+    -------
+    >>> trial_id = get_trial_id()
+    >>> trial_id
+    'hpopt'
     """
     ctx = _context["current"]
     trial_id = ctx.reporter.trial_id if ctx else DEFAULT_TRIAL_ID
