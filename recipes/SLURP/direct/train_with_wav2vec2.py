@@ -24,7 +24,6 @@ import ast
 import pandas as pd
 
 
-# Define training procedure
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -73,7 +72,6 @@ class SLU(sb.Brain):
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
@@ -288,15 +286,13 @@ def dataio_prepare(hparams):
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "semantics", "tokens_bos", "tokens_eos", "tokens"],
+        ["id", "sig", "semantics", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data, tokenizer
 
