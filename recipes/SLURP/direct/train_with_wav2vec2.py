@@ -276,7 +276,7 @@ def dataio_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("semantics")
     @sb.utils.data_pipeline.provides(
-        "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
+        "semantics", "token_list", "tokens_bos", "tokens_eos"
     )
     def text_pipeline(semantics):
         yield semantics
@@ -291,8 +291,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "semantics", "tokens_bos", "tokens_eos"],
+        datasets, ["id", "sig", "semantics", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data, tokenizer
 
