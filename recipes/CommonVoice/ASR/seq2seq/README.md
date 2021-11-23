@@ -4,6 +4,8 @@ This folder contains scripts necessary to run an ASR experiment with the CommonV
 # How to run
 python train.py hparams/{hparam_file}.py
 
+Make sure you have "transformers" installed if you use the wav2vec2 fine-tuning model.
+
 # Data preparation
 It is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Hence, audio files are downsampled on the fly within the dataio function of the training script.
 
@@ -26,6 +28,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | English | 2020-12-11 | train_en_with_wav2vec.yaml | No | 14.50 | 13.21 | 24.65 | 15.69 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) | [model](https://drive.google.com/drive/folders/1EfIZiJi8ch53mil9K4tn46OrmTJq5WYj?usp=sharing) | 2xV100 32GB |
 | Italian | 2020-12-11 | train_it.yaml | No | 5.14 | 15.59 | 15.40 | 16.61 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-it) | [model](https://drive.google.com/drive/folders/1asxPsY1EBGHIpIFhBtUi9oiyR6C7gC0g?usp=sharing) | 2xV100 16GB |
 | Italian | 2020-12-11 | train_it_with_wav2vec.yaml | No | 3.11 | 8.30 | 5.75 | 9.86 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) | [model](https://drive.google.com/drive/folders/1LKA50Qsr1fM1E3t4PHMWUjlBMS2QGFHj?usp=sharing) | 2xV100 16GB |
+| German | 2021-10-28 | train_de.yaml | No | 4.32 | 13.99 | 4.93 | 15.37 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-de) | -- | 1x V100 16GB |
 
 ## How to simply use pretrained models to transcribe my audio file?
 

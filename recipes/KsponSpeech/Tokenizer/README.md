@@ -1,26 +1,20 @@
-# LibriSpeech ASR with ctc models.
-This folder contains the scripts to train a wav2vec based system using LibriSpeech.
-You can download LibriSpeech at http://www.openslr.org/12
+# Tokenizer
+This folder contains the scripts to train a tokenizer using SentencePiece (https://github.com/google/sentencepiece). The tokenizer is trained on the top of the KsponSpeech training transcriptions.
 
 # How to run
-python train_with_wav2vec.py hparams/file.yaml
+```
+python train.py train/5K_unigram_subword_bpe.yaml
+```
+# Model link
+- 5K unigram model: [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/tokenizer.ckpt)
 
-# Results
-
-| Release | hyperparams file | Test Clean WER | HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 09-09-21 | train_with_wav2vec.yaml | 1.90 | Not Avail. | [Link](https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing) | 1xRTX8000 48GB |
-
-# Training Time
-It takes about 3 hours for an epoch on a rtx8000 (48 GB).
-
-# **About SpeechBrain**
+# About SpeechBrain
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
 
-# **Citing SpeechBrain**
+# Citing SpeechBrain
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex

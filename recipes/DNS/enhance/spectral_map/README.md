@@ -3,8 +3,8 @@ This folder contains the scripts to train a speech enhancement system with spect
 You can download the dataset from here: https://github.com/microsoft/DNS-Challenge
 
 # How to run
-python train.py train/params_CNNTransformer.yaml  
-python train.py train/params_CNN.yaml 
+python train.py train/params_CNNTransformer.yaml
+python train.py train/params_CNN.yaml
 
 # Results
 | Release | hyperparams file | STOI | PESQ | Model link | GPUs |

@@ -54,6 +54,16 @@ Here are the SI - SNRi results (in dB) on the test set of LibriMix dataset with 
 * Libri3Mix with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True --use_wham_noise True`
 
 
+# Multi-GPU training
+
+You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
+
+```
+ python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer-libri2mix.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/

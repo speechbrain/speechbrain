@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_checkpointer(tmpdir):
+def test_checkpointer(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
     import torch
 
@@ -16,12 +16,12 @@ def test_checkpointer(tmpdir):
     recoverable = Recoverable(2.0)
     recoverables = {"recoverable": recoverable}
     recoverer = Checkpointer(tmpdir, recoverables)
-    recoverable.param.data = torch.tensor([1.0])
+    recoverable.param.data = torch.tensor([1.0], device=device)
     # Should not be possible since no checkpoint saved yet:
     assert not recoverer.recover_if_possible()
     result = recoverable(10.0)
     # Check that parameter has not been loaded from original value:
-    assert recoverable.param.data == torch.tensor([1.0])
+    assert recoverable.param.data == torch.tensor([1.0], device=device)
 
     ckpt = recoverer.save_checkpoint()
     # Check that the name recoverable has a save file:
@@ -30,10 +30,10 @@ def test_checkpointer(tmpdir):
     # Check that saved checkpoint is found, and location correct:
     assert recoverer.list_checkpoints()[0] == ckpt
     assert recoverer.list_checkpoints()[0].path.parent == tmpdir
-    recoverable.param.data = torch.tensor([2.0])
+    recoverable.param.data = torch.tensor([2.0], device=device)
     recoverer.recover_if_possible()
     # Check that parameter has been loaded immediately:
-    assert recoverable.param.data == torch.tensor([1.0])
+    assert recoverable.param.data == torch.tensor([1.0], device=device)
     result = recoverable(10.0)
     # And result correct
     assert result == 10.0
@@ -48,14 +48,14 @@ def test_checkpointer(tmpdir):
     assert (new_ckpt.path / "recoverable.ckpt").exists()
     assert (new_ckpt.path / "other.ckpt").exists()
     assert new_ckpt in recoverer.list_checkpoints()
-    recoverable.param.data = torch.tensor([2.0])
-    other.param.data = torch.tensor([10.0])
+    recoverable.param.data = torch.tensor([2.0], device=device)
+    other.param.data = torch.tensor([10.0], device=device)
     chosen_ckpt = recoverer.recover_if_possible()
     # Should choose newest by default:
     assert chosen_ckpt == new_ckpt
     # Check again that parameters have been loaded immediately:
-    assert recoverable.param.data == torch.tensor([1.0])
-    assert other.param.data == torch.tensor([2.0])
+    assert recoverable.param.data == torch.tensor([1.0], device=device)
+    assert other.param.data == torch.tensor([2.0], device=device)
     other_result = other(10.0)
     # And again we should have the correct computations:
     assert other_result == 20.0
@@ -69,8 +69,8 @@ def test_checkpointer(tmpdir):
         )
     # However this operation may have loaded the first object
     # so let's set the values manually:
-    recoverable.param.data = torch.tensor([2.0])
-    other.param.data = torch.tensor([10.0])
+    recoverable.param.data = torch.tensor([2.0], device=device)
+    other.param.data = torch.tensor([10.0], device=device)
     recoverer.allow_partial_load = True
     chosen_ckpt = recoverer.recover_if_possible(
         importance_key=lambda x: -x.meta["unixtime"]
@@ -78,23 +78,23 @@ def test_checkpointer(tmpdir):
     # Should have chosen the original:
     assert chosen_ckpt == ckpt
     # And should recover recoverable:
-    assert recoverable.param.data == torch.tensor([1.0])
+    assert recoverable.param.data == torch.tensor([1.0], device=device)
     # But not other:
     other_result = other(10.0)
-    assert other.param.data == torch.tensor([10.0])
+    assert other.param.data == torch.tensor([10.0], device=device)
     assert other_result == 100.0
 
     # Test saving names checkpoints with meta info, and custom filter
     epoch_ckpt = recoverer.save_checkpoint(name="ep1", meta={"loss": 2.0})
     assert "ep1" in epoch_ckpt.path.name
-    other.param.data = torch.tensor([2.0])
+    other.param.data = torch.tensor([2.0], device=device)
     recoverer.save_checkpoint(meta={"loss": 3.0})
     chosen_ckpt = recoverer.recover_if_possible(
         ckpt_predicate=lambda ckpt: "loss" in ckpt.meta,
         importance_key=lambda ckpt: -ckpt.meta["loss"],
     )
     assert chosen_ckpt == epoch_ckpt
-    assert other.param.data == torch.tensor([10.0])
+    assert other.param.data == torch.tensor([10.0], device=device)
 
     # Make sure checkpoints can't be name saved by the same name
     with pytest.raises(FileExistsError):
@@ -140,14 +140,16 @@ def test_recovery_custom_io(tmpdir):
     assert custom_recoverable.param == 1
 
 
-def test_checkpoint_deletion(tmpdir):
+def test_checkpoint_deletion(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
     import torch
 
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
             super().__init__()
-            self.param = torch.nn.Parameter(torch.tensor([param]))
+            self.param = torch.nn.Parameter(
+                torch.tensor([param], device=device)
+            )
 
         def forward(self, x):
             return x * self.param
@@ -252,14 +254,16 @@ def test_multiple_ckpts_and_criteria(tmpdir):
     assert found_ckpts == [fifth_ckpt, fourth_ckpt]
 
 
-def test_torch_meta(tmpdir):
+def test_torch_meta(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
     import torch
 
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
             super().__init__()
-            self.param = torch.nn.Parameter(torch.tensor([param]))
+            self.param = torch.nn.Parameter(
+                torch.tensor([param], device=device)
+            )
 
         def forward(self, x):
             return x * self.param
@@ -268,7 +272,7 @@ def test_torch_meta(tmpdir):
     recoverables = {"recoverable": recoverable}
     recoverer = Checkpointer(tmpdir, recoverables)
     saved = recoverer.save_checkpoint(
-        meta={"loss": torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])}
+        meta={"loss": torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0], device=device)}
     )
     loaded = recoverer.recover_if_possible()
     assert saved.meta["loss"].allclose(loaded.meta["loss"])
@@ -336,3 +340,48 @@ def test_checkpoint_hook_register(tmpdir):
                 del end_of_epoch  # Unused
                 with open(path) as fi:
                     self.param = int(fi.read())
+
+
+def test_torch_defaults(tmpdir, device):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+
+    module = torch.nn.Linear(10, 10).to(device)
+    optimizer = torch.optim.Adam(module.parameters())
+    lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
+        optimizer, 0.1, 1.0, cycle_momentum=False
+    )
+    # ReduceLROnPlateau is on an _LRScheduler for some reason, so have a separate test for it
+    another_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    checkpointer = Checkpointer(
+        tmpdir,
+        recoverables={
+            "module": module,
+            "optimizer": optimizer,
+            "scheduler": lr_scheduler,
+            "scheduler2": another_scheduler,
+        },
+    )
+    ckpt = checkpointer.save_checkpoint()
+    # test the module:
+    inp = torch.randn((3, 10), device=device)
+    prev_output = module(inp)
+
+    # Re-initialize everything
+    module = torch.nn.Linear(10, 10, device=device)
+    optimizer = torch.optim.Adam(module.parameters())
+    lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
+        optimizer, 0.1, 1.0, cycle_momentum=False
+    )
+    another_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    checkpointer = Checkpointer(
+        tmpdir,
+        recoverables={
+            "module": module,
+            "optimizer": optimizer,
+            "scheduler": lr_scheduler,
+            "scheduler2": another_scheduler,
+        },
+    )
+    checkpointer.load_checkpoint(ckpt)
+    assert torch.allclose(module(inp), prev_output)
