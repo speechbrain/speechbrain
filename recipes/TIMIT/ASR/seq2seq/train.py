@@ -277,13 +277,13 @@ def dataio_prep(hparams):
     # Support for dynamic batching
     if hparams["dynamic_batching"]:
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hope_size = dynamic_hparams["feats_hop_size"]
+        hop_size = dynamic_hparams["feats_hop_size"]
 
         batch_sampler = DynamicBatchSampler(
             train_data,
             dynamic_hparams["max_batch_len"],
-            num_quantiles=dynamic_hparams["num_quantiles"],
-            length_func=lambda x: x["duration"] * (1 / hope_size),
+            num_buckets=dynamic_hparams["num_buckets"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
         )
