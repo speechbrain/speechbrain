@@ -15,10 +15,11 @@ from hyperpyyaml import load_hyperpyyaml
 class seq2seqBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given input chars it computes the phoneme's probabilities"
+        batch = batch.to(self.device)
         chars, char_lens = batch.char_encoded
         phns, phn_lens = batch.phn_encoded_bos
 
-        emb_char = self.hparams.encoder_emb(chars)
+        emb_char = self.modules.encoder_emb(chars)
         x, _ = self.modules.enc(emb_char)
         e_in = self.modules.emb(phns)
 
@@ -126,7 +127,7 @@ def data_prep(data_folder, hparams):
     return train_data, valid_data
 
 
-def main():
+def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
@@ -141,7 +142,10 @@ def main():
 
     # Trainer initialization
     seq2seq_brain = seq2seqBrain(
-        hparams["modules"], hparams["opt_class"], hparams
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts={"device": device},
     )
 
     # Training/validation loop
@@ -163,5 +167,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_error():
-    main()
+def test_error(device):
+    main(device)

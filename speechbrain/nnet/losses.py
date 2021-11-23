@@ -46,8 +46,8 @@ def transducer_loss(
     """
     from speechbrain.nnet.loss.transducer_loss import Transducer
 
-    input_lens = (input_lens * log_probs.shape[1]).int()
-    target_lens = (target_lens * targets.shape[1]).int()
+    input_lens = (input_lens * log_probs.shape[1]).round().int()
+    target_lens = (target_lens * targets.shape[1]).round().int()
     return Transducer.apply(
         log_probs, targets, input_lens, target_lens, blank_index, reduction
     )
@@ -233,8 +233,8 @@ def ctc_loss(
         See pytorch for 'mean', 'sum', 'none'. The 'batch' option returns
         one loss per item in the batch, 'batchmean' returns sum / batch size.
     """
-    input_lens = (input_lens * log_probs.shape[1]).int()
-    target_lens = (target_lens * targets.shape[1]).int()
+    input_lens = (input_lens * log_probs.shape[1]).round().int()
+    target_lens = (target_lens * targets.shape[1]).round().int()
     log_probs = log_probs.transpose(0, 1)
 
     if reduction == "batchmean":
@@ -995,7 +995,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
         # Getting current predictions
         current_pred = predictions[j]
 
-        actual_size = (input_lens[j] * log_probs.shape[1]).int()
+        actual_size = (input_lens[j] * log_probs.shape[1]).round().int()
         current_pred = current_pred[0:actual_size]
         current_pred = filter_ctc_output(
             list(current_pred.cpu().numpy()), blank_id=blank_index
@@ -1017,7 +1017,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
     fake_lab_lengths = torch.from_numpy(np.array(pred_len_list)).int()
     fake_lab_lengths.to(device)
 
-    input_lens = (input_lens * log_probs.shape[1]).int()
+    input_lens = (input_lens * log_probs.shape[1]).round().int()
     log_probs = log_probs.transpose(0, 1)
     return torch.nn.functional.ctc_loss(
         log_probs,

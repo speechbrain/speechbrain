@@ -41,6 +41,7 @@ lin: !new:speechbrain.nnet.linear.Linear
     bias: False
 
 modules:
+    compute_features: !ref <compute_features>
     rnn: !ref <rnn>
     lin: !ref <lin>
     mean_var_norm: !ref <mean_var_norm>

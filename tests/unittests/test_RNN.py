@@ -3,25 +3,18 @@ import torch.nn
 from collections import OrderedDict
 
 
-def test_RNN():
+def test_RNN(device):
 
-    from speechbrain.nnet.RNN import (
-        RNN,
-        GRU,
-        LSTM,
-        LiGRU,
-        QuasiRNN,
-        RNNCell,
-    )
+    from speechbrain.nnet.RNN import RNN, GRU, LSTM, LiGRU, QuasiRNN, RNNCell
 
     # Check RNN
-    inputs = torch.randn(4, 2, 7)
+    inputs = torch.randn(4, 2, 7, device=device)
     net = RNN(
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
         bidirectional=False,
-    )
+    ).to(device)
     output, hn = net(inputs)
     output_l = []
     hn_t = None
@@ -39,13 +32,13 @@ def test_RNN():
     assert torch.jit.trace(net, inputs)
 
     # Check GRU
-    inputs = torch.randn(4, 2, 7)
+    inputs = torch.randn(4, 2, 7, device=device)
     net = GRU(
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
         bidirectional=False,
-    )
+    ).to(device)
     output, hn = net(inputs)
     output_l = []
     hn_t = None
@@ -63,13 +56,13 @@ def test_RNN():
     assert torch.jit.trace(net, inputs)
 
     # Check LSTM
-    inputs = torch.randn(4, 2, 7)
+    inputs = torch.randn(4, 2, 7, device=device)
     net = LSTM(
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
         bidirectional=False,
-    )
+    ).to(device)
     output, hn = net(inputs)
     output_l = []
     hn_t = None
@@ -87,14 +80,14 @@ def test_RNN():
     assert torch.jit.trace(net, inputs)
 
     # Check LiGRU
-    inputs = torch.randn(1, 2, 2)
+    inputs = torch.randn(1, 2, 2, device=device)
     net = LiGRU(
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
         bidirectional=False,
         normalization="layernorm",
-    )
+    ).to(device)
 
     output, hn = net(inputs)
     output_l = []
@@ -113,13 +106,13 @@ def test_RNN():
     ), "LiGRU hidden states mismatch"
 
     # Check QuasiRNN
-    inputs = torch.randn(1, 2, 2)
+    inputs = torch.randn(1, 2, 2, device=device)
     net = QuasiRNN(
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
         bidirectional=False,
-    )
+    ).to(device)
 
     output, hn = net(inputs)
     output_l = []
@@ -141,8 +134,10 @@ def test_RNN():
     assert torch.jit.trace(net, inputs)
 
     # Check RNNCell
-    inputs = torch.randn(4, 2, 7)
-    net = RNNCell(hidden_size=5, input_size=7, num_layers=2, dropout=0.0,)
+    inputs = torch.randn(4, 2, 7, device=device)
+    net = RNNCell(hidden_size=5, input_size=7, num_layers=2, dropout=0.0).to(
+        device
+    )
     hn_t = None
     output_lst = []
     for t in range(inputs.shape[1]):
@@ -152,7 +147,7 @@ def test_RNN():
     out_steps = torch.stack(output_lst, dim=1)
     rnn = torch.nn.RNN(
         input_size=7, hidden_size=5, num_layers=2, batch_first=True
-    )
+    ).to(device)
 
     # rename the state_dict
     state = net.state_dict()
