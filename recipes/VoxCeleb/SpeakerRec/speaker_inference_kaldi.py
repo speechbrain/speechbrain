@@ -88,12 +88,10 @@ if __name__ == "__main__":
     # load directories
     parser = argparse.ArgumentParser()
     parser.add_argument("--datadir", type=str, required=True)
-    parser.add_argument("--ckptdir", type=str, required=True)
     parser.add_argument("--outdir", type=str, required=True)
 
     args = parser.parse_args()
     datadir = args.datadir
-    ckptdir = args.ckptdir
     outdir = args.outdir
 
     # Logger setup
