@@ -4,7 +4,7 @@ This folder contains scripts necessary to run an ASR experiment with the CommonV
 # How to run
 python train.py hparams/{hparam_file}.py
 
-Make sure you have "transformers" installed if you use the wav2vec2 fine-tuning model. 
+Make sure you have "transformers" installed if you use the wav2vec2 fine-tuning model.
 
 # Data preparation
 It is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Hence, audio files are downsampled on the fly within the dataio function of the training script.
