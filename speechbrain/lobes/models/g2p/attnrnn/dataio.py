@@ -319,17 +319,20 @@ def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     if encoder is None:
         encoder = sb.dataio.encoder.TextEncoder()
     if bos_index == eos_index:
-        encoder.insert_bos_eos(
-            bos_label="<eos-bos>", eos_label="<eos-bos>", bos_index=bos_index,
-        )
+        if '<eos-bos>' not in encoder.lab2ind:
+            encoder.insert_bos_eos(
+                bos_label="<eos-bos>", eos_label="<eos-bos>", bos_index=bos_index,
+            )
     else:
-        encoder.insert_bos_eos(
-            bos_label="<bos>",
-            eos_label="<eos>",
-            bos_index=bos_index,
-            eos_index=eos_index,
-        )
-    encoder.add_unk()
+        if '<bos>' not in encoder.lab2ind:
+            encoder.insert_bos_eos(
+                bos_label="<bos>",
+                eos_label="<eos>",
+                bos_index=bos_index,
+                eos_index=eos_index,
+            )
+    if "<unk>" not in encoder.lab2ind:
+        encoder.add_unk()
     encoder.update_from_iterable(tokens, sequence_input=False)
     return encoder
 

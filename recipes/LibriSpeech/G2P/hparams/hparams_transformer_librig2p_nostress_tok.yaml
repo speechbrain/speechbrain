@@ -17,7 +17,10 @@ train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 enable_interim_reports: True
+grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
+phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 ckpt_frequency: 1
+ckpt_enable: true
 enable_metrics: True
 
 
@@ -45,14 +48,24 @@ homograph_test_data: !ref <data_folder>/homograph_test.json
 homograph_sample: null
 homograph_sample_random: False
 homograph_balance: True
+tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
+tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 
-char_tokenize: False
-phn_tokenize: False
-
+# Tokenizers
+char_tokenize: True
+char_token_type: unigram  # ["unigram", "bpe", "char"]
+char_token_output: 512
+char_token_wordwise: False
+phn_tokenize: True
+phn_token_type: unigram  # ["unigram", "bpe", "char"]
+phn_token_output: 512  # index(blank/eos/bos/unk) = 0
+phn_token_wordwise: False
+character_coverage: 1.0
 
 skip_prep: False
 sorting: random #ascending
 origins: "*"
+graphemes_count: 28
 graphemes_space_separated: False
 phonemes_space_separated: False
 phonemes_count: 43
@@ -65,48 +78,78 @@ sentence_epochs: 20
 sentence_ctc_epochs: 10
 homograph_epochs: 20
 homograph_ctc_epochs: 10
-lexicon_batch_size: 1024
+lexicon_batch_size: 128
 sentence_batch_size: 64
 homograph_batch_size: 64
 ctc_weight: 0.5
 homograph_loss_weight: 2.0
-lr: 0.002
+lr: 0.005
+lr_min: 0.00001
+lr_dont_halve_until_epoch: 1
+lr_patience: 1
+lr_annealing_mode: epoch
+adam_beta1: 0.99
+adam_beta2: 0.998
 save_for_pretrained: True
 
 # Model parameters
-output_neurons: !ref <phonemes_count>
-enc_dropout: 0.5
-enc_neurons: 512
+output_neurons: !ref <phn_token_output> + 1
+embedding_dim: 768
 enc_num_layers: 4
-dec_dropout: 0.5
-dec_neurons: 512
-dec_att_neurons: 256
 dec_num_layers: 4
-embedding_dim: 512
+transformer_d_model: 768
+transformer_d_ffn: 2048
+transformer_num_heads: 4
+transformer_dropout: 0.1
+transformer_normalize_before: True
+transformer_encoder_module: conformer
+transformer_kernel_size: 7
+transformer_causal: True
+embedding_type: regular
+
+# Determines whether to use BOS (beginning-of-sequence) or EOS (end-of-sequence) tokens
+# Available modes:
+# raw: no BOS/EOS tokens are added
+# bos: a beginning-of-sequence token is added
+# eos: an end-of-sequence token is added
+grapheme_sequence_mode: eos
+phoneme_sequence_mode: bos
+
+enc_kdim: null
+enc_vdim: null
+dec_kdim: null
+dec_vdim: null
+max_length: 2500
 
 # Special Token information
-bos_index: 0
-eos_index: 1
-blank_index: 2
+bos_index: 1
+eos_index: 2
+blank_index: 3
+unk_index: 3
+token_space_index: 512
+
 
 # Language Model
-lm_emb_dim: 256 # dimension of the embeddings
-lm_rnn_size: 512 # dimension of hidden layers
-lm_layers: 2 # number of hidden layers
-lm_output_neurons: !ref <phonemes_count>
+lm_d_model: 128
+lm_enc_num_layers: 3
+lm_dec_num_layers: 3
+lm_d_ffn: 2048
+lm_num_heads: 4
+lm_dropout: 0.1
 
 # Beam Searcher
 use_language_model: False
 beam_search_min_decode_ratio: 0
 beam_search_max_decode_ratio: 1.0
-beam_search_beam_size: 16
-beam_search_eos_threshold: 10.0
+beam_search_beam_size: 8
+beam_search_beam_size_valid: 1
+beam_search_eos_threshold: 1.5
 beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
-beam_search_coverage_penalty: 5.0
+beam_search_coverage_penalty: 0.0
 beam_search_lm_weight: 0.5
 beam_search_ctc_weight_decode: 0.4
-beam_search_temperature: 1.25
+beam_search_temperature: 1.0
 beam_search_temperature_lm: 1.0
 
 # Word embeddings
@@ -119,7 +162,7 @@ word_emb_norm_type: batch
 # Evaluation parameters
 eval_dataset: train
 eval_train_step: sentence
-eval_batch_size: 256
+eval_batch_size: 128
 eval_batch_count: 1
 eval_reporting: raw
 eval_prediction_sample_size: 10
@@ -207,41 +250,51 @@ enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
     word_emb_enc_dim: !ref <word_emb_enc_dim>
     embedding_dim: !ref <embedding_dim>
 
+phn_char_map: !apply:speechbrain.lobes.models.g2p.attnrnn.build_token_char_map
+    tokens: !ref <phonemes>
+
+
+char_phn_map: !apply:speechbrain.lobes.models.g2p.attnrnn.flip_map
+    map_dict: !ref <phn_char_map>
+
+
 
 # Models
-enc: !new:speechbrain.nnet.RNN.LSTM
-    input_shape: [null, null, !ref <enc_input_dim>]
-    bidirectional: True
-    hidden_size: !ref <enc_neurons>
-    num_layers: !ref <enc_num_layers>
-    dropout: !ref <enc_dropout>
+
+char_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <embedding_dim>
+    n_neurons: !ref <transformer_d_model>
+    bias: True
+
+phn_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <embedding_dim>
+    n_neurons: !ref <transformer_d_model>
+    bias: True
 
 lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <dec_neurons>
-    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
+    input_size: !ref <transformer_d_model>
+    n_neurons: !ref <output_neurons>
     bias: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref 2 * <enc_neurons>
+    input_size: !ref <transformer_d_model>
     n_neurons: !ref <output_neurons>
 
+encoder_emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
+     d_model: !ref <transformer_d_model>
+     vocab: !ref <graphemes_count>
+
+emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
+     d_model: !ref <transformer_d_model>
+     vocab: !ref <phonemes_count>
+
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 28  # 27 chars + 1 bos
+    num_embeddings: !ref <char_token_output>
     embedding_dim: !ref <embedding_dim>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>  # 39 phonemes + 1 bos
+    num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <embedding_dim>
-
-dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <enc_neurons> * 2
-    input_size: !ref <embedding_dim>
-    rnn_type: gru
-    attn_type: content
-    dropout: !ref <dec_dropout>
-    hidden_size: !ref <dec_neurons>
-    attn_dim: !ref <dec_att_neurons>
-    num_layers: !ref <dec_num_layers>
 
 word_emb_enc: !new:speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder
     word_emb_dim: !ref <word_emb_dim>
@@ -257,40 +310,61 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 modules:
     model: !ref <model>
-    enc: !ref <enc>
-    encoder_emb: !ref <encoder_emb>
-    emb: !ref <emb>
-    dec: !ref <dec>
-    lin: !ref <lin>
     ctc_lin: !ref <ctc_lin>
-    out: !ref <log_softmax>
     word_emb_enc: !ref <word_emb_enc>
 
-model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq
-    enc: !ref <enc>
-    encoder_emb: !ref <encoder_emb>
-    emb: !ref <emb>
-    dec: !ref <dec>
+model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P
+    encoder_emb: !apply:speechbrain.utils.hparams.choice
+        value: !ref <embedding_type>
+        choices:
+            regular: !ref <encoder_emb>
+            normalized: !ref <encoder_emb_norm>
+    char_lin: !ref <char_lin>
+    phn_lin: !ref <char_lin>
     lin: !ref <lin>
     out: !ref <log_softmax>
-    use_word_emb: !ref <use_word_emb>
-    word_emb_enc: !ref <word_emb_enc>
+    emb: !apply:speechbrain.utils.hparams.choice
+        value: !ref <embedding_type>
+        choices:
+            regular: !ref <emb>
+            normalized: !ref <emb_norm>
+    d_model: !ref <transformer_d_model>
+    nhead: !ref <transformer_num_heads>
+    num_encoder_layers: !ref <enc_num_layers>
+    num_decoder_layers: !ref <dec_num_layers>
+    d_ffn: !ref <transformer_d_ffn>
+    dropout: !ref <transformer_dropout>
+    max_length: !ref <max_length>
+    encoder_kdim: !ref <enc_kdim>
+    encoder_vdim: !ref <enc_vdim>
+    decoder_kdim: !ref <dec_kdim>
+    decoder_vdim: !ref <dec_vdim>
+    activation: !name:torch.nn.GELU
+    normalize_before: !ref <transformer_normalize_before>
+    encoder_module: !ref <transformer_encoder_module>
+    kernel_size: !ref <transformer_kernel_size>
+    causal: !ref <transformer_causal>
 
-lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    embedding_dim: !ref <lm_emb_dim>
-    rnn_layers: !ref <lm_layers>
-    rnn_neurons: !ref <lm_rnn_size>
-    output_neurons: !ref <lm_output_neurons>
-    return_hidden: True
+
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
+    vocab: !ref <phonemes_count>
+    d_model: !ref <lm_d_model>
+    num_encoder_layers: !ref <lm_enc_num_layers>
+    num_decoder_layers: !ref <lm_dec_num_layers>
+    d_ffn: !ref <lm_d_ffn>
+    dropout: !ref <lm_dropout>
+    nhead: !ref <lm_num_heads>
+    activation: !name:torch.nn.GELU
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
 
-beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
-    embedding: !ref <emb>
-    decoder: !ref <dec>
-    linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
+beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules:
+    - !ref <model>
+    - !ref <lin>
+    - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -302,14 +376,15 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     max_attn_shift: !ref <beam_search_max_attn_shift>
     coverage_penalty: !ref <beam_search_coverage_penalty>
     ctc_weight: !ref <beam_search_ctc_weight_decode>
+    using_eos_threshold: False
+    length_normalization: False
 
 
-beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
-    embedding: !ref <emb>
-    decoder: !ref <dec>
-    linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
-    language_model: !ref <lm_model>
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
+    modules:
+    - !ref <model>
+    - !ref <lin>
+    - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -324,24 +399,43 @@ beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     lm_weight: !ref <beam_search_lm_weight>
     temperature: !ref <beam_search_temperature>
     temperature_lm: !ref <beam_search_temperature_lm>
+    using_eos_threshold: False
+    length_normalization: False
 
 
-lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr>
-    improvement_threshold: 0.0
-    annealing_factor: 0.8
-    patient: 0
+beam_searcher_valid: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules:
+    - !ref <model>
+    - !ref <lin>
+    - !ref <ctc_lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size_valid>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    using_eos_threshold: False
+    length_normalization: False
+
+
+lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    lr_min: !ref <lr_min>
+    dont_halve_until_epoch: !ref <lr_dont_halve_until_epoch>
+    patience: !ref <lr_patience>
 
 homograph_extractor: !new:speechbrain.lobes.models.g2p.homograph.SubsequenceExtractor
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 seq_cost_metric: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
     reduction: batch
 
 homograph_cost: !new:speechbrain.lobes.models.g2p.homograph.SubsequenceLoss
@@ -376,7 +470,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         ctc_lin: !ref <ctc_lin>
-        scheduler: !ref <lr_annealing>
         lexicon_counter: !ref <lexicon_epoch_counter>
         sentence_counter: !ref <sentence_epoch_counter>
         homograph_counter: !ref <homograph_epoch_counter>
@@ -388,6 +481,39 @@ model_output_keys:
 
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
+
+grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <grapheme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <char_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: char
+        model_type: !ref <char_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_list_to_check: [!ref <tokenizer_valid_data>]
+        annotation_format: json
+        text_file: !ref <save_folder>/grapheme_annotations.txt
+
+
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <phoneme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <phn_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: phn
+        model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_list_to_check: [!ref <tokenizer_valid_data>]
+        annotation_format: json
+        text_file: !ref <save_folder>/phoneme_annotations.txt
+
 
 out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.attnrnn.text_decode
     encoder: !ref <phoneme_encoder>
