@@ -360,6 +360,8 @@ beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
     - !ref <model>
     - !ref <lin>
     - !ref <ctc_lin>
+    lm_modules:
+    - !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
