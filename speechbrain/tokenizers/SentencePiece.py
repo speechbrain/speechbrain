@@ -74,8 +74,8 @@ class SentencePiece:
         recovering words from the tokenizer.
     annotation_format : str
         The format of the annotation file. JSON or csv are the formats supported.
-    add_dummy_prefix : bool 
-        If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
+    add_dummy_prefix : bool
+        If True the tokenizer adds dummy whitespace at the beginning of text. (default: False)
     Example
     -------
     >>> import torch
@@ -121,7 +121,7 @@ class SentencePiece:
         num_sequences=None,
         annotation_list_to_check=None,
         annotation_format="csv",
-        add_dummy_prefix = True
+        add_dummy_prefix=False,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -129,7 +129,7 @@ class SentencePiece:
             os.makedirs(model_dir)
         if not isinstance(vocab_size, int):
             raise ValueError("vocab_size must be integer.")
-        
+
         self.annotation_train = annotation_train
         self.annotation_read = annotation_read
         self.annotation_format = annotation_format
@@ -154,7 +154,6 @@ class SentencePiece:
         self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
         self.add_dummy_prefix = str(add_dummy_prefix)
-
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
