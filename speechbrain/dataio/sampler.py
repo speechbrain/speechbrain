@@ -21,7 +21,6 @@ import numpy as np
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
 from scipy.stats import lognorm
-from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -412,7 +411,7 @@ class DynamicBatchSampler(Sampler):
         self,
         dataset,
         max_batch_length: int,
-        num_quantiles: int = None,
+        num_buckets: int = None,
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
         batch_ordering: str = "random",
@@ -421,18 +420,18 @@ class DynamicBatchSampler(Sampler):
         lengths_list: List[int] = None,
         seed: int = 42,
         epoch: int = 0,
-        reduce_padding_afterwards: bool = False,
         drop_last: bool = False,
+        verbose: bool = True,
     ):
         self._dataset = dataset
         self._ex_lengths = {}
         ex_ids = self._dataset.data_ids
+        self.verbose = verbose
 
-        # We do not put a default on num_quantiles to encourage users to use this class only after checking
-        # the distribution of the lengths in their dataset.
-        if num_quantiles is None and len(bucket_boundaries) == 0:
+        # We do not put a default on num_buckets to encourage users to play with this parameter
+        if num_buckets is None and len(bucket_boundaries) == 0:
             raise RuntimeError(
-                "Please specify either num_quantiles or bucket boundaries. "
+                "Please specify either num_buckets or bucket boundaries."
                 "Check the docs, and/or the tutorial !"
             )
 
@@ -467,11 +466,11 @@ class DynamicBatchSampler(Sampler):
             )
             self._bucket_boundaries = np.array(sorted(bucket_boundaries))
         else:
-            # use num_quantiles
+            # use num_buckets
             self._bucket_boundaries = np.array(
                 self._get_boundaries_through_warping(
                     max_batch_length=max_batch_length,
-                    num_quantiles=num_quantiles,
+                    num_quantiles=num_buckets,
                 )
             )
 
@@ -479,7 +478,6 @@ class DynamicBatchSampler(Sampler):
         self._shuffle_ex = shuffle
         self._batch_ordering = batch_ordering
         self._seed = seed
-        self._reduce_padding_afterwards = reduce_padding_afterwards
         self._drop_last = drop_last
         self._max_batch_ex = max_batch_ex
         # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
@@ -552,85 +550,8 @@ class DynamicBatchSampler(Sampler):
         else:
             raise NotImplementedError
 
-    def _reduce_padding(self):
-        # copy for rolling back a re-assignment when batch size exceed maximum
-        # repeat twice - sometimes a fallback will cause non-depleted batches that could actually be depleted
-
-        for _ in range(2):
-            # number of frames per batch
-            reassigned_batches = deepcopy(self._batches)
-            batch_frames = [
-                sum(self._ex_lengths[str(idx)] for idx in batch)
-                for batch in self._batches
-            ]
-            min_ex_length = min(
-                min(self._ex_lengths[str(idx)] for idx in batch)
-                for batch in self._batches
-            )
-
-            batch_frames = [(indx, x) for indx, x in enumerate(batch_frames)]
-            batch_frames = sorted(batch_frames, key=lambda x: x[-1])
-
-            orig_indx_dict = {
-                str(k): v
-                for k, v in zip(
-                    range(len(batch_frames)), [x[0] for x in batch_frames]
-                )
-            }
-            remaining_padding = self._max_batch_length - np.asarray(
-                [x[-1] for x in batch_frames]
-            )  # - 0.2*self._max_batch_length
-            remaining_padding = np.clip(remaining_padding, 0, np.inf)
-
-            # Re-assign examples from remaining batches
-            import tqdm
-
-            for indx in tqdm.tqdm(range(len(remaining_padding))):
-
-                if remaining_padding[indx] <= min_ex_length:
-                    continue  # do not try to reassign because we use this batch fully
-
-                batch_indx = orig_indx_dict[str(indx)]
-                batch = reassigned_batches[batch_indx]
-                # prepare fallback if batch cannot be depleted
-                # prepare 'call-by-value'
-                # create tmp objects to manipulate (play with)
-                # tmp_remaining_padding = deepcopy(remaining_padding)
-                # tmp_batches = deepcopy(self._batches)
-                # avoid that any other batch wants to put sth in this batch which is about to be depleted
-                # remaining_padding[batch_indx] = 0
-                # re-assign each example in the uncompleted bucket batch
-                for pos in reversed(range(len(batch))):
-                    # pop first example in batch
-                    ex_id = batch.pop(
-                        pos
-                    )  # 'pos' is necessary for potential later re-append
-                    # length of pre-sampled audio
-                    item_len = self._ex_lengths[str(ex_id)]
-                    # where is enough padding
-                    possible_batches = np.where(remaining_padding >= item_len)[
-                        0
-                    ]
-                    if len(possible_batches) == 0:
-                        batch.append(ex_id)  # reappend back
-                    else:
-                        # random idx selection of where is enough padding; exclude self
-                        rand_batch_idx = np.random.choice(possible_batches)
-                        # assign to batch
-                        reassigned_batches[
-                            orig_indx_dict[str(rand_batch_idx)]
-                        ].append(ex_id)
-                        # keep track of durations
-                        remaining_padding[rand_batch_idx] -= item_len
-                        remaining_padding[indx] += item_len
-
-            self._batches = reassigned_batches
-            self._batches = [batch for batch in self._batches if batch]
-        # remove empty elements
-
     def _generate_batches(self):
         logger.info("DynamicBatchSampler: Generating dynamic batches")
-
         if self._shuffle_ex:
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
@@ -642,10 +563,12 @@ class DynamicBatchSampler(Sampler):
 
         self._batches = []
         bucket_batches = [[] for i in self._bucket_lens]
-        bucket_stats = [0 for i in self._bucket_lens]
-        if self._reduce_padding_afterwards:
-            bucket_frames = [0 for i in self._bucket_lens]
-            batch_frames = []
+
+        stats_tracker = [
+            {"min": np.inf, "max": -np.inf, "tot": 0, "n_ex": 0}
+            for i in self._bucket_lens
+        ]
+
         for idx in sampler:
             # length of pre-sampled audio
             item_len = self._ex_lengths[str(idx)]
@@ -653,12 +576,18 @@ class DynamicBatchSampler(Sampler):
             bucket_id = np.searchsorted(self._bucket_boundaries, item_len)
             # fill audio's duration into that bucket
             bucket_batches[bucket_id].append(idx)
+
+            stats_tracker[bucket_id]["min"] = min(
+                stats_tracker[bucket_id]["min"], item_len
+            )
+            stats_tracker[bucket_id]["max"] = max(
+                stats_tracker[bucket_id]["max"], item_len
+            )
+            stats_tracker[bucket_id]["tot"] += item_len
+            stats_tracker[bucket_id]["n_ex"] += 1
             # track #samples - why not duration/#frames; rounded up?
-            bucket_stats[bucket_id] += 1
             # keep track of durations, if necessary
-            if self._reduce_padding_afterwards:
-                bucket_frames[bucket_id] += item_len
-            # if full, put bucket to the end
+
             if (
                 len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]
                 or len(bucket_batches[bucket_id]) <= self._max_batch_ex
@@ -666,32 +595,74 @@ class DynamicBatchSampler(Sampler):
                 self._batches.append(bucket_batches[bucket_id])
                 bucket_batches[bucket_id] = []
                 # keep track of durations
-                if self._reduce_padding_afterwards:
-                    batch_frames.append(bucket_frames[bucket_id])
-                    bucket_frames[bucket_id] = 0
 
-        # Dump remaining batches - yet, we might even want to shuffle those
+        # Dump remaining batches
         if not self._drop_last:
             for batch in bucket_batches:
                 if batch:
                     self._batches.append(batch)
 
-        # sort in remaining batches & re-assign badly filled buckets
-        if self._reduce_padding_afterwards:
-            self._reduce_padding()
-
-        if not self._shuffle_ex:
-            self._permute_batches()  # reorder batches
+        self._permute_batches()  # possibly reorder batches
 
         if self._epoch == 0:  # only log at first epoch
             # frames per batch & their padding remaining
-            batch_frames = [
-                sum(self._ex_lengths[str(idx)] for idx in batch)
-                for batch in self._batches
-            ]
-            remaining_padding = self._max_batch_length - np.asarray(
-                batch_frames
-            )
+            boundaries = [0] + self._bucket_boundaries.tolist()
+
+            for bucket_indx in range(len(self._bucket_boundaries)):
+                try:
+                    num_batches = stats_tracker[bucket_indx]["tot"] // (
+                        self._max_batch_length
+                    )
+                    pad_factor = (
+                        stats_tracker[bucket_indx]["max"]
+                        - stats_tracker[bucket_indx]["min"]
+                    ) / (
+                        stats_tracker[bucket_indx]["tot"]
+                        / stats_tracker[bucket_indx]["n_ex"]
+                    )
+                except ZeroDivisionError:
+                    num_batches = 0
+                    pad_factor = 0
+
+                logger.info(
+                    (
+                        "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
+                        + "batch_size {}: Num Examples {:.1f}, Num Full Batches {:.3f}, Pad Factor {:.3f}."
+                    ).format(
+                        bucket_indx,
+                        boundaries[bucket_indx],
+                        boundaries[bucket_indx + 1],
+                        self._bucket_lens[bucket_indx],
+                        stats_tracker[bucket_indx]["n_ex"],
+                        num_batches,
+                        pad_factor * 100,
+                    )
+                )
+
+            if self.verbose:
+                batch_stats = {
+                    "tot_frames": [],
+                    "tot_pad_frames": [],
+                    "pad_%": [],
+                }
+                for batch in self._batches:
+                    tot_frames = sum(
+                        [self._ex_lengths[str(idx)] for idx in batch]
+                    )
+                    batch_stats["tot_frames"].append(tot_frames)
+                    max_frames = max(
+                        [self._ex_lengths[str(idx)] for idx in batch]
+                    )
+                    tot_pad = sum(
+                        [
+                            max_frames - self._ex_lengths[str(idx)]
+                            for idx in batch
+                        ]
+                    )
+                    batch_stats["tot_pad_frames"].append(tot_pad)
+                    batch_stats["pad_%"].append(tot_pad / tot_frames * 100)
+
+            """
             # logging
             logger.info(
                 (
@@ -707,6 +678,7 @@ class DynamicBatchSampler(Sampler):
                     remaining_padding.std(),
                 )
             )
+
             boundaries = [0] + self._bucket_boundaries.tolist()
             for i in range(len(self._bucket_boundaries)):
                 logger.info(
@@ -721,26 +693,28 @@ class DynamicBatchSampler(Sampler):
                         bucket_stats[i],
                     )
                 )
-            padding_details = "Batch {} with {:.1f} frames in {} files - {:.1f} padding remains."
+            padding_details = "Batch {} with {:.1f} frames with {} files - {:.1f} padding, {:.2f} (%) of total."
             if self._reduce_padding_afterwards:
                 padding_details = "(post re-assigns) " + padding_details
             padding_details = "DynamicBatchSampler: " + padding_details
-            for i in range(len(batch_frames)):
+            for i in range(len(self._batches)):
                 logger.info(
                     padding_details.format(
                         i,
-                        batch_frames[i],
+                        batch_stats["tot_frames"][i],
                         len(self._batches[i]),
-                        remaining_padding[i],
+                        batch_stats["tot_pad_frames"][i],
+                        batch_stats["pad_%"][i],
                     )
                 )
+            """
 
     def __iter__(self):
         for batch in self._batches:
             yield batch
         if self._shuffle_ex:  # re-generate examples if ex_ordering == "random"
             self._generate_batches()
-        elif self._shuffle_ex is False and self._batch_ordering == "random":
+        if self._batch_ordering == "random":
             # we randomly permute the batches only --> faster
             self._permute_batches()
         else:
