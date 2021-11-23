@@ -100,7 +100,6 @@ modules:
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
     - [!ref <output_emb>,
