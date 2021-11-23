@@ -303,27 +303,25 @@ def dataio_prepare(hparams):
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         hop_size = dynamic_hparams["feats_hop_size"]
 
-        num_quantiles = dynamic_hparams["num_quantiles"]
-        flag_reduce_padding = dynamic_hparams["reduce_padding_afterwards"]
+        num_buckets = dynamic_hparams["num_quantiles"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
             dynamic_hparams["max_batch_len"],
-            num_quantiles=num_quantiles,
+            num_buckets=num_buckets,
             length_func=lambda x: x["duration"] * (1 / hop_size),
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
-            reduce_padding_afterwards=flag_reduce_padding,
+            max_batch_ex=dynamic_hparams["max_batch_ex"],
         )
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
             dynamic_hparams["max_batch_len"],
-            num_quantiles=num_quantiles,
+            num_buckets=num_buckets,
             length_func=lambda x: x["duration"] * (1 / hop_size),
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
-            reduce_padding_afterwards=flag_reduce_padding,
         )
 
     return (

@@ -56,8 +56,7 @@ dynamic_batch_sampler:
    max_batch_len: 7000 # in terms of frames
    shuffle_ex: True
    batch_ordering: random
-   reduce_padding_afterwards: True
-   num_quantiles: 20
+   num_buckets: 40
 
 # Feature parameters
 sample_rate: 16000
