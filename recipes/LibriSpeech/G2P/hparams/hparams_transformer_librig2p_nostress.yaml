@@ -237,7 +237,7 @@ enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
 # Models
 
 char_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <embedding_dim>
+    input_size: !ref <enc_input_dim>
     n_neurons: !ref <transformer_d_model>
     bias: True
 
@@ -295,7 +295,7 @@ model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P
             regular: !ref <encoder_emb>
             normalized: !ref <encoder_emb_norm>
     char_lin: !ref <char_lin>
-    phn_lin: !ref <char_lin>
+    phn_lin: !ref <phn_lin>
     lin: !ref <lin>
     out: !ref <log_softmax>
     emb: !apply:speechbrain.utils.hparams.choice
@@ -319,6 +319,9 @@ model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P
     encoder_module: !ref <transformer_encoder_module>
     kernel_size: !ref <transformer_kernel_size>
     causal: !ref <transformer_causal>
+    use_word_emb: !ref <use_word_emb>
+    word_emb_enc: !ref <word_emb_enc>
+
 
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM

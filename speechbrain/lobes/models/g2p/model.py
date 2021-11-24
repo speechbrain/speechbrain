@@ -111,7 +111,8 @@ class AttentionSeq2Seq(nn.Module):
 
         emb_char = self.encoder_emb(chars)
         if self.use_word_emb:
-            emb_char = self._apply_word_emb(emb_char, word_emb)
+            emb_char = _apply_word_emb(
+                self.word_emb_enc, emb_char, word_emb)
 
         encoder_out, _ = self.enc(emb_char)
         e_in = self.emb(phn_bos)
@@ -294,7 +295,9 @@ class TransformerG2P(TransformerInterface):
         encoder_kdim=None,
         encoder_vdim=None,
         decoder_kdim=None,
-        decoder_vdim=None
+        decoder_vdim=None,
+        use_word_emb=False,
+        word_emb_enc=None
     ):
         super().__init__(
             d_model=d_model,
@@ -327,6 +330,8 @@ class TransformerG2P(TransformerInterface):
 
         self.out = out
         self.pad_idx = pad_idx
+        self.use_word_emb = use_word_emb
+        self.word_emb_enc = word_emb_enc
         self._reset_params()
 
     def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None):
@@ -349,11 +354,14 @@ class TransformerG2P(TransformerInterface):
             encoder_out: the encoder state
             attention: the attention state
         """
-        if word_emb is not None:
-            raise NotImplementedError("Currently, word embeddings are not supported")
+
         chars, char_lens = grapheme_encoded
         phn, _ = phn_encoded
         emb_char = self.encoder_emb(chars)
+        if self.use_word_emb:
+            emb_char = _apply_word_emb(
+                self.word_emb_enc, emb_char, word_emb)
+
 
         src = self.char_lin(emb_char)
         tgt = self.emb(phn)
@@ -499,3 +507,12 @@ def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):
         the input dimension
     """
     return embedding_dim + use_word_emb * word_emb_enc_dim
+
+
+def _apply_word_emb(word_emb_enc, emb_char, word_emb):
+    word_emb_enc = (
+        word_emb_enc(word_emb)
+        if word_emb_enc is not None
+        else word_emb
+    )
+    return torch.cat([emb_char, word_emb_enc], dim=-1)

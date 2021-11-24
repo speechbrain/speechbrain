@@ -712,7 +712,6 @@ def dataio_prep(hparams, train_step=None):
 
     if hparams.get("use_word_emb", False):
         output_keys.append("char")
-        output_keys.append("phn_raw_encoded")
     if hparams.get("phn_tokenize", False) and "phn_raw_encoded" not in output_keys:
         output_keys.append("phn_raw_encoded")
 
