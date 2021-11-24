@@ -230,16 +230,18 @@ class CTCSegmentation:
         """Initialize the CTCSegmentation module."""
         # Prepare ASR model
         if (
-            isinstance(asr_model, EncoderDecoderASR) and not (
-            hasattr(asr_model, "mods")
-            and hasattr(asr_model.mods, "decoder")
-            and hasattr(asr_model.mods.decoder, "ctc_weight")
+            isinstance(asr_model, EncoderDecoderASR)
+            and not (
+                hasattr(asr_model, "mods")
+                and hasattr(asr_model.mods, "decoder")
+                and hasattr(asr_model.mods.decoder, "ctc_weight")
             )
         ) or (
-            isinstance(asr_model, EncoderASR) and not (
-            hasattr(asr_model, "mods")
-            and hasattr(asr_model.mods, "encoder")
-            and hasattr(asr_model.mods.decoder, "ctc_lin")
+            isinstance(asr_model, EncoderASR)
+            and not (
+                hasattr(asr_model, "mods")
+                and hasattr(asr_model.mods, "encoder")
+                and hasattr(asr_model.mods.decoder, "ctc_lin")
             )
         ):
             raise AttributeError("The given asr_model has no CTC module!")
