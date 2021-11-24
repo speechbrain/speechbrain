@@ -241,7 +241,7 @@ class CTCSegmentation:
             and not (
                 hasattr(asr_model, "mods")
                 and hasattr(asr_model.mods, "encoder")
-                and hasattr(asr_model.mods.decoder, "ctc_lin")
+                and hasattr(asr_model.mods.encoder, "ctc_lin")
             )
         ):
             raise AttributeError("The given asr_model has no CTC module!")
@@ -256,7 +256,7 @@ class CTCSegmentation:
             self._ctc = self.asr_model.mods.decoder.ctc_forward_step
         else:
             # Apply log-softmax to encoder output
-            self._ctc = self.asr_model.hparams.log_softmax()
+            self._ctc = self.asr_model.hparams.log_softmax
         self._tokenizer = self.asr_model.tokenizer
 
         # Apply configuration
