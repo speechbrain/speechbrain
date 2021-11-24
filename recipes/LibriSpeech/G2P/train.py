@@ -680,7 +680,7 @@ def dataio_prep(hparams, train_step=None):
         grapheme_bos_eos_pipeline_item
     ]
 
-    if hparams.get("phn_tokenize") and is_homograph:
+    if hparams.get("phn_tokenize"):
         # A raw tokenizer is needed to determine the correct
         # word boundaries from data
         phoneme_raw_pipeline = phoneme_pipeline(
