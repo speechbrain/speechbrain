@@ -347,12 +347,14 @@ class TransformerG2P(TransformerInterface):
 
         Returns
         -------
-        result: tuple
-            A tuple of (p_seq, char_lens, encoder_out, attention)
-            p_seq: the log-probabilities of individual tokens i a sequence
-            char_lens: the character length syntax
-            encoder_out: the encoder state
-            attention: the attention state
+        p_seq: torch.Tensor
+            the log-probabilities of individual tokens i a sequence
+        char_lens: torch.Tensor
+            the character length syntax
+        encoder_out: torch.Tensor
+            the encoder state
+        attention: torch.Tensor
+            the attention state
         """
 
         chars, char_lens = grapheme_encoded
@@ -434,9 +436,14 @@ class TransformerG2P(TransformerInterface):
 
         Returns
         -------
-        result: tuple
-            A tuple of (src_key_padding_mask, tgt_key_padding_mask,
-                    src_mask, tgt_mask)
+        src_key_padding_mask: torch.Tensor
+            the source key padding mask
+        tgt_key_padding_mask: torch.Tensor
+            the target key padding masks
+        src_mask: torch.Tensor
+            the source mask
+        tgt_mask: torch.Tensor
+            the target mask
         """
         if src_len is not None:
             abs_len = torch.round(src_len * src.shape[1])
