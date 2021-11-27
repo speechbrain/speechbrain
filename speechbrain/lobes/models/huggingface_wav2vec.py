@@ -21,7 +21,6 @@ from speechbrain.pretrained.fetching import fetch
 
 # We check if transformers is installed.
 try:
-    import transformers
     from transformers import Wav2Vec2Model, HubertModel
     from transformers import Wav2Vec2Config, HubertConfig
     from transformers import Wav2Vec2FeatureExtractor
@@ -355,25 +354,10 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             (batch_size, sequence_length),
             mask_prob=self.mask_prob,
             mask_length=self.mask_length,
-        )
-        negative_sample_indices = torch.tensor(
-            transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
-                (batch_size, sequence_length),
-                num_negatives=self.config.num_negatives,
-                mask_time_indices=mask_time_indices,
-            ),
             device=wav.device,
-            dtype=torch.long,
-        )
-        mask_time_indices = torch.tensor(
-            mask_time_indices, device=wav.device, dtype=torch.long,
         )
 
         return (
-            self.model(
-                wav,
-                mask_time_indices=mask_time_indices,
-                sampled_negative_indices=negative_sample_indices,
-            ),
+            self.model(wav, mask_time_indices=mask_time_indices),
             mask_time_indices,
         )

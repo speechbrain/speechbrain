@@ -51,6 +51,7 @@ class W2VBrain(sb.core.Brain):
         # Forward on w2v2 and take the loss.
         # It has to be on train mode even for eval. Otherwise it would deactivate
         # the loss computation ...
+        self.modules.wav2vec2.module.model.train()
         out, mask = self.modules.wav2vec2(wavs)
         loss = out.loss
 
