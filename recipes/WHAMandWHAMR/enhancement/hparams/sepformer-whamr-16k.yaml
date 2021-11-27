@@ -17,7 +17,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # make sure to use the name whamr at your top folder for the dataset!
 data_folder: /yourpath/whamr
 task: enhancement
-dereverberate: False
+dereverberate: True
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
