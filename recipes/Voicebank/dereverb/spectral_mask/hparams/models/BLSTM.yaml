@@ -1,0 +1,12 @@
+# ################################
+# Model: MetricGAN-U
+# Authors: Szu-Wei Fu 2021
+# ################################
+
+# Neural parameters
+kernel_size: (5,5)
+base_channels: 15
+
+N_fft: !PLACEHOLDER
+
+generator: !new:speechbrain.lobes.models.MetricGAN_U.EnhancementGenerator

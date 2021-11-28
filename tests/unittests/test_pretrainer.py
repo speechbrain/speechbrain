@@ -1,16 +1,16 @@
-def test_pretrainer(tmpdir):
+def test_pretrainer(tmpdir, device):
     import torch
     from torch.nn import Linear
 
     # save a model in tmpdir/original/model.ckpt
-    first_model = Linear(32, 32)
+    first_model = Linear(32, 32).to(device)
     pretrained_dir = tmpdir / "original"
     pretrained_dir.mkdir()
     with open(pretrained_dir / "model.ckpt", "wb") as fo:
         torch.save(first_model.state_dict(), fo)
 
     # Make a new model and Pretrainer
-    pretrained_model = Linear(32, 32)
+    pretrained_model = Linear(32, 32).to(device)
     assert not torch.all(torch.eq(pretrained_model.weight, first_model.weight))
     from speechbrain.utils.parameter_transfer import Pretrainer
 
