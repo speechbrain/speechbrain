@@ -1588,3 +1588,76 @@ class RandomShift(torch.nn.Module):
         )
         waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
         return waveforms
+
+
+def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
+    """Creates a sequence of pink noise (also known as 1/f). The pink noise
+    is obtained by multipling the spectrum of a white noise sequence by a
+    factor (1/f^alpha).
+    The alpha factor controls the decrease factor in the frequnecy domain
+    (alpha=0 adds white noise, alpha>>0 adds low frequnecy noise). It is
+    randomly sampled between alpha_low and alpha_high. With negative alpha this
+    funtion generates blue noise.
+
+    Arguments
+    ---------
+    waveforms : torch.Tensor
+        The original waveform. It is just used to infer the shape.
+    alpha_low : float
+        The minimum value for the alpha spectral smooting factor.
+    alpha_high : float
+        The maximum value for the alpha spectral smooting factor.
+    sample_rate : float
+        The sample rate of the original signal.
+
+    Example
+    -------
+    >>> waveforms = torch.randn(4,257,10)
+    >>> noise = pink_noise_like(waveforms)
+    >>> noise.shape
+    torch.size([4,256,10])
+    """
+    # Sampling white noise (flat spectrum)
+    white_noise = torch.randn_like(waveforms)
+
+    # Computing the fft of the input white noise
+    white_noise_fft = torch.fft.fft(white_noise, dim=1)
+
+    # Sampling the spectral smoothing factor
+    rand_range = alpha_high - alpha_low
+    alpha = (
+        torch.rand(waveforms.shape[0], device=waveforms.device) * rand_range
+        + alpha_low
+    )
+
+    # preparing the spectral mask (1/f^alpha)
+    f = torch.linspace(0, sample_rate / 2, int(white_noise.shape[1] / 2))
+    spectral_mask = 1 / torch.pow(f.unsqueeze(0), alpha.unsqueeze(1))
+
+    # Avoid inf due to 1/0 division at f=0
+    spectral_mask[:, 0] = spectral_mask[:, 1]
+
+    # Mask for the upper part of the spectrum (f > sample_rate/2)
+    spectral_mask_up = torch.flip(spectral_mask, dims=(1,))
+
+    # Managing odd/even sequences
+    if white_noise.shape[1] % 2:
+        mid_element = spectral_mask[
+            :, int(white_noise.shape[1] / 2) - 1
+        ].unsqueeze(1)
+        spectral_mask = torch.cat(
+            [spectral_mask, mid_element, spectral_mask_up], dim=1
+        )
+    else:
+        spectral_mask = torch.cat([spectral_mask, spectral_mask_up], dim=1)
+
+    # Managing multi-channel inputs
+    if len(white_noise.shape) == 3:
+        spectral_mask = spectral_mask.unsqueeze(2)
+
+    # Spectral masking
+    pink_noise_fft = white_noise_fft * spectral_mask
+
+    # Return to the time-domain
+    pink_noise = torch.fft.ifft(pink_noise_fft, dim=1).real
+    return pink_noise
