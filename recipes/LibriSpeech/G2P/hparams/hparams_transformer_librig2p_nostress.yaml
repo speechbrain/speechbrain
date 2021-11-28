@@ -80,16 +80,16 @@ save_for_pretrained: True
 
 # Model parameters
 output_neurons: !ref <phonemes_count>
-embedding_dim: 768
-enc_num_layers: 4
-dec_num_layers: 4
+embedding_dim: 256
+enc_num_layers: 2
+dec_num_layers: 2
 transformer_d_model: 768
-transformer_d_ffn: 2048
-transformer_num_heads: 4
+transformer_d_ffn: 4096
+transformer_num_heads: 8
 transformer_dropout: 0.1
 transformer_normalize_before: True
 transformer_encoder_module: conformer
-transformer_kernel_size: 7
+transformer_kernel_size: 15
 transformer_causal: True
 embedding_type: regular
 
