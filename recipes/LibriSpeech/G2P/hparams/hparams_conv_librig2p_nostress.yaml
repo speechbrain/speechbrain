@@ -348,7 +348,7 @@ model_output_keys:
 
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
-out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.attnrnn.text_decode
+out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.dataio.text_decode
     encoder: !ref <phoneme_encoder>
 
 
@@ -360,9 +360,9 @@ encode_pipeline:
         - grapheme_encoded_list
         - grapheme_encoded
     steps:
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.clean_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.clean_pipeline
           graphemes: !ref <graphemes>
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.grapheme_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.grapheme_pipeline
           takes: txt_cleaned
           graphemes: !ref <graphemes>
           grapheme_encoder: !ref <grapheme_encoder>
@@ -372,9 +372,9 @@ decode_pipeline:
     output_keys:
         - phonemes
     steps:
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.beam_search_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.beam_search_pipeline
           beam_searcher: !ref <beam_searcher>
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.phoneme_decoder_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.phoneme_decoder_pipeline
           phoneme_encoder: !ref <phoneme_encoder>
           phonemes: !ref <phonemes>
           bos_index: !ref <bos_index>

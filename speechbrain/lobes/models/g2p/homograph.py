@@ -242,10 +242,19 @@ class SubsequenceExtractor:
             subsequence_lengths / longest_subsequence,
         )
 
-    def _pad_subsequence(self, phns, longest_subsequence):
+    def _pad_subsequence(self, sequence, longest_subsequence):
+        """Pads a subsequence to the length of the longest subsequence
+
+        Arguments
+        ---------
+        sequence: torch.tensor
+            the sequence to be padded
+        longest_subsequence: int
+            the length of the longest subsequence
+        """
         if longest_subsequence > 0:
-            phns = torch.nn.functional.pad(phns, (0, longest_subsequence))
-        return phns
+            sequence = torch.nn.functional.pad(sequence, (0, longest_subsequence))
+        return sequence
 
 
     def _get_phns_subsequence(self, phns, target_word_indexes, longest_subsequence, edge):
@@ -281,7 +290,6 @@ class SubsequenceExtractor:
 
     def _get_p_seq_subsequence(self, p_seq, target_word_indexes, longest_subsequence, edge):
         # Determine where the predicted subsequences start and end
-
         word_start, word_end = self._get_word_boundaries(
             p_seq, target_word_indexes, edge
         )
@@ -296,13 +304,9 @@ class SubsequenceExtractor:
         phn_match = (p_seq_range >= word_start_unsq) & (
             p_seq_range < word_start_unsq + longest_subsequence
         )
-        try:
-            p_seq_subsequence = p_seq[phn_match].view(
-                p_seq.size(0), longest_subsequence, p_seq.size(-1)
-            )
-        except:
-            breakpoint()
-            raise
+        p_seq_subsequence = p_seq[phn_match].view(
+            p_seq.size(0), longest_subsequence, p_seq.size(-1)
+        )
         p_seq_subsequence_range = (
             torch.arange(
                 p_seq_subsequence.size(1), device=p_seq_subsequence.device

@@ -218,11 +218,11 @@ enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
     embedding_dim: !ref <embedding_dim>
 
 
-phn_char_map: !apply:speechbrain.lobes.models.g2p.attnrnn.build_token_char_map
+phn_char_map: !apply:speechbrain.lobes.models.g2p.dataio.build_token_char_map
     tokens: !ref <phonemes>
 
 
-char_phn_map: !apply:speechbrain.lobes.models.g2p.attnrnn.flip_map
+char_phn_map: !apply:speechbrain.lobes.models.g2p.dataio.flip_map
     map_dict: !ref <phn_char_map>
 
 
@@ -269,7 +269,7 @@ word_emb_enc: !new:speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder
     norm_type: !ref <word_emb_norm_type>
 
 
-word_emb: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+word_emb: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
     init: !name:speechbrain.wordemb.transformer.TransformerWordEmbeddings
         model: !ref <word_emb_model>
 
@@ -412,7 +412,7 @@ model_output_keys:
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
-grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
     init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
         model_dir: !ref <grapheme_tokenizer_output_folder>
         bos_id: !ref <bos_index>
@@ -428,7 +428,7 @@ grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
         text_file: !ref <save_folder>/grapheme_annotations.txt
 
 
-phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
     init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
         model_dir: !ref <phoneme_tokenizer_output_folder>
         bos_id: !ref <bos_index>
@@ -444,7 +444,7 @@ phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.attnrnn.lazy_init
         text_file: !ref <save_folder>/phoneme_annotations.txt
 
 
-out_phoneme_decoder: !apply:speechbrain.lobes.models.g2p.attnrnn.char_map_detokenize
+out_phoneme_decoder: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize
     tokenizer: !ref <phoneme_tokenizer>
     char_map: !ref <char_phn_map>
     token_space_index: !ref <token_space_index>
@@ -459,9 +459,9 @@ encode_pipeline:
         - grapheme_encoded_list
         - grapheme_encoded
     steps:
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.clean_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.clean_pipeline
           graphemes: !ref <graphemes>
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.grapheme_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.grapheme_pipeline
           takes: txt_cleaned
           graphemes: !ref <graphemes>
           grapheme_encoder: !ref <grapheme_encoder>
@@ -471,9 +471,9 @@ decode_pipeline:
     output_keys:
         - phonemes
     steps:
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.beam_search_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.beam_search_pipeline
           beam_searcher: !ref <beam_searcher>
-        - !apply:speechbrain.lobes.models.g2p.attnrnn.phoneme_decoder_pipeline
+        - !apply:speechbrain.lobes.models.g2p.dataio.phoneme_decoder_pipeline
           phoneme_encoder: !ref <phoneme_encoder>
           phonemes: !ref <phonemes>
           bos_index: !ref <bos_index>

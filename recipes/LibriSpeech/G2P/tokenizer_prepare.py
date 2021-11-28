@@ -2,7 +2,7 @@ import json
 import os
 import re
 
-from speechbrain.lobes.models.g2p.attnrnn.dataio import build_token_char_map
+from speechbrain.lobes.models.g2p.dataio import build_token_char_map
 
 MULTI_SPACE = re.compile(r"\s{2,}")
 
