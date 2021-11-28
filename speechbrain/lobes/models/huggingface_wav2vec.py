@@ -147,9 +147,7 @@ class HuggingFaceWav2Vec2(nn.Module):
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_w2v2_parameters(ckpt_full_path)
-            logger.info("Obtained a pretrained model from SpeechBrain ...")
         else:
-            logger.info("Obtained a pretrained model from HuggingFace ...")
             self.model = model.from_pretrained(source, cache_dir=save_path)
 
     def _load_sb_pretrained_w2v2_parameters(self, path):
