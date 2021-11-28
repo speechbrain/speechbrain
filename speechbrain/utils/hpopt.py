@@ -374,7 +374,9 @@ class HyperparameterOptimizationContext:
             reporter = self.reporter
             if not reporter:
                 reporter = get_reporter(
-                    hpopt_mode, *self.reporter_args, **self.reporter_kwargs
+                    DEFAULT_REPORTER,
+                    *self.reporter_args,
+                    **self.reporter_kwargs,
                 )
             reporter.report_objective(self.result)
         _context["current"] = None
