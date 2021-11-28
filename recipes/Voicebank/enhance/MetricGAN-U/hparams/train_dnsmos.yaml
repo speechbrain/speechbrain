@@ -1,0 +1,120 @@
+# #################################
+# Basic training parameters
+# To train a different model, change "!include:" statement to new model file
+# To compute loss in the time domain, switch "waveform_target" to True
+# Authors:
+#  * Szu-Wei Fu 2021
+#  * Peter Plantinga 2020, 2021
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 12234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+data_folder: !PLACEHOLDER # e.g, /data/member1/user_jasonfu/noisy-vctk-16k
+
+MetricGAN_folder: !ref <output_folder>/enhanced_wavs
+output_folder: !ref ./results/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+enhanced_folder: !ref <output_folder>/enhanced_wavs
+historical_file: !ref <output_folder>/historical.txt
+
+# Basic parameters
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+
+# FFT paremeters
+Sample_rate: 16000
+Win_length: 32
+Hop_length: 16
+N_fft: 512
+window_fn: !name:torch.hamming_window
+
+# Data files
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: False
+
+# The target metrics that you want to optimize.
+# Right now we only support 'dnsmos', and 'srmr'.
+# (Of course, it can be any arbitary metric.)
+target_metric: dnsmos
+calculate_dnsmos_on_validation_set: True
+target_score: 1
+n_jobs: 1 # number of jobs for metric computation (increase to speed up)
+
+# Training Parameters
+number_of_epochs: 600
+number_of_samples: 100
+min_mask: 0.2
+train_N_batch: 1
+valid_N_batch: 20
+history_portion: 0.2
+G_lr: 0.0000015
+D_lr: 0.0005
+mse_weight: 0
+
+dataloader_options:
+    batch_size: !ref <train_N_batch>
+valid_dataloader_options:
+    batch_size: !ref <valid_N_batch>
+
+# Change this import to use a different model
+models: !include:models/MetricGAN_U.yaml
+    N_fft: !ref <N_fft>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+modules:
+    generator: !ref <models[generator]>
+    discriminator: !ref <models[discriminator]>
+
+g_opt_class: !name:torch.optim.Adam
+    lr: !ref <G_lr>
+d_opt_class: !name:torch.optim.Adam
+    lr: !ref <D_lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        generator: !ref <models[generator]>
+        discriminator: !ref <models[discriminator]>
+        counter: !ref <epoch_counter>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <G_lr>
+    annealing_factor: 1
+    improvement_threshold: 0.0
+    patient: 0
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
+compute_si_snr: !name:speechbrain.nnet.loss.si_snr_loss.si_snr_loss
+
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    n_fft: !ref <N_fft>
+    window_fn: !ref <window_fn>
+
+compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    window_fn: !ref <window_fn>
+
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+    stft: !ref <compute_STFT>
+    istft: !ref <compute_ISTFT>
+    normalize_wavs: False
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Tensorboard logger (optional)
+tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+    save_dir: !ref <tensorboard_logs>

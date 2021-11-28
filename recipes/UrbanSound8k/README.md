@@ -1,8 +1,8 @@
 ## UrbanSound8k  multi-class audio classification
 
-[This recipe and description has been adapted from the SpeechBrain "VoxCeleb" recipe example] 
+[This recipe and description has been adapted from the SpeechBrain "VoxCeleb" recipe example]
 
-This recipe contains scripts for multi-class audio classification experiments with the UrbanSound8k dataset (https://urbansounddataset.weebly.com/urbansound8k.html). While publicly available, a request must be made before a download link for the dataset will be provided by the authors (https://urbansounddataset.weebly.com/download-urbansound8k.html). 
+This recipe contains scripts for multi-class audio classification experiments with the UrbanSound8k dataset (https://urbansounddataset.weebly.com/urbansound8k.html). While publicly available, a request must be made before a download link for the dataset will be provided by the authors (https://urbansounddataset.weebly.com/download-urbansound8k.html).
 
 UrbanSound8k is divided into 10 classes, one of which (engine_idling) receives special attention in our experiments below.
 
@@ -59,7 +59,7 @@ Note that the results for 10-fold must be compiled from the output folders and a
 # Performance (single fold)
 test loss: 4.15, test acc: 7.55e-01, test error: 2.46e-01
 
-Per Class Accuracy: 
+Per Class Accuracy:
 0: 0.850
 1: 0.670
 2: 0.600
@@ -69,9 +69,9 @@ Per Class Accuracy:
 6: 0.753
 7: 0.906
 8: 0.790
-9: 0.939, 
+9: 0.939,
 
- Confusion Matrix: 
+ Confusion Matrix:
 [[85  1  2  3  0  1  1  0  1  6]
  [ 2 67  5  9  0  3  5  2  6  1]
  [ 0  3 60  1  1  0 16 16  3  0]
@@ -131,9 +131,9 @@ Again, your results will NOT be comparable to previous results in the literature
 
 
 
-  
 
-While all of the above hyperparameter files listed above (except the 10-fold-cv) accept as lists the train, valid and test  
+
+While all of the above hyperparameter files listed above (except the 10-fold-cv) accept as lists the train, valid and test
 
 
 
