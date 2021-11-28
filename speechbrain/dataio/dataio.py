@@ -20,9 +20,10 @@ import time
 import torchaudio
 import json
 import re
-from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
 
-check_torchaudio_backend()
+torchaudio_backend = get_torchaudio_backend()
+torchaudio.set_audio_backend(torchaudio_backend)
 logger = logging.getLogger(__name__)
 
 
@@ -751,7 +752,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
             + kaldi_lab_opts
             + " "
             + kaldi_ali
-            + "/final.mdl ark:- ark:-|"
+            + "/final.mdl ark:- ark:-|",
         )
     }
     return lab
@@ -1036,4 +1037,67 @@ def split_word(sequences, space="_"):
     for seq in sequences:
         chars = list(space.join(seq))
         results.append(chars)
+    return results
+
+def keep_concepts(sequences):
+    """keep only the semantic concepts for evaluation.
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains a words sequence.
+    Returns
+    -------
+    The list contains concept sequences for each sentence.
+    Example
+    -------
+    >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
+    >>> results = keep_concepts(sequences)
+    >>> results
+    [['<reponse>','<localisation-ville>'], ['<reponse>'],[' ']]
+    """
+    results = []
+    for seq in sequences:
+        l=[]
+        for s in seq:
+            if re.match('<',s):
+                l.append(s)
+        if len(l)==0:
+            l.append(' ')
+        results.append(l)
+    return results
+
+def keep_concepts_values(sequences):
+    """keep only the semantic concepts for evaluation.
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains a words sequence.
+    Returns
+    -------
+    The list contains concept and value sequences for each sentence.
+    Example
+    -------
+    >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
+    >>> results = keep_concepts_values(sequences)
+    >>> results
+    [['<reponse>', 'no','<localisation-ville>', 'Le Mans'], ['<reponse>', 'si'],[' ']]
+    """
+    results = []
+    for seq in sequences:
+        l=[]
+        value = []
+        concept_open = False
+        for s in seq:
+            if re.match('<',s):
+                l.append(s)
+                concept_open = True
+            elif re.match('>',s):
+                l.append(' '.join(value))
+                value = []
+                concept_open = False
+            elif concept_open:
+                value.append(s)
+        if len(l)==0:
+            l.append(' ')
+        results.append(l)
     return results

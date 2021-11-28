@@ -9,7 +9,7 @@ import torch
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
-from speechbrain.dataio.dataio import merge_char, split_word
+from speechbrain.dataio.dataio import merge_char, split_word, keep_concepts, keep_concepts_values
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
@@ -155,27 +155,20 @@ class MetricStats:
 def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=8):
     """Runs metric evaluation if parallel over multiple jobs."""
     if lengths is not None:
-        lengths = (lengths * predict.size(1)).round().int().cpu()
+        lengths = (lengths * predict.size(1)).int().cpu()
         predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
         target = [t[:length].cpu() for t, length in zip(target, lengths)]
 
-    while True:
-        try:
-            scores = Parallel(n_jobs=n_jobs, timeout=30)(
-                delayed(metric)(p, t) for p, t in zip(predict, target)
-            )
-            break
-        except Exception as e:
-            print(e)
-            print("Evaluation timeout...... (will try again)")
-
+    scores = Parallel(n_jobs=n_jobs)(
+        delayed(metric)(p, t) for p, t in zip(predict, target)
+    )
     return scores
 
 
 def sequence_evaluation(metric, predict, target, lengths=None):
     """Runs metric evaluation sequentially over the inputs."""
     if lengths is not None:
-        lengths = (lengths * predict.size(1)).round().int().cpu()
+        lengths = (lengths * predict.size(1)).int().cpu()
         predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
         target = [t[:length].cpu() for t, length in zip(target, lengths)]
 
@@ -227,11 +220,13 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self, merge_tokens=False, split_tokens=False, space_token="_"):
+    def __init__(self, merge_tokens=False, split_tokens=False, space_token="_", keep_concepts=False, keep_concepts_values=False):
         self.clear()
         self.merge_tokens = merge_tokens
         self.split_tokens = split_tokens
         self.space_token = space_token
+        self.keep_concepts = keep_concepts # keep only semantic concepts for concept error rate evaluation
+        self.keep_concepts_values = keep_concepts_values
 
     def append(
         self,
@@ -283,6 +278,14 @@ class ErrorRateStats(MetricStats):
         if self.split_tokens:
             predict = split_word(predict, space=self.space_token)
             target = split_word(target, space=self.space_token)
+
+        if self.keep_concepts:
+            predict = keep_concepts(predict)
+            target = keep_concepts(target)
+
+        if self.keep_concepts_values:
+            predict = keep_concepts_values(predict)
+            target = keep_concepts_values(target)
 
         scores = wer_details_for_batch(ids, target, predict, True)
 

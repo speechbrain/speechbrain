@@ -1,0 +1,160 @@
+# ################################
+# Model: CRDNN + DNN + CTC + Softmax
+# Authors modifier: Gaelle Laperriere
+# ################################
+
+# ------ Paths and parameters
+
+# Seed needs to be set at top of yaml, before objects with parameters are made.
+seed: 4242
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/media_SLU_relax/<seed>
+cer_file_test: !ref <output_folder>/cer_test.txt
+ctc_file_test: !ref <output_folder>/ctc_test.txt
+coer_file_test: !ref <output_folder>/coer_test.txt
+cver_file_test: !ref <output_folder>/cver_test.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files:
+data_folder: !PLACEHOLDER
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Data parameters:
+# With data_parallel batch_size is split into N jobs.
+# With DDP batch_size is multiplied by N jobs.
+batch_size: 4
+test_batch_size: 2
+# We remove utterance slonger than 8s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 90.0
+avoid_if_smaller_than: 0.0
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: 3
+    shuffle: True
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: 3
+
+# Feature parameters:
+sample_rate: 16000
+n_mels: 80
+n_fft: 400
+f_min: 0
+
+# Training parameters:
+number_of_epochs: 26 #100
+lr: 1
+annealing_factor: 0.8
+improvement_threshold: 0.0025
+patient: 0
+sorting: random
+
+# Model parameters:
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 1
+rnn_layers: 1
+dnn_blocks: 1
+dec_dnn_blocks: 3
+rnn_neurons: 512
+dnn_neurons: 512
+
+# Decoding parameters:
+blank_index: 0
+
+# Outputs:
+output_neurons: 159
+
+# ------ Functions and classes
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+    f_min: !ref <f_min>
+
+dnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    rnn_layers : !ref <rnn_layers>
+    dnn_blocks : !ref <dnn_blocks>
+    rnn_neurons: !ref <rnn_neurons>
+    dnn_neurons: !ref <dnn_neurons>
+
+dec: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, !ref <dnn_neurons>]
+    activation: !ref <activation>
+    dnn_blocks : !ref <dec_dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+output_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
+    bias: True
+
+softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
+modules:
+    dnn: !ref <dnn>
+    dec: !ref <dec>
+    output_lin: !ref <output_lin>
+    normalize: !ref <normalize>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <dnn>, !ref <dec>, !ref <output_lin>]
+
+opt_class: !name:torch.optim.Adadelta
+    lr: !ref <lr>
+    rho: 0.95
+    eps: 1.e-8
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: !ref <patient>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        lr_annealing: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+        normalizer: !ref <normalize>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+ctc_computer: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.ctc_loss
+        blank_index: !ref <blank_index>
+        reduction: batch
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+coer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    keep_concepts: True
+
+cver_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    keep_concepts_values: True
+
+# Tag list:
+tag_list: <chambre-equipement>,<chambre-fumeur>,<chambre-standing>,<chambre-type>,<chambre-voisine>,<command-dial>,<command-tache>,<comparatif>,<comparatif-paiement>,<comparatif-temps>,<connectattr>,<connectprop>,<evenement>,<hotel-etat>,<hotel-etat-complet>,<hotel-etoile>,<hotel-marque>,<hotel-marque-reservation>,<hotel-parking>,<hotel-services>,<lienref-codom>,<lienref-coref>,<lienref-elsens>,<localisation>,<localisation-arrondissement>,<localisation-arrondissement-hotel>,<localisation-cardinal>,<localisation-codepostal>,<localisation-departement>,<localisation-distancerelative>,<localisation-distancerelative-hotel>,<localisation-lieurelatif>,<localisation-lieurelatif-general>,<localisation-lieurelatif-general-hotel>,<localisation-lieurelatif-nomme>,<localisation-lieurelatif-nomme-hotel>,<localisation-pays>,<localisation-quartier>,<localisation-quartier-hotel>,<localisation-region>,<localisation-rue>,<localisation-ville>,<localisation-ville-debut>,<localisation-ville-etape>,<localisation-ville-fin>,<localisation-ville-hotel>,<localisation-ville-hotel-debut>,<localisation-ville-hotel-fin>,<nom>,<nombre>,<nombre-chambre>,<nombre-chambre-disponible>,<nombre-chambre-reservation>,<nombre-hotel>,<nombre-hotel-reservation>,<nombrenondigit>,<nombrenondigit-hotel>,<nombrenondigit-reservation>,<nombre-reservation>,<nombre-restaurant>,<nombre-temps>,<nombre-temps-reservation>,<nom-client>,<nom-hotel>,<objet>,<objetbd>,<paiement-methodedepaiement>,<paiement-monnaie>,<paiement-montant-entier>,<paiement-montant-entier-chambre>,<paiement-montant-entier-reservation>,<paiement-montant-entier-reservation-chambre>,<paiement-montantqualitatif>,<paiement-montantqualitatif-chambre>,<personne-nomdefamille>,<rang>,<rang-hotel>,<rang-hotel-reservation>,<rang-reservation>,<rang-temps>,<rang-temps-reservation>,<reponse>,<sejour-nbadulte>,<sejour-nbadulte-reservation>,<sejour-nbcouple>,<sejour-nbcouple-reservation>,<sejour-nbenfant>,<sejour-nbenfant-reservation>,<sejour-nblitbebe>,<sejour-nbnuit>,<sejour-nbnuit-reservation>,<sejour-nbpersonne>,<sejour-nbpersonne-reservation>,<temps-annee>,<temps-annee-reservation>,<temps-axetps>,<temps-axetps-reservation>,<temps-date>,<temps-date-debut>,<temps-date-debut-reservation>,<temps-date-fin>,<temps-date-fin-reservation>,<temps-daterelative-reservation>,<temps-date-reservation>,<temps-heure>,<temps-jourferie>,<temps-jourferie-reservation>,<temps-jour-mois>,<temps-jour-mois-debut>,<temps-jour-mois-debut-reservation>,<temps-jour-mois-fin>,<temps-jour-mois-fin-reservation>,<temps-jour-mois-reservation>,<temps-jour-semaine>,<temps-mois>,<temps-mois-reservation>,<temps-plagerelative>,<temps-plagerelative-reservation>,<temps-plagetps>,<temps-unite>,<temps-unite-reservation>,<unknown>
