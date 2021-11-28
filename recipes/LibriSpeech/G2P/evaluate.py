@@ -4,9 +4,10 @@ hyperparameters that do not require model retraining (e.g. Beam Search)
 """
 
 
-from speechbrain.dataio.batch import PaddedBatch
-from train import dataio_prep, check_language_model
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils import hpopt as hp
+from train import dataio_prep, check_language_model
 from types import SimpleNamespace
 from tqdm.auto import tqdm
 import math
@@ -20,18 +21,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-orion_is_available = False
-try:
-    import orion.client
-
-    orion_is_available = True
-except ImportError:
-    logger.warn("Orion is not available")
-
-
 class G2PEvaluator:
-    """
-    The G2P model evaluation wrapper
+    """The G2P model evaluation wrapper
 
     Arguments
     ---------
@@ -105,7 +96,7 @@ class G2PEvaluator:
             phns,
             None,
             phn_lens,
-            self.hparams.phoneme_encoder.decode_ndim,
+            self.hparams.out_phoneme_decoder,
         )
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded_bos=None):
@@ -121,7 +112,8 @@ class G2PEvaluator:
                 ),
             )
         p_seq, char_lens, encoder_out, _ = self.modules.model(
-            grapheme_encoded=grapheme_encoded, phn_encoded=phn_encoded_bos,
+            grapheme_encoded=grapheme_encoded,
+            phn_encoded=phn_encoded_bos,
         )
         return self.beam_searcher(encoder_out, char_lens)
 
@@ -236,38 +228,34 @@ class G2PEvaluator:
 if __name__ == "__main__":
     # CLI:
 
-    # Parse the hyperparameter file
-    search_hparam_file = sys.argv[0]
-    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    device = run_opts.get("device", "cpu")
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+    with hp.hyperparameter_optimization(objective_key="error_rate") as hp_ctx:
+        # Parse the hyperparameter file
+        search_hparam_file = sys.argv[0]
+        hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+        device = run_opts.get("device", "cpu")
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin, overrides)
 
-    # Check if a language model is available
-    check_language_model(hparams, run_opts)
+        # Check if a language model is available
+        check_language_model(hparams, run_opts)
 
-    # Run the evaluation
-    evaluator = G2PEvaluator(hparams, device)
+        # Run the evaluation
+        evaluator = G2PEvaluator(hparams, device)
 
-    # Some configurations involve curriculum training on
-    # multiple steps. Load the dataset configuration for the
-    # step specified in the eval_training_step hyperparameter
-    # (or command-line argument)
-    train_step = next(
-        train_step
-        for train_step in hparams["train_steps"]
-        if train_step["name"] == hparams["eval_train_step"]
-    )
-    train, valid, test, _ = dataio_prep(hparams, train_step)
-    datasets = {"train": train, "valid": valid, "test": test}
-    dataset = datasets[hparams["eval_dataset"]]
-    dataloader_opts = train_step.get(
-        "dataloader_opts", hparams.get("dataloader_opts", {})
-    )
-    result = evaluator.evaluate_epoch(dataset, dataloader_opts)
-
-    # Report the results
-    if orion_is_available and hparams["eval_reporting"] == "orion":
-        orion.client.report_objective(result["error_rate"])
-    else:
-        print(json.dumps(result))
+        # Some configurations involve curriculum training on
+        # multiple steps. Load the dataset configuration for the
+        # step specified in the eval_training_step hyperparameter
+        # (or command-line argument)
+        train_step = next(
+            train_step
+            for train_step in hparams["train_steps"]
+            if train_step["name"] == hparams["eval_train_step"]
+        )
+        train, valid, test, _ = dataio_prep(hparams, train_step)
+        datasets = {"train": train, "valid": valid, "test": test}
+        dataset = datasets[hparams["eval_dataset"]]
+        dataloader_opts = train_step.get(
+            "dataloader_opts", hparams.get("dataloader_opts", {})
+        )
+        result = evaluator.evaluate_epoch(dataset, dataloader_opts)
+        hp.report_result(result)
