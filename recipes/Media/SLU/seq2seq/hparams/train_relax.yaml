@@ -155,7 +155,7 @@ coer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     keep_values: False
     tag_in: <
     tag_out: >
-       
+
 cver_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     extract_concepts_values: True
     keep_values: True

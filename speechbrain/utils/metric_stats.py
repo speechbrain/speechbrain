@@ -10,7 +10,11 @@ import torch
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
-from speechbrain.dataio.dataio import merge_char, split_word, extract_concepts_values
+from speechbrain.dataio.dataio import (
+    merge_char,
+    split_word,
+    extract_concepts_values,
+)
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
@@ -212,7 +216,7 @@ class ErrorRateStats(MetricStats):
     tag_in : str
         Start of the concept ('<' for exemple).
     tag_out : str
-        End of the concept ('>' for exemple). 
+        End of the concept ('>' for exemple).
 
     Example
     -------
@@ -236,7 +240,16 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self, merge_tokens=False, split_tokens=False, space_token="_", keep_values=True, extract_concepts_values=False, tag_in="<", tag_out=">"):
+    def __init__(
+        self,
+        merge_tokens=False,
+        split_tokens=False,
+        space_token="_",
+        keep_values=True,
+        extract_concepts_values=False,
+        tag_in="<",
+        tag_out=">",
+    ):
         self.clear()
         self.merge_tokens = merge_tokens
         self.split_tokens = split_tokens
@@ -298,8 +311,12 @@ class ErrorRateStats(MetricStats):
             target = split_word(target, space=self.space_token)
 
         if self.extract_concepts_values:
-            predict = extract_concepts_values(predict, self.keep_values, self.tag_in, self.tag_out)
-            target = extract_concepts_values(target, self.keep_values, self.tag_in, self.tag_out)
+            predict = extract_concepts_values(
+                predict, self.keep_values, self.tag_in, self.tag_out
+            )
+            target = extract_concepts_values(
+                target, self.keep_values, self.tag_in, self.tag_out
+            )
 
         scores = wer_details_for_batch(ids, target, predict, True)
 

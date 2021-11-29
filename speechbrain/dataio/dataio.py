@@ -1039,9 +1039,10 @@ def split_word(sequences, space="_"):
         results.append(chars)
     return results
 
+
 def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     """keep the semantic concepts and values for evaluation.
-    
+
     Arguments
     ---------
     sequences : list
@@ -1056,7 +1057,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     Returns
     -------
     The list contains concept and value sequences for each sentence.
-    
+
     Example
     -------
     >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
@@ -1066,21 +1067,21 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     """
     results = []
     for seq in sequences:
-        l=[]
+        seq = []
         value = []
         concept_open = False
         for s in seq:
-            if re.match(tag_in,s):
-                l.append(s)
+            if re.match(tag_in, s):
+                seq.append(s)
                 concept_open = True
-            elif re.match(tag_out,s):
+            elif re.match(tag_out, s):
                 if keep_values:
-                    l.append(' '.join(value))
+                    seq.append(" ".join(value))
                 value = []
                 concept_open = False
             elif concept_open:
                 value.append(s)
-        if len(l)==0:
-            l.append(' ')
-        results.append(l)
+        if len(seq) == 0:
+            seq.append(" ")
+        results.append(seq)
     return results

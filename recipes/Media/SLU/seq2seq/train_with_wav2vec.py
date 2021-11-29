@@ -30,6 +30,7 @@ training tasks (Media , PortMedia), and many other possible variations.
 
 logger = logging.getLogger(__name__)
 
+
 # Define training procedure.
 class SLU(sb.core.Brain):
     def compute_forward(self, wavs, wav_lens, stage):
@@ -44,16 +45,10 @@ class SLU(sb.core.Brain):
         logits = self.modules.output_lin(x)
         p_ctc = self.hparams.softmax(logits)
 
-        # Update counter.
-        if stage == sb.Stage.TRAIN:
-            current_epoch = self.hparams.epoch_counter.current
-
         return p_ctc, wav_lens
 
     def compute_objectives(self, predictions, ids, chars, char_lens, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
-
-        current_epoch = self.hparams.epoch_counter.current
 
         # Get predictions & loss.
         p_ctc, wav_lens = predictions
@@ -63,9 +58,7 @@ class SLU(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             # Generate sequences with CTC greedy decoder.
             sequence = sb.decoders.ctc_greedy_decode(
-                p_ctc,
-                wav_lens,
-                self.hparams.blank_index
+                p_ctc, wav_lens, self.hparams.blank_index
             )
             # Update metrics.
             self.cer_metric.append(
@@ -73,28 +66,23 @@ class SLU(sb.core.Brain):
                 predict=sequence,
                 target=chars,
                 target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim
+                ind2lab=self.label_encoder.decode_ndim,
             )
             self.coer_metric.append(
                 ids=ids,
                 predict=sequence,
                 target=chars,
                 target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim
+                ind2lab=self.label_encoder.decode_ndim,
             )
             self.cver_metric.append(
                 ids=ids,
                 predict=sequence,
                 target=chars,
                 target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim)
-            self.ctc_metric.append(
-                ids,
-                p_ctc,
-                chars,
-                wav_lens,
-                char_lens
+                ind2lab=self.label_encoder.decode_ndim,
             )
+            self.ctc_metric.append(ids, p_ctc, chars, wav_lens, char_lens)
 
         return loss
 
@@ -105,20 +93,14 @@ class SLU(sb.core.Brain):
         self.optimizer_wav2vec = self.hparams.opt_class_wav2vec(
             self.hparams.model_wav2vec.parameters()
         )
-        self.optimizer = self.hparams.opt_class(
-            self.hparams.model.parameters()
-        )
+        self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
         # Add opitmizers to checkpoint recoverables.
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
-                "optimizer_wav2vec",
-                self.optimizer_wav2vec
+                "optimizer_wav2vec", self.optimizer_wav2vec
             )
-            self.checkpointer.add_recoverable(
-                "optimizer",
-                self.optimizer
-            )
+            self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -135,7 +117,9 @@ class SLU(sb.core.Brain):
 
         # Train.
         predictions = self.compute_forward(wavs, wav_lens, stage)
-        loss = self.compute_objectives(predictions, ids, chars, char_lens, stage)
+        loss = self.compute_objectives(
+            predictions, ids, chars, char_lens, stage
+        )
 
         # Propagate loss.
         loss.backward()
@@ -161,7 +145,9 @@ class SLU(sb.core.Brain):
         # Evaluate.
         predictions = self.compute_forward(wavs, wav_lens, stage=stage)
         with torch.no_grad():
-            loss = self.compute_objectives(predictions, ids, chars, char_lens, stage)
+            loss = self.compute_objectives(
+                predictions, ids, chars, char_lens, stage
+            )
 
         return loss.detach()
 
@@ -189,25 +175,19 @@ class SLU(sb.core.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(
-                stage_stats["loss"]
-            )
+            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["loss"])
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
                 stage_stats["loss"]
             )
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             sb.nnet.schedulers.update_learning_rate(
-                self.optimizer,
-                new_lr
-            )
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer_wav2vec,
-                new_lr_wav2vec
+                self.optimizer_wav2vec, new_lr_wav2vec
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
                     "lr": old_lr,
-                    "lr_wav2vec": old_lr_wav2vec
+                    "lr_wav2vec": old_lr_wav2vec,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
@@ -230,6 +210,7 @@ class SLU(sb.core.Brain):
                 self.coer_metric.write_stats(w)
             with open(hparams["cver_file_test"], "w") as w:
                 self.cver_metric.write_stats(w)
+
 
 # Define custom data procedure.
 def dataio_prepare(hparams):
@@ -273,23 +254,15 @@ def dataio_prepare(hparams):
 
     # We also sort the validation data so it is faster to validate.
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"],
-        replacements={"data_root": data_folder}
+        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder}
     )
-    valid_data = valid_data.filtered_sorted(
-        sort_key="duration",
-        reverse=True
-    )
+    valid_data = valid_data.filtered_sorted(sort_key="duration", reverse=True)
 
     # We also sort the test data so it is faster to validate.
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test"],
-        replacements={"data_root": data_folder}
+        csv_path=hparams["csv_test"], replacements={"data_root": data_folder}
     )
-    test_data = test_data.filtered_sorted(
-        sort_key="duration",
-        reverse=True
-    )
+    test_data = test_data.filtered_sorted(sort_key="duration", reverse=True)
 
     datasets = [train_data, valid_data, test_data]
 
@@ -301,7 +274,7 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav, start_seg, end_seg):
         start = int(float(start_seg) * hparams["sample_rate"])
         stop = int(float(end_seg) * hparams["sample_rate"])
-        speech_segment = {"file" : wav, "start" : start, "stop" : stop}
+        speech_segment = {"file": wav, "start": start, "stop": stop}
         sig = sb.dataio.dataio.read_audio(speech_segment)
         return sig
 
@@ -309,9 +282,7 @@ def dataio_prepare(hparams):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("char")
-    @sb.utils.data_pipeline.provides(
-        "char_list", "char_encoded"
-    )
+    @sb.utils.data_pipeline.provides("char_list", "char_encoded")
     def text_pipeline(char):
         char_list = char.strip().split()
         yield char_list
@@ -341,23 +312,24 @@ def dataio_prepare(hparams):
         batch_size=hparams["batch_size"],
         num_workers=3,
         collate_fn=PaddedBatch,
-        shuffle=hparams["dataloader_options"]["shuffle"]
+        shuffle=hparams["dataloader_options"]["shuffle"],
     )
     dataloader_valid = torch.utils.data.DataLoader(
         valid_data,
         batch_size=hparams["batch_size"],
         num_workers=3,
         collate_fn=PaddedBatch,
-        shuffle=hparams["dataloader_options"]["shuffle"]
+        shuffle=hparams["dataloader_options"]["shuffle"],
     )
     dataloader_test = torch.utils.data.DataLoader(
         test_data,
         batch_size=hparams["test_batch_size"],
         num_workers=3,
-        collate_fn=PaddedBatch
+        collate_fn=PaddedBatch,
     )
 
     return dataloader_train, dataloader_valid, dataloader_test, label_encoder
+
 
 if __name__ == "__main__":
 
@@ -390,7 +362,7 @@ if __name__ == "__main__":
 
     # Adding objects to trainer.
     asr_brain.label_encoder = label_encoder
-    asr_brain.label_encoder.add_unk() # handle unknown SLU labels
+    asr_brain.label_encoder.add_unk()  # handle unknown SLU labels
 
     # Check for stopped training.
     asr_brain.checkpointer.recover_if_possible()
@@ -402,7 +374,7 @@ if __name__ == "__main__":
         valid_data,
         progressbar=True,
         train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["test_dataloader_options"]
+        valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
     # Test.
