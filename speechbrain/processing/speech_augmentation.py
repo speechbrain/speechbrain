@@ -1639,7 +1639,12 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     )
 
     # preparing the spectral mask (1/f^alpha)
-    f = torch.linspace(0, sample_rate / 2, int(white_noise.shape[1] / 2))
+    f = torch.linspace(
+        0,
+        sample_rate / 2,
+        int(white_noise.shape[1] / 2),
+        device=waveforms.device,
+    )
     spectral_mask = 1 / torch.pow(f.unsqueeze(0), alpha.unsqueeze(1))
 
     # Avoid inf due to 1/0 division at f=0
