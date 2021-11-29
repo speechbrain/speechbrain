@@ -289,7 +289,7 @@ def get_root(path):
         root = tree.childNodes[1]
     return root
 
-def get_channels(path):
+def get_channels(path):        
     channels = []
     IDs = []
     with open(path) as file:
@@ -300,7 +300,7 @@ def get_channels(path):
     return channels, IDs
 
 def get_specifiers(path):
-    specifiers = {}
+    specifiers = {}    
     with open(path) as file:
         reader = csv.reader(file, delimiter=',')
         for row in reader:
@@ -310,13 +310,29 @@ def get_specifiers(path):
                 specifiers[dial + "#" + row[0]] = row[1]
     return specifiers
 
-def get_corpora():
+def get_corpora(data_folder):
     corpora = {}
-    for corpus in ['train', 'dev', 'test']:
-        FN_file = open('../' + corpus + '_filenames.txt', 'r')
-        corpora[corpus] = FN_file.readlines()
-        corpora[corpus] = [i[:-1] for i in corpora[corpus]]
-        FN_file.close()
+    corpora['train']=[]
+    corpora['dev']=[]
+    corpora['test']=[]
+    proc = subprocess.Popen(
+        "egrep -a '<dialogue' " + data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/media_lot*.xml | cut -d' ' -f2 | cut -d'" + '"' + "' -f2", 
+        stdout=subprocess.PIPE, 
+        shell=True
+    )
+    corpora['train'] = [int(str(i)[2:-3]) for i in proc.stdout.readlines()]
+    proc = subprocess.Popen(
+        "egrep -a '<dialogue' " + data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/media_testHC_a_blanc.xml | cut -d' ' -f2 | cut -d'" + '"' + "' -f2", 
+        stdout=subprocess.PIPE, 
+        shell=True
+    )
+    corpora['dev'] = [int(str(i)[2:-3]) for i in proc.stdout.readlines()]
+    proc = subprocess.Popen(
+        "egrep -a '<dialogue' " + data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/media_testHC.xml | cut -d' ' -f2 | cut -d'" + '"' + "' -f2", 
+        stdout=subprocess.PIPE, 
+        shell=True
+    )
+    corpora['test'] = [int(str(i)[2:-3]) for i in proc.stdout.readlines()]
     return corpora
 
 def get_speaker(root):
@@ -404,7 +420,7 @@ if __name__ == "__main__":
     paths = glob.glob(data_folder + '/S0272/**/*.wav', recursive = True)
     channels, IDs = get_channels('../channels.csv')
     specifiers = get_specifiers('./specifiers.csv')
-    corpora = get_corpora()
+    corpora = get_corpora(data_folder)
     write_first_row(csv_folder)
 
     for path in tqdm(paths):
