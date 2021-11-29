@@ -324,22 +324,23 @@ def test_pink_noise():
     signal = torch.rand(4, 256, 8)
     noise = pink_noise_like(signal)
     assert signal.shape == noise.shape
-    
+
     signal = torch.rand(4, 257, 8)
     noise = pink_noise_like(signal)
     assert signal.shape == noise.shape
-    
+
     noise_fft = torch.fft.fft(noise, dim=1)
-    mean_first_fft_points = noise_fft.abs()[:,0:10,:].mean()
-    mean_last_fft_points = noise_fft.abs()[:,118:128,:].mean()
+    mean_first_fft_points = noise_fft.abs()[:, 0:10, :].mean()
+    mean_last_fft_points = noise_fft.abs()[:, 118:128, :].mean()
     assert torch.all(mean_first_fft_points > mean_last_fft_points)
- 
+
     # Test blue noise
     noise = pink_noise_like(signal, alpha_low=-1.0, alpha_high=-1.0)
     noise_fft = torch.fft.fft(noise, dim=1)
-    mean_first_fft_points = noise_fft.abs()[:,0:10,:].mean()
-    mean_last_fft_points = noise_fft.abs()[:,118:128,:].mean()
+    mean_first_fft_points = noise_fft.abs()[:, 0:10, :].mean()
+    mean_last_fft_points = noise_fft.abs()[:, 118:128, :].mean()
     assert torch.all(mean_first_fft_points < mean_last_fft_points)
+
 
 def test_augment_pipeline():
     from speechbrain.processing.speech_augmentation import DropFreq, DropChunk
