@@ -495,7 +495,6 @@ grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
         annotation_read: char
         model_type: !ref <char_token_type> # ["unigram", "bpe", "char"]
         character_coverage: !ref <character_coverage>
-        annotation_list_to_check: [!ref <tokenizer_valid_data>]
         annotation_format: json
         text_file: !ref <save_folder>/grapheme_annotations.txt
 
@@ -511,7 +510,6 @@ phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
         annotation_read: phn
         model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
         character_coverage: !ref <character_coverage>
-        annotation_list_to_check: [!ref <tokenizer_valid_data>]
         annotation_format: json
         text_file: !ref <save_folder>/phoneme_annotations.txt
 

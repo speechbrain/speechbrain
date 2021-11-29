@@ -231,7 +231,7 @@ if __name__ == "__main__":
     with hp.hyperparameter_optimization(objective_key="error_rate") as hp_ctx:
         # Parse the hyperparameter file
         search_hparam_file = sys.argv[0]
-        hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+        hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
         device = run_opts.get("device", "cpu")
         with open(hparams_file) as fin:
             hparams = load_hyperpyyaml(fin, overrides)
