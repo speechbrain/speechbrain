@@ -1,6 +1,6 @@
 # ########################################
 # Emotion recognition from speech using wav2vec2
-#
+# For more wav2vec2/HuBERT results, please see https://arxiv.org/pdf/2111.02735.pdf
 #  * Authors: Yingzhi WANG
 # ########################################
 
