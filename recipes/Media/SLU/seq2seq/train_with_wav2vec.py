@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# ################################
+# Authors modifier: Gaelle Laperriere
+# ################################
+
 import sys
 import torch
 import logging

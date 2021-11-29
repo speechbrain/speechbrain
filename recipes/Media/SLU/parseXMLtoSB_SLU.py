@@ -2,7 +2,8 @@
 
 """
 Data preparation.
-Download: http
+Download: See README.md
+
 Author
 ------
 Gaelle Laperriere
