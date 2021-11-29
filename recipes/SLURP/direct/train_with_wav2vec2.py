@@ -12,6 +12,7 @@ Authors
  * Boumadane Abdelmoumene 2021
  * AbdelWahab Heba 2021
  * Yingzhi Wang 2021
+For more wav2vec2/HuBERT results, please see https://arxiv.org/pdf/2111.02735.pdf
 """
 
 import sys
