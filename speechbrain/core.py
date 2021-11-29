@@ -1047,7 +1047,14 @@ class Brain:
                         and time.time() - last_ckpt_time
                         >= self.ckpt_interval_minutes * 60.0
                     ):
-                        run_on_main(self._save_intra_epoch_ckpt)
+                        # This should not use run_on_main, because that
+                        # includes a DDP barrier. That eventually leads to a
+                        # crash when the processes'
+                        # time.time() - last_ckpt_time differ and some
+                        # processes enter this block while others don't,
+                        # missing the barrier.
+                        if sb.utils.distributed.if_main_process():
+                            self._save_intra_epoch_ckpt()
                         last_ckpt_time = time.time()
 
             # Run train "on_stage_end" on all processes
