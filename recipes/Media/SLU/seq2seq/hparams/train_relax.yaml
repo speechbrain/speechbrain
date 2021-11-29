@@ -88,15 +88,15 @@ dnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>
-    rnn_layers : !ref <rnn_layers>
-    dnn_blocks : !ref <dnn_blocks>
+    rnn_layers: !ref <rnn_layers>
+    dnn_blocks: !ref <dnn_blocks>
     rnn_neurons: !ref <rnn_neurons>
     dnn_neurons: !ref <dnn_neurons>
 
 dec: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     input_shape: [null, null, !ref <dnn_neurons>]
     activation: !ref <activation>
-    dnn_blocks : !ref <dec_dnn_blocks>
+    dnn_blocks: !ref <dec_dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
 output_lin: !new:speechbrain.nnet.linear.Linear
