@@ -60,6 +60,12 @@ class AddNoise(torch.nn.Module):
     normalize : bool
         If True, output noisy signals that exceed [-1,1] will be
         normalized to [-1,1].
+    noise_funct: funct object
+        function to use to draw a noisy sample. It is enabled if the csv files
+        containing the noisy sequences are not provided. By default,
+        torch.randn_like is used (to sample white noise). In general, it must
+        be a function that takes in input the original waveform and returns
+        a tensor with the corresponsing noise to add (e.g., see pink_noise_like).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -87,6 +93,7 @@ class AddNoise(torch.nn.Module):
         mix_prob=1.0,
         start_index=None,
         normalize=False,
+        noise_funct=torch.randn_like,
         replacements={},
     ):
         super().__init__()
@@ -102,6 +109,7 @@ class AddNoise(torch.nn.Module):
         self.start_index = start_index
         self.normalize = normalize
         self.replacements = replacements
+        self.noise_funct = noise_funct
 
     def forward(self, waveforms, lengths):
         """
@@ -143,7 +151,7 @@ class AddNoise(torch.nn.Module):
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
-            white_noise = torch.randn_like(waveforms)
+            white_noise = self.noise_funct(waveforms)
             noisy_waveform += new_noise_amplitude * white_noise
         else:
             tensor_length = waveforms.shape[1]
