@@ -1038,46 +1038,28 @@ def split_word(sequences, space="_"):
         results.append(chars)
     return results
 
-def keep_concepts(sequences):
-    """keep only the semantic concepts for evaluation.
+def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
+    """keep the semantic concepts and values for evaluation.
+    
     Arguments
     ---------
     sequences : list
         Each item contains a list, and this list contains a words sequence.
-    Returns
-    -------
-    The list contains concept sequences for each sentence.
-    Example
-    -------
-    >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
-    >>> results = keep_concepts(sequences)
-    >>> results
-    [['<reponse>','<localisation-ville>'], ['<reponse>'],[' ']]
-    """
-    results = []
-    for seq in sequences:
-        l=[]
-        for s in seq:
-            if re.match('<',s):
-                l.append(s)
-        if len(l)==0:
-            l.append(' ')
-        results.append(l)
-    return results
+    keep_values : bool
+        If True, keep the values. If not don't.
+    tag_in : char
+        Indicates the start of the concept.
+    tag_out : char
+        Indicates the end of the concept.
 
-def keep_concepts_values(sequences):
-    """keep only the semantic concepts for evaluation.
-    Arguments
-    ---------
-    sequences : list
-        Each item contains a list, and this list contains a words sequence.
     Returns
     -------
     The list contains concept and value sequences for each sentence.
+    
     Example
     -------
     >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
-    >>> results = keep_concepts_values(sequences)
+    >>> results = extract_concepts_values(sequences, True, '<', '>')
     >>> results
     [['<reponse>', 'no','<localisation-ville>', 'Le Mans'], ['<reponse>', 'si'],[' ']]
     """
@@ -1087,11 +1069,12 @@ def keep_concepts_values(sequences):
         value = []
         concept_open = False
         for s in seq:
-            if re.match('<',s):
+            if re.match(tag_in,s):
                 l.append(s)
                 concept_open = True
-            elif re.match('>',s):
-                l.append(' '.join(value))
+            elif re.match(tag_out,s):
+                if keep_values:
+                    l.append(' '.join(value))
                 value = []
                 concept_open = False
             elif concept_open:
