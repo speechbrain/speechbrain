@@ -11,17 +11,17 @@ Train a neural networks to decode single EEG trials using different training str
 These training strategies were defined as follows:
 * Within-session (within-subject and within-session decoders).
     For each subject and for each session, the training and test sets were defined using a stratified cross-validation partitioning.
-    
+
 * Leave-one-session-out (within-subject, cross-session and session-agnostic decoders).
     For each subject, one session was held back as test set and the remaining ones were used to train neural networks.
-    
+
 * Cross-session (within-subject and cross-session decoders).
     For each subject, all session' signals were merged together.
     Training and test sets were defined using a stratified cross-validation partitioning.
 
 * Leave-one-subject-out (cross-subject, cross-session and subject-agnostic decoders).
     One subject was held back as test set and the remaining ones were used to train neural networks.
-    
+
 For all these strategies, the validation set was sampled from the training set using a fixed validation ratio (20%).
 All sets were extracted balanced across subjects, sessions and classes.
 
