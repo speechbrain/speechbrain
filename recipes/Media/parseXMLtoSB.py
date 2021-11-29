@@ -9,7 +9,6 @@ Author
 Gaelle Laperriere
 """
 
-import xml.etree.ElementTree as ET
 import xml.dom.minidom as DOM
 from tqdm import tqdm
 import subprocess
@@ -188,7 +187,7 @@ def parse_sentences(nodes, speakers, time_beg, time_end, filename, specifiers, m
 
     # If the Turn end without a Sync, check concepts
     for speaker in speakers:
-        if currently_cut_concept[speaker] == True:
+        if currently_cut_concept[speaker]:
             sentences[speaker][n[speaker]-1][0], sentences[speaker][n[speaker]-1][1] = make_exception(sentences[speaker][n[speaker]-1][0], sentences[speaker][n[speaker]-1][1], filename)
 
     # Normalize sentences
@@ -429,7 +428,7 @@ if __name__ == "__main__":
         root = get_root(data_folder + '/E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/' + filename + '_HC.xml')
         filename = filename.split('_')[0]
         data = parse_turns(root, path, filename, channels, IDs, filename, wav_folder, skip_wav, specifiers, method)
-        if data != None:
+        if data is not None:
             corpus = get_corpus(corpora, filename)
             # Check if file used in corpora.
             if corpus != None:

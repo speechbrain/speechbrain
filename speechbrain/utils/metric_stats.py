@@ -298,8 +298,8 @@ class ErrorRateStats(MetricStats):
             target = split_word(target, space=self.space_token)
 
         if self.extract_concepts_values:
-            predict = extract_concepts_values(predict, keep_values, tag_in, tag_out)
-            target = extract_concepts_values(target, keep_values, tag_in, tag_out)
+            predict = extract_concepts_values(predict, self.keep_values, self.tag_in, self.tag_out)
+            target = extract_concepts_values(target, self.keep_values, self.tag_in, self.tag_out)
 
         scores = wer_details_for_batch(ids, target, predict, True)
 
