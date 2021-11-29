@@ -91,7 +91,7 @@ wav2vec: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
 dec: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     input_shape: [null, null, !ref <feats_dim>]
     activation: !ref <activation>
-    dnn_blocks : !ref <dnn_blocks>
+    dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
 output_lin: !new:speechbrain.nnet.linear.Linear
@@ -122,7 +122,7 @@ opt_class: !name:torch.optim.Adadelta
     eps: 1.e-8
 
 opt_class_wav2vec: !name:torch.optim.Adam
-   lr: !ref <lr_wav2vec>
+    lr: !ref <lr_wav2vec>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
