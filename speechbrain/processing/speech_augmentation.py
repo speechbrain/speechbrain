@@ -1615,7 +1615,7 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     >>> waveforms = torch.randn(4,257,10)
     >>> noise = pink_noise_like(waveforms)
     >>> noise.shape
-    torch.size([4,256,10])
+    torch.Size([4,257,10])
     """
     # Sampling white noise (flat spectrum)
     white_noise = torch.randn_like(waveforms)
