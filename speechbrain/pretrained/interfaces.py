@@ -6,7 +6,9 @@ Authors:
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
+ * Abdel Heba 2021
 """
+import sys
 import torch
 import torchaudio
 from types import SimpleNamespace
@@ -19,6 +21,86 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.callchains import lengths_arg_exists
+from speechbrain.utils.superpowers import import_from_path
+
+
+def foreign_class(
+    source,
+    hparams_file="hyperparams.yaml",
+    pymodule_file="custom.py",
+    classname="CustomInterface",
+    overrides={},
+    savedir=None,
+    use_auth_token=False,
+    **kwargs,
+):
+    """Fetch and load an interface from an outside source
+
+    The source can be a location on the filesystem or online/huggingface
+
+    The pymodule file should contain a class with the given classname. An
+    instance of that class is returned. The idea is to have a custom Pretrained
+    subclass in the file. The pymodule file is also added to the python path
+    before the Hyperparams YAML file is loaded, so it can contain any custom
+    implementations that are needed.
+
+    The hyperparams file should contain a "modules" key, which is a
+    dictionary of torch modules used for computation.
+
+    The hyperparams file should contain a "pretrainer" key, which is a
+    speechbrain.utils.parameter_transfer.Pretrainer
+
+    Arguments
+    ---------
+    source : str
+        The location to use for finding the model. See
+        ``speechbrain.pretrained.fetching.fetch`` for details.
+    hparams_file : str
+        The name of the hyperparameters file to use for constructing
+        the modules necessary for inference. Must contain two keys:
+        "modules" and "pretrainer", as described.
+    pymodule_file : str
+        The name of the Python file that should be fetched.
+    classname : str
+        The name of the Class, of which an instance is created and returned
+    overrides : dict
+        Any changes to make to the hparams file when it is loaded.
+    savedir : str or Path
+        Where to put the pretraining material. If not given, will use
+        ./pretrained_models/<class-name>-hash(source).
+    use_auth_token : bool (default: False)
+        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        default is False because majority of models are public.
+
+    Returns
+    -------
+    object
+        An instance of a class with the given classname from the given pymodule file.
+    """
+    if savedir is None:
+        savedir = f"./pretrained_models/{classname}-{hash(source)}"
+    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
+    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+    sys.path.append(str(pymodule_local_path.parent))
+
+    # Load the modules:
+    with open(hparams_local_path) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
+
+    # Pretraining:
+    pretrainer = hparams["pretrainer"]
+    pretrainer.set_collect_in(savedir)
+    # For distributed setups, have this here:
+    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    # Load on the CPU. Later the params can be moved elsewhere by specifying
+    # run_opts={"device": ...}
+    pretrainer.load_collected(device="cpu")
+
+    # Import class and create instance
+    module = import_from_path(pymodule_local_path)
+    cls = getattr(module, classname)
+    return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
 
 
 class Pretrained(torch.nn.Module):
@@ -148,7 +230,7 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(path, channels_first=False)
+        signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
@@ -195,6 +277,7 @@ class Pretrained(torch.nn.Module):
         cls,
         source,
         hparams_file="hyperparams.yaml",
+        pymodule_file="custom.py",
         overrides={},
         savedir=None,
         use_auth_token=False,
@@ -203,6 +286,11 @@ class Pretrained(torch.nn.Module):
         """Fetch and load based from outside source based on HyperPyYAML file
 
         The source can be a location on the filesystem or online/huggingface
+
+        You can use the pymodule_file to include any custom implementations
+        that are needed: if that file exists, then its location is added to
+        sys.path before Hyperparams YAML is loaded, so it can be referenced
+        in the YAML.
 
         The hyperparams file should contain a "modules" key, which is a
         dictionary of torch modules used for computation.
@@ -219,6 +307,15 @@ class Pretrained(torch.nn.Module):
             The name of the hyperparameters file to use for constructing
             the modules necessary for inference. Must contain two keys:
             "modules" and "pretrainer", as described.
+        pymodule_file : str
+            A Python file can be fetched. This allows any custom
+            implementations to be included. The file's location is added to
+            sys.path before the hyperparams YAML file is loaded, so it can be
+            referenced in YAML.
+            This is optional, but has a default: "custom.py". If the default
+            file is not found, this is simply ignored, but if you give a
+            different filename, then this will raise in case the file is not
+            found.
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
@@ -234,6 +331,20 @@ class Pretrained(torch.nn.Module):
         hparams_local_path = fetch(
             hparams_file, source, savedir, use_auth_token
         )
+        try:
+            pymodule_local_path = fetch(
+                pymodule_file, source, savedir, use_auth_token
+            )
+            sys.path.append(str(pymodule_local_path.parent))
+        except ValueError:
+            if pymodule_file == "custom.py":
+                # The optional custom Python module file did not exist
+                # and had the default name
+                pass
+            else:
+                # Custom Python module file not found, but some other
+                # filename than the default was given.
+                raise
 
         # Load the modules:
         with open(hparams_local_path) as fin:
@@ -766,168 +877,6 @@ class EncoderClassifier(Pretrained):
         return self.classify_batch(wavs, wav_lens)
 
 
-class EncoderWav2vecClassifier(Pretrained):
-    """A ready-to-use class for utterance-level classification (e.g, speaker-id,
-    language-id, emotion recognition, keyword spotting, etc).
-
-    The class assumes that an self-supervised encoder like wav2vec2/hubert and a classifier model
-    are defined in the yaml file. If you want to
-    convert the predicted index into a corresponding text label, please
-    provide the path of the label_encoder in a variable called 'lab_encoder_file'
-    within the yaml.
-
-    The class can be used either to run only the encoder (encode_batch()) to
-    extract embeddings or to run a classification step (classify_batch()).
-    ```
-
-    Example
-    -------
-    >>> import torchaudio
-    >>> from speechbrain.pretrained import EncoderClassifier
-    >>> # Model is downloaded from the speechbrain HuggingFace repo
-    >>> tmpdir = getfixture("tmpdir")
-    >>> classifier = EncoderClassifier.from_hparams(
-    ...     source="speechbrain/spkrec-ecapa-voxceleb",
-    ...     savedir=tmpdir,
-    ... )
-
-    >>> # Compute embeddings
-    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
-    >>> embeddings =  classifier.encode_batch(signal)
-
-    >>> # Classification
-    >>> prediction =  classifier .classify_batch(signal)
-    """
-
-    MODULES_NEEDED = [
-        "wav2vec2",
-        "avg_pool",
-        "output_mlp",
-    ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def encode_batch(self, wavs, wav_lens=None, normalize=False):
-        """Encodes the input audio into a single vector embedding.
-
-        The waveforms should already be in the model's desired format.
-        You can call:
-        ``normalized = <this>.normalizer(signal, sample_rate)``
-        to get a correctly converted signal in most cases.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-        normalize : bool
-            If True, it normalizes the embeddings with the statistics
-            contained in mean_var_norm_emb.
-
-        Returns
-        -------
-        torch.tensor
-            The encoded batch
-        """
-        # Manage single waveforms in input
-        if len(wavs.shape) == 1:
-            wavs = wavs.unsqueeze(0)
-
-        # Assign full length if wav_lens is not assigned
-        if wav_lens is None:
-            wav_lens = torch.ones(wavs.shape[0], device=self.device)
-
-        # Storing waveform in the specified device
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        wavs = wavs.float()
-
-        # Computing features and embeddings
-        outputs = self.mods.wav2vec2(wavs)
-
-        # last dim will be used for AdaptativeAVG pool
-        outputs = self.mods.avg_pool(outputs, wav_lens)
-        outputs = outputs.view(outputs.shape[0], -1)
-        return outputs
-
-    def classify_batch(self, wavs, wav_lens=None):
-        """Performs classification on the top of the encoded features.
-
-        It returns the posterior probabilities, the index and, if the label
-        encoder is specified it also the text label.
-
-        Arguments
-        ---------
-        wavs : torch.tensor
-            Batch of waveforms [batch, time, channels] or [batch, time]
-            depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
-            Lengths of the waveforms relative to the longest one in the
-            batch, tensor of shape [batch]. The longest one should have
-            relative length 1.0 and others len(waveform) / max_length.
-            Used for ignoring padding.
-
-        Returns
-        -------
-        out_prob
-            The log posterior probabilities of each class ([batch, N_class])
-        score:
-            It is the value of the log-posterior for the best class ([batch,])
-        index
-            The indexes of the best class ([batch,])
-        text_lab:
-            List with the text labels corresponding to the indexes.
-            (label encoder should be provided).
-        """
-        outputs = self.encode_batch(wavs, wav_lens)
-        outputs = self.mods.output_mlp(outputs)
-        out_prob = self.hparams.softmax(outputs)
-        score, index = torch.max(out_prob, dim=-1)
-        text_lab = self.hparams.label_encoder.decode_torch(index)
-        return out_prob, score, index, text_lab
-
-    def classify_file(self, path):
-        """Classifies the given audiofile into the given set of labels.
-
-        Arguments
-        ---------
-        path : str
-            Path to audio file to classify.
-
-        Returns
-        -------
-        out_prob
-            The log posterior probabilities of each class ([batch, N_class])
-        score:
-            It is the value of the log-posterior for the best class ([batch,])
-        index
-            The indexes of the best class ([batch,])
-        text_lab:
-            List with the text labels corresponding to the indexes.
-            (label encoder should be provided).
-        """
-        waveform = self.load_audio(path)
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-        outputs = self.encode_batch(batch, rel_length)
-        outputs = self.mods.output_mlp(outputs).squeeze(1)
-        out_prob = self.hparams.softmax(outputs)
-        score, index = torch.max(out_prob, dim=-1)
-        text_lab = self.hparams.label_encoder.decode_torch(index)
-        return out_prob, score, index, text_lab
-
-    def forward(self, wavs, wav_lens=None, normalize=False):
-        return self.encode_batch(
-            wavs=wavs, wav_lens=wav_lens, normalize=normalize
-        )
-
-
 class SpeakerRecognition(EncoderClassifier):
     """A ready-to-use model for speaker recognition. It can be used to
     perform speaker verification with verify_batch().
@@ -1352,7 +1301,7 @@ class VAD(Pretrained):
 
         # From indexes to samples
         seconds = (indexes * self.time_resolution).float()
-        samples = (self.sample_rate * seconds).int()
+        samples = (self.sample_rate * seconds).round().int()
 
         if output_value == "seconds":
             boundaries = seconds
@@ -2043,7 +1992,7 @@ class SepformerSeparation(Pretrained):
             )
             tf = torchaudio.transforms.Resample(
                 orig_freq=fs_file, new_freq=fs_model
-            )
+            ).to(self.device)
             batch = batch.mean(dim=0, keepdim=True)
             batch = tf(batch)
 
@@ -2136,7 +2085,10 @@ class SpectralMaskEnhancement(Pretrained):
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
-        enhanced = self.enhance_batch(batch)
+        if lengths_arg_exists(self.enhance_batch):
+            enhanced = self.enhance_batch(batch, lengths=torch.tensor([1.0]))
+        else:
+            enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
             torchaudio.save(output_filename, enhanced, channels_first=False)
