@@ -1063,7 +1063,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
     >>> results = extract_concepts_values(sequences, True, '<', '>')
     >>> results
-    [['<reponse>', 'no','<localisation-ville>', 'Le Mans'], ['<reponse>', 'si'],[' ']]
+    [['<reponse>', 'no', '<localisation-ville>', 'Le Mans'], ['<reponse>', 'si'], [' ']]
     """
     results = []
     for seq in sequences:
