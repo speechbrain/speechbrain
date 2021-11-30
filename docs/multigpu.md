@@ -19,7 +19,7 @@ Important: the batch size for each GPU process will be: `batch_size / Number of 
 
 ## Multi-GPU training using Distributed Data Parallel (DDP)
 
-DDP implements data parallelism on different processes. This way, the GPUs do not necessarily have to be in the same server. This solution is much more flexible. However, the training routines must be written considering multi-threading. 
+DDP implements data parallelism on different processes. This way, the GPUs do not necessarily have to be in the same server. This solution is much more flexible. However, the training routines must be written considering multi-threading.
 
 With SpeechBrain, we put several efforts to make sure the code is compliant with DDP. For instance, to avoid conflicts across processes we develop the `run_on_main` function. It is called when critical operations such as writing a file on disk are performed. It ensures that these operations are run in a single process only. The other processes are waiting until this operation is completed.
 
@@ -27,7 +27,7 @@ Using DDP in speechbrain with a single server (node) is quite easy:
 
 ```
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 ```
 
 Where:
@@ -46,7 +46,7 @@ cd recipes/<dataset>/<task>/
 python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 ```
 
-In this case, Machine 1 will have 2 subprocesses (subprocess1: with local_rank=0, rank=0, and subprocess2: with local_rank=1, rank=1). Machine 2 will have 2 subprocess (subprocess1: with local_rank=0, rank=2, and subprocess2: with local_rank=1, rank=3). 
+In this case, Machine 1 will have 2 subprocesses (subprocess1: with local_rank=0, rank=0, and subprocess2: with local_rank=1, rank=1). Machine 2 will have 2 subprocess (subprocess1: with local_rank=0, rank=2, and subprocess2: with local_rank=1, rank=3).
 
 In practice, using `torch.distributed.launch` ensures that the right environment variables are set (`local_rank` and `rank`), so you don't have to bother about it.
 
@@ -68,7 +68,7 @@ Now, let's try to scale this up a bit with a resource manager like SLURM. Here, 
 cd ${SLURM_SUBMIT_DIR}
 
 # And we call the srun that will run --ntasks-per-node times (once here) per node
-srun srun_script.sh 
+srun srun_script.sh
 ```
 
 ```shell
@@ -90,6 +90,6 @@ MASTER=`echo $LISTNODES | cut -d" " -f1`
 python -m torch.distributed.launch --nproc_per_node=4 --nnodes=${SLURM_JOB_NUM_NODES} --node_rank=${SLURM_NODEID} --master_addr=${MASTER} --master_port=5555 train.py hparams/myrecipe.yaml
 ```
 
-Note that using DDP on different machines introduces a **communication overhead** that might slow down training (depending on how fast is the connection across the different machines). 
+Note that using DDP on different machines introduces a **communication overhead** that might slow down training (depending on how fast is the connection across the different machines).
 
 We would like to advise our users that despite being more efficient, DDP is also more prone to exhibit unexpected bugs. Indeed, DDP is quite server-dependent and some setups might generate errors with the PyTorch implementation of DDP.  The future version of pytorch will improve the stability of DDP.

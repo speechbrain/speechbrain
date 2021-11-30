@@ -178,10 +178,8 @@ def prepare_voicebank(
     >>> save_folder = 'exp/Voicebank_exp'
     >>> prepare_voicebank(data_folder, save_folder)
     """
-
     if skip_prep:
         return
-
     # Setting ouput files
     save_json_train = os.path.join(save_folder, TRAIN_JSON)
     save_json_valid = os.path.join(save_folder, VALID_JSON)
@@ -225,10 +223,10 @@ def prepare_voicebank(
     extension = [".wav"]
     valid_speakers = TRAIN_SPEAKERS[:valid_speaker_count]
     wav_lst_train = get_all_files(
-        train_noisy_folder, match_and=extension, exclude_or=valid_speakers,
+        train_noisy_folder, match_and=extension, exclude_or=valid_speakers
     )
     wav_lst_valid = get_all_files(
-        train_noisy_folder, match_and=extension, match_or=valid_speakers,
+        train_noisy_folder, match_and=extension, match_or=valid_speakers
     )
     wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
 
@@ -453,9 +451,8 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
             # Save downsampled file
             torchaudio.save(
                 os.path.join(dirname_16k, filename[-12:]),
-                downsampled_signal[0].cpu(),
+                downsampled_signal.cpu(),
                 sample_rate=16000,
-                channels_first=False,
             )
 
             # Remove old file

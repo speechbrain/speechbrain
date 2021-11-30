@@ -20,10 +20,9 @@ import time
 import torchaudio
 import json
 import re
-from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
-torchaudio_backend = get_torchaudio_backend()
-torchaudio.set_audio_backend(torchaudio_backend)
+check_torchaudio_backend()
 logger = logging.getLogger(__name__)
 
 
@@ -752,7 +751,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
             + kaldi_lab_opts
             + " "
             + kaldi_ali
-            + "/final.mdl ark:- ark:-|",
+            + "/final.mdl ark:- ark:-|"
         )
     }
     return lab

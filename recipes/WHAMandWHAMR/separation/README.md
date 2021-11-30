@@ -72,6 +72,17 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 
 * WHAM! dataset without dynamic mixing: `python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original`
 
+
+# Multi-GPU training
+
+You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
+
+```
+ python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer-whamr.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
