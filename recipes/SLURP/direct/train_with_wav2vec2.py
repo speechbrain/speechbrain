@@ -1,18 +1,18 @@
 #!/usr/bin/env/python3
 """
-Recipe for "direct" (speech -> semantics) SLU with ASR-based transfer learning.
-
-We encode input waveforms into features using a model trained on LibriSpeech,
+Recipe for "direct" (speech -> semantics) SLU.
+We encode input waveforms into features using the wav2vec2/HuBert model,
 then feed the features into a seq2seq model to map them to semantics.
-
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
-
 Run using:
-> python train.py hparams/train.yaml
-
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 Authors
  * Loren Lugosch 2020
  * Mirco Ravanelli 2020
+ * Boumadane Abdelmoumene 2021
+ * AbdelWahab Heba 2021
+ * Yingzhi Wang 2021
+For more wav2vec2/HuBERT results, please see https://arxiv.org/pdf/2111.02735.pdf
 """
 
 import sys
@@ -25,7 +25,6 @@ import ast
 import pandas as pd
 
 
-# Define training procedure
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -35,25 +34,15 @@ class SLU(sb.Brain):
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-                tokens_bos_lens = torch.cat([tokens_bos_lens, tokens_bos_lens])
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        # ASR encoder forward pass
-        with torch.no_grad():
-            ASR_encoder_out = self.hparams.asr_model.encode_batch(
-                wavs.detach(), wav_lens
-            )
+        #  encoder forward pass
+        wav2vec2_out = self.modules.wav2vec2(wavs)
 
         # SLU forward pass
-        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
         e_in = self.hparams.output_emb(tokens_bos)
-        h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
+        h, _ = self.hparams.dec(e_in, wav2vec2_out, wav_lens)
 
         # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
@@ -66,7 +55,9 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
+            p_tokens, scores = self.hparams.beam_searcher(
+                wav2vec2_out, wav_lens
+            )
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -82,19 +73,11 @@ class SLU(sb.Brain):
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
-
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         )
 
-        # (No ctc loss)
         loss = loss_seq
 
         if (stage != sb.Stage.TRAIN) or (
@@ -160,7 +143,9 @@ class SLU(sb.Brain):
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
         if self.check_gradients(loss):
+            self.wav2vec2_optimizer.step()
             self.optimizer.step()
+        self.wav2vec2_optimizer.zero_grad()
         self.optimizer.zero_grad()
         self.batch_count += 1
         return loss.detach()
@@ -193,9 +178,20 @@ class SLU(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
+            (
+                old_lr_wav2vec2,
+                new_lr_wav2vec2,
+            ) = self.hparams.lr_annealing_wav2vec2(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(
+                self.wav2vec2_optimizer, new_lr_wav2vec2
+            )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
+                stats_meta={
+                    "epoch": epoch,
+                    "lr": old_lr,
+                    "wave2vec_lr": old_lr_wav2vec2,
+                },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -209,6 +205,19 @@ class SLU(sb.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
+
+    def init_optimizers(self):
+        "Initializes the wav2vec2 optimizer and model optimizer"
+        self.wav2vec2_optimizer = self.hparams.wav2vec2_opt_class(
+            self.modules.wav2vec2.parameters()
+        )
+        self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
+
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "wav2vec2_opt", self.wav2vec2_optimizer
+            )
+            self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
 def dataio_prepare(hparams):
@@ -278,8 +287,6 @@ def dataio_prepare(hparams):
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
@@ -332,6 +339,13 @@ if __name__ == "__main__":
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
+
+    # Move the wav2vec2
+    hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
+
+    # freeze the feature extractor part when unfreezing
+    if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:
+        hparams["wav2vec2"].model.feature_extractor._freeze_parameters()
 
     # Brain class initialization
     slu_brain = SLU(
