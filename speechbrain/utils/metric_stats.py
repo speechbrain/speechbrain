@@ -5,6 +5,7 @@ Authors:
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
  * Gaelle Laperriere 2021
+ * Sahar Ghannay 2021
 """
 import torch
 from joblib import Parallel, delayed

@@ -8,6 +8,7 @@ Authors
  * Samuele Cornell 2020
  * Abdel HEBA 2020
  * Gaelle Laperriere 2021
+ * Sahar Ghannay 2021
 """
 
 import os
@@ -1063,25 +1064,26 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
     >>> results = extract_concepts_values(sequences, True, '<', '>')
     >>> results
-    [['<reponse>', 'no', '<localisation-ville>', 'Le Mans'], ['<reponse>', 'si'], [' ']]
+    [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], [' ']]
     """
     results = []
     for seq in sequences:
-        kept = []
+        segment = []
         value = []
         concept_open = False
         for s in seq:
             if re.match(tag_in, s):
-                kept.append(s)
+                kept = s
                 concept_open = True
             elif re.match(tag_out, s):
                 if keep_values:
-                    kept.append(" ".join(value))
+                    kept += " " + " ".join(value)
                 value = []
                 concept_open = False
+                segment.append(kept)
             elif concept_open:
                 value.append(s)
-        if len(kept) == 0:
-            kept.append(" ")
-        results.append(kept)
+        if len(segment) == 0:
+            segment.append(" ")
+        results.append(segment)
     return results
