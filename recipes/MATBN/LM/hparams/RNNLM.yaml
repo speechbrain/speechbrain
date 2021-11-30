@@ -2,9 +2,9 @@ output_folder: !ref results/RNNLM
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-data_folder: results/prepare
+data_folder: !PLACEHOLDER
 
-tokenizer_file: results/tokenizer_char5k/5000_char.model
+tokenizer_file: !PLACEHOLDER
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 

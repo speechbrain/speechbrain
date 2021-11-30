@@ -5,7 +5,7 @@ save_folder: !ref <output_folder>/save
 ckpt_interval_minutes: 15
 num_workers: 4
 
-data_folder: results/prepare
+data_folder: !PLACEHOLDER
 tokenizer_file: !PLACEHOLDER
 lm_file: !PLACEHOLDER
 
