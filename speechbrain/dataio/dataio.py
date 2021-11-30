@@ -1067,21 +1067,21 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     """
     results = []
     for seq in sequences:
-        seq = []
+        kept = []
         value = []
         concept_open = False
         for s in seq:
             if re.match(tag_in, s):
-                seq.append(s)
+                kept.append(s)
                 concept_open = True
             elif re.match(tag_out, s):
                 if keep_values:
-                    seq.append(" ".join(value))
+                    kept.append(" ".join(value))
                 value = []
                 concept_open = False
             elif concept_open:
                 value.append(s)
-        if len(seq) == 0:
-            seq.append(" ")
-        results.append(seq)
+        if len(kept) == 0:
+            kept.append(" ")
+        results.append(kept)
     return results
