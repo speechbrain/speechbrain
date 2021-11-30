@@ -1,4 +1,4 @@
-output_folder: !ref results/asr_transformer
+output_folder: !ref results/asr_transformer_RNNLM
 cer_file: !ref <output_folder>/cer.txt
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -6,16 +6,19 @@ ckpt_interval_minutes: 15
 num_workers: 4
 
 data_folder: results/prepare
-tokenizer_file: results/tokenizer_bpe5k/5000_unigram.model
+tokenizer_file: !PLACEHOLDER
+lm_file: !PLACEHOLDER
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <output_folder>/tokenizer
+    collect_in: !ref <save_folder>
     loadables:
+        lm: !ref <lm_model>
         tokenizer: !ref <tokenizer>
     paths:
         tokenizer: !ref <tokenizer_file>
+        lm: !ref <lm_file>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -24,7 +27,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
-hop_length: 15
+hop_length: 20
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
@@ -61,8 +64,8 @@ valid_dataloader_opts:
     num_workers: !ref <num_workers>
 
 test_dataloader_opts:
-    batch_size: 2
     num_workers: !ref <num_workers>
+    batch_size: 2
 
 ####################### Model parameters ###########################
 # Transformer
@@ -90,7 +93,9 @@ max_decode_ratio: 1.0 # 1.0
 valid_search_interval: 10
 valid_beam_size: 10
 test_beam_size: 10
-ctc_weight_decode: 0.40
+ctc_weight_decode: 0.3
+lm_weight: 0.2
+
 
 ############################## models ################################
 
@@ -114,6 +119,16 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     normalize_before: True
+
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: 256
+    activation: !name:torch.nn.LeakyReLU
+    dropout: 0.3
+    rnn_layers: 2
+    rnn_neurons: 512
+    dnn_blocks: 1
+    dnn_neurons: 256
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
@@ -166,6 +181,10 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
     ctc_weight: !ref <ctc_weight_decode>
+    lm_weight: !ref <lm_weight>
+    lm_modules: !ref <lm_model>
+    temperature: 1.15
+    temperature_lm: 1.15
     using_eos_threshold: False
     length_normalization: True
 
@@ -199,6 +218,18 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
+
+augmentation: !new:speechbrain.lobes.augment.SpecAugment
+    time_warp: True
+    time_warp_window: 5
+    time_warp_mode: bicubic
+    freq_mask: True
+    n_freq_mask: 2
+    time_mask: True
+    n_time_mask: 2
+    replace_with_zero: False
+    freq_mask_width: 30
+    time_mask_width: 40
 
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]

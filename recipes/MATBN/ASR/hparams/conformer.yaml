@@ -6,7 +6,7 @@ ckpt_interval_minutes: 15
 num_workers: 8
 
 data_folder: results/prepare
-tokenizer_file: results/tokenizer_bpe5k/5000_unigram.model
+tokenizer_file: !PLACEHOLDER
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -38,16 +38,16 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
 
 # Training parameters
 number_of_epochs: 40
-batch_size: 2
+batch_size: 1
 ctc_weight: 0.3
-gradient_accumulation: 16
+gradient_accumulation: 32
 gradient_clipping: 5.0
 loss_reduction: batchmean
 sorting: random
 
 # stages related parameters
 stage_one_epochs: 100
-lr_adam: 0.5
+lr_adam: 0.25
 lr_sgd: 0.000025
 
 # Dataloader options
@@ -61,9 +61,11 @@ valid_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
+
 test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
+
 
 ####################### Model parameters ###########################
 # Transformer
@@ -121,6 +123,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     kernel_size: !ref <kernel_size>
     encoder_module: !ref <encoder_module>
     normalize_before: True
+    max_length: 5000
     causal: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
@@ -207,18 +210,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
-
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
 
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]

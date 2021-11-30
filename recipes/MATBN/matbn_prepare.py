@@ -60,7 +60,6 @@ def prepare_matbn(
 
     for split in splits:
         split_data_folder = os.path.join(data_folder, split)
-        split_wav_folder = os.path.join(wav_folder, split)
         transcriptions_path = os.path.join(split_data_folder, "text")
         segments_path = os.path.join(split_data_folder, "segments")
 
@@ -76,15 +75,9 @@ def prepare_matbn(
         )
 
         for key, data in concanated_data.items():
-            if split == "eval":
-
-                concanated_data[key].wav.file = find_wav_path(
-                    wav_folder, data.wav.file
-                )
-            else:
-                concanated_data[key].wav.file = os.path.join(
-                    split_wav_folder, f"{data.wav.file}.wav"
-                )
+            concanated_data[key].wav.file = find_wav_path(
+                wav_folder, data.wav.file
+            )
 
         save_path = os.path.join(save_folder, f"{split}.json")
 

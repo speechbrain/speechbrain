@@ -4,7 +4,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 data_folder: results/prepare
 
-tokenizer_file: results/tokenizer_bpe5k/5000_unigram.model
+tokenizer_file: results/tokenizer_char5k/5000_char.model
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -20,9 +20,9 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 32
+batch_size: 24
 lr: 0.001
-accumulation_steps: 4
+accumulation_steps: 6
 ckpt_interval_minutes: 15
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
