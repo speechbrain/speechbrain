@@ -273,7 +273,6 @@ def parse_sentences(
         sentences, speakers, currently_cut_concept, n, filename
     )
     sentences = normalize_sentences(sentences, filename)
-    
     return sentences
 
 
