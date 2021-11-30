@@ -273,7 +273,7 @@ def parse_sentences(
         sentences, speakers, currently_cut_concept, n, filename
     )
     sentences = normalize_sentences(sentences, filename)
-
+    
     return sentences
 
 
@@ -501,7 +501,7 @@ def get_corpora(data_folder):
         stdout=subprocess.PIPE,
         shell=True,
     )
-    corpora["train"] = [int(str(i)[2:-3]) for i in proc.stdout.readlines()]
+    corpora["train"] = [str(i)[2:-3] for i in proc.stdout.readlines()]
     proc = subprocess.Popen(
         "egrep -a '<dialogue' "
         + data_folder
@@ -511,7 +511,7 @@ def get_corpora(data_folder):
         stdout=subprocess.PIPE,
         shell=True,
     )
-    corpora["dev"] = [int(str(i)[2:-3]) for i in proc.stdout.readlines()]
+    corpora["dev"] = [str(i)[2:-3] for i in proc.stdout.readlines()]
     proc = subprocess.Popen(
         "egrep -a '<dialogue' "
         + data_folder
@@ -521,7 +521,7 @@ def get_corpora(data_folder):
         stdout=subprocess.PIPE,
         shell=True,
     )
-    corpora["test"] = [int(str(i)[2:-3]) for i in proc.stdout.readlines()]
+    corpora["test"] = [str(i)[2:-3] for i in proc.stdout.readlines()]
     return corpora
 
 
@@ -657,8 +657,8 @@ if __name__ == "__main__":
     )
 
     paths = glob.glob(data_folder + "/S0272/**/*.wav", recursive=True)
-    channels, IDs = get_channels("../channels.csv")
-    specifiers = get_specifiers("./specifiers.csv")
+    channels, IDs = get_channels("./channels.csv")
+    specifiers = get_specifiers("./SLU/specifiers.csv")
     corpora = get_corpora(data_folder)
     write_first_row(csv_folder)
 
