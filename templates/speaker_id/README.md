@@ -1,5 +1,5 @@
 # Template for Speaker Identification
-  
+
 This folder provides a working, well-documented example for training
 a speaker identification model from scratch, based on a few hours of
 data. The data we use is from Mini Librispeech + OpenRIR.

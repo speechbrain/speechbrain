@@ -5,6 +5,8 @@ The system classifies 4 emotions ( anger, happiness, sadness, neutrality) with w
 To run this recipe, do the following:
 > python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml --data_folder /path/to/IEMOCAP
 
+For more wav2vec2/HuBERT results, please see https://arxiv.org/pdf/2111.02735.pdf
+
 Authors
  * Yingzhi WANG 2021
 """

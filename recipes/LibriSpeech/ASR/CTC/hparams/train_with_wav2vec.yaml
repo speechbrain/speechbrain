@@ -59,7 +59,7 @@ test_dataloader_opts:
 activation: !name:torch.nn.LeakyReLU
 dnn_layers: 2
 dnn_neurons: 1024
-freeze_wav2vec: False
+freeze_wav2vec: True
 
 # Outputs
 output_neurons: 31  # BPE size, index(blank/eos/bos) = 0

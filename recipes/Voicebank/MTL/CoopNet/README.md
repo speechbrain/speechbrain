@@ -42,8 +42,8 @@ This recipe is insipred by this work:
 
 @INPROCEEDINGS{CoopNet,
   author={Ravanelli, Mirco and Brakel, Philemon and Omologo, Maurizio and Bengio, Yoshua},
-  booktitle={2017 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 
-  title={A network of deep neural networks for Distant Speech Recognition}, 
+  booktitle={2017 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  title={A network of deep neural networks for Distant Speech Recognition},
   year={2017},
   pages={4880-4884}}
 

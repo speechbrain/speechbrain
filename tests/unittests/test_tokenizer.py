@@ -28,7 +28,7 @@ def test_tokenizer():
         dict_int2lab,
         task="encode",
     )
-    lens = (encoded_seq_pieces * encoded_seq_ids.shape[1]).int()
+    lens = (encoded_seq_pieces * encoded_seq_ids.shape[1]).round().int()
     # decode from torch tensors (batch, batch_lens)
     words_seq = spm(encoded_seq_ids, encoded_seq_pieces, task="decode")
     assert words_seq == gt, "output not the same"
@@ -131,7 +131,7 @@ def test_tokenizer():
         dict_int2lab,
         task="encode",
     )
-    lens = (encoded_seq_pieces * encoded_seq_ids.shape[1]).int()
+    lens = (encoded_seq_pieces * encoded_seq_ids.shape[1]).round().int()
     # decode from torch tensors (batch, batch_lens)
     words_seq = spm(encoded_seq_ids, encoded_seq_pieces, task="decode")
     assert words_seq == gt, "output not the same"
