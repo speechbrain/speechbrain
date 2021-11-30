@@ -53,6 +53,7 @@ softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
+    encoder_emb: !ref <encoder_emb>
     enc: !ref <enc>
     emb: !ref <emb>
     dec: !ref <dec>

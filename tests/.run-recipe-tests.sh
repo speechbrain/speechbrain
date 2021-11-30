@@ -1,7 +1,7 @@
 #!/bin/bash
-# This script runs several recipes in debug modality with the small dataset saved in samples. 
+# This script runs several recipes in debug modality with the small dataset saved in samples.
 # It must be called from the main SpeechBrain folder:
-# tests/.run-recipe-tests.sh 
+# tests/.run-recipe-tests.sh
 #
 # Author: Mirco Ravanelli 2021
 
@@ -17,7 +17,7 @@ python templates/speech_recognition/LM/train.py templates/speech_recognition/LM/
 python templates/speech_recognition/ASR/train.py templates/speech_recognition/ASR/train.yaml --output_folder=test_results/template_asr/ --data_folder='data_asr' --train_annotation='data_asr/train.json' --valid_annotation='data_asr/valid.json' --test_annotation='data_asr/test.json' --debug
 
 # TIMIT
-python recipes/TIMIT/ASR/CTC/train.py recipes/TIMIT/ASR/CTC/hparams/train.yaml --output_folder=test_results/TIMIT_CTC --data_folder=samples/audio_samples/nn_training_samples  --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --test_annotation=samples/audio_samples/nn_training_samples/debug.csv --output_neurons=44 --skip_prep=True --debug 
+python recipes/TIMIT/ASR/CTC/train.py recipes/TIMIT/ASR/CTC/hparams/train.yaml --output_folder=test_results/TIMIT_CTC --data_folder=samples/audio_samples/nn_training_samples  --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --test_annotation=samples/audio_samples/nn_training_samples/debug.csv --output_neurons=44 --skip_prep=True --debug
 
 
 python recipes/TIMIT/ASR/seq2seq/train.py recipes/TIMIT/ASR/seq2seq/hparams/train.yaml --output_folder=test_results/TIMIT_seq2seq --data_folder=samples/audio_samples/nn_training_samples  --train_annotation=samples/audio_samples/nn_training_samples/debug.csv --valid_annotation=samples/audio_samples/nn_training_samples/debug.csv --test_annotation=samples/audio_samples/nn_training_samples/debug.csv --output_neurons=46 --skip_prep=True --debug
@@ -88,6 +88,8 @@ python recipes/WSJ0Mix/separation/train.py recipes/WSJ0Mix/separation/hparams/dp
 # Fluent Speech Command
 python recipes/fluent-speech-commands/direct/train.py recipes/fluent-speech-commands/direct/hparams/train.yaml --output_folder=test_results/fluent_direct --data_folder=samples/audio_samples/nn_training_samples  --csv_train=samples/audio_samples/nn_training_samples/debug.csv --csv_valid=samples/audio_samples/nn_training_samples/debug.csv --csv_test=samples/audio_samples/nn_training_samples/debug.csv --skip_prep=True --debug
 
+# KsponSpeech
+python recipes/KsponSpeech/ASR/transformer/train.py recipes/KsponSpeech/ASR/transformer/hparams/conformer_medium.yaml  --data_folder=samples/audio_samples/nn_training_samples --output_folder=test_results/Libritransformer --train_csv=samples/audio_samples/nn_training_samples/debug.csv --valid_csv=samples/audio_samples/nn_training_samples/debug.csv --test_csv=[samples/audio_samples/nn_training_samples/debug.csv] --skip_prep=True --debug
 
 
 

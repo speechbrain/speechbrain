@@ -34,7 +34,7 @@ class EmoIdBrain(sb.Brain):
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
-        embeddings = self.modules.embedding_model(feats)
+        embeddings = self.modules.embedding_model(feats, lens)
         outputs = self.modules.classifier(embeddings)
 
         return outputs
@@ -316,7 +316,8 @@ if __name__ == "__main__":
     sb.utils.distributed.run_on_main(
         prepare_data,
         kwargs={
-            "data_folder": hparams["data_folder"],
+            "data_original": hparams["data_original"],
+            "data_transformed": hparams["data_folder"],
             "save_json_train": hparams["train_annotation"],
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],

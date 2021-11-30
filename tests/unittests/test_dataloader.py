@@ -2,11 +2,11 @@ import torch
 import pytest
 
 
-def test_saveable_dataloader(tmpdir):
+def test_saveable_dataloader(tmpdir, device):
     from speechbrain.dataio.dataloader import SaveableDataLoader
 
     save_file = tmpdir + "/dataloader.ckpt"
-    dataset = torch.randn(10, 1)
+    dataset = torch.randn(10, 1, device=device)
     dataloader = SaveableDataLoader(dataset, collate_fn=None)
     data_iterator = iter(dataloader)
     first_item = next(data_iterator)
