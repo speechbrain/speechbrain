@@ -12,6 +12,7 @@ Authors
  * Boumadane Abdelmoumene 2021
  * AbdelWahab Heba 2021
  * Yingzhi Wang 2021
+For more wav2vec2/HuBERT results, please see https://arxiv.org/pdf/2111.02735.pdf
 """
 
 import sys
@@ -24,7 +25,6 @@ import ast
 import pandas as pd
 
 
-# Define training procedure
 class SLU(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -73,7 +73,6 @@ class SLU(sb.Brain):
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
@@ -288,8 +287,6 @@ def dataio_prepare(hparams):
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
