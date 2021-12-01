@@ -1,0 +1,27 @@
+dataset_folder: !PLACEHOLDER
+prepare_folder: results/prepare
+output_folder: results/tokenizer_char5k
+keep_unk: False
+
+token_type: char # ["unigram", "bpe", "char"]
+token_output: 5000
+character_coverage: 1.0
+annotation_read: transcription
+
+train_json: !ref <prepare_folder>/train.json
+dev_json: !ref <prepare_folder>/dev.json
+eval_json: !ref <prepare_folder>/eval.json
+test_json: !ref <prepare_folder>/test.json
+
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+  model_dir: !ref <output_folder>
+  vocab_size: !ref <token_output>
+  annotation_train: !ref <train_json>
+  annotation_read: !ref <annotation_read>
+  model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+  character_coverage: !ref <character_coverage>
+  annotation_list_to_check: [!ref <dev_json>, !ref <eval_json>, !ref <test_json>] # yamllint disable-line rule:line-length
+  annotation_format: json
+  bos_id: 1
+  eos_id: 2
