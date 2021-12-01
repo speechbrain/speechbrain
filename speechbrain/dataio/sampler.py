@@ -405,7 +405,7 @@ class DynamicBatchSampler(Sampler):
          If ``True``, the sampler will drop the last examples which
          have not been grouped.
     verbose: bool
-        If ``True``, log the stats for each batch at the first epoch.
+        If ``True``, log also the stats for each batch at the first epoch.
     """
 
     def __init__(
@@ -422,7 +422,7 @@ class DynamicBatchSampler(Sampler):
         seed: int = 42,
         epoch: int = 0,
         drop_last: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         self._dataset = dataset
         self._ex_lengths = {}
