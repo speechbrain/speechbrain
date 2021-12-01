@@ -78,7 +78,7 @@ You can run the following command to train the model using Distributed Data Para
 You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
 
 
- 
+
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.

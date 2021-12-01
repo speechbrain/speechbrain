@@ -1,7 +1,7 @@
 import torch
 
 
-def test_normalize():
+def test_normalize(device):
 
     from speechbrain.processing.signal_processing import compute_amplitude
     from speechbrain.processing.signal_processing import rescale
@@ -11,9 +11,9 @@ def test_normalize():
     for scale in ["dB", "linear"]:
         for amp_type in ["peak", "avg"]:
             for test_vec in [
-                torch.zeros((100)),
-                torch.rand((10, 100)),
-                torch.rand((10, 100, 5)),
+                torch.zeros((100), device=device),
+                torch.rand((10, 100), device=device),
+                torch.rand((10, 100, 5), device=device),
             ]:
 
                 lengths = (
@@ -23,8 +23,8 @@ def test_normalize():
                 )
                 amp = compute_amplitude(test_vec, lengths, amp_type, scale)
                 scaled_back = rescale(
-                    random.random() * test_vec, lengths, amp, amp_type, scale,
+                    random.random() * test_vec, lengths, amp, amp_type, scale
                 )
                 np.testing.assert_array_almost_equal(
-                    scaled_back.numpy(), test_vec.numpy()
+                    scaled_back.cpu().numpy(), test_vec.cpu().numpy()
                 )

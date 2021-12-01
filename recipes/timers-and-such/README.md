@@ -50,8 +50,8 @@ The table below reports the performance on the test-real and test-synth subsets 
 | Multistage (Timers and Such LM) | 72.6% ± 1.6% | 85.4% ± 0.2% | 69.9% ± 6.0% |
 | Direct | 77.5% ± 1.6% | 96.7% ± 0.3% | 68.9% ± 5.4% |
 
-Additionally, we report three improved results with the direct recipe trained only on the train-real subset. 
-The first is identical to the baseline CRDNN direct model, except it uses a smaller batch size and is trained for 80 epochs. 
+Additionally, we report three improved results with the direct recipe trained only on the train-real subset.
+The first is identical to the baseline CRDNN direct model, except it uses a smaller batch size and is trained for 80 epochs.
 The second uses the "Base" unsupervised wav2vec 2.0 model as an encoder, with the transformer layers unfrozen and the initial CNN layers frozen.
 The third uses the "960 Hr" variant of wav2vec 2.0, which is finetuned on LibriSpeech using ASR labels.
 
