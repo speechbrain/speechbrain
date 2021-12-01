@@ -401,13 +401,11 @@ class DynamicBatchSampler(Sampler):
         cannot be used on Pytorch Datasets.
     epoch : int
         The epoch to start at.
-    reduce_padding_afterwards : bool
-        If ``True``, the sampler will randomly re-assign short(er) examples from
-        buckets of highest padding among other buckets;
-        until total remaining padding < max_batch_length.
     drop_last : bool
          If ``True``, the sampler will drop the last examples which
          have not been grouped.
+    verbose: bool
+        If ``True``, log the stats for each batch at the first epoch.
     """
 
     def __init__(
@@ -666,8 +664,6 @@ class DynamicBatchSampler(Sampler):
                     batch_stats["pad_%"].append(tot_pad / tot_frames * 100)
 
                 padding_details = "Batch {} with {:.1f} frames with {} files - {:.1f} padding, {:.2f} (%) of total."
-                if self._reduce_padding_afterwards:
-                    padding_details = "(post re-assigns) " + padding_details
                 padding_details = "DynamicBatchSampler: " + padding_details
                 for i in range(len(self._batches)):
                     logger.info(
