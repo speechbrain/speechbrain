@@ -110,7 +110,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
-    dropout: 0
+    dropout: 0.0
     use_positional_encoding: True
     norm_before: True
 
@@ -119,7 +119,7 @@ SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
-    dropout: 0
+    dropout: 0.0
     use_positional_encoding: True
     norm_before: True
 
