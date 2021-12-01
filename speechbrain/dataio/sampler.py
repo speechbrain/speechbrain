@@ -324,19 +324,20 @@ class DynamicBatchSampler(Sampler):
     lengths_list.
 
     Examples are grouped together by defining a set of possible discrete intervals
-    (buckets) multiple of a left_bucket_length.
-    A bucket_length_multiplier is used to specify the number of possible buckets.
-    E.g., if max_batch_length = 32 and left_bucket_length = 10, bucket_length_multiplier = 2
-    there will be 3 buckets: [0, 10), [10, 20), [20, 40).
-    A common choice would be setting left_bucket_length to approximately the length
-    of your shortest example in the dataset.
-    Decreasing bucket_length_multiplier creates more buckets in the whole interval
-    of [left_bucket_length, max_batch_size]: e.g. if max_batch_length = 32 and left_bucket_length = 10,
-    bucket_length_multiplier = 1.5 the number of buckets increases to 8.
-    With right boundaries: [10 12 14 17 21 25 30 36].
-    Thus examples with length less than 10 are all grouped together but more buckets
-    are created for longer examples.
-    Note that the bucket boundary grows exponentially using the multiplier.
+    (buckets). Examples whose length fall into these intervals can be batched together.
+
+    The number of buckets can be specified by using the arg num_buckets.
+    There is usually an optimal range for the value of this argument.
+
+    If num_buckets == 1, all examples can be batched together. You have maximum randomization
+    but your training speed will be slower due to the fact that a large amount of the values will be padding
+    as long and short examples can be batched together.
+    As the number of buckets grows only examples with similar
+    length can be grouped together.
+    This trades-off speed with randomization.
+    TLDR: Low number -> better randomization, High number -> faster training.
+    NOTE THAT: if set too high the training speed will decrease. If num_buckets -> number of examples in the dataset the batch size
+    will be small impacting training speed and possibly performance.
 
     The buckets can also be specified by passing a list to the bucket_boundaries
     argument instead of specifying a left_bucket_length and a bucket_length_multiplier.
@@ -355,7 +356,7 @@ class DynamicBatchSampler(Sampler):
     >>> dataset = DynamicItemDataset(dataset)
     >>> dataset.set_output_keys(["wav"])
     >>> length_func = lambda x : len(x) # trivial in this example
-    >>> bsampler = DynamicBatchSampler(dataset, 20, length_func, shuffle=False, batch_ordering='descending')
+    >>> bsampler = DynamicBatchSampler(dataset, 20, 4, length_func, shuffle=False, batch_ordering='descending')
     >>> dataloader = SaveableDataLoader(dataset, batch_sampler=bsampler, collate_fn=PaddedBatch)
     >>> for i, b in enumerate(dataloader):
     ...     data, length = b["wav"]
