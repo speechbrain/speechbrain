@@ -8,20 +8,18 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 7230
+seed: 4234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER # e.g, /data/member1/user_jasonfu/noisy-vctk-16k
 train_clean_folder: !ref <data_folder>/clean_trainset_28spk_wav_16k/
-train_noisy_folder: !ref <data_folder>/noisy_trainset_28spk_wav_16k/
-valid_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
-test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 MetricGAN_folder: !ref <output_folder>/enhanced_wavs
 output_folder: !ref ./results/MetricGAN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced_wavs
+historical_file: !ref <output_folder>/historical.txt
 
 # Basic parameters
 use_tensorboard: True
@@ -38,14 +36,15 @@ window_fn: !name:torch.hamming_window
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
-skip_prep: True
+skip_prep: False
 
 # The target metrics that you want to optimize.
 # Right now we only support 'pesq' and 'stoi'.
 # (Of course, it can be any arbitrary metric.)
 target_metric: pesq
+n_jobs: 1 # Jobs for metric eval (increase to speed up)
 # Training Parameters
-number_of_epochs: 600
+number_of_epochs: 750
 number_of_samples: 100
 min_mask: 0.05
 train_N_batch: 1
@@ -79,10 +78,13 @@ d_opt_class: !name:torch.optim.Adam
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        model: !ref <models[generator]>
+        generator: !ref <models[generator]>
+        discriminator: !ref <models[discriminator]>
         counter: !ref <epoch_counter>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
+compute_si_snr: !name:speechbrain.nnet.loss.si_snr_loss.si_snr_loss
 
 compute_STFT: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <Sample_rate>

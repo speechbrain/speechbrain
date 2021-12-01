@@ -1,7 +1,7 @@
 import torch
 
 
-def test_ConcatDatasetBatchSampler():
+def test_ConcatDatasetBatchSampler(device):
     from torch.utils.data import TensorDataset, ConcatDataset, DataLoader
     from speechbrain.dataio.sampler import (
         ReproducibleRandomSampler,
@@ -12,14 +12,18 @@ def test_ConcatDatasetBatchSampler():
     datasets = []
     for i in range(3):
         if i == 0:
-            datasets.append(TensorDataset(torch.arange(i * 10, (i + 1) * 10)))
+            datasets.append(
+                TensorDataset(torch.arange(i * 10, (i + 1) * 10, device=device))
+            )
         else:
-            datasets.append(TensorDataset(torch.arange(i * 6, (i + 1) * 6)))
+            datasets.append(
+                TensorDataset(torch.arange(i * 6, (i + 1) * 6, device=device))
+            )
 
     samplers = [ReproducibleRandomSampler(x) for x in datasets]
     dataset = ConcatDataset(datasets)
     loader = DataLoader(
-        dataset, batch_sampler=ConcatDatasetBatchSampler(samplers, [1, 1, 1]),
+        dataset, batch_sampler=ConcatDatasetBatchSampler(samplers, [1, 1, 1])
     )
 
     concat_data = []
@@ -31,7 +35,7 @@ def test_ConcatDatasetBatchSampler():
     non_cat_data = []
     for i in range(len(samplers)):
         c_data = []
-        loader = DataLoader(dataset.datasets[i], sampler=samplers[i],)
+        loader = DataLoader(dataset.datasets[i], sampler=samplers[i])
 
         for data in loader:
             c_data.append(data[0].item())

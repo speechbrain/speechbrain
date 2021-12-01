@@ -1,21 +1,21 @@
 # VoxLingua107
 
-VoxLingua107 is a speech dataset for training spoken language identification models. 
+VoxLingua107 is a speech dataset for training spoken language identification models.
 The dataset consists of short speech segments automatically extracted from YouTube videos and labeled according the language of the video title and description, with some post-processing steps to filter out false positives.
 
-VoxLingua107 contains data for 107 languages. The total amount of speech in the training set is 6628 hours. 
+VoxLingua107 contains data for 107 languages. The total amount of speech in the training set is 6628 hours.
 The average amount of data per language is 62 hours. However, the real amount per language varies a lot. There is also a seperate development set containing 1609 speech segments from 33 languages, validated by at least two volunteers to really contain the given language.
 
 For more information, see the paper [J&ouml;rgen Valk, Tanel Alum&auml;e. _VoxLingua107: a Dataset for Spoken Language Recognition_. Proc. SLT 2021].
 
 ## Why
 
-VoxLingua107 can be used for training spoken language recognition models that work well with real-world, varying speech data. 
+VoxLingua107 can be used for training spoken language recognition models that work well with real-world, varying speech data.
 
-## How 
+## How
 
 We extracted audio data from YouTube videos that are retrieved using language-specific search phrases .
-If the language of the video title and description matched with the language of the search phrase, 
+If the language of the video title and description matched with the language of the search phrase,
 the audio in the video was deemed likely to be in that particular language. This allowed to collect large amounts of somewhat noisy data relatively cheaply.
 Speech/non-speech detection and speaker diarization was used to segment the videos into short sentence-like utterances.
 A data-driven post-filtering step was applied to remove clips that were very different from other clips in this language's dataset, and thus likely not in the given language.
