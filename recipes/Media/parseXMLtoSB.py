@@ -150,7 +150,7 @@ def parse_sentences(
     time_end : str
     filename : str
     specifiers : dictionnary of str
-    method : str 
+    method : str
     task : str
 
     Returns
@@ -215,9 +215,7 @@ def parse_sentences(
                 concept_added[current_speaker] = True
             if currently_open_concept[current_speaker]:
                 currently_cut_concept[current_speaker] = True
-            sentence = node.data.replace(
-                "' ", "'"
-            )
+            sentence = node.data.replace("' ", "'")
             sentence = sentence.replace(
                 "'", "' "
             )  # Join the apostrophe to the previous word only
@@ -279,10 +277,7 @@ def parse_sentences(
                             sentences[speaker][n[speaker]][1] += "> _ "
                         currently_open_concept[speaker] = True
                         concept_added[speaker] = False
-                    if (
-                        currently_cut_concept[speaker]
-                        and task == "slu"
-                    ):
+                    if currently_cut_concept[speaker] and task == "slu":
                         (
                             sentences[speaker][n[speaker] - 1][0],
                             sentences[speaker][n[speaker] - 1][1],
@@ -350,10 +345,7 @@ def check_exceptions(
 ):
     # If the Turn end without a Sync, check concepts
     for speaker in speakers:
-        if (
-            currently_cut_concept[speaker]
-            and task == "slu"
-        ):
+        if currently_cut_concept[speaker] and task == "slu":
             (
                 sentences[speaker][n[speaker] - 1][0],
                 sentences[speaker][n[speaker] - 1][1],
