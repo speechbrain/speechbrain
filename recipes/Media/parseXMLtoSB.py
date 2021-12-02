@@ -31,6 +31,7 @@ def parse_turns(
     skip_wav,
     specifiers,
     method,
+    task,
 ):
     """
     Prepares the data for the csv files of the Media dataset.
@@ -50,6 +51,13 @@ def parse_turns(
         Linked IDs of the recordings, for the channels to keep.
     ID : str
         Current ID of the recording being processed.
+    wav_folder : str
+    skip_wav : bool
+    specifiers : dictionnary of str
+    method : str
+        Either 'full' or 'relax'.
+    task : str
+        Either 'asr' or 'slu'.
 
     Returns
     -------
@@ -75,6 +83,7 @@ def parse_turns(
                 filename,
                 specifiers,
                 method,
+                task,
             )
             IDs = get_IDs(
                 speaker_name, sentences[speaker_id], channel, filename
@@ -126,7 +135,7 @@ def parse_turns(
 
 
 def parse_sentences(
-    nodes, speakers, time_beg, time_end, filename, specifiers, method
+    nodes, speakers, time_beg, time_end, filename, specifiers, method, task
 ):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
@@ -137,6 +146,12 @@ def parse_sentences(
         All the xml following nodes present in the turn.
     speakers : dictionnary
         ID and corresponding name of the speakers in the recording.
+    time_beg : str
+    time_end : str
+    filename : str
+    specifiers : dictionnary of str
+    method : str 
+    task : str
 
     Returns
     -------
@@ -186,8 +201,10 @@ def parse_sentences(
         ):
             # Add a new concept, when speech following
             # (useful for 'SemDebut + Sync + Speech' and 'SemDebut + Speech + Sync + Speech' sequences)
-            if concept[current_speaker] != "null" and not (
-                concept_added[current_speaker]
+            if (
+                concept[current_speaker] != "null"
+                and not (concept_added[current_speaker])
+                and task == "slu"
             ):
                 sentences[current_speaker][n[current_speaker]][0] += (
                     "<" + concept[current_speaker] + "> "
@@ -199,6 +216,9 @@ def parse_sentences(
             if currently_open_concept[current_speaker]:
                 currently_cut_concept[current_speaker] = True
             sentence = node.data.replace(
+                "' ", "'"
+            )
+            sentence = sentence.replace(
                 "'", "' "
             )  # Join the apostrophe to the previous word only
             sentence = sentence.replace("c' est", "c'est")  # Re-join this word
@@ -222,6 +242,7 @@ def parse_sentences(
             if (
                 concept[current_speaker] != "null"
                 and has_speech[current_speaker]
+                and task == "slu"
             ):
                 sentences[current_speaker][n[current_speaker]][0] += "> "
                 sentences[current_speaker][n[current_speaker]][1] += "> _ "
@@ -253,11 +274,15 @@ def parse_sentences(
                         and concept_added[speaker]
                     ):
                         # Close the concept for the latest segment processed (Sync before SemFin)
-                        sentences[speaker][n[speaker]][0] += "> "
-                        sentences[speaker][n[speaker]][1] += "> _ "
+                        if task == "slu":
+                            sentences[speaker][n[speaker]][0] += "> "
+                            sentences[speaker][n[speaker]][1] += "> _ "
                         currently_open_concept[speaker] = True
                         concept_added[speaker] = False
-                    if currently_cut_concept[speaker]:
+                    if (
+                        currently_cut_concept[speaker]
+                        and task == "slu"
+                    ):
                         (
                             sentences[speaker][n[speaker] - 1][0],
                             sentences[speaker][n[speaker] - 1][1],
@@ -270,7 +295,7 @@ def parse_sentences(
                     n[speaker] += 1
 
     sentences = check_exceptions(
-        sentences, speakers, currently_cut_concept, n, filename
+        sentences, speakers, currently_cut_concept, n, filename, task
     )
     sentences = normalize_sentences(sentences, filename)
     return sentences
@@ -320,10 +345,15 @@ def normalize_sentences(sentences, filename):
     return sentences
 
 
-def check_exceptions(sentences, speakers, currently_cut_concept, n, filename):
+def check_exceptions(
+    sentences, speakers, currently_cut_concept, n, filename, task
+):
     # If the Turn end without a Sync, check concepts
     for speaker in speakers:
-        if currently_cut_concept[speaker]:
+        if (
+            currently_cut_concept[speaker]
+            and task == "slu"
+        ):
             (
                 sentences[speaker][n[speaker] - 1][0],
                 sentences[speaker][n[speaker] - 1][1],
@@ -580,8 +610,8 @@ def make_exception(a, b, filename):
         a = "<reponse> d' accord > euh c "
         b = "<reponse> _ d ' _ a c c o r d _ > _ e u h _ c _ "
     elif filename == "877":
-        a = "<reponse> non > <paiement-montant-entier-reservation-chambre> cinquante > <paiement-monnaie> euros > c' est <temps-unite-reservation> pour le week-end > <connectProp> parce que > il y a <sejour-nbNuit-reservation> deux nuits > normalement <nombre-temps-reservation> un > <temps-unite-reservation> week-end > ah <reponse> non > il y en a qu' <sejour-nbNuit-reservation> une > <reponse> non non > ça sera très bien je r "
-        b = "<reponse> _ n o n _ > _ <paiement-montant-entier-reservation-chambre> _ c i n q u a n t e _ > _ <paiement-monnaie> _ e u r o s _ > _ c ' _ e s t _ <temps-unite-reservation> _ p o u r _ l e _ w e e k - e n d _ > _ <connectProp> _ p a r c e _ q u e _ > _ i l _ y _ a _ <sejour-nbNuit-reservation> _ d e u x _ n u i t s _ > _ n o r m a l e m e n t _ <nombre-temps-reservation> _ u n _ > _ <temps-unite-reservation> _ w e e k - e n d _ > _ a h _ <reponse> _ n o n _ > _ i l _ y _ e n _ a _ q u ' _ <sejour-nbNuit-reservation> _ u n e _ > _ <reponse> _ n o n _ n o n _ > _ ç a _ s e r a _ t r è s _ b i e n _ j e _ r _ "
+        a = "<reponse> non > <paiement-montant-entier-reservation-chambre> cinquante > <paiement-monnaie> euros > c'est <temps-unite-reservation> pour le week-end > <connectProp> parce que > il y a <sejour-nbNuit-reservation> deux nuits > normalement <nombre-temps-reservation> un > <temps-unite-reservation> week-end > ah <reponse> non > il y en a qu' <sejour-nbNuit-reservation> une > <reponse> non non > ça sera très bien je r "
+        b = "<reponse> _ n o n _ > _ <paiement-montant-entier-reservation-chambre> _ c i n q u a n t e _ > _ <paiement-monnaie> _ e u r o s _ > _ c ' e s t _ <temps-unite-reservation> _ p o u r _ l e _ w e e k - e n d _ > _ <connectProp> _ p a r c e _ q u e _ > _ i l _ y _ a _ <sejour-nbNuit-reservation> _ d e u x _ n u i t s _ > _ n o r m a l e m e n t _ <nombre-temps-reservation> _ u n _ > _ <temps-unite-reservation> _ w e e k - e n d _ > _ a h _ <reponse> _ n o n _ > _ i l _ y _ e n _ a _ q u ' _ <sejour-nbNuit-reservation> _ u n e _ > _ <reponse> _ n o n _ n o n _ > _ ç a _ s e r a _ t r è s _ b i e n _ j e _ r _ "
     elif filename == "921":
         a = "bon ben très bien <command-tache> je réserve > euh comme je dois faire <evenement> le concours de pêche > à tout prix <rang-temps-reservation> pour la deuxième > <temps-unite-reservation> semaine > <temps-mois-reservation> de de juillet > <localisation-ville-hotel> à Dole > ben donc je "
         b = "b o n _ b e n _ t r è s _ b i e n _ <command-tache> _ j e _ r é s e r v e _ > _ e u h _ c o m m e _ j e _ d o i s _ f a i r e _ <evenement> _ l e _ c o n c o u r s _ d e _ p ê c h e _ > _ à _ t o u t _ p r i x _ <rang-temps-reservation> _ p o u r _ l a _ d e u x i è m e _ > _ <temps-unite-reservation> _ s e m a i n e _ > _ <temps-mois-reservation> _ d e _ d e _ j u i l l e t _ > _ <localisation-ville-hotel> _ à _ D o l e _ > _ b e n _ d o n c _ j e _ "
@@ -639,6 +669,21 @@ if __name__ == "__main__":
         required=False,
         help="Keep specifiers in concepts. Method used by default.",
     )
+    group2 = parser.add_mutually_exclusive_group(required=True)
+    group2.add_argument(
+        "-s",
+        "--slu",
+        action="store_true",
+        required=False,
+        help="Parse SLU data.",
+    )
+    group2.add_argument(
+        "-a",
+        "--asr",
+        action="store_false",
+        required=False,
+        help="Parse ASR data.",
+    )
     args = parser.parse_args()
 
     data_folder = args.data_folder
@@ -649,11 +694,19 @@ if __name__ == "__main__":
         method = "relax"
     else:
         method = "full"
-    print(
-        "You are processing Media Dataset using "
-        + method
-        + " method for the concepts."
-    )
+    if args.slu:
+        task = "slu"
+    else:
+        task = "asr"
+
+    if task == "slu":
+        print(
+            "You are processing SLU Media Dataset using "
+            + method
+            + " method for the concepts."
+        )
+    else:
+        print("You are processing ASR Media Dataset.")
 
     paths = glob.glob(data_folder + "/S0272/**/*.wav", recursive=True)
     channels, IDs = get_channels("./channels.csv")
@@ -682,6 +735,7 @@ if __name__ == "__main__":
             skip_wav,
             specifiers,
             method,
+            task,
         )
         if data is not None:
             corpus = get_corpus(corpora, filename)
