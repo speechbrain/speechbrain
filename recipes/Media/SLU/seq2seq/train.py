@@ -335,7 +335,7 @@ if __name__ == "__main__":
     train_data, valid_data, test_data, label_encoder = dataio_prepare(hparams)
 
     # Trainer initialization.
-    asr_brain = SLU(
+    slu_brain = SLU(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
@@ -343,15 +343,15 @@ if __name__ == "__main__":
     )
 
     # Adding objects to trainer.
-    asr_brain.label_encoder = label_encoder
-    asr_brain.label_encoder.add_unk()  # handle unknown SLU labels
+    slu_brain.label_encoder = label_encoder
+    slu_brain.label_encoder.add_unk()  # handle unknown SLU labels
 
     # Check for stopped training.
-    asr_brain.checkpointer.recover_if_possible()
+    slu_brain.checkpointer.recover_if_possible()
 
     # Train.
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
+    slu_brain.fit(
+        slu_brain.hparams.epoch_counter,
         train_data,
         valid_data,
         progressbar=True,
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     )
 
     # Test.
-    asr_brain.evaluate(
+    slu_brain.evaluate(
         test_data,
         min_key="CER",
         progressbar=True,
