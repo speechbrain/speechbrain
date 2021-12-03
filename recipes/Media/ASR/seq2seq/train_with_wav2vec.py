@@ -288,21 +288,21 @@ def dataio_prepare(hparams):
     dataloader_train = torch.utils.data.DataLoader(
         train_data,
         batch_size=hparams["batch_size"],
-        num_workers=3,
+        num_workers=hparams["dataloader_options"]["num_workers"],
         collate_fn=PaddedBatch,
         shuffle=hparams["dataloader_options"]["shuffle"],
     )
     dataloader_valid = torch.utils.data.DataLoader(
         valid_data,
         batch_size=hparams["batch_size"],
-        num_workers=3,
+        num_workers=hparams["dataloader_options"]["num_workers"],
         collate_fn=PaddedBatch,
         shuffle=hparams["dataloader_options"]["shuffle"],
     )
     dataloader_test = torch.utils.data.DataLoader(
         test_data,
         batch_size=hparams["test_batch_size"],
-        num_workers=3,
+        num_workers=hparams["test_dataloader_options"]["num_workers"],
         collate_fn=PaddedBatch,
     )
 
