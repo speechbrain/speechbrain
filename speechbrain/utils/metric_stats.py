@@ -212,12 +212,24 @@ class ErrorRateStats(MetricStats):
         this token in between, and then the whole sequence is split.
     keep_values : bool
         Whether to keep the values of the concepts or not.
+        If set to True, a string containing values surrounded by concepts 
+        that are specified with tag_in and tag_out will be kept for 
+        Error Rate calculation. 
+        Else, the values of the concepts will be removed from the Error 
+        Rate calculation.
     extract_concepts_values : bool
         Process the predict and target to keep only concepts and values.
+        If set to True, allows to calculate the Concept Error Rate 
+        (if keep_values is set to False) and Concept Value Error Rate
+        (if keep_values is set to True).
     tag_in : str
         Start of the concept ('<' for exemple).
+        Used to extract concepts and values for CoER and CoVER with 
+        extract_concepts_values to True. 
     tag_out : str
         End of the concept ('>' for exemple).
+        Used to extract concepts and values for CoER and CoVER with 
+        extract_concepts_values to True.
 
     Example
     -------
