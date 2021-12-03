@@ -1,16 +1,16 @@
 # Media SLU with CTC + Seq2Seq models +/- Wav2Vec 2.0.
 
-### Contributors : 
+### Contributors :
 - Gaëlle Laperrière, Avignon University, LIA
-- Yannick Estève, Avignon University, LIA 
+- Yannick Estève, Avignon University, LIA
 - Bassam Jabaian, Avignon University, LIA
 - Sahar Ghannay, Paris-Saclay University, CNRS, LISN
-- Salima Mdhaffar, Avignon University, LIA 
-- Antoine Caubrière, Avignon University, LIA 
+- Salima Mdhaffar, Avignon University, LIA
+- Antoine Caubrière, Avignon University, LIA
 
 This folder contains scripts necessary to run an SLU experiment with the Media French dataset: [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/), [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) both needed for the task.
 
-# How to run 
+# How to run
 Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml file.
 
 ```bash
@@ -21,7 +21,7 @@ python train_with_wav2vec.py hparams/{hparam_file}.yaml
 # Data preparation
 It is important to note that Media initially offers audio files at 8kHz. Hence, audio files are upsampled on the fly within the preparation script to 16kHz.
 
-# Results 
+# Results
 
 | Media Release | hyperparams file | Dev ChER | Dev CER | Dev CVER | Test ChER | Test CER | Test CVER | Wav2Vec |
 |:-------------:|:-------------------------:|:----:|:----:|:----:|:----:|:----:|:----:|:------------------------------------:|

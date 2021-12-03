@@ -1,15 +1,15 @@
 # Media data preparation.
 
-### Contributors : 
+### Contributors :
 - Gaëlle Laperrière, Avignon University, LIA
-- Yannick Estève, Avignon University, LIA 
+- Yannick Estève, Avignon University, LIA
 - Bassam Jabaian, Avignon University, LIA
 - Sahar Ghannay, Paris-Saclay University, CNRS, LISN
-- Antoine Caubrière, Avignon University, LIA 
+- Antoine Caubrière, Avignon University, LIA
 
 The `parseXMLtoSB.py` script allows to prepare the Media French dataset for experiments. You need both [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/) and [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) to run the script.
 
-# How to run 
+# How to run
 ```
 python parseXMLtoSB.py [-w] [-r | -f] (-s | -a) data_folder wav_folder csv_folder
 ```
@@ -18,8 +18,8 @@ With :
 - `wav_folder` : Path where the wavs will be stored.
 - `csv_folder` : Path where the csv will be stored.
 - `-w` / `--skip_wav` : Skip the wav files storing if already done before.
-- `-r` / `--relax` or `-f` / `--full` (by default) : Remove (relax) or keep (full) specifiers in concepts. 
-- `-s` / `--slu` or `-a` / `--asr` : Choose the task. 
+- `-r` / `--relax` or `-f` / `--full` (by default) : Remove (relax) or keep (full) specifiers in concepts.
+- `-s` / `--slu` or `-a` / `--asr` : Choose the task.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
