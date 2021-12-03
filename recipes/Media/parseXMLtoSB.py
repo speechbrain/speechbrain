@@ -644,7 +644,7 @@ if __name__ == "__main__":
         "--skip_wav",
         action="store_true",
         required=False,
-        help="Skip the wav files storing if already done with ASR Media processor.",
+        help="Skip the wav files storing if already done before.",
     )
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
