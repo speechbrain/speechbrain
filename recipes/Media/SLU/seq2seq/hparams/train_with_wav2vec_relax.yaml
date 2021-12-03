@@ -48,7 +48,7 @@ sample_rate: 16000
 feats_dim: 1024
 
 # Training parameters:
-number_of_epochs: 77
+number_of_epochs: 100
 lr: 1
 lr_wav2vec: 0.0001
 annealing_factor: 0.8
@@ -62,10 +62,7 @@ sorting: random
 # Model parameters:
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 0
-rnn_layers: 0
 dnn_blocks: 3
-rnn_neurons: 0
 dnn_neurons: 512
 
 # Wav2Vec parameters:
