@@ -1047,7 +1047,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     Arguments
     ---------
     sequences : list
-        Each item contains a list, and this list contains a words sequence.
+        Each item contains a list, and this list contains a character sequence.
     keep_values : bool
         If True, keep the values. If not don't.
     tag_in : char
@@ -1061,29 +1061,34 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
 
     Example
     -------
-    >>> sequences = [['<reponse>','no', '>','<localisation-ville>','Le','Mans','>'], ['<reponse>','si','>'],['va','bene']]
+    >>> sequences = [['<reponse>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<reponse>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
     >>> results = extract_concepts_values(sequences, True, '<', '>')
     >>> results
-    [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], [' ']]
+    [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], ['']]
     """
     results = []
-    for seq in sequences:
-        segment = []
-        value = []
+    for sequence in sequences:
+        sequence = "".join(sequence) # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
+        sequence = sequence.split("_") # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
+        processed_sequence = []
+        value = [] # if previous sequence value never used because never had a tag_out
+        kept = "" # if previous sequence kept never used because never had a tag_out
         concept_open = False
-        for s in seq:
-            if re.match(tag_in, s):
-                kept = s
-                concept_open = True
-            elif re.match(tag_out, s):
-                if keep_values:
-                    kept += " " + " ".join(value)
-                value = []
-                concept_open = False
-                segment.append(kept)
+        for word in sequence:
+            if re.match(tag_in, word):
+                kept = word # first row : '<reponse>'
+                value = [] # we will get the value corresponding
+                concept_open = True # we say we want to catch the value
+                if not keep_values: # if we want the CER
+                    processed_sequence.append(kept) # just add the kept concept
+            elif re.match(tag_out, word) and concept_open and keep_values: # if we have a tag_out, we had a concept, and we want the values for CVER
+                if len(value) != 0: # if we have a value
+                    kept += " " + " ".join(value) # first row : '<response>' + ' ' + 'no'
+                concept_open = False # we say we did catch the value for the current concept, we will need another tag_in to pursue
+                processed_sequence.append(kept) # add the kept concept + value if there is one
             elif concept_open:
-                value.append(s)
-        if len(segment) == 0:
-            segment.append(" ")
-        results.append(segment)
+                value.append(word) # first row : 'no'
+        if len(processed_sequence) == 0:
+            processed_sequence.append("")
+        results.append(processed_sequence)
     return results
