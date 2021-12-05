@@ -30,7 +30,6 @@ from sklearn.metrics import (
 import logging
 import multiprocessing as mp
 import speechbrain as sb
-from os.path import exists
 
 mp.set_start_method("spawn", force=True)
 
@@ -59,6 +58,10 @@ class MOABBBrain(sb.Brain):
                 lengths=torch.ones(inputs.shape[0], device=self.device),
             )
             inputs = inputs.unsqueeze(3)
+
+        # Normalization
+        if hasattr(self.hparams, "normalize"):
+            inputs = self.hparams.normalize(inputs)
 
         return self.modules.model(inputs)
 
@@ -298,13 +301,9 @@ def run_experiment(hparams, run_opts, datasets):
         results[key]["auc"] = test_auc
         results[key]["cm"] = test_cm
     # saving metrics on the test set in a pickle file
-    void_saves = 0
     metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
-    while not exists(metrics_fpath) or void_saves > 15:
-        print(f"Issues creating metrics.pkl in {hparams['exp_dir']}")
-        with open(metrics_fpath, "wb") as handle:
-            pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
-        void_saves += 1
+    with open(metrics_fpath, "wb") as handle:
+        pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def run_single_process(argv, tail_path, datasets):

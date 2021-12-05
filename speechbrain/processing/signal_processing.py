@@ -106,6 +106,31 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
     return waveforms / den
 
 
+def mean_std_norm(waveforms, dims=1, eps=1e-06):
+    """This function normalizes the mean and std of the input
+        waveform (along the specified axis).
+
+    Arguments
+    ---------
+    waveforms : tensor
+        The waveforms to normalize.
+        Shape should be `[batch, time]` or `[batch, time, channels]`.
+    dim: int or tuple
+        The dimension(s) on which mean and std are computed
+    eps : float
+        A small number to add to the denominator to prevent NaN.
+
+    Returns
+    -------
+    waveforms : tensor
+        Normalized level waveform.
+    """
+    mean = waveforms.mean(dims, keepdim=True)
+    std = waveforms.std(dims, keepdim=True)
+    waveforms = (waveforms - mean) / (std + eps)
+    return waveforms
+
+
 def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
     """This functions performs signal rescaling to a target level.
 

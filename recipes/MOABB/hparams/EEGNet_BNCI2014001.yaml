@@ -6,6 +6,7 @@
 # Author
 # ------
 # Davide Borra, 2021
+# Mirco Ravanelli, 2021
 ###################################################
 seed: 1234
 __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
@@ -20,14 +21,14 @@ dataset: !new:moabb.datasets.BNCI2014001
 subject_list: [1, 2, 3, 4, 5, 6, 7, 8, 9]  # subject list
 events: ['left_hand', 'right_hand', 'feet', 'tongue']
 n_classes: 4
-sf: 128  # Target sampling rate (Hz)
+sample_rate: 128  # Target sampling rate (Hz)
 # tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
 # trial begins (0 s), cue (2 s, 1.25 s long); each trial is 6 s long
 # dataset interval starts from 2
 # -->tmin tmax are referred to this start value (e.g., tmin=0.5 corresponds to 2.5 s)
 tmin: 0.5
 tmax: 2.5
-T: !ref <sf> * (<tmax> - <tmin>)
+T: !ref <sample_rate> * (<tmax> - <tmin>)
 # fmin, fmax band-pass filtering
 fmin: 4
 fmax: 40
@@ -38,19 +39,19 @@ channels: ['Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4',
 C: 22
 # Defining the MOABB paradigm and setting the pre-processing hyper-parameters for the specific dataset.
 paradigm: !new:moabb.paradigms.MotorImagery
-  events: !ref <events>
-  n_classes: !ref <n_classes>
-  fmin: !ref <fmin>
-  fmax: !ref <fmax>
-  tmin: !ref <tmin>
-  tmax: !ref <tmax>
-  channels: !ref <channels>
-  resample: !ref <sf>
+    events: !ref <events>
+    n_classes: !ref <n_classes>
+    fmin: !ref <fmin>
+    fmax: !ref <fmax>
+    tmin: !ref <tmin>
+    tmax: !ref <tmax>
+    channels: !ref <channels>
+    resample: !ref <sample_rate>
 
 # TRAINING HPARS
 num_parallel_processes: 6  # number of parallel processes to run
 nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
-number_of_epochs: 500 # number of training epochs
+number_of_epochs: 700 # number of training epochs
 lr: 0.001
 
 # Learning rate scheduling (cyclic learning rate is used here)
@@ -63,36 +64,35 @@ step_size: 100 # number of training iterations per half cycle (lower step_size =
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_keys)
 # The variable avg_models can be used to average the parameters of the last (or best) N saved models before testing.
 # This can have a regularization effect. If avg_models: 1, the last (or best) model is used directly.
-test_with: 'best' # 'last' or 'best'
+test_with: 'last' # 'last' or 'best'
 test_keys: ["acc"] # Possible opts: "loss", "f1", "auc", "acc"
-avg_models: 1 # checkpoints to average
+avg_models: 10 # checkpoints to average
 
 loss: !name:speechbrain.nnet.losses.nll_loss
-  label_smoothing: 0.0
-  weight: torch.Tensor([1, 1, 1, 1])  # class weight to address class imbalance
+    label_smoothing: 0.0
 
 optimizer: !name:torch.optim.Adam
-  lr: !ref <lr>
+    lr: !ref <lr>
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
-  limit: !ref <number_of_epochs>
-batch_size: 32
+    limit: !ref <number_of_epochs>
+batch_size: 64
 valid_ratio: 0.2
 
 # Data iterators
 within_session_it: !new:recipes.MOABB.dataio_iterators.WithinSession
-  paradigm: !ref <paradigm>
-  nfolds: !ref <nfolds>
-  seed: !ref <seed>
+    paradigm: !ref <paradigm>
+    nfolds: !ref <nfolds>
+    seed: !ref <seed>
 leave_one_session_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSessionOut
-  paradigm: !ref <paradigm>
-  seed: !ref <seed>
+    paradigm: !ref <paradigm>
+    seed: !ref <seed>
 cross_session_it: !new:recipes.MOABB.dataio_iterators.CrossSession
-  paradigm: !ref <paradigm>
-  nfolds: !ref <nfolds>
-  seed: !ref <seed>
+    paradigm: !ref <paradigm>
+    nfolds: !ref <nfolds>
+    seed: !ref <seed>
 leave_one_subject_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSubjectOut
-  paradigm: !ref <paradigm>
-  seed: !ref <seed>
+    paradigm: !ref <paradigm>
+    seed: !ref <seed>
 data_iterators: [!ref <within_session_it>,
                  !ref <leave_one_session_out_it>,
                  !ref <cross_session_it>,
@@ -100,28 +100,61 @@ data_iterators: [!ref <within_session_it>,
 ]
 
 # DATA AUGMENTATION
-#channel_dropper: !new:speechbrain.processing.speech_augmentation.ChannelDrop
-#    drop_rate: 0.1
+rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
+    amp_low: 0.5
+    amp_high: 1.5
 
-#chunk_dropper: !new:speechbrain.processing.speech_augmentation.DropChunk
-#    drop_length_low: 10
-#    drop_length_high: 30
-#    drop_count_low: 1
-#    drop_count_high: 3
-#    drop_start: 0
-#    drop_prob: 1
-#    noise_factor: 0.0
+time_shift: !new:speechbrain.processing.speech_augmentation.RandomShift
+    min_shift: -1500
+    max_shift: 1500
+    dim: 1
 
-#augment: !new:speechbrain.processing.augmentation.Augmenter
-#    parallel_augment: False
-#    concat_original: True
-#    min_augmentations: 1
-#    max_augmentations: 2
-#    repeat_augment: 1
-#    shuffle_augmentations: False
-#    chunk_dropper: !ref <chunk_dropper>
-#    channel_dropper: !ref <channel_dropper>
+chunk_dropper: !new:speechbrain.processing.speech_augmentation.FastDropChunk
+    drop_length_low: 10
+    drop_length_high: 25
+    drop_count_low: 1
+    drop_count_high: 3
+    drop_start: 0
 
+noise_funct: !name:speechbrain.processing.speech_augmentation.pink_noise_like
+    alpha_low: 0.5
+    alpha_high: 0.5
+    sample_rate: !ref <sample_rate>
+
+add_noise_pink: !new:speechbrain.processing.speech_augmentation.AddNoise
+    snr_low: 0
+    snr_high: 5
+    noise_funct: !ref <noise_funct>
+
+add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
+    snr_low: 5
+    snr_high: 15
+
+augment_noise: !new:speechbrain.processing.augmentation.Augmenter
+    parallel_augment: False
+    concat_original: False
+    min_augmentations: 2
+    max_augmentations: 2
+    repeat_augment: 1
+    shuffle_augmentations: True
+    add_noise_pink: !ref <add_noise_pink>
+    add_noise_white: !ref <add_noise_white>
+
+augment: !new:speechbrain.processing.augmentation.Augmenter
+    parallel_augment: True
+    concat_original: True
+    min_augmentations: 5
+    max_augmentations: 5
+    repeat_augment: 2
+    shuffle_augmentations: True
+    rand_amp: !ref <rand_amp>
+    time_shift: !ref <time_shift>
+    chunk_dropper: !ref <chunk_dropper>
+    augment_noise: !ref <augment_noise>
+
+# DATA NORMALIZATION
+normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
+    dims: 2
 
 # MODEL: EEGNET
 input_shape: [null, !ref <T>, !ref <C>, null]
@@ -133,17 +166,17 @@ dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
 dropout: 0.25  # dropout rate
 
 model: !new:speechbrain.lobes.models.EEGNet.EEGNet
-  input_shape: !ref <input_shape>
-  sf: !ref <sf>
-  cnn_temporal_kernels: !ref <cnn_temporal_kernels>
-  cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
-  cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
-  cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
-  dense_n_neurons: !ref <n_classes>
-  dense_max_norm: !ref <dense_max_norm>
-  dropout: !ref <dropout>
+    input_shape: !ref <input_shape>
+    sf: !ref <sample_rate>
+    cnn_temporal_kernels: !ref <cnn_temporal_kernels>
+    cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
+    cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
+    cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
+    dense_n_neurons: !ref <n_classes>
+    dense_max_norm: !ref <dense_max_norm>
+    dropout: !ref <dropout>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-  base_lr: !ref <base_lr>
-  max_lr: !ref <max_lr>
-  step_size: !ref <step_size>
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
