@@ -5,22 +5,20 @@ This folder contains some popular recipes for the Aishell1Mix dataset similar to
 
 Additional dependencies:
 ```
-pip install mir_eval
-pip install pyloudnorm
+pip install -r ../extra-dependencies.txt
 ```
 
 To run it:
 
 ```
-python train.py hparams/sepformer-aishell1mix2.yaml --data_folder youraishell1mixpath/aishell1mix/Aishell1Mix2 --base_folder_dm /youraishell1path/aishell1/data_aishell/wav/train
-python train.py hparams/sepformer-aishell1mix3.yaml --data_folder youraishell1mixpath/aishell1mix/Aishell1Mix3 --base_folder_dm /youraishell1path/aishell1/data_aishell/wav/train
-
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 
 # Aishell1Mix2/3
-* The Dataset can be created using the scripts at `https://github.com/huangzj421/Aishell1Mix`.
+* Your data folder should contain data_aishell (aishell1), resource_aishell (aishell1), wham_noise and aishell1mix, which can be created using the scripts at `https://github.com/huangzj421/Aishell1Mix`. Otherwise train.py will download and prepare data into your data path automatically.
 
 
 # Dynamic Mixing:
@@ -33,6 +31,7 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 
 | | SepFormer. Aishell1Mix2 |
 | --- | --- |
+|NoAugment | 10.9 |
 |DynamicMixing | 13.4|
 
 
@@ -43,13 +42,13 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 
 # Example calls for running the training scripts
 
-* Aishell1Mix2 with dynamic mixing `python train.py hparams/sepformer-aishell1mix2.yaml --data_folder youraishell1mixpath/aishell1mix/Aishell1Mix2 --base_folder_dm /youraishell1path/aishell1/data_aishell/wav/train --dynamic_mixing True`
+* Aishell1Mix2 with dynamic mixing `python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath --dynamic_mixing True`
 
-* Aishell1Mix3 with dynamic mixing `python train.py hparams/sepformer-aishell1mix3.yaml --data_folder youraishell1mixpath/aishell1mix/Aishell1Mix3 --base_folder_dm /youraishell1path/aishell1/data_aishell/wav/train --dynamic_mixing True`
+* Aishell1Mix3 with dynamic mixing `python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath --dynamic_mixing True`
 
-* Aishell1Mix2 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix2.yaml --data_folder youraishell1mixpath/aishell1mix/Aishell1Mix2 --base_folder_dm /youraishell1path/aishell1/data_aishell/wav/train --dynamic_mixing True --use_wham_noise True`
+* Aishell1Mix2 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath --dynamic_mixing True --use_wham_noise True`
 
-* Aishell1Mix3 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix3.yaml --data_folder youraishell1mixpath/aishell1mix/Aishell1Mix3 --base_folder_dm /youraishell1path/aishell1/data_aishell/wav/train --dynamic_mixing True --use_wham_noise True`
+* Aishell1Mix3 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath --dynamic_mixing True --use_wham_noise True`
 
 # Multi-GPU training
 

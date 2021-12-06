@@ -7,6 +7,14 @@ Author
 
 import os
 import csv
+import requests
+import tarfile
+import zipfile
+import glob
+import tqdm.contrib.concurrent
+import soundfile as sf
+import functools
+from pysndfx import AudioEffectsChain
 
 
 def prepare_aishell1mix(
@@ -23,31 +31,150 @@ def prepare_aishell1mix(
 
     Arguments:
     ----------
-        datapath (str) : path for the wsj0-mix dataset.
+        datapath (str) : path for the aishell1mix dataset.
         savepath (str) : path where we save the csv file.
         n_spks (int): number of speakers
         skip_prep (bool): If True, skip data preparation
         aishell1mix_addnoise: If True, add whamnoise to aishell1mix datasets
     """
 
+    aishell1_dir = os.path.join(datapath, "data_aishell")
+    wham_dir = os.path.join(datapath, "wham_noise")
+    aishell1mix_outdir = os.path.join(datapath, "aishell1mix")
+
+    if not os.path.exists(aishell1_dir):
+        print("Download Aishell1 into %s" % datapath),
+        r = requests.get(
+            "https://openslr.magicdatatech.com/resources/33/data_aishell.tgz",
+            allow_redirects=True,
+        )
+        open(os.path.join(datapath, "data_aishell.tgz"), "wb").write(r.content)
+        r = requests.get(
+            "https://openslr.magicdatatech.com/resources/33/resource_aishell.tgz",
+            allow_redirects=True,
+        )
+        open(os.path.join(datapath, "resource_aishell.tgz"), "wb").write(
+            r.content
+        )
+        extracttar(os.path.join(datapath, "data_aishell.tgz"))
+        files = glob.glob(os.path.join(aishell1_dir, "wav/*.gz"))
+        for f in files:
+            extracttar(f)
+        extracttar(os.path.join(datapath, "resource_aishell.tgz"))
+
+    if not os.path.exists(wham_dir):
+        print("Download Wham noise dataset into %s" % datapath)
+        r = requests.get(
+            "https://storage.googleapis.com/whisper-public/wham_noise.zip",
+            allow_redirects=True,
+        )
+        open(os.path.join(datapath, "wham_noise.tgz"), "wb").write(r.content)
+        file = zipfile.ZipFile(os.path.join(datapath, "wham_noise.zip"))
+        file.extractall(path=datapath)
+        os.remove(os.path.join(datapath, "wham_noise.zip"))
+
+    # augment train noise in wham
+    # Get train dir
+    subdir = os.path.join(wham_dir, "tr")
+    # List files in that dir
+    sound_paths = glob.glob(os.path.join(subdir, "**/*.wav"), recursive=True)
+    # Avoid running this script if it already have been run
+    if len(sound_paths) == 60000:
+        print(
+            "It appears that augmented files have already been generated.\n"
+            "Skipping data augmentation."
+        )
+    elif len(sound_paths) != 20000:
+        print(
+            "It appears that augmented files have not been generated properly\n"
+            "Resuming augmentation."
+        )
+        originals = [x for x in sound_paths if "sp" not in x]
+        to_be_removed_08 = [
+            x.replace("sp08", "") for x in sound_paths if "sp08" in x
+        ]
+        to_be_removed_12 = [
+            x.replace("sp12", "") for x in sound_paths if "sp12" in x
+        ]
+        sound_paths_08 = list(set(originals) - set(to_be_removed_08))
+        sound_paths_12 = list(set(originals) - set(to_be_removed_12))
+        augment_noise(sound_paths_08, 0.8)
+        augment_noise(sound_paths_12, 1.2)
+    else:
+        print(f"Augmenting {subdir} files")
+        # Transform audio speed
+        augment_noise(sound_paths, 0.8)
+        augment_noise(sound_paths, 1.2)
+
+    from scripts.create_aishell1_metadata import create_aishell1_metadata
+
+    aishell1_md_dir = os.path.join(aishell1_dir, "metadata")
+    if not os.path.exists(aishell1_md_dir):
+        os.makedirs(aishell1_md_dir, exist_ok=True)
+        create_aishell1_metadata(aishell1_dir, aishell1_md_dir)
+
+    from scripts.create_wham_metadata import create_wham_noise_metadata
+
+    wham_md_dir = os.path.join(wham_dir, "meta")
+    if not os.path.exists(wham_md_dir):
+        os.makedirs(wham_md_dir, exist_ok=True)
+        create_wham_noise_metadata(wham_dir, wham_md_dir)
+
+    n_spks = 2
+    from scripts.create_aishell1mix_metadata import create_aishell1mix_metadata
+
+    aishell1mix_md_outdir = os.path.join(
+        aishell1mix_outdir, "metadata", "Aishell1Mix%i" % n_spks
+    )
+    if not os.path.exists(aishell1mix_md_outdir):
+        os.makedirs(aishell1mix_md_outdir, exist_ok=True)
+        create_aishell1mix_metadata(
+            os.path.join(aishell1_dir, "wav"),
+            aishell1_md_dir,
+            wham_dir,
+            wham_md_dir,
+            aishell1mix_md_outdir,
+            n_spks,
+        )
+
+    freqs = ["8k", "16k"]
+    modes = ["max", "min"]
+    types = ["mix_clean", "mix_both", "mix_single"]
+    from scripts.create_aishell1mix_from_metadata import create_aishell1mix
+
+    aishell1mix_outdir = os.path.join(
+        aishell1mix_outdir, "Aishell1Mix%i" % n_spks
+    )
+    if not os.path.exists(aishell1mix_outdir):
+        create_aishell1mix(
+            os.path.join(aishell1_dir, "wav"),
+            wham_dir,
+            aishell1mix_outdir,
+            aishell1mix_md_outdir,
+            freqs,
+            n_spks,
+            modes,
+            types,
+        )
+
     if skip_prep:
         return
 
-    if "Aishell1" in datapath:
+    if "Aishell1" in aishell1mix_outdir:
         # Aishell1 Mix2/3 datasets
         if n_spks == 2:
             assert (
-                "Aishell1Mix2" in datapath
+                "Aishell1Mix2" in aishell1mix_outdir
             ), "Inconsistent number of speakers and datapath"
             create_aishell1mix2_csv(
-                datapath, savepath, addnoise=aishell1mix_addnoise
+                aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
             )
         elif n_spks == 3:
             assert (
-                "Aishell1Mix3" in datapath
+                "Aishell1Mix3" in aishell1mix_outdir
             ), "Inconsistent number of speakers and datapath"
             create_aishell1mix3_csv(
-                datapath, savepath, addnoise=aishell1mix_addnoise
+                aishell1mix_outdir, savepath, addnoise=aishell1mix_addnoise
             )
         else:
             raise ValueError("Unsupported Number of Speakers")
@@ -215,3 +342,34 @@ def create_aishell1mix3_csv(
                     "noise_wav_opts": None,
                 }
                 writer.writerow(row)
+
+
+def extracttar(filename):
+    tar = tarfile.open(filename)
+    tar.extractall(path=os.path.dirname(filename))
+    tar.close()
+    os.remove(filename)
+
+
+def augment_noise(sound_paths, speed):
+    print(f"Change speed with factor {speed}")
+    tqdm.contrib.concurrent.process_map(
+        functools.partial(apply_fx, speed=speed), sound_paths, chunksize=10
+    )
+
+
+def apply_fx(sound_path, speed):
+    # Get the effect
+    fx = AudioEffectsChain().speed(speed)
+    s, rate = sf.read(sound_path)
+    # Get 1st channel
+    s = s[:, 0]
+    # Apply effect
+    s = fx(s)
+    # Write the file
+    sf.write(
+        f"""{sound_path.replace(
+        '.wav',f"sp{str(speed).replace('.','')}" +'.wav')}""",
+        s,
+        rate,
+    )
