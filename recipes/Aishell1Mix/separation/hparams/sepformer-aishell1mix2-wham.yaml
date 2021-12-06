@@ -17,7 +17,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER
 
 # this is the base folder for dynamic mixing
-base_folder_dm: /youraishell1path/aishell1/data_aishell/wav/train
+base_folder_dm: <data_folder>/data_aishell/wav/train
 
 experiment_name: sepformer-aishell1mix2
 output_folder: !ref results/<experiment_name>/<seed>

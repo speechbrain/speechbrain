@@ -73,6 +73,7 @@ if __name__ == "__main__":
             "fs": hparams["sample_rate"],
         },
     )
+    hparams["data_folder"] += f'/aishell1mix/Aishell1Mix{hparams["num_spks"]}'
 
     # Create dataset objects
     from recipes.LibriMix.separation.train import dataio_prep
