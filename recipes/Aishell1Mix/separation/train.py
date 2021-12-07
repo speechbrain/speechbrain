@@ -50,7 +50,12 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Check if wsj0_tr is set with dynamic mixing
+    # Check if storage folder for dataset exists
+    if not hparams["data_folder"]:
+        print("Please, specify a valid data_folder for dataset storage")
+        sys.exit(1)
+
+    # Check if aishell1_tr is set with dynamic mixing
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):

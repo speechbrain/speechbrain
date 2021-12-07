@@ -7,7 +7,6 @@ Author
 
 import os
 import csv
-import requests
 import tarfile
 import zipfile
 import glob
@@ -15,6 +14,7 @@ import tqdm.contrib.concurrent
 import soundfile as sf
 import functools
 from pysndfx import AudioEffectsChain
+from urllib.request import urlretrieve
 
 
 def prepare_aishell1mix(
@@ -43,18 +43,17 @@ def prepare_aishell1mix(
     aishell1mix_outdir = os.path.join(datapath, "aishell1mix")
 
     if not os.path.exists(aishell1_dir):
-        print("Download Aishell1 into %s" % datapath),
-        r = requests.get(
+
+        print("Download Aishell1 into %s" % datapath)
+        urlretrieve(
             "https://openslr.magicdatatech.com/resources/33/data_aishell.tgz",
-            allow_redirects=True,
+            os.path.join(datapath, "data_aishell.tgz"),
+            reporthook=reporthook,
         )
-        open(os.path.join(datapath, "data_aishell.tgz"), "wb").write(r.content)
-        r = requests.get(
+        urlretrieve(
             "https://openslr.magicdatatech.com/resources/33/resource_aishell.tgz",
-            allow_redirects=True,
-        )
-        open(os.path.join(datapath, "resource_aishell.tgz"), "wb").write(
-            r.content
+            os.path.join(datapath, "resource_aishell.tgz"),
+            reporthook=reporthook,
         )
         extracttar(os.path.join(datapath, "data_aishell.tgz"))
         files = glob.glob(os.path.join(aishell1_dir, "wav/*.gz"))
@@ -63,12 +62,13 @@ def prepare_aishell1mix(
         extracttar(os.path.join(datapath, "resource_aishell.tgz"))
 
     if not os.path.exists(wham_dir):
+
         print("Download Wham noise dataset into %s" % datapath)
-        r = requests.get(
+        urlretrieve(
             "https://storage.googleapis.com/whisper-public/wham_noise.zip",
-            allow_redirects=True,
+            os.path.join(datapath, "wham_noise.zip"),
+            reporthook=reporthook,
         )
-        open(os.path.join(datapath, "wham_noise.tgz"), "wb").write(r.content)
         file = zipfile.ZipFile(os.path.join(datapath, "wham_noise.zip"))
         file.extractall(path=datapath)
         os.remove(os.path.join(datapath, "wham_noise.zip"))
@@ -372,4 +372,11 @@ def apply_fx(sound_path, speed):
         '.wav',f"sp{str(speed).replace('.','')}" +'.wav')}""",
         s,
         rate,
+    )
+
+
+def reporthook(blocknum, blocksize, totalsize):
+    print(
+        "\rdownloading: %5.1f%%" % (100.0 * blocknum * blocksize / totalsize),
+        end="",
     )
