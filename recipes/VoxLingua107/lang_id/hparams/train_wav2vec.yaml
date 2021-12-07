@@ -1,0 +1,153 @@
+################################
+# Model: language identification with Wav2Vec2
+# Authors:
+#   * Tanel Alumäe, 2021
+#   * Kunnar Kukk, 2021
+# ################################
+
+# Basic parameters
+seed: 2200
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/wav2vec/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+data_folder: ./
+
+shards_url: /data/voxlingua107_shards
+train_meta: !ref <shards_url>/train/meta.json
+val_meta: !ref <shards_url>/dev/meta.json
+train_shards: !ref <shards_url>/train/shard-{000000..000507}.tar
+val_shards: !ref <shards_url>/dev/shard-000000.tar
+
+# Set to directory on a large disk if you are training on Webdataset shards hosted on the web
+shard_cache_dir:
+
+ckpt_interval_minutes: 1
+
+# Training parameters
+number_of_epochs: 20
+step_size: 65000
+sample_rate: 16000
+sentence_len: 3 # seconds
+shuffle: False
+random_chunk: True
+
+# Number of languages
+out_n_neurons: 107
+
+train_dataloader_options:
+    num_workers: 4
+    batch_size: 128
+
+val_dataloader_options:
+    num_workers: 1
+    batch_size: 32
+
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    input_shape: [null, null, 2048]
+    activation: !name:torch.nn.LeakyReLU
+    lin_blocks: 1
+    lin_neurons: 512
+    out_neurons: !ref <out_n_neurons>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [90, 100, 110]
+
+
+add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 0.5
+    noise_prob: 0.8
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+# Definition of the augmentation pipeline.
+# If concat_augment = False, the augmentation techniques are applied
+# in sequence. If concat_augment = True, all the augmented signals
+# # are concatenated in a single big batch.
+augment_pipeline: [
+    !ref <augment_speed>,
+    !ref <add_rev_noise>
+]
+
+concat_augment: False
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+compute_error: !name:speechbrain.nnet.losses.classification_error
+
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+# URL for the wav2vec2 model.
+wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
+
+# Model parameters
+freeze_wav2vec: False
+lr_wav2vec: 0.00001
+lr: 0.001
+lr_final: 0.0001
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    augment_speed: !ref <augment_speed>
+    add_rev_noise: !ref <add_rev_noise>
+    classifier: !ref <classifier>
+    mean_var_norm: !ref <mean_var_norm>
+    attentive: !ref <attentive>
+
+attentive: !new:speechbrain.lobes.models.ECAPA_TDNN.AttentiveStatisticsPooling
+    channels: 1024
+    attention_channels: 64
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_wav2vec>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.9
+   patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        classifier: !ref <classifier>
+        counter: !ref <epoch_counter>
+        model: !ref <model>
+        wav2vec2: !ref <wav2vec2>
+        scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+
+wav2vec_opt_class: !name:torch.optim.Adam
+   lr: !ref <lr_wav2vec>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <attentive>, !ref <classifier>]
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
