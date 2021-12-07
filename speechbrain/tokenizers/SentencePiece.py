@@ -75,7 +75,7 @@ class SentencePiece:
     annotation_format : str
         The format of the annotation file. JSON or csv are the formats supported.
     add_dummy_prefix : bool
-        If True the tokenizer adds dummy whitespace at the beginning of text. (default: False)
+        If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
     Example
     -------
     >>> import torch
@@ -121,7 +121,7 @@ class SentencePiece:
         num_sequences=None,
         annotation_list_to_check=None,
         annotation_format="csv",
-        add_dummy_prefix=False,
+        add_dummy_prefix=True,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
