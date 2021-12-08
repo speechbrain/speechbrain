@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
+import numpy as np
 
 
 from .Conformer import ConformerEncoder
@@ -418,7 +419,8 @@ class TransformerEncoder(nn.Module):
         activation=nn.ReLU,
         normalize_before=False,
         causal=False,
-        attention_type="regularMHA",
+        layerdrop_prob=0.0,
+        attention_type="regularMHA"
     ):
         super().__init__()
 
@@ -440,6 +442,8 @@ class TransformerEncoder(nn.Module):
             ]
         )
         self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.layerdrop_prob = layerdrop_prob
+        self.rng = np.random.default_rng(0)  # for DDP so same layer dropped
 
     def forward(
         self,
@@ -447,6 +451,7 @@ class TransformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
+        output_hidden_states: bool = False,
     ):
         """
         Arguments
@@ -459,18 +464,30 @@ class TransformerEncoder(nn.Module):
             The mask for the src keys per batch (optional).
         """
         output = src
+        if self.layerdrop_prob > 0.:
+            keep_probs = self.rng.random(len(self.layers))
+        else:
+            keep_probs = None
         attention_lst = []
-        for enc_layer in self.layers:
-            output, attention = enc_layer(
-                output,
-                src_mask=src_mask,
-                src_key_padding_mask=src_key_padding_mask,
-                pos_embs=pos_embs,
-            )
-            attention_lst.append(attention)
+        if output_hidden_states:
+            hidden_states = {}
+        for i, enc_layer in enumerate(self.layers):
+            if not self.training or self.layerdrop_prob == 0. or keep_probs[i] > self.layerdrop_prob:
+                output, attention = enc_layer(
+                    output,
+                    src_mask=src_mask,
+                    src_key_padding_mask=src_key_padding_mask,
+                    pos_embs=pos_embs,
+                )
+                if output_hidden_states:
+                    hidden_states[i] = enc_layer
+                attention_lst.append(attention)
         output = self.norm(output)
 
-        return output, attention_lst
+        if not output_hidden_states:
+            return output, attention_lst
+        else:
+            return output, attention_lst, hidden_states
 
 
 class TransformerDecoderLayer(nn.Module):

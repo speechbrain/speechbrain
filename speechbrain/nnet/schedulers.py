@@ -899,12 +899,47 @@ class InverseSquareRootScheduler:
     def save(self, path):
         """Saves the current metrics on the specified path."""
         data = {"n_steps": self.n_steps}
+
+
+class WarmCoolDecayLRSchedule:
+    """Warms up, very slowly decays and cools down LR at the end of training.
+
+    Based on: # https://twitter.com/giffmana/status/1489340465904242694?s=20&t=qDOdeMB30Dn16n1fXZbPXg
+    """
+    def __init__(self, lr, warmup, cooldown, total_steps, decay_per_100k=0.75):
+        super(WarmCoolDecayLRSchedule, self).__init__()
+        self.base_lr = lr
+        self.warmup = warmup
+        self.cooldown = cooldown
+        self.total_steps = total_steps
+        self.power = math.log(decay_per_100k) / 100_000
+
+    def __call__(self, opt, num_updates):
+        if num_updates < self.warmup:  # warmup
+            lr = self.base_lr * num_updates / self.warmup
+        elif num_updates > self.total_steps - self.cooldown:  # cooldown
+            base_lr = self.base_lr * math.exp(self.power * (self.total_steps - self.cooldown))
+            decrease = base_lr / self.cooldown
+            n = num_updates - (self.total_steps - self.cooldown)
+            lr = base_lr - decrease * n
+        else:  # slow decay
+            lr = self.base_lr * math.exp(self.power * (num_updates - self.warmup))
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"base_lr": self.base_lr, "warmup": self.warmup, "power": self.power, "cooldown": self.cooldown,
+            "total_steps": self.total_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
-        del end_of_epoch  # Unused in this class
+        del end_of_epoch
         del device
         data = torch.load(path)
-        self.n_steps = data["n_steps"]
+        self.base_lr = data["base_lr"]
+        self.warmup = data["warmup"]
+        self.power = data["power"]
+        self.cooldown = data["cooldown"]
+        self.total_steps = data["total_steps"]

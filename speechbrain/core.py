@@ -269,6 +269,12 @@ def parse_arguments(arg_list=None):
         type=int,
         help="Number of optimizer steps to run. If not passed, all epochs are run.",
     )
+    parser.add_argument(
+        "--train_time_hours",
+        type=float,
+        default=0.,
+        help="Maximum number of hours to train."
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -455,6 +461,7 @@ class Brain:
             "ckpt_interval_minutes": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
+            "train_time_hours": 0.0,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -1284,6 +1291,26 @@ class Brain:
             )
         self.step = 0
         return avg_test_loss
+
+    @contextmanager
+    def no_sync(self, use=True):
+        """Copies internal pytorch implementation.
+        """
+        if use:
+            old_values_list = []
+            for model in self.modules.values():
+                # if not using DDP
+                if not hasattr(model, 'require_backward_grad_sync'):
+                    break
+                old_values_list.append(model.require_backward_grad_sync)
+                model.require_backward_grad_sync = False
+            yield
+            for model, old_value in zip(self.modules.values(), old_values_list):
+                if not hasattr(model, 'require_backward_grad_sync'):
+                    break
+                model.require_backward_grad_sync = old_value
+        else:
+            yield
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.

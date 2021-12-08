@@ -11,6 +11,7 @@ Authors:
 """
 import torch
 import logging
+import random
 from operator import itemgetter
 from torch.utils.data import (
     RandomSampler,
@@ -533,7 +534,7 @@ class DynamicBatchSampler(Sampler):
         if self._batch_ordering == "random":
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
-            g.manual_seed(self._seed + self._epoch)
+            g.manual_seed(self._seed + self._epoch + random.randint(0, 1000000))
             sampler = torch.randperm(
                 len(self._batches), generator=g
             ).tolist()  # type: ignore
@@ -561,7 +562,7 @@ class DynamicBatchSampler(Sampler):
         if self._shuffle_ex:
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
-            g.manual_seed(self._seed + self._epoch)
+            g.manual_seed(self._seed + self._epoch + random.randint(0, 1000000))
             sampler = torch.randperm(len(self._dataset), generator=g).tolist()  # type: ignore
         else:
             # take examples as they are: e.g. they have been sorted
