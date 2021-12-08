@@ -46,12 +46,12 @@ def prepare_aishell1mix(
 
         print("Download Aishell1 into %s" % datapath)
         urlretrieve(
-            "https://openslr.magicdatatech.com/resources/33/data_aishell.tgz",
+            "https://us.openslr.org/resources/33/data_aishell.tgz",
             os.path.join(datapath, "data_aishell.tgz"),
             reporthook=reporthook,
         )
         urlretrieve(
-            "https://openslr.magicdatatech.com/resources/33/resource_aishell.tgz",
+            "https://us.openslr.org/resources/33/resource_aishell.tgz",
             os.path.join(datapath, "resource_aishell.tgz"),
             reporthook=reporthook,
         )
