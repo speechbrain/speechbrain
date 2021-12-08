@@ -32,6 +32,9 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import logging
+from speechbrain.processing.features import spectral_magnitude
+from speechbrain.utils.metric_stats import MetricStats
+from pesq import pesq
 
 
 # Define training procedure
@@ -101,36 +104,54 @@ class Separation(sb.Brain):
         # torchaudio.save(
         #     'targets.wav', targets.squeeze(-1).data.cpu(), self.hparams.sample_rate
         # )
-        # import pdb; pdb.set_trace()
 
         # Separation
-        mix_w = self.hparams.Encoder(mix)
-        est_mask = self.hparams.MaskNet(mix_w)
-        mix_w = torch.stack([mix_w] * self.hparams.num_spks)
-        sep_h = mix_w * est_mask
+        if self.use_freq_domain:
+            mix_w = self.compute_feats(mix)
+            est_mask = self.modules.masknet(mix_w)
 
-        # Decoding
-        est_source = torch.cat(
-            [
-                self.hparams.Decoder(sep_h[i]).unsqueeze(-1)
-                for i in range(self.hparams.num_spks)
-            ],
-            dim=-1,
-        )
+            sep_h = mix_w * est_mask
+            est_source = self.hparams.resynth(torch.expm1(sep_h), mix)
+        else:
+            mix_w = self.hparams.Encoder(mix)
+            est_mask = self.modules.masknet(mix_w)
+
+            mix_w = torch.stack([mix_w] * self.hparams.num_spks)
+            sep_h = mix_w * est_mask
+            est_source = torch.cat(
+                [
+                    self.hparams.Decoder(sep_h[i]).unsqueeze(-1)
+                    for i in range(self.hparams.num_spks)
+                ],
+                dim=-1,
+            )
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mix.size(1)
         T_est = est_source.size(1)
         if T_origin > T_est:
-            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
+            est_source = F.pad(est_source, (0, T_origin - T_est))
         else:
-            est_source = est_source[:, :T_origin, :]
+            est_source = est_source[:, :T_origin]
 
-        return est_source, targets
+        return [est_source, sep_h], targets.squeeze(-1)
+
+    def compute_feats(self, wavs):
+        """Feature computation pipeline"""
+        feats = self.hparams.Encoder(wavs)
+        feats = spectral_magnitude(feats, power=0.5)
+        feats = torch.log1p(feats)
+        return feats
 
     def compute_objectives(self, predictions, targets):
         """Computes the si-snr loss"""
-        return self.hparams.loss(targets, predictions)
+        predicted_wavs, predicted_specs = predictions
+
+        if self.use_freq_domain:
+            target_specs = self.compute_feats(targets)
+            return self.hparams.loss(target_specs, predicted_specs)
+        else:
+            return self.hparams.loss(targets, predicted_wavs)
 
     def fit_batch(self, batch):
         """Trains one batch"""
@@ -219,23 +240,55 @@ class Separation(sb.Brain):
             predictions, targets = self.compute_forward(mixture, targets, stage)
             loss = self.compute_objectives(predictions, targets)
 
+        if stage != sb.Stage.TRAIN:
+            self.pesq_metric.append(
+                ids=batch.id, predict=predictions[0].cpu(), target=targets.cpu()
+            )
+
         # Manage audio file saving
         if stage == sb.Stage.TEST and self.hparams.save_audio:
             if hasattr(self.hparams, "n_audio_to_save"):
                 if self.hparams.n_audio_to_save > 0:
-                    self.save_audio(snt_id[0], mixture, targets, predictions)
+                    self.save_audio(snt_id[0], mixture, targets, predictions[0])
                     self.hparams.n_audio_to_save += -1
             else:
-                self.save_audio(snt_id[0], mixture, targets, predictions)
+                self.save_audio(snt_id[0], mixture, targets, predictions[0])
 
         return loss.detach()
+
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of each epoch"""
+        if stage != sb.Stage.TRAIN:
+            # Define function taking (prediction, target) for parallel eval
+            def pesq_eval(pred_wav, target_wav):
+                """Computes the PESQ evaluation metric"""
+                psq_mode = "wb" if self.hparams.sample_rate == 16000 else "nb"
+                try:
+                    return pesq(
+                        fs=self.hparams.sample_rate,
+                        ref=target_wav.numpy(),
+                        deg=pred_wav.numpy(),
+                        mode=psq_mode,
+                    )
+                except Exception:
+                    print("pesq encountered an error for this data item")
+                    return 0
+
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, n_jobs=1, batch_eval=False
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         # Compute/store important stats
-        stage_stats = {"si-snr": stage_loss}
+        stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
+        else:
+            stats = {
+                "loss": stage_loss,
+                "pesq": self.pesq_metric.summarize("average"),
+            }
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -255,23 +308,21 @@ class Separation(sb.Brain):
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": current_lr},
                 train_stats=self.train_stats,
-                valid_stats=stage_stats,
+                valid_stats=stats,
             )
             if (
                 hasattr(self.hparams, "save_all_checkpoints")
                 and self.hparams.save_all_checkpoints
             ):
-                self.checkpointer.save_checkpoint(
-                    meta={"si-snr": stage_stats["si-snr"]}
-                )
+                self.checkpointer.save_checkpoint(meta={"pesq": stats["pesq"]})
             else:
                 self.checkpointer.save_and_keep_only(
-                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                    meta={"pesq": stats["pesq"]}, max_keys=["pesq"],
                 )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stage_stats,
+                test_stats=stats,
             )
 
     def add_speed_perturb(self, targets, targ_lens):
@@ -354,7 +405,6 @@ class Separation(sb.Brain):
 
         # This package is required for SDR computation
         from mir_eval.separation import bss_eval_sources
-        from pesq import pesq
 
         # Create folders where to store audio
         save_file = os.path.join(self.hparams.output_folder, "test_results.csv")
@@ -400,7 +450,7 @@ class Separation(sb.Brain):
                     )
                     mixture_signal = mixture_signal.to(targets.device)
                     sisnr_baseline = self.compute_objectives(
-                        mixture_signal, targets
+                        mixture_signal.squeeze(-1), targets
                     )
                     sisnr_i = sisnr - sisnr_baseline
 
@@ -716,6 +766,10 @@ if __name__ == "__main__":
         for module in separator.modules.values():
             separator.reset_layer_recursively(module)
 
+    # determine if frequency domain enhancement or not
+    use_freq_domain = hparams.get("use_freq_domain", False)
+    separator.use_freq_domain = use_freq_domain
+
     if not hparams["test_only"]:
         # Training
         separator.fit(
@@ -723,9 +777,9 @@ if __name__ == "__main__":
             train_data,
             valid_data,
             train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
+            valid_loader_kwargs=hparams["dataloader_opts_valid"],
         )
 
     # Eval
-    separator.evaluate(test_data, min_key="si-snr")
+    separator.evaluate(test_data, max_key="pesq")
     separator.save_results(test_data)
