@@ -190,7 +190,7 @@ class SubsequenceExtractor:
             has_base = True
 
         p_seq_edge = p_seq.size(1)
-        phns_edge = phns.size(1)
+        phns_edge = (phns.size(1) * phn_lens).long().unsqueeze(-1)
 
         # Compute subsequence lengths and the longest length
         subsequence_lengths = subsequence_phn_end - subsequence_phn_start
@@ -217,11 +217,13 @@ class SubsequenceExtractor:
         # Count the words in predictions
         target_word_indexes = self._get_target_word_indexes(
             phns_base, range_phns_base, subsequence_phn_start_unsq,
-            self.word_separator_base
+            self.word_separator_base,
+            phn_lens=phn_base_lens
         )
         if has_base:
             # Needed if tokenization or any other transformation was used
-            phns_subsequence = self._get_phns_subsequence(phns, target_word_indexes, longest_subsequence, phns_edge)
+            phns_subsequence, subsequence_lengths = self._get_phns_subsequence(
+                phns, target_word_indexes, longest_subsequence, phns_edge)
         else:
             # If phns and phns_base are the same, there is no need to re-detect word boundaries
             match = (range_phns_base >= subsequence_phn_start_unsq) & (
@@ -285,7 +287,8 @@ class SubsequenceExtractor:
         phns_subsequence[
             phns_subsequence_range >= (word_end_unsq - word_start_unsq)
         ] = 0.0
-        return phns_subsequence
+        subsequence_lengths = torch.minimum(word_end - word_start, torch.tensor(phns_subsequence.size(1)))
+        return phns_subsequence, subsequence_lengths
 
 
     def _get_p_seq_subsequence(self, p_seq, target_word_indexes, longest_subsequence, edge):
@@ -321,8 +324,13 @@ class SubsequenceExtractor:
         return p_seq_subsequence
 
 
-    def _get_target_word_indexes(self, phns, range_phns, start, word_separator):
-        word_boundaries = (range_phns < start) & (phns == word_separator)
+    def _get_target_word_indexes(self, phns, range_phns, start, word_separator, phn_lens=None):
+        end_of_sequence = (
+            range_phns 
+            == 
+            ((phn_lens).unsqueeze(-1) * phns.size(1)).long()) if phn_lens is not None else False
+        word_boundaries = (range_phns < start) & (
+            (phns == word_separator) | end_of_sequence)
         word_indexes =  word_boundaries.sum(dim=-1)
         return word_indexes
 
@@ -331,16 +339,18 @@ class SubsequenceExtractor:
             word_separator = self.word_separator
         # Find all spaces in the tensor
         tokens = seq.argmax(-1) if seq.dim() == 3 else seq
-        word_boundaries = tokens == word_separator
-
-        # Find which word a given position in the tensor belongs in
-        words = word_boundaries.cumsum(dim=-1)
 
         # Compute an auxiliary range tensor to help determine
         # word boundaries
         words_range = torch.arange(
-            words.size(-1), device=words.device
-        ).expand_as(words)
+            tokens.size(-1), device=tokens.device
+        ).expand_as(tokens)
+        
+        word_boundaries = (tokens == word_separator) | (words_range == edge)
+
+        # Find which word a given position in the tensor belongs in
+        words = word_boundaries.cumsum(dim=-1)
+
 
         index_match = words == word_indexes.unsqueeze(-1)
 
@@ -357,7 +367,7 @@ class SubsequenceExtractor:
         positions = aggregation(positions, dim=-1).values
         return torch.where(positions == 0, 0, positions + 1)
 
-    def extract_hyps(self, ref_seq, hyps, subsequence_phn_start):
+    def extract_hyps(self, ref_seq, hyps, subsequence_phn_start, use_base=False):
         """
         Extracts a subsequnce from hypotheses (e.g. the result of a beam
         search) based on a refernece sequence, which can be either a sequence of phonemes (the target during training)
@@ -370,13 +380,15 @@ class SubsequenceExtractor:
             integer indices (usually of phonemes)
         subsequence_phn_start: torch.tensor
             the index of the beginning of the subsequence
+        use_base: bool
+            whether to use the raw (token) space for word separators
         """
         range_phns = torch.arange(
             ref_seq.size(1), device=ref_seq.device
         ).expand_as(ref_seq)
         target_word_indexes = self._get_target_word_indexes(
             ref_seq, range_phns, subsequence_phn_start.unsqueeze(-1),
-            self.word_separator_base
+            self.word_separator_base if use_base else self.word_separator
         )
         separator_indexes = [
             [-1]
@@ -388,7 +400,7 @@ class SubsequenceExtractor:
             + [None]
             for item_hyps in hyps
         ]
-        return [
+        result = [
             self._extract_hyp_word(
                 item_hyps, item_separtaor_indexes, word_index
             )
@@ -396,6 +408,7 @@ class SubsequenceExtractor:
                 hyps, separator_indexes, target_word_indexes
             )
         ]
+        return result
 
     def _extract_hyp_word(self, hyps, separator_indexes, word_index):
         if word_index < len(separator_indexes):

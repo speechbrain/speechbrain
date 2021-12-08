@@ -23,6 +23,7 @@ Authors
 from torch import optim
 from speechbrain.dataio.dataset import FilteredSortedDynamicItemDataset
 from speechbrain.dataio.sampler import BalancingDataSampler
+from speechbrain.utils.data_utils import undo_padding
 import sys
 
 import speechbrain as sb
@@ -218,12 +219,13 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             subsequence_phn_start=batch.homograph_phn_start,
             subsequence_phn_end=batch.homograph_phn_end,
             phns_base=phns_base,
-            phn_base_lens=phn_base_lens
+            phn_base_lens=phn_base_lens,
         )
         hyps_homograph = self.hparams.homograph_extractor.extract_hyps(
             phns_base if phns_base is not None else phns,
             predictions.hyps,
-            batch.homograph_phn_start
+            batch.homograph_phn_start,
+            use_base=True
         )
         self.seq_metrics_homograph.append(
             ids, p_seq_homograph, phns_homograph, phn_lens_homograph
@@ -236,10 +238,9 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             phn_lens_homograph,
             self.hparams.out_phoneme_decoder,
         )
-
         prediction_labels = self._phonemes_to_label(hyps_homograph)
-        target_labels = self._phonemes_to_label(phns_homograph)
-
+        phns_homograph_list = undo_padding(phns_homograph, phn_lens_homograph)
+        target_labels = self._phonemes_to_label(phns_homograph_list)
         self.classification_metrics_homograph.append(
             ids,
             predictions=prediction_labels,
@@ -247,8 +248,15 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             categories=batch.homograph_wordid,
         )
 
-    def _phonemes_to_label(self, phn):
-        phn_decoded = self.hparams.out_phoneme_decoder(phn)
+    def _tokens_to_list(self, tokens, token_lens):
+        max_len = tokens.size(1)
+        return [
+            item[:int(item_len * max_len)]
+            for item, item_len in zip(tokens, token_lens)
+        ]        
+
+    def _phonemes_to_label(self, phns):
+        phn_decoded = self.hparams.out_phoneme_decoder(phns)
         return [" ".join(self._remove_special(item)) for item in phn_decoded]
 
     def _remove_special(self, phn):
@@ -599,7 +607,6 @@ def dataio_prep(hparams, train_step=None):
         == TrainMode.HOMOGRAPH)
 
     train_data = sort_data(train_data, hparams, train_step)
-
     valid_data = data_load(
         train_step["valid_data"], replacements={"data_root": data_folder},
     )
