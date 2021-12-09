@@ -27,6 +27,8 @@ import numpy as np
 import kaldi_io
 from hyperpyyaml import load_hyperpyyaml
 
+from speechbrain.utils.distributed import run_on_main
+
 
 def write_vecs_to_kaldi(vec, utt, ark_reader):
     """write vectors to kaldi-format archive reader, for further kaldi processing
@@ -118,19 +120,10 @@ def compute_embeddings(params, wav_scp, outdir, ark, trimmed=False, chunk_length
 
 if __name__ == "__main__":
 
-    # load directories
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--datadir", type=str, required=True)
-    parser.add_argument("--outdir", type=str, required=True)
-    parser.add_argument("--trimmed", type=bool, required=True)
-    parser.add_argument("--chunk-length", type=int, required=True)
-
-
-    args = parser.parse_args()
-    datadir = args.datadir
-    outdir = args.outdir
-    trimmed = args.trimmed
-    chunk_length = args.chunk_length
+    datadir = sys.argv[1]
+    outdir = sys.argv[2]
+    trimmed = bool(sys.argv[3]) # 0 means false
+    chunk_length = int(sys.argv[4])
 
     # Logger setup
     logger = logging.getLogger(__name__)
@@ -138,9 +131,16 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[5:])
+    print(params_file)
     with open(params_file) as fin:
-        params = load_hyperpyyaml(fin, overrides)
+        params = load_hyperpyyaml(fin, overrides=None)
+    
+    # Load model
+    run_on_main(params["pretrainer"].collect_files)
+    params["pretrainer"].load_collected(params["device"])
+    params["embedding_model"].eval()
+    params["embedding_model"].to(params["device"])
 
     # perform embedding extraction
     os.makedirs(outdir + "/npys", exist_ok=True)
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     print("begin embedding extraction......")
     with open(ark_file, "wb") as ark:
-        compute_embeddings(params, datadir + "/wav.scp", outdir, ark, trimmed=trimmed, chunk_length=chunk_length)
+        compute_embeddings(params, datadir + "/wav.scp", outdir, ark, trimmed=False, chunk_length=0)
 
     copied_ark_file = outdir + "/xvector.ark"
     copied_scp_file = outdir + "/xvector.scp"
