@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Recipe for extract speaker embeddings from a kaldi-formed directory with:
 1. wav.scp, in terms of [utt, wav_path] for each line
 2. utt2spk
@@ -19,6 +18,8 @@ import speechbrain as sb
 import numpy as np
 import kaldi_io
 from hyperpyyaml import load_hyperpyyaml
+
+from speechbrain.utils.distributed import run_on_main
 
 
 def write_vecs_to_kaldi(vec, utt, ark_reader):
@@ -60,8 +61,8 @@ def compute_embeddings_single(wavs, wav_lens, params):
     wav_lens = wav_lens.to(params["device"])
     with torch.no_grad():
         feats = params["compute_features"](wavs)
-        feats = params["mean_var_norm"](feats, wav_lens)
-        embeddings = params["embedding_model"](feats, wav_lens)
+        feats = params["mean_var_norm"](feats, wav_lens).to(params["device"])
+        embeddings = params["embedding_model"](feats)
         embeddings = params["mean_var_norm_emb"](
             embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
         )
@@ -74,25 +75,28 @@ def compute_embeddings(params, wav_scp, outdir, ark):
             for line in wavscp:
                 utt, wav_path = line.split()
                 out_file = "{}/npys/{}.npy".format(outdir, utt)
-                wav, _ = torchaudio.load(wav_path).transpose(0, 1).squeeze(1)
-                embedding = compute_embeddings_single(wav, wav.shape[0], params)
+                wav, _ = torchaudio.load(wav_path)
+                data = wav.transpose(0, 1).squeeze(1).unsqueeze(0)
+                embedding = compute_embeddings_single(data, torch.Tensor([data.shape[0]]), params).squeeze()
 
                 out_embedding = embedding.detach().cpu().numpy()
                 np.save(out_file, out_embedding)
                 write_vecs_to_kaldi(out_embedding, utt, ark)
-                del out_embedding, wav
+                del out_embedding, wav, data
 
 
 if __name__ == "__main__":
 
     # load directories
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--datadir", type=str, required=True)
-    parser.add_argument("--outdir", type=str, required=True)
+    #parser = argparse.ArgumentParser()
+    #parser.add_argument("--datadir", type=str, required=True)
+    #parser.add_argument("--outdir", type=str, required=True)
 
-    args = parser.parse_args()
-    datadir = args.datadir
-    outdir = args.outdir
+    #args = parser.parse_args()
+    #datadir = args.datadir
+    #outdir = args.outdir
+    datadir = sys.argv[1]
+    outdir = sys.argv[2]
 
     # Logger setup
     logger = logging.getLogger(__name__)
@@ -100,9 +104,16 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[3:])
+    print(params_file)
     with open(params_file) as fin:
-        params = load_hyperpyyaml(fin, overrides)
+        params = load_hyperpyyaml(fin, overrides=None)
+    
+    # Load model
+    run_on_main(params["pretrainer"].collect_files)
+    params["pretrainer"].load_collected(params["device"])
+    params["embedding_model"].eval()
+    params["embedding_model"].to(params["device"])
 
     # perform embedding extraction
     os.makedirs(outdir + "/npys", exist_ok=True)
