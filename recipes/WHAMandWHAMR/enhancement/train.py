@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech enhancement system on WHAM! and WHAMR!
+"""Recipe for training a neural speech separation system on WHAM! and WHAMR!
 datasets. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
@@ -97,6 +97,14 @@ class Separation(sb.Brain):
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
 
+        # torchaudio.save(
+        #     'mix.wav', mix.data.cpu(), self.hparams.sample_rate
+        # )
+
+        # torchaudio.save(
+        #     'targets.wav', targets.squeeze(-1).data.cpu(), self.hparams.sample_rate
+        # )
+
         # Separation
         if self.use_freq_domain:
             mix_w = self.compute_feats(mix)
@@ -105,7 +113,6 @@ class Separation(sb.Brain):
             sep_h = mix_w * est_mask
             est_source = self.hparams.resynth(torch.expm1(sep_h), mix)
         else:
-            # time-domain processing
             mix_w = self.hparams.Encoder(mix)
             est_mask = self.modules.masknet(mix_w)
 
@@ -446,14 +453,14 @@ class Separation(sb.Brain):
                     )
                     mixture_signal = mixture_signal.to(targets.device)
                     sisnr_baseline = self.compute_objectives(
-                        mixture_signal.squeeze(-1), targets
+                        [mixture_signal.squeeze(-1), None], targets
                     )
                     sisnr_i = sisnr - sisnr_baseline
 
                     # Compute SDR
                     sdr, _, _, _ = bss_eval_sources(
                         targets[0].t().cpu().numpy(),
-                        predictions[0].t().detach().cpu().numpy(),
+                        predictions[0][0].t().detach().cpu().numpy(),
                     )
 
                     sdr_baseline, _, _, _ = bss_eval_sources(
@@ -470,7 +477,7 @@ class Separation(sb.Brain):
                     psq = pesq(
                         self.hparams.sample_rate,
                         targets.squeeze().cpu().numpy(),
-                        predictions.squeeze().cpu().numpy(),
+                        predictions[0].squeeze().cpu().numpy(),
                         mode=psq_mode,
                     )
 
