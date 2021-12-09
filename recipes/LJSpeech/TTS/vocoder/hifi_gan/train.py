@@ -169,20 +169,6 @@ class HifiGanBrain(sb.Brain):
         mel, sig = batch
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
 
-        # self.hparams.progress_sample_logger.remember(
-        #     raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
-        #         {
-        #             "input": self.get_spectrogram_sample(mel),
-        #             "target": sig,
-        #             "prediction": y_hat,
-        #             "scores_fake": scores_fake,
-        #             "feats_fake": feats_fake,
-        #             "scores_real": scores_real,
-        #             "feats_real": feats_real,
-        #         }
-        #     ),
-        # )
-
     def batch_to_device(self, batch):
         """
         Transfers the batch to the target device
@@ -279,13 +265,8 @@ class HifiGanBrain(sb.Brain):
                 if self.hparams.keep_checkpoint_interval is not None
                 else None,
             )
-            output_progress_sample = (
-                self.hparams.progress_samples
-                and epoch % self.hparams.progress_samples_interval == 0
-            )
-            if output_progress_sample:
-                self.run_inference_sample()
-                #self.hparams.progress_sample_logger.save(epoch)
+
+            self.run_inference_sample()
 
         # We also write statistics about test data to stdout and to the logfile.
         # if stage == sb.Stage.TEST:
@@ -302,13 +283,6 @@ class HifiGanBrain(sb.Brain):
             x, y = self.last_batch
             sig_out = self.modules.generator(x)
             spec_out = mel_spectogram(self.hparams, sig_out.squeeze(0).cpu())
-
-            # self.hparams.progress_sample_logger.remember(
-            #     target_mel=x[0],
-            #     inference_mel=spec_out[0],
-            #     audio_target=sig_out.squeeze(0),
-            #     audio_source=y.squeeze(0)
-            # )
 
             self.hparams.train_logger.log_audio("Valid/audio_target", y.squeeze(0), self.hparams.sample_rate)
             self.hparams.train_logger.log_audio("Valid/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate)
@@ -391,8 +365,6 @@ def mel_spectogram(hparams, audio):
         f_max=hparams.mel_fmax,
         power=hparams.power,
         normalized=hparams.mel_normalized,
-        #norm=hparams.norm,
-        #mel_scale=hparams.mel_scale,
     )
 
     mel = audio_to_mel(audio)
@@ -427,8 +399,6 @@ def audio_pipeline(hparams, split):
         f_max=hparams["mel_fmax"],
         power=hparams["power"],
         normalized=hparams["mel_normalized"],
-        #norm=hparams["norm"],
-        #mel_scale=hparams["mel_scale"],
     )
 
     wav_folder = hparams.get("wav_folder")

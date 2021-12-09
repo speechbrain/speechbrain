@@ -34,6 +34,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
+from torchaudio import transforms
 
 LRELU_SLOPE = 0.1
 
@@ -41,6 +42,28 @@ LRELU_SLOPE = 0.1
 def get_padding(kernel_size, dilation=1):
     return int((kernel_size * dilation - dilation) / 2)
 
+def dynamic_range_compression(x, C=1, clip_val=1e-5):
+    return torch.log(torch.clamp(x, min=clip_val) * C)
+
+def mel_spectogram(mel_params, audio):
+    audio_to_mel = transforms.MelSpectrogram(
+        sample_rate=mel_params["sample_rate"],
+        hop_length=mel_params["hop_length"],
+        win_length=mel_params["win_length"],
+        n_fft=mel_params["n_fft"],
+        n_mels=mel_params["n_mel_channels"],
+        f_min=mel_params["mel_fmin"],
+        f_max=mel_params["mel_fmax"],
+        power=mel_params["power"],
+        normalized=mel_params["mel_normalized"],
+    ).to(audio.device)
+
+    mel = audio_to_mel(audio)
+
+    if mel_params["dynamic_range_compression"]:
+        mel = dynamic_range_compression(mel)
+
+    return mel
 
 ##################################
 # Generator 
@@ -568,17 +591,43 @@ class MultiScaleSTFTLoss(torch.nn.Module):
 class L1SpecLoss(nn.Module):
     """L1 Loss over Spectrograms as described in HiFiGAN paper https://arxiv.org/pdf/2010.05646.pdf"""
 
-    def __init__(self, n_fft, hop_length, win_length):
+    def __init__(self,
+        sample_rate=22050,
+        hop_length=256,
+        win_length=24,
+        n_mel_channels=80,
+        n_fft=1024,
+        n_stft=1024 // 2 + 1,
+        mel_fmin=0.0,
+        mel_fmax=8000.0,
+        mel_normalized=False,
+        power=1.5,
+        dynamic_range_compression=True
+        ):
         super().__init__()
-        self.n_fft = n_fft
-        self.hop_length = hop_length
-        self.win_length = win_length
+
+        self.mel_params = {
+            "sample_rate": sample_rate,
+            "hop_length": hop_length,
+            "win_length": win_length,
+            "n_mel_channels": n_mel_channels,
+            "n_fft": n_fft,
+            "n_stft": n_stft,
+            "mel_fmin": mel_fmin,
+            "mel_fmax": mel_fmax,
+            "mel_normalized": mel_normalized,
+            "power": power,
+            "dynamic_range_compression": dynamic_range_compression, 
+        }
 
     def forward(self, y_hat, y):
-        y_hat_M = stft(y_hat, self.n_fft, self.hop_length, self.win_length)
-        y_M = stft(y, self.n_fft, self.hop_length, self.win_length)
+
+        y_hat_M = mel_spectogram(self.mel_params, y_hat)
+        y_M = mel_spectogram(self.mel_params, y)
+        
         # magnitude loss
-        loss_mag = F.l1_loss(torch.log(y_M), torch.log(y_hat_M))
+        #loss_mag = F.l1_loss(torch.log(y_M), torch.log(y_hat_M))
+        loss_mag = F.l1_loss(y_M, y_hat_M)
         return loss_mag
 
 
