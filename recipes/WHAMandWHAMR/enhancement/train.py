@@ -129,6 +129,7 @@ class Separation(sb.Brain):
         # T changed after conv1d in encoder, fix it here
         T_origin = mix.size(1)
         T_est = est_source.size(1)
+        est_source = est_source.squeeze(-1)
         if T_origin > T_est:
             est_source = F.pad(est_source, (0, T_origin - T_est))
         else:
@@ -151,7 +152,9 @@ class Separation(sb.Brain):
             target_specs = self.compute_feats(targets)
             return self.hparams.loss(target_specs, predicted_specs)
         else:
-            return self.hparams.loss(targets, predicted_wavs)
+            return self.hparams.loss(
+                targets.unsqueeze(-1), predicted_wavs.unsqueeze(-1)
+            )
 
     def fit_batch(self, batch):
         """Trains one batch"""
@@ -520,27 +523,23 @@ class Separation(sb.Brain):
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
-        for ns in range(self.hparams.num_spks):
+        # Estimated source
+        signal = predictions[0, :]
+        signal = signal / signal.abs().max()
+        save_file = os.path.join(
+            save_path, "item{}_sourcehat.wav".format(snt_id)
+        )
+        torchaudio.save(
+            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
+        )
 
-            # Estimated source
-            signal = predictions[0, :, ns]
-            signal = signal / signal.abs().max()
-            save_file = os.path.join(
-                save_path, "item{}_source{}hat.wav".format(snt_id, ns + 1)
-            )
-            torchaudio.save(
-                save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-            )
-
-            # Original source
-            signal = targets[0, :, ns]
-            signal = signal / signal.abs().max()
-            save_file = os.path.join(
-                save_path, "item{}_source{}.wav".format(snt_id, ns + 1)
-            )
-            torchaudio.save(
-                save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
-            )
+        # Original source
+        signal = targets[0, :]
+        signal = signal / signal.abs().max()
+        save_file = os.path.join(save_path, "item{}_source.wav".format(snt_id))
+        torchaudio.save(
+            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
+        )
 
         # Mixture
         signal = mixture[0][0, :]

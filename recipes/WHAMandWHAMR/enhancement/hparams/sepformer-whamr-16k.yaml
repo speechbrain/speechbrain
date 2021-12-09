@@ -22,7 +22,7 @@ dereverberate: True
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
 # you need to convert the original wsj0 to 8k
-# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+# you can do this conversion with ../meta/preprocess_dynamic_mixing.py
 base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
 experiment_name: sepformer-whamr-enhancement-16k
@@ -99,6 +99,10 @@ kernel_stride: 8
 
 # Dataloader options
 dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: 3
+
+dataloader_opts_valid:
     batch_size: !ref <batch_size>
     num_workers: 3
 
