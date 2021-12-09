@@ -23,7 +23,7 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 * This recipe supports the noisy and reverberant [versions](http://wham.whisper.ai/) of WSJ0 - 2/3 Mix datasets. For WHAM!, simply use `--data_folder /yourpath/wham_original`, and for WHAMR! use `--data_folder /yourpath/whamr`. The script will automatically adjust itself to WHAM and WHAMR, but you must rename the top folder (the folder that contains the `wav8k` subfolder should be named respectively `wham_original` and `whamr`, as the script decides which dataset to use based on the `--data_folder` variable.
 
-* The recipe automatically creates a dataset of room impulse responses (RIRs) from the WHAMR! dataset to use for data augmentation. If you do not this folder for RIR, the `train.py` will automatically create a folder, you just need to specify the path with `--rir_path`. Otherwise you can manually create this dataset using the script in `../meta/create_whamr_rirs.py`.
+* The recipe automatically uses the dataset of room impulse responses (RIRs) from the WHAMR! dataset to use for data augmentation. If you do not specify the folder for RIR, the `train.py` will automatically create a folder, you just need to specify the path with `--rir_path`. Otherwise you can manually create this dataset using the script in `../meta/create_whamr_rirs.py`.
 
 
 # Dynamic Mixing:
@@ -52,12 +52,11 @@ It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (
 
 # Pretrained Models:
 Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through huggingface:
-* https://huggingface.co/speechbrain/sepformer-wham
-* https://huggingface.co/speechbrain/sepformer-whamr
+* https://huggingface.co/speechbrain/sepformer-wham-enhancement
+* https://huggingface.co/speechbrain/sepformer-wham-enhancement
 
 * Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
 
-You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-whamr).
 
 # Example calls for running the training scripts
 
@@ -87,5 +86,16 @@ Please, cite SpeechBrain if you use it for your research or business.
   archivePrefix={arXiv},
   primaryClass={eess.AS},
   note={arXiv:2106.04624}
+}
+```
+
+
+**Citing SepFormer**
+```bibtex
+@inproceedings{subakan2021attention,
+      title={Attention is All You Need in Speech Separation},
+      author={Cem Subakan and Mirco Ravanelli and Samuele Cornell and Mirko Bronzi and Jianyuan Zhong},
+      year={2021},
+      booktitle={ICASSP 2021}
 }
 ```
