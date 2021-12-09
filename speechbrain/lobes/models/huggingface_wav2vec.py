@@ -14,6 +14,7 @@ import os
 import torch
 import logging
 import pathlib
+import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
@@ -361,7 +362,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
 
         # !!! Put all mask_time_indices to 1 (behavior of 4.11). !!!
         if self.total_sampling:
-            mask_time_indices = torch.ones(batch_size, sequence_length)
+            mask_time_indices = np.ones(batch_size, sequence_length)
 
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
