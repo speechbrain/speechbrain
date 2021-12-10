@@ -213,11 +213,6 @@ def dataio_prepare(hparams):
         resampled = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"],
         )(sig)
-        if hparams["duplicate_wav"]:
-            if (resampled.shape[0] / 16000) < 3:
-                resampled = torch.cat([resampled] * 3, dim=-1)
-            elif (resampled.shape[0] / 16000) < 5:
-                resampled = torch.cat([resampled] * 2, dim=-1)
 
         return resampled
 

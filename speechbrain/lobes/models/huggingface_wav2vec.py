@@ -14,7 +14,6 @@ import os
 import torch
 import logging
 import pathlib
-import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
@@ -360,27 +359,19 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             mask_length=self.mask_length,
         )
 
-        # !!! Put all mask_time_indices to 1 (behavior of 4.11). !!!
-        if self.total_sampling:
-            negative_sample_indices = torch.tensor(
-                transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
-                    (batch_size, sequence_length),
-                    num_negatives=self.config.num_negatives,
-                    mask_time_indices=np.ones((batch_size, sequence_length)),
-                ),
-                device=wav.device,
-                dtype=torch.long,
-            )
-        else:
-            negative_sample_indices = torch.tensor(
-                transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
-                    (batch_size, sequence_length),
-                    num_negatives=self.config.num_negatives,
-                    mask_time_indices=mask_time_indices,
-                ),
-                device=wav.device,
-                dtype=torch.long,
-            )
+        # The number of negative must be < 50% of the number of masked indices
+        # this is critical for short sentences that may always selected all
+        # the masked indices as negatives (hence reducing variability)
+        print(mask_time_indices.shape)
+        negative_sample_indices = torch.tensor(
+            transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
+                (batch_size, sequence_length),
+                num_negatives=self.config.num_negatives,
+                mask_time_indices=mask_time_indices,
+            ),
+            device=wav.device,
+            dtype=torch.long,
+        )
 
         mask_time_indices = torch.tensor(
             mask_time_indices, device=wav.device, dtype=torch.long,
