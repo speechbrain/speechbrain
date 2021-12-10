@@ -14,6 +14,7 @@ import os
 import torch
 import logging
 import pathlib
+import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
@@ -362,7 +363,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         # The number of negative must be < 50% of the number of masked indices
         # this is critical for short sentences that may always selected all
         # the masked indices as negatives (hence reducing variability)
-        print(torch.sum(mask_time_indices, dim=-1))
+        print(np.sum(mask_time_indices, dim=-1))
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
                 (batch_size, sequence_length),
