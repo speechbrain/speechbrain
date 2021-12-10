@@ -367,7 +367,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
                 (batch_size, sequence_length),
-                num_negatives=self.config.num_negatives,
+                num_negatives=5,
                 mask_time_indices=mask_time_indices,
             ),
             device=wav.device,
