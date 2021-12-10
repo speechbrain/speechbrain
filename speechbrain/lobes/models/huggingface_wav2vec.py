@@ -313,12 +313,14 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         mask_prob=0.65,
         mask_length=10,
         normalize_wav=True,
+        negative_threshold=2,
     ):
         super().__init__()
 
         self.mask_prob = mask_prob
         self.mask_length = mask_length
         self.normalize_wav = normalize_wav
+        self.negative_threshold = negative_threshold
 
         # Download the config of the model from HuggingFace.
         self.config = Wav2Vec2Config.from_pretrained(
@@ -368,7 +370,9 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         # Hence, if the number of required samples is higher than half of the
         # total number of masked indices, we enforce it to become 50% of this
         # value.
-        max_number_negative = torch_mask_time_indices.sum(dim=-1).min() // 2
+        max_number_negative = (
+            torch_mask_time_indices.sum(dim=-1).min() // self.negative_threshold
+        )
         if self.config.num_negatives > max_number_negative:
             dynamic_num_negatives = max_number_negative
         else:
