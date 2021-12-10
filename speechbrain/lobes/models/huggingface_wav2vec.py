@@ -313,14 +313,12 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         mask_prob=0.65,
         mask_length=10,
         normalize_wav=True,
-        total_sampling=False,  # DEBUG
     ):
         super().__init__()
 
         self.mask_prob = mask_prob
         self.mask_length = mask_length
         self.normalize_wav = normalize_wav
-        self.total_sampling = total_sampling
 
         # Download the config of the model from HuggingFace.
         self.config = Wav2Vec2Config.from_pretrained(
