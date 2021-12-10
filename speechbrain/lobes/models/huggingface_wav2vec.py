@@ -377,7 +377,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         #    dynamic_num_negatives = max_number_negative
         # else:
         dynamic_num_negatives = self.config.num_negatives
-        print(dynamic_num_negatives)
+        # print(dynamic_num_negatives)
         # print(np.sum(mask_time_indices, axis=1))
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
@@ -388,6 +388,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             device=wav.device,
             dtype=torch.long,
         )
+        print(torch_mask_time_indices.shape)
         print(negative_sample_indices.shape)
 
         return (
