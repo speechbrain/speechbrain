@@ -392,7 +392,6 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         negative_sample_indices = torch.cat(
             [negative_sample_indices] * factor, dim=-1
         )
-        print(negative_sample_indices.shape)
 
         return (
             self.model(
