@@ -386,12 +386,12 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             device=wav.device,
             dtype=torch.long,
         )
-        print(negative_sample_indices.shape)
+
         return (
             self.model(
                 wav,
                 mask_time_indices=mask_time_indices,
                 sampled_negative_indices=negative_sample_indices,
             ),
-            mask_time_indices,
+            torch_mask_time_indices,
         )
