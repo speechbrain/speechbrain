@@ -373,7 +373,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             device=wav.device,
             dtype=torch.long,
         )
-        print(np.sum(negative_sample_indices, axis=1))
+        print(torch.sum(negative_sample_indices, dim=1))
         mask_time_indices = torch.tensor(
             mask_time_indices, device=wav.device, dtype=torch.long,
         )
