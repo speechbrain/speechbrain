@@ -77,7 +77,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2P
     save_path: !ref <save_folder>/wav2vec2_checkpoints
     mask_prob: !ref <mask_prob>
     mask_length: !ref <mask_length>
-    total_sampling: !ref <total_sampling>
 
 modules:
     wav2vec2: !ref <wav2vec2>
