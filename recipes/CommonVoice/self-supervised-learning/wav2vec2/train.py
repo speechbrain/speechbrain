@@ -213,6 +213,10 @@ def dataio_prepare(hparams):
         resampled = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"],
         )(sig)
+        if hparams["duplicate_wav"]:
+            resampled = torch.cat([resampled] * 3, dim=-1)
+
+        print(resampled.shape)
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
