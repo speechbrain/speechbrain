@@ -363,6 +363,9 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         # The number of negative must be < 50% of the number of masked indices
         # this is critical for short sentences that may always selected all
         # the masked indices as negatives (hence reducing variability)
+        mask_time_indices = torch.tensor(
+            mask_time_indices, device=wav.device, dtype=torch.long,
+        )
         print(np.sum(mask_time_indices, axis=1))
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
@@ -372,10 +375,6 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             ),
             device=wav.device,
             dtype=torch.long,
-        )
-        print(negative_sample_indices.shape)
-        mask_time_indices = torch.tensor(
-            mask_time_indices, device=wav.device, dtype=torch.long,
         )
 
         return (
