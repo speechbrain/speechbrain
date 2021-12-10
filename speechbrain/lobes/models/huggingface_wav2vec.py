@@ -14,8 +14,6 @@ import os
 import torch
 import logging
 import pathlib
-
-# import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
@@ -351,33 +349,44 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         if self.normalize_wav:
             wav = F.layer_norm(wav, wav.shape)
 
-        # We must compute the masking before forward. This is used by the loss.
         sequence_length = self.model._get_feat_extract_output_lengths(
             raw_sequence_length
         )
+
+        # 1. Compute the indices that will be masked
         mask_time_indices = _compute_mask_indices(
             (batch_size, sequence_length),
             mask_prob=self.mask_prob,
             mask_length=self.mask_length,
         )
+        torch_mask_time_indices = torch.tensor(
+            mask_time_indices, device=wav.device, dtype=torch.long,
+        )
 
+        # 2. Sample the negative samples from the masked indices.
         # The number of negative must be < 50% of the number of masked indices
         # this is critical for short sentences that may always selected all
         # the masked indices as negatives (hence reducing variability)
-        mask_time_indices = torch.tensor(
-            mask_time_indices, device=wav.device, dtype=torch.long,
-        )
+        # Hence, if the number of required samples is higher than half of the
+        # total number of masked indices, we enforce it to become 50% of this
+        # value.
+        max_number_negative = torch_mask_time_indices.sum(dim=-1).min() // 2
+        if self.config.num_negatives > max_number_negative:
+            dynamic_num_negatives = max_number_negative
+        else:
+            dynamic_num_negatives = self.config.num_negatives
+
         # print(np.sum(mask_time_indices, axis=1))
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
                 (batch_size, sequence_length),
-                num_negatives=5,
+                num_negatives=dynamic_num_negatives,
                 mask_time_indices=mask_time_indices,
             ),
             device=wav.device,
             dtype=torch.long,
         )
-
+        print(negative_sample_indices.shape)
         return (
             self.model(
                 wav,
