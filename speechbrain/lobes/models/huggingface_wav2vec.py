@@ -389,6 +389,13 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             dtype=torch.long,
         )
 
+        negative_sample_indices = torch.cat(
+            [negative_sample_indices]
+            * (self.config.num_negatives % dynamic_num_negatives),
+            dim=-1,
+        )
+        print(negative_sample_indices.shape)
+
         return (
             self.model(
                 wav,
