@@ -376,7 +376,11 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         if self.config.num_negatives > max_number_negative:
             dynamic_num_negatives = max_number_negative
         else:
-            dynamic_num_negatives = self.config.num_negatives
+            dynamic_num_negatives = torch.tensor(
+                self.config.num_negatives,
+                device=max_number_negative.device,
+                dtype=torch.int,
+            )
 
         # print(np.sum(mask_time_indices, axis=1))
         negative_sample_indices = torch.tensor(
