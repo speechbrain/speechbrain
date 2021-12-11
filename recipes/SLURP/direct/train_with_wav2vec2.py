@@ -287,6 +287,8 @@ def dataio_prepare(hparams):
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
+        tokens = torch.LongTensor(tokens_list)
+        yield tokens
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
