@@ -20,7 +20,9 @@ tensorboard_logs: !ref <output_folder>/logs/
 enable_interim_reports: True
 grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
 phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
-
+ckpt_frequency: 1
+ckpt_enable: true
+enable_metrics: True
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
