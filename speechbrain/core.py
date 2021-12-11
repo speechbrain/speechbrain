@@ -438,7 +438,10 @@ class Brain:
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: " + arg + " arg overridden by command line input"
+                        "Info: "
+                        + arg
+                        + " arg overridden by command line input to: "
+                        + run_opts[arg]
                     )
                 setattr(self, arg, run_opts[arg])
             else:
