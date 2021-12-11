@@ -434,6 +434,7 @@ class Brain:
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
         }
+        print(run_opts)
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
