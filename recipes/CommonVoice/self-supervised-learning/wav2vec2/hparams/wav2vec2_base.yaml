@@ -36,7 +36,6 @@ avoid_if_shorter_than: 1.0
 mask_length: 10
 mask_prob: 0.65
 freeze_wav2vec: False
-negative_threshold: 2
 
 number_of_epochs: 100
 lr_adam: 2.0 # This will get reduced by the training scheduler
@@ -78,7 +77,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2P
     save_path: !ref <save_folder>/wav2vec2_checkpoints
     mask_prob: !ref <mask_prob>
     mask_length: !ref <mask_length>
-    negative_threshold: !ref <negative_threshold>
 
 modules:
     wav2vec2: !ref <wav2vec2>

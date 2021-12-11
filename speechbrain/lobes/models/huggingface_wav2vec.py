@@ -14,6 +14,7 @@ import os
 import torch
 import logging
 import pathlib
+import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
@@ -313,14 +314,12 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         mask_prob=0.65,
         mask_length=10,
         normalize_wav=True,
-        negative_threshold=2,
     ):
         super().__init__()
 
         self.mask_prob = mask_prob
         self.mask_length = mask_length
         self.normalize_wav = normalize_wav
-        self.negative_threshold = negative_threshold
 
         # Download the config of the model from HuggingFace.
         self.config = Wav2Vec2Config.from_pretrained(
@@ -363,38 +362,21 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             mask_time_indices, device=wav.device, dtype=torch.long,
         )
 
-        # 2. Sample the negative samples from the masked indices.
-        # The number of negative must be < 50% of the number of masked indices
-        # this is critical for short sentences that may always selected all
-        # the masked indices as negatives (hence reducing variability)
-        # Hence, if the number of required samples is higher than half of the
-        # total number of masked indices, we enforce it to become 50% of this
+        # 2. Sample the negative samples from the entire sequence.
+        # Fairseq does it only on the masked indices, but this only work if you
+        # have long sentences. For more versatily, we sample on the entire sequence.
         # value.
-        max_number_negative = (
-            torch_mask_time_indices.sum(dim=-1).min() // self.negative_threshold
-        )
-        if self.config.num_negatives > max_number_negative:
-            dynamic_num_negatives = max_number_negative
-        else:
-            dynamic_num_negatives = torch.tensor(
-                self.config.num_negatives,
-                device=max_number_negative.device,
-                dtype=torch.int,
-            )
+        full_sentence_indices = np.ones((batch_size, sequence_length))
 
         # print(np.sum(mask_time_indices, axis=1))
         negative_sample_indices = torch.tensor(
             transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
                 (batch_size, sequence_length),
-                num_negatives=dynamic_num_negatives,
-                mask_time_indices=mask_time_indices,
+                num_negatives=self.config.num_negatives,
+                mask_time_indices=full_sentence_indices,
             ),
             device=wav.device,
             dtype=torch.long,
-        )
-        factor = int(self.config.num_negatives // dynamic_num_negatives.item())
-        negative_sample_indices = torch.cat(
-            [negative_sample_indices] * factor, dim=-1
         )
 
         return (
