@@ -441,7 +441,7 @@ class Brain:
                         "Info: "
                         + arg
                         + " arg overridden by command line input to: "
-                        + run_opts[arg]
+                        + str(run_opts[arg])
                     )
                 setattr(self, arg, run_opts[arg])
             else:
