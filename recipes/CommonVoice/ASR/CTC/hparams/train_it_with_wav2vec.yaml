@@ -61,6 +61,7 @@ character_coverage: 1.0
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 wav2vec_output_dim: 1024
+dnn_neurons: 1024
 freeze_wav2vec: False
 dropout: 0.15
 
