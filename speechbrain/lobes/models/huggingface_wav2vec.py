@@ -14,6 +14,7 @@ import os
 import torch
 import logging
 import pathlib
+import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
@@ -21,6 +22,7 @@ from speechbrain.pretrained.fetching import fetch
 
 # We check if transformers is installed.
 try:
+    import transformers
     from transformers import Wav2Vec2Model, HubertModel
     from transformers import Wav2Vec2Config, HubertConfig
     from transformers import Wav2Vec2FeatureExtractor
@@ -346,18 +348,42 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         if self.normalize_wav:
             wav = F.layer_norm(wav, wav.shape)
 
-        # We must compute the masking before forward. This is used by the loss.
         sequence_length = self.model._get_feat_extract_output_lengths(
             raw_sequence_length
         )
+
+        # 1. Compute the indices that will be masked
         mask_time_indices = _compute_mask_indices(
             (batch_size, sequence_length),
             mask_prob=self.mask_prob,
             mask_length=self.mask_length,
+        )
+        torch_mask_time_indices = torch.tensor(
+            mask_time_indices, device=wav.device, dtype=torch.long,
+        )
+
+        # 2. Sample the negative samples from the entire sequence.
+        # Fairseq does it only on the masked indices, but this only work if you
+        # have long sentences. For more versatily, we sample on the entire sequence.
+        # value.
+        full_sentence_indices = np.ones((batch_size, sequence_length))
+
+        # print(np.sum(mask_time_indices, axis=1))
+        negative_sample_indices = torch.tensor(
+            transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
+                (batch_size, sequence_length),
+                num_negatives=self.config.num_negatives,
+                mask_time_indices=full_sentence_indices,
+            ),
             device=wav.device,
+            dtype=torch.long,
         )
 
         return (
-            self.model(wav, mask_time_indices=mask_time_indices),
-            mask_time_indices,
+            self.model(
+                wav,
+                mask_time_indices=torch_mask_time_indices,
+                sampled_negative_indices=negative_sample_indices,
+            ),
+            torch_mask_time_indices,
         )
