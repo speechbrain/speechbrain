@@ -31,6 +31,7 @@ softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
+    compute_features: !ref <compute_features>
     linear1: !ref <linear1>
     linear2: !ref <linear2>
     mean_var_norm: !ref <mean_var_norm>

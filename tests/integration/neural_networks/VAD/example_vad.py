@@ -13,6 +13,7 @@ from hyperpyyaml import load_hyperpyyaml
 class VADBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the binary probability."
+        batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -110,7 +111,7 @@ def data_prep(data_folder, hparams):
     return train_data, valid_data
 
 
-def main():
+def main(device="cpu"):
 
     experiment_dir = os.path.dirname(os.path.abspath(__file__))
     hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -123,7 +124,12 @@ def main():
     train_data, valid_data = data_prep(data_folder, hparams)
 
     # Trainer initialization
-    ctc_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
+    ctc_brain = VADBrain(
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts={"device": device},
+    )
 
     # Training/validation loop
     ctc_brain.fit(
@@ -144,5 +150,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_error():
-    main()
+def test_error(device):
+    main(device)

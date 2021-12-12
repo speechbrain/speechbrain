@@ -9,6 +9,7 @@ import urllib.error
 import pathlib
 import logging
 import huggingface_hub
+from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,11 @@ def fetch(
     -------
     pathlib.Path
         Path to file on local file system.
+
+    Raises
+    ------
+    ValueError
+        If file is not found
     """
     if save_filename is None:
         save_filename = filename
@@ -106,7 +112,13 @@ def fetch(
         MSG = f"Fetch {filename}: Delegating to Huggingface hub, source {str(source)}."
         logger.info(MSG)
         url = huggingface_hub.hf_hub_url(source, filename)
-        fetched_file = huggingface_hub.cached_download(url, use_auth_token)
+        try:
+            fetched_file = huggingface_hub.cached_download(url, use_auth_token)
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                raise ValueError("File not found on HF hub")
+            else:
+                raise
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
         _missing_ok_unlink(destination)
