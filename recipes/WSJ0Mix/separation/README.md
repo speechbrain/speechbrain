@@ -3,6 +3,8 @@ This folder contains some popular recipes for the WSJ0MIX task (2/3 sources).
 
 * This recipe supports train with several source separation models on WSJ0-2Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
+**Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Seperation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
+
 Additional dependency:
 ```
 pip install mir_eval
@@ -65,10 +67,17 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 
 * WSJ0-3Mix training with dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/3speakers`--num_spks 3 --base_folder_dm yourpath/wsj0/si_tr_s --dynamic_mixing True`
 
-# **About SpeechBrain**
-- Website: https://speechbrain.github.io/
-- Code: https://github.com/speechbrain/speechbrain/
-- HuggingFace: https://huggingface.co/speechbrain/
+
+# Multi-GPU training
+
+You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
+
+```
+ python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+
+
 
 
 # **Citing SpeechBrain**

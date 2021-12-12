@@ -12,6 +12,8 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 **News:** the call for new sponsors (2022) is open. [Take a look here if you are interested!](https://drive.google.com/file/d/1Njn_T2qLJCLPmF2LJ_X7yxxobqK3-CPW/view?usp=sharing)
 
+**News: we are looking for a full-time research engineer.** [Take a look here if you are interested!](https://drive.google.com/file/d/1m9aIvSg3KTrOVVY9fvJ_DGdIsskzkqXf/view)
+
 
 | **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
@@ -24,7 +26,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
 - Mixed-precision for faster training.
 - A transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loader and dataset style and enables users to customize the i/o pipelines (e.g adding on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
-- A nice integration of sharded data with WebDataset optimized for very large datasets on Nested File Systems (NFS).
+- On-the-fly dynamic batching extension for WebDataset supports very large datasets and Network File Systems (NFS).
 
 
 ### Speech recognition
@@ -105,7 +107,7 @@ For more details, take a look into the corresponding implementation in recipes/d
 Beyond providing recipes for training the models from scratch, SpeechBrain shares several pre-trained models (coupled with easy-inference functions) on [HuggingFace](https://huggingface.co/speechbrain). In the following, we report some of them:
 
 | Task        | Dataset | Model |
-| ------------- |:-------------:| -----:| 
+| ------------- |:-------------:| -----:|
 | Speech Recognition | LibriSpeech | [CNN + Transformer](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) |
 | Speech Recognition | LibriSpeech | [CRDNN](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) |
 | Speech Recognition | CommonVoice(English) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) |

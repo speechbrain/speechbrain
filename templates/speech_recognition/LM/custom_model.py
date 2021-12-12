@@ -44,7 +44,6 @@ class CustomModel(torch.nn.Module):
         return_hidden=False,
     ):
         super().__init__()
-        self.layers = torch.nn.ModuleList()
         self.return_hidden = return_hidden
         self.reshape = False
 
@@ -55,7 +54,10 @@ class CustomModel(torch.nn.Module):
 
         # LSTM
         self.rnn = torch.nn.LSTM(
-            input_size=embedding_dim, hidden_size=rnn_size, bidirectional=False
+            input_size=embedding_dim,
+            hidden_size=rnn_size,
+            bidirectional=False,
+            num_layers=layers,
         )
 
         # Final output transformation + softmax

@@ -15,6 +15,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 class SepBrain(sb.Brain):
     def compute_forward(self, mixture, stage):
         "Given an input batch it computes the two estimated sources."
+        mixture = mixture.to(self.device)
         mix_w = self.hparams.encoder(mixture)
         est_mask = self.hparams.mask_net(mix_w)
         mix_w = torch.stack([mix_w] * 2)
@@ -122,7 +123,7 @@ def data_prep(data_folder, hparams):
     return train_data, valid_data
 
 
-def main():
+def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/sourcesep_samples"
@@ -136,7 +137,12 @@ def main():
     train_data, valid_data = data_prep(data_folder, hparams)
 
     # Trainer initialization
-    sep_brain = SepBrain(hparams["modules"], hparams["opt_class"], hparams)
+    sep_brain = SepBrain(
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts={"device": device},
+    )
 
     # Training/validation loop
     sep_brain.fit(
@@ -157,5 +163,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_error():
-    main()
+def test_error(device):
+    main(device)

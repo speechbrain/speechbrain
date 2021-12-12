@@ -32,6 +32,7 @@ linear2: !new:speechbrain.nnet.linear.Linear
     bias: False
 
 modules:
+    compute_features: !ref <compute_features>
     linear1: !ref <linear1>
     linear2: !ref <linear2>
     mean_var_norm: !ref <mean_var_norm>
