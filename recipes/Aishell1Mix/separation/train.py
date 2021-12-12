@@ -84,8 +84,8 @@ if __name__ == "__main__":
     from recipes.LibriMix.separation.train import dataio_prep
 
     if hparams["dynamic_mixing"]:
-        from recipes.LibriMix.separation.dynamic_mixing import (
-            dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
+        from dynamic_mixing import (
+            dynamic_mix_data_prep_aishell1mix as dynamic_mix_data_prep,
         )
 
         # if the base_folder for dm is not processed, preprocess them
