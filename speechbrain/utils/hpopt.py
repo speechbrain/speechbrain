@@ -343,7 +343,7 @@ class HyperparameterOptimizationContext:
         File: hparams.yaml, Overrides: {'x': 1, 'y': 2}
         """
         hparams_file, run_opts, overrides_yaml = sb.parse_arguments(arg_list)
-        overrides = load_hyperpyyaml(overrides_yaml)
+        overrides = load_hyperpyyaml(overrides_yaml) if overrides_yaml else {}
         hpopt = overrides.get(KEY_HPOPT, False)
         hpopt_mode = overrides.get(KEY_HPOPT_MODE) or DEFAULT_REPORTER
         if hpopt:
