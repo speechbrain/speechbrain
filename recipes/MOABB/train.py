@@ -21,12 +21,6 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 from torch.nn import init
 import numpy as np
-from sklearn.metrics import (
-    confusion_matrix,
-    f1_score,
-    roc_auc_score,
-    balanced_accuracy_score,
-)
 import logging
 import multiprocessing as mp
 import speechbrain as sb
@@ -108,26 +102,12 @@ class MOABBBrain(sb.Brain):
             preds = np.array(self.preds)
             y_pred = np.argmax(preds, axis=-1)
             y_true = self.targets
-            f1 = f1_score(y_true=y_true, y_pred=y_pred, average="macro")
-            auc = roc_auc_score(
-                y_true=y_true, y_score=preds, multi_class="ovo", average="macro"
-            )
-            acc = balanced_accuracy_score(y_true=y_true, y_pred=y_pred)
-            cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
-
-            self.last_eval_loss = stage_loss
-            self.last_eval_f1 = float(f1)
-            self.last_eval_auc = float(auc)
-            self.last_eval_acc = float(acc)
-            self.last_eval_cm = cm
-            last_eval_stats = {
-                "loss": self.last_eval_loss,
-                "f1": self.last_eval_f1,
-                "auc": self.last_eval_auc,
-                "acc": self.last_eval_acc,
-                "cm": self.last_eval_cm,
+            self.last_eval_stats = {
+                "loss": stage_loss,
             }
-
+            for metric_key in self.hparams.metrics.keys():
+                self.last_eval_stats[metric_key] = self.hparams.metrics[metric_key](y_true=y_true,
+                                                                                    y_pred=y_pred)
             if stage == sb.Stage.VALID:
                 # Learning rate scheduler
                 old_lr, new_lr = self.hparams.lr_annealing(epoch)
@@ -135,16 +115,16 @@ class MOABBBrain(sb.Brain):
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch, "lr": old_lr},
                     train_stats={"loss": self.train_loss},
-                    valid_stats=last_eval_stats,
+                    valid_stats=self.last_eval_stats,
                 )
                 if epoch == 1:
-                    self.best_eval_stats = last_eval_stats
+                    self.best_eval_stats = self.last_eval_stats
 
                 # The current model is saved if it is the best or the last
                 is_best = self.check_if_best(
-                    last_eval_stats,
+                    self.last_eval_stats,
                     self.best_eval_stats,
-                    keys=self.hparams.test_keys,
+                    keys=[self.hparams.test_key],
                 )
                 is_last = (
                     epoch
@@ -161,14 +141,20 @@ class MOABBBrain(sb.Brain):
 
                 # Saving the checkpoint
                 if save_ckpt:
+                    min_keys, max_keys = [], []
+                    if hparams["test_key"] == "loss":
+                        min_keys = [self.hparams.test_key]
+                    else:
+                        max_keys = [self.hparams.test_key]
+                    meta = {}
+                    for eval_key in self.last_eval_stats.keys():
+                        if eval_key != 'cm':
+                            meta[str(eval_key)] = float(self.last_eval_stats[eval_key])
                     self.checkpointer.save_and_keep_only(
-                        meta={
-                            "loss": self.last_eval_loss,
-                            "f1": self.last_eval_f1,
-                            "auc": self.last_eval_auc,
-                            "acc": self.last_eval_acc,
-                        },
+                        meta=meta,
                         num_to_keep=self.hparams.avg_models,
+                        min_keys=min_keys,
+                        max_keys=max_keys
                     )
 
             elif stage == sb.Stage.TEST:
@@ -176,20 +162,28 @@ class MOABBBrain(sb.Brain):
                     stats_meta={
                         "epoch loaded": self.hparams.epoch_counter.current
                     },
-                    test_stats=last_eval_stats,
+                    test_stats=self.last_eval_stats,
                 )
                 # save the averaged checkpoint at the end of the evaluation stage
                 # delete the rest of the intermediate checkpoints
                 # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
                 if self.hparams.avg_models > 1:
+                    min_keys, max_keys = [], []
+                    if self.hparams.test_key == "loss":
+                        min_keys = [self.hparams.test_key]
+                        fake_meta = {self.hparams.test_key: 0., 'epoch': epoch}
+                    else:
+                        max_keys = [self.hparams.test_key]
+                        fake_meta = {self.hparams.test_key: 1.1, 'epoch': epoch}
                     self.checkpointer.save_and_keep_only(
-                        meta={"acc": 1.1, "epoch": epoch},
-                        max_keys=["acc"],
+                        meta=fake_meta,
+                        min_keys=min_keys,
+                        max_keys=max_keys,
                         num_to_keep=1,
                     )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
@@ -206,7 +200,7 @@ class MOABBBrain(sb.Brain):
         self,
         last_eval_stats,
         best_eval_stats,
-        keys=["loss", "f1", "auc", "acc"],
+        keys,
     ):
         """Checks if the current model is the best according at least to
         one of the monitored metrics. """
@@ -271,40 +265,32 @@ def run_experiment(hparams, run_opts, datasets):
         valid_set=datasets["valid"],
         progressbar=False,
     )
-    # evaluation after loading model using different keys
-    results = {}
-    keys = hparams["test_keys"]
-    for key in keys:
-        results[key] = {}
-        min_key, max_key = None, None
-        if key == "loss":
-            min_key = key
-        else:
-            max_key = key
-        # perform evaluation
-        brain.evaluate(
-            datasets["test"],
-            progressbar=False,
-            min_key=min_key,
-            max_key=max_key,
-        )
-        test_loss, test_f1, test_acc, test_auc, test_cm = (
-            brain.last_eval_loss,
-            brain.last_eval_f1,
-            brain.last_eval_acc,
-            brain.last_eval_auc,
-            brain.last_eval_cm,
-        )
-        results[key]["loss"] = test_loss
-        results[key]["f1"] = test_f1
-        results[key]["acc"] = test_acc
-        results[key]["auc"] = test_auc
-        results[key]["cm"] = test_cm
-    # saving metrics on the test set in a pickle file
-    metrics_fpath = os.path.join(hparams["exp_dir"], "metrics.pkl")
-    with open(metrics_fpath, "wb") as handle:
-        pickle.dump(results[key], handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # evaluation after loading model using specific key
+    perform_evaluation(brain, hparams, datasets, dataset_key='test')
+    # After the first evaluation only 1 checkpoint (best overall or averaged) is stored.
+    # Setting avg_models to 1 to prevent deleting the checkpoint in subsequent calls of the evaluation stage.
+    brain.hparams.avg_models = 1
+    perform_evaluation(brain, hparams, datasets, dataset_key='valid')
 
+
+def perform_evaluation(brain, hparams, datasets, dataset_key='test'):
+    """This function perform the evaluation stage on a dataset and save the performance metrics in a pickle file"""
+    min_key, max_key = None, None
+    if hparams["test_key"] == "loss":
+        min_key = hparams["test_key"]
+    else:
+        max_key = hparams["test_key"]
+    # perform evaluation
+    brain.evaluate(
+        datasets[dataset_key],
+        progressbar=False,
+        min_key=min_key,
+        max_key=max_key,
+    )
+    # saving metrics on the desired dataset in a pickle file
+    metrics_fpath = os.path.join(hparams["exp_dir"], "{0}_metrics.pkl".format(dataset_key))
+    with open(metrics_fpath, "wb") as handle:
+        pickle.dump(brain.last_eval_stats, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def run_single_process(argv, tail_path, datasets):
     """This function wraps up a single process (e.g., the training of a single cross-validation fold
