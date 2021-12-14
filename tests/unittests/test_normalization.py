@@ -139,6 +139,7 @@ def test_InstanceNorm2d(device):
 
     assert torch.jit.trace(norm, input)
 
+
 def test_GroupNorm(device):
 
     from speechbrain.nnet.normalization import GroupNorm
