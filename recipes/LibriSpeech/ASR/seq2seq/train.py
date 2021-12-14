@@ -303,7 +303,7 @@ def dataio_prepare(hparams):
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         hop_size = dynamic_hparams["feats_hop_size"]
 
-        num_buckets = dynamic_hparams["num_quantiles"]
+        num_buckets = dynamic_hparams["num_buckets"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
