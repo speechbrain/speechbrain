@@ -53,12 +53,23 @@ def transducer_loss(
     if use_torchaudio:
         from torchaudio.functional import rnnt_loss
         return rnnt_loss(
-            log_probs, targets.int(), input_lens, target_lens, blank=blank_index, reduction=reduction
+            log_probs,
+            targets.int(),
+            input_lens,
+            target_lens,
+            blank=blank_index,
+            reduction=reduction
         )
     else:
         from speechbrain.nnet.loss.transducer_loss import Transducer
         return Transducer.apply(
-            log_probs, targets, input_lens, target_lens, blank_index, FastEmit, reduction
+            log_probs,
+            targets,
+            input_lens,
+            target_lens,
+            blank_index,
+            FastEmit,
+            reduction
         )
 
 
