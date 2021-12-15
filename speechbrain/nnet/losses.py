@@ -71,12 +71,7 @@ def transducer_loss(
         from speechbrain.nnet.loss.transducer_loss import Transducer
 
         return Transducer.apply(
-            log_probs,
-            targets,
-            input_lens,
-            target_lens,
-            blank_index,
-            reduction,
+            log_probs, targets, input_lens, target_lens, blank_index, reduction,
         )
 
 
