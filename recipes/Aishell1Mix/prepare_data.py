@@ -38,6 +38,11 @@ def prepare_aishell1mix(
         aishell1mix_addnoise: If True, add whamnoise to aishell1mix datasets
     """
 
+    # create the datapath folder if it does not exist
+    if not os.path.exists(datapath):
+        print("the datapath does not exist, we are creating it")
+        os.makedirs(datapath, exist_ok=False)
+
     aishell1_dir = os.path.join(datapath, "data_aishell")
     wham_dir = os.path.join(datapath, "wham_noise")
     aishell1mix_outdir = os.path.join(datapath, "aishell1mix")
