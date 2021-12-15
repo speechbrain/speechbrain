@@ -851,12 +851,19 @@ class Brain:
                 self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
+            # start = time.time()
             outputs = self.compute_forward(batch, Stage.TRAIN)
+            # forward = time.time()
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            # loss_t = time.time()
             loss.backward()
             if self.check_gradients(loss):
                 self.optimizer.step()
             self.optimizer.zero_grad()
+            # backward = time.time()
+            # print("forward " + str(forward - start))
+            # print("loss_t " + str(loss_t - start))
+            # print("backward " + str(backward - start))
 
         return loss.detach().cpu()
 
