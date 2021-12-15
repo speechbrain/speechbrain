@@ -125,7 +125,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         self.freeze_feature_extractor = freeze_feature_extractor
         self.output_norm = output_norm
         if self.freeze:
-            logger.info("wav2vec 2.0 is frozen.")
+            logger.warning("wav2vec 2.0 is frozen.")
             self.model.eval()
             for param in self.model.parameters():
                 param.requires_grad = False
