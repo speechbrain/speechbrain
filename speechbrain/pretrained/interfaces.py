@@ -591,6 +591,10 @@ class EncoderDecoderASR(Pretrained):
             ]
         return predicted_words, predicted_tokens
 
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
+
 
 class EncoderASR(Pretrained):
     """A ready-to-use Encoder ASR model

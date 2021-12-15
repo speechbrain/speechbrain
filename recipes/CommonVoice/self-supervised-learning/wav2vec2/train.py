@@ -13,7 +13,9 @@ trained with ANY dataset as long as you provide the correct JSON or CSV file.
 
 The HuggingFace implementation of the wav2vec 2.0 pretraining is used and wrapped
 to fit properly the SpeechBrain framework. Models have been compared to the original
-fairseq implementation with success.
+fairseq implementation with success. The Transformers HuggingFace library is
+required:
+> pip install extra_requirements.txt
 
 Hence the process is the following:
 1. Indicate a HuggingFace repository that stores the wav2vec 2.0 config file.
@@ -46,18 +48,14 @@ class W2VBrain(sb.core.Brain):
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Normalize wav signal
-        wavs = self.modules.normalize(wavs, wav_lens)
-
         # Forward on w2v2 and take the loss.
+        # It has to be on train mode even for eval. Otherwise it would deactivate
+        # the loss computation ...
         out, mask = self.modules.wav2vec2(wavs)
         loss = out.loss
 
         if stage != sb.Stage.TRAIN:
-            with torch.no_grad():
-                out, mask = self.modules.wav2vec2(wavs)
-
-            return out.loss, out, mask
+            return loss, out, mask
 
         return loss
 
@@ -81,21 +79,47 @@ class W2VBrain(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
 
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
+        # Here we manage mixed precision
+        if self.auto_mix_prec:
+            with torch.cuda.amp.autocast():
+                predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(
+                    predictions, batch, sb.Stage.TRAIN
+                )
 
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
+            # normalize the loss by gradient_accumulation step
+            self.scaler.scale(
+                loss / self.hparams.gradient_accumulation
+            ).backward()
 
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+            if self.step % self.hparams.gradient_accumulation == 0:
+                # gradient clipping & early stop if loss is not fini
+                self.check_gradients(loss)
 
-            # anneal lr every update
-            self.hparams.noam_annealing(self.optimizer)
+                self.scaler.unscale_(self.optimizer)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad()
+
+                # anneal lr every update
+                self.hparams.noam_annealing(self.optimizer)
+        else:
+            predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
+
+            # normalize the loss by gradient_accumulation step
+            (loss / self.hparams.gradient_accumulation).backward()
+
+            if self.step % self.hparams.gradient_accumulation == 0:
+                # gradient clipping & early stop if loss is not fini
+                self.check_gradients(loss)
+
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+                # anneal lr every update
+                self.hparams.noam_annealing(self.optimizer)
 
         return loss.detach()
 
@@ -114,7 +138,7 @@ class W2VBrain(sb.core.Brain):
             stage_stats["acc"] = sum(self.acc_metric) / len(self.acc_metric)
 
         # Perform end-of-iteration things, like annealing, logging, etc.
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             lr = self.hparams.noam_annealing.current_lr
             steps = self.hparams.noam_annealing.n_steps
             optimizer = self.optimizer.__class__.__name__
@@ -215,6 +239,7 @@ def dataio_prepare(hparams):
         resampled = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"],
         )(sig)
+
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
@@ -256,7 +281,6 @@ if __name__ == "__main__":
             "train_tsv_file": hparams["train_tsv_file"],
             "dev_tsv_file": hparams["dev_tsv_file"],
             "test_tsv_file": hparams["test_tsv_file"],
-            "accented_letters": hparams["accented_letters"],
             "language": hparams["language"],
             "skip_prep": hparams["skip_prep"],
         },
