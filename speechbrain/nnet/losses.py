@@ -25,7 +25,13 @@ logger = logging.getLogger(__name__)
 
 
 def transducer_loss(
-    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean", use_torchaudio=True, FastEmit=0.0
+    log_probs,
+    targets,
+    input_lens,
+    target_lens,
+    blank_index,
+    reduction="mean",
+    use_torchaudio=True,
 ):
     """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
@@ -49,27 +55,28 @@ def transducer_loss(
     """
     input_lens = (input_lens * log_probs.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()
-    
+
     if use_torchaudio:
         from torchaudio.functional import rnnt_loss
+
         return rnnt_loss(
             log_probs,
             targets.int(),
             input_lens,
             target_lens,
             blank=blank_index,
-            reduction=reduction
+            reduction=reduction,
         )
     else:
         from speechbrain.nnet.loss.transducer_loss import Transducer
+
         return Transducer.apply(
             log_probs,
             targets,
             input_lens,
             target_lens,
             blank_index,
-            FastEmit,
-            reduction
+            reduction,
         )
 
 
