@@ -412,9 +412,7 @@ class Conv1d(nn.Module):
                 "Padding must be 'same', 'valid' or 'causal'. Got "
                 + self.padding
             )
-        # start = time.time()
         wx = self.conv(x)
-        # print(time.time() - start)
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
