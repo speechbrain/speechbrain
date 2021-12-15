@@ -63,6 +63,7 @@ character_coverage: 1.0
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
+wav2vec_output_dim: 1024
 dnn_layers: 2
 dnn_neurons: 1024
 emb_size: 128
@@ -97,7 +98,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-    input_shape: [null, null, 1024]
+    input_shape: [null, null, !ref <wav2vec_output_dim>]
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>
