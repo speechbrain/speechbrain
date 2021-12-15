@@ -436,11 +436,15 @@ class Brain:
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
         }
+
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: " + arg + " arg overridden by command line input"
+                        "Info: "
+                        + arg
+                        + " arg overridden by command line input to: "
+                        + str(run_opts[arg])
                     )
                 setattr(self, arg, run_opts[arg])
             else:
