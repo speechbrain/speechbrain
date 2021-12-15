@@ -62,10 +62,8 @@ character_coverage: 1.0
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dnn_layers: 3
+wav2vec_output_dim: 1024
 dnn_neurons: 1024
-emb_size: 128
-dec_neurons: 1024
 freeze_wav2vec: False
 
 # Outputs
@@ -96,7 +94,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, 1024]
+    input_shape: [null, null, !ref <wav2vec_output_dim>]
     linear1: !name:speechbrain.nnet.linear.Linear
         n_neurons: 1024
         bias: True
