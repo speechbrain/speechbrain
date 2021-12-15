@@ -412,10 +412,7 @@ class GroupNorm(nn.Module):
             input_size = input_shape[-1]
 
         self.norm = torch.nn.GroupNorm(
-            num_groups,
-            input_size,
-            eps=self.eps,
-            affine=self.affine,
+            num_groups, input_size, eps=self.eps, affine=self.affine,
         )
 
     def forward(self, x):
