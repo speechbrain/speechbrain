@@ -54,10 +54,10 @@ class LanguageBrain(sb.core.Brain):
 
                 # Managing speed change
                 if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0: wavs.shape[1]]
+                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
                 else:
                     zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0: wavs_aug.shape[1]] = wavs_aug
+                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
                     wavs_aug = zero_sig
 
                 if self.hparams.concat_augment:
@@ -94,11 +94,17 @@ class LanguageBrain(sb.core.Brain):
         # breakpoint()
         loss = self.hparams.compute_cost(predictions, langid.unsqueeze(1), lens)
 
-        if hasattr(self.hparams.lr_annealing_wav2vec, "on_batch_end"):  # Change that
-            self.hparams.lr_annealing_wav2vec.on_batch_end(self.wav2vec_optimizer)  # Change that
+        if hasattr(
+            self.hparams.lr_annealing_wav2vec, "on_batch_end"
+        ):  # Change that
+            self.hparams.lr_annealing_wav2vec.on_batch_end(
+                self.wav2vec_optimizer
+            )  # Change that
 
         if hasattr(self.hparams.lr_annealing, "on_batch_end"):  # Change that
-            self.hparams.lr_annealing.on_batch_end(self.model_optimizer)  # Change that
+            self.hparams.lr_annealing.on_batch_end(
+                self.model_optimizer
+            )  # Change that
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(
@@ -124,7 +130,9 @@ class LanguageBrain(sb.core.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
-            sb.nnet.schedulers.update_learning_rate(self.model_optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(
+                self.model_optimizer, new_lr
+            )
 
             # Added:
             old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
@@ -137,7 +145,11 @@ class LanguageBrain(sb.core.Brain):
             )
 
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr, "lr_wav2vec": old_lr_wav2vec},  # Change that
+                stats_meta={
+                    "epoch": epoch,
+                    "lr": old_lr,
+                    "lr_wav2vec": old_lr_wav2vec,
+                },  # Change that
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -231,10 +243,10 @@ def dataio_prep_shards(hparams):
         wds.WebDataset(
             hparams["train_shards"], cache_dir=hparams["shard_cache_dir"],
         )
-            .repeat()
-            .shuffle(1000)
-            .decode("pil")
-            .map(partial(audio_pipeline, random_chunk=True))
+        .repeat()
+        .shuffle(1000)
+        .decode("pil")
+        .map(partial(audio_pipeline, random_chunk=True))
     )
     logger.info(
         f"Training data consist of {train_meta['num_data_samples']} samples"
@@ -244,8 +256,8 @@ def dataio_prep_shards(hparams):
         wds.WebDataset(
             hparams["val_shards"], cache_dir=hparams["shard_cache_dir"],
         )
-            .decode("pil")
-            .map(partial(audio_pipeline, random_chunk=False))
+        .decode("pil")
+        .map(partial(audio_pipeline, random_chunk=False))
     )
     logger.info(
         f"Validation data consist of {val_meta['num_data_samples']} samples"
@@ -286,7 +298,7 @@ if __name__ == "__main__":
     hparams["val_dataloader_options"]["collate_fn"] = PaddedBatch
 
     hparams["train_dataloader_options"]["looped_nominal_epoch"] = (
-            num_train_samples // hparams["train_dataloader_options"]["batch_size"]
+        num_train_samples // hparams["train_dataloader_options"]["batch_size"]
     )
 
     # Create experiment directory

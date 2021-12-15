@@ -123,10 +123,10 @@ attentive: !new:speechbrain.lobes.models.ECAPA_TDNN.AttentiveStatisticsPooling
     attention_channels: 64
 
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr_wav2vec>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.9
-   patient: 0
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -138,10 +138,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         scheduler_wav2vec: !ref <lr_annealing_wav2vec>
 
 wav2vec_opt_class: !name:torch.optim.Adam
-   lr: !ref <lr_wav2vec>
+    lr: !ref <lr_wav2vec>
 
 model: !new:torch.nn.ModuleList
-   - [!ref <attentive>, !ref <classifier>]
+    - [!ref <attentive>, !ref <classifier>]
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
