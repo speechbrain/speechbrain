@@ -31,13 +31,14 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 
 | | SepFormer. Aishell1Mix2 |
 | --- | --- |
-|NoAugment | 10.9 |
-|DynamicMixing | 13.4|
+| NoDynamicMixing | 10.9 |
+| DynamicMixing | 13.4 |
 
 
 | | SepFormer. Aishell1Mix3 |
 | --- | --- |
-|DynamicMixing | 11.2|
+| NoDynamicMixing | 8.1 |
+| DynamicMixing | 11.2 |
 
 
 # Example calls for running the training scripts
