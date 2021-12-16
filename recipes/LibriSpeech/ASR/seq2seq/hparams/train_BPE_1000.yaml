@@ -48,6 +48,15 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+dynamic_batching: False
+
+# dynamic batching parameters, if used
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 20000 # in terms of frames
+   shuffle_ex: True
+   batch_ordering: random
+   num_buckets: 20
 
 # Feature parameters
 sample_rate: 16000

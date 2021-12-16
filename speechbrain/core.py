@@ -704,7 +704,7 @@ class Brain:
         if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both shuffle=True "
+                    "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
             sampler = ReproducibleRandomSampler(dataset)
@@ -730,27 +730,23 @@ class Brain:
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
+                loader_kwargs["sampler"] = self.train_sampler
             elif loader_kwargs.get("batch_sampler") is None:
-                # Currently to get here, shuffle == False, so not passing it.
-                # Otherwise we'd have to handle deleting it (but it is already
-                # deleted).
+                # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset,
-                    rank=self.rank,
-                    shuffle=shuffle,
-                    drop_last=drop_last,
+                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
+                loader_kwargs["sampler"] = self.train_sampler
             else:  # batch_sampler was specified
-                # TODO: Could a DistributedSamplerWrapper actually work
-                # just fine for wrapping a BatchSampler, as well?
-                logger.warning(
-                    "Cannot automatically solve distributed sampling "
-                    "when using a BatchSampler."
+                self.train_sampler = DistributedSamplerWrapper(
+                    loader_kwargs.get("batch_sampler", None),
+                    rank=self.rank,
+                    shuffle=False,
                 )
-            loader_kwargs["sampler"] = self.train_sampler
+                loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
             logger.warning(
                 "Cannot automatically solve distributed sampling "
