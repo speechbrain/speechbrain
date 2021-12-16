@@ -498,7 +498,7 @@ class Checkpointer:
             self.recoverables.update(recoverables)
         else:
             rec = repr(recoverables)  # noqa: F841, rec is used in MSG
-            MSG = "Checkpointer needs a mapping (e.g. dict), \
+            MSG = f"Checkpointer needs a mapping (e.g. dict), \
                     got {rec} instead."
             raise AttributeError(MSG)
 
