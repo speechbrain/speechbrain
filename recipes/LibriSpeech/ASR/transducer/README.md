@@ -3,6 +3,15 @@ This folder contains scripts necessary to run an ASR experiment with the LibriSp
 Before running this recipe, make sure numba is installed (pip install numba)
 You can download LibriSpeech at http://www.openslr.org/12
 
+# Extra-Dependencies
+This recipe support two implementation of Transducer loss, see `use_torchaudio` arg in Yaml file:
+1- Transducer loss from torchaudio (if torchaudio version >= 0.10.0) (Default)
+2- Speechbrain Implementation using Numba lib. (this allow you to have a direct access in python to the Transducer loss implementation)
+Note: Before running this recipe, make sure numba is installed. Otherwise, run:
+```
+pip install numba
+```
+
 # How to run it
 python train.py train/train.yaml
 
