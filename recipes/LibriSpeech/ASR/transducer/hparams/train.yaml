@@ -187,6 +187,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
    blank_index: !ref <blank_index>
+   use_torchaudio: True
 
 # This is the RNNLM that is used according to the Huggingface repository
 # NB: It has to match the pre-trained RNNLM!!
