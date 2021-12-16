@@ -3,6 +3,16 @@ This folder contains some popular recipes for the Aishell1Mix dataset similar to
 
 * This recipe supports train with several source separation models on Aishell1Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
+Make sure that SoX is installed on your machine.
+
+* For windows :
+```
+conda install -c groakat sox
+```
+* For Linux or MacOS:
+```
+conda install -c conda-forge sox
+```
 Additional dependencies:
 ```
 pip install -r ../extra-dependencies.txt
