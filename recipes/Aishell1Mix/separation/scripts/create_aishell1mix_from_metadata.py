@@ -6,6 +6,8 @@ import numpy as np
 import functools
 from scipy.signal import resample_poly
 import tqdm.contrib.concurrent
+import glob
+import shutil
 
 # eps secures log and division
 EPS = 1e-10
@@ -140,18 +142,6 @@ def process_metadata_file(
                 .replace(".csv", "")
             )
             dir_path = os.path.join(mode_path, dir_name)
-            # If the files already exist then continue the loop
-            if os.path.isdir(dir_path):
-                print(
-                    f"Directory {dir_path} already exist. "
-                    f"Files won't be overwritten"
-                )
-                continue
-
-            print(
-                f"Creating mixtures and sources from {csv_path} "
-                f"in {dir_path}"
-            )
             # Create subdir
             if types == ["mix_clean"]:
                 subdirs = [f"s{i + 1}" for i in range(n_src)] + ["mix_clean"]
@@ -159,6 +149,21 @@ def process_metadata_file(
                 subdirs = (
                     [f"s{i + 1}" for i in range(n_src)] + types + ["noise"]
                 )
+            # If the files already exist then continue, otherwise remove the dir and regenerate
+            sounds = glob.glob(
+                os.path.join(dir_path, "**/*.wav"), recursive=True
+            )
+            if len(md_file) * len(subdirs) == len(sounds):
+                print(
+                    f"Directory {dir_path} already exist. "
+                    f"Files won't be overwritten"
+                )
+                continue
+            shutil.rmtree(dir_path, ignore_errors=True)
+            print(
+                f"Creating mixtures and sources from {csv_path} "
+                f"in {dir_path}"
+            )
             # Create directories accordingly
             for subdir in subdirs:
                 os.makedirs(os.path.join(dir_path, subdir))
