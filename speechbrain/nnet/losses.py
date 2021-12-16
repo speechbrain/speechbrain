@@ -57,7 +57,15 @@ def transducer_loss(
     target_lens = (target_lens * targets.shape[1]).round().int()
 
     if use_torchaudio:
-        from torchaudio.functional import rnnt_loss
+        try:
+            from torchaudio.functional import rnnt_loss
+        except ImportError:
+            err_msg = "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
+            err_msg += "Cannot import torchaudio.functional.rnnt_loss.\n"
+            err_msg += "To use it, please install torchaudio >= 0.10.0\n"
+            err_msg += "==================\n"
+            err_msg += "Otherwise, you can use our numba implementation, set `use_torchaudio=False`.\n"
+            raise ImportError(err_msg)
 
         return rnnt_loss(
             log_probs,
