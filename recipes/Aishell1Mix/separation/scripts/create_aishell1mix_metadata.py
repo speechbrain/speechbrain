@@ -271,7 +271,7 @@ def set_utt_pairs(aishell1_md_file, pair_list, n_src):
 def set_noise_pairs(pairs, noise_pairs, aishell1_md_file, wham_md_file):
     print("Generating pairs")
     # Initially take not augmented data
-    md = wham_md_file[wham_md_file["augmented"] is False]
+    md = wham_md_file[wham_md_file["augmented"] == "False"]
     # If there are more mixtures than noises then use augmented data
     if len(pairs) > len(md):
         md = wham_md_file

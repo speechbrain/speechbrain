@@ -125,7 +125,6 @@ def prepare_aishell1mix(
         os.makedirs(wham_md_dir, exist_ok=True)
         create_wham_noise_metadata(wham_dir, wham_md_dir)
 
-    n_spks = 2
     from scripts.create_aishell1mix_metadata import create_aishell1mix_metadata
 
     aishell1mix_md_outdir = os.path.join(
