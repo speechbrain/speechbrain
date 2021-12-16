@@ -868,9 +868,17 @@ if __name__ == "__main__":
                 valid_loader_kwargs=dataloader_opts,
             )
 
+            # Revalidate
+            if hparams.get("revalidate"):
+                print("Revalidating")
+                g2p_brain.evaluate(
+                    valid_data, min_key="PER", test_loader_kwargs=dataloader_opts,
+                )
+
+
             # Test
             # NOTE: Testing will not be re-run if this step has already been completed
-            if g2p_brain.start_epoch is not None:
+            if g2p_brain.start_epoch is not None or hparams.get("retest"):
                 g2p_brain.evaluate(
                     test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
                 )

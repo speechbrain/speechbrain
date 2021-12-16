@@ -21,6 +21,8 @@ enable_interim_reports: True
 ckpt_frequency: 1
 ckpt_enable: true
 enable_metrics: True
+revalidate: False
+retest: False
 
 
 input_lexicon: !ref <save_folder>/lexicon.csv

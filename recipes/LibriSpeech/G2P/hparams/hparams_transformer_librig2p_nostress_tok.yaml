@@ -23,7 +23,8 @@ phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 ckpt_frequency: 1
 ckpt_enable: true
 enable_metrics: True
-
+revalidate: False
+retest: False
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
