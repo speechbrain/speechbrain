@@ -125,7 +125,12 @@ class HuggingFaceWav2Vec2(nn.Module):
         self.freeze_feature_extractor = freeze_feature_extractor
         self.output_norm = output_norm
         if self.freeze:
+            logger.warning(
+                "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 is frozen."
+            )
             self.model.eval()
+            for param in self.model.parameters():
+                param.requires_grad = False
         else:
             self.model.train()
             if self.freeze_feature_extractor:
