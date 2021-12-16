@@ -59,11 +59,20 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
 def get_xy_and_meta(paradigm, dataset, idx):
     """This function returns EEG signals and the corresponding labels. In addition metadata are provided too."""
     x, y, metadata = paradigm.get_data(dataset, idx, True)
-    x = x.get_data()[..., :-1]
+    x = x.get_data()
+    # forcing time steps to be = (tmax-tmin)*srate after mne resampling procedure
+    xx = np.zeros(
+        x.shape[:-1]
+        + (int(paradigm.resample * (paradigm.tmax - paradigm.tmin)),)
+    )
+    stop = x.shape[-1]
+    if x.shape[-1] > xx.shape[-1]:
+        stop = xx.shape[-1]
+    xx = x[..., :stop]
     y = [dataset.event_id[yy] for yy in y]
     y = np.array(y)
     y -= 1
-    return x, y, metadata
+    return xx, y, metadata
 
 
 class WithinSession(object):

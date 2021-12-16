@@ -106,8 +106,9 @@ class MOABBBrain(sb.Brain):
                 "loss": stage_loss,
             }
             for metric_key in self.hparams.metrics.keys():
-                self.last_eval_stats[metric_key] = self.hparams.metrics[metric_key](y_true=y_true,
-                                                                                    y_pred=y_pred)
+                self.last_eval_stats[metric_key] = self.hparams.metrics[
+                    metric_key
+                ](y_true=y_true, y_pred=y_pred)
             if stage == sb.Stage.VALID:
                 # Learning rate scheduler
                 old_lr, new_lr = self.hparams.lr_annealing(epoch)
@@ -148,13 +149,15 @@ class MOABBBrain(sb.Brain):
                         max_keys = [self.hparams.test_key]
                     meta = {}
                     for eval_key in self.last_eval_stats.keys():
-                        if eval_key != 'cm':
-                            meta[str(eval_key)] = float(self.last_eval_stats[eval_key])
+                        if eval_key != "cm":
+                            meta[str(eval_key)] = float(
+                                self.last_eval_stats[eval_key]
+                            )
                     self.checkpointer.save_and_keep_only(
                         meta=meta,
                         num_to_keep=self.hparams.avg_models,
                         min_keys=min_keys,
-                        max_keys=max_keys
+                        max_keys=max_keys,
                     )
 
             elif stage == sb.Stage.TEST:
@@ -171,10 +174,10 @@ class MOABBBrain(sb.Brain):
                     min_keys, max_keys = [], []
                     if self.hparams.test_key == "loss":
                         min_keys = [self.hparams.test_key]
-                        fake_meta = {self.hparams.test_key: 0., 'epoch': epoch}
+                        fake_meta = {self.hparams.test_key: 0.0, "epoch": epoch}
                     else:
                         max_keys = [self.hparams.test_key]
-                        fake_meta = {self.hparams.test_key: 1.1, 'epoch': epoch}
+                        fake_meta = {self.hparams.test_key: 1.1, "epoch": epoch}
                     self.checkpointer.save_and_keep_only(
                         meta=fake_meta,
                         min_keys=min_keys,
@@ -197,10 +200,7 @@ class MOABBBrain(sb.Brain):
         self.hparams.model.eval()
 
     def check_if_best(
-        self,
-        last_eval_stats,
-        best_eval_stats,
-        keys,
+        self, last_eval_stats, best_eval_stats, keys,
     ):
         """Checks if the current model is the best according at least to
         one of the monitored metrics. """
@@ -266,14 +266,14 @@ def run_experiment(hparams, run_opts, datasets):
         progressbar=False,
     )
     # evaluation after loading model using specific key
-    perform_evaluation(brain, hparams, datasets, dataset_key='test')
+    perform_evaluation(brain, hparams, datasets, dataset_key="test")
     # After the first evaluation only 1 checkpoint (best overall or averaged) is stored.
     # Setting avg_models to 1 to prevent deleting the checkpoint in subsequent calls of the evaluation stage.
     brain.hparams.avg_models = 1
-    perform_evaluation(brain, hparams, datasets, dataset_key='valid')
+    perform_evaluation(brain, hparams, datasets, dataset_key="valid")
 
 
-def perform_evaluation(brain, hparams, datasets, dataset_key='test'):
+def perform_evaluation(brain, hparams, datasets, dataset_key="test"):
     """This function perform the evaluation stage on a dataset and save the performance metrics in a pickle file"""
     min_key, max_key = None, None
     if hparams["test_key"] == "loss":
@@ -288,9 +288,14 @@ def perform_evaluation(brain, hparams, datasets, dataset_key='test'):
         max_key=max_key,
     )
     # saving metrics on the desired dataset in a pickle file
-    metrics_fpath = os.path.join(hparams["exp_dir"], "{0}_metrics.pkl".format(dataset_key))
+    metrics_fpath = os.path.join(
+        hparams["exp_dir"], "{0}_metrics.pkl".format(dataset_key)
+    )
     with open(metrics_fpath, "wb") as handle:
-        pickle.dump(brain.last_eval_stats, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(
+            brain.last_eval_stats, handle, protocol=pickle.HIGHEST_PROTOCOL
+        )
+
 
 def run_single_process(argv, tail_path, datasets):
     """This function wraps up a single process (e.g., the training of a single cross-validation fold

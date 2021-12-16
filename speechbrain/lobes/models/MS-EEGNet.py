@@ -11,13 +11,13 @@ import speechbrain as sb
 
 class MultiScaleSeparableTemporal(torch.nn.Module):
     def __init__(
-            self,
-            in_channels,
-            cnn_septemporal_depth_multipliers,
-            cnn_septemporal_kernelsizes,
-            cnn_septemporal_pool,
-            activation,
-            dropout
+        self,
+        in_channels,
+        cnn_septemporal_depth_multipliers,
+        cnn_septemporal_kernelsizes,
+        cnn_septemporal_pool,
+        activation,
+        dropout,
     ):
         super().__init__()
 
@@ -26,7 +26,9 @@ class MultiScaleSeparableTemporal(torch.nn.Module):
         tails = []
         for i in range(self.ntails):
             cnn_septemporal_kernelsize = cnn_septemporal_kernelsizes[i]
-            cnn_septemporal_depth_multiplier = cnn_septemporal_depth_multipliers[i]
+            cnn_septemporal_depth_multiplier = cnn_septemporal_depth_multipliers[
+                i
+            ]
 
             tail = torch.nn.Sequential()
             tail.add_module(
@@ -41,7 +43,9 @@ class MultiScaleSeparableTemporal(torch.nn.Module):
                     bias=False,
                 ),
             )
-            cnn_septemporal_kernels = in_channels * cnn_septemporal_depth_multiplier
+            cnn_septemporal_kernels = (
+                in_channels * cnn_septemporal_depth_multiplier
+            )
             self.ms_septemporal_kernels.append(cnn_septemporal_kernels)
             tail.add_module(
                 "conv_1",
@@ -57,7 +61,9 @@ class MultiScaleSeparableTemporal(torch.nn.Module):
             tail.add_module(
                 "bnorm_0",
                 sb.nnet.normalization.BatchNorm2d(
-                    input_size=cnn_septemporal_kernels, momentum=0.01, affine=True,
+                    input_size=cnn_septemporal_kernels,
+                    momentum=0.01,
+                    affine=True,
                 ),
             )
             tail.add_module("act_0", activation)
@@ -73,7 +79,6 @@ class MultiScaleSeparableTemporal(torch.nn.Module):
             tail.add_module("dropout_0", torch.nn.Dropout(p=dropout))
             tails.append(tail)
         self.tails = torch.nn.ModuleList(tails)
-
 
     def forward(self, x):
         """Returns the output of the multi-scale feature extractor.
@@ -221,8 +226,9 @@ class MSEEGNet(torch.nn.Module):
             cnn_septemporal_kernelsizes=cnn_septemporal_kernelsizes,
             cnn_septemporal_pool=cnn_septemporal_pool,
             activation=activation,
-            dropout=dropout)
-        self.conv_module.add_module('ms_0', ms_septemporal)
+            dropout=dropout,
+        )
+        self.conv_module.add_module("ms_0", ms_septemporal)
 
         # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
@@ -241,7 +247,6 @@ class MSEEGNet(torch.nn.Module):
             ),
         )
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
-
 
     def forward(self, x):
         """Returns the output of the model.
