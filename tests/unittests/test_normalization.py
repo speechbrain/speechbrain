@@ -138,3 +138,54 @@ def test_InstanceNorm2d(device):
     assert torch.abs(1.0 - current_std) < 0.01
 
     assert torch.jit.trace(norm, input)
+
+
+def test_GroupNorm(device):
+
+    from speechbrain.nnet.normalization import GroupNorm
+
+    input = torch.randn(4, 101, 256, device=device) + 2.0
+    norm = GroupNorm(input_shape=input.shape, num_groups=256).to(device)
+    output = norm(input)
+    assert input.shape == output.shape
+
+    current_mean = output.mean(dim=2).mean()
+    assert torch.abs(current_mean) < 1e-06
+
+    current_std = output.std(dim=2).mean()
+    assert torch.abs(1.0 - current_std) < 0.01
+
+    input = torch.randn(4, 101, 256, device=device) + 2.0
+    norm = GroupNorm(input_shape=input.shape, num_groups=128).to(device)
+    output = norm(input)
+    assert input.shape == output.shape
+
+    current_mean = output.mean(dim=2).mean()
+    assert torch.abs(current_mean) < 1e-06
+
+    current_std = output.std(dim=2).mean()
+    assert torch.abs(1.0 - current_std) < 0.01
+
+    input = torch.randn(100, 101, 16, 32, device=device) + 2.0
+    norm = GroupNorm(input_shape=input.shape, num_groups=32).to(device)
+    output = norm(input)
+    assert input.shape == output.shape
+
+    current_mean = output.mean(dim=3).mean()
+    assert torch.abs(current_mean) < 1e-06
+
+    current_std = output.std(dim=3).mean()
+    assert torch.abs(1.0 - current_std) < 0.01
+
+    input = torch.randn(100, 101, 16, 32, device=device) + 2.0
+    norm = GroupNorm(input_shape=input.shape, num_groups=8).to(device)
+    output = norm(input)
+    assert input.shape == output.shape
+
+    current_mean = output.mean(dim=3).mean()
+    assert torch.abs(current_mean) < 1e-06
+
+    current_std = output.std(dim=3).mean()
+    assert torch.abs(1.0 - current_std) < 0.01
+
+    assert torch.jit.trace(norm, input)
