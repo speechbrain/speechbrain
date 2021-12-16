@@ -4,9 +4,10 @@ Before running this recipe, make sure numba is installed (pip install numba)
 You can download LibriSpeech at http://www.openslr.org/12
 
 # Extra-Dependencies
-This recipe support two implementation of Transducer loss, see `use_torchaudio` arg in Yaml file:
-1- Transducer loss from torchaudio (if torchaudio version >= 0.10.0) (Default)
-2- Speechbrain Implementation using Numba lib. (this allow you to have a direct access in python to the Transducer loss implementation)
+This recipe supports two implementations of the transducer loss, see `use_torchaudio` arg in the yaml file:
+1. Transducer loss from torchaudio (this requires torchaudio version >= 0.10.0) (Default). 
+2. Speechbrain implementation using Numba. To use it, please set `use_torchaudio=False` in the yaml file. This version is implemented within SpeechBrain and  allows you to directly access the python code of the transducer loss (and directly modify it if needed).
+
 Note: Before running this recipe, make sure numba is installed. Otherwise, run:
 ```
 pip install numba
