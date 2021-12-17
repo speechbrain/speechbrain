@@ -57,9 +57,9 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 
 * Aishell1Mix3 with dynamic mixing `python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath --dynamic_mixing True`
 
-* Aishell1Mix2 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix2-wham.yaml --data_folder /yourdatapath --dynamic_mixing True
+* Aishell1Mix2 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix2-wham.yaml --data_folder /yourdatapath --dynamic_mixing True`
 
-* Aishell1Mix3 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix3-wham.yaml --data_folder /yourdatapath --dynamic_mixing True
+* Aishell1Mix3 with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-aishell1mix3-wham.yaml --data_folder /yourdatapath --dynamic_mixing True`
 
 # Multi-GPU training
 
