@@ -7,17 +7,17 @@
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
-seed: 4321
+seed: 12345
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
 
-# e.g. '/youraishell1mixpath/aishell1mix/Aishell1Mix2'
-# the data folder is needed even if dynamic mixing is applied
+# this is the storage folder for the whole needed dataset e.g. /yourpath
+# it should contain at least 250G space for aishell1, wham_noise and aishell1mix.
 data_folder: !PLACEHOLDER
 
-# this is the base folder for dynamic mixing
-base_folder_dm: <data_folder>/data_aishell/wav/train
+# this is the base folder for dynamic mixing, usually not changed.
+base_folder_dm: !ref <data_folder>/data_aishell/wav/train
 
 experiment_name: sepformer-aishell1mix2
 output_folder: !ref results/<experiment_name>/<seed>
@@ -52,7 +52,7 @@ training_signal_len: 32000000
 
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
-use_wham_noise: False
+use_wham_noise: True
 
 # Parameters for data augmentation
 use_wavedrop: False

@@ -55,15 +55,6 @@ if __name__ == "__main__":
         print("Please, specify a valid data_folder for dataset storage")
         sys.exit(1)
 
-    # Check if aishell1_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(
-        hparams["base_folder_dm"]
-    ):
-        print(
-            "Please, specify a valid base_folder_dm folder when using dynamic mixing"
-        )
-        sys.exit(1)
-
     # Data preparation
     from recipes.Aishell1Mix.prepare_data import prepare_aishell1mix
 
