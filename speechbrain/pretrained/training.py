@@ -20,7 +20,9 @@ class PretrainedModelMixin:
         pretrainer = self.hparams.pretrainer
         for key, value in pretrainer.loadables.items():
             path = pretrainer.paths[key]
-            os.makedirs(os.path.dirname(path))
+            dirname = os.path.dirname(path)
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
             if os.path.exists(path):
                 os.remove(path)
             torch_save(value, path)
