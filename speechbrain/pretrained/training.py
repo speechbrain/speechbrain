@@ -21,4 +21,6 @@ class PretrainedModelMixin:
         for key, value in pretrainer.loadables.items():
             path = pretrainer.paths[key]
             os.makedirs(os.path.dirname(path))
+            if os.path.exists(path):
+                os.remove(path)
             torch_save(value, path)
