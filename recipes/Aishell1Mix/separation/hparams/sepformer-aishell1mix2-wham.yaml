@@ -19,7 +19,7 @@ data_folder: !PLACEHOLDER
 # this is the base folder for dynamic mixing, usually not changed.
 base_folder_dm: !ref <data_folder>/data_aishell/wav/train
 
-experiment_name: sepformer-aishell1mix2
+experiment_name: sepformer-aishell1mix2-whamnoise
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
