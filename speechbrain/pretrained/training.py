@@ -5,7 +5,7 @@ Authors
 * Artem Ploujnikov 2021
 """
 from speechbrain.utils.checkpoints import torch_save
-
+import os
 
 class PretrainedModelMixin:
     """
@@ -20,4 +20,5 @@ class PretrainedModelMixin:
         pretrainer = self.hparams.pretrainer
         for key, value in pretrainer.loadables.items():
             path = pretrainer.paths[key]
+            os.makedirs(os.path.dirname(path))
             torch_save(value, path)
