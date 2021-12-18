@@ -85,7 +85,7 @@ if __name__ == "__main__":
             if not os.path.exists(
                 os.path.normpath(hparams["base_folder_dm"]) + "_processed"
             ):
-                from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
+                from recipes.Aishell1Mix.meta.preprocess_dynamic_mixing import (
                     resample_folder,
                 )
 
