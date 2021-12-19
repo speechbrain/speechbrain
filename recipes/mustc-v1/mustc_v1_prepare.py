@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 def prepare_mustc_v1(
     data_folder: str,
     save_folder: str,
-    font_case: str = "lc",
-    accented_letters: bool = True,
-    punctuation: bool = False,
-    non_verbal: bool = False,
-    tgt_language: str = "de",
+    source_font_case: str = "lc",
+    target_font_case: str = "tc",
+    is_accented_letters: bool = True,
+    is_remove_punctuation: bool = False,
+    is_remove_verbal: bool = False,
+    target_language: str = "de",
     skip_prep: bool = False,
 ):
     """
@@ -42,16 +43,18 @@ def prepare_mustc_v1(
         This path should include the lang: https://ict.fbk.eu/must-c-releases/
     save_folder : str
         The directory where to store the json files.
-    font_case : str, optional
+    source_font_case : str, optional
         Can be tc, lc, uc for True Case, Low Case or Upper Case respectively.
-    accented_letters : bool, optional
+    target_font_case : str, optional
+        Can be tc, lc, uc for True Case, Low Case or Upper Case respectively.
+    is_accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    punctuation : bool, optional
+    is_remove_punctuation : bool, optional
         If set to True, the punctuation will be removed.
-    non_verbal : bool, optional
+    is_remove_verbal : bool, optional
         If set to True, non-verbal tags will be removed e.g. ( Applause ).
-    tgt_language : str, optional
+    target_language : str, optional
         Can be "de", "en", "fr", "es", "it", "nl", "pt", "ro" or "ru".
     skip_prep: bool
         If True, skip data preparation.
@@ -64,11 +67,11 @@ def prepare_mustc_v1(
     >>> prepare_mustc_v1( \
                  data_folder, \
                  save_folder, \
-                 tgt_language="de" \
+                 target_language="de" \
                  )
     """
 
-    if skip_prep or skip(save_folder, tgt_language):
+    if skip_prep or skip(save_folder, target_language):
         logger.info("Skipping data preparation.")
         return
     else:
@@ -76,8 +79,8 @@ def prepare_mustc_v1(
 
     mustc_v1_languages = ["de", "en", "fr", "es", "it", "nl", "pt", "ro", "ru"]
 
-    if tgt_language not in mustc_v1_languages:
-        msg = "tgt_language must be one of:" + str(mustc_v1_languages)
+    if target_language not in mustc_v1_languages:
+        msg = "target_language must be one of:" + str(mustc_v1_languages)
         raise ValueError(msg)
 
     # Setting the save folder
@@ -85,72 +88,83 @@ def prepare_mustc_v1(
         os.makedirs(save_folder)
 
     # Additional checks to make sure the data folder contains Common Voice
-    check_mustc_folders(data_folder)
+    _check_mustc_folders(data_folder)
 
     # Setting the official MuST-C file paths
     train_yaml = os.path.join(data_folder, "train/txt/train.yaml")
-    train_src = os.path.join(data_folder, "train/txt/train.en")
-    train_tgt = os.path.join(
-        data_folder, "train/txt/train." + str(tgt_language)
+    train_source = os.path.join(data_folder, "train/txt/train.en")
+    train_target = os.path.join(
+        data_folder, "train/txt/train." + str(target_language)
     )
     train_wav = os.path.join(data_folder, "train/wav")
 
     dev_yaml = os.path.join(data_folder, "dev/txt/dev.yaml")
-    dev_src = os.path.join(data_folder, "dev/txt/dev.en")
-    dev_tgt = os.path.join(data_folder, "dev/txt/dev." + str(tgt_language))
+    dev_source = os.path.join(data_folder, "dev/txt/dev.en")
+    dev_target = os.path.join(
+        data_folder, "dev/txt/dev." + str(target_language)
+    )
     dev_wav = os.path.join(data_folder, "dev/wav")
 
     test_he_yaml = os.path.join(data_folder, "tst-HE/txt/tst-HE.yaml")
-    test_he_src = os.path.join(data_folder, "tst-HE/txt/tst-HE.en")
-    test_he_tgt = os.path.join(
-        data_folder, "tst-HE/txt/tst-HE." + str(tgt_language)
+    test_he_source = os.path.join(data_folder, "tst-HE/txt/tst-HE.en")
+    test_he_target = os.path.join(
+        data_folder, "tst-HE/txt/tst-HE." + str(target_language)
     )
     test_he_wav = os.path.join(data_folder, "tst-HE/wav")
 
     test_com_yaml = os.path.join(data_folder, "tst-COMMON/txt/tst-COMMON.yaml")
-    test_com_src = os.path.join(data_folder, "tst-COMMON/txt/tst-COMMON.en")
-    test_com_tgt = os.path.join(
-        data_folder, "tst-COMMON/txt/tst-COMMON." + str(tgt_language)
+    test_com_source = os.path.join(data_folder, "tst-COMMON/txt/tst-COMMON.en")
+    test_com_target = os.path.join(
+        data_folder, "tst-COMMON/txt/tst-COMMON." + str(target_language)
     )
     test_com_wav = os.path.join(data_folder, "tst-COMMON/wav")
 
     # Path for preparated json files
-    train = os.path.join(save_folder, "train_en-" + str(tgt_language) + ".json")
-    dev = os.path.join(save_folder, "dev_en-" + str(tgt_language) + ".json")
+    train = os.path.join(
+        save_folder, "train_en-" + str(target_language) + ".json"
+    )
+    dev = os.path.join(save_folder, "dev_en-" + str(target_language) + ".json")
     test_he = os.path.join(
-        save_folder, "test_he_en-" + str(tgt_language) + ".json"
+        save_folder, "test_he_en-" + str(target_language) + ".json"
     )
     test_com = os.path.join(
-        save_folder, "test_com_en-" + str(tgt_language) + ".json"
+        save_folder, "test_com_en-" + str(target_language) + ".json"
     )
 
     datasets = [
-        (train, train_yaml, train_src, train_tgt, train_wav),
-        (dev, dev_yaml, dev_src, dev_tgt, dev_wav),
-        (test_he, test_he_yaml, test_he_src, test_he_tgt, test_he_wav),
-        (test_com, test_com_yaml, test_com_src, test_com_tgt, test_com_wav),
+        (train, train_yaml, train_source, train_target, train_wav),
+        (dev, dev_yaml, dev_source, dev_target, dev_wav),
+        (test_he, test_he_yaml, test_he_source, test_he_target, test_he_wav),
+        (
+            test_com,
+            test_com_yaml,
+            test_com_source,
+            test_com_target,
+            test_com_wav,
+        ),
     ]
 
     # Creating json files based on the dataset
     for dataset in datasets:
-        json_path, yaml_path, src_path, tgt_path, wav_path = dataset
+        json_path, yaml_path, source_path, target_path, wav_path = dataset
 
         create_json(
             json_path,
             yaml_path,
-            src_path,
-            tgt_path,
+            source_path,
+            target_path,
             wav_path,
             data_folder,
-            font_case,
-            accented_letters,
-            punctuation,
-            non_verbal,
-            tgt_language,
+            source_font_case,
+            target_font_case,
+            is_accented_letters,
+            is_remove_punctuation,
+            is_remove_verbal,
+            target_language,
         )
 
 
-def skip(save_folder: str, tgt_language: str):
+def skip(save_folder: str, target_language: str):
     """
     Detects if the MuST-C data preparation has been already done.
 
@@ -164,13 +178,15 @@ def skip(save_folder: str, tgt_language: str):
     """
 
     # File that should exists if already created
-    train = os.path.join(save_folder, "train_en-" + str(tgt_language) + ".json")
-    dev = os.path.join(save_folder, "dev_en-" + str(tgt_language) + ".json")
+    train = os.path.join(
+        save_folder, "train_en-" + str(target_language) + ".json"
+    )
+    dev = os.path.join(save_folder, "dev_en-" + str(target_language) + ".json")
     test_he = os.path.join(
-        save_folder, "test_he_en-" + str(tgt_language) + ".json"
+        save_folder, "test_he_en-" + str(target_language) + ".json"
     )
     test_com = os.path.join(
-        save_folder, "test_com_en-" + str(tgt_language) + ".json"
+        save_folder, "test_com_en-" + str(target_language) + ".json"
     )
 
     skip = False
@@ -189,15 +205,16 @@ def skip(save_folder: str, tgt_language: str):
 def create_json(
     json_path: str,
     yaml_path: str,
-    src_path: str,
-    tgt_path: str,
+    source_path: str,
+    target_path: str,
     wav_path: str,
     data_folder: str,
-    font_case: str,
-    accented_letters: bool,
-    punctuation: bool,
-    non_verbal: bool,
-    tgt_language: str,
+    source_font_case: str,
+    target_font_case: str,
+    is_accented_letters: bool,
+    is_remove_punctuation: bool,
+    is_remove_verbal: bool,
+    target_language: str,
 ):
     """
     Creates the a json file.
@@ -207,17 +224,15 @@ def create_json(
 
     # We load all files and check that the number of samples correspond
     with open(yaml_path, "r", encoding="utf-8") as yaml_file, open(
-        src_path, "r", encoding="utf-8"
-    ) as src_file, open(tgt_path, "r", encoding="utf-8") as tgt_file:
+        source_path, "r", encoding="utf-8"
+    ) as source_file, open(target_path, "r", encoding="utf-8") as target_file:
 
         loaded_yaml = yaml_file.readlines()
-        loaded_src = src_file.readlines()
-        loaded_tgt = tgt_file.readlines()
+        loaded_source = source_file.readlines()
+        loaded_target = target_file.readlines()
 
-        if not (len(loaded_yaml) == len(loaded_src) == len(loaded_tgt)):
-            msg = (
-                "The number of lines in yaml, src and tgt files are different!"
-            )
+        if not (len(loaded_yaml) == len(loaded_source) == len(loaded_target)):
+            msg = "The number of lines in yaml, source and target files are different!"
             raise ValueError(msg)
 
         nb_samples = len(loaded_yaml)
@@ -238,8 +253,8 @@ def create_json(
 
         for line in tzip(loaded_yaml):
             line_yaml = line[0]
-            src_trs = loaded_src[cpt]
-            tgt_trs = loaded_tgt[cpt]
+            source_trs = loaded_source[cpt]
+            target_trs = loaded_target[cpt]
             cpt += 1
 
             yaml_split = line_yaml.split(" ")
@@ -253,44 +268,28 @@ def create_json(
             total_duration += float(duration)
 
             # Getting transcripts and normalize according to parameters
-            normalized_src = src_trs.rstrip()
-            normalized_tgt = tgt_trs.rstrip()
+            source_trs = source_trs.rstrip()
+            target_trs = target_trs.rstrip()
 
-            # 1. Case
-            if font_case == "lc":
-                normalized_src = normalized_src.lower()
-                normalized_tgt = normalized_tgt.lower()
-            elif font_case == "uc":
-                normalized_src = normalized_src.upper()
-                normalized_tgt = normalized_tgt.upper()
+            normalized_source = _normalize_text(
+                text=source_trs,
+                font_case=source_font_case,
+                is_accented_letters=is_accented_letters,
+                is_remove_verbal=is_remove_verbal,
+                is_remove_punctuation=is_remove_punctuation,
+            )
 
-            # 2. Replace contraction with space
-            normalized_src = normalized_src.replace("'", " '")
-            normalized_tgt = normalized_tgt.replace("'", " '")
+            normalized_target = _normalize_text(
+                text=target_trs,
+                font_case=target_font_case,
+                is_accented_letters=is_accented_letters,
+                is_remove_verbal=is_remove_verbal,
+                is_remove_punctuation=is_remove_punctuation,
+            )
 
-            # 3. Non verbal
-            if not non_verbal:
-                normalized_src = re.sub(r"\([^()]*\)", "", normalized_src)
-                normalized_tgt = re.sub(r"\([^()]*\)", "", normalized_tgt)
-
-            # 4. Punctuation
-            if not punctuation:
-                normalized_src = normalized_src.translate(
-                    str.maketrans("", "", string.punctuation)
-                )
-                normalized_tgt = normalized_tgt.translate(
-                    str.maketrans("", "", string.punctuation)
-                )
-
-            # 5. Accented letters
-            if not accented_letters:
-                normalized_src = strip_accents(normalized_src)
-                normalized_tgt = strip_accents(normalized_tgt)
-
-            # 6. We remove all examples that contains a single word
             if (
-                len(normalized_tgt.split(" ")) < 2
-                or len(normalized_src.split(" ")) < 2
+                len(normalized_target.split(" ")) < 2
+                or len(normalized_source.split(" ")) < 2
             ):
                 continue
 
@@ -303,9 +302,9 @@ def create_json(
                 "duration": duration,
                 "wav": wav,
                 "spk_id": spk_id,
-                "transcription": normalized_src,
-                "translation": normalized_tgt,
-                "transcription_and_translation": f"{normalized_src}\n{normalized_tgt}",
+                "transcription": normalized_source,
+                "translation": normalized_target,
+                "transcription_and_translation": f"{normalized_source}\n{normalized_target}",
             }
 
             sample += 1
@@ -324,7 +323,36 @@ def create_json(
     logger.info(msg)
 
 
-def check_mustc_folders(data_folder: str):
+def _normalize_text(
+    text: str,
+    font_case: str,
+    is_accented_letters: bool = False,
+    is_remove_verbal: bool = False,
+    is_remove_punctuation: bool = True,
+) -> str:
+
+    text = text.replace("'", " '")
+
+    if font_case == "tc":
+        return text
+    elif font_case == "lc":
+        text = text.lower()
+    elif font_case == "uc":
+        text = text.upper()
+
+    if is_remove_verbal:
+        text = re.sub(r"\([^()]*\)", "", text)
+
+    if is_remove_punctuation:
+        text = text.translate(str.maketrans("", "", string.punctuation))
+
+    if is_accented_letters:
+        text = _strip_accents(text)
+
+    return text
+
+
+def _check_mustc_folders(data_folder: str):
     """
     Check if the data folder actually contains the must-c dataset.
 
@@ -352,7 +380,7 @@ def check_mustc_folders(data_folder: str):
         raise FileNotFoundError(err_msg)
 
 
-def strip_accents(text):
+def _strip_accents(text: str) -> str:
     text = (
         unicodedata.normalize("NFD", text)
         .encode("ascii", "ignore")

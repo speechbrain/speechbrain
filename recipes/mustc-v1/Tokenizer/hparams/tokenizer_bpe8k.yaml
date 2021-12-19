@@ -14,10 +14,11 @@ output_folder: ./save # !PLACEHOLDER # Path where to store theTokenizer output (
 # lc: lower case
 # uc: upper case
 # tc: true case
-font_case: lc
+source_font_case: lc
+target_font_case: tc
 # Defines if accented letters will be kept as individual letters or
 # transformed to the closest non-accented letters.
-accented_letters: True
+is_accented_letters: True
 is_remove_punctuation: False
 is_remove_non_verbal: False
 target_language: de
@@ -28,7 +29,7 @@ token_output: 8000
 # transcription: transcription in source language
 # translation_0 translation in target language
 # transcription_and_translation: joint transcription and translation
-annotation_read: "transcription_and_translation" # field to read
+annotation_read: "translation" # field to read
 
 
 # Tokenizer object

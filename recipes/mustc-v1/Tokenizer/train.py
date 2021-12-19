@@ -32,11 +32,12 @@ if __name__ == "__main__":
     prepare_mustc_v1(
         data_folder=hparams["original_data_folder"],
         save_folder=hparams["data_folder"],
-        font_case=hparams["font_case"],
-        accented_letters=hparams["accented_letters"],
-        punctuation=hparams["is_remove_punctuation"],
-        non_verbal=hparams["is_remove_non_verbal"],
-        tgt_language=hparams["target_language"],
+        source_font_case=hparams["source_font_case"],
+        target_font_case=hparams["target_font_case"],
+        is_accented_letters=hparams["is_accented_letters"],
+        is_remove_punctuation=hparams["is_remove_punctuation"],
+        is_remove_verbal=hparams["is_remove_non_verbal"],
+        target_language=hparams["target_language"],
     )
 
     # Train tokenizer
