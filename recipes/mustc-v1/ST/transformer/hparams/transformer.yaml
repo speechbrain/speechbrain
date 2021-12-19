@@ -71,6 +71,14 @@ stage_one_epochs: 100 # not gonna changing optimizer in this recipe
 lr_adam: 2.5
 lr_sgd: 0.000025
 
+# dynamic batching parameters, if used
+dynamic_batching: True
+dynamic_batch_sampler:
+    max_batch_len: 20000 # in terms of frames
+    shuffle_ex: True
+    batch_ordering: random
+    num_buckets: 20
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 

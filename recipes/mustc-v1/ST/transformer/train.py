@@ -422,7 +422,36 @@ def dataio_prepare(hparams):
 
         hparams["train_dataloader_opts"]["shuffle"] = True
 
-    return datasets
+    train_batch_sampler = None
+    dev_batch_sampler = None
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.batch import PaddedBatch  # noqa
+
+        sample_rate = hparams["sample_rate"]
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        num_buckets = dynamic_hparams["num_buckets"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            datasets["train"],
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
+            length_func=lambda x: x["duration"] * sample_rate,
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+        dev_batch_sampler = DynamicBatchSampler(
+            datasets["dev"],
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
+            length_func=lambda x: x["duration"] * sample_rate,
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+    return datasets, train_batch_sampler, dev_batch_sampler
 
 
 if __name__ == "__main__":
@@ -447,8 +476,16 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
-    # We can now directly create the datasets for training, valid, and test
-    datasets = dataio_prepare(hparams)
+    # We can now directly create the datasets for training, dev, and test
+    datasets, train_batch_sampler, dev_batch_sampler = dataio_prepare(hparams)
+
+    train_dataloader_opts = hparams["train_dataloader_opts"]
+    dev_dataloader_opts = hparams["dev_dataloader_opts"]
+
+    if train_batch_sampler is not None:
+        train_dataloader_opts = {"batch_sampler": train_batch_sampler}
+    if dev_batch_sampler is not None:
+        dev_dataloader_opts = {"batch_sampler": dev_batch_sampler}
 
     st_brain = ST(
         modules=hparams["modules"],
@@ -462,8 +499,8 @@ if __name__ == "__main__":
         st_brain.hparams.epoch_counter,
         datasets["train"],
         datasets["dev"],
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=dev_dataloader_opts,
     )
 
     for dataset in ["test_com", "test_he"]:
