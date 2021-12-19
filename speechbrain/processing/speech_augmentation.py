@@ -1704,7 +1704,7 @@ def muscolar_noise(
     Example
     -------
     >>> waveforms = torch.randn(4,257,10)
-    >>> noise = emg_noise(waveforms)
+    >>> noise = muscolar_noise(waveforms)
     >>> noise.shape
     torch.Size([4, 257, 10])
     """
