@@ -13,7 +13,6 @@ Authors
 """
 
 # Importing libraries
-from enum import Flag
 import math
 import torch
 import torch.nn.functional as F
@@ -152,8 +151,8 @@ class AddNoise(torch.nn.Module):
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
-            white_noise = self.noise_funct(waveforms)
-            noisy_waveform += new_noise_amplitude * white_noise
+            noise_seq = self.noise_funct(waveforms)
+            noisy_waveform += new_noise_amplitude * noise_seq
         else:
             tensor_length = waveforms.shape[1]
             noise_waveform, noise_length = self._load_noise(
@@ -1685,19 +1684,23 @@ def muscolar_noise(
     bb_offset_high: float = 5.686,
     sample_rate: int = 250,
 ) -> torch.Tensor:
-    """Creates a sequence of noise that resembles muscolar artifacts in EEG.
-    The muscolar noise is modeled as a cobination of pink noise and a broad-band
-    component after 20Hz.
+    """Creates a sequence of bio-inspired noise that resembles muscular artifacts
+    in EEG. The muscular noise is modeled as a combination of pink noise and a
+    broad-band colored component after 20Hz (modeled by a parabolic spectral
+    curve with negative concavity).
+
     Arguments
     ---------
     waveforms : torch.Tensor
         The original waveform. It is just used to infer the shape.
-    alpha_low : float
-        The minimum value for the alpha spectral smooting factor.
-    alpha_high : float
-        The maximum value for the alpha spectral smooting factor.
+    pink_alpha_low : float
+        The minimum value for the alpha spectral smoothing factor.
+    pink_alpha_high : float
+        The maximum value for the alpha spectral smoothing factor.
+    bb_offset_low:
     sample_rate : float
         The sample rate of the original signal.
+
     Example
     -------
     >>> waveforms = torch.randn(4,257,10)
@@ -1707,6 +1710,7 @@ def muscolar_noise(
     """
     # Sample parameters
     def sample_params(low, high):
+        """It randomly samples the parameter that creates the spectral mask."""
         vrange = high - low
         var = (
             torch.rand(waveforms.shape[0], device=waveforms.device) * vrange
@@ -1718,16 +1722,21 @@ def muscolar_noise(
     alpha = sample_params(pink_alpha_low, pink_alpha_high)
     bb_offset = sample_params(bb_offset_low, bb_offset_high)
 
-    def emg_spectral_mask(f):
+    def emg_spectral_mask(f, device="cpu"):
+        """It creates the spectral mask for the muscular noise.
+        The mask decays as 1/f^alpha in the first part of the spectrum
+        (pink noise-like). Then a colored noise is added with a parabolic
+        trajectory with negative concavity.
+        """
         stage_1_model_params = {
             "a": alpha,
-            "b": torch.ones(size=alpha.shape) * 46.42,
-            "d": torch.ones(size=alpha.shape) * 8.01,
+            "b": torch.ones(size=alpha.shape, device=device) * 46.42,
+            "d": torch.ones(size=alpha.shape, device=device) * 8.01,
         }
 
         stage_2_model_params = {
-            "b": torch.ones(size=alpha.shape) * 1.13,
-            "d": torch.ones(size=alpha.shape) * 2.02,
+            "b": torch.ones(size=alpha.shape, device=device) * 1.13,
+            "d": torch.ones(size=alpha.shape, device=device) * 2.02,
             "e": bb_offset,
         }
 
@@ -1758,7 +1767,7 @@ def muscolar_noise(
         device=waveforms.device,
     )
 
-    spectral_mask = emg_spectral_mask(f.unsqueeze(0))
+    spectral_mask = emg_spectral_mask(f.unsqueeze(0), device=waveforms.device)
     spectral_mask[:, 0] = spectral_mask[:, 1]
 
     # Mask for the upper part of the spectrum (f > sample_rate/2)

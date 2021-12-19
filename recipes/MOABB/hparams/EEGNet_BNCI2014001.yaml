@@ -69,13 +69,13 @@ test_key: "acc" # Possible opts: "loss", "f1", "auc", "acc"
 avg_models: 10 # checkpoints to average
 
 f1: !name:sklearn.metrics.f1_score
-  average: 'macro'
+    average: 'macro'
 acc: !name:sklearn.metrics.balanced_accuracy_score
 cm: !name:sklearn.metrics.confusion_matrix
 metrics:
-  f1: !ref <f1>
-  acc: !ref <acc>
-  cm: !ref <cm>
+    f1: !ref <f1>
+    acc: !ref <acc>
+    cm: !ref <cm>
 
 loss: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.0

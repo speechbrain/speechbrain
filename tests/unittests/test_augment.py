@@ -321,6 +321,10 @@ def test_rand_shift():
 def test_pink_noise():
     from speechbrain.processing.speech_augmentation import pink_noise_like
 
+    signal = torch.rand(4, 256)
+    noise = pink_noise_like(signal)
+    assert signal.shape == noise.shape
+
     signal = torch.rand(4, 256, 8)
     noise = pink_noise_like(signal)
     assert signal.shape == noise.shape
@@ -340,6 +344,18 @@ def test_pink_noise():
     mean_first_fft_points = noise_fft.abs()[:, 0:10, :].mean()
     mean_last_fft_points = noise_fft.abs()[:, 118:128, :].mean()
     assert torch.all(mean_first_fft_points < mean_last_fft_points)
+
+
+def muscular_noise():
+    from speechbrain.processing.speech_augmentation import muscolar_noise
+
+    signal = torch.rand(4, 256, 8)
+    noise = muscolar_noise(signal)
+    assert signal.shape == noise.shape
+
+    signal = torch.rand(4, 256)
+    noise = muscolar_noise(signal)
+    assert signal.shape == noise.shape
 
 
 def test_augment_pipeline():
