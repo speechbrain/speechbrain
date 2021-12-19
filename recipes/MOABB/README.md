@@ -33,7 +33,10 @@ The dataset will be automaticallt downloaded in the specified folder.
 
 # Results
 After training, you can aggregate and visualize the performance of all the experiments with:
-\>>> python parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 acc loss f1
+\>>> python parse_results.py results/MOABB/EEGNet_BNCI2014001/ test_metrics.pkl acc f1
+
+To see the results on the validation set use:
+\>>> python parse_results.py results/MOABB/EEGNet_BNCI2014001/ test_metrics.pkl acc f1
 
 
 In the following, results are reported for each MOABB dataset and each architecture using different training strategies.

@@ -69,7 +69,12 @@ def visualize_results(paradigm: str, results: dict, vis_metrics: list) -> None:
                 )
 
 
-def parse_one_session_out(paradigm: Path, vis_metrics: list = []) -> dict:
+def parse_one_session_out(
+    paradigm: Path,
+    vis_metrics: list = [],
+    stat_metrics: list = ["loss", "f1", "acc"],
+    metric_file: str = "test_metrics.pkl",
+) -> dict:
     """Aggregates results obtain by helding back one session as test set and
     using the remaining ones to train the neural nets
 
@@ -87,7 +92,7 @@ def parse_one_session_out(paradigm: Path, vis_metrics: list = []) -> dict:
     for f in folds:
         child = sorted(f.iterdir())
         for sess in child:
-            metrics = load_metrics(sess.joinpath("metrics.pkl"))
+            metrics = load_metrics(sess.joinpath(metric_file))
             if metrics is not None:
                 for m in stat_metrics:
                     out_stat[sess.name][m].append(metrics[m])
@@ -100,7 +105,12 @@ def parse_one_session_out(paradigm: Path, vis_metrics: list = []) -> dict:
     return out_stat
 
 
-def parse_cross_section(paradigm: Path, vis_metrics: list = []) -> dict:
+def parse_cross_section(
+    paradigm: Path,
+    vis_metrics: list = [],
+    stat_metrics: list = ["loss", "f1", "acc"],
+    metric_file: str = "test_metrics.pkl",
+) -> dict:
     """Aggregates results obtained using all session' signals merged together.
     Training and test sets are defined using a stratified cross-validation partitioning.
 
@@ -117,7 +127,7 @@ def parse_cross_section(paradigm: Path, vis_metrics: list = []) -> dict:
         sess_metrics = {metric: [] for metric in stat_metrics}
 
         for sess in child:
-            metrics = load_metrics(sess.joinpath("metrics.pkl"))
+            metrics = load_metrics(sess.joinpath(metric_file))
             if metrics is not None:
                 for m in stat_metrics:
                     sess_metrics[m].append(metrics[m])
@@ -134,7 +144,12 @@ def parse_cross_section(paradigm: Path, vis_metrics: list = []) -> dict:
     return out_stat
 
 
-def parse_one_sub_out(paradigm: Path, vis_metrics: list = []) -> dict:
+def parse_one_sub_out(
+    paradigm: Path,
+    vis_metrics: list = [],
+    stat_metrics: list = ["loss", "f1", "acc"],
+    metric_file: str = "test_metrics.pkl",
+) -> dict:
     """Aggregates results obtained helding out one subject
     as test set and using the remaining ones for training.
 
@@ -147,7 +162,7 @@ def parse_one_sub_out(paradigm: Path, vis_metrics: list = []) -> dict:
     out_stat = {metric: [] for metric in stat_metrics}
 
     for f in folds:
-        metrics = load_metrics(f.joinpath("metrics.pkl"))
+        metrics = load_metrics(f.joinpath(metric_file))
         if metrics is not None:
             for m in stat_metrics:
                 out_stat[m].append(metrics[m])
@@ -160,7 +175,12 @@ def parse_one_sub_out(paradigm: Path, vis_metrics: list = []) -> dict:
     return out_stat
 
 
-def parse_within_session(paradigm: Path, vis_metrics: list = []) -> dict:
+def parse_within_session(
+    paradigm: Path,
+    vis_metrics: list = [],
+    stat_metrics: list = ["loss", "f1", "acc"],
+    metric_file: str = "test_metrics.pkl",
+) -> dict:
     """For each subject and for each session, the training
     and test sets were defined using a stratified cross-validation partitioning.
 
@@ -181,7 +201,7 @@ def parse_within_session(paradigm: Path, vis_metrics: list = []) -> dict:
             sub_perf = {metric: [] for metric in stat_metrics}
 
             for sub in sess.iterdir():
-                metrics = load_metrics(sub.joinpath("metrics.pkl"))
+                metrics = load_metrics(sub.joinpath(metric_file))
                 if metrics is not None:
                     for m in stat_metrics:
                         sub_perf[m].append(metrics[m])
@@ -197,7 +217,11 @@ def parse_within_session(paradigm: Path, vis_metrics: list = []) -> dict:
     return out_stat
 
 
-def aggregate_nested(results: dict):
+def aggregate_nested(
+    results: dict,
+    metric_file: str = "test_metrics.pkl",
+    stat_metrics: list = ["loss", "f1", "acc"],
+):
     temp = {key: [] for key in stat_metrics}
     for _, v in results.items():
         for k, r in v.items():
@@ -206,7 +230,11 @@ def aggregate_nested(results: dict):
     return temp
 
 
-def aggregate_single(results: dict):
+def aggregate_single(
+    results: dict,
+    metric_file: str = "test_metrics.pkl",
+    stat_metrics: list = ["loss", "f1", "acc"],
+):
     temp = {key: [] for key in stat_metrics}
     for k, r in results.items():
         temp[k].append(mean(r))
@@ -214,10 +242,11 @@ def aggregate_single(results: dict):
     return temp
 
 
-stat_metrics = ["loss", "f1", "acc", "auc"]
-
-
-def aggregate_metrics(verbose=1) -> Tuple:
+def aggregate_metrics(
+    verbose=1,
+    metric_file="test_metrics.pkl",
+    stat_metrics=["loss", "f1", "acc"],
+) -> Tuple:
     """Parses results and computes statistics over all
     paradigms.
 
@@ -225,7 +254,7 @@ def aggregate_metrics(verbose=1) -> Tuple:
     :rtype: [Tuple]
     """
     results_folder = Path(sys.argv[1])
-    vis_metrics = sys.argv[2:]
+    vis_metrics = stat_metrics
 
     overall_stat = {key: [] for key in stat_metrics}
 
@@ -244,8 +273,15 @@ def aggregate_metrics(verbose=1) -> Tuple:
     }
 
     for paradigm in sorted(results_folder.iterdir()):
-        results = parsers[paradigm.name](paradigm, vis_metrics)
-        temp = aggr[paradigm.name](results)
+        results = parsers[paradigm.name](
+            paradigm,
+            vis_metrics,
+            metric_file=metric_file,
+            stat_metrics=stat_metrics,
+        )
+        temp = aggr[paradigm.name](
+            results, metric_file=metric_file, stat_metrics=stat_metrics
+        )
 
         for k in temp.keys():
             overall_stat[k].extend(temp[k])
@@ -258,8 +294,12 @@ def aggregate_metrics(verbose=1) -> Tuple:
 
 
 if __name__ == "__main__":
-    temp = aggregate_metrics(verbose=1)
+    metric_file = sys.argv[2]
+    stat_metrics = sys.argv[3:]
+    temp = aggregate_metrics(
+        verbose=1, metric_file=metric_file, stat_metrics=stat_metrics
+    )
 
     print("\nAggregated results")
-    for k in sys.argv[2:]:
+    for k in stat_metrics:
         print(k, temp[k], "+-", temp[k + "_std"])
