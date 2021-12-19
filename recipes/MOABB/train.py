@@ -143,7 +143,7 @@ class MOABBBrain(sb.Brain):
                 # Saving the checkpoint
                 if save_ckpt:
                     min_keys, max_keys = [], []
-                    if hparams["test_key"] == "loss":
+                    if self.hparams.test_key == "loss":
                         min_keys = [self.hparams.test_key]
                     else:
                         max_keys = [self.hparams.test_key]
