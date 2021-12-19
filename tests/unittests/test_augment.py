@@ -278,7 +278,6 @@ def test_channel_swap():
     ch_swap = ChannelSwap(min_swap=1, max_swap=5)
     output = ch_swap(signal)
     assert signal.shape == output.shape
-    assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256, 8)
     ch_swap = ChannelSwap(min_swap=0, max_swap=0)
