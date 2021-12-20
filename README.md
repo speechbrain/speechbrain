@@ -29,7 +29,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 - On-the-fly dynamic batching
 - Efficient reading of large datasets from a shared  Network File System (NFS) via [WebDataset](https://github.com/webdataset/webdataset).
 - Interface with [HuggingFace](https://huggingface.co/speechbrain) for popular models such as wav2vec2  and Hubert.
-- Interface with [Orion(https://github.com/Epistimio/orion) for hyperparameter tuning. 
+- Interface with [Orion(https://github.com/Epistimio/orion) for hyperparameter tuning.
 
 
 ### Speech recognition
