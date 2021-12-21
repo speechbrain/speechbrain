@@ -1806,15 +1806,17 @@ def combine_waveforms(
 ) -> torch.Tensor:
     """Combines waveforms with specified Signal to Noise ratio
     by sampling the snr from realistic emg distributions.
-    
+
         Example
     -------
     >>> waveforms = torch.randn(4,257,10)
     >>> noise = torch.randn([4, 257, 10])
     >>> combined_signal = combine_waveforms(waveforms, noise)
-    
+
     """
-    rms = lambda x: torch.sqrt(torch.mean(x ** 2, axis=1))
+
+    def rms(x):
+        return torch.sqrt(torch.mean(x ** 2, axis=1))
 
     snr_range = snr_db_high - snr_db_low
     snr = (
