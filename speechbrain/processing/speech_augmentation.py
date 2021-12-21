@@ -1796,3 +1796,34 @@ def muscolar_noise(
     emg_noise = torch.fft.ifft(emg_noise_fft, dim=1).real
 
     return emg_noise
+
+
+def combine_waveforms(
+    waveforms: torch.Tensor,
+    noise: torch.Tensor,
+    snr_db_low: float = -7,
+    snr_db_high: float = 4,
+) -> torch.Tensor:
+    """Combines waveforms with specified Signal to Noise ratio
+    by sampling the snr from realistic emg distributions.
+    
+        Example
+    -------
+    >>> waveforms = torch.randn(4,257,10)
+    >>> noise = torch.randn([4, 257, 10])
+    >>> combined_signal = combine_waveforms(waveforms, noise)
+    
+    """
+    rms = lambda x: torch.sqrt(torch.mean(x ** 2, axis=1))
+
+    snr_range = snr_db_high - snr_db_low
+    snr = (
+        torch.rand(waveforms.shape[0], device=waveforms.device) * snr_range
+        + snr_db_low
+    ).unsqueeze(1)
+
+    # Compute the mixing factor based on snr_db
+    lambda_snr = rms(waveforms) / rms(noise) / 10 ** (snr / 10)
+    lambda_snr = lambda_snr.unsqueeze(1)
+
+    return waveforms + lambda_snr * noise
