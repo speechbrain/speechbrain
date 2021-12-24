@@ -36,7 +36,7 @@ if len(sys.argv) >= 2:
             paths = os.path.join(root, File)
             with open(paths, "r") as file:
                 lines = file.readlines()
-                print("\n"+paths)
+                print("\n" + paths)
                 strMatrix = ""
                 strResult = ""
                 for line in lines[38:48]:
@@ -52,36 +52,34 @@ if len(sys.argv) >= 2:
                 matrix = np.matrix(strMatrix)
                 sumTrix = sumTrix + matrix
                 
-                if ( allConf == 'all' or allConf =='each'):
-                    df_cm = pd.DataFrame(matrix, index = labels,
-                      columns = labels)
-                    plt.figure(figsize = (10,7))
+                if allConf == "all" or allConf == "each":
+                    df_cm = pd.DataFrame(matrix, index=labels, columns=labels)
+                    plt.figure(figsize=(10, 7))
                     plt.title(paths)
                     sn.heatmap(df_cm, annot=True)
 
                 cnt = 0
-                for line in lines[27:37] :
-                    line = line[2:].replace("\n","").replace(",","")
+                for line in lines[27:37]:
+                    line = line[2:].replace("\n", "").replace(",", "")
                     toPrint = labels[cnt] + " = "
-                    print(toPrint + line.rjust(60-len(toPrint)))
+                    print(toPrint + line.rjust(60 - len(toPrint)))
                     xValidResults[cnt].append(float(line))
-                    cnt+=1
+                    cnt += 1
     print("\n-- Mean Accuracy calculus --")
     cnt = 0
     labelRates = []
-    for labelRate in xValidResults :
+    for labelRate in xValidResults:
         val = np.mean(np.asarray(labelRate))
-        toPrint = "Mean acc on "+ labels[cnt] + " = " 
-        print(toPrint + str(val).rjust(60-len(toPrint)))
+        toPrint = "Mean acc on " + labels[cnt] + " = "
+        print(toPrint + str(val).rjust(60 - len(toPrint)))
         labelRates.append(val)
         cnt +=1 
     print("\n\nOverall mean acc " + str(np.sum(np.asarray(labelRates))))
 
-    if ( allConf == 'all' or allConf =='cum'):
+    if allConf == "all" or allConf == "cum":
         print("\n\nSum of every confusion matrix of current folder")
-        df_cm = pd.DataFrame(sumTrix, index = labels,
-          columns = labels)
-        plt.figure(figsize = (10,7))
+        df_cm = pd.DataFrame(sumTrix, index=labels, columns=labels)
+        plt.figure(figsize=(10, 7))
         sn.heatmap(df_cm, annot=True)
         plt.title(path)
     plt.show()
