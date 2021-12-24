@@ -1,4 +1,6 @@
 sklearn
+seaborn
+numpy
 matplotlib
 pandas
 tensorboard
