@@ -58,36 +58,36 @@ Note that the results for 10-fold must be compiled from the output folders and a
 
 # Perfomance without data augmentation (10 folds)
 
-* Results averaged using [harry_plotter.py](https://github.com/ZiRaymondal/speechbrain/tree/develop/recipes/UrbanSound8k/SoundClassification/harry_plotter.py)
+* Results averaged using [harry_plotter.py](https://github.com/speechbrain/speechbrain/tree/develop/recipes/UrbanSound8k/SoundClassification/harry_plotter.py)
 
 |**Label\Precision** |**Speechbrain**|
-|--------------------|-----------------------|
-|**dog_bark**        |  0.8133
-|**children_playing**|  0.7880          
-|**air_conditioner** |  0.7783
-|**street_music**    |  0.5960
-|**gun_shot**      |  0.7890           
-|**siren**         |  0.8759  
-|**engine_idling** |  0.6747              
-|**jackhammer**    |  0.5452
-|**drilling**      |  0.6761   
-|**car_horn**      |  0.7184
-|**Overall Mean Acc** |**0.72559**
+|--------------------|---------------|
+|**dog_bark**        |  0.8133       |
+|**children_playing**|  0.7880       |
+|**air_conditioner** |  0.7783       |
+|**street_music**    |  0.5960       |
+|**gun_shot**        |  0.7890       |
+|**siren**           |  0.8759       |
+|**engine_idling**   |  0.6747       |
+|**jackhammer**      |  0.5452       |
+|**drilling**        |  0.6761       |
+|**car_horn**        |  0.7184       |
+|**Overall Mean Acc**|**0.72559**    |
 
-![Averaged confusion matrix](https://gitlab.com/Raymondaud.Q/lia-alternance-m2/-/raw/master/SpeechBrain-UrbanSound-Recipe/10_Fold/SANS_DATA_AUGMENTATION/Sum_Confu_SB_Default.png)  
+![Averaged confusion matrix](https://gitlab.com/Raymondaud.Q/lia-alternance-m2/-/raw/master/SpeechBrain-UrbanSound-Recipe/10_Fold/SANS_DATA_AUGMENTATION/Sum_Confu_SB_Default.png)
 
-* Results on each fold ( X = folds, Y = labels ) : 
+* Results on each fold (X = folds, Y = labels):
 ```
-0: 0.910 + 0.920 +  0.830 + 0.840 + 0.643 +  0.880 + 0.800 + 0.820 + 0.730 + 0.760  
-1: 0.860 + 0.910 +  0.840 + 0.820 + 0.790 +  0.810 + 0.700 + 0.630 + 0.790 + 0.730 
-2: 1.000 + 0.571 +  0.535 + 0.695 + 0.830 +  0.679 + 0.893 + 1.000 + 0.750 + 0.830 
-3: 0.320 + 0.920 +  0.460 + 0.650 + 0.610 +  0.430 + 0.660 + 0.480 + 0.670 + 0.760 
-4: 0.770 + 0.860 +  0.600 + 0.750 + 0.690 +  0.750 + 0.882 + 0.810 + 0.850 + 0.938 
-5: 0.953 + 0.971 +  0.917 + 0.842 + 1.000 +  0.935 + 0.623 + 1.000 + 1.000 + 0.518 
-6: 0.688 + 0.659 +  0.639 + 0.898 + 0.817 +  0.459 + 0.519 + 0.438 + 0.963 + 0.667 
-7: 0.470 + 0.200 +  0.318 + 0.841 + 0.626 +  0.561 + 0.197 + 0.773 + 0.528 + 0.938 
-8: 0.458 + 0.500 +  0.850 + 0.550 + 1.000 +  0.603 + 0.780 + 0.385 + 0.915 + 0.720 
-9: 0.886 + 0.670 +  0.600 + 0.450 + 0.880 +  0.700 + 0.860 + 0.640 + 0.680 + 0.818 
+0: 0.910 + 0.920 +  0.830 + 0.840 + 0.643 +  0.880 + 0.800 + 0.820 + 0.730 + 0.760
+1: 0.860 + 0.910 +  0.840 + 0.820 + 0.790 +  0.810 + 0.700 + 0.630 + 0.790 + 0.730
+2: 1.000 + 0.571 +  0.535 + 0.695 + 0.830 +  0.679 + 0.893 + 1.000 + 0.750 + 0.830
+3: 0.320 + 0.920 +  0.460 + 0.650 + 0.610 +  0.430 + 0.660 + 0.480 + 0.670 + 0.760
+4: 0.770 + 0.860 +  0.600 + 0.750 + 0.690 +  0.750 + 0.882 + 0.810 + 0.850 + 0.938
+5: 0.953 + 0.971 +  0.917 + 0.842 + 1.000 +  0.935 + 0.623 + 1.000 + 1.000 + 0.518
+6: 0.688 + 0.659 +  0.639 + 0.898 + 0.817 +  0.459 + 0.519 + 0.438 + 0.963 + 0.667
+7: 0.470 + 0.200 +  0.318 + 0.841 + 0.626 +  0.561 + 0.197 + 0.773 + 0.528 + 0.938
+8: 0.458 + 0.500 +  0.850 + 0.550 + 1.000 +  0.603 + 0.780 + 0.385 + 0.915 + 0.720
+9: 0.886 + 0.670 +  0.600 + 0.450 + 0.880 +  0.700 + 0.860 + 0.640 + 0.680 + 0.818
 ```
 
 # Performance (single fold)

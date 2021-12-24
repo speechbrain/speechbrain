@@ -1,4 +1,4 @@
-# pip3 install numpy seaborn 
+# pip3 install numpy seaborn
 
 # example usage : python3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/
 #                 python3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ cum
@@ -10,36 +10,45 @@ import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
 
-labels = ['dog_bark',
-'children_playing',
-'air_conditioner',
-'street_music',
-'gun_shot',
-'siren',
-'engine_idling',
-'jackhammer',
-'drilling',
-'car_horn']
+labels = [
+    "dog_bark",
+    "children_playing",
+    "air_conditioner",
+    "street_music",
+    "gun_shot",
+    "siren",
+    "engine_idling",
+    "jackhammer",
+    "drilling",
+    "car_horn",
+]
 
-if ( len(sys.argv) >= 2):
+if len(sys.argv) >= 2:
     path = sys.argv[1]
-    allConf = sys.argv[2] if ( len(sys.argv) >= 3 ) else 'all'
-    File = 'train_log.txt'
-    sumTrix = np.zeros((10,10), dtype=int)
+    allConf = sys.argv[2] if (len(sys.argv) >= 3) else "all"
+    File = "train_log.txt"
+    sumTrix = np.zeros((10, 10), dtype=int)
     xValidResults = []
     for i in range(10):
         xValidResults.append([])
     for root, dirs, files in os.walk(path):
         if File in files:
-            paths = os.path.join(root,File)
-            with open(paths,"r") as file :
+            paths = os.path.join(root, File)
+            with open(paths, "r") as file:
                 lines = file.readlines()
                 print("\n"+paths)
                 strMatrix = ""
                 strResult = ""
-                for line in lines[38:48] :
-                    line = line.replace("'","").replace("\n","").replace("]",";").replace("[","").replace(",","").replace(";;","")
-                    strMatrix +=line
+                for line in lines[38:48]:
+                    line = (
+                        line.replace("'", "")
+                        .replace("\n", "")
+                        .replace("]", ";")
+                        .replace("[", "")
+                        .replace(",", "")
+                        .replace(";;", "")
+                    )
+                    strMatrix += line
                 matrix = np.matrix(strMatrix)
                 sumTrix = sumTrix + matrix
                 
@@ -76,9 +85,11 @@ if ( len(sys.argv) >= 2):
         sn.heatmap(df_cm, annot=True)
         plt.title(path)
     plt.show()
-else :
-    print("ARGUMENT[1] Missing : Expected Path to 10-FOLD X VALIDATION result dir" +
-        " example usage : \n"+
-        "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/"+
-        "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ cum"+
-        "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ each")
+else:
+    print(
+        "ARGUMENT[1] Missing : Expected Path to 10-FOLD X VALIDATION result dir"
+        + " - Example usages underneath : \n"
+        + "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/"
+        + "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ cum"
+        + "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ each"
+    )
