@@ -44,7 +44,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
     if len(waveforms.shape) == 1:
         waveforms = waveforms.unsqueeze(0)
 
-    assert amp_type in ["avg", "peak"]
+    assert amp_type in ["avg", "rms", "peak"]
     assert scale in ["linear", "dB"]
 
     if amp_type == "avg":
@@ -56,6 +56,17 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
             if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
                 lengths = lengths.unsqueeze(2)
             out = wav_sum / lengths
+    elif amp_type == "rms":
+        if lengths is None:
+            out = torch.sqrt(torch.mean(waveforms ** 2, dim=1, keepdim=True))
+        else:
+            wav_sum = torch.sum(
+                input=torch.pow(waveforms, 2), dim=1, keepdim=True
+            )
+            if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
+                lengths = lengths.unsqueeze(2)
+            out = torch.sqrt(wav_sum / lengths)
+
     elif amp_type == "peak":
         out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
     else:

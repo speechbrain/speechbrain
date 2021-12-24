@@ -134,7 +134,7 @@ class AddNoise(torch.nn.Module):
             return noisy_waveform
 
         # Compute the average amplitude of the clean waveforms
-        clean_amplitude = compute_amplitude(waveforms, lengths)
+        clean_amplitude = compute_amplitude(waveforms, lengths, amp_type="rms")
 
         # Pick an SNR and use it to compute the mixture amplitude factors
         SNR = torch.rand(len(waveforms), 1, device=waveforms.device)
@@ -151,19 +151,21 @@ class AddNoise(torch.nn.Module):
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
-            noise_seq = self.noise_funct(waveforms)
-            noisy_waveform += new_noise_amplitude * noise_seq
+            noise_waveform = self.noise_funct(waveforms)
+            noise_length = lengths
         else:
             tensor_length = waveforms.shape[1]
             noise_waveform, noise_length = self._load_noise(
                 lengths, tensor_length
             )
 
-            # Rescale and add
-            noise_amplitude = compute_amplitude(noise_waveform, noise_length)
-            noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
-            noisy_waveform += noise_waveform
+        # Rescale and add
+        noise_amplitude = compute_amplitude(
+            noise_waveform, noise_length, amp_type="rms"
+        )
+        noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
 
+        noisy_waveform += noise_waveform
         # Normalizing to prevent clipping
         if self.normalize:
             abs_max, _ = torch.max(
@@ -1796,36 +1798,3 @@ def muscolar_noise(
     emg_noise = torch.fft.ifft(emg_noise_fft, dim=1).real
 
     return emg_noise
-
-
-def combine_waveforms(
-    waveforms: torch.Tensor,
-    noise: torch.Tensor,
-    snr_db_low: float = -7,
-    snr_db_high: float = 4,
-) -> torch.Tensor:
-    """Combines waveforms with specified Signal to Noise ratio
-    by sampling the snr from realistic emg distributions.
-
-        Example
-    -------
-    >>> waveforms = torch.randn(4,257,10)
-    >>> noise = torch.randn([4, 257, 10])
-    >>> combined_signal = combine_waveforms(waveforms, noise)
-
-    """
-
-    def rms(x):
-        return torch.sqrt(torch.mean(x ** 2, axis=1))
-
-    snr_range = snr_db_high - snr_db_low
-    snr = (
-        torch.rand(waveforms.shape[0], device=waveforms.device) * snr_range
-        + snr_db_low
-    ).unsqueeze(1)
-
-    # Compute the mixing factor based on snr_db
-    lambda_snr = rms(waveforms) / rms(noise) / 10 ** (snr / 10)
-    lambda_snr = lambda_snr.unsqueeze(1)
-
-    return waveforms + lambda_snr * noise
