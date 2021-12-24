@@ -94,4 +94,3 @@ else:
         + "\t\tpython3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/ cum\n"
         + "\t\tpython3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/ each\n"
     )
-
