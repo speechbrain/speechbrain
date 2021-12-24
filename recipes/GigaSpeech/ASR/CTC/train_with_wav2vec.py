@@ -23,6 +23,7 @@ import sys
 import torch
 import logging
 import speechbrain as sb
+import torchaudio
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
@@ -217,10 +218,12 @@ def dataio_prepare(hparams):
     datasets = [train_data, valid_data, test_data]
 
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("audio")
+    @sb.utils.data_pipeline.takes("audio", "start", "duration")
     @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(audio):
-        sig = sb.dataio.dataio.read_audio(audio)
+    def audio_pipeline(audio, start, duration):
+        # (start and duration) are convert to frame offset in the gigaspeech prepare.
+        sig, fs = torchaudio.load(audio, num_frames=int(duration), frame_offset=int(start))
+        sig = sig.transpose(0, 1).squeeze(1)
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
