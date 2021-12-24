@@ -85,7 +85,6 @@ save_for_pretrained: True
 
 # Model parameters
 output_neurons: !ref <phn_token_output> + 1
-#output_neurons: 1000
 enc_dropout: 0.5
 enc_neurons: 512
 enc_num_layers: 4
@@ -100,8 +99,7 @@ bos_index: 0
 eos_index: 1
 blank_index: 2
 unk_index: 2
-token_space_index: 512
-#token_space_index: 999
+token_space_index: !ref <phn_token_output>
 
 # Language Model
 lm_emb_dim: 256 # dimension of the embeddings
@@ -416,6 +414,7 @@ model_output_keys:
 
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
 
 grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
     init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
