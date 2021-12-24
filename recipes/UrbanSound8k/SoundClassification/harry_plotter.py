@@ -73,7 +73,7 @@ if len(sys.argv) >= 2:
         toPrint = "Mean acc on " + labels[cnt] + " = "
         print(toPrint + str(val).rjust(60 - len(toPrint)))
         labelRates.append(val)
-        cnt +=1 
+        cnt += 1 
     print("\n\nOverall mean acc " + str(np.sum(np.asarray(labelRates))))
 
     if allConf == "all" or allConf == "cum":
