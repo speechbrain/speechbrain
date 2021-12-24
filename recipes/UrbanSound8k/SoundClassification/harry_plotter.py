@@ -10,7 +10,7 @@ import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
 
-labels = ['Dog_bark',
+labels = ['dog_bark',
 'children_playing',
 'air_conditioner',
 'street_music',
