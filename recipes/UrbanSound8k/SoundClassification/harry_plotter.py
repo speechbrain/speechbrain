@@ -49,9 +49,10 @@ if len(sys.argv) >= 2:
                         .replace(";;", "")
                     )
                     strMatrix += line
+
                 matrix = np.matrix(strMatrix)
                 sumTrix = sumTrix + matrix
-                
+
                 if allConf == "all" or allConf == "each":
                     df_cm = pd.DataFrame(matrix, index=labels, columns=labels)
                     plt.figure(figsize=(10, 7))
@@ -65,6 +66,7 @@ if len(sys.argv) >= 2:
                     print(toPrint + line.rjust(60 - len(toPrint)))
                     xValidResults[cnt].append(float(line))
                     cnt += 1
+
     print("\n-- Mean Accuracy calculus --")
     cnt = 0
     labelRates = []
@@ -73,7 +75,7 @@ if len(sys.argv) >= 2:
         toPrint = "Mean acc on " + labels[cnt] + " = "
         print(toPrint + str(val).rjust(60 - len(toPrint)))
         labelRates.append(val)
-        cnt += 1 
+        cnt += 1
     print("\n\nOverall mean acc " + str(np.sum(np.asarray(labelRates))))
 
     if allConf == "all" or allConf == "cum":
