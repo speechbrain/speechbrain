@@ -98,7 +98,7 @@ def prepare_gigaspeech(
     # Prepare GigaSpeech
     json_metadata = os.path.join(data_folder, json_file)
     # Setting csv path for the train, dev, test subsets
-    csv_lines = [["ID", "audio", "start", "stop", "duration", "wrd"]]
+    csv_lines = [["ID", "audio", "start", "duration", "wrd"]]
     train_csv_file = os.path.join(save_folder, "train.csv")
     dev_csv_file = os.path.join(save_folder, "dev.csv")
     test_csv_file = os.path.join(save_folder, "test.csv")
@@ -118,6 +118,7 @@ def prepare_gigaspeech(
             if not skip_opus2wav_convertion:
                 audio_path = convert_opus2wav(audio_path)
             aid = meta_data["aid"]
+            sample_rate = int(meta_data["sample_rate"])
             segments_list = meta_data["segments"]
             audio_subsets = meta_data["subsets"]
             duration = meta_data["duration"]
@@ -128,9 +129,9 @@ def prepare_gigaspeech(
             for segment_file in segments_list:
                 try:
                     sid = segment_file["sid"]
-                    start_time = segment_file["begin_time"]
-                    end_time = segment_file["end_time"]
-                    duration = end_time - start_time
+                    start_time = float(segment_file["begin_time"])
+                    end_time = float(segment_file["end_time"])
+                    duration = int((end_time - start_time) * sample_rate)
                     text = segment_file["text_tn"]
                     text = filter_text(text)
                     if text == "":
@@ -139,13 +140,13 @@ def prepare_gigaspeech(
                     segment_subsets = segment_file["subsets"]
                     # Long audio can have different subsets
                     if "{DEV}" in segment_file["subsets"]:
-                        dev_csv.append([sid, audio_path, start_time, end_time, duration, text])
+                        dev_csv.append([sid, audio_path, start_time, duration, text])
                     elif "{TEST}" in segment_file["subsets"]:
-                        test_csv.append([sid, audio_path, start_time, end_time, duration, text])
+                        test_csv.append([sid, audio_path, start_time, duration, text])
                     else:
                         if not "{%s}" % (train_subset) in segment_file["subsets"]:
                             continue
-                        train_csv.append([sid, audio_path, start_time, end_time, duration, text])
+                        train_csv.append([sid, audio_path, start_time, duration, text])
                 except:
                     logger.info("Warning: " + aid + "something is wrong.")
                     continue
