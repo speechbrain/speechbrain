@@ -1,8 +1,8 @@
 # pip3 install numpy seaborn
 
-# example usage : python3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/
-#                 python3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ cum
-#                 python3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ each
+# example usage : python3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/
+#                 python3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/ cum
+#                 python3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/ each
 
 import os
 import sys
@@ -90,7 +90,8 @@ else:
     print(
         "ARGUMENT[1] Missing : Expected Path to 10-FOLD X VALIDATION result dir"
         + " - Example usages underneath : \n"
-        + "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/"
-        + "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ cum"
-        + "\t\tpython3 Harry_Plotter.py ./path_to_10_FOLD_X-valid_results/ each"
+        + "\t\tpython3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/\n"
+        + "\t\tpython3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/ cum\n"
+        + "\t\tpython3 harry_plotter.py ./path_to_10_FOLD_X-valid_results/ each\n"
     )
+
