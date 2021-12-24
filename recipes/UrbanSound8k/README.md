@@ -58,7 +58,7 @@ Note that the results for 10-fold must be compiled from the output folders and a
 
 # Perfomance without data augmentation (10 folds)
 
-* Results averaged using [harry_plotter.py](https://github.com/speechbrain/speechbrain/tree/develop/recipes/UrbanSound8k/SoundClassification/harry_plotter.py)
+* Results averaged using [harry_plotter.py](https://github.com/ZiRaymondal/speechbrain/tree/develop/recipes/UrbanSound8k/SoundClassification/harry_plotter.py)
 
 |**Label\Precision** |**Speechbrain**|
 |--------------------|---------------|
