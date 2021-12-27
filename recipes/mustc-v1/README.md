@@ -25,7 +25,8 @@ Results are reported in terms of sacrebleu.
 
 | hyperparams file | language | tst_com | tst_he | ctc_weight | asr_weight | mt_weight | Model |        GPUs        |
 |:----------------:|:--------:|:-------:|:------:|:----------:|:----------:|:---------:|:-----:|:------------------:|
-| transformer.yaml |    de    |  18.19  | 15.87  |      0     |      0     |      0    | Not Avail. | 1xRTX 3090 Ti 25GB |
+| transformer.yaml |    de    |  19.47  | 17.77  |      0     |      0     |      0    | Not Avail. | 1xRTX 3090 Ti 25GB |
+| transformer_wav.yaml |    de    |  22.07  | 20.95  |      0     |      0     |      0    | Not Avail. | 1xRTX 3090 Ti 25GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

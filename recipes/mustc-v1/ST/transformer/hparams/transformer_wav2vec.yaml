@@ -13,7 +13,7 @@ debug: False
 seed: 8886
 num_workers: 8
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/transformer_wav2vec/<seed>
 ckpt_inerval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt
 save_folder: !ref <output_folder>/save
@@ -41,27 +41,17 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 # Features
 sample_rate: 16000
-n_fft: 400
-n_mels: 80
-
-compute_features: !new:speechbrain.lobes.features.Fbank
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    n_mels: !ref <n_mels>
-
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    update_until_epoch: 4
+features_size: 768
 
 speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: [90, 100, 110]
 
 # Trainer settings
-number_of_epochs: 50
+number_of_epochs: 30
 valid_search_eopch: 10
-batch_size: 8 # this works for 2 GPUs with 11GB
-gradient_accumulation: 16
+batch_size: 4 # this works for 2 GPUs with 11GB
+gradient_accumulation: 32
 gradient_clipping: 5.0
 loss_reduction: batchmean
 sorting: random
@@ -70,16 +60,7 @@ sorting: random
 stage_one_epochs: 100 # not gonna changing optimizer in this recipe
 lr_adam: 2.5
 lr_sgd: 0.000025
-
-# dynamic batching parameters, if used
-dynamic_batching: False
-dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    # max_len * batch_size, in terms of frames
-    max_batch_len: 50000
-    shuffle_ex: True
-    batch_ordering: random
-    num_buckets: !ref <batch_size>
+lr_wav2vec: 0.0001
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -96,6 +77,10 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
+
+# Self-supervised pre-training
+wav2vec2_hub: facebook/hubert-base-ls960
+freeze_wav2vec: True
 
 ####################### Model parameters ###########################
 # Transformer
@@ -144,17 +129,14 @@ valid_beam_size: 10
 test_beam_size: 10
 
 ############################## models ################################
-CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
-    input_shape: (8, 10, 80)
-    num_blocks: 2
-    num_layers_per_block: 1
-    out_channels: (256, 256)
-    kernel_sizes: (3, 3)
-    strides: (2, 2)
-    residuals: (False, False)
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.TransformerST # yamllint disable-line rule:line-length
-    input_size: 5120
+    input_size: !ref <features_size>
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: !ref <nhead>
@@ -187,13 +169,13 @@ asr_seq_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <vocab_size>
 
 modules:
-    CNN: !ref <CNN>
+    wav2vec2: !ref <wav2vec2>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
     # ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>]
+    - [!ref <Transformer>, !ref <seq_lin>]
 
 # define two optimizers here for two-stage training
 Adam: !name:torch.optim.Adam
@@ -205,6 +187,11 @@ SGD: !name:torch.optim.SGD
     lr: !ref <lr_sgd>
     momentum: 0.99
     nesterov: True
+
+wav2vec_opt_class: !name:torch.optim.Adam
+    lr: 0
+    betas: (0.9, 0.98)
+    eps: 0.000000001
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, null]
@@ -246,15 +233,20 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     n_warmup_steps: 25000
     model_size: !ref <d_model>
 
+noam_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_adam>
+    n_warmup_steps: 25000
+    model_size: !ref <d_model>
+
 # Checkpoint setting
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
         noam_scheduler: !ref <noam_annealing>
-        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
     merge_words: False
+
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

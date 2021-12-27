@@ -31,55 +31,19 @@ class ST(sb.core.Brain):
             wavs = self.hparams.speed_perturb(wavs)
 
         tokens_bos, _ = batch.tokens_bos  # for translation task
-        transcription_bos, _ = batch.transcription_bos  # for asr task
-        transcription_tokens, _ = batch.transcription_tokens  # for mt task
 
         # compute features
-        feats = self.hparams.compute_features(wavs)
+        feats = self.hparams.wav2vec2(wavs)
         current_epoch = self.hparams.epoch_counter.current
-        feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
         # forward modules
-        src = self.modules.CNN(feats)
         enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
+            feats, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
-
-        asr_p_seq = None
-        # asr output layer for seq2seq log-probabilities
-        if self.hparams.asr_weight > 0 and self.hparams.ctc_weight < 1:
-            asr_pred = self.modules.Transformer.forward_asr(
-                enc_out,
-                src,
-                transcription_bos,
-                wav_lens,
-                pad_idx=self.hparams.pad_index,
-            )
-            asr_pred = self.modules.asr_seq_lin(asr_pred)
-            asr_p_seq = self.hparams.log_softmax(asr_pred)
 
         # st output layer for seq2seq log-probabilities
         pred = self.modules.seq_lin(pred)
         p_seq = self.hparams.log_softmax(pred)
-
-        # asr ctc
-        p_ctc = None
-        if self.hparams.ctc_weight > 0:
-            logits = self.modules.ctc_lin(enc_out)
-            p_ctc = self.hparams.log_softmax(logits)
-
-        # mt task
-        mt_p_seq = None
-        if self.hparams.mt_weight > 0:
-            _, mt_pred = self.modules.Transformer.forward_mt(
-                transcription_tokens,
-                tokens_bos,
-                pad_idx=self.hparams.pad_index,
-            )
-
-            # mt output layer for seq2seq log-probabilities
-            mt_pred = self.modules.seq_lin(mt_pred)
-            mt_p_seq = self.hparams.log_softmax(mt_pred)
 
         # compute outputs
         hyps = None
@@ -92,62 +56,20 @@ class ST(sb.core.Brain):
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
-        return p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps
+        return p_seq, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        (p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps,) = predictions
+        (p_seq, hyps,) = predictions
 
         ids = batch.id
 
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        transcription_eos, transcription_eos_lens = batch.transcription_eos
-        transcription_tokens, transcription_lens = batch.transcription_tokens
 
         # loss for different tasks
-        # asr loss = ctc_weight * ctc loss + (1 - ctc_weight) * asr attention loss
-        # mt loss = mt attention loss
-        # st loss =
-        # (1 - asr_weight - mt_weight) * st attention loss +
-        # asr_weight * asr loss +
-        # mt_weight * mt loss
-        attention_loss = 0
-        asr_ctc_loss = 0
-        asr_attention_loss = 0
-        mt_loss = 0
 
         # st attention loss
-        attention_loss = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens,
-        )
-
-        # asr attention loss
-        if self.hparams.ctc_weight < 1 and self.hparams.asr_weight > 0:
-            asr_attention_loss = self.hparams.seq_cost(
-                asr_p_seq, transcription_eos, length=transcription_eos_lens,
-            )
-
-            # asr ctc loss
-        if self.hparams.ctc_weight > 0 and self.hparams.asr_weight > 0:
-            asr_ctc_loss = self.hparams.ctc_cost(
-                p_ctc, transcription_tokens, wav_lens, transcription_lens,
-            )
-
-        # mt attention loss
-        if self.hparams.mt_weight > 0:
-            mt_loss = self.hparams.seq_cost(
-                mt_p_seq, tokens_eos, length=tokens_eos_lens,
-            )
-
-        asr_loss = (self.hparams.ctc_weight * asr_ctc_loss) + (
-            1 - self.hparams.ctc_weight
-        ) * asr_attention_loss
-        loss = (
-            (1 - self.hparams.asr_weight - self.hparams.mt_weight)
-            * attention_loss
-            + self.hparams.asr_weight * asr_loss
-            + self.hparams.mt_weight * mt_loss
-        )
+        loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens,)
 
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
@@ -185,10 +107,13 @@ class ST(sb.core.Brain):
             self.check_gradients(loss)
 
             self.optimizer.step()
+            self.optimizer_wav2vec.step()
             self.optimizer.zero_grad()
+            self.optimizer_wav2vec.zero_grad()
 
             # anneal lr every update
             self.hparams.noam_annealing(self.optimizer)
+            self.hparams.noam_annealing_wav2vec(self.optimizer_wav2vec)
 
         return loss.detach()
 
@@ -323,6 +248,19 @@ class ST(sb.core.Brain):
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
 
+    def init_optimizers(self):
+        "Initializes the wav2vec2 optimizer and model optimizer"
+        self.optimizer_wav2vec = self.hparams.wav2vec_opt_class(
+            self.modules.wav2vec2.parameters()
+        )
+        self.optimizer = self.hparams.Adam(self.hparams.model.parameters())
+
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "wav2vec_opt", self.optimizer_wav2vec,
+            )
+            self.checkpointer.add_recoverable("modelopt", self.optimizer)
+
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
@@ -423,39 +361,7 @@ def dataio_prepare(hparams):
 
         hparams["train_dataloader_opts"]["shuffle"] = True
 
-    train_batch_sampler = None
-    dev_batch_sampler = None
-    if hparams["dynamic_batching"]:
-        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
-        from speechbrain.dataio.batch import PaddedBatch  # noqa
-
-        dynamic_hparams = hparams["dynamic_batch_sampler"]
-
-        hop_size = dynamic_hparams["feats_hop_size"]
-        num_buckets = dynamic_hparams["num_buckets"]
-
-        train_batch_sampler = DynamicBatchSampler(
-            datasets["train"],
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
-            seed=hparams["seed"],
-        )
-
-        dev_batch_sampler = DynamicBatchSampler(
-            datasets["dev"],
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
-            seed=hparams["seed"],
-        )
-
-    return datasets, train_batch_sampler, dev_batch_sampler
+    return datasets
 
 
 if __name__ == "__main__":
@@ -480,16 +386,8 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
-    # We can now directly create the datasets for training, dev, and test
-    datasets, train_batch_sampler, dev_batch_sampler = dataio_prepare(hparams)
-
-    train_dataloader_opts = hparams["train_dataloader_opts"]
-    dev_dataloader_opts = hparams["valid_dataloader_opts"]
-
-    if train_batch_sampler is not None:
-        train_dataloader_opts = {"batch_sampler": train_batch_sampler}
-    if dev_batch_sampler is not None:
-        dev_dataloader_opts = {"batch_sampler": dev_batch_sampler}
+    # We can now directly create the datasets for training, valid, and test
+    datasets = dataio_prepare(hparams)
 
     st_brain = ST(
         modules=hparams["modules"],
@@ -503,8 +401,8 @@ if __name__ == "__main__":
         st_brain.hparams.epoch_counter,
         datasets["train"],
         datasets["dev"],
-        train_loader_kwargs=train_dataloader_opts,
-        valid_loader_kwargs=dev_dataloader_opts,
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     for dataset in ["test_com", "test_he"]:

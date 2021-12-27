@@ -325,31 +325,101 @@ def create_json(
 
 def _normalize_text(
     text: str,
-    font_case: str,
     is_accented_letters: bool = False,
-    is_remove_verbal: bool = False,
     is_remove_punctuation: bool = True,
+    is_remove_verbal: bool = False,
+    language: str = "en",
+    font_case: str = "lc",
 ) -> str:
+    """Language specific normalization for the given text"""
+    if language in ["en", "fr", "it", "rw"]:
+        text = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", text)
 
+    if language == "fr":
+        # Replace J'y D'hui etc by J_ D_hui
+        text = text.replace("'", " ")
+        text = text.replace("’", " ")
+
+    elif language == "ar":
+        HAMZA = "\u0621"
+        ALEF_MADDA = "\u0622"
+        ALEF_HAMZA_ABOVE = "\u0623"
+        letters = (
+            "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+            + HAMZA
+            + ALEF_MADDA
+            + ALEF_HAMZA_ABOVE
+        )
+        text = re.sub("[^" + letters + "]+", " ", text).upper()
+    elif language == "ga-IE":
+        # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
+        def pfxuc(a):
+            return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
+
+        def galc(w):
+            return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
+
+        text = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", text)
+        text = " ".join(map(galc, text.split(" ")))
+
+    # Remove accents if specified
+    if not is_accented_letters:
+        text = _strip_accents(text)
+        text = text.replace("'", " ")
+        text = text.replace("’", " ")
+
+    # Remove spaces at the beginning and the end of the sentence
+    text = text.lstrip().rstrip()
+
+    # Replace contraction with space
     text = text.replace("'", " '")
 
+    # Remove verbal
+    text = re.sub(r"\([^()]*\)", "", text)
+
+    # Normalize punctuations
+    if is_remove_punctuation:
+        text = _normalize_punctuation(
+            text=text,
+            font_case=font_case,
+            is_remove_punctuation=is_remove_punctuation,
+        )
+    text = text.strip()
+
+    # Remove multiple spaces
+    text = re.sub(" +", " ", text)
+
+    return text
+
+
+def _normalize_punctuation(
+    text: str, font_case: str = "lc", is_remove_punctuation: bool = True,
+) -> str:
     if font_case == "tc":
         return text
     elif font_case == "lc":
         text = text.lower()
     elif font_case == "uc":
         text = text.upper()
-
-    if is_remove_verbal:
-        text = re.sub(r"\([^()]*\)", "", text)
+    else:
+        raise ValueError(
+            f"font case must be lc/tc/uc, please check the value of font case"
+        )
 
     if is_remove_punctuation:
         text = text.translate(str.maketrans("", "", string.punctuation))
 
-    if is_accented_letters:
-        text = _strip_accents(text)
-
     return text
+
+
+def _strip_accents(text: str) -> str:
+    text = (
+        unicodedata.normalize("NFD", text)
+        .encode("ascii", "ignore")
+        .decode("utf-8")
+    )
+
+    return str(text)
 
 
 def _check_mustc_folders(data_folder: str):
@@ -378,13 +448,3 @@ def _check_mustc_folders(data_folder: str):
             "the must-c)"
         )
         raise FileNotFoundError(err_msg)
-
-
-def _strip_accents(text: str) -> str:
-    text = (
-        unicodedata.normalize("NFD", text)
-        .encode("ascii", "ignore")
-        .decode("utf-8")
-    )
-
-    return str(text)
