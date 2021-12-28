@@ -81,8 +81,6 @@ class HuggingFaceWav2Vec2(nn.Module):
     >>> save_path = "savedir"
     >>> model = HuggingFaceWav2Vec2(model_hub, save_path)
     >>> outputs = model(inputs)
-    >>> outputs.shape
-    torch.Size([10, 1,  768])
     """
 
     def __init__(
@@ -303,13 +301,11 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         the paper.
     Example
     -------
-    >>> inputs = torch.rand([10, 600])
+    >>> inputs = torch.rand([10, 32000])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "savedir"
     >>> model = HuggingFaceWav2Vec2Pretrain(model_hub, save_path)
-    >>> outputs = model(inputs)
-    >>> outputs.shape
-    torch.Size([10, 1,  768])
+    >>> outputs, _ = model(inputs)
     """
 
     def __init__(
