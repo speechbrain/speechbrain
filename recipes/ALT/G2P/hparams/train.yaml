@@ -1,0 +1,141 @@
+# ################################
+# Model: LSTM (encoder) + GRU (decoder)
+# Authors: Loren Lugosch & Mirco Ravanelli 2020
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data paths
+output_folder: !ref results/RNN/<seed>
+data_folder: /localscratch/LibriSpeech
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+input_lexicon: !ref <save_folder>/lexicon.csv
+oov: !ref <save_folder>/oov.csv
+wer_file: !ref <save_folder>/wer.txt
+
+# These three files are created from lexicon.csv.
+train_data: !ref <save_folder>/lexicon_tr.csv
+valid_data: !ref <save_folder>/lexicon_dev.csv
+test_data: !ref <save_folder>/lexicon_test.csv
+skip_prep: False
+sorting: random #ascending
+
+# Neural Parameters
+N_epochs: 75
+batch_size: 1024
+lr: 0.002
+
+# Model parameters
+output_neurons: 41
+enc_dropout: 0.5
+enc_neurons: 512
+enc_num_layers: 4
+dec_dropout: 0.5
+dec_neurons: 512
+dec_att_neurons: 256
+dec_num_layers: 4
+embedding_dim: 512
+
+# Special Token information
+bos_index: 0
+eos_index: 0
+
+dataloader_opts:
+    batch_size: !ref <batch_size>
+
+# Models
+enc: !new:speechbrain.nnet.RNN.LSTM
+    input_shape: [null, null, !ref <embedding_dim>]
+    bidirectional: True
+    hidden_size: !ref <enc_neurons>
+    num_layers: !ref <enc_num_layers>
+    dropout: !ref <enc_dropout>
+
+lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
+    bias: False
+
+encoder_emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: 28  # 27 chars + 1 bos
+    embedding_dim: !ref <embedding_dim>
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>  # 39 phonemes + 1 bos
+    embedding_dim: !ref <embedding_dim>
+
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: !ref <enc_neurons> * 2
+    input_size: !ref <embedding_dim>
+    rnn_type: gru
+    attn_type: content
+    dropout: !ref <dec_dropout>
+    hidden_size: !ref <dec_neurons>
+    attn_dim: !ref <dec_att_neurons>
+    num_layers: !ref <dec_num_layers>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    enc: !ref <enc>
+    encoder_emb: !ref <encoder_emb>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    lin: !ref <lin>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <encoder_emb>, !ref <emb>, !ref <dec>, !ref <lin>]
+
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: 0
+    max_decode_ratio: 1.35
+    beam_size: 16
+    eos_threshold: 10.0
+    using_max_attn_shift: False
+    max_attn_shift: 10
+    coverage_penalty: 5.0
+
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0
+    annealing_factor: 0.8
+    patient: 0
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: 0.1
+
+seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.nll_loss
+        label_smoothing: 0.1
+        reduction: batch
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>

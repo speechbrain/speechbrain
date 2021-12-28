@@ -1,0 +1,113 @@
+# ############################################################################
+# Model: RNNLM of E2E ASR
+# Tokens: unigram
+# losses: NLL
+# Training: Librispeech 960h transcript + LM corpus
+# Authors:  Ju-Chieh Chou 2020, Jianyuan Zhong 2021
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 2223
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/RNN/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+# The data_folder is needed because we train the LM on the training
+# transcriptions of LibriSpeech as well.
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
+
+# path to the lm_corpus
+# if set to null, it will automatically download from the internet
+# in the case when there is no internet access, set this to your local file
+lm_corpus_path: null
+
+# Tokenizer model
+tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+
+# Training parameters
+number_of_epochs: 20
+batch_size: 80
+lr: 0.001
+accu_steps: 1 # Gradient accumulation to simulate large batch training
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+# Model parameters
+emb_size: 128
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.0
+rnn_layers: 2
+rnn_neurons: 2048
+dnn_blocks: 1
+dnn_neurons: 512
+
+# Outputs
+output_neurons: 1000 # index(blank/eos/bos) = 0
+blank_index: 0
+bos_index: 0
+eos_index: 0
+
+
+# Functions
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+modules:
+    model: !ref <model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>

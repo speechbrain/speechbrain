@@ -1,0 +1,32 @@
+# ############################################################################
+# Tokenizer: subword BPE with unigram 1K
+# Training: Librispeech 960h
+# Authors:  Abdel Heba 2021
+# ############################################################################
+
+output_folder: !ref results/1K_subword_unigram_960h_LM/
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /path/to/LibriSpeech
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+
+# Training parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+token_output: 1000  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+csv_read: wrd
+
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   character_coverage: !ref <character_coverage>
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]
