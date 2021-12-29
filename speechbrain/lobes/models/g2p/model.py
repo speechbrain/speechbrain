@@ -40,10 +40,10 @@ class AttentionSeq2Seq(nn.Module):
         the linear module
     out: torch.nn.Module
         the output layer (typically log_softmax)
-    max_len: int
-        the maximum length
     use_word_emb: bool
         whether or not to use word embedding
+    bos_token: int
+        the index of teh Beginning-of-Sentence token
     word_emb_enc: nn.Module
         a module to encode word embeddings
 
@@ -64,7 +64,6 @@ class AttentionSeq2Seq(nn.Module):
         lin,
         out,
         bos_token=0,
-        max_len=50,
         use_word_emb=False,
         word_emb_enc=None,
     ):
@@ -76,7 +75,6 @@ class AttentionSeq2Seq(nn.Module):
         self.lin = lin
         self.out = out
         self.bos_token = bos_token
-        self.max_len = max_len
         self.use_word_emb = use_word_emb
         self.word_emb_enc = word_emb_enc if use_word_emb else None
 
@@ -123,6 +121,21 @@ class AttentionSeq2Seq(nn.Module):
         return p_seq, char_lens, encoder_out, w
 
     def _apply_word_emb(self, emb_char, word_emb):
+        """Concatenate character embeddings with word embeddeings,
+        possibly encoding the word embeddings if an encoder
+        is provided
+        
+        Arguments
+        ---------
+        emb_char: torch.Tensor
+            the character embedding tensor
+        word_emb: torch.Tensor
+            the word embedding tensor
+            
+        Returns
+        -------
+        result: torch.Tensor
+            the concatenation of the tensor"""
         word_emb_enc = (
             self.word_emb_enc(word_emb)
             if self.word_emb_enc is not None
@@ -131,6 +144,20 @@ class AttentionSeq2Seq(nn.Module):
         return torch.cat([emb_char, word_emb_enc], dim=-1)
 
     def _get_dummy_phonemes(self, batch_size, device):
+        """
+        Creates a dummy phoneme sequence
+
+        Arguments
+        ---------
+        batch_size: int
+            the batch size
+        device: str
+            the target device
+
+        Returns
+        -------
+        result: torch.Tensor
+        """
         return torch.tensor([0], device=device).expand(batch_size, 1)
 
 

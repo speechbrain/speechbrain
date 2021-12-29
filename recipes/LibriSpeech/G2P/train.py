@@ -40,6 +40,7 @@ from speechbrain.lobes.models.g2p.dataio import (
     phoneme_pipeline,
     tokenizer_encode_pipeline,
     add_bos_eos,
+    get_sequence_key
 )
 from speechbrain.dataio.wer import print_alignments
 from speechbrain.wordemb.util import expand_to_chars
@@ -85,11 +86,11 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             "lr_annealing",
             self.hparams.lr_annealing
         )
-        self.phn_key = self._get_sequence_key(
+        self.phn_key = get_sequence_key(
             key="phn_encoded",
             mode=getattr(self.hparams, "phoneme_sequence_mode", "bos")
         )
-        self.grapheme_key = self._get_sequence_key(
+        self.grapheme_key = get_sequence_key(
             key="grapheme_encoded",
             mode=getattr(self.hparams, "grapheme_sequence_mode", "bos")
         )
@@ -99,9 +100,6 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             "beam_searcher_valid",
             self.hparams.beam_searcher)
         self.start_epoch = None
-
-    def _get_sequence_key(self, key, mode):
-        return key if mode == "raw" else f"{key}_{mode}"
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
@@ -126,6 +124,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             phn_encoded=phn_encoded,
             word_emb=char_word_emb,
         )
+
         self.last_attn = attn
 
         hyps = None
@@ -733,7 +732,6 @@ def dataio_prep(hparams, train_step=None):
     if sample:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
     train_data, valid_data, test_data = datasets
-
 
     return train_data, valid_data, test_data, phoneme_encoder
 

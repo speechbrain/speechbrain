@@ -6,6 +6,7 @@ hyperparameters that do not require model retraining (e.g. Beam Search)
 
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
 from train import dataio_prep, check_language_model
 from types import SimpleNamespace
@@ -46,21 +47,28 @@ class G2PEvaluator:
             self.hparams.model.load_state_dict(model_state)
         else:
             self.load()
+        self.grapheme_sequence_mode = getattr(
+            self.hparams, "grapheme_sequence_mode", "bos")
+        self.grapheme_key = get_sequence_key(
+            key="grapheme_encoded",
+            mode=self.grapheme_sequence_mode
+        )
         self.modules["model"].eval()
         self._word_separator = None
+        self._bos = torch.tensor(self.hparams.bos_index, device=device).unsqueeze(-1)
+        self._eos = torch.tensor(self.hparams.eos_index, device=device).unsqueeze(-1)
 
         # When reconstructing sentences word-wise, the process depends
         # on whether spaces are preserved or omitted, as controlled by
         # the phonemes_enable_space hyperparameter
         self._flatten_results = (
             self._flatten_results_separated
-            if self.hparams.phonemes_enable_space
+            if getattr(self.hparams, "phonemes_enable_space", None)
             else self._flatten_results_jumbled
         )
 
     def load(self):
-        """
-        Loads a model from a checkpoint
+        """Loads a model from a checkpoint
         """
         checkpointer = self.hparams.checkpointer
         checkpointer.recover_if_possible(
@@ -79,8 +87,9 @@ class G2PEvaluator:
             for G2P training
         """
         batch = batch.to(self.device)
+        grapheme_encoded = getattr(batch, self.grapheme_key)
         if self.hparams.eval_mode == "sentence":
-            hyps, scores = self._get_phonemes(batch.grapheme_encoded)
+            hyps, scores = self._get_phonemes(grapheme_encoded)
         elif self.hparams.eval_mode == "word":
             hyps, scores = self._get_phonemes_wordwise(batch.grapheme_encoded)
         else:
@@ -94,12 +103,30 @@ class G2PEvaluator:
             ids,
             hyps,
             phns,
-            None,
+            None,   
             phn_lens,
             self.hparams.out_phoneme_decoder,
         )
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded_bos=None):
+        """Runs the model and the beam search to retrieve the phoneme sequence
+        corresponding to the provided grapheme sequence
+        
+        Arguments
+        ---------
+        grapheme_encoded: speechbrain.dataio.batch.PaddedData
+            An encoded grapheme sequence
+            
+        phn_encoded_bos: speechbrain.dataio.batch.PaddedData
+            An encoded phoneme sequence (optional)
+            
+        Returns
+        -------
+        hyps: list
+            the hypotheses (the beam search result)
+        scores: list
+            the scores corresponding to the hypotheses
+        """
         if not phn_encoded_bos:
             grapheme_encoded_data, _ = grapheme_encoded
             phn_encoded_bos = (
@@ -117,7 +144,22 @@ class G2PEvaluator:
         )
         return self.beam_searcher(encoder_out, char_lens)
 
-    def _get_phonemes_wordwise(self, grapheme_encoded, phn_encoded_bos=None):
+    def _get_phonemes_wordwise(self, grapheme_encoded):
+        """Retrieves the phoneme sequence corresponding to the provided grapheme
+        sequence in a word-wise manner (running the evaluator for each word separately)
+        
+        Arguments
+        ---------
+        grapheme_encoded: speechbrain.dataio.batch.PaddedData
+            An encoded grapheme sequence
+
+        Returns
+        -------
+        hyps: list
+            the hypotheses (the beam search result)
+        scores: list
+            the scores corresponding to the hypotheses
+        """
         if self._word_separator is None:
             self._word_separator = self.hparams.phoneme_encoder.lab2ind[" "]
         hyps, scores = [], []
@@ -133,19 +175,61 @@ class G2PEvaluator:
         return hyps, scores
 
     def _flatten_results_jumbled(self, results):
+        """Flattens a sequence of results into a single sequence of tokens -
+        used when spaces are preserved in the phoneme space
+
+        Arguments
+        ---------
+        results: iterable
+            a two-dimensional result
+
+        Returns
+        -------
+        result: list
+            the concatenated reuslt
+        """
         return [token for item_result in results for token in item_result]
 
     def _flatten_results_separated(self, results):
+        """Flattens a sequence of words, inserting word separators between them - 
+        used when word separators are preserved in the phoneme space
+
+        Arguments
+        ---------
+        results: iterable
+            a two-dimensional result
+
+        Returns
+        -------
+        result: list
+            the concatenated reuslt
+        """
         result = []
         for item_result in results:
             for token in item_result:
                 result.append(token)
-            if item_result[-1] != self._word_separator:
+            if item_result and item_result[-1] != self._word_separator:
                 result.append(self._word_separator)
         del result[-1]
         return result
 
     def _flatten_scores(self, hyps, scores):
+        """Flattens an array of scores, using a weighted average of the scores of
+        individual words, by word length
+
+        Arguments
+        ---------
+        hyps: list
+            the hypotheses (the beam search result)
+        scores: list
+            the scores corresponding to the hypotheses
+        
+        Results
+        -------
+        scores: list
+            the scores corresponding to the hypotheses,
+            merged
+        """
         seq_len = sum(len(word_hyp) for word_hyp in hyps)
         return (
             sum(
@@ -164,15 +248,41 @@ class G2PEvaluator:
         ).to(self.device)
 
     def _split_words_seq(self, graphemes, length):
+        """Splits the provided grapheme sequence into words
+
+        Arguments
+        ---------
+        graphemes: torch.Tensor
+            an encoded sequence of phonemes
+
+        Returns
+        -------
+        graphemes: generator
+            a generator representing a sequence of words
+        """
         space_index = self.hparams.graphemes.index(" ")
         (word_boundaries,) = torch.where(graphemes == space_index)
         last_word_boundary = 0
         for word_boundary in word_boundaries:
-            yield graphemes[last_word_boundary + 1 : word_boundary]
+            yield self._add_delimiters(graphemes[last_word_boundary + 1 : word_boundary])
             last_word_boundary = word_boundary
         char_length = math.ceil(len(graphemes) * length)
         if last_word_boundary < char_length:
-            yield graphemes[last_word_boundary + 1 : char_length]
+            yield self._add_delimiters(graphemes[last_word_boundary + 1 : char_length])
+
+    def _add_delimiters(self, word):
+        """Adds the required delimiter characters to a word
+        
+        Arguments
+        ---------
+        word: torch.Tensor
+            a tensor representing a word
+        """
+        if self.grapheme_sequence_mode == "bos":
+            word = torch.cat([self._bos, word])
+        elif self.grapheme_sequence_mode == "eos":
+            word = torch.cat([word, self._eos])
+        return word
 
     def evaluate_epoch(self, dataset, dataloader_opts=None):
         """

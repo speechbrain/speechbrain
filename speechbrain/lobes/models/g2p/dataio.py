@@ -644,3 +644,17 @@ def lazy_init(init):
         return instance
 
     return f
+
+
+def get_sequence_key(key, mode):
+    """Determines the key to be used for sequences (e.g. graphemes/phonemes)
+    based on the naming convention
+
+    Arguments
+    ---------
+    key: str
+        the key (e.g. "graphemes", "phonemes")
+    mode:
+        the mode/sufix (raw, eos/bos)
+    """
+    return key if mode == "raw" else f"{key}_{mode}"
