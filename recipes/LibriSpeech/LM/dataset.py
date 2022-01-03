@@ -16,7 +16,7 @@
 # Lint as: python3
 """
 Librispeech language modeling dataset.
-    this is an extented from huggingface's official implementation to allow the use of train-960 trainscript and lm_corpus for LM training
+    this is an extented from huggingface's officia implementation to allow the use of train-960 trainscript and lm_corpus for LM training
 Authors
  * Jianyuan Zhong 2021
 """
@@ -25,6 +25,8 @@ from __future__ import absolute_import, division, print_function
 
 import datasets
 import re
+from typing import Optional
+
 
 _CITATION = """\
 @inproceedings{panayotov2015librispeech,
@@ -50,11 +52,11 @@ class LibrispeechLmConfig(datasets.BuilderConfig):
     """builder config for LibriSpeech LM
     """
 
-    def __init__(self, lm_corpus_path=None, **kwargs):
-        super().__init__(**kwargs)
-        self.lm_corpus_path = (
-            lm_corpus_path if lm_corpus_path is not None else _DL_URL
-        )
+    lm_corpus_path: Optional[str] = None
+
+    def __post_init__(self):
+        if self.lm_corpus_path is None:
+            self.lm_corpus_path = _DL_URL
 
 
 class LibrispeechLm(datasets.GeneratorBasedBuilder):
