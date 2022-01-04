@@ -5,4 +5,4 @@ recommonmark>=0.7.1
 six
 sphinx-rtd-theme>=0.4.3
 Sphinx>=3.4.3
-transformers
+transformers==4.13
