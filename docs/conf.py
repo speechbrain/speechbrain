@@ -68,9 +68,7 @@ intersphinx_mapping = {
 autodoc_default_options = {}
 
 # Autodoc mock extra dependencies:
-autodoc_mock_imports = [
-    "sklearn",
-]
+autodoc_mock_imports = []
 
 # Order of API items:
 autodoc_member_order = "bysource"
