@@ -14,7 +14,7 @@ import os
 import sys
 import hyperpyyaml
 
-sys.path.insert(-1, os.path.abspath("../speechbrain"))
+sys.path.insert(-1, os.path.abspath("../"))
 
 
 # -- Project information -----------------------------------------------------

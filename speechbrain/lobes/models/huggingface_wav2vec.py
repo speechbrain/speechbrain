@@ -32,9 +32,7 @@ try:
     )
 
 except ImportError:
-    MSG = (
-        "Please install transformers from HuggingFace to use wav2vec2 / Hubert"
-    )
+    MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
     MSG += "E.G. run: pip install transformers"
     raise ImportError(MSG)
 
