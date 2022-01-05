@@ -4,6 +4,7 @@ Authors
  * Artem Ploujnikov 2021
 """
 
+
 def choice(value, choices, default=None):
     """
     The equivalent of a "switch statement" for hparams files. The typical use case

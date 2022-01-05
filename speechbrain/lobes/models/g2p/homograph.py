@@ -36,7 +36,8 @@ class SubsequenceLoss(nn.Module):
         super().__init__()
         self.seq_cost = seq_cost
         self._subsequence_extractor = SubsequenceExtractor(
-            word_separator, word_separator_base)
+            word_separator, word_separator_base
+        )
 
     @property
     def word_separator(self):
@@ -66,7 +67,6 @@ class SubsequenceLoss(nn.Module):
         """
         self._subsequence_extractor.word_separator_base = value
 
-
     def forward(
         self,
         phns,
@@ -75,7 +75,7 @@ class SubsequenceLoss(nn.Module):
         subsequence_phn_start,
         subsequence_phn_end,
         phns_base,
-        phn_lens_base
+        phn_lens_base,
     ):
         """
         Evaluates the subsequence loss
@@ -116,7 +116,7 @@ class SubsequenceLoss(nn.Module):
             subsequence_phn_start,
             subsequence_phn_end,
             phns_base,
-            phn_lens_base
+            phn_lens_base,
         )
         return self.seq_cost(
             p_seq_subsequence, phns_subsequence, subsequence_lengths
@@ -143,9 +143,7 @@ class SubsequenceExtractor:
             word_separator_base = word_separator
         self.word_separator_base = word_separator_base
 
-    def __call__(
-        self, *args, **kwargs
-    ):
+    def __call__(self, *args, **kwargs):
         return self.extract_seq(*args, **kwargs)
 
     def extract_seq(
@@ -156,7 +154,7 @@ class SubsequenceExtractor:
         subsequence_phn_start,
         subsequence_phn_end,
         phns_base=None,
-        phn_base_lens=None
+        phn_base_lens=None,
     ):
         """
         Extracts the subsequence from the complete sequence
@@ -185,7 +183,9 @@ class SubsequenceExtractor:
             phns_base = phns
             phn_base_lens = phn_lens
         elif phns_base is None or phn_base_lens is None:
-            raise ValueError("phn_base and phn_lens_base, if provided, should be provided together")
+            raise ValueError(
+                "phn_base and phn_lens_base, if provided, should be provided together"
+            )
         else:
             has_base = True
 
@@ -201,33 +201,37 @@ class SubsequenceExtractor:
         # as the longest subsequence (e.g. subsequence = homograph)
         phns = self._pad_subsequence(phns, longest_subsequence)
         phns_base = self._pad_subsequence(phns_base, longest_subsequence)
-        #p_seq_pad = (gap + longest_subsequence + 1).item()
+        # p_seq_pad = (gap + longest_subsequence + 1).item()
         p_seq_pad = p_seq.size(1)
         p_seq = torch.nn.functional.pad(p_seq, (0, 0, 0, p_seq_pad))
 
         # Copy only the subsequences from the targets and inputs
         # into new tensors
         subsequence_phn_start_unsq = subsequence_phn_start.unsqueeze(-1)
-        range_phns_base = torch.arange(phns_base.size(1), device=phns_base.device).expand_as(
-            phns_base
-        )
+        range_phns_base = torch.arange(
+            phns_base.size(1), device=phns_base.device
+        ).expand_as(phns_base)
         range_phns_subsequence = torch.arange(
             longest_subsequence, device=phns.device
         ).expand(phns.size(0), longest_subsequence)
         # Count the words in predictions
         target_word_indexes = self._get_target_word_indexes(
-            phns_base, range_phns_base, subsequence_phn_start_unsq,
+            phns_base,
+            range_phns_base,
+            subsequence_phn_start_unsq,
             self.word_separator_base,
-            phn_lens=phn_base_lens
+            phn_lens=phn_base_lens,
         )
         if has_base:
             # Needed if tokenization or any other transformation was used
             phns_subsequence, subsequence_lengths = self._get_phns_subsequence(
-                phns, target_word_indexes, longest_subsequence, phns_edge)
+                phns, target_word_indexes, longest_subsequence, phns_edge
+            )
         else:
             # If phns and phns_base are the same, there is no need to re-detect word boundaries
             match = (range_phns_base >= subsequence_phn_start_unsq) & (
-                range_phns_base < subsequence_phn_start_unsq + longest_subsequence
+                range_phns_base
+                < subsequence_phn_start_unsq + longest_subsequence
             )
             phns_subsequence = phns[match].reshape(range_phns_subsequence.shape)
 
@@ -236,7 +240,8 @@ class SubsequenceExtractor:
             ] = 0.0
 
         p_seq_subsequence = self._get_p_seq_subsequence(
-            p_seq, target_word_indexes, longest_subsequence, p_seq_edge)
+            p_seq, target_word_indexes, longest_subsequence, p_seq_edge
+        )
 
         return (
             p_seq_subsequence,
@@ -255,11 +260,14 @@ class SubsequenceExtractor:
             the length of the longest subsequence
         """
         if longest_subsequence > 0:
-            sequence = torch.nn.functional.pad(sequence, (0, longest_subsequence))
+            sequence = torch.nn.functional.pad(
+                sequence, (0, longest_subsequence)
+            )
         return sequence
 
-
-    def _get_phns_subsequence(self, phns, target_word_indexes, longest_subsequence, edge):
+    def _get_phns_subsequence(
+        self, phns, target_word_indexes, longest_subsequence, edge
+    ):
         word_start, word_end = self._get_word_boundaries(
             phns, target_word_indexes, edge
         )
@@ -287,11 +295,14 @@ class SubsequenceExtractor:
         phns_subsequence[
             phns_subsequence_range >= (word_end_unsq - word_start_unsq)
         ] = 0.0
-        subsequence_lengths = torch.minimum(word_end - word_start, torch.tensor(phns_subsequence.size(1)))
+        subsequence_lengths = torch.minimum(
+            word_end - word_start, torch.tensor(phns_subsequence.size(1))
+        )
         return phns_subsequence, subsequence_lengths
 
-
-    def _get_p_seq_subsequence(self, p_seq, target_word_indexes, longest_subsequence, edge):
+    def _get_p_seq_subsequence(
+        self, p_seq, target_word_indexes, longest_subsequence, edge
+    ):
         # Determine where the predicted subsequences start and end
         word_start, word_end = self._get_word_boundaries(
             p_seq, target_word_indexes, edge
@@ -323,18 +334,23 @@ class SubsequenceExtractor:
         ] = 0.0
         return p_seq_subsequence
 
-
-    def _get_target_word_indexes(self, phns, range_phns, start, word_separator, phn_lens=None):
+    def _get_target_word_indexes(
+        self, phns, range_phns, start, word_separator, phn_lens=None
+    ):
         end_of_sequence = (
-            range_phns 
-            == 
-            ((phn_lens).unsqueeze(-1) * phns.size(1)).long()) if phn_lens is not None else False
+            (range_phns == ((phn_lens).unsqueeze(-1) * phns.size(1)).long())
+            if phn_lens is not None
+            else False
+        )
         word_boundaries = (range_phns < start) & (
-            (phns == word_separator) | end_of_sequence)
-        word_indexes =  word_boundaries.sum(dim=-1)
+            (phns == word_separator) | end_of_sequence
+        )
+        word_indexes = word_boundaries.sum(dim=-1)
         return word_indexes
 
-    def _get_word_boundaries(self, seq, word_indexes, edge, word_separator=None):
+    def _get_word_boundaries(
+        self, seq, word_indexes, edge, word_separator=None
+    ):
         if word_separator is None:
             word_separator = self.word_separator
         # Find all spaces in the tensor
@@ -345,19 +361,16 @@ class SubsequenceExtractor:
         words_range = torch.arange(
             tokens.size(-1), device=tokens.device
         ).expand_as(tokens)
-        
+
         word_boundaries = (tokens == word_separator) | (words_range == edge)
 
         # Find which word a given position in the tensor belongs in
         words = word_boundaries.cumsum(dim=-1)
 
-
         index_match = words == word_indexes.unsqueeze(-1)
 
-        start = self._get_positions(
-            index_match, words_range, torch.min, edge)
-        end = self._get_positions(
-            index_match, words_range, torch.max, 0)
+        start = self._get_positions(index_match, words_range, torch.min, edge)
+        end = self._get_positions(index_match, words_range, torch.max, 0)
         return start, end
 
     def _get_positions(
@@ -367,7 +380,9 @@ class SubsequenceExtractor:
         positions = aggregation(positions, dim=-1).values
         return torch.where(positions == 0, 0, positions + 1)
 
-    def extract_hyps(self, ref_seq, hyps, subsequence_phn_start, use_base=False):
+    def extract_hyps(
+        self, ref_seq, hyps, subsequence_phn_start, use_base=False
+    ):
         """
         Extracts a subsequnce from hypotheses (e.g. the result of a beam
         search) based on a refernece sequence, which can be either a sequence of phonemes (the target during training)
@@ -387,8 +402,10 @@ class SubsequenceExtractor:
             ref_seq.size(1), device=ref_seq.device
         ).expand_as(ref_seq)
         target_word_indexes = self._get_target_word_indexes(
-            ref_seq, range_phns, subsequence_phn_start.unsqueeze(-1),
-            self.word_separator_base if use_base else self.word_separator
+            ref_seq,
+            range_phns,
+            subsequence_phn_start.unsqueeze(-1),
+            self.word_separator_base if use_base else self.word_separator,
         )
         separator_indexes = [
             [-1]

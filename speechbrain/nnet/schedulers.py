@@ -734,9 +734,7 @@ class InverseSquareRootScheduler:
 
     """
 
-    def __init__(
-        self, warmup_steps
-    ):
+    def __init__(self, warmup_steps):
         self.warmup_steps = warmup_steps
         self.n_steps = 0
 
@@ -762,9 +760,8 @@ class InverseSquareRootScheduler:
         return current_lr, lr
 
     def _compute_value(self):
-        return 1 / math.sqrt(
-            max(self.warmup_steps, self.n_steps)
-        )
+        return 1 / math.sqrt(max(self.warmup_steps, self.n_steps))
+
     @checkpoints.mark_as_saver
     def save(self, path):
         data = {"n_steps": self.n_steps}

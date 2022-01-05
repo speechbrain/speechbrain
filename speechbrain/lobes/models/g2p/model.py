@@ -2,14 +2,13 @@
 
 Authors
  * Mirco Ravinelli 2021
- * Artem Ploujnikov 2021 (slight refactoring only - for pretrainer
-   compatibility)
+ * Artem Ploujnikov 2021 
 """
 
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
-    get_key_padding_mask
+    get_key_padding_mask,
 )
 
 import torch
@@ -18,8 +17,6 @@ from torch.nn import functional as F
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet import normalization
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.nnet.containers import ModuleList
 
 
 class AttentionSeq2Seq(nn.Module):
@@ -96,9 +93,13 @@ class AttentionSeq2Seq(nn.Module):
 
         Returns
         -------
-        result: tuple
-            a tuple of (p_seq, char_lens, encoder_out) - sequence
-            probabilities, character lengths and
+        p_seq: torch.Tensor
+            a (batch x position x token) tensor of token probabilities in each
+            position
+        char_lens: torch.Tensor
+            a tensor of character sequence lengths
+        encoder_out:
+            the raw output of the encoder
         """
 
         chars, char_lens = grapheme_encoded
@@ -109,8 +110,7 @@ class AttentionSeq2Seq(nn.Module):
 
         emb_char = self.encoder_emb(chars)
         if self.use_word_emb:
-            emb_char = _apply_word_emb(
-                self.word_emb_enc, emb_char, word_emb)
+            emb_char = _apply_word_emb(self.word_emb_enc, emb_char, word_emb)
 
         encoder_out, _ = self.enc(emb_char)
         e_in = self.emb(phn_bos)
@@ -124,14 +124,14 @@ class AttentionSeq2Seq(nn.Module):
         """Concatenate character embeddings with word embeddeings,
         possibly encoding the word embeddings if an encoder
         is provided
-        
+
         Arguments
         ---------
         emb_char: torch.Tensor
             the character embedding tensor
         word_emb: torch.Tensor
             the word embedding tensor
-            
+
         Returns
         -------
         result: torch.Tensor
@@ -176,11 +176,11 @@ class WordEmbeddingEncoder(nn.Module):
         the dimension of the original word embeddings
     word_emb_enc_dim: int
         the dimension of the encoded word embeddings
-    norm_type: str
-        the type of normalization to be used
     norm: torch.nn.Module
         the normalization to be used (
             e.g. speechbrain.nnet.normalization.LayerNorm)
+    norm_type: str
+        the type of normalization to be used
     """
 
     def __init__(
@@ -197,7 +197,15 @@ class WordEmbeddingEncoder(nn.Module):
         self.activation = nn.Tanh()
 
     def _get_norm(self, norm, dim):
-        """Determines the type of normalizer"""
+        """Determines the type of normalizer
+
+        Arguments
+        ---------
+        norm: str
+            the normalization type: "batch", "layer" or "instance
+        dim: int
+            the dimensionality of the inputs
+        """
         norm_cls = self.NORMS.get(norm)
         if not norm_cls:
             raise ValueError(f"Invalid norm: {norm}")
@@ -221,6 +229,7 @@ class WordEmbeddingEncoder(nn.Module):
         x = self.lin(x)
         x = self.activation(x)
         return x
+
 
 class TransformerG2P(TransformerInterface):
     """
@@ -296,7 +305,9 @@ class TransformerG2P(TransformerInterface):
 
 
     """
-    def __init__(self,
+
+    def __init__(
+        self,
         emb,
         encoder_emb,
         char_lin,
@@ -311,7 +322,9 @@ class TransformerG2P(TransformerInterface):
         dropout=0.1,
         activation=nn.ReLU,
         custom_src_module=None,
-        custom_tgt_module=None, positional_encoding="fixed_abs_sine", normalize_before=True,
+        custom_tgt_module=None,
+        positional_encoding="fixed_abs_sine",
+        normalize_before=True,
         kernel_size=15,
         bias=True,
         encoder_module="transformer",
@@ -324,7 +337,7 @@ class TransformerG2P(TransformerInterface):
         decoder_kdim=None,
         decoder_vdim=None,
         use_word_emb=False,
-        word_emb_enc=None
+        word_emb_enc=None,
     ):
         super().__init__(
             d_model=d_model,
@@ -347,7 +360,7 @@ class TransformerG2P(TransformerInterface):
             encoder_kdim=encoder_kdim,
             encoder_vdim=encoder_vdim,
             decoder_kdim=decoder_kdim,
-            decoder_vdim=decoder_vdim
+            decoder_vdim=decoder_vdim,
         )
         self.emb = emb
         self.encoder_emb = encoder_emb
@@ -372,6 +385,9 @@ class TransformerG2P(TransformerInterface):
         phn_encoded: torch.Tensor
             the encoded phonemes
 
+        word_emb: torch.Tensor
+            word embeddings (if applicable)
+
         Returns
         -------
         p_seq: torch.Tensor
@@ -388,9 +404,7 @@ class TransformerG2P(TransformerInterface):
         phn, _ = phn_encoded
         emb_char = self.encoder_emb(chars)
         if self.use_word_emb:
-            emb_char = _apply_word_emb(
-                self.word_emb_enc, emb_char, word_emb)
-
+            emb_char = _apply_word_emb(self.word_emb_enc, emb_char, word_emb)
 
         src = self.char_lin(emb_char)
         tgt = self.emb(phn)
@@ -405,7 +419,7 @@ class TransformerG2P(TransformerInterface):
 
         pos_embs_encoder = None
         if self.attention_type == "RelPosMHAXL":
-            pos_embs_encoder =  self.positional_encoding(src)
+            pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)  # add the encodings here
             pos_embs_encoder = None
@@ -414,7 +428,7 @@ class TransformerG2P(TransformerInterface):
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
-            pos_embs=pos_embs_encoder
+            pos_embs=pos_embs_encoder,
         )
 
         if self.attention_type == "RelPosMHAXL":
@@ -443,10 +457,10 @@ class TransformerG2P(TransformerInterface):
         return p_seq, char_lens, encoder_out, attention
 
     def _reset_params(self):
+        """Resets the parameters of the model"""
         for p in self.parameters():
             if p.dim() > 1:
                 torch.nn.init.xavier_normal_(p)
-
 
     def make_masks(self, src, tgt, src_len=None, pad_idx=0):
         """This method generates the masks for training the transformer model.
@@ -497,8 +511,11 @@ class TransformerG2P(TransformerInterface):
 
         Returns
         -------
-        result: tuple
-            A tuple of (prediction, last head attention state)
+        prediction: torch.Tensor
+            the predicted sequence
+        attention: torch.Tensor
+            the attention matrix corresponding to the last attention head
+            (useful for plotting attention)
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.emb(tgt)
@@ -518,7 +535,8 @@ class TransformerG2P(TransformerInterface):
             pos_embs_tgt=None,
             pos_embs_src=None,
         )
-        return prediction, multihead_attns[-1]
+        attention = multihead_attns[-1]
+        return prediction, attention
 
 
 def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):
@@ -544,9 +562,25 @@ def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):
 
 
 def _apply_word_emb(word_emb_enc, emb_char, word_emb):
+    """
+    Concatenates character and word embeddings together, possibly
+    applying a custom encoding/transformation
+
+    Arguments
+    ---------
+    word_emb_enc: callable
+        an encoder to apply (typically, speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder)
+    emb_char: torch.Tensor
+        character embeddings
+    word_emb: char
+        word embeddings
+
+    Returns
+    -------
+    result: torch.Tensor
+        the resulting (concatenated) tensor
+    """
     word_emb_enc = (
-        word_emb_enc(word_emb)
-        if word_emb_enc is not None
-        else word_emb
+        word_emb_enc(word_emb) if word_emb_enc is not None else word_emb
     )
     return torch.cat([emb_char, word_emb_enc], dim=-1)

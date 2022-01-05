@@ -53,7 +53,7 @@ def grapheme_pipeline(
     grapheme_encoder=None,
     space_separated=False,
     uppercase=True,
-    takes="char"
+    takes="char",
 ):
     """Creates a pipeline element for grapheme encoding
 
@@ -108,7 +108,7 @@ def tokenizer_encode_pipeline(
     word_separator=" ",
     token_space_index=512,
     space_separated=True,
-    char_map=None
+    char_map=None,
 ):
     """A pipeline element that uses a pretrained tokenizer
 
@@ -255,12 +255,12 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
         the result
 
     """
-    if isinstance(sequence, str) and sequence == '':
-        return ''
+    if isinstance(sequence, str) and sequence == "":
+        return ""
     if token_separator not in sequence:
         sequence_list = (
-            sequence if isinstance(sequence, list)
-            else sequence.tolist())
+            sequence if isinstance(sequence, list) else sequence.tolist()
+        )
         return tokenizer.sp.decode_ids(sequence_list)
     words = list(_split_list(sequence, token_separator))
     encoded_words = [
@@ -319,12 +319,14 @@ def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     if encoder is None:
         encoder = sb.dataio.encoder.TextEncoder()
     if bos_index == eos_index:
-        if '<eos-bos>' not in encoder.lab2ind:
+        if "<eos-bos>" not in encoder.lab2ind:
             encoder.insert_bos_eos(
-                bos_label="<eos-bos>", eos_label="<eos-bos>", bos_index=bos_index,
+                bos_label="<eos-bos>",
+                eos_label="<eos-bos>",
+                bos_index=bos_index,
             )
     else:
-        if '<bos>' not in encoder.lab2ind:
+        if "<bos>" not in encoder.lab2ind:
             encoder.insert_bos_eos(
                 bos_label="<bos>",
                 eos_label="<eos>",
@@ -337,7 +339,12 @@ def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     return encoder
 
 
-def phoneme_pipeline(phoneme_encoder=None, space_separated=True, takes="phn", provides_prefix="phn"):
+def phoneme_pipeline(
+    phoneme_encoder=None,
+    space_separated=True,
+    takes="phn",
+    provides_prefix="phn",
+):
     """Creates a pipeline element for phoneme encoding
 
     Arguments
@@ -356,7 +363,7 @@ def phoneme_pipeline(phoneme_encoder=None, space_separated=True, takes="phn", pr
     @sb.utils.data_pipeline.provides(
         f"{provides_prefix}_list",
         f"{provides_prefix}_encoded_list",
-        f"{provides_prefix}_encoded"
+        f"{provides_prefix}_encoded",
     )
     def f(phn):
         phn_list = phn.strip().split(" ") if space_separated else phn
@@ -398,7 +405,8 @@ def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
             tokens=tokens,
             encoder=encoder,
             bos_index=bos_index,
-            eos_index=eos_index)
+            eos_index=eos_index,
+        )
 
     @sb.utils.data_pipeline.takes(f"{prefix}_encoded_list")
     @sb.utils.data_pipeline.provides(

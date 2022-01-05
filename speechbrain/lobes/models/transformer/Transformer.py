@@ -102,7 +102,7 @@ class TransformerInterface(nn.Module):
         encoder_kdim: Optional[int] = None,
         encoder_vdim: Optional[int] = None,
         decoder_kdim: Optional[int] = None,
-        decoder_vdim: Optional[int] = None
+        decoder_vdim: Optional[int] = None,
     ):
         super().__init__()
         self.causal = causal
@@ -149,7 +149,7 @@ class TransformerInterface(nn.Module):
                     causal=self.causal,
                     attention_type=self.attention_type,
                     kdim=self.encoder_kdim,
-                    vdim=self.encoder_vdim
+                    vdim=self.encoder_vdim,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -187,12 +187,11 @@ class TransformerInterface(nn.Module):
                 causal=True,
                 attention_type="regularMHA",  # always use regular attention in decoder
                 kdim=self.decoder_kdim,
-                vdim=self.decoder_vdim
+                vdim=self.decoder_vdim,
             )
 
     def forward(self, **kwags):
-        """Users should modify this function according to their own tasks.
-        """
+        """Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
 

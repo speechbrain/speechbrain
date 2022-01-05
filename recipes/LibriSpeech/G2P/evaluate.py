@@ -48,15 +48,19 @@ class G2PEvaluator:
         else:
             self.load()
         self.grapheme_sequence_mode = getattr(
-            self.hparams, "grapheme_sequence_mode", "bos")
+            self.hparams, "grapheme_sequence_mode", "bos"
+        )
         self.grapheme_key = get_sequence_key(
-            key="grapheme_encoded",
-            mode=self.grapheme_sequence_mode
+            key="grapheme_encoded", mode=self.grapheme_sequence_mode
         )
         self.modules["model"].eval()
         self._word_separator = None
-        self._bos = torch.tensor(self.hparams.bos_index, device=device).unsqueeze(-1)
-        self._eos = torch.tensor(self.hparams.eos_index, device=device).unsqueeze(-1)
+        self._bos = torch.tensor(
+            self.hparams.bos_index, device=device
+        ).unsqueeze(-1)
+        self._eos = torch.tensor(
+            self.hparams.eos_index, device=device
+        ).unsqueeze(-1)
 
         # When reconstructing sentences word-wise, the process depends
         # on whether spaces are preserved or omitted, as controlled by
@@ -68,12 +72,11 @@ class G2PEvaluator:
         )
 
     def load(self):
-        """Loads a model from a checkpoint
-        """
+        """Loads a model from a checkpoint"""
         checkpointer = self.hparams.checkpointer
         checkpointer.recover_if_possible(
             device=torch.device(self.device),
-            importance_key=lambda ckpt: -ckpt.meta["PER"],
+            importance_key=lambda ckpt: -ckpt.meta.get("PER", -100.0),
         )
 
     def evaluate_batch(self, batch):
@@ -100,26 +103,21 @@ class G2PEvaluator:
         phns, phn_lens = batch.phn_encoded
 
         self.per_metrics.append(
-            ids,
-            hyps,
-            phns,
-            None,   
-            phn_lens,
-            self.hparams.out_phoneme_decoder,
+            ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder,
         )
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded_bos=None):
         """Runs the model and the beam search to retrieve the phoneme sequence
         corresponding to the provided grapheme sequence
-        
+
         Arguments
         ---------
         grapheme_encoded: speechbrain.dataio.batch.PaddedData
             An encoded grapheme sequence
-            
+
         phn_encoded_bos: speechbrain.dataio.batch.PaddedData
             An encoded phoneme sequence (optional)
-            
+
         Returns
         -------
         hyps: list
@@ -139,15 +137,14 @@ class G2PEvaluator:
                 ),
             )
         p_seq, char_lens, encoder_out, _ = self.modules.model(
-            grapheme_encoded=grapheme_encoded,
-            phn_encoded=phn_encoded_bos,
+            grapheme_encoded=grapheme_encoded, phn_encoded=phn_encoded_bos,
         )
         return self.beam_searcher(encoder_out, char_lens)
 
     def _get_phonemes_wordwise(self, grapheme_encoded):
         """Retrieves the phoneme sequence corresponding to the provided grapheme
         sequence in a word-wise manner (running the evaluator for each word separately)
-        
+
         Arguments
         ---------
         grapheme_encoded: speechbrain.dataio.batch.PaddedData
@@ -191,7 +188,7 @@ class G2PEvaluator:
         return [token for item_result in results for token in item_result]
 
     def _flatten_results_separated(self, results):
-        """Flattens a sequence of words, inserting word separators between them - 
+        """Flattens a sequence of words, inserting word separators between them -
         used when word separators are preserved in the phoneme space
 
         Arguments
@@ -223,7 +220,7 @@ class G2PEvaluator:
             the hypotheses (the beam search result)
         scores: list
             the scores corresponding to the hypotheses
-        
+
         Results
         -------
         scores: list
@@ -264,15 +261,19 @@ class G2PEvaluator:
         (word_boundaries,) = torch.where(graphemes == space_index)
         last_word_boundary = 0
         for word_boundary in word_boundaries:
-            yield self._add_delimiters(graphemes[last_word_boundary + 1 : word_boundary])
+            yield self._add_delimiters(
+                graphemes[last_word_boundary + 1 : word_boundary]
+            )
             last_word_boundary = word_boundary
         char_length = math.ceil(len(graphemes) * length)
         if last_word_boundary < char_length:
-            yield self._add_delimiters(graphemes[last_word_boundary + 1 : char_length])
+            yield self._add_delimiters(
+                graphemes[last_word_boundary + 1 : char_length]
+            )
 
     def _add_delimiters(self, word):
         """Adds the required delimiter characters to a word
-        
+
         Arguments
         ---------
         word: torch.Tensor
