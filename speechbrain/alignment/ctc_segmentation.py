@@ -18,7 +18,7 @@ import torch
 from typing import List
 
 # speechbrain interface
-from speechbrain.pretrained.interfaces import EncoderDecoderASR
+from speechbrain.pretrained.interfaces import EncoderASR, EncoderDecoderASR
 
 # imports for CTC segmentation
 try:
@@ -221,7 +221,7 @@ class CTCSegmentation:
 
     def __init__(
         self,
-        asr_model: EncoderDecoderASR,
+        asr_model: Union[EncoderASR, EncoderDecoderASR],
         kaldi_style_text: bool = True,
         text_converter: str = "tokenize",
         time_stamps: str = "auto",
@@ -229,22 +229,34 @@ class CTCSegmentation:
     ):
         """Initialize the CTCSegmentation module."""
         # Prepare ASR model
-        if not (
-            hasattr(asr_model, "mods")
-            and hasattr(asr_model.mods, "decoder")
-            and hasattr(asr_model.mods.decoder, "ctc_weight")
-        ):
-            raise AttributeError(
-                "The given asr_model has no CTC decoder in asr_model.mods.decoder!"
+        if (
+            isinstance(asr_model, EncoderDecoderASR)
+            and not (
+                hasattr(asr_model, "mods")
+                and hasattr(asr_model.mods, "decoder")
+                and hasattr(asr_model.mods.decoder, "ctc_weight")
             )
+        ) or (
+            isinstance(asr_model, EncoderASR)
+            and not (
+                hasattr(asr_model, "mods")
+                and hasattr(asr_model.mods, "encoder")
+                and hasattr(asr_model.mods.encoder, "ctc_lin")
+            )
+        ):
+            raise AttributeError("The given asr_model has no CTC module!")
         if not hasattr(asr_model, "tokenizer"):
             raise AttributeError(
                 "The given asr_model has no tokenizer in asr_model.tokenizer!"
             )
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
-        # Assumption: log-softmax is already included in ctc_forward_step
-        self._ctc = self.asr_model.mods.decoder.ctc_forward_step
+        if isinstance(asr_model, EncoderDecoderASR):
+            # Assumption: log-softmax is already included in ctc_forward_step
+            self._ctc = self.asr_model.mods.decoder.ctc_forward_step
+        else:
+            # Apply log-softmax to encoder output
+            self._ctc = self.asr_model.hparams.log_softmax
         self._tokenizer = self.asr_model.tokenizer
 
         # Apply configuration

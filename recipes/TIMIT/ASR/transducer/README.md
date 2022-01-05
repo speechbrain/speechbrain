@@ -4,7 +4,10 @@ TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC9
 
 
 # Extra-Dependencies
-Before running this recipe, make sure numba is installed. Otherwise, run:
+This recipe support two implementation of Transducer loss, see `use_torchaudio` arg in Yaml file:
+1- Transducer loss from torchaudio (if torchaudio version >= 0.10.0) (Default)
+2- Speechbrain Implementation using Numba lib. (this allow you to have a direct access in python to the Transducer loss implementation)
+Note: Before running this recipe, make sure numba is installed. Otherwise, run:
 ```
 pip install numba
 ```

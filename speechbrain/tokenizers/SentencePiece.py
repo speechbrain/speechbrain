@@ -78,6 +78,8 @@ class SentencePiece:
         An alternate path to the text file (needed when multiple models are trained on
         the same data file)
 
+    add_dummy_prefix : bool
+        If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
     Example
     -------
     >>> import torch
@@ -124,6 +126,7 @@ class SentencePiece:
         annotation_list_to_check=None,
         annotation_format="csv",
         text_file=None,
+        add_dummy_prefix=True,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -135,6 +138,7 @@ class SentencePiece:
         self.annotation_train = annotation_train
         self.annotation_read = annotation_read
         self.annotation_format = annotation_format
+
         if self.annotation_train is not None:
             ext = os.path.splitext(self.annotation_train)[1]
             if text_file is None:
@@ -156,6 +160,7 @@ class SentencePiece:
         self.num_sequences = num_sequences
         self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
+        self.add_dummy_prefix = str(add_dummy_prefix)
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
@@ -292,6 +297,8 @@ class SentencePiece:
             + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
+            + " --add_dummy_prefix="
+            + self.add_dummy_prefix
         )
         if self.model_type not in ["char"]:
             # include vocab_size
@@ -414,7 +421,7 @@ class SentencePiece:
             # Convert list of words/chars to bpe ids
             bpe = []
             max_bpe_len = 0
-            batch_lens = (batch_lens * batch.shape[1]).int()
+            batch_lens = (batch_lens * batch.shape[1]).round().int()
             for i, utt_seq in enumerate(batch):
                 tokens = [
                     ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]
@@ -446,7 +453,7 @@ class SentencePiece:
         elif task == "decode":
             # From a batch tensor and a length tensor
             # find the absolute batch lengths and do decoding
-            batch_lens = (batch_lens * batch.shape[1]).int()
+            batch_lens = (batch_lens * batch.shape[1]).round().int()
             return [
                 self.sp.decode_ids(
                     utt_seq[: batch_lens[i]].int().tolist()

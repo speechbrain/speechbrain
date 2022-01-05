@@ -3,16 +3,16 @@ import torch.nn
 import math
 
 
-def test_metric_stats():
+def test_metric_stats(device):
     from speechbrain.utils.metric_stats import MetricStats
     from speechbrain.nnet.losses import l1_loss
 
     l1_stats = MetricStats(metric=l1_loss)
     l1_stats.append(
         ids=["utterance1", "utterance2"],
-        predictions=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
-        targets=torch.tensor([[0.1, 0.3], [0.2, 0.3]]),
-        length=torch.ones(2),
+        predictions=torch.tensor([[0.1, 0.2], [0.1, 0.2]], device=device),
+        targets=torch.tensor([[0.1, 0.3], [0.2, 0.3]], device=device),
+        length=torch.ones(2, device=device),
         reduction="batch",
     )
     summary = l1_stats.summarize()
@@ -23,7 +23,7 @@ def test_metric_stats():
     assert summary["max_id"] == "utterance2"
 
 
-def test_error_rate_stats():
+def test_error_rate_stats(device):
     from speechbrain.utils.metric_stats import ErrorRateStats
 
     wer_stats = ErrorRateStats()
@@ -35,8 +35,8 @@ def test_error_rate_stats():
     wer_stats.append(
         ids=["utterance1", "utterance2"],
         predict=[[3, 2, 1], [2, 3]],
-        target=torch.tensor([[3, 2, 0], [2, 1, 0]]),
-        target_len=torch.tensor([0.67, 0.67]),
+        target=torch.tensor([[3, 2, 0], [2, 1, 0]], device=device),
+        target_len=torch.tensor([0.67, 0.67], device=device),
         ind2lab=mapper,
     )
     summary = wer_stats.summarize()
@@ -48,14 +48,14 @@ def test_error_rate_stats():
     assert wer_stats.scores[0]["hyp_tokens"] == ["the", "world", "hello"]
 
 
-def test_binary_metrics():
+def test_binary_metrics(device):
     from speechbrain.utils.metric_stats import BinaryMetricStats
 
     binary_stats = BinaryMetricStats()
     binary_stats.append(
         ids=["utt1", "utt2", "utt3", "utt4", "utt5", "utt6"],
-        scores=torch.tensor([0.1, 0.4, 0.8, 0.2, 0.3, 0.6]),
-        labels=torch.tensor([1, 0, 1, 0, 1, 0]),
+        scores=torch.tensor([0.1, 0.4, 0.8, 0.2, 0.3, 0.6], device=device),
+        labels=torch.tensor([1, 0, 1, 0, 1, 0], device=device),
     )
     summary = binary_stats.summarize(threshold=0.5)
     assert summary["TP"] == 1
@@ -66,28 +66,28 @@ def test_binary_metrics():
     summary = binary_stats.summarize()
 
 
-def test_EER():
+def test_EER(device):
     from speechbrain.utils.metric_stats import EER
 
-    positive_scores = torch.tensor([0.1, 0.2, 0.3])
-    negative_scores = torch.tensor([0.4, 0.5, 0.6])
+    positive_scores = torch.tensor([0.1, 0.2, 0.3], device=device)
+    negative_scores = torch.tensor([0.4, 0.5, 0.6], device=device)
     eer, threshold = EER(positive_scores, negative_scores)
     assert eer == 1.0
     assert threshold > 0.3 and threshold < 0.4
 
-    positive_scores = torch.tensor([0.4, 0.5, 0.6])
-    negative_scores = torch.tensor([0.3, 0.2, 0.1])
+    positive_scores = torch.tensor([0.4, 0.5, 0.6], device=device)
+    negative_scores = torch.tensor([0.3, 0.2, 0.1], device=device)
     eer, threshold = EER(positive_scores, negative_scores)
     assert eer == 0
     assert threshold > 0.3 and threshold < 0.4
 
     cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-    input1 = torch.randn(1000, 64)
-    input2 = torch.randn(1000, 64)
+    input1 = torch.randn(1000, 64, device=device)
+    input2 = torch.randn(1000, 64, device=device)
     positive_scores = cos(input1, input2)
 
-    input1 = torch.randn(1000, 64)
-    input2 = torch.randn(1000, 64)
+    input1 = torch.randn(1000, 64, device=device)
+    input2 = torch.randn(1000, 64, device=device)
     negative_scores = cos(input1, input2)
 
     eer, threshold = EER(positive_scores, negative_scores)
@@ -99,17 +99,17 @@ def test_EER():
     assert correct > 900 and correct < 1100
 
 
-def test_minDCF():
+def test_minDCF(device):
     from speechbrain.utils.metric_stats import minDCF
 
-    positive_scores = torch.tensor([0.1, 0.2, 0.3])
-    negative_scores = torch.tensor([0.4, 0.5, 0.6])
+    positive_scores = torch.tensor([0.1, 0.2, 0.3], device=device)
+    negative_scores = torch.tensor([0.4, 0.5, 0.6], device=device)
     min_dcf, threshold = minDCF(positive_scores, negative_scores)
     assert (0.01 - min_dcf) < 1e-4
     assert threshold >= 0.6
 
-    positive_scores = torch.tensor([0.4, 0.5, 0.6])
-    negative_scores = torch.tensor([0.1, 0.2, 0.3])
+    positive_scores = torch.tensor([0.4, 0.5, 0.6], device=device)
+    negative_scores = torch.tensor([0.1, 0.2, 0.3], device=device)
     min_dcf, threshold = minDCF(positive_scores, negative_scores)
     assert min_dcf == 0
     assert threshold > 0.3 and threshold < 0.4

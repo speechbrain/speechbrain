@@ -41,7 +41,7 @@ class Learnable_sigmoid(nn.Module):
         # self.scale.requiresGrad = True # set requiresGrad to true!
 
     def forward(self, x):
-        return 1.2 / (1 + torch.exp(-(self.slope) * x))
+        return 1.2 * torch.sigmoid(self.slope * x)
 
 
 class EnhancementGenerator(nn.Module):

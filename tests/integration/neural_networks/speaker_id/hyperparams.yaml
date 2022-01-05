@@ -44,6 +44,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 modules:
+    compute_features: !ref <compute_features>
     xvector_model: !ref <xvector_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
