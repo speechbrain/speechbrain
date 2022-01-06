@@ -1,5 +1,5 @@
-# DVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset: [DVoice Homepage](https://www.dvoice.ma/)
+# [DVoice](https://dvoice.ma) ASR with CTC based Seq2Seq models.
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset: [download](https://drive.google.com/file/d/1CmFVZCJDSPpGac8RLSkJc5aYl-hTvnwW/view?usp=sharing)
 
 # Data preparation
 DVoice attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
@@ -10,14 +10,14 @@ python train.py hparams/{hparam_file}.py
 # Languages
 Here is a list of the different languages or dialects that we tested within the DVoice dataset and CTC:
 - Darija
-- Swahili
+- Swahili (upcoming soon)
 
 # Results
 
-| Language | DVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
-| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
-| Darija | - | train_dar_with_wav2vec.yaml | No | - | - | - | 30% | Not Avail. | [model](https://drive.google.com/drive/folders/1tYO__An68xrM5pR1UIXzEkwzvKX2Tz2o?usp=sharing) | 2xV100 32GB |
-| Swahili | - | train_sw_with_wav2vec.yaml | No | - | - | - | 28% | Not Avail. | [model](https://drive.google.com/drive/folders/1T9DfdZwcNI9CURxhLCi8GA5JVz8adiY8?usp=sharing) | 2xV100 32GB |
+| Language | DVoice Release | hyperparams file | LM | Test WER |
+| ------------- |:-------------:|:---------------------------:| -----:| -----:|
+| Darija | v1.0 | train_dar_with_wav2vec.yaml | No | 30% |
+| Swahili | v1.0 | train_sw_with_wav2vec.yaml | No | 28% |
 
 
 ## How to simply use pretrained models to transcribe my audio file?
