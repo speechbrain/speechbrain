@@ -5,8 +5,9 @@
 #
 # Author
 # ------
-# Davide Borra, 2021
-# Mirco Ravanelli, 2021
+# Davide Borra, 2022
+# Mirco Ravanelli, 2022
+# Francesco Paissan, 2022
 ###################################################
 seed: 1234
 __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
@@ -19,6 +20,7 @@ output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
 # Defining the MOABB dataset.
 dataset: !new:moabb.datasets.BNCI2014001
 subject_list: [1, 2, 3, 4, 5, 6, 7, 8, 9]  # subject list
+
 events: ['left_hand', 'right_hand', 'feet', 'tongue']
 n_classes: 4
 sample_rate: 128  # Target sampling rate (Hz)
@@ -57,7 +59,7 @@ lr: 0.001
 # Learning rate scheduling (cyclic learning rate is used here)
 max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
 base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
-step_size: 100 # number of training iterations per half cycle (lower step_size => faster cycles)
+step_size: 50 # number of training iterations per half cycle (lower step_size => faster cycles)
 
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
@@ -84,7 +86,7 @@ optimizer: !name:torch.optim.Adam
     lr: !ref <lr>
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
     limit: !ref <number_of_epochs>
-batch_size: 64
+batch_size: 512
 valid_ratio: 0.2
 
 # Data iterators
@@ -106,7 +108,7 @@ data_iterators: [!ref <within_session_it>,
                  !ref <leave_one_session_out_it>,
                  !ref <cross_session_it>,
                  !ref <leave_one_subject_out_it>,
-]
+    ]
 
 # DATA AUGMENTATION
 rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
@@ -125,19 +127,42 @@ chunk_dropper: !new:speechbrain.processing.speech_augmentation.FastDropChunk
     drop_count_high: 3
     drop_start: 0
 
-noise_funct: !name:speechbrain.processing.speech_augmentation.pink_noise_like
+pink_noise_funct: !name:speechbrain.processing.speech_augmentation.pink_noise_like
     alpha_low: 0.5
     alpha_high: 0.5
     sample_rate: !ref <sample_rate>
 
+muscular_noise_funct: !name:speechbrain.processing.speech_augmentation.muscolar_noise
+     pink_alpha_low: 1.110
+     pink_alpha_high: 1.432
+     bb_offset_low: 3.072
+     bb_offset_high: 5.686
+     sample_rate: !ref <sample_rate>
+
+snr_pink_low: 0
+snr_pink_high: 10
+snr_white_low: 5
+snr_white_high: 25
+snr_muscular_low: 25
+snr_muscular_high: 30
+
+n_augmentations: 4
+repeat_augment: 1
+
 add_noise_pink: !new:speechbrain.processing.speech_augmentation.AddNoise
-    snr_low: 0
-    snr_high: 5
-    noise_funct: !ref <noise_funct>
+    snr_low: !ref <snr_pink_low>
+    snr_high: !ref <snr_pink_high>
+    noise_funct: !ref <pink_noise_funct>
 
 add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
-    snr_low: 5
-    snr_high: 15
+    snr_low: !ref <snr_white_low>
+    snr_high: !ref <snr_white_high>
+
+add_muscular_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+    snr_low: !ref <snr_muscular_low>
+    snr_high: !ref <snr_muscular_high>
+    noise_funct: !ref <muscular_noise_funct>
+
 
 augment_noise: !new:speechbrain.processing.augmentation.Augmenter
     parallel_augment: False
@@ -152,14 +177,15 @@ augment_noise: !new:speechbrain.processing.augmentation.Augmenter
 augment: !new:speechbrain.processing.augmentation.Augmenter
     parallel_augment: True
     concat_original: True
-    min_augmentations: 5
-    max_augmentations: 5
-    repeat_augment: 2
+    min_augmentations: !ref <n_augmentations>
+    max_augmentations: !ref <n_augmentations>
+    repeat_augment: !ref <repeat_augment>
     shuffle_augmentations: True
     rand_amp: !ref <rand_amp>
     time_shift: !ref <time_shift>
     chunk_dropper: !ref <chunk_dropper>
     augment_noise: !ref <augment_noise>
+    add_muscular_noise: !ref <add_muscular_noise>
 
 # DATA NORMALIZATION
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
@@ -167,12 +193,12 @@ normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
 
 # MODEL: EEGNET
 input_shape: [null, !ref <T>, !ref <C>, null]
-cnn_temporal_kernels: 8  # number of temporal filters in the temporal conv. layer
+cnn_temporal_kernels: 32  # number of temporal filters in the temporal conv. layer
 cnn_spatial_depth_multiplier: 2  # depth multiplier for the spatial depthwise conv. layer
 cnn_spatial_max_norm: 1.  # kernel max-norm constaint of the spatial depthwise conv. layer
 cnn_septemporal_depth_multiplier: 1  # depth multiplier for the separable temporal conv. layer
 dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
-dropout: 0.25  # dropout rate
+dropout: 0.35  # dropout rate
 
 model: !new:speechbrain.lobes.models.EEGNet.EEGNet
     input_shape: !ref <input_shape>
