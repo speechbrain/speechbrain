@@ -63,7 +63,8 @@ def test_binary_metrics(device):
     assert summary["FP"] == 1
     assert summary["FN"] == 2
 
-    summary = binary_stats.summarize()
+    summary = binary_stats.summarize(threshold=None)
+    assert summary["threshold"] > 0.3 and summary["threshold"] < 0.4
 
 
 def test_EER(device):
