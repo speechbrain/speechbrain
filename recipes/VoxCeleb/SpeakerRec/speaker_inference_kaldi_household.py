@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Recipe for extract speaker embeddings from a kaldi-formed directory with:
 1. wav.scp, in terms of [utt, wav_path] for each line
 2. utt2spk
@@ -6,9 +7,16 @@
 
 Authors
     * Xuechen Liu 2021
+
+(specialized for household with two options
+    1. perform trimming via librosa, 20dB
+    2. 2-sec cropping
+)
+
 """
 
 import argparse
+import librosa
 import os
 import sys
 import torch
@@ -61,42 +69,61 @@ def compute_embeddings_single(wavs, wav_lens, params):
     wav_lens = wav_lens.to(params["device"])
     with torch.no_grad():
         feats = params["compute_features"](wavs)
-        feats = params["mean_var_norm"](feats, wav_lens).to(params["device"])
-        embeddings = params["embedding_model"](feats)
+        feats = params["mean_var_norm"](feats, wav_lens)
+        embeddings = params["embedding_model"](feats, wav_lens)
         embeddings = params["mean_var_norm_emb"](
             embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
         )
     return embeddings.squeeze(1)
 
 
-def compute_embeddings(params, wav_scp, outdir, ark):
+def compute_embeddings(params, wav_scp, outdir, ark, trimmed=False, chunk_length=0):
+
+    def __get_random_chunk(wav, length):
+        """given an utterance length utt_length (in frames) and two desired chunk lengths
+        (length1 and length2) whose sum is <= utt_length,
+        this function randomly picks the starting points of the chunks for you.
+        the chunks may appear randomly in either order.
+        """
+        utt_length = wav.shape[0]
+        if length >= utt_length:
+            chunked_wav = wav
+        else:
+            free_length = utt_length - length
+            offset = np.random.randint(0, free_length)
+            chunked_wav = wav[offset:offset+length]
+        return chunked_wav
+
+    def __get_trimmed(wav):
+        wav_samples = wav.numpy()
+        trimmed_samples = librosa.effects.trim(wav_samples, top_db=20)
+        return torch.from_numpy(trimmed_samples)
+
+
     with torch.no_grad():
         with open(wav_scp, "r") as wavscp:
             for line in wavscp:
                 utt, wav_path = line.split()
                 out_file = "{}/npys/{}.npy".format(outdir, utt)
-                wav, _ = torchaudio.load(wav_path)
-                data = wav.transpose(0, 1).squeeze(1).unsqueeze(0)
-                embedding = compute_embeddings_single(data, torch.Tensor([data.shape[0]]), params).squeeze()
+                wav, _ = torchaudio.load(wav_path).transpose(0, 1).squeeze(1)
+                if trimmed:
+                    wav = __get_trimmed(wav)
+                if chunk_length != 0:
+                    wav = __get_random_chunk(wav, chunk_length)
+                embedding = compute_embeddings_single(wav, wav.shape[0], params)
 
                 out_embedding = embedding.detach().cpu().numpy()
                 np.save(out_file, out_embedding)
                 write_vecs_to_kaldi(out_embedding, utt, ark)
-                del out_embedding, wav, data
+                del out_embedding, wav
 
 
 if __name__ == "__main__":
 
-    # load directories
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument("--datadir", type=str, required=True)
-    #parser.add_argument("--outdir", type=str, required=True)
-
-    #args = parser.parse_args()
-    #datadir = args.datadir
-    #outdir = args.outdir
     datadir = sys.argv[1]
     outdir = sys.argv[2]
+    trimmed = bool(sys.argv[3]) # 0 means false
+    chunk_length = int(sys.argv[4])
 
     # Logger setup
     logger = logging.getLogger(__name__)
@@ -104,7 +131,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
-    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[3:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[5:])
     print(params_file)
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides=None)
@@ -121,7 +148,7 @@ if __name__ == "__main__":
 
     print("begin embedding extraction......")
     with open(ark_file, "wb") as ark:
-        compute_embeddings(params, datadir + "/wav.scp", outdir, ark)
+        compute_embeddings(params, datadir + "/wav.scp", outdir, ark, trimmed=False, chunk_length=0)
 
     copied_ark_file = outdir + "/xvector.ark"
     copied_scp_file = outdir + "/xvector.scp"
