@@ -1036,36 +1036,47 @@ class InputNormalization(torch.nn.Module):
 
                 spk_id = int(spk_ids[snt_id][0])
 
-                if spk_id not in self.spk_dict_mean:
+                if self.training:
+                    if spk_id not in self.spk_dict_mean:
 
-                    # Initialization of the dictionary
-                    self.spk_dict_mean[spk_id] = current_mean
-                    self.spk_dict_std[spk_id] = current_std
-                    self.spk_dict_count[spk_id] = 1
+                        # Initialization of the dictionary
+                        self.spk_dict_mean[spk_id] = current_mean
+                        self.spk_dict_std[spk_id] = current_std
+                        self.spk_dict_count[spk_id] = 1
 
-                else:
-                    self.spk_dict_count[spk_id] = (
-                        self.spk_dict_count[spk_id] + 1
-                    )
-
-                    if self.avg_factor is None:
-                        self.weight = 1 / self.spk_dict_count[spk_id]
                     else:
-                        self.weight = self.avg_factor
+                        self.spk_dict_count[spk_id] = (
+                            self.spk_dict_count[spk_id] + 1
+                        )
 
-                    self.spk_dict_mean[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_mean[spk_id] + self.weight * current_mean
-                    self.spk_dict_std[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_std[spk_id] + self.weight * current_std
+                        if self.avg_factor is None:
+                            self.weight = 1 / self.spk_dict_count[spk_id]
+                        else:
+                            self.weight = self.avg_factor
 
-                    self.spk_dict_mean[spk_id].detach()
-                    self.spk_dict_std[spk_id].detach()
+                        self.spk_dict_mean[spk_id] = (
+                            (1 - self.weight) * self.spk_dict_mean[spk_id]
+                            + self.weight * current_mean
+                        )
+                        self.spk_dict_std[spk_id] = (
+                            (1 - self.weight) * self.spk_dict_std[spk_id]
+                            + self.weight * current_std
+                        )
 
-                x[snt_id] = (
-                    x[snt_id] - self.spk_dict_mean[spk_id].data
-                ) / self.spk_dict_std[spk_id].data
+                        self.spk_dict_mean[spk_id].detach()
+                        self.spk_dict_std[spk_id].detach()
+
+                    speaker_mean = self.spk_dict_mean[spk_id].data
+                    speaker_std = self.spk_dict_std[spk_id].data
+                else:
+                    if spk_id in self.spk_dict_mean:
+                        speaker_mean = self.spk_dict_mean[spk_id].data
+                        speaker_std = self.spk_dict_std[spk_id].data
+                    else:
+                        speaker_mean = current_mean.data
+                        speaker_std = current_std.data
+
+                x[snt_id] = (x[snt_id] - speaker_mean) / speaker_std
 
         if self.norm_type == "batch" or self.norm_type == "global":
             current_mean = torch.mean(torch.stack(current_means), dim=0)
@@ -1076,30 +1087,31 @@ class InputNormalization(torch.nn.Module):
 
             if self.norm_type == "global":
 
-                if self.count == 0:
-                    self.glob_mean = current_mean
-                    self.glob_std = current_std
+                if self.training:
+                    if self.count == 0:
+                        self.glob_mean = current_mean
+                        self.glob_std = current_std
 
-                elif epoch < self.update_until_epoch:
-                    if self.avg_factor is None:
-                        self.weight = 1 / (self.count + 1)
-                    else:
-                        self.weight = self.avg_factor
+                    elif epoch < self.update_until_epoch:
+                        if self.avg_factor is None:
+                            self.weight = 1 / (self.count + 1)
+                        else:
+                            self.weight = self.avg_factor
 
-                    self.glob_mean = (
-                        1 - self.weight
-                    ) * self.glob_mean + self.weight * current_mean
+                        self.glob_mean = (
+                            1 - self.weight
+                        ) * self.glob_mean + self.weight * current_mean
 
-                    self.glob_std = (
-                        1 - self.weight
-                    ) * self.glob_std + self.weight * current_std
+                        self.glob_std = (
+                            1 - self.weight
+                        ) * self.glob_std + self.weight * current_std
 
-                self.glob_mean.detach()
-                self.glob_std.detach()
+                    self.glob_mean.detach()
+                    self.glob_std.detach()
+
+                    self.count = self.count + 1
 
                 x = (x - self.glob_mean.data) / (self.glob_std.data)
-
-        self.count = self.count + 1
 
         return x
 

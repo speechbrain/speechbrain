@@ -38,6 +38,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
+import warnings
 import functools
 from speechbrain.dataio.batch import PaddedBatch, BatchsizeGuesser
 from speechbrain.dataio.dataset import DynamicItemDataset
@@ -147,9 +148,17 @@ def __new_init(self, loader, *args, **kwargs):
         and loader._speechbrain_recovery_skip_to is not None
     ):
         # Fast forward the sampler iterator since we have recovered:
-        for _ in range(loader._speechbrain_recovery_skip_to):
-            next(self._sampler_iter)
-        self._num_yielded = loader._speechbrain_recovery_skip_to
+        for i in range(loader._speechbrain_recovery_skip_to):
+            try:
+                next(self._sampler_iter)
+            except StopIteration:
+                MSG = "Tried to fast-forward Sampler after checkpoint "
+                f"recovery by {loader._speechbrain_recovery_skip_to} "
+                "indices, but now Sampler raised StopIteration after "
+                f"{i} indices. Ignoring this mismatch."
+                warnings.warn(MSG)
+                break
+            self._num_yielded = i + 1
         # Mark recovery as done:
         loader._speechbrain_recovery_skip_to = None
 

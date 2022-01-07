@@ -20,6 +20,9 @@ docstrings. Sphinx natively supports reStructuredText directives.
 Automatically generating documentation based on docstrings is not the
 core of Sphinx. For this, after much searching, we use better-apidoc.
 
+It seems better-apidoc doesn't use autodoc\_mock\_imports so we currently just
+add all extra dependencies to docs-requirements.txt
+
 ## Future work
 
 Besides automatic API documentation, Sphinx will facilitate manual prose

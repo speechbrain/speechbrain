@@ -7,6 +7,9 @@ The "direct" maps the input speech directly to semantics using a seq2seq model.
 ```
 cd direct
 python train.py hparams/train.yaml
+
+# for wav2vec2/HuBert
+python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 ```
 
 ### Tokenizer recipe
@@ -35,9 +38,10 @@ You can compute the metrics by feeding `predictions.jsonl` into the [SLURP evalu
 
 The following results were obtained on a 48 GB RTX 8000 (the recipe has also been successfully tested on a 12 GB Tesla K80):
 
-| Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Word-F1 | Char-F1 | SLU-F1 | Training time |
-|:------:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
-| Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch |
+| Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Word-F1 | Char-F1 | SLU-F1 | Training time | Model link |
+|:------:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+| Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch | https://drive.google.com/drive/folders/103t4_zqBZNqa_gGlIfteIs8_mdKhn3Rd?usp=sharing |
+| Direct (HuBert) | 91.24 | 88.47 | 87.54 | 72.93 | 77.40 | 75.10 | 4 hours per epoch | https://drive.google.com/drive/folders/1LpcuFldRo_Va1OCGp1bLNdiaC7AQNJOb?usp=sharing |
 
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Training time |
 |:---:|:-----:|:-----:|:-----:|:-----:|

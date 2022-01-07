@@ -12,6 +12,7 @@ Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
  * Abdel Heba 2020
+ * Andreas Nautsch 2021
 """
 
 import os
@@ -21,6 +22,10 @@ import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.dataloader import SaveableDataLoader
+from speechbrain.dataio.sampler import DynamicBatchSampler
+from speechbrain.dataio.batch import PaddedBatch
+
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +273,24 @@ def dataio_prep(hparams):
         datasets,
         ["id", "sig", "phn_encoded", "phn_encoded_eos", "phn_encoded_bos"],
     )
+
+    # Support for dynamic batching
+    if hparams["dynamic_batching"]:
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        hop_size = dynamic_hparams["feats_hop_size"]
+
+        batch_sampler = DynamicBatchSampler(
+            train_data,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=dynamic_hparams["num_buckets"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+        train_data = SaveableDataLoader(
+            train_data, batch_sampler=batch_sampler, collate_fn=PaddedBatch
+        )
 
     return train_data, valid_data, test_data, label_encoder
 

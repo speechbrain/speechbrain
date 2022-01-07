@@ -25,7 +25,13 @@ logger = logging.getLogger(__name__)
 
 
 def transducer_loss(
-    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
+    log_probs,
+    targets,
+    input_lens,
+    target_lens,
+    blank_index,
+    reduction="mean",
+    use_torchaudio=True,
 ):
     """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
@@ -43,14 +49,38 @@ def transducer_loss(
         The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    use_torchaudio: bool
+        If True, use Transducer loss implementation from torchaudio, otherwise,
+        use Speechbrain Numba implementation.
     """
-    from speechbrain.nnet.loss.transducer_loss import Transducer
-
     input_lens = (input_lens * log_probs.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()
-    return Transducer.apply(
-        log_probs, targets, input_lens, target_lens, blank_index, reduction
-    )
+
+    if use_torchaudio:
+        try:
+            from torchaudio.functional import rnnt_loss
+        except ImportError:
+            err_msg = "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
+            err_msg += "Cannot import torchaudio.functional.rnnt_loss.\n"
+            err_msg += "To use it, please install torchaudio >= 0.10.0\n"
+            err_msg += "==================\n"
+            err_msg += "Otherwise, you can use our numba implementation, set `use_torchaudio=False`.\n"
+            raise ImportError(err_msg)
+
+        return rnnt_loss(
+            log_probs,
+            targets.int(),
+            input_lens,
+            target_lens,
+            blank=blank_index,
+            reduction=reduction,
+        )
+    else:
+        from speechbrain.nnet.loss.transducer_loss import Transducer
+
+        return Transducer.apply(
+            log_probs, targets, input_lens, target_lens, blank_index, reduction,
+        )
 
 
 class PitWrapper(nn.Module):
