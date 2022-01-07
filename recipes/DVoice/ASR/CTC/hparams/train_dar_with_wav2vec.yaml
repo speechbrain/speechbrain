@@ -16,7 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
-# data_folder: #!PLACEHOLDER  # e.g, /dataset/
+data_folder: #!PLACEHOLDER  # e.g, /dataset/
 train_csv_file: !ref <data_folder>/texts/train.csv  # Standard DVoice .csv files
 dev_csv_file: !ref <data_folder>/texts/dev.csv  # Standard DVoice .csv files
 test_csv_file: !ref <data_folder>/texts/test.csv  # Standard DVoice .csv files
@@ -52,10 +52,10 @@ test_batch_size: 4
 
 dataloader_options:
     batch_size: !ref <batch_size>
-    # num_workers: 2
+    num_workers: 2
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
-    # num_workers: 2
+    num_workers: 2
 
 # BPE parameters
 token_type: char  # ["unigram", "bpe", "char"]
@@ -190,3 +190,4 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     split_tokens: True
+

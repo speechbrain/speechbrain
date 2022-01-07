@@ -14,7 +14,6 @@ import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
 
-import sys
 import torch
 import random
 import pandas as pd
@@ -40,7 +39,7 @@ def prepare_dvoice(
     accented_letters=False,
     language="dar",
     skip_prep=False,
-  	data_augmentation=False,
+    data_augmentation=False,
 ):
 
     if skip_prep:
@@ -67,41 +66,72 @@ def prepare_dvoice(
         os.makedirs(save_folder)
         
     if data_augmentation == False:
-      print("No Data Augmentation!")
+        print("No Data Augmentation!")
     else:
-      print("Data augmentation........")
-      data = pd.read_csv(data_folder+"texts/data.csv", sep="\t").to_dict(orient='records')
-      wavs = list(set(pd.DataFrame(data)['wav']))
-      df = pd.DataFrame(data).to_dict(orient='records')
-      random.shuffle(df)
-      x = []
-      for wav in wavs:
-        for i in range(len(df)):
-          if wav == df[i]['wav']:
-            x.append(df[i])
-            break
-      data = []
-      for sample in tqdm(x):
-        speed_perturbation(data_folder+"wavs/"+sample['wav'])
-        time_dropout(data_folder+"wavs/"+sample['wav'])
-        frequency_dropout(data_folder+"wavs/"+sample['wav'])
-        clipping(data_folder+"wavs/"+sample['wav'])
-        augmentation_lobe(data_folder+"wavs/"+sample['wav'])
-        data.append(sample)
-        data.append({'wav' : 'speed_perturbation-'+sample['wav'], 'words' : sample['words'], 'duration' : sample['duration']})
-        data.append({'wav' : 'time_dropout-'+sample['wav'], 'words' : sample['words'], 'duration' : sample['duration']})
-        data.append({'wav' : 'frequency_dropout-'+sample['wav'], 'words' : sample['words'], 'duration' : sample['duration']})
-        data.append({'wav' : 'clipping-'+sample['wav'], 'words' : sample['words'], 'duration' : sample['duration']})
-        data.append({'wav' : 'augmentation_lobe-'+sample['wav'], 'words' : sample['words'], 'duration' : sample['duration']})
-      random.shuffle(data)
-      df = pd.DataFrame(data)
-      train, dev, test = train_validate_test_split(df)
-      train.to_csv(data_folder+"texts/train.csv", sep="\t", index=False)
-      dev.to_csv(data_folder+"texts/dev.csv", sep="\t", index=False)
-      test.to_csv(data_folder+"texts/test.csv", sep="\t", index=False)
-      print("Data augmentation's DONE!")
-        
-        
+        print("Data augmentation........")
+        data = pd.read_csv(data_folder + "texts/data.csv", sep="\t").to_dict(
+            orient="records"
+        )
+        wavs = list(set(pd.DataFrame(data)["wav"]))
+        df = pd.DataFrame(data).to_dict(orient="records")
+        random.shuffle(df)
+        x = []
+        for wav in wavs:
+            for i in range(len(df)):
+                if wav == df[i]["wav"]:
+                    x.append(df[i])
+                    break
+        data = []
+        for sample in tqdm(x):
+            speed_perturbation(data_folder + "wavs/" + sample["wav"])
+            time_dropout(data_folder + "wavs/" + sample["wav"])
+            frequency_dropout(data_folder + "wavs/" + sample["wav"])
+            clipping(data_folder + "wavs/" + sample["wav"])
+            augmentation_lobe(data_folder + "wavs/" + sample["wav"])
+            data.append(sample)
+            data.append(
+                {
+                    "wav": "speed_perturbation-" + sample["wav"],
+                    "words": sample["words"],
+                    "duration": sample["duration"],
+                }
+            )
+            data.append(
+                {
+                    "wav": "time_dropout-" + sample["wav"],
+                    "words": sample["words"],
+                    "duration": sample["duration"],
+                }
+            )
+            data.append(
+                {
+                    "wav": "frequency_dropout-" + sample["wav"],
+                    "words": sample["words"],
+                    "duration": sample["duration"],
+                }
+            )
+            data.append(
+                {
+                    "wav": "clipping-" + sample["wav"],
+                    "words": sample["words"],
+                    "duration": sample["duration"],
+                }
+            )
+            data.append(
+                {
+                    "wav": "augmentation_lobe-" + sample["wav"],
+                    "words": sample["words"],
+                    "duration": sample["duration"],
+                }
+            )
+        random.shuffle(data)
+        df = pd.DataFrame(data)
+        train, dev, test = train_validate_test_split(df)
+        train.to_csv(data_folder + "texts/train.csv", sep="\t", index=False)
+        dev.to_csv(data_folder + "texts/dev.csv", sep="\t", index=False)
+        test.to_csv(data_folder + "texts/test.csv", sep="\t", index=False)
+        print("Data augmentation's DONE!")
+
     # Setting ouput files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
@@ -139,7 +169,11 @@ def prepare_dvoice(
     if dev_csv_file is not None:
 
         create_csv(
-            dev_csv_file, save_csv_dev, data_folder, accented_letters, language
+            dev_csv_file,
+            save_csv_dev,
+            data_folder,
+            accented_letters,
+            language,
         )
 
     # Creating csv file for test data
@@ -157,63 +191,75 @@ def prepare_dvoice(
 def speed_perturbation(audio):
     signal = read_audio(audio)
     perturbator = SpeedPerturb(orig_freq=16000, speeds=[90], perturb_prob=1.0)
-    clean = signal.unsqueeze(0) # [batch, time]
+    clean = signal.unsqueeze(0)  # [batch, time]
     perturbed = perturbator(clean)
     new_audio_name = audio.split("/")
-    new_audio_name[-1] = 'speed_perturbation-' + new_audio_name[-1]
+    new_audio_name[-1] = "speed_perturbation-" + new_audio_name[-1]
     new_audio_name = "/".join(new_audio_name)
     torchaudio.save(new_audio_name, perturbed, 16000)
-                               
+
+
 def time_dropout(audio):
     signal = read_audio(audio)
-    clean = signal.unsqueeze(0) # [batch, time]
-    dropper = DropChunk(drop_length_low=2000, drop_length_high=3000, drop_count_low=5,
-                        drop_count_high=10)
+    clean = signal.unsqueeze(0)  # [batch, time]
+    dropper = DropChunk(
+        drop_length_low=2000,
+        drop_length_high=3000,
+        drop_count_low=5,
+        drop_count_high=10,
+    )
     length = torch.ones(1)
     dropped_signal = dropper(clean, length)
     new_audio_name = audio.split("/")
-    new_audio_name[-1] = 'time_dropout-' + new_audio_name[-1]
+    new_audio_name[-1] = "time_dropout-" + new_audio_name[-1]
     new_audio_name = "/".join(new_audio_name)
     torchaudio.save(new_audio_name, dropped_signal, 16000)    
+
 
 def frequency_dropout(audio):
     signal = read_audio(audio)
-    clean = signal.unsqueeze(0) # [batch, time]
+    clean = signal.unsqueeze(0)  # [batch, time]
     dropper = DropFreq(drop_count_low=5, drop_count_high=8)
     dropped_signal = dropper(clean)
     new_audio_name = audio.split("/")
-    new_audio_name[-1] = 'frequency_dropout-' + new_audio_name[-1]
+    new_audio_name[-1] = "frequency_dropout-" + new_audio_name[-1]
     new_audio_name = "/".join(new_audio_name)
     torchaudio.save(new_audio_name, dropped_signal, 16000)    
 
+
 def clipping(audio):
     signal = read_audio(audio)
-    clean = signal.unsqueeze(0) # [batch, time]
+    clean = signal.unsqueeze(0)  # [batch, time]
     clipper = DoClip(clip_low=0.7, clip_high=0.7)
     sinusoid = torch.sin(torch.linspace(0,20, 300))
     clipped_signal = clipper(clean)
     new_audio_name = audio.split("/")
-    new_audio_name[-1] = 'clipping-' + new_audio_name[-1]
+    new_audio_name[-1] = "clipping-" + new_audio_name[-1]
     new_audio_name = "/".join(new_audio_name)
     torchaudio.save(new_audio_name, clipped_signal, 16000)    
 
 def augmentation_lobe(audio):
     signal = read_audio(audio)
-    clean = signal.unsqueeze(0) # [batch, time]
-    do_augment = TimeDomainSpecAugment(speeds=[80, 110, 120],
-                                       perturb_prob=1.0, 
-                                       drop_freq_prob=1.0, 
-                                       drop_chunk_prob=1.0,
-                                       drop_chunk_length_low=1000,
-                                       drop_chunk_length_high=3000)
+    clean = signal.unsqueeze(0)  # [batch, time]
+    do_augment = TimeDomainSpecAugment(
+        speeds=[80, 110, 120],
+        perturb_prob=1.0,
+        drop_freq_prob=1.0,
+        drop_chunk_prob=1.0,
+        drop_chunk_length_low=1000,
+        drop_chunk_length_high=3000,
+    )
     length = torch.ones(1)
     augmented_signal = do_augment(clean, length)
     new_audio_name = audio.split("/")
-    new_audio_name[-1] = 'augmentation_lobe-' + new_audio_name[-1]
+    new_audio_name[-1] = "augmentation_lobe-" + new_audio_name[-1]
     new_audio_name = "/".join(new_audio_name)
     torchaudio.save(new_audio_name, augmented_signal, 16000)
 
-def train_validate_test_split(df, train_percent=.6, validate_percent=.2, seed=None):
+
+def train_validate_test_split(
+    df, train_percent=0.6, validate_percent=0.2, seed=None
+):    
     np.random.seed(seed)
     perm = np.random.permutation(df.index)
     m = len(df.index)
@@ -247,7 +293,6 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
         skip = True
 
     return skip
-
 
 
 def create_csv(
@@ -294,13 +339,18 @@ def create_csv(
         line = line[0]
         # Path is at indice 1 in DVoice csv files. And .mp3 files
         # are located in datasets/lang/clips/
-        if 'speed_perturbation' in line or 'time_dropout' in line or 'frequency_dropout' in line or 'clipping' in line or 'augmentation_lobe' in line:
-        	mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
+        if (
+            "speed_perturbation" in line
+            or "time_dropout" in line
+            or "frequency_dropout" in line
+            or "clipping" in line
+            or "augmentation_lobe" in line
+        ):
+            mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
         else:
 	        mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
-        # print("mp3_path :",mp3_path) 
         file_name = line.split("\t")[0]
-        spk_id = line.split("\t")[0].replace('.wav', '')
+        spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = file_name
 
         # Setting torchaudio backend to sox-io (needed to read mp3 files)
@@ -308,7 +358,6 @@ def create_csv(
             logger.warning("This recipe needs the sox-io backend of torchaudio")
             logger.warning("The torchaudio backend is changed to sox_io")
             torchaudio.set_audio_backend("sox_io")
-
 
         duration = float(line.split("\t")[2])
         total_duration += duration
@@ -322,7 +371,6 @@ def create_csv(
         # !! Language specific cleaning !!
         # Important: feel free to specify the text normalization
         # corresponding to your alphabet.
-
 
         if language == "dar":
             HAMZA = "\u0621"
@@ -356,13 +404,11 @@ def create_csv(
         # if len(words.split(" ")) < 3:
         #     continue
 
-
         # Composition of the csv_line
         csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)
-
 
     # Writing the csv lines
     with open(csv_file, mode="w", encoding="utf-8") as csv_f:
@@ -380,7 +426,6 @@ def create_csv(
     logger.info(msg)
     msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
     logger.info(msg)
-
 
 
 def check_commonvoice_folders(data_folder):
@@ -408,7 +453,6 @@ def check_commonvoice_folders(data_folder):
         raise FileNotFoundError(err_msg)
 
 
-
 def unicode_normalisation(text):
 
     try:
@@ -416,7 +460,6 @@ def unicode_normalisation(text):
     except NameError:  # unicode is a default on python 3
         pass
     return str(text)
-
 
 
 def strip_accents(text):
@@ -428,3 +471,4 @@ def strip_accents(text):
     )
 
     return str(text)
+

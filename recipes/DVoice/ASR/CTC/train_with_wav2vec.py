@@ -367,8 +367,8 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        #train_loader_kwargs=hparams["dataloader_options"],
-        #valid_loader_kwargs=hparams["test_dataloader_options"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
     # Test
@@ -376,5 +376,6 @@ if __name__ == "__main__":
     asr_brain.evaluate(
         test_data,
         min_key="WER",
-        #test_loader_kwargs=hparams["test_dataloader_options"],
+        test_loader_kwargs=hparams["test_dataloader_options"],
     )
+
