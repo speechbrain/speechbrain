@@ -344,7 +344,7 @@ class BinaryMetricStats(MetricStats):
         self.scores.extend(scores.detach())
         self.labels.extend(labels.detach())
 
-    def summarize(self, field=None, threshold=None, beta=1, eps=1e-8):
+    def summarize(self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8):
         """Compute statistics using a full set of scores.
 
         Full set of fields:
@@ -355,6 +355,7 @@ class BinaryMetricStats(MetricStats):
          - FAR - False Acceptance Rate
          - FRR - False Rejection Rate
          - DER - Detection Error Rate (EER if no threshold passed)
+         - threshold - threshold (EER threshold if no threshold passed)
          - precision - Precision (positive predictive value)
          - recall - Recall (sensitivity)
          - F-score - Balance of precision and recall (equal if beta=1)
@@ -367,6 +368,10 @@ class BinaryMetricStats(MetricStats):
             a dict with all statistics is returned.
         threshold : float
             If no threshold is provided, equal error rate is used.
+        max_samples: float
+            How many samples to keep for postive/negative scores.
+            If no max_samples is provided, all scores are kept.
+            Only effective when threshold is None.
         beta : float
             How much to weight precision vs recall in F-score. Default
             of 1. is equal weight, while higher values weight recall
@@ -380,8 +385,15 @@ class BinaryMetricStats(MetricStats):
             self.labels = torch.stack(self.labels)
 
         if threshold is None:
-            positive_scores = self.scores[(self.labels==1).nonzero(as_tuple=True)]
-            negative_scores = self.scores[(self.labels==0).nonzero(as_tuple=True)]
+            positive_scores = self.scores[(self.labels == 1).nonzero(as_tuple=True)]
+            negative_scores = self.scores[(self.labels == 0).nonzero(as_tuple=True)]
+            if max_samples is not None:
+                if len(positive_scores) > max_samples:
+                    positive_scores, _ = torch.sort(positive_scores)
+                    positive_scores = positive_scores[[i for i in range(0, len(positive_scores), int(len(positive_scores) / max_samples))]]
+                if len(negative_scores) > max_samples:
+                    negative_scores, _ = torch.sort(negative_scores)
+                    negative_scores = negative_scores[[i for i in range(0, len(negative_scores), int(len(negative_scores) / max_samples))]]
 
             eer, threshold = EER(positive_scores, negative_scores)
 
