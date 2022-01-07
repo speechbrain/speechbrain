@@ -380,10 +380,8 @@ class BinaryMetricStats(MetricStats):
             self.labels = torch.stack(self.labels)
 
         if threshold is None:
-            positive_scores = self.scores[self.labels.nonzero(as_tuple=True)]
-            negative_scores = self.scores[
-                self.labels[self.labels == 0].nonzero(as_tuple=True)
-            ]
+            positive_scores = self.scores[(self.labels==1).nonzero(as_tuple=True)]
+            negative_scores = self.scores[(self.labels==0).nonzero(as_tuple=True)]
 
             eer, threshold = EER(positive_scores, negative_scores)
 
