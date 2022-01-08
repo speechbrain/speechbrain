@@ -1,14 +1,49 @@
 #!/usr/bin/env/python3
-"""Recipe for training a grapheme-to-phoneme system with librispeech lexicon.
-The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with beamsearch.
+"""Recipe for training a grapheme-to-phoneme system with one of the available datasets.
+
+The following models are available:
+* RNN-based (LSTM-encoder, GRU-decoder), with an attention mechanism
+  * `hparams/hparams_attnrnn_lexicon.yaml`: LibriSpeech lexicon
+  * `hparams/hparams_attnrnn_librig2p_nostress.yaml`: LibriG2P (no stress markers)
+  * `hparams/hparams_attnrnn_librig2p_nostress_tok.yaml`: LibriG2P (no stress markers, tokenization)
+* Convolutional
+  * `hparams/hparams_conv_librig2p_nostress.yaml`
+* Transformer
+  * `hparams/hparams_transformer_librig2p_nostress.yaml`: LibriG2P (no stress markers)
+  * `hparams/hparams_transformer_librig2p_nostress_tok.yaml`: LibriG2P (no stress markers, tokenization)
+
+The datasets used here are available at the following locations:
+
+* LibriG2P (no stress markers): https://github.com/flexthink/librig2p-nostress
+* LibriG2P (no stress markers, spaces preserved): https://github.com/flexthink/librig2p-nostress-space
+
+Decoding is performed with beamsearch.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml
+> python train.py <hyperparameter file>
+Example:
+> python train.py hparams/hparams_attnrnn_librig2p_nostress.yaml
 
+RNN Model
+---------
 With the default hyperparameters, the system employs an LSTM encoder.
 The decoder is based on a standard  GRU. The neural network is trained with
 negative-log.
+
+Transformer Model
+-----------------
+With the default hyperparameters, the system employs a Conformer architecture
+with a convolutional encoder and a standard Transformer decoder.
+
+The choice of Conformer vs Transformer is controlled by the
+transformer_encoder_module parameter.
+
+Homograph Disambiguation
+------------------------
+Both RNN-based and Transformer-based models are capable of sentence-level
+hyperparameter disambiguation. Fine-tuning on homographs relies on an additional
+weighted loss computed only on the homograph and, therefore, requires a dataset
+in which the homograph is labelled, such as LibriG2P.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -57,6 +92,11 @@ G2PPredictions = namedtuple(
 
 
 class TrainMode(Enum):
+    """An enumeration that represents the trainining mode
+    
+    NORMAL: trains the sequence-to-sequence model
+    HOMOGRAPH: fine-tunes a trained model on homographs"""
+
     NORMAL = "normal"
     HOMOGRAPH = "homograph"
 
@@ -64,6 +104,12 @@ class TrainMode(Enum):
 # Define training procedure
 class G2PBrain(sb.Brain, PretrainedModelMixin):
     def __init__(self, train_step_name, *args, **kwargs):
+        """Class constructor
+        
+        Arguments
+        ---------
+        train_step_name: the name of the training step, for curriculum learning
+        """
         super().__init__(*args, **kwargs)
         self.train_step_name = train_step_name
         self.train_step = next(
@@ -143,7 +189,18 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
+        """Computes the loss (CTC+NLL) given predictions and targets.
+        
+        
+        Arguments
+        ---------
+        predictions: G2PPredictions
+            the predictions (as computed by compute_forward)
+        batch: PaddedBatch
+            a raw G2P data batch
+        stage: speechbrain.Stage
+            the training stage
+        """
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
@@ -202,6 +259,16 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         return loss
 
     def _add_homograph_metrics(self, predictions, batch):
+        """Extracts the homograph from the sequence, computes metrics for it
+        and registers them
+        
+        Arguments
+        ---------
+        predictions: G2PPredictions
+            the predictions (as computed by compute_forward)
+        batch: PaddedBatch
+            a raw G2P data batch
+        """
         phns, phn_lens = batch.phn_encoded
         phns_base, phn_base_lens = (
             batch.phn_raw_encoded if self.phn_tokenize else (None, None)
@@ -248,6 +315,23 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         )
 
     def _tokens_to_list(self, tokens, token_lens):
+        """Converts a tensor of tokens combined with a tensor of lengths to a
+        nested list of tokens (more suitable for higher-level operations not
+        requiring high performance)
+        
+        Arguments
+        ---------
+        tokens: torch.Tensor
+            a tensor of tokens
+        token_lens: torch.Tensor
+            a tensor of sequence lengths
+
+        Returns
+        -------
+        result: list
+            a batch, represented as a list of sequences, each represented
+            as a list
+        """
         max_len = tokens.size(1)
         return [
             item[: int(item_len * max_len)]
@@ -255,13 +339,50 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         ]
 
     def _phonemes_to_label(self, phns):
+        """Converts a batch of phoneme sequences (a single tensor)
+        to a list of space-separated phoneme label strings, 
+        (e.g. ["T AY B L", "B UH K"]), removing any special tokens
+        
+        Arguments
+        ---------
+        phn: sequence
+            a batch of phoneme sequences
+            
+        Returns
+        -------
+        result: list
+            a list of strings corresponding to the phonemes provided"""
         phn_decoded = self.hparams.out_phoneme_decoder(phns)
         return [" ".join(self._remove_special(item)) for item in phn_decoded]
 
     def _remove_special(self, phn):
+        """Removes any special tokens from the sequence. Special tokens are delimited
+        by angle brackets.
+
+        Arguments
+        ---------
+        phn: list
+            a list of phoneme labels
+
+        Returns
+        -------
+        result: list
+            the original list, without any special tokens
+        """
         return [token for token in phn if "<" not in token]
 
     def is_ctc_active(self, stage):
+        """Determines whether or not the CTC loss should be enabled.
+        It is enabled only if a ctc_lin module has been defined in 
+        the hyperparameter file, only during training and only for
+        the number of epochs determined by the ctc_epochs hyperparameter
+        of the corresponding training step.
+        
+        Arguments
+        ---------
+        stage: speechbrain.Stage
+            the training stage            
+        """
         if not self.has_ctc or stage != sb.Stage.TRAIN:
             return False
         current_epoch = self.epoch_counter.current
@@ -320,6 +441,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
     def _set_word_separator(self):
+        """Determines the word separators to be used"""
         if self.phn_tokenize:
             word_separator_idx = self.hparams.token_space_index
             word_separator_base_idx = self.phoneme_encoder.lab2ind[" "]
@@ -433,9 +555,30 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
                 self._write_reports(epoch)
 
     def _has_homograph_per(self, ckpt):
+        """Determines if the provided checkpoint has a homograph PER. Used
+        when selecting the best epochs for the homograph loss.
+        
+        Arguments
+        ---------
+        ckpt: speechbrain.utils.checkpoints.Checkpoint
+            a checkpoint
+        
+        Returns
+        -------
+        result: bool
+            whether it contains a homograph PER"""
         return "PER_homograph" in ckpt.meta
 
     def _get_interim_report_path(self, epoch, file_path):
+        """Determines the path to the interim, per-epoch report
+        
+        Arguments
+        ---------
+        epoch: int
+            the epoch number
+        file_path: str
+            the raw report path
+        """
         output_path = os.path.join(
             self.hparams.output_folder,
             "reports",
@@ -448,12 +591,46 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         return os.path.join(output_path, os.path.basename(file_path))
 
     def _get_report_path(self, epoch, key, final):
+        """Determines the path in which to save a given report
+
+        Arguments
+        ---------
+        epoch: int
+            the epoch number
+        key: str
+            the key within the training step definition in the
+            hyperparameter file (e.g. "wer_file")
+        final: bool
+            whether or not this si the final report. If
+            final is false, an epoch number will be inserted into the path
+        
+        Arguments
+        ---------
+        file_name: str
+            the report file name        
+        """
         file_name = self.train_step[key]
         if not final:
             file_name = self._get_interim_report_path(epoch, file_name)
         return file_name
 
     def _write_reports(self, epoch, final=True):
+        """Outputs all reports for a given epoch
+        
+        Arguments
+        ---------
+        epoch: int
+            the epoch number
+        
+        final: bool
+            whether or not the reports are final (i.e.
+            after the final epoch)
+
+        Returns
+        -------
+        file_name: str
+            the report file name
+        """
         wer_file_name = self._get_report_path(epoch, "wer_file", final)
         self._write_wer_file(wer_file_name)
         if self.mode == TrainMode.HOMOGRAPH:
@@ -463,6 +640,13 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             self._write_homograph_file(homograph_stats_file_name)
 
     def _write_wer_file(self, file_name):
+        """Outputs the Word Error Rate (WER) file
+        
+        Arguments
+        ---------
+        file_name: str
+            the report file name        
+        """
         with open(file_name, "w") as w:
             w.write("\nseq2seq loss stats:\n")
             self.seq_metrics.write_stats(w)
@@ -471,10 +655,33 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             print("seq2seq, and PER stats written to file", file_name)
 
     def _write_homograph_file(self, file_name):
+        """Outputs the detailed homograph report, detailing the accuracy
+        percentage for each homograph, as well as the relative frequencies
+        of particular output sequences output by the model
+        
+        Arguments
+        ---------
+        file_name: str
+            the report file name
+        """
         with open(file_name, "w") as w:
             self.classification_metrics_homograph.write_stats(w)
 
     def _add_stats_prefix(self, stats):
+        """
+        Adds a training step prefix to every key in the provided statistics
+        dictionary
+
+        Arguments
+        ---------
+        stats: dict
+            a statistics dictionary    
+
+        Returns
+        ---------
+        stats: dict
+            a prefixed statistics dictionary    
+        """
         prefix = self.train_step["name"]
         return {
             stage: {
@@ -485,19 +692,25 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
 
     @property
     def tb_writer(self):
+        """Returns the raw TensorBoard logger writer"""
         return self.hparams.tensorboard_train_logger.writer
 
     @property
     def tb_global_step(self):
+        """Returns the global step number in the Tensorboard writer"""
         global_step = self.hparams.tensorboard_train_logger.global_step
         prefix = self.train_step["name"]
         return global_step["valid"][f"{prefix}_loss"]
 
     def save_samples(self):
+        """Saves attention alignment and text samples to the Tensorboard
+        writer"""
         self._save_attention_alignment()
         self._save_text_alignments()
 
     def _save_text_alignments(self):
+        """Saves text predictions aligned with lables (a sample, for progress
+        tracking)"""
         if not self.enable_metrics:
             return
         last_batch_sample = self.per_metrics.scores[
@@ -528,6 +741,7 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
             )
 
     def _save_attention_alignment(self):
+        """Saves attention alignments"""
         attention = self.last_attn[0]
         if attention.dim() > 2:
             attention = attention[0]
@@ -548,6 +762,17 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
         )
 
     def _save_text_alignment(self, tag, metrics_sample):
+        """Saves a single text sample
+        
+        Arguments
+        ---------
+        tag: str
+            the tag - for Tensorboard
+        metrics_sample:  list
+            List of wer details by utterance,
+            see ``speechbrain.utils.edit_distance.wer_details_by_utterance``
+            for format. Has to have alignments included.
+        """
         with StringIO() as text_alignments_io:
             print_alignments(
                 metrics_sample,
@@ -562,6 +787,22 @@ class G2PBrain(sb.Brain, PretrainedModelMixin):
 
 
 def sort_data(data, hparams, train_step):
+    """Sorts the dataset according to hyperparameter values
+
+    Arguments
+    ---------
+    data: speechbrain.dataio.dataset.DynamicItemDataset
+        the dataset to be sorted
+    hparams: dict
+        raw hyperparameters
+    train_step: dict
+        the hyperparameters of the training step
+
+    Returns
+    -------
+    data: speechbrain.dataio.dataset.DynamicItemDataset
+        sorted data
+    """
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
         data = data.filtered_sorted(sort_key="duration")
@@ -589,6 +830,22 @@ def sort_data(data, hparams, train_step):
 
 
 def filter_origins(data, hparams):
+    """Filters a dataset using a specified list of origins,
+    as indicated by the "origin" key in the hyperparameters
+    provided
+
+    Arguments
+    ---------
+    data: speechbrain.dataio.dataset.DynamicItemDataset
+        the data to be filtered
+    hparams: dict
+        the hyperparameters data
+
+    Results
+    -------
+    data: speechbrain.dataio.dataset.DynamicItemDataset
+        the filtered data
+    """
     origins = hparams.get("origins")
     if origins and origins != "*":
         origins = set(origins.split(","))
@@ -598,9 +855,33 @@ def filter_origins(data, hparams):
     return data
 
 
+# TODO: Split this up into smaller functions
 def dataio_prep(hparams, train_step=None):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    
+    Arguments
+    ---------
+    hparams: dict
+        the hyperparameters dictionary
+
+    train_step: dict
+        the hyperparameters for the training step being executed
+
+    Returns
+    -------
+    train_data: speechbrain.dataio.dataset.DynamicItemDataset
+        the training dataset
+   
+    valid_data: speechbrain.dataio.dataset.DynamicItemDataset
+        the validation dataset
+    
+    test_data: speechbrain.dataio.dataset.DynamicItemDataset
+        the test dataset
+
+    phoneme_encoder: speechbrain.dataio.encoder.TextEncoder
+        the phoneme encoder
+    """
 
     if not train_step:
         train_step = hparams
@@ -778,6 +1059,15 @@ def check_language_model(hparams, run_opts):
 
 
 def load_dependencies(hparams, run_opts):
+    """Loads any pre-trained dependencies (e.g. language models)
+    
+    Arguments
+    ---------
+    hparams: dict
+        the hyperparamters dictionary
+    run_opts: dict
+        run options
+    """
     deps_pretrainer = hparams.get("deps_pretrainer")
     if deps_pretrainer:
         run_on_main(deps_pretrainer.collect_files)
@@ -785,6 +1075,13 @@ def load_dependencies(hparams, run_opts):
 
 
 def check_tensorboard(hparams):
+    """Checks whether Tensorboard is enabled and initializes the logger if it is
+
+    Arguments
+    ---------
+    hparams: dict
+        the hyperparameter dictionary
+    """
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 

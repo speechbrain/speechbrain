@@ -2370,6 +2370,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
             single list of phonemes
         """
         return self.g2p(text)
+
     def forward(self, noisy, lengths=None):
         """Runs enhancement on the noisy input"""
         return self.separate_batch(noisy, lengths)
