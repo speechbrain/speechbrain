@@ -68,7 +68,7 @@ from enum import Enum
 from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.pretrained.training import PretrainedModelMixin
+from speechbrain.pretrained.training import save_for_pretrained
 from speechbrain.lobes.models.g2p.dataio import (
     enable_eos_bos,
     grapheme_pipeline,
@@ -102,7 +102,7 @@ class TrainMode(Enum):
 
 
 # Define training procedure
-class G2PBrain(sb.Brain, PretrainedModelMixin):
+class G2PBrain(sb.Brain):
     def __init__(self, train_step_name, *args, **kwargs):
         """Class constructor
         
@@ -1212,4 +1212,9 @@ if __name__ == "__main__":
                 )
 
             if hparams.get("save_for_pretrained"):
-                g2p_brain.save_for_pretrained()
+                min_key = (
+                    "PER_homograph"
+                    if hparams.get("mode") == "homograph"
+                    else "PER"
+                )
+                save_for_pretrained(hparams, min_key=min_key)

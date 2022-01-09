@@ -16,7 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
 wer_file: !ref <save_folder>/wer.txt
-pretrained_path: !ref <save_folder>
+pretrained_path: !ref <save_folder>/pretrained_models
 enable_interim_reports: True
 
 

@@ -27,7 +27,7 @@ retest: False
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
-pretrained_path: !ref <save_folder>/pretrained
+pretrained_path: !ref <save_folder>/pretrained_models
 
 
 # These three files are created from lexicon.csv.
