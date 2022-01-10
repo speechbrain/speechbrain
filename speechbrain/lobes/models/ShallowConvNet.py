@@ -42,6 +42,7 @@ class ShallowConvNet(torch.nn.Module):
         cnn_spatial_kernels=40,
         cnn_poolsize=(75, 1),
         cnn_poolstride=(15, 1),
+        cnn_pool_type="avg",
         dropout=0.5,
         dense_n_neurons=4,
     ):
@@ -87,7 +88,7 @@ class ShallowConvNet(torch.nn.Module):
         )
 
         self.pool = sb.nnet.pooling.Pooling2d(
-            pool_type="avg",
+            pool_type=cnn_pool_type,
             kernel_size=cnn_poolsize,
             stride=cnn_poolstride,
             pool_axis=[1, 2],

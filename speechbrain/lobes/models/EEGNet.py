@@ -55,6 +55,7 @@ class EEGNet(torch.nn.Module):
         cnn_septemporal_depth_multiplier=1,
         cnn_septemporal_kernelsize=(17, 1),
         cnn_septemporal_pool=(8, 1),
+        cnn_pool_type="avg",
         dropout=0.5,
         dense_max_norm=0.25,
         dense_n_neurons=4,
@@ -113,9 +114,9 @@ class EEGNet(torch.nn.Module):
         )
         self.conv_module.add_module("act_1", activation)
         self.conv_module.add_module(
-            "avg_pool_1",
+            "pool_1",
             sb.nnet.pooling.Pooling2d(
-                pool_type="avg",
+                pool_type=cnn_pool_type,
                 kernel_size=cnn_spatial_pool,
                 stride=cnn_spatial_pool,
                 pool_axis=[1, 2],
@@ -159,9 +160,9 @@ class EEGNet(torch.nn.Module):
         )
         self.conv_module.add_module("act_3", activation)
         self.conv_module.add_module(
-            "avg_pool_3",
+            "pool_3",
             sb.nnet.pooling.Pooling2d(
-                pool_type="avg",
+                pool_type=cnn_pool_type,
                 kernel_size=cnn_septemporal_pool,
                 stride=cnn_septemporal_pool,
                 pool_axis=[1, 2],
