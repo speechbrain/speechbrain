@@ -1,6 +1,6 @@
 ###################################################
-# Classification of imagined movements (right hand, left hand, feet, tongue) of BNCI2014001 MOABB dataset using EEGNet.
-# EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
+# Classification of imagined movements (right hand, left hand, feet, tongue) of BNCI2014001 MOABB dataset using DeepConvNet.
+# DeepConvNet from .
 # BNCI2014001 from https://doi.org/10.3389/fnins.2012.00055.
 #
 # Author
@@ -191,22 +191,35 @@ augment: !new:speechbrain.processing.augmentation.Augmenter
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
     dims: 2
 
-# MODEL: SHALLOWCONVNET
+# MODEL: DEEPCONVNET
 input_shape: [null, !ref <T>, !ref <C>, null]
-cnn_temporal_kernels: 40  # number of temporal filters in the temporal conv. layer
-cnn_spatial_kernels: 40  # number of spatial filters in the spatial conv. layer
-cnn_temporal_kernelsize: 13
-poolsize: 37
-poolstride: 20
-dropout: 0.35  # dropout rate
+# temporal conv. kernel sizes and pool sizes refer to the original publication (input @250 Hz)
+cnn_temporal_kernels: 25  # number of temporal filters in the temporal conv. layer
+cnn_temporal_kernelsize: 10
+cnn_spatial_kernels: 25  # number of spatial filters in the spatial conv. layer
+cnn_spatial_pool: 3
+cnn_temporal_block_kernel0: 50
+cnn_temporal_block_kernel1: 100
+cnn_temporal_block_kernel2: 200
+cnn_temporal_block_kernelsize0: 10
+cnn_temporal_block_kernelsize1: 10
+cnn_temporal_block_kernelsize2: 10
+cnn_temporal_block_pool: 3
+dropout: 0.5  # dropout rate
 
-model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
+model: !new:speechbrain.lobes.models.DeepConvNet.DeepConvNet
     input_shape: !ref <input_shape>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
-    cnn_spatial_kernels: !ref <cnn_spatial_kernels>
     cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
-    poolsize: [!ref <poolsize>, 1]
-    poolstride: [!ref <poolstride>, 1]
+    cnn_spatial_kernels: !ref <cnn_spatial_kernels>
+    cnn_spatial_pool: [!ref <cnn_spatial_pool>, 1]
+    cnn_temporal_block_kernel0: !ref <cnn_temporal_block_kernel0>
+    cnn_temporal_block_kernel1: !ref <cnn_temporal_block_kernel1>
+    cnn_temporal_block_kernel2: !ref <cnn_temporal_block_kernel2>
+    cnn_temporal_block_kernelsize0: [!ref <cnn_temporal_block_kernelsize0>, 1]
+    cnn_temporal_block_kernelsize1: [!ref <cnn_temporal_block_kernelsize1>, 1]
+    cnn_temporal_block_kernelsize2: [!ref <cnn_temporal_block_kernelsize2>, 1]
+    cnn_temporal_block_pool: [!ref <cnn_temporal_block_pool>, 1]
     dense_n_neurons: !ref <n_classes>
     dropout: !ref <dropout>
 

@@ -108,7 +108,7 @@ data_iterators: [!ref <within_session_it>,
                  !ref <leave_one_session_out_it>,
                  !ref <cross_session_it>,
                  !ref <leave_one_subject_out_it>,
-    ]
+]
 
 # DATA AUGMENTATION
 rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
@@ -133,11 +133,11 @@ pink_noise_funct: !name:speechbrain.processing.speech_augmentation.pink_noise_li
     sample_rate: !ref <sample_rate>
 
 muscular_noise_funct: !name:speechbrain.processing.speech_augmentation.muscolar_noise
-     pink_alpha_low: 1.110
-     pink_alpha_high: 1.432
-     bb_offset_low: 3.072
-     bb_offset_high: 5.686
-     sample_rate: !ref <sample_rate>
+    pink_alpha_low: 1.110
+    pink_alpha_high: 1.432
+    bb_offset_low: 3.072
+    bb_offset_high: 5.686
+    sample_rate: !ref <sample_rate>
 
 snr_pink_low: 0
 snr_pink_high: 10
