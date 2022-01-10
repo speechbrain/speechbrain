@@ -37,12 +37,11 @@ class ShallowConvNet(torch.nn.Module):
     def __init__(
         self,
         input_shape=None,
-        sf=250,
         cnn_temporal_kernels=40,
         cnn_temporal_kernelsize=(25, 1),
         cnn_spatial_kernels=40,
-        poolsize=(75, 1),
-        poolstride=(15, 1),
+        cnn_poolsize=(75, 1),
+        cnn_poolstride=(15, 1),
         dropout=0.5,
         dense_n_neurons=4,
     ):
@@ -50,19 +49,6 @@ class ShallowConvNet(torch.nn.Module):
         if input_shape is None:
             raise ValueError("Must specify input_shape")
         self.default_sf = 250  # sampling rate of the original publication (Hz)
-        # scaling temporal kernel and pooling sizes/strides if different sampling rate was used
-        # respect to the original publication
-        if sf != self.default_sf:
-            tmp_cnn_temporal_kernelsize = int(
-                cnn_temporal_kernelsize[0] * (sf / self.default_sf)
-            )
-            if tmp_cnn_temporal_kernelsize % 2 == 0:  # odd sizes
-                tmp_cnn_temporal_kernelsize += 1
-            cnn_temporal_kernelsize = (tmp_cnn_temporal_kernelsize, 1)
-            tmp_poolsize = int(poolsize[0] * (sf / self.default_sf))
-            poolsize = (tmp_poolsize, 1)
-            tmp_poolstride = int(poolstride[0] * (sf / self.default_sf))
-            poolstride = (tmp_poolstride, 1)
 
         T = input_shape[1]
         C = input_shape[2]
@@ -102,17 +88,17 @@ class ShallowConvNet(torch.nn.Module):
 
         self.pool = sb.nnet.pooling.Pooling2d(
             pool_type="avg",
-            kernel_size=poolsize,
-            stride=poolstride,
+            kernel_size=cnn_poolsize,
+            stride=cnn_poolstride,
             pool_axis=[1, 2],
         )
 
         self.dropout = torch.nn.Dropout(p=dropout)
 
         # DENSE MODULE
-        Tconv0 = (T - cnn_temporal_kernelsize[0]) + 1
+        dense_input_size = (T - cnn_temporal_kernelsize[0]) + 1
         dense_input_size = cnn_spatial_kernels * (
-            int((Tconv0 - poolsize[0]) / poolstride[0]) + 1
+            int((dense_input_size - cnn_poolsize[0]) / cnn_poolstride[0]) + 1
         )
         self.dense_module = torch.nn.Sequential()
         self.dense_module.add_module(

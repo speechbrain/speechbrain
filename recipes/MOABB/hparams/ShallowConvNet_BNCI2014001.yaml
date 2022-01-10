@@ -202,7 +202,6 @@ dropout: 0.35  # dropout rate
 
 model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
   input_shape: !ref <input_shape>
-  sf: !ref <sample_rate>
   cnn_temporal_kernels: !ref <cnn_temporal_kernels>
   cnn_spatial_kernels: !ref <cnn_spatial_kernels>
   cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]

@@ -47,7 +47,6 @@ class EEGNet(torch.nn.Module):
     def __init__(
         self,
         input_shape=None,  # (1, T, C, 1)
-        sf=128,
         cnn_temporal_kernels=8,
         cnn_temporal_kernelsize=(33, 1),
         cnn_spatial_depth_multiplier=2,
@@ -65,19 +64,6 @@ class EEGNet(torch.nn.Module):
         if input_shape is None:
             raise ValueError("Must specify input_shape")
         self.default_sf = 128  # sampling rate of the original publication (Hz)
-        # scaling temporal kernel and pooling sizes/strides if different sampling rate was used
-        # respect to the original publication
-        if sf != self.default_sf:
-            tmp_cnn_temporal_kernelsize = int(
-                cnn_temporal_kernelsize[0] * (sf / self.default_sf)
-            )
-            if tmp_cnn_temporal_kernelsize % 2 == 0:
-                tmp_cnn_temporal_kernelsize += 1
-            cnn_temporal_kernelsize = (tmp_cnn_temporal_kernelsize, 1)
-            tmp_cnn_spatial_pool = int(
-                cnn_spatial_pool[0] * (sf / self.default_sf)
-            )
-            cnn_spatial_pool = (tmp_cnn_spatial_pool, 1)
 
         T = input_shape[1]
         C = input_shape[2]

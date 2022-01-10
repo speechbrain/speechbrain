@@ -202,7 +202,6 @@ dropout: 0.35  # dropout rate
 
 model: !new:speechbrain.lobes.models.EEGNet.EEGNet
     input_shape: !ref <input_shape>
-    sf: !ref <sample_rate>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
     cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
     cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
