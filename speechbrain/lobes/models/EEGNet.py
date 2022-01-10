@@ -16,8 +16,6 @@ class EEGNet(torch.nn.Module):
     ---------
     input_shape : tuple
         The shape of the input.
-    sf : int
-        The sampling frequency of the input EEG signals (Hz).
     cnn_temporal_kernels : int
         Number of kernels in the 2d temporal convolution.
     cnn_temporal_kernelsize : tuple
@@ -34,6 +32,8 @@ class EEGNet(torch.nn.Module):
         Kernel size of the 2d temporal separable convolution.
     cnn_septemporal_pool: tuple
         Pool size and stride after the 2d temporal separable convolution.
+    cnn_pool_type: string
+        Pooling type.
     dropout: float
         Dropout probability.
     dense_max_norm: float

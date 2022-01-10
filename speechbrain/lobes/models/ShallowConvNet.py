@@ -16,18 +16,18 @@ class ShallowConvNet(torch.nn.Module):
     ---------
     input_shape : tuple
         The shape of the input.
-    sf : int
-        The sampling frequency of the input EEG signals (Hz).
     cnn_temporal_kernels : int
         Number of kernels in the 2d temporal convolution.
     cnn_temporal_kernelsize : tuple
         Kernel size of the 2d temporal convolution.
     cnn_spatial_kernels : int
         Number of kernels in the 2d spatial depthwise convolution.
-    poolsize: tuple
+    cnn_poolsize: tuple
         Pool size.
-    poolstride: tuple
+    cnn_poolstride: tuple
         Pool stride.
+    cnn_pool_type: string
+        Pooling type.
     dropout: float
         Dropout probability.
     dense_n_neurons: int
