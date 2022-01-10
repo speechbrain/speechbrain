@@ -195,9 +195,9 @@ normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
 input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels: 40  # number of temporal filters in the temporal conv. layer
 cnn_spatial_kernels: 40  # number of spatial filters in the spatial conv. layer
-cnn_temporal_kernelsize: 25
-poolsize: 75
-poolstride: 40
+cnn_temporal_kernelsize: 13
+poolsize: 37
+poolstride: 20
 dropout: 0.35  # dropout rate
 
 model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
