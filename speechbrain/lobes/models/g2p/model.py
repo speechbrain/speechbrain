@@ -143,6 +143,7 @@ class AttentionSeq2Seq(nn.Module):
         )
         return torch.cat([emb_char, word_emb_enc], dim=-1)
 
+
 class WordEmbeddingEncoder(nn.Module):
     NORMS = {
         "batch": normalization.BatchNorm1d,
@@ -356,7 +357,9 @@ class TransformerG2P(TransformerInterface):
         self.word_emb_enc = word_emb_enc
         self._reset_params()
 
-    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs):
+    def forward(
+        self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs
+    ):
         """Computes the forward pass
 
         Arguments
@@ -383,7 +386,7 @@ class TransformerG2P(TransformerInterface):
         """
 
         chars, char_lens = grapheme_encoded
-        
+
         if phn_encoded is None:
             phn = get_dummy_phonemes(chars.size(0), chars.device)
         else:
@@ -589,5 +592,3 @@ def get_dummy_phonemes(batch_size, device):
     result: torch.Tensor
     """
     return torch.tensor([0], device=device).expand(batch_size, 1)
-
-
