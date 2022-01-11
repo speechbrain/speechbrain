@@ -104,7 +104,7 @@ class AttentionSeq2Seq(nn.Module):
 
         chars, char_lens = grapheme_encoded
         if phn_encoded is None:
-            phn_bos = self._get_dummy_phonemes(chars.size(0), chars.device)
+            phn_bos = get_dummy_phonemes(chars.size(0), chars.device)
         else:
             phn_bos, _ = phn_encoded
 
@@ -142,24 +142,6 @@ class AttentionSeq2Seq(nn.Module):
             else word_emb
         )
         return torch.cat([emb_char, word_emb_enc], dim=-1)
-
-    def _get_dummy_phonemes(self, batch_size, device):
-        """
-        Creates a dummy phoneme sequence
-
-        Arguments
-        ---------
-        batch_size: int
-            the batch size
-        device: str
-            the target device
-
-        Returns
-        -------
-        result: torch.Tensor
-        """
-        return torch.tensor([0], device=device).expand(batch_size, 1)
-
 
 class WordEmbeddingEncoder(nn.Module):
     NORMS = {
@@ -374,7 +356,7 @@ class TransformerG2P(TransformerInterface):
         self.word_emb_enc = word_emb_enc
         self._reset_params()
 
-    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None):
+    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs):
         """Computes the forward pass
 
         Arguments
@@ -401,7 +383,12 @@ class TransformerG2P(TransformerInterface):
         """
 
         chars, char_lens = grapheme_encoded
-        phn, _ = phn_encoded
+        
+        if phn_encoded is None:
+            phn = get_dummy_phonemes(chars.size(0), chars.device)
+        else:
+            phn, _ = phn_encoded
+
         emb_char = self.encoder_emb(chars)
         if self.use_word_emb:
             emb_char = _apply_word_emb(self.word_emb_enc, emb_char, word_emb)
@@ -584,3 +571,23 @@ def _apply_word_emb(word_emb_enc, emb_char, word_emb):
         word_emb_enc(word_emb) if word_emb_enc is not None else word_emb
     )
     return torch.cat([emb_char, word_emb_enc], dim=-1)
+
+
+def get_dummy_phonemes(batch_size, device):
+    """
+    Creates a dummy phoneme sequence
+
+    Arguments
+    ---------
+    batch_size: int
+        the batch size
+    device: str
+        the target device
+
+    Returns
+    -------
+    result: torch.Tensor
+    """
+    return torch.tensor([0], device=device).expand(batch_size, 1)
+
+

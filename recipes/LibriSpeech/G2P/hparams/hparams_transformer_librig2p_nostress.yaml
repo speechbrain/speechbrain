@@ -470,7 +470,7 @@ out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.dataio.text_decode
 
 
 encode_pipeline:
-    batch: True
+    batch: False
     use_padded_data: True
     output_keys:
         - grapheme_list

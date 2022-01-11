@@ -591,6 +591,44 @@ def char_map_detokenize(
     return f
 
 
+def char_map_detokenize_pipeline(
+    tokenizer,
+    char_map,
+    token_space_index=None,
+    wordwise=True,
+    takes="hyps",
+    provides="phonemes"
+):
+    """Returns a pipeline function that recovers the original sequence from one that has been
+    tokenized using a character map
+
+    Arguments
+    ---------
+    phn: torch.Tensor
+        token indexes
+    tokenizer: speechbrain.tokenizers.SentencePiece.SentencePiece
+        a tokenizer instance
+    char_map: dict
+        a character-to-output-token-map
+    token_space_index: int
+        the index of the "space" token
+    takes: str
+        the source pipeline element
+    provides: str
+        the pipeline element to output
+
+    Returns
+    -------
+    f: callable
+        the tokenizer function
+
+    """    
+    f = char_map_detokenize(tokenizer, char_map, token_space_index, wordwise)
+    f = sb.utils.data_pipeline.takes(takes)(f)
+    f = sb.utils.data_pipeline.provides(provides)(f)
+    return f
+
+
 def _map_tokens_batch(tokens, char_map):
     """Performs token mapping, in batch mode
 

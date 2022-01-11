@@ -2340,7 +2340,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
             text = [text]
 
         model_inputs = self.encode_input({"txt": text})
-        model_outputs = self.modules.model(**model_inputs)
+        model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
         phonemes = decoded_output["phonemes"]
         if single:

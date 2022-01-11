@@ -456,7 +456,7 @@ out_phoneme_decoder: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detoken
 
 
 encode_pipeline:
-    batch: True
+    batch: False
     use_padded_data: True
     output_keys:
         - grapheme_list
@@ -477,11 +477,11 @@ decode_pipeline:
     steps:
         - !apply:speechbrain.lobes.models.g2p.dataio.beam_search_pipeline
           beam_searcher: !ref <beam_searcher>
-        - !apply:speechbrain.lobes.models.g2p.dataio.phoneme_decoder_pipeline
-          phoneme_encoder: !ref <phoneme_encoder>
-          phonemes: !ref <phonemes>
-          bos_index: !ref <bos_index>
-          eos_index: !ref <eos_index>
+        - !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize_pipeline
+          tokenizer: !ref <phoneme_tokenizer>
+          char_map: !ref <char_phn_map>
+          token_space_index: !ref <token_space_index>
+          wordwise: !ref <phn_token_wordwise>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
