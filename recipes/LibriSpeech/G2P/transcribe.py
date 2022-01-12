@@ -9,6 +9,7 @@ import math
 import os
 import sys
 import speechbrain as sb
+from cmd import Cmd
 from argparse import ArgumentParser
 from speechbrain.pretrained.interfaces import GraphemeToPhoneme
 from tqdm.auto import tqdm
@@ -149,6 +150,64 @@ def chunked(iterable, batch_size):
     return iterator
 
 
+class InteractiveG2P(Cmd):
+    """An interactive G2P evaluator (useful for manually evaluating G2P sequences)    
+
+    Arguments
+    ---------
+    model: speechbrain.pretrained.interfaces.GrpahemeToPhoneme
+        a pretrained G2P model instance
+    """
+
+    prompt = "g2p> "
+    intro = """Welcome to the interactive G2P shell. Type ? to list commands.
+Type text to transcribe. Type exit to quit the shell"""
+
+    HELP_G2P = """Transcribes a text sample
+Example: g2p A quick brown fox jumped over the lazy dog"""
+    HELP_EXIT = "Exits the interactive G2P shell"
+    QUIT_COMMANDS = ["", "q", "quit", "exit", "quit()"]
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def do_g2p(self, inp):
+        """Performs G2P transcription
+        
+        Arguments
+        ---------
+        inp: str
+            the user input
+        """
+        transcribe_text(self.model, inp)
+
+    def do_exit(self, inp):
+        """Exits the interactive shell"""
+        return True
+
+    def help_g2p(self):
+        """The help text for the g2p command"""
+        print(self.HELP_G2P)
+
+    def help_exit(self):
+        """The help text for the exit command"""
+        print(self.HELP_EXIT)
+
+    def default(self, inp):
+        """The default input handler - exits on an empty 
+        input, transcribes otherwise
+
+        Arguments
+        ---------
+        inp: str
+            the user input
+        """
+        if inp.strip() in self.QUIT_COMMANDS:
+            return True
+        self.do_g2p(inp)
+
+
 def main():
     parser = ArgumentParser(description="Command-line speech synthesizer")
     parser.add_argument(
@@ -161,7 +220,17 @@ def main():
     )
     parser.add_argument("--text", help="The text to transcribe")
     parser.add_argument("--text-file", help="the text file to transcribe")
-    parser.add_argument("--output-file", help="")
+    parser.add_argument(
+        "--output-file", help="the file to which results will be output"
+    )
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        help="Launches an interactive shell",
+        default=False,
+        action="store_true",
+    )
+
     arguments, override_arguments = parser.parse_known_args()
     _, run_opts, overrides = sb.parse_arguments(
         [arguments.hparams] + override_arguments
@@ -183,7 +252,10 @@ def main():
     )
     if getattr(g2p.hparams, "use_language_model", False):
         g2p.hparams.beam_searcher = g2p.hparams.beam_searcher_lm
-    if arguments.text:
+    if arguments.interactive:
+        shell = InteractiveG2P(model=g2p)
+        shell.cmdloop()
+    elif arguments.text:
         transcribe_text(g2p, arguments.text)
     elif arguments.text_file:
         transcribe_file(
@@ -194,7 +266,9 @@ def main():
         )
     else:
         print(
-            "ERROR: Either --text or --text-file is required", file=sys.stderr
+            "ERROR: Either --text or --text-file is required "
+            "in non-interactive mode",
+            file=sys.stderr,
         )
 
 
