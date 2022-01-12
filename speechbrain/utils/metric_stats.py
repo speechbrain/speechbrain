@@ -344,7 +344,9 @@ class BinaryMetricStats(MetricStats):
         self.scores.extend(scores.detach())
         self.labels.extend(labels.detach())
 
-    def summarize(self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8):
+    def summarize(
+      self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8
+    ):
         """Compute statistics using a full set of scores.
 
         Full set of fields:
@@ -385,15 +387,37 @@ class BinaryMetricStats(MetricStats):
             self.labels = torch.stack(self.labels)
 
         if threshold is None:
-            positive_scores = self.scores[(self.labels == 1).nonzero(as_tuple=True)]
-            negative_scores = self.scores[(self.labels == 0).nonzero(as_tuple=True)]
+            positive_scores = self.scores[
+                (self.labels == 1).nonzero(as_tuple=True)
+            ]
+            negative_scores = self.scores[
+                (self.labels == 0).nonzero(as_tuple=True)
+            ]
             if max_samples is not None:
                 if len(positive_scores) > max_samples:
                     positive_scores, _ = torch.sort(positive_scores)
-                    positive_scores = positive_scores[[i for i in range(0, len(positive_scores), int(len(positive_scores) / max_samples))]]
+                    positive_scores = positive_scores[
+                        [
+                            i
+                            for i in range(
+                            0,
+                            len(positive_scores),
+                            int(len(positive_scores) / max_samples)
+                            )
+                        ]
+                    ]
                 if len(negative_scores) > max_samples:
                     negative_scores, _ = torch.sort(negative_scores)
-                    negative_scores = negative_scores[[i for i in range(0, len(negative_scores), int(len(negative_scores) / max_samples))]]
+                    negative_scores = negative_scores[
+                        [
+                            i
+                            for i in range(
+                            0,
+                            len(negative_scores),
+                            int(len(negative_scores) / max_samples)
+                            )
+                        ]
+                    ]
 
             eer, threshold = EER(positive_scores, negative_scores)
 
