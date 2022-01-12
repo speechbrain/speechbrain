@@ -49,6 +49,20 @@ The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders,  and many other possible variations.
 
+Hyperparameter Optimization
+---------------------------
+This recipe supports hyperparameter optimization via Oríon or other similar tools.
+For details on how to set up hyperparameter optimization, refer to the 
+"Hyperparameter Optimization" tutorial in the Advanced Tutorials section
+on the SpeechBrian website:
+
+https://speechbrain.github.io/tutorial_advanced.html
+
+A supplemental hyperparameter file is provided for hyperparameter optimiszation,
+which will turn off checkpointing and limit the number of epochs:
+
+hparams/hpfit.yaml
+
 
 Authors
  * Loren Lugosch 2020
@@ -162,7 +176,6 @@ class G2PBrain(sb.Brain):
             )
         else:
             word_emb, char_word_emb = None, None
-
         p_seq, char_lens, encoder_out, attn = self.modules["model"](
             grapheme_encoded=(graphemes.detach(), grapheme_lens),
             phn_encoded=phn_encoded,

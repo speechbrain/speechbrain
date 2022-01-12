@@ -8,6 +8,7 @@ Authors
 """
 
 from functools import reduce
+from speechbrain.dataio.encoder import TextEncoder
 import speechbrain as sb
 import torch
 import re
@@ -376,7 +377,7 @@ def phoneme_pipeline(
     return f
 
 
-def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
+def add_bos_eos(tokens, encoder=None, bos_index=0, eos_index=0, prefix="phn"):
     """Creates a pipeline that takes {prefix}_list (e.g. "phn_list")
     and yields {prefix}_encoded_eos, {prefix}_encoded_eos with
     an EOS token appended and a BOS token prepended, respectively
@@ -400,7 +401,10 @@ def add_bos_eos(tokens, encoder, bos_index=0, eos_index=0, prefix="phn"):
     result: DymamicItem
         a pipeline element
     """
-    if encoder is not None and not hasattr(encoder, "bos_label"):
+    if encoder is None:
+        encoder = TextEncoder()
+
+    if not hasattr(encoder, "bos_label"):
         enable_eos_bos(
             tokens=tokens,
             encoder=encoder,

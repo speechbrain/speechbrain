@@ -529,6 +529,7 @@ encode_pipeline:
         - grapheme_list
         - grapheme_encoded_list
         - grapheme_encoded
+        - grapheme_encoded_bos
     steps:
         - !apply:speechbrain.lobes.models.g2p.dataio.clean_pipeline
           graphemes: !ref <graphemes>
@@ -536,6 +537,12 @@ encode_pipeline:
           takes: txt_cleaned
           graphemes: !ref <graphemes>
           grapheme_encoder: !ref <grapheme_encoder>
+        - !apply:speechbrain.lobes.models.g2p.dataio.add_bos_eos
+          tokens: !ref <graphemes>
+          bos_index: !ref <bos_index>
+          eos_index: !ref <eos_index>
+          prefix: grapheme
+
 
 decode_pipeline:
     batch: True

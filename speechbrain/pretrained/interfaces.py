@@ -2340,12 +2340,22 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
             text = [text]
 
         model_inputs = self.encode_input({"txt": text})
+        self._update_graphemes(model_inputs)
         model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
         phonemes = decoded_output["phonemes"]
         if single:
             phonemes = phonemes[0]
         return phonemes
+
+    def _update_graphemes(self, model_inputs):
+        grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
+        if grapheme_sequence_mode and grapheme_sequence_mode != "raw":
+            grapheme_encoded_key = f"grapheme_encoded_{grapheme_sequence_mode}"
+            if grapheme_encoded_key in model_inputs:
+                model_inputs["grapheme_encoded"] = model_inputs[
+                    grapheme_encoded_key
+                ]
 
     def load_dependencies(self):
         """Loads any relevant model dependencies"""

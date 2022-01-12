@@ -87,6 +87,15 @@ dec_att_neurons: 256
 dec_num_layers: 4
 embedding_dim: 512
 
+# Determines whether to use BOS (beginning-of-sequence) or EOS (end-of-sequence) tokens
+# Available modes:
+# raw: no BOS/EOS tokens are added
+# bos: a beginning-of-sequence token is added
+# eos: an end-of-sequence token is added
+grapheme_sequence_mode: bos
+phoneme_sequence_mode: bos
+
+
 # Special Token information
 bos_index: 0
 eos_index: 1
@@ -410,6 +419,12 @@ encode_pipeline:
           takes: txt_cleaned
           graphemes: !ref <graphemes>
           grapheme_encoder: !ref <grapheme_encoder>
+        - !apply:speechbrain.lobes.models.g2p.dataio.add_bos_eos
+          tokens: !ref <graphemes>
+          bos_index: !ref <bos_index>
+          eos_index: !ref <eos_index>
+          prefix: grapheme
+
 
 decode_pipeline:
     batch: True

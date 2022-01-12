@@ -166,6 +166,7 @@ Type text to transcribe. Type exit to quit the shell"""
     HELP_G2P = """Transcribes a text sample
 Example: g2p A quick brown fox jumped over the lazy dog"""
     HELP_EXIT = "Exits the interactive G2P shell"
+    MSG_ERROR = "--- G2P CONVERSION FAILED ---"
     QUIT_COMMANDS = ["", "q", "quit", "exit", "quit()"]
 
     def __init__(self, model):
@@ -180,7 +181,12 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
         inp: str
             the user input
         """
-        transcribe_text(self.model, inp)
+        try:
+            transcribe_text(self.model, inp)
+        except Exception as e:
+            print(self.MSG_ERROR)
+            print(e)
+            print(self.MSG_ERROR)
 
     def do_exit(self, inp):
         """Exits the interactive shell"""
