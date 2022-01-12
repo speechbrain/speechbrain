@@ -196,8 +196,8 @@ input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels: 40  # number of temporal filters in the temporal conv. layer
 cnn_spatial_kernels: 40  # number of spatial filters in the spatial conv. layer
 cnn_temporal_kernelsize: 13
-poolsize: 37
-poolstride: 20
+cnn_poolsize: 37
+cnn_poolstride: 20
 dropout: 0.35  # dropout rate
 
 model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
@@ -205,8 +205,8 @@ model: !new:speechbrain.lobes.models.ShallowConvNet.ShallowConvNet
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
     cnn_spatial_kernels: !ref <cnn_spatial_kernels>
     cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
-    poolsize: [!ref <poolsize>, 1]
-    poolstride: [!ref <poolstride>, 1]
+    cnn_poolsize: [!ref <cnn_poolsize>, 1]
+    cnn_poolstride: [!ref <cnn_poolstride>, 1]
     dense_n_neurons: !ref <n_classes>
     dropout: !ref <dropout>
 
