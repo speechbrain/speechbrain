@@ -30,6 +30,12 @@ E.g., to train EEGNet to decode motor imagery on BNCI2014001:\
 
 The dataset will be automaticallt downloaded in the specified folder.
 
+# Notes on MNE
+Moab depends on MNE. By default the latter store a config file in the home at `$HOME/.mne/mne-python.json` and downloads data to `$HOME/mne-data`. In some cases, the home does not exist, it might have storage limitations, or it might be in a shared filesystem where data reading and writing operations might be discouraged by the system admim. If you want to set up a different folder:
+1- `export _MNE_FAKE_HOME_DIR='your/folder'`  (in your bash shell)
+2- Go to python and type `import mne`. This will create `your/folder/.mne/mne-python.json`.
+3- Open this file and set `MNE_DATA` and `MNE_DATASETS_BNCI_PATH` with the folders you prefer.
+
 
 # Results
 After training, you can aggregate and visualize the performance of all the experiments with:
