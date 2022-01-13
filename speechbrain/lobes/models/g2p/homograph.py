@@ -74,8 +74,8 @@ class SubsequenceLoss(nn.Module):
         p_seq,
         subsequence_phn_start,
         subsequence_phn_end,
-        phns_base,
-        phn_lens_base,
+        phns_base=None,
+        phn_lens_base=None,
     ):
         """
         Evaluates the subsequence loss
