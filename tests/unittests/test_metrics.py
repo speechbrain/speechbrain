@@ -66,6 +66,9 @@ def test_binary_metrics(device):
     summary = binary_stats.summarize(threshold=None)
     assert summary["threshold"] >= 0.3 and summary["threshold"] < 0.4
 
+    summary = binary_stats.summarize(threshold=None, max_samples=1)
+    assert summary["threshold"] >= 0.1 and summary["threshold"] < 0.2
+
 
 def test_EER(device):
     from speechbrain.utils.metric_stats import EER
