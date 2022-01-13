@@ -2,7 +2,7 @@
 
 Authors
  * Mirco Ravinelli 2021
- * Artem Ploujnikov 2021 
+ * Artem Ploujnikov 2021
 """
 
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -13,10 +13,8 @@ from speechbrain.lobes.models.transformer.Transformer import (
 
 import torch
 from torch import nn
-from torch.nn import functional as F
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet import normalization
-from speechbrain.nnet.linear import Linear
 
 
 class AttentionSeq2Seq(nn.Module):

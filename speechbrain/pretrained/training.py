@@ -4,7 +4,6 @@ Training utilities for pretrained models
 Authors
 * Artem Ploujnikov 2021
 """
-from speechbrain.utils.checkpoints import torch_save
 import os
 import shutil
 

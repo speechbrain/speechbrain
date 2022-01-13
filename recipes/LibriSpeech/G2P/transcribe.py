@@ -151,7 +151,7 @@ def chunked(iterable, batch_size):
 
 
 class InteractiveG2P(Cmd):
-    """An interactive G2P evaluator (useful for manually evaluating G2P sequences)    
+    """An interactive G2P evaluator (useful for manually evaluating G2P sequences)
 
     Arguments
     ---------
@@ -175,7 +175,7 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
 
     def do_g2p(self, inp):
         """Performs G2P transcription
-        
+
         Arguments
         ---------
         inp: str
@@ -201,7 +201,7 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
         print(self.HELP_EXIT)
 
     def default(self, inp):
-        """The default input handler - exits on an empty 
+        """The default input handler - exits on an empty
         input, transcribes otherwise
 
         Arguments

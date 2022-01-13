@@ -16,7 +16,6 @@ import itertools
 import speechbrain as sb
 import torch
 import sys
-import json
 import logging
 
 logger = logging.getLogger(__name__)
