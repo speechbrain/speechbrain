@@ -61,7 +61,7 @@ class SubsequenceLoss(nn.Module):
         return self._subsequence_extractor.word_separator_base
 
     @word_separator.setter
-    def word_separator_base(self, value):
+    def word_separator_base(self, value):  # noqa
         """
         Sets the base word separator
         """

@@ -8,7 +8,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
-hpopt: false
+hpopt: False
 hpopt_mode: generic
 trial_id: null
 output_folder: !ref results/RNN/<seed>
@@ -21,7 +21,7 @@ enable_interim_reports: True
 grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
 phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 ckpt_frequency: 1
-ckpt_enable: true
+ckpt_enable: True
 enable_metrics: True
 revalidate: False
 retest: False

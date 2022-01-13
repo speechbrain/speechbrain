@@ -27,8 +27,8 @@ test_data: !ref <data_folder>/sentence_test.json
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 sorting: random
 origins: "*"
-graphemes_space_separated: false
-phonemes_space_separated: false
+graphemes_space_separated: False
+phonemes_space_separated: False
 phonemes_count: 43
 
 
@@ -71,76 +71,76 @@ eos_index: 1
 
 
 graphemes:
-  - A
-  - B
-  - C
-  - D
-  - E
-  - F
-  - G
-  - H
-  - I
-  - J
-  - K
-  - L
-  - M
-  - N
-  - O
-  - P
-  - Q
-  - R
-  - S
-  - T
-  - U
-  - V
-  - W
-  - X
-  - Y
-  - Z
-  - "'"
-  - " "
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
 
 phonemes:
-  - AA
-  - AE
-  - AH
-  - AO
-  - AW
-  - AY
-  - B
-  - CH
-  - D
-  - DH
-  - EH
-  - ER
-  - EY
-  - F
-  - G
-  - HH
-  - IH
-  - IY
-  - JH
-  - K
-  - L
-  - M
-  - N
-  - NG
-  - OW
-  - OY
-  - P
-  - R
-  - S
-  - SH
-  - T
-  - TH
-  - UH
-  - UW
-  - V
-  - W
-  - Y
-  - Z
-  - ZH
-  - " "
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
 
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line

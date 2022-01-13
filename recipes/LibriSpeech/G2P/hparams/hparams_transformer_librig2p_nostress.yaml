@@ -8,7 +8,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
-hpopt: false
+hpopt: False
 hpopt_mode: generic
 trial_id: null
 output_folder: !ref results/RNN/<seed>
@@ -19,7 +19,7 @@ use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 enable_interim_reports: True
 ckpt_frequency: 1
-ckpt_enable: true
+ckpt_enable: True
 enable_metrics: True
 revalidate: False
 retest: False
@@ -259,12 +259,12 @@ ctc_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
 
 encoder_emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
-     d_model: !ref <transformer_d_model>
-     vocab: !ref <graphemes_count>
+    d_model: !ref <transformer_d_model>
+    vocab: !ref <graphemes_count>
 
 emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
-     d_model: !ref <transformer_d_model>
-     vocab: !ref <phonemes_count>
+    d_model: !ref <transformer_d_model>
+    vocab: !ref <phonemes_count>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <graphemes_count>
@@ -326,7 +326,6 @@ model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P
     word_emb_enc: !ref <word_emb_enc>
 
 
-
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
     vocab: !ref <phonemes_count>
     d_model: !ref <lm_d_model>
@@ -343,9 +342,9 @@ opt_class: !name:torch.optim.Adam
 
 beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules:
-    - !ref <model>
-    - !ref <lin>
-    - !ref <ctc_lin>
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -363,11 +362,11 @@ beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
 
 beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
     modules:
-    - !ref <model>
-    - !ref <lin>
-    - !ref <ctc_lin>
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
     lm_modules:
-    - !ref <lm_model>
+        - !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -388,9 +387,9 @@ beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
 
 beam_searcher_valid: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules:
-    - !ref <model>
-    - !ref <lin>
-    - !ref <ctc_lin>
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>

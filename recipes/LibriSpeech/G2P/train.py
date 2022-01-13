@@ -52,7 +52,7 @@ different encoders, decoders,  and many other possible variations.
 Hyperparameter Optimization
 ---------------------------
 This recipe supports hyperparameter optimization via Oríon or other similar tools.
-For details on how to set up hyperparameter optimization, refer to the 
+For details on how to set up hyperparameter optimization, refer to the
 "Hyperparameter Optimization" tutorial in the Advanced Tutorials section
 on the SpeechBrian website:
 
@@ -69,7 +69,6 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
-from torch import optim
 from speechbrain.dataio.dataset import FilteredSortedDynamicItemDataset
 from speechbrain.dataio.sampler import BalancingDataSampler
 from speechbrain.utils.data_utils import undo_padding
@@ -107,7 +106,7 @@ G2PPredictions = namedtuple(
 
 class TrainMode(Enum):
     """An enumeration that represents the trainining mode
-    
+
     NORMAL: trains the sequence-to-sequence model
     HOMOGRAPH: fine-tunes a trained model on homographs"""
 
@@ -119,7 +118,7 @@ class TrainMode(Enum):
 class G2PBrain(sb.Brain):
     def __init__(self, train_step_name, *args, **kwargs):
         """Class constructor
-        
+
         Arguments
         ---------
         train_step_name: the name of the training step, for curriculum learning
@@ -203,8 +202,8 @@ class G2PBrain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets.
-        
-        
+
+
         Arguments
         ---------
         predictions: G2PPredictions
@@ -274,7 +273,7 @@ class G2PBrain(sb.Brain):
     def _add_homograph_metrics(self, predictions, batch):
         """Extracts the homograph from the sequence, computes metrics for it
         and registers them
-        
+
         Arguments
         ---------
         predictions: G2PPredictions
@@ -331,7 +330,7 @@ class G2PBrain(sb.Brain):
         """Converts a tensor of tokens combined with a tensor of lengths to a
         nested list of tokens (more suitable for higher-level operations not
         requiring high performance)
-        
+
         Arguments
         ---------
         tokens: torch.Tensor
@@ -353,14 +352,14 @@ class G2PBrain(sb.Brain):
 
     def _phonemes_to_label(self, phns):
         """Converts a batch of phoneme sequences (a single tensor)
-        to a list of space-separated phoneme label strings, 
+        to a list of space-separated phoneme label strings,
         (e.g. ["T AY B L", "B UH K"]), removing any special tokens
-        
+
         Arguments
         ---------
         phn: sequence
             a batch of phoneme sequences
-            
+
         Returns
         -------
         result: list
@@ -386,15 +385,15 @@ class G2PBrain(sb.Brain):
 
     def is_ctc_active(self, stage):
         """Determines whether or not the CTC loss should be enabled.
-        It is enabled only if a ctc_lin module has been defined in 
+        It is enabled only if a ctc_lin module has been defined in
         the hyperparameter file, only during training and only for
         the number of epochs determined by the ctc_epochs hyperparameter
         of the corresponding training step.
-        
+
         Arguments
         ---------
         stage: speechbrain.Stage
-            the training stage            
+            the training stage
         """
         if not self.has_ctc or stage != sb.Stage.TRAIN:
             return False
@@ -511,7 +510,7 @@ class G2PBrain(sb.Brain):
             stats = {
                 "stats_meta": {"epoch": epoch, "lr": old_lr},
                 "train_stats": {"loss": self.train_loss},
-                "valid_stats": {"loss": stage_loss,},
+                "valid_stats": {"loss": stage_loss},
             }
             if self.enable_metrics:
                 stats["valid_stats"].update(
@@ -570,12 +569,12 @@ class G2PBrain(sb.Brain):
     def _has_homograph_per(self, ckpt):
         """Determines if the provided checkpoint has a homograph PER. Used
         when selecting the best epochs for the homograph loss.
-        
+
         Arguments
         ---------
         ckpt: speechbrain.utils.checkpoints.Checkpoint
             a checkpoint
-        
+
         Returns
         -------
         result: bool
@@ -584,7 +583,7 @@ class G2PBrain(sb.Brain):
 
     def _get_interim_report_path(self, epoch, file_path):
         """Determines the path to the interim, per-epoch report
-        
+
         Arguments
         ---------
         epoch: int
@@ -616,11 +615,11 @@ class G2PBrain(sb.Brain):
         final: bool
             whether or not this si the final report. If
             final is false, an epoch number will be inserted into the path
-        
+
         Arguments
         ---------
         file_name: str
-            the report file name        
+            the report file name
         """
         file_name = self.train_step[key]
         if not final:
@@ -629,12 +628,12 @@ class G2PBrain(sb.Brain):
 
     def _write_reports(self, epoch, final=True):
         """Outputs all reports for a given epoch
-        
+
         Arguments
         ---------
         epoch: int
             the epoch number
-        
+
         final: bool
             whether or not the reports are final (i.e.
             after the final epoch)
@@ -654,11 +653,11 @@ class G2PBrain(sb.Brain):
 
     def _write_wer_file(self, file_name):
         """Outputs the Word Error Rate (WER) file
-        
+
         Arguments
         ---------
         file_name: str
-            the report file name        
+            the report file name
         """
         with open(file_name, "w") as w:
             w.write("\nseq2seq loss stats:\n")
@@ -671,7 +670,7 @@ class G2PBrain(sb.Brain):
         """Outputs the detailed homograph report, detailing the accuracy
         percentage for each homograph, as well as the relative frequencies
         of particular output sequences output by the model
-        
+
         Arguments
         ---------
         file_name: str
@@ -688,12 +687,12 @@ class G2PBrain(sb.Brain):
         Arguments
         ---------
         stats: dict
-            a statistics dictionary    
+            a statistics dictionary
 
         Returns
         ---------
         stats: dict
-            a prefixed statistics dictionary    
+            a prefixed statistics dictionary
         """
         prefix = self.train_step["name"]
         return {
@@ -776,7 +775,7 @@ class G2PBrain(sb.Brain):
 
     def _save_text_alignment(self, tag, metrics_sample):
         """Saves a single text sample
-        
+
         Arguments
         ---------
         tag: str
@@ -872,7 +871,7 @@ def filter_origins(data, hparams):
 def dataio_prep(hparams, train_step=None):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
-    
+
     Arguments
     ---------
     hparams: dict
@@ -885,10 +884,10 @@ def dataio_prep(hparams, train_step=None):
     -------
     train_data: speechbrain.dataio.dataset.DynamicItemDataset
         the training dataset
-   
+
     valid_data: speechbrain.dataio.dataset.DynamicItemDataset
         the validation dataset
-    
+
     test_data: speechbrain.dataio.dataset.DynamicItemDataset
         the test dataset
 
@@ -937,7 +936,6 @@ def dataio_prep(hparams, train_step=None):
     datasets = [train_data, valid_data, test_data]
 
     phoneme_encoder = hparams["phoneme_encoder"]
-    grapheme_encoder = hparams["grapheme_encoder"]
 
     # 2. Define grapheme and phoneme pipelines:
     if hparams.get("char_tokenize"):
@@ -993,6 +991,7 @@ def dataio_prep(hparams, train_step=None):
     )
     grapheme_bos_eos_pipeline_item = add_bos_eos(
         tokens=hparams["graphemes"],
+        # TODO: Use the grapheme encoder here (this will break some models)
         encoder=phoneme_encoder,
         bos_index=hparams["bos_index"],
         eos_index=hparams["eos_index"],
@@ -1050,11 +1049,11 @@ def dataio_prep(hparams, train_step=None):
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
         train_data, valid_data, test_data = datasets
 
-    sample, sample_random = hparams.get("sample"), hparams.get("sample_random")
+    sample = hparams.get("sample")
     if sample:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
     train_data, valid_data, test_data = datasets
-    valid_data.data_ids = valid_data.data_ids[:64]
+    valid_data.data_ids = valid_data.data_ids
     return train_data, valid_data, test_data, phoneme_encoder
 
 
@@ -1073,7 +1072,7 @@ def check_language_model(hparams, run_opts):
 
 def load_dependencies(hparams, run_opts):
     """Loads any pre-trained dependencies (e.g. language models)
-    
+
     Arguments
     ---------
     hparams: dict

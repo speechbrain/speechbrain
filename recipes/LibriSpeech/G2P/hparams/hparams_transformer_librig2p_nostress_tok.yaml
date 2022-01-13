@@ -8,7 +8,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
-hpopt: false
+hpopt: False
 hpopt_mode: generic
 trial_id: null
 output_folder: !ref results/RNN/<seed>
@@ -21,7 +21,7 @@ enable_interim_reports: True
 grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
 phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 ckpt_frequency: 1
-ckpt_enable: true
+ckpt_enable: True
 enable_metrics: True
 revalidate: False
 retest: False
@@ -255,14 +255,11 @@ enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
 phn_char_map: !apply:speechbrain.lobes.models.g2p.dataio.build_token_char_map
     tokens: !ref <phonemes>
 
-
 char_phn_map: !apply:speechbrain.lobes.models.g2p.dataio.flip_map
     map_dict: !ref <phn_char_map>
 
 
-
 # Models
-
 char_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <embedding_dim>
     n_neurons: !ref <transformer_d_model>
@@ -283,12 +280,12 @@ ctc_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
 
 encoder_emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
-     d_model: !ref <transformer_d_model>
-     vocab: !ref <graphemes_count>
+    d_model: !ref <transformer_d_model>
+    vocab: !ref <graphemes_count>
 
 emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
-     d_model: !ref <transformer_d_model>
-     vocab: !ref <phonemes_count>
+    d_model: !ref <transformer_d_model>
+    vocab: !ref <phonemes_count>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <char_token_output>
@@ -364,9 +361,9 @@ opt_class: !name:torch.optim.Adam
 
 beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules:
-    - !ref <model>
-    - !ref <lin>
-    - !ref <ctc_lin>
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -384,9 +381,9 @@ beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
 
 beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
     modules:
-    - !ref <model>
-    - !ref <lin>
-    - !ref <ctc_lin>
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -407,9 +404,9 @@ beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
 
 beam_searcher_valid: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules:
-    - !ref <model>
-    - !ref <lin>
-    - !ref <ctc_lin>
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -556,7 +553,7 @@ decode_pipeline:
           char_map: !ref <char_phn_map>
           token_space_index: !ref <token_space_index>
           wordwise: !ref <phn_token_wordwise>
-        
+
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:

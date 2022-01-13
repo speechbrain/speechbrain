@@ -31,13 +31,13 @@ tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 sorting: random
 origins: "*"
-graphemes_space_separated: false
-phonemes_space_separated: false
+graphemes_space_separated: False
+phonemes_space_separated: False
 phn_token_output: 128
 token_space_index: !ref <phn_token_output>
 phonemes_count: 43
-phn_tokenize: true
-phn_token_wordwise: false
+phn_tokenize: True
+phn_token_wordwise: False
 phn_token_type: unigram
 character_coverage: 1.0
 
@@ -80,76 +80,76 @@ blank_index: 2
 unk_index: 2
 
 graphemes:
-  - A
-  - B
-  - C
-  - D
-  - E
-  - F
-  - G
-  - H
-  - I
-  - J
-  - K
-  - L
-  - M
-  - N
-  - O
-  - P
-  - Q
-  - R
-  - S
-  - T
-  - U
-  - V
-  - W
-  - X
-  - Y
-  - Z
-  - "'"
-  - " "
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
 
 phonemes:
-  - AA
-  - AE
-  - AH
-  - AO
-  - AW
-  - AY
-  - B
-  - CH
-  - D
-  - DH
-  - EH
-  - ER
-  - EY
-  - F
-  - G
-  - HH
-  - IH
-  - IY
-  - JH
-  - K
-  - L
-  - M
-  - N
-  - NG
-  - OW
-  - OY
-  - P
-  - R
-  - S
-  - SH
-  - T
-  - TH
-  - UH
-  - UW
-  - V
-  - W
-  - Y
-  - Z
-  - ZH
-  - " "
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
 
 phn_char_map: !apply:speechbrain.lobes.models.g2p.dataio.build_token_char_map
     tokens: !ref <phonemes>
