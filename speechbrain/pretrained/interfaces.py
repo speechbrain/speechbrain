@@ -2294,12 +2294,14 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     """
     A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
     that take raw natural language text as an input and
+
     Example
     -------
     >>> text = ("English is tough. It can be understood "
-                "through thorough thought though")
-    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model')
-    >>> phonemes = g2p.g2p(text)
+    ...         "through thorough thought though")
+    >>> from speechbrain.pretrained import GraphemeToPhoneme
+    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model') # doctest: +SKIP
+    >>> phonemes = g2p.g2p(text) # doctest: +SKIP
     """
 
     INPUT_STATIC_KEYS = ["txt"]
