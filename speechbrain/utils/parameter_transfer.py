@@ -168,10 +168,11 @@ class Pretrainer:
         loadable_paths = {}
         for name in self.loadables:
             save_filename = name + PARAMFILE_EXT
+            filename = None
             if name in self.paths:
                 source, filename = self.split_path(self.paths[name])
-            elif default_source is not None:
-                filename = save_filename
+            if default_source:
+                filename = save_filename if not filename else filename
                 source = default_source
             else:
                 raise ValueError(
