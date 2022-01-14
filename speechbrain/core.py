@@ -446,7 +446,7 @@ class Brain:
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
             "grad_accumulation_factor": 1,
-            "optimizer_step_limit": None
+            "optimizer_step_limit": None,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -859,7 +859,7 @@ class Brain:
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss/self.grad_accumulation_factor).backward()
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
             if should_step:
                 self.scaler.unscale_(self.optimizer)
                 if self.check_gradients(loss):
@@ -1109,12 +1109,19 @@ class Brain:
                     )
 
             # Debug mode only runs a few epochs
-            if self.debug and epoch == self.debug_epochs or self._optimizer_step_limit_exceeded:
+            if (
+                self.debug
+                and epoch == self.debug_epochs
+                or self._optimizer_step_limit_exceeded
+            ):
                 break
 
     @property
     def _optimizer_step_limit_exceeded(self):
-        return self.optimizer_step_limit is not None and self.optimizer_step >= self.optimizer_step_limit
+        return (
+            self.optimizer_step_limit is not None
+            and self.optimizer_step >= self.optimizer_step_limit
+        )
 
     def _save_intra_epoch_ckpt(self):
         """Saves a CKPT with specific intra-epoch flag."""
@@ -1249,7 +1256,11 @@ class Brain:
 
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):
-        save_dict = {"step": self.step, "avg_train_loss": self.avg_train_loss, "optimizer_step": self.optimizer_step}
+        save_dict = {
+            "step": self.step,
+            "avg_train_loss": self.avg_train_loss,
+            "optimizer_step": self.optimizer_step,
+        }
         with open(path, "w") as w:
             w.write(yaml.dump(save_dict))
 
