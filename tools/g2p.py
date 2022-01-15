@@ -265,7 +265,9 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
 
 
 def main():
-    parser = ArgumentParser(description="Command-line Grapheme-to-Phoneme conversion tool")
+    parser = ArgumentParser(
+        description="Command-line Grapheme-to-Phoneme conversion tool"
+    )
     parser.add_argument(
         "--model", required=True, help="The path to the pretrained model"
     )
