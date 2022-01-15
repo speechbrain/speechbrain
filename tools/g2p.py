@@ -1,5 +1,55 @@
 """A convenience script to transcribe text into phonemes using a
-pretrained model
+pretrained Grapheme-to-Phoneme (G2P) model
+
+The scripts to train G2P models are located in
+recipes/LibriSpeech/G2P
+
+Usage
+-----
+Command-line Grapheme-to-Phoneme conversion tool
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --model MODEL         The path to the pretrained model
+  --hparams HPARAMS     The name of the hyperparameter file
+  --text TEXT           The text to transcribe
+  --text-file TEXT_FILE
+                        the text file to transcribe
+  --output-file OUTPUT_FILE
+                        the file to which results will be output
+  -i, --interactive     Launches an interactive shell
+
+Examples
+--------
+Start an interactive shell:
+```bash
+python g2p.py --model /path/to/model --interactive
+```
+
+Once started, the tool will display a prompt allowing you to enter
+lines of text and transcribe them in real time. This is useful for
+exploratory analysis (e.g. evaluating how a model resolves ambiguities)
+
+Transcribe a single example:
+```bash
+python g2p.py --model /path/to/model --text "This is a line of text"
+```
+
+The tool will transcribe the single sample and output the transcribed
+text to standard outout.
+
+Transcribe a file:
+python g2p.py --model /path/to/model --text-file text.txt \
+    --output-file phonemes.txt
+
+This is useful in a scenario when an entire dataset needs to be
+transcribed. For instance, one may want to train a Text-to-Speech
+model with phonemes, rather than raw text, as inputs. The tool
+can accept text files of arbitrary size with samples recorded one
+per line. Each line is a sample, and the maximum size of a line
+is determined by the underlying model, as well as available
+resources (RAM or GPU memory).
+
 
 Authors
 * Artem Ploujnikov 2021
@@ -215,7 +265,7 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
 
 
 def main():
-    parser = ArgumentParser(description="Command-line speech synthesizer")
+    parser = ArgumentParser(description="Command-line Grapheme-to-Phoneme conversion tool")
     parser.add_argument(
         "--model", required=True, help="The path to the pretrained model"
     )
