@@ -12,12 +12,19 @@ output_folder: !ref results/RNN/<seed>
 data_folder: /localscratch/LibriSpeech
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+enable_interim_reports: True
+ckpt_frequency: 1
+ckpt_enable: True
+enable_metrics: True
+revalidate: False
+retest: False
 
 input_lexicon: !ref <save_folder>/lexicon.csv
 oov: !ref <save_folder>/oov.csv
 wer_file: !ref <save_folder>/wer.txt
 pretrained_path: !ref <save_folder>/pretrained_models
-enable_interim_reports: True
 
 
 # These three files are created from lexicon.csv.
@@ -27,6 +34,7 @@ train_data: !ref <save_folder>/lexicon_tr.csv
 valid_data: !ref <save_folder>/lexicon_dev.csv
 test_data: !ref <save_folder>/lexicon_test.csv
 skip_prep: False
+lexicon_epochs: 50
 sorting: random #ascending
 graphemes_space_separated: False
 phonemes_space_separated: False
@@ -66,7 +74,10 @@ eval_train_step: lexicon
 eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
+eval_prediction_sample_size: 10
 eval_mode: sentence
+eval_output_wer_file: False
+eval_wer_file: !ref <save_folder>/wer_eval.txt
 
 
 select_n_sentences: None
@@ -180,6 +191,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
+    model: !ref <model>
     enc: !ref <enc>
     encoder_emb: !ref <encoder_emb>
     emb: !ref <emb>
@@ -232,7 +244,7 @@ per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <N_epochs>
+    limit: !ref <lexicon_epochs>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

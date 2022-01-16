@@ -445,6 +445,7 @@ class G2PBrain(sb.Brain):
                         self.hparams.per_stats_homograph()
                     )
 
+        if self.mode == TrainMode.HOMOGRAPH:
             self._set_word_separator()
         self.grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
             " "
