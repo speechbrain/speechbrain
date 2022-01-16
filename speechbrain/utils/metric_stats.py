@@ -345,7 +345,7 @@ class BinaryMetricStats(MetricStats):
         self.labels.extend(labels.detach())
 
     def summarize(
-      self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8
+        self, field=None, threshold=None, max_samples=None, beta=1, eps=1e-8
     ):
         """Compute statistics using a full set of scores.
 
@@ -400,9 +400,9 @@ class BinaryMetricStats(MetricStats):
                         [
                             i
                             for i in range(
-                            0,
-                            len(positive_scores),
-                            int(len(positive_scores) / max_samples)
+                                0,
+                                len(positive_scores),
+                                int(len(positive_scores) / max_samples)
                             )
                         ]
                     ]
@@ -412,9 +412,9 @@ class BinaryMetricStats(MetricStats):
                         [
                             i
                             for i in range(
-                            0,
-                            len(negative_scores),
-                            int(len(negative_scores) / max_samples)
+                                0,
+                                len(negative_scores),
+                                int(len(negative_scores) / max_samples)
                             )
                         ]
                     ]
