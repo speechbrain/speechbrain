@@ -6,7 +6,7 @@
 
 SpeechBrain is an **open-source** and **all-in-one** conversational AI toolkit based on PyTorch.
 
-The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **languade identification*, *multi-microphone signal processing** and many others.
+The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **language identification**, **multi-microphone signal processing**, and many others.
 
 *SpeechBrain is currently in beta*.
 
@@ -29,7 +29,7 @@ SpeechBrain provides various useful tools to speed up and facilitate research on
 - On-the-fly dynamic batching
 - Efficient reading of large datasets from a shared  Network File System (NFS) via [WebDataset](https://github.com/webdataset/webdataset).
 - Interface with [HuggingFace](https://huggingface.co/speechbrain) for popular models such as wav2vec2  and Hubert.
-- Interface with [Orion(https://github.com/Epistimio/orion) for hyperparameter tuning.
+- Interface with [Orion](https://github.com/Epistimio/orion) for hyperparameter tuning.
 
 
 ### Speech recognition
