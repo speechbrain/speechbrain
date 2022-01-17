@@ -66,9 +66,11 @@ class SentencePiece:
         If False, allow the sentencepiece to extract piece crossing multiple
         words. This feature is important for : Chinese/Japanese/Korean.
         (default: True)
-    num_sequences : int
-        If not none, use at most this many sequences to train the tokenizer
-        (for large datasets). (default: None)
+    input_sequences : int 
+        if > 0 input_sequences will be loaded from the dataset else all the dataset is loaded. (default: 0)
+    shuffle_input_sentence : bool 
+        Randomly sample input sentences. Valid when --input_sentence_size > 0.
+        default: true
     annotation_list_to_check : list,
         List of the annotation file which is used for checking the accuracy of
         recovering words from the tokenizer.
@@ -118,7 +120,8 @@ class SentencePiece:
         pad_id=-1,
         unk_id=0,
         split_by_whitespace=True,
-        num_sequences=None,
+        input_sentence_size = 0,
+        shuffle_input_sentence = True,
         annotation_list_to_check=None,
         annotation_format="csv",
         add_dummy_prefix=True,
@@ -150,7 +153,8 @@ class SentencePiece:
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
-        self.num_sequences = num_sequences
+        self.input_sentence_size = str(input_sentence_size)
+        self.shuffle_input_sentence = str(shuffle_input_sentence)
         self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
         self.add_dummy_prefix = str(add_dummy_prefix)
@@ -209,12 +213,6 @@ class SentencePiece:
         text_file = open(self.text_file, "w+")
         row_idx = 0
         for row in reader:
-            if self.num_sequences is not None and row_idx > self.num_sequences:
-                print(
-                    "Using %d sequences to train the tokenizer."
-                    % self.num_sequences
-                )
-                break
             row_idx += 1
             sent = row[index_label]
             if self.char_format_input:
@@ -249,12 +247,6 @@ class SentencePiece:
         row_idx = 0
 
         for snt_id in out_json.keys():
-            if self.num_sequences is not None and row_idx > self.num_sequences:
-                print(
-                    "Using %d sequences to train the tokenizer."
-                    % self.num_sequences
-                )
-                break
             row_idx += 1
             sent = out_json[snt_id][self.annotation_read]
             if self.char_format_input:
@@ -292,6 +284,10 @@ class SentencePiece:
             + self.character_coverage
             + " --add_dummy_prefix="
             + self.add_dummy_prefix
+            + " --input_sentence_size="
+            + self.input_sentence_size
+            + " --shuffle_input_sentence="
+            + self.shuffle_input_sentence
         )
         if self.model_type not in ["char"]:
             # include vocab_size
