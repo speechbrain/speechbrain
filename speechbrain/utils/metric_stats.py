@@ -402,7 +402,7 @@ class BinaryMetricStats(MetricStats):
                             for i in range(
                                 0,
                                 len(positive_scores),
-                                int(len(positive_scores) / max_samples)
+                                int(len(positive_scores) / max_samples),
                             )
                         ]
                     ]
@@ -414,7 +414,7 @@ class BinaryMetricStats(MetricStats):
                             for i in range(
                                 0,
                                 len(negative_scores),
-                                int(len(negative_scores) / max_samples)
+                                int(len(negative_scores) / max_samples),
                             )
                         ]
                     ]
