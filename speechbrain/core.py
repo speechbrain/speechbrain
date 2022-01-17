@@ -256,6 +256,16 @@ def parse_arguments(arg_list=None):
         help="Amount of time between saving intra-epoch checkpoints "
         "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
     )
+    parser.add_argument(
+        "--grad_accumulation_factor",
+        type=int,
+        help="Number of batches to accumulate gradients before optimizer step",
+    )
+    parser.add_argument(
+        "--optimizer_step_limit",
+        type=int,
+        help="Number of optimizer steps to run. If not passed, all epochs are run.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -435,6 +445,8 @@ class Brain:
             "nonfinite_patience": 3,
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
+            "grad_accumulation_factor": 1,
+            "optimizer_step_limit": None,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -558,6 +570,7 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
         if self.checkpointer is not None:
@@ -839,24 +852,29 @@ class Brain:
         -------
         detached loss
         """
+        should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.optimizer)
-            if self.check_gradients(loss):
-                self.scaler.step(self.optimizer)
-            self.scaler.update()
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            loss.backward()
-            if self.check_gradients(loss):
-                self.optimizer.step()
-            self.optimizer.zero_grad()
+            (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.optimizer_step += 1
 
         return loss.detach().cpu()
 
@@ -1005,7 +1023,6 @@ class Brain:
 
         # Iterate epochs
         for epoch in epoch_counter:
-
             # Training stage
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
@@ -1030,6 +1047,9 @@ class Brain:
                 disable=not enable,
             ) as t:
                 for batch in t:
+                    if self._optimizer_step_limit_exceeded:
+                        logger.info("Train iteration limit exceeded")
+                        break
                     self.step += 1
                     loss = self.fit_batch(batch)
                     self.avg_train_loss = self.update_average(
@@ -1089,8 +1109,19 @@ class Brain:
                     )
 
             # Debug mode only runs a few epochs
-            if self.debug and epoch == self.debug_epochs:
+            if (
+                self.debug
+                and epoch == self.debug_epochs
+                or self._optimizer_step_limit_exceeded
+            ):
                 break
+
+    @property
+    def _optimizer_step_limit_exceeded(self):
+        return (
+            self.optimizer_step_limit is not None
+            and self.optimizer_step >= self.optimizer_step_limit
+        )
 
     def _save_intra_epoch_ckpt(self):
         """Saves a CKPT with specific intra-epoch flag."""
@@ -1225,7 +1256,11 @@ class Brain:
 
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):
-        save_dict = {"step": self.step, "avg_train_loss": self.avg_train_loss}
+        save_dict = {
+            "step": self.step,
+            "avg_train_loss": self.avg_train_loss,
+            "optimizer_step": self.optimizer_step,
+        }
         with open(path, "w") as w:
             w.write(yaml.dump(save_dict))
 
@@ -1237,3 +1272,4 @@ class Brain:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
+        self.optimizer_step = save_dict["optimizer_step"]
