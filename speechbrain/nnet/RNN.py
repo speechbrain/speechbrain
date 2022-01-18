@@ -1288,10 +1288,10 @@ class LiGRU_Layer(torch.nn.Module):
         """
 
         # check if the model is on cuda before launching the cuda kernels
-        if w.is_cuda:
-            from ligru import cuda_ligru_cell
+        if w.is_cuda == ht.is_cuda == drop_mask.is_cuda :
+            from ligru.cuda_ligru_cell import _ligru_cell_cupy
             
-            return cuda_ligru_cell._ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
+            return _ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
 
