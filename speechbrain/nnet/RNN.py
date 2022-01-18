@@ -1234,9 +1234,9 @@ class LiGRU_Layer(torch.nn.Module):
 
         # Processing time steps
         if hx is not None:
-            h = self._ligru_cell(w, hx)
+            h = self._ligru_cell(w, hx, drop_mask)
         else:
-            h = self._ligru_cell(w, self.h_init)
+            h = self._ligru_cell(w, self.h_init, drop_mask)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
@@ -1282,16 +1282,15 @@ class LiGRU_Layer(torch.nn.Module):
         wx : torch.Tensor
             Linearly transformed input.
         ht : torch.Tensor
-            Hidden state at timestep - 1.
+            Hidden state at timestep -1.
         drop_mask : torch.Tensor
             Dropout mask.
         """
 
-        # check if the model is on cuda before launching the cuda kernels
         if w.is_cuda == ht.is_cuda == drop_mask.is_cuda :
-            from ligru.cuda_ligru_cell import _ligru_cell_cupy
+            from speechbrain.nnet.ligru.cuda_ligru_cell import _ligru_cell_cupy
             
-            return _ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
+            return _ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask, self.act)
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
 

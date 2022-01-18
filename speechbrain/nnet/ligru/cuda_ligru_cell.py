@@ -52,16 +52,16 @@ def transform_tensor_to_cupy(x):
 
 
 class _ligru_cell_cupy(autograd.Function):
-    """This class redefine the backpropagation of a LiGRU cell and implement the backward using CuPy. 
+    """This class redefines the forward of a LiGRU cell and implement the backward using CuPy. 
     By doing so, we speed up the training by a factor of ~4x in comparison to the original implementation
     and ~2.5x in comparison to the jitted version. 
     """
 
     @staticmethod
     def forward(ctx, wx, u, ht, drop_mask, act):
-        """Compute the hidden states over each time step and save the intermediates results for the backward.
+        """Compute the hidden states over each timestep and save the intermediate results for the backward.
 
-        The utilisation of Tanh in the LiGRU cell is not recommended because it increase the instability and can leads to 
+        The utilisation of Tanh in the LiGRU cell is not recommended because it increases the instability and can lead to 
         nan values in the gradients.
         
         The forward has not been implemented with CuPy because it was leading to numerical instabilities. 
