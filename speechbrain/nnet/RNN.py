@@ -1249,6 +1249,10 @@ class LiGRU_Layer(torch.nn.Module):
         ---------
         wx : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+            Hidden state at timestep - 1.
+        drop_mask : torch.Tensor
+            dropout masks.
         """
         hiddens = []
 
@@ -1266,7 +1270,17 @@ class LiGRU_Layer(torch.nn.Module):
         return h
 
     def _ligru_cell(self, w, ht):
-        
+        """Returns the hidden states for each time step.
+        Choose the appropriate method to call based on the device of 
+        each tensors. 
+
+        Arguments
+        ---------
+        wx : torch.Tensor
+            Linearly transformed input.
+        ht : torch.Tensor
+            Hidden state at timestep - 1.
+        """
         # Sampling dropout mask
         drop_mask = self._sample_drop_mask(w)
 
