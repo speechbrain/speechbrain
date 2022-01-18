@@ -189,3 +189,4 @@ class _ligru_cell_cupy(autograd.Function):
             du     += dwx[:, t].T.dot(ht_)   
 
         return torch.from_dlpack(dwx), torch.from_dlpack(du), torch.from_dlpack(dh), None, None
+

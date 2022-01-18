@@ -1229,6 +1229,9 @@ class LiGRU_Layer(torch.nn.Module):
             w_bn = self.norm(w.reshape(w.shape[0] * w.shape[1], w.shape[2]))
             w = w_bn.reshape(w.shape[0], w.shape[1], w.shape[2])
 
+        # Sampling dropout mask
+        drop_mask = self._sample_drop_mask(w)
+
         # Processing time steps
         if hx is not None:
             h = self._ligru_cell(w, hx)
@@ -1269,7 +1272,7 @@ class LiGRU_Layer(torch.nn.Module):
         h = torch.stack(hiddens, dim=1)
         return h
 
-    def _ligru_cell(self, w, ht):
+    def _ligru_cell(self, w, ht, drop_mask):
         """Returns the hidden states for each time step.
         Choose the appropriate method to call based on the device of 
         each tensors. 
@@ -1280,16 +1283,15 @@ class LiGRU_Layer(torch.nn.Module):
             Linearly transformed input.
         ht : torch.Tensor
             Hidden state at timestep - 1.
+        drop_mask : torch.Tensor
+            Dropout mask.
         """
-        # Sampling dropout mask
-        drop_mask = self._sample_drop_mask(w)
 
         # check if the model is on cuda before launching the cuda kernels
         if w.is_cuda:
-            from ligru import ligru_cell
+            from ligru import cuda_ligru_cell
             
-            return ligru_cell._ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
-
+            return cuda_ligru_cell._ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
 
