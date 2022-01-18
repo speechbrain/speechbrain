@@ -1233,6 +1233,7 @@ class Brain:
                 self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
             )
         self.step = 0
+        return avg_test_loss
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.
