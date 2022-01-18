@@ -54,7 +54,8 @@ def transform_tensor_to_cupy(x):
 
 class _ligru_cell_cupy(autograd.Function):
     """This class redefine the backpropagation of a LiGRU cell and implement the backward using CuPy. 
-    By doing so, we speed up the training by a factor of 2x in comparison to the original implementation. 
+    By doing so, we speed up the training by a factor of ~4x in comparison to the original implementation
+    and ~2.5x in comparison to the jitted version. 
     """
 
     @staticmethod

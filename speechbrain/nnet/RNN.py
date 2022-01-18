@@ -1199,8 +1199,6 @@ class LiGRU_Layer(torch.nn.Module):
         # Setting the activation function
         if nonlinearity == "tanh":
             self.act = torch.nn.Tanh()
-        elif nonlinearity == "sin":
-            self.act = torch.sin
         elif nonlinearity == "leaky_relu":
             self.act = torch.nn.LeakyReLU()
         else:
@@ -1243,7 +1241,7 @@ class LiGRU_Layer(torch.nn.Module):
 
         return h
 
-    def _ligru_cell(self, w, ht):
+    def _ligru_cell_cpu(self, w, ht, drop_mask):
         """Returns the hidden states for each time step.
 
         Arguments
@@ -1252,9 +1250,6 @@ class LiGRU_Layer(torch.nn.Module):
             Linearly transformed input.
         """
         hiddens = []
-
-        # Sampling dropout mask
-        drop_mask = self._sample_drop_mask(w)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -1268,6 +1263,22 @@ class LiGRU_Layer(torch.nn.Module):
         # Stacking hidden states
         h = torch.stack(hiddens, dim=1)
         return h
+
+    def _ligru_cell(self, w, ht):
+        
+        # Sampling dropout mask
+        drop_mask = self._sample_drop_mask(w)
+
+        # check if the model is on cuda before launching the cuda kernels
+        if w.is_cuda:
+            from ligru import ligru_cell
+            
+            return ligru_cell._ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
+            
+        else:
+            return self._ligru_cell_cpu(w, ht, drop_mask)
+
+
 
     def _init_drop(self, batch_size):
         """Initializes the recurrent dropout operation. To speed it up,
