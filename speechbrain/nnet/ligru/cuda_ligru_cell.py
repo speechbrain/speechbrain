@@ -9,7 +9,6 @@ Authors
 
 import torch
 import torch.autograd as autograd
-import torch.nn as nn 
 
 try:
     import cupy as cp
@@ -65,6 +64,8 @@ class _ligru_cell_cupy(autograd.Function):
         The utilisation of Tanh in the LiGRU cell is not recommended because it increase the instability and can leads to 
         nan values in the gradients.
         
+        The forward has not been implemented with CuPy because it was leading to numerical instabilities. 
+
         Arguments
         ---------
         wx : torch.Tensor
