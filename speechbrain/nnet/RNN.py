@@ -5,6 +5,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Jianyuan Zhong 2020
  * Loren Lugosch 2020
+ * Adel Moumen 2022
 """
 
 import torch
@@ -1274,7 +1275,7 @@ class LiGRU_Layer(torch.nn.Module):
             from ligru import ligru_cell
             
             return ligru_cell._ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask)
-            
+
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
 
