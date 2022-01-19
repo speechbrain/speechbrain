@@ -148,7 +148,7 @@ class _ligru_cell_cupy(autograd.Function):
         activation_function_name = activation_function.__class__.__name__
         if activation_function_name  == "LeakyReLU":
             preamble_gradient = _preamble_gradient_leaky_relu    
-        elif activation_function_name  == "tanh":
+        elif activation_function_name  == "Tanh":
             preamble_gradient = _preamble_gradient_tanh    
         else:
             preamble_gradient = _preamble_gradient_relu
@@ -190,4 +190,3 @@ class _ligru_cell_cupy(autograd.Function):
             du     += dwx[:, t].T.dot(ht_)   
 
         return torch.from_dlpack(dwx), torch.from_dlpack(du), torch.from_dlpack(dh), None, None
-
