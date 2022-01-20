@@ -1,5 +1,5 @@
 # [DVoice](https://dvoice.ma) ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset: [download](https://drive.google.com/file/d/1CmFVZCJDSPpGac8RLSkJc5aYl-hTvnwW/view?usp=sharing)
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset: [download](https://zenodo.org/record/5824476/files/dvoice-v1.0%28downsampled%29.tar.gz?download=1)
 
 # Data preparation
 DVoice attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
