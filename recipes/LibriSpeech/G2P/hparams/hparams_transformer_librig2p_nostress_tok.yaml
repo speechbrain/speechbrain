@@ -11,7 +11,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 hpopt: False
 hpopt_mode: generic
 trial_id: null
-output_folder: !ref results/RNN/<seed>
+output_folder: !ref results/transformer/<seed>
 data_folder: /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -26,8 +26,6 @@ enable_metrics: True
 revalidate: False
 retest: False
 
-input_lexicon: !ref <save_folder>/lexicon.csv
-oov: !ref <save_folder>/oov.csv
 pretrained_path: !ref <save_folder>/pretrained_models
 
 

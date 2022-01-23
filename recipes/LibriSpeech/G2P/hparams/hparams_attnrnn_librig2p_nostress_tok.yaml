@@ -26,8 +26,6 @@ enable_metrics: True
 revalidate: False
 retest: False
 
-input_lexicon: !ref <save_folder>/lexicon.csv
-oov: !ref <save_folder>/oov.csv
 pretrained_path: !ref <save_folder>/pretrained_models
 
 
@@ -435,7 +433,6 @@ grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
         annotation_read: char
         model_type: !ref <char_token_type> # ["unigram", "bpe", "char"]
         character_coverage: !ref <character_coverage>
-        annotation_list_to_check: [!ref <tokenizer_valid_data>]
         annotation_format: json
         text_file: !ref <save_folder>/grapheme_annotations.txt
 

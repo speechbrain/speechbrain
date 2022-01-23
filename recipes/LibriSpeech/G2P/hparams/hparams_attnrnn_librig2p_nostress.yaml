@@ -24,27 +24,25 @@ enable_metrics: True
 revalidate: False
 retest: False
 
-input_lexicon: !ref <save_folder>/lexicon.csv
-oov: !ref <save_folder>/oov.csv
 pretrained_path: !ref <save_folder>/pretrained_models
 
 
-# These three files are created from lexicon.csv.
+# These three files are created from lexic  on.csv.
 build_lexicon: False
-data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
-lexicon_train_data: !ref <data_folder>/lexicon_train.json
-lexicon_valid_data: !ref <data_folder>/lexicon_valid.json
-lexicon_test_data: !ref <data_folder>/lexicon_test.json
+dataset: flexthink/librig2p-nostress-space
+lexicon_train_data: lexicon_train
+lexicon_valid_data: lexicon_valid
+lexicon_test_data: !ref lexicon_test
 lexicon_sample: null
 lexicon_sample_random: False
-sentence_train_data: !ref <data_folder>/sentence_train.json
-sentence_valid_data: !ref <data_folder>/sentence_valid.json
-sentence_test_data: !ref <data_folder>/sentence_test.json
+sentence_train_data: !ref sentence_train
+sentence_valid_data: !ref sentence_valid
+sentence_test_data: !ref sentence_test
 sentence_sample: null
 sentence_sample_random: False
-homograph_train_data: !ref <data_folder>/homograph_train.json
-homograph_valid_data: !ref <data_folder>/homograph_valid.json
-homograph_test_data: !ref <data_folder>/homograph_test.json
+homograph_train_data: !ref homograph_train
+homograph_valid_data: !ref homograph_valid
+homograph_test_data: !ref homograph_test
 homograph_sample: null
 homograph_sample_random: False
 homograph_balance: True

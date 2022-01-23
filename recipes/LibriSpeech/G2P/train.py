@@ -69,7 +69,10 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
-from speechbrain.dataio.dataset import FilteredSortedDynamicItemDataset
+from speechbrain.dataio.dataset import (
+    FilteredSortedDynamicItemDataset,
+    DynamicItemDataset,
+)
 from speechbrain.dataio.sampler import BalancingDataSampler
 from speechbrain.utils.data_utils import undo_padding
 import sys
@@ -77,6 +80,7 @@ import sys
 import speechbrain as sb
 import os
 import random
+import datasets
 from enum import Enum
 from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
@@ -131,7 +135,6 @@ class G2PBrain(sb.Brain):
             if step["name"] == train_step_name
         )
         self.epoch_counter = self.train_step["epoch_counter"]
-        self.has_ctc = hasattr(self.hparams, "ctc_lin")
         self.mode = TrainMode(train_step.get("mode", TrainMode.NORMAL))
         self.last_attn = None
         self.use_word_emb = getattr(self.hparams, "use_word_emb", False)
@@ -213,7 +216,7 @@ class G2PBrain(sb.Brain):
         stage: speechbrain.Stage
             the training stage
         """
-        ids = batch.id
+        ids = batch.sample_id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
         loss_seq = self.hparams.seq_cost(
@@ -285,7 +288,7 @@ class G2PBrain(sb.Brain):
         phns_base, phn_base_lens = (
             batch.phn_raw_encoded if self.phn_tokenize else (None, None)
         )
-        ids = batch.id
+        ids = batch.sample_id
         (
             p_seq_homograph,
             phns_homograph,
@@ -395,7 +398,7 @@ class G2PBrain(sb.Brain):
         stage: speechbrain.Stage
             the training stage
         """
-        if not self.has_ctc or stage != sb.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
             return False
         current_epoch = self.epoch_counter.current
         return current_epoch <= self.train_step["ctc_epochs"]
@@ -868,6 +871,28 @@ def filter_origins(data, hparams):
     return data
 
 
+DATASET_SPLITS = ["train", "valid", "test"]
+
+
+def load_datasets(hparams, train_step):
+    """Flexibly loads the specified dataset. If a custom loader is
+    provided, it will be used. Otherwise, it will default to the
+    arrow dataset loader"""
+    data_folder = hparams["data_folder"]
+    dataset = datasets.load_dataset(
+        hparams["dataset"], cache_dir=hparams["data_folder"]
+    )
+    train_step_name = train_step.get("name", "sentence")
+    results = [
+        DynamicItemDataset.from_arrow_dataset(
+            dataset[f"{train_step_name}_{key}"],
+            replacements={"data_root": data_folder},
+        )
+        for key in DATASET_SPLITS
+    ]
+    return results
+
+
 # TODO: Split this up into smaller functions
 def dataio_prep(hparams, train_step=None):
     """This function prepares the datasets to be used in the brain class.
@@ -898,12 +923,10 @@ def dataio_prep(hparams, train_step=None):
 
     if not train_step:
         train_step = hparams
-    data_folder = hparams["data_folder"]
-    data_load = hparams["data_load"]
-    # 1. Declarations:
-    train_data = data_load(
-        train_step["train_data"], replacements={"data_root": data_folder},
-    )
+
+    # 1. Load the datasets:
+    train_data, valid_data, test_data = load_datasets(hparams, train_step)
+
     if hparams["sorting"] == "ascending":
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_opts"]["shuffle"] = False
@@ -924,14 +947,7 @@ def dataio_prep(hparams, train_step=None):
     )
 
     train_data = sort_data(train_data, hparams, train_step)
-    valid_data = data_load(
-        train_step["valid_data"], replacements={"data_root": data_folder},
-    )
     valid_data = sort_data(valid_data, hparams, train_step)
-
-    test_data = data_load(
-        train_step["test_data"], replacements={"data_root": data_folder},
-    )
     test_data = sort_data(test_data, hparams, train_step)
 
     datasets = [train_data, valid_data, test_data]
@@ -1020,7 +1036,7 @@ def dataio_prep(hparams, train_step=None):
 
     # 3. Set output:
     output_keys = [
-        "id",
+        "sample_id",
         "grapheme_encoded",
         "grapheme_encoded_bos",
         "grapheme_encoded_eos",
@@ -1118,7 +1134,6 @@ if __name__ == "__main__":
         check_language_model(hparams, run_opts)
         check_tensorboard(hparams)
 
-        from librispeech_prepare import prepare_librispeech  # noqa
         from tokenizer_prepare import prepare_tokenizer  # noqa
 
         # Create experiment directory
@@ -1127,18 +1142,6 @@ if __name__ == "__main__":
             hyperparams_to_save=hparams_file,
             overrides=overrides,
         )
-        if hparams["build_lexicon"]:
-            # multi-gpu (ddp) save data preparation
-            run_on_main(
-                prepare_librispeech,
-                kwargs={
-                    "data_folder": hparams["data_folder"],
-                    "save_folder": hparams["save_folder"],
-                    "create_lexicon": True,
-                    "skip_prep": hparams["skip_prep"],
-                    "select_n_sentences": hparams.get("select_n_sentences"),
-                },
-            )
         if hparams.get("char_tokenize") or hparams.get("phn_tokenize"):
             path_keys = [
                 "grapheme_tokenizer_output_folder",
@@ -1151,6 +1154,7 @@ if __name__ == "__main__":
             run_on_main(
                 prepare_tokenizer,
                 kwargs={
+                    "dataset_name": hparams.get("dataset"),
                     "data_folder": hparams["data_folder"],
                     "save_folder": hparams["save_folder"],
                     "phonemes": hparams["phonemes"],

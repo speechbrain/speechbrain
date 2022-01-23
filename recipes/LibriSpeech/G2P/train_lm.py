@@ -183,6 +183,7 @@ if __name__ == "__main__":
         run_on_main(
             prepare_tokenizer,
             kwargs={
+                "dataset_name": hparams["dataset"],
                 "data_folder": hparams["data_folder"],
                 "save_folder": hparams["save_folder"],
                 "phonemes": hparams["phonemes"],
