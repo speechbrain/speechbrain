@@ -32,8 +32,6 @@ tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 sorting: random
 origins: "*"
-graphemes_space_separated: False
-phonemes_space_separated: False
 phn_token_output: 128
 token_space_index: !ref <phn_token_output>
 phonemes_count: 43

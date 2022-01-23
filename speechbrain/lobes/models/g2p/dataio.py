@@ -52,7 +52,6 @@ def clean_pipeline(graphemes, takes="txt", provides="txt_cleaned"):
 def grapheme_pipeline(
     graphemes,
     grapheme_encoder=None,
-    space_separated=False,
     uppercase=True,
     takes="char",
 ):
@@ -66,8 +65,8 @@ def grapheme_pipeline(
         a text encoder for graphemes. If not provided,
     takes: str
         the name of the input
-    space_separated: bool
-        wether inputs are space-separated
+    uppercase: bool
+        whether or not to convert items to uppercase
 
     Returns
     -------
@@ -87,9 +86,8 @@ def grapheme_pipeline(
     def f(char):
         if uppercase:
             char = char.upper()
-        grapheme_list = char.strip().split(" ") if space_separated else char
         grapheme_list = [
-            grapheme for grapheme in grapheme_list if grapheme in grapheme_set
+            grapheme for grapheme in char if grapheme in grapheme_set
         ]
         yield grapheme_list
         grapheme_encoded_list = grapheme_encoder.encode_sequence(grapheme_list)
@@ -108,7 +106,6 @@ def tokenizer_encode_pipeline(
     wordwise=True,
     word_separator=" ",
     token_space_index=512,
-    space_separated=True,
     char_map=None,
 ):
     """A pipeline element that uses a pretrained tokenizer
@@ -148,8 +145,7 @@ def tokenizer_encode_pipeline(
         f"{provides_prefix}_encoded",
     )
     def f(seq):
-        token_list = seq.strip().split(" ") if space_separated else seq
-        token_list = [token for token in token_list if token in token_set]
+        token_list = [token for token in seq if token in token_set]
         yield token_list
         tokenizer_input = "".join(
             _map_tokens_item(token_list, char_map)
@@ -342,7 +338,6 @@ def enable_eos_bos(tokens, encoder, bos_index, eos_index):
 
 def phoneme_pipeline(
     phoneme_encoder=None,
-    space_separated=True,
     takes="phn",
     provides_prefix="phn",
 ):
@@ -366,10 +361,9 @@ def phoneme_pipeline(
         f"{provides_prefix}_encoded_list",
         f"{provides_prefix}_encoded",
     )
-    def f(phn):
-        phn_list = phn.strip().split(" ") if space_separated else phn
-        yield phn_list
-        phn_encoded_list = phoneme_encoder.encode_sequence(phn_list)
+    def f(phn):    
+        yield phn
+        phn_encoded_list = phoneme_encoder.encode_sequence(phn)
         yield phn_encoded_list
         phn_encoded = torch.LongTensor(phn_encoded_list)
         yield phn_encoded

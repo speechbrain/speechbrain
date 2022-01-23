@@ -962,13 +962,11 @@ def dataio_prep(hparams, train_step=None):
             takes="char",
             provides_prefix="grapheme",
             wordwise=hparams["char_token_wordwise"],
-            space_separated=hparams["phonemes_space_separated"],
             token_space_index=hparams["token_space_index"],
         )
     else:
         grapheme_pipeline_item = grapheme_pipeline(
             graphemes=hparams["graphemes"],
-            space_separated=hparams["graphemes_space_separated"],
         )
 
     if hparams.get("phn_tokenize"):
@@ -979,7 +977,6 @@ def dataio_prep(hparams, train_step=None):
             provides_prefix="phn",
             char_map=hparams["phn_char_map"],
             wordwise=hparams["phn_token_wordwise"],
-            space_separated=hparams["phonemes_space_separated"],
             token_space_index=hparams["token_space_index"],
         )
         # Ensure the tokenizers are trained
@@ -996,7 +993,6 @@ def dataio_prep(hparams, train_step=None):
     else:
         phoneme_pipeline_item = phoneme_pipeline(
             phoneme_encoder=phoneme_encoder,
-            space_separated=hparams["phonemes_space_separated"],
         )
 
     phn_bos_eos_pipeline_item = add_bos_eos(
@@ -1026,7 +1022,6 @@ def dataio_prep(hparams, train_step=None):
         # word boundaries from data
         phoneme_raw_pipeline = phoneme_pipeline(
             phoneme_encoder=phoneme_encoder,
-            space_separated=hparams["phonemes_space_separated"],
             provides_prefix="phn_raw",
         )
         dynamic_items.append(phoneme_raw_pipeline)
