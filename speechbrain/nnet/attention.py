@@ -329,7 +329,7 @@ class RelPosEncXL(nn.Module):
         Parameters
         ----------
         x : torch.Tensor
-        input tensor with shape seq_len, batch_size, embed_dim
+        input tensor with shape batch_size, seq_len, embed_dim
         Returns
         -------
         pos_emb : torch.Tensor
