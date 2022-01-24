@@ -328,7 +328,7 @@ class Pretrained(torch.nn.Module):
         """
         if savedir is None:
             clsname = cls.__name__
-            savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8')).hexdigest()}"
+            savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
             hparams_file, source, savedir, use_auth_token
         )
