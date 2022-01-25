@@ -14,8 +14,7 @@ import os
 import sys
 import hyperpyyaml
 
-
-sys.path.insert(0, os.path.abspath("../speechbrain"))
+sys.path.insert(-1, os.path.abspath("../"))
 
 
 # -- Project information -----------------------------------------------------
@@ -69,7 +68,7 @@ intersphinx_mapping = {
 autodoc_default_options = {}
 
 # Autodoc mock extra dependencies:
-autodoc_mock_imports = ["numba", "sklearn"]
+autodoc_mock_imports = []
 
 # Order of API items:
 autodoc_member_order = "bysource"

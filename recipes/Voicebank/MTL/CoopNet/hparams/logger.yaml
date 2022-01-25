@@ -1,0 +1,16 @@
+# ################################
+# WandB logger setup
+# Authors: Sreeramadas Sai Aravind & Émile Dimas & Nicolas Duchêne 2021
+# ################################
+train_logger: !new:speechbrain.utils.train_logger.WandBLogger
+    initializer: !name:wandb.init
+    entity: cooperative-learning
+    project: coop-3ll
+    name: vltk
+    reinit: True
+    yaml_config: hparams/train_3layer.yaml
+    resume: False
+
+sweep: False
+sweep_params:
+    - lr_fuse

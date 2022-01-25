@@ -1,10 +1,10 @@
 # ############################################################################
-# Tokenizer: subword BPE with unigram 51
+# Tokenizer: subword BPE with unigram 58
 # Training: SLURP
 # Authors:  Abdel Heba, Loren Lugosch 2021
 # ############################################################################
 
-output_folder: !ref results/tokenizer_bpe51/
+output_folder: !ref results/tokenizer_bpe58/
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -16,9 +16,8 @@ skip_prep: False
 
 # Training parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
-token_output: 51  # index(blank/eos/bos/unk) = 0
+token_output: 58  # index(blank/eos/bos/unk) = 0
 character_coverage: 1.0
-num_sequences: 10000
 csv_read: semantics
 
 
@@ -29,5 +28,4 @@ tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
    annotation_read: !ref <csv_read>
    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
    character_coverage: !ref <character_coverage>
-   num_sequences: !ref <num_sequences>
    annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]

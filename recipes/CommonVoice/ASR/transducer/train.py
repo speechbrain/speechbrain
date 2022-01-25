@@ -133,7 +133,6 @@ class ASR(sb.Brain):
                 CE_loss = self.hparams.ce_cost(
                     p_ce, tokens_eos, length=token_eos_lens
                 )
-                tokens = tokens.long()
                 loss_transducer = self.hparams.transducer_cost(
                     p_transducer, tokens, wav_lens, token_lens
                 )
@@ -151,7 +150,6 @@ class ASR(sb.Brain):
                     CTC_loss = self.hparams.ctc_cost(
                         p_ctc, tokens, wav_lens, token_lens
                     )
-                    tokens = tokens.long()
                     loss_transducer = self.hparams.transducer_cost(
                         p_transducer, tokens, wav_lens, token_lens
                     )
@@ -165,7 +163,6 @@ class ASR(sb.Brain):
                     CE_loss = self.hparams.ce_cost(
                         p_ce, tokens_eos, length=token_eos_lens
                     )
-                    tokens = tokens.long()
                     loss_transducer = self.hparams.transducer_cost(
                         p_transducer, tokens, wav_lens, token_lens
                     )
@@ -175,13 +172,11 @@ class ASR(sb.Brain):
                     )
             else:
                 p_transducer, wav_lens = predictions
-                tokens = tokens.long()
                 loss = self.hparams.transducer_cost(
                     p_transducer, tokens, wav_lens, token_lens
                 )
         else:
             p_transducer, wav_lens, predicted_tokens = predictions
-            tokens = tokens.long()
             loss = self.hparams.transducer_cost(
                 p_transducer, tokens, wav_lens, token_lens
             )
@@ -258,7 +253,7 @@ class ASR(sb.Brain):
 
 
 # Define custom data procedure
-def dataio_prepare(hparams):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
 
@@ -310,16 +305,6 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    # defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-    )
-
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -355,7 +340,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data, tokenizer
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -394,8 +379,18 @@ if __name__ == "__main__":
         },
     )
 
+    # Defining tokenizer and loading it
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["output_neurons"],
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
+        model_type=hparams["token_type"],
+        character_coverage=hparams["character_coverage"],
+    )
+
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data, tokenizer = dataio_prepare(hparams)
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(

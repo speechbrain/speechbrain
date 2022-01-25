@@ -193,7 +193,7 @@ class ISTFT(torch.nn.Module):
 
     This class computes the Inverse Short-Term Fourier Transform of
     an audio signal. It supports multi-channel audio inputs
-    (batch, time_step, n_fft, n_channels [optional], 2).
+    (batch, time_step, n_fft, 2, n_channels [optional]).
 
     Arguments
     ---------
@@ -383,7 +383,7 @@ class Filterbank(torch.nn.Module):
     ref_value : float
         Reference value used for the dB scale.
     top_db : float
-        Top dB valu used for log-mels.
+        Minimum negative cut-off in decibels.
     freeze : bool
         If False, it the central frequency and the band of each filter are
         added into nn.parameters. If True, the standard frozen features
@@ -539,6 +539,7 @@ class Filterbank(torch.nn.Module):
 
         # Managing multi-channels case (batch, time, channels)
         if len(sp_shape) == 4:
+            spectrogram = spectrogram.permute(0, 3, 1, 2)
             spectrogram = spectrogram.reshape(
                 sp_shape[0] * sp_shape[3], sp_shape[1], sp_shape[2]
             )
@@ -552,8 +553,9 @@ class Filterbank(torch.nn.Module):
         if len(sp_shape) == 4:
             fb_shape = fbanks.shape
             fbanks = fbanks.reshape(
-                sp_shape[0], fb_shape[1], fb_shape[2], sp_shape[3]
+                sp_shape[0], sp_shape[3], fb_shape[1], fb_shape[2]
             )
+            fbanks = fbanks.permute(0, 2, 3, 1)
 
         return fbanks
 
@@ -695,13 +697,17 @@ class Filterbank(torch.nn.Module):
             A batch of linear FBANK tensors.
 
         """
+
         x_db = self.multiplier * torch.log10(torch.clamp(x, min=self.amin))
         x_db -= self.multiplier * self.db_multiplier
 
-        # Setting up dB max
-        new_x_db_max = x_db.max() - self.top_db
-        # Clipping to dB max
-        x_db = torch.max(x_db, new_x_db_max)
+        # Setting up dB max. It is the max over time and frequency,
+        # Hence, of a whole sequence (sequence-dependent)
+        new_x_db_max = x_db.amax(dim=(-2, -1)) - self.top_db
+
+        # Clipping to dB max. The view is necessary as only a scalar is obtained
+        # per sequence.
+        x_db = torch.max(x_db, new_x_db_max.view(x_db.shape[0], 1, 1))
 
         return x_db
 
@@ -1030,36 +1036,47 @@ class InputNormalization(torch.nn.Module):
 
                 spk_id = int(spk_ids[snt_id][0])
 
-                if spk_id not in self.spk_dict_mean:
+                if self.training:
+                    if spk_id not in self.spk_dict_mean:
 
-                    # Initialization of the dictionary
-                    self.spk_dict_mean[spk_id] = current_mean
-                    self.spk_dict_std[spk_id] = current_std
-                    self.spk_dict_count[spk_id] = 1
+                        # Initialization of the dictionary
+                        self.spk_dict_mean[spk_id] = current_mean
+                        self.spk_dict_std[spk_id] = current_std
+                        self.spk_dict_count[spk_id] = 1
 
-                else:
-                    self.spk_dict_count[spk_id] = (
-                        self.spk_dict_count[spk_id] + 1
-                    )
-
-                    if self.avg_factor is None:
-                        self.weight = 1 / self.spk_dict_count[spk_id]
                     else:
-                        self.weight = self.avg_factor
+                        self.spk_dict_count[spk_id] = (
+                            self.spk_dict_count[spk_id] + 1
+                        )
 
-                    self.spk_dict_mean[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_mean[spk_id] + self.weight * current_mean
-                    self.spk_dict_std[spk_id] = (
-                        1 - self.weight
-                    ) * self.spk_dict_std[spk_id] + self.weight * current_std
+                        if self.avg_factor is None:
+                            self.weight = 1 / self.spk_dict_count[spk_id]
+                        else:
+                            self.weight = self.avg_factor
 
-                    self.spk_dict_mean[spk_id].detach()
-                    self.spk_dict_std[spk_id].detach()
+                        self.spk_dict_mean[spk_id] = (
+                            (1 - self.weight) * self.spk_dict_mean[spk_id]
+                            + self.weight * current_mean
+                        )
+                        self.spk_dict_std[spk_id] = (
+                            (1 - self.weight) * self.spk_dict_std[spk_id]
+                            + self.weight * current_std
+                        )
 
-                x[snt_id] = (
-                    x[snt_id] - self.spk_dict_mean[spk_id].data
-                ) / self.spk_dict_std[spk_id].data
+                        self.spk_dict_mean[spk_id].detach()
+                        self.spk_dict_std[spk_id].detach()
+
+                    speaker_mean = self.spk_dict_mean[spk_id].data
+                    speaker_std = self.spk_dict_std[spk_id].data
+                else:
+                    if spk_id in self.spk_dict_mean:
+                        speaker_mean = self.spk_dict_mean[spk_id].data
+                        speaker_std = self.spk_dict_std[spk_id].data
+                    else:
+                        speaker_mean = current_mean.data
+                        speaker_std = current_std.data
+
+                x[snt_id] = (x[snt_id] - speaker_mean) / speaker_std
 
         if self.norm_type == "batch" or self.norm_type == "global":
             current_mean = torch.mean(torch.stack(current_means), dim=0)
@@ -1070,30 +1087,31 @@ class InputNormalization(torch.nn.Module):
 
             if self.norm_type == "global":
 
-                if self.count == 0:
-                    self.glob_mean = current_mean
-                    self.glob_std = current_std
+                if self.training:
+                    if self.count == 0:
+                        self.glob_mean = current_mean
+                        self.glob_std = current_std
 
-                elif epoch < self.update_until_epoch:
-                    if self.avg_factor is None:
-                        self.weight = 1 / (self.count + 1)
-                    else:
-                        self.weight = self.avg_factor
+                    elif epoch < self.update_until_epoch:
+                        if self.avg_factor is None:
+                            self.weight = 1 / (self.count + 1)
+                        else:
+                            self.weight = self.avg_factor
 
-                    self.glob_mean = (
-                        1 - self.weight
-                    ) * self.glob_mean + self.weight * current_mean
+                        self.glob_mean = (
+                            1 - self.weight
+                        ) * self.glob_mean + self.weight * current_mean
 
-                    self.glob_std = (
-                        1 - self.weight
-                    ) * self.glob_std + self.weight * current_std
+                        self.glob_std = (
+                            1 - self.weight
+                        ) * self.glob_std + self.weight * current_std
 
-                self.glob_mean.detach()
-                self.glob_std.detach()
+                    self.glob_mean.detach()
+                    self.glob_std.detach()
+
+                    self.count = self.count + 1
 
                 x = (x - self.glob_mean.data) / (self.glob_std.data)
-
-        self.count = self.count + 1
 
         return x
 

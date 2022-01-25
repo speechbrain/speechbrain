@@ -8,6 +8,7 @@ from speechbrain.dataio.batch import PaddedBatch
 from tqdm import tqdm
 import warnings
 import pyloudnorm
+import random
 
 """
 The functions to implement Dynamic Mixing For SpeechSeparation
@@ -148,13 +149,11 @@ def dynamic_mix_data_prep_librimix(hparams):
                 warnings.simplefilter("ignore")
                 c_loudness = meter.integrated_loudness(signal)
                 if is_noise:
-                    target_loudness = np.random.randint(
+                    target_loudness = random.uniform(
                         MIN_LOUDNESS - 5, MAX_LOUDNESS - 5
                     )
                 else:
-                    target_loudness = np.random.randint(
-                        MIN_LOUDNESS, MAX_LOUDNESS
-                    )
+                    target_loudness = random.uniform(MIN_LOUDNESS, MAX_LOUDNESS)
                 signal = pyloudnorm.normalize.loudness(
                     signal, c_loudness, target_loudness
                 )

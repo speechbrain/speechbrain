@@ -79,7 +79,6 @@ class ASR_Brain(sb.Brain):
         if stage != sb.Stage.TRAIN:
             predictions, hyps = predictions
 
-        phns = phns.long()
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
         self.transducer_metrics.append(
             ids, predictions, phns, wav_lens, phn_lens

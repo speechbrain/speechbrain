@@ -1,5 +1,4 @@
 """Library for Byte-pair-encoding (BPE) tokenization.
-
 Authors
  * Abdelwahab Heba 2020
  * Loren Lugosch 2020
@@ -13,20 +12,17 @@ import json
 import sentencepiece as spm
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
-import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
 
 class SentencePiece:
     """BPE class call the SentencePiece unsupervised text tokenizer from Google.
-
     Reference: https://github.com/google/sentencepiece
-
     SentencePiece lib is an unsupervised text tokenizer and detokenizer.
     It implements subword units like Byte-pair-encoding (BPE),
     Unigram language model and char/word tokenizer.
-
     Arguments
     ---------
     model_dir : str
@@ -78,7 +74,8 @@ class SentencePiece:
         recovering words from the tokenizer.
     annotation_format : str
         The format of the annotation file. JSON or csv are the formats supported.
-
+    add_dummy_prefix : bool
+        If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
     Example
     -------
     >>> import torch
@@ -124,6 +121,7 @@ class SentencePiece:
         num_sequences=None,
         annotation_list_to_check=None,
         annotation_format="csv",
+        add_dummy_prefix=True,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -135,6 +133,7 @@ class SentencePiece:
         self.annotation_train = annotation_train
         self.annotation_read = annotation_read
         self.annotation_format = annotation_format
+
         if self.annotation_train is not None:
             ext = os.path.splitext(self.annotation_train)[1]
             self.text_file = self.annotation_train.replace(ext, ".txt")
@@ -154,43 +153,36 @@ class SentencePiece:
         self.num_sequences = num_sequences
         self.split_by_whitespace = split_by_whitespace
         self.user_defined_symbols = user_defined_symbols
+        self.add_dummy_prefix = str(add_dummy_prefix)
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
             if not os.path.isfile(self.text_file):
-                try:
-                    if sb.utils.distributed.if_main_process():
-                        if annotation_format == "csv":
-                            self._csv2text()
-                        elif annotation_format == "json":
-                            self._json2text()
-                        else:
-                            raise ValueError(
-                                "Annotation format not supported. Supported formats are csv and json. Got "
-                                + annotation_format
-                            )
-
-                finally:
-                    sb.utils.distributed.ddp_barrier()
-            try:
-                if sb.utils.distributed.if_main_process():
-                    self._train_BPE()
-            finally:
-                sb.utils.distributed.ddp_barrier()
+                if annotation_format == "csv":
+                    run_on_main(self._csv2text)
+                elif annotation_format == "json":
+                    run_on_main(self._json2text)
+                else:
+                    raise ValueError(
+                        "Annotation format not supported. Supported formats are csv and json. Got "
+                        + annotation_format
+                    )
+            run_on_main(self._train_BPE)
         else:
             logger.info("Tokenizer is already trained.")
+
         logger.info("==== Loading Tokenizer ===")
         logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
         logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
         logger.info("Tokenizer type: " + self.model_type)
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
-        try:
-            if sb.utils.distributed.if_main_process():
-                if annotation_list_to_check is not None:
-                    self._check_coverage_from_bpe(annotation_list_to_check)
-        finally:
-            sb.utils.distributed.ddp_barrier()
+
+        if annotation_list_to_check is not None:
+            run_on_main(
+                self._check_coverage_from_bpe,
+                kwargs={"list_annotation_files": annotation_list_to_check},
+            )
 
     def _csv2text(self):
         """Read CSV file and convert specific data entries into text file.
@@ -298,6 +290,8 @@ class SentencePiece:
             + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
+            + " --add_dummy_prefix="
+            + self.add_dummy_prefix
         )
         if self.model_type not in ["char"]:
             # include vocab_size
@@ -311,7 +305,6 @@ class SentencePiece:
 
     def _check_coverage_from_bpe(self, list_annotation_files=[]):
         """Logging the accuracy of the BPE model to recover words from the training text.
-
         Arguments
         ---------
         annotation_list_to_check : list,
@@ -395,7 +388,6 @@ class SentencePiece:
         """This __call__ function implements the tokenizer encoder and decoder
         (restoring the string of word) for BPE, Regularized BPE (with unigram),
         and char (speechbrain/nnet/RNN.py).
-
         Arguments
         ----------
         batch : tensor.IntTensor or list
@@ -422,7 +414,7 @@ class SentencePiece:
             # Convert list of words/chars to bpe ids
             bpe = []
             max_bpe_len = 0
-            batch_lens = (batch_lens * batch.shape[1]).int()
+            batch_lens = (batch_lens * batch.shape[1]).round().int()
             for i, utt_seq in enumerate(batch):
                 tokens = [
                     ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]
@@ -454,7 +446,7 @@ class SentencePiece:
         elif task == "decode":
             # From a batch tensor and a length tensor
             # find the absolute batch lengths and do decoding
-            batch_lens = (batch_lens * batch.shape[1]).int()
+            batch_lens = (batch_lens * batch.shape[1]).round().int()
             return [
                 self.sp.decode_ids(
                     utt_seq[: batch_lens[i]].int().tolist()
