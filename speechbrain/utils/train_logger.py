@@ -157,6 +157,13 @@ class TensorboardLogger(TrainLogger):
                     new_global_step = self.global_step[dataset][stat] + 1
                     self.writer.add_scalar(tag, value, new_global_step)
                     self.global_step[dataset][stat] = new_global_step
+    
+    def log_audio(self, name, value, sample_rate):
+        self.writer.add_audio(name, value, self.global_step["meta"], sample_rate=sample_rate)
+
+    def log_figure(self, name, value):
+        fig = plot_spectrogram(value)
+        self.writer.add_figure(name, fig, self.global_step["meta"])
 
 
 class WandBLogger(TrainLogger):
@@ -200,3 +207,17 @@ class WandBLogger(TrainLogger):
             self.run.log({**logs, **stats_meta}, step=step)
         else:
             self.run.log({**logs, **stats_meta})
+
+
+def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    spectrogram = spectrogram.detach().cpu().numpy().squeeze()
+    fig = plt.figure(figsize=fig_size)
+    plt.imshow(spectrogram, aspect="auto", origin="lower")
+    plt.colorbar()
+    plt.tight_layout()
+    if not output_fig:
+        plt.close()
+    return fig
