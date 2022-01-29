@@ -45,8 +45,10 @@ LRELU_SLOPE = 0.1
 def get_padding(kernel_size, dilation=1):
     return int((kernel_size * dilation - dilation) / 2)
 
+
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
+
 
 def mel_spectogram(
     sample_rate,
@@ -95,7 +97,7 @@ class ResBlock1(torch.nn.Module):
         kernel_size (int): size of the convolution filter in each layer.
         dilations (list): list of dilation value for each conv layer in a block.
     """
-    
+
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
         super().__init__()
         self.convs1 = nn.ModuleList(
@@ -200,7 +202,7 @@ class ResBlock2(torch.nn.Module):
         kernel_size (int): size of the convolution filter in each layer.
         dilations (list): list of dilation value for each conv layer in a block.
     """
-    
+
     def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
         super().__init__()
         self.convs = nn.ModuleList(
@@ -255,7 +257,7 @@ class HifiganGenerator(torch.nn.Module):
             upsample_factors (List[int]): upsampling factors (stride) for each upsampling layer.
             inference_padding (int): constant padding applied to the input at inference time. Defaults to 5.
     """
-    
+
     def __init__(
         self,
         in_channels,
@@ -625,7 +627,7 @@ class HifiganDiscriminator(nn.Module):
         # scores, feats = self.mpd(x)
         # return scores, feats
 
-        
+
 #################################
 # GENERATOR LOSSES
 #################################
@@ -637,7 +639,7 @@ def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
         n_fft,
         hop_length,
         win_length,
-        #nn.Parameter(getattr(torch, window_fn)(win_length), requires_grad=False),
+        # nn.Parameter(getattr(torch, window_fn)(win_length), requires_grad=False),
     )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
@@ -790,7 +792,7 @@ class MelganFeatureLoss(nn.Module):
         loss_feats = loss_feats / num_feats
         return loss_feats
 
-    
+
 ##################################
 # DISCRIMINATOR LOSSES
 ##################################
@@ -799,9 +801,7 @@ class MelganFeatureLoss(nn.Module):
 class MSEDLoss(nn.Module):
     """Mean Squared Discriminator Loss"""
 
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
@@ -867,7 +867,6 @@ def _apply_D_loss(scores_fake, scores_real, loss_func):
 
 
 class GeneratorLoss(nn.Module):
-
     def __init__(
         self,
         stft_loss=None,
@@ -877,7 +876,7 @@ class GeneratorLoss(nn.Module):
         feat_match_loss=None,
         feat_match_loss_weight=0,
         l1_spec_loss=None,
-        l1_spec_loss_weight=0
+        l1_spec_loss_weight=0,
     ):
         super().__init__()
         self.stft_loss = stft_loss
