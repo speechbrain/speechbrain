@@ -23,6 +23,7 @@ DEV_CSV = "dev.csv"
 TEST_CSV = "test.csv"
 WAVS = "wavs"
 
+
 def prepare_ljspeech(
     data_folder,
     save_folder,
@@ -95,19 +96,18 @@ def prepare_ljspeech(
     msg = "\tCreating csv file for ljspeech Dataset.."
     logger.info(msg)
 
-    data_split, meta_csv = split_sets(
-        data_folder, splits, split_ratio
-    )
+    data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
 
     # Prepare csv
     if "train" in splits:
         prepare_csv(data_split["train"], save_csv_train, wavs_folder, meta_csv)
     if "dev" in splits:
-       prepare_csv(data_split["dev"], save_csv_dev, wavs_folder, meta_csv)
+        prepare_csv(data_split["dev"], save_csv_dev, wavs_folder, meta_csv)
     if "test" in splits:
         prepare_csv(data_split["test"], save_csv_test, wavs_folder, meta_csv)
 
     save_pkl(conf, save_opt)
+
 
 def skip(splits, save_folder, conf):
     """
@@ -143,6 +143,7 @@ def skip(splits, save_folder, conf):
             skip = False
     return skip
 
+
 def split_sets(data_folder, splits, split_ratio):
     """Randomly splits the wav list into training, validation, and test lists.
     Note that a better approach is to make sure that all the classes have the
@@ -161,20 +162,20 @@ def split_sets(data_folder, splits, split_ratio):
     dictionary containing train, valid, and test splits.
     """
     meta_csv = os.path.join(data_folder, METADATA_CSV)
-    csv_reader = csv.reader(open(meta_csv), delimiter='|')
+    csv_reader = csv.reader(open(meta_csv), delimiter="|")
 
     meta_csv = list(csv_reader)
 
     index_for_speakers = []
     speaker_id_start = "LJ001"
     index_this_speaker = []
-    for i in range(len(meta_csv)) : 
+    for i in range(len(meta_csv)): 
         speaker_id = meta_csv[i][0].split("-")[0]
-        if speaker_id == speaker_id_start : 
+        if speaker_id == speaker_id_start: 
             index_this_speaker.append(i)
-            if i==len(meta_csv)-1:
+            if i == len(meta_csv) - 1:
                 index_for_speakers.append(index_this_speaker)
-        else : 
+        else: 
             index_for_speakers.append(index_this_speaker)
             speaker_id_start = speaker_id
             index_this_speaker = [i]
@@ -183,14 +184,15 @@ def split_sets(data_folder, splits, split_ratio):
     for i, split in enumerate(splits):
         data_split[split] = []
         for speaker in index_for_speakers:
-            if split == "train" : 
+            if split == "train": 
                 random.shuffle(speaker)
                 n_snts = int(len(speaker) * split_ratio[i] / sum(split_ratio))
                 data_split[split].extend(speaker[0:n_snts])
                 del speaker[0:n_snts]
-            else : 
+            else: 
                 data_split[split].extend(speaker)
     return data_split, meta_csv
+
 
 def prepare_csv(seg_lst, csv_file, wavs_folder, csv_reader):
     """
@@ -202,10 +204,10 @@ def prepare_csv(seg_lst, csv_file, wavs_folder, csv_reader):
         The list of csv indexes of a given data split.
     csv_file : str
         Output csv path
-    wavs_folder : 
+    wavs_folder : str
         LJspeech wavs folder
-    csv_reader : 
-        LJspeech metadata (csv.reader)
+    csv_reader : _csv.reader
+        LJspeech metadata
     Returns
     -------
     None
@@ -220,7 +222,7 @@ def prepare_csv(seg_lst, csv_file, wavs_folder, csv_reader):
             id,
             wav,
             True if "train" in csv_file else False,
-            ]
+        ]
         entry.append(csv_line)
 
     csv_output = csv_output_head + entry
