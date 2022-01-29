@@ -9,11 +9,9 @@ Authors
  * Duret Jarod 2021
  * Yingzhi WANG 2022
 """
-import os
 import sys
 
 import torch
-from torchaudio import transforms
 
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
@@ -323,7 +321,3 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
-
-    # Test
-    if "test" in datasets:
-        hifi_gan_brain.evaluate(datasets["test"])
