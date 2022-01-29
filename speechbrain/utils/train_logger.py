@@ -213,10 +213,10 @@ class WandBLogger(TrainLogger):
 
 def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
     import matplotlib
-    
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    
+
     spectrogram = spectrogram.detach().cpu().numpy().squeeze()
     fig = plt.figure(figsize=fig_size)
     plt.imshow(spectrogram, aspect="auto", origin="lower")
