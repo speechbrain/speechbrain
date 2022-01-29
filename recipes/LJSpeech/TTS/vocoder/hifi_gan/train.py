@@ -85,7 +85,7 @@ class HifiGanBrain(sb.Brain):
         scores_real, feats_real = self.modules.discriminator(y)
         outputs = (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
         loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)["D_loss"]
-        
+
         loss_d.backward()
         self.optimizer_d.step()
 
@@ -197,7 +197,6 @@ class HifiGanBrain(sb.Brain):
             self.hparams.train_logger.log_audio("Valid/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate)
             self.hparams.train_logger.log_figure("Valid/mel_target", x)
             self.hparams.train_logger.log_figure("Valid/mel_pred", spec_out)
-
 
 
 def dataio_prepare(hparams):
