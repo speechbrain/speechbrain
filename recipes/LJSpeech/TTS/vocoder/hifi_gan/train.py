@@ -254,7 +254,7 @@ def dataio_prepare(hparams):
                 audio = audio[:, audio_start : audio_start + segment_size]
             else:
                 audio = torch.nn.functional.pad(
-                    audio, (0, segment_size - audio.size(1)), 'constant'
+                    audio, (0, segment_size - audio.size(1)), "constant"
                 )
 
         mel = hparams["mel_spectogram"](audio=audio.squeeze(0))
@@ -298,7 +298,7 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-    
+
     train_data, valid_data = dataio_prepare(hparams)
 
     # Brain class initialization
