@@ -169,27 +169,27 @@ def split_sets(data_folder, splits, split_ratio):
     index_for_speakers = []
     speaker_id_start = "LJ001"
     index_this_speaker = []
-    for i in range(len(meta_csv)): 
+    for i in range(len(meta_csv)):
         speaker_id = meta_csv[i][0].split("-")[0]
-        if speaker_id == speaker_id_start: 
+        if speaker_id == speaker_id_start:
             index_this_speaker.append(i)
             if i == len(meta_csv) - 1:
                 index_for_speakers.append(index_this_speaker)
-        else: 
+        else:
             index_for_speakers.append(index_this_speaker)
             speaker_id_start = speaker_id
             index_this_speaker = [i]
-    
+
     data_split = {}
     for i, split in enumerate(splits):
         data_split[split] = []
         for speaker in index_for_speakers:
-            if split == "train": 
+            if split == "train":
                 random.shuffle(speaker)
                 n_snts = int(len(speaker) * split_ratio[i] / sum(split_ratio))
                 data_split[split].extend(speaker[0:n_snts])
                 del speaker[0:n_snts]
-            else: 
+            else:
                 data_split[split].extend(speaker)
     return data_split, meta_csv
 
