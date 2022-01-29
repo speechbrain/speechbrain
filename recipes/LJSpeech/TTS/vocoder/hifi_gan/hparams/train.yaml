@@ -69,7 +69,7 @@ out_channels: 1
 ###########################################################################################################################################################
 resblock_type : "1"
 resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
-resblock_kernel_sizes: [3, 7, 11] 
+resblock_kernel_sizes: [3, 7, 11]
 upsample_kernel_sizes: [16, 16, 4, 4]
 upsample_initial_channel: 512
 upsample_factors: [8, 8, 2, 2]
@@ -167,7 +167,7 @@ sch_class_discriminator: !name:torch.optim.lr_scheduler.ExponentialLR
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <epochs>
 
-train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger 
+train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
     save_dir: !ref <output_folder>/tensorboard
 
 #checkpointer
