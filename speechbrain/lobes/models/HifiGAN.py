@@ -49,16 +49,16 @@ def dynamic_range_compression(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 def mel_spectogram(
-    sample_rate, 
-    hop_length, 
-    win_length, 
-    n_fft, 
-    n_mels, 
-    f_min, 
-    f_max, 
-    power, 
-    normalized, 
-    compression, 
+    sample_rate,
+    hop_length,
+    win_length,
+    n_fft,
+    n_mels,
+    f_min,
+    f_max,
+    power,
+    normalized,
+    compression,
     audio,
 ):
     audio_to_mel = transforms.MelSpectrogram(
@@ -80,19 +80,22 @@ def mel_spectogram(
 
     return mel
 
+
 ##################################
-# Generator 
+# Generator
 ##################################
+
 
 class ResBlock1(torch.nn.Module):
     """
     Residual Block Type 1. It has 3 convolutional layers in each convolutiona block.
-    
+
     Args:
         channels (int): number of hidden channels for the convolutional layers.
         kernel_size (int): size of the convolution filter in each layer.
         dilations (list): list of dilation value for each conv layer in a block.
     """
+    
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
         super().__init__()
         self.convs1 = nn.ModuleList(
@@ -133,13 +136,34 @@ class ResBlock1(torch.nn.Module):
         self.convs2 = nn.ModuleList(
             [
                 weight_norm(
-                    Conv1d(channels, channels, kernel_size, 1, dilation=1, padding=get_padding(kernel_size, 1))
+                    Conv1d(
+                        channels,
+                        channels,
+                        kernel_size,
+                        1,
+                        dilation=1,
+                        padding=get_padding(kernel_size, 1),
+                    )
                 ),
                 weight_norm(
-                    Conv1d(channels, channels, kernel_size, 1, dilation=1, padding=get_padding(kernel_size, 1))
+                    Conv1d(
+                        channels,
+                        channels,
+                        kernel_size,
+                        1,
+                        dilation=1,
+                        padding=get_padding(kernel_size, 1),
+                    )
                 ),
                 weight_norm(
-                    Conv1d(channels, channels, kernel_size, 1, dilation=1, padding=get_padding(kernel_size, 1))
+                    Conv1d(
+                        channels,
+                        channels,
+                        kernel_size,
+                        1,
+                        dilation=1,
+                        padding=get_padding(kernel_size, 1),
+                    )
                 ),
             ]
         )
@@ -176,6 +200,7 @@ class ResBlock2(torch.nn.Module):
         kernel_size (int): size of the convolution filter in each layer.
         dilations (list): list of dilation value for each conv layer in a block.
     """
+    
     def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
         super().__init__()
         self.convs = nn.ModuleList(
@@ -230,6 +255,7 @@ class HifiganGenerator(torch.nn.Module):
             upsample_factors (List[int]): upsampling factors (stride) for each upsampling layer.
             inference_padding (int): constant padding applied to the input at inference time. Defaults to 5.
     """
+    
     def __init__(
         self,
         in_channels,
@@ -251,11 +277,15 @@ class HifiganGenerator(torch.nn.Module):
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_factors)
         # initial upsampling layers
-        self.conv_pre = weight_norm(Conv1d(80, upsample_initial_channel, 7, 1, padding=3))
+        self.conv_pre = weight_norm(
+            Conv1d(80, upsample_initial_channel, 7, 1, padding=3)
+        )
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
         # upsampling layers
         self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(zip(upsample_factors, upsample_kernel_sizes)):
+        for i, (u, k) in enumerate(
+            zip(upsample_factors, upsample_kernel_sizes)
+        ):
             self.ups.append(
                 weight_norm(
                     ConvTranspose1d(
@@ -271,12 +301,18 @@ class HifiganGenerator(torch.nn.Module):
         self.resblocks = nn.ModuleList()
         for i in range(len(self.ups)):
             ch = upsample_initial_channel // (2 ** (i + 1))
-            for _, (k, d) in enumerate(zip(resblock_kernel_sizes, resblock_dilation_sizes)):
+            for _, (k, d) in enumerate(
+                zip(resblock_kernel_sizes, resblock_dilation_sizes)
+            ):
                 self.resblocks.append(resblock(ch, k, d))
         # post convolution layer
-        self.conv_post = weight_norm(Conv1d(ch, 1, 7, 1, padding=3, bias=conv_post_bias))
+        self.conv_post = weight_norm(
+            Conv1d(ch, 1, 7, 1, padding=3, bias=conv_post_bias)
+        )
         if cond_channels > 0:
-            self.cond_layer = nn.Conv1d(cond_channels, upsample_initial_channel, 1)
+            self.cond_layer = nn.Conv1d(
+                cond_channels, upsample_initial_channel, 1
+            )
 
         if not conv_pre_weight_norm:
             remove_weight_norm(self.conv_pre)
@@ -325,7 +361,9 @@ class HifiganGenerator(torch.nn.Module):
             Tensor: [B, 1, T]
         """
         c = c.to(self.conv_pre.weight.device)
-        c = torch.nn.functional.pad(c, (self.inference_padding, self.inference_padding), "replicate")
+        c = torch.nn.functional.pad(
+            c, (self.inference_padding, self.inference_padding), "replicate"
+        )
         return self.forward(c)
 
     def remove_weight_norm(self):
@@ -339,8 +377,9 @@ class HifiganGenerator(torch.nn.Module):
 
 
 ##################################
-# DISCRIMINATOR 
+# DISCRIMINATOR
 ##################################
+
 
 class DiscriminatorP(torch.nn.Module):
     """HiFiGAN Periodic Discriminator
@@ -357,18 +396,58 @@ class DiscriminatorP(torch.nn.Module):
         x: [B, 1, T]
     """
 
-    def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
+    def __init__(
+        self, period, kernel_size=5, stride=3, use_spectral_norm=False
+    ):
         super().__init__()
         self.period = period
         get_padding = lambda k, d: int((k * d - d) / 2)
-        norm_f = nn.utils.spectral_norm if use_spectral_norm else nn.utils.weight_norm
+        norm_f = (
+            nn.utils.spectral_norm
+            if use_spectral_norm
+            else nn.utils.weight_norm
+        )
         self.convs = nn.ModuleList(
             [
-                norm_f(nn.Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(nn.Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(nn.Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(nn.Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, 1), 0))),
-                norm_f(nn.Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(2, 0))),
+                norm_f(
+                    nn.Conv2d(
+                        1,
+                        32,
+                        (kernel_size, 1),
+                        (stride, 1),
+                        padding=(get_padding(kernel_size, 1), 0),
+                    )
+                ),
+                norm_f(
+                    nn.Conv2d(
+                        32,
+                        128,
+                        (kernel_size, 1),
+                        (stride, 1),
+                        padding=(get_padding(kernel_size, 1), 0),
+                    )
+                ),
+                norm_f(
+                    nn.Conv2d(
+                        128,
+                        512,
+                        (kernel_size, 1),
+                        (stride, 1),
+                        padding=(get_padding(kernel_size, 1), 0),
+                    )
+                ),
+                norm_f(
+                    nn.Conv2d(
+                        512,
+                        1024,
+                        (kernel_size, 1),
+                        (stride, 1),
+                        padding=(get_padding(kernel_size, 1), 0),
+                    )
+                ),
+                norm_f(
+                    nn.Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(2, 0))
+                ),
             ]
         )
         self.conv_post = norm_f(nn.Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
@@ -450,7 +529,11 @@ class DiscriminatorS(torch.nn.Module):
 
     def __init__(self, use_spectral_norm=False):
         super().__init__()
-        norm_f = nn.utils.spectral_norm if use_spectral_norm else nn.utils.weight_norm
+        norm_f = (
+            nn.utils.spectral_norm
+            if use_spectral_norm
+            else nn.utils.weight_norm
+        )
         self.convs = nn.ModuleList(
             [
                 norm_f(nn.Conv1d(1, 128, 15, 1, padding=7)),
@@ -497,7 +580,9 @@ class MultiScaleDiscriminator(torch.nn.Module):
                 DiscriminatorS(),
             ]
         )
-        self.meanpools = nn.ModuleList([nn.AvgPool1d(4, 2, padding=2), nn.AvgPool1d(4, 2, padding=2)])
+        self.meanpools = nn.ModuleList(
+            [nn.AvgPool1d(4, 2, padding=2), nn.AvgPool1d(4, 2, padding=2)]
+        )
 
     def forward(self, x):
         """
@@ -540,17 +625,19 @@ class HifiganDiscriminator(nn.Module):
         # scores, feats = self.mpd(x)
         # return scores, feats
 
+        
 #################################
 # GENERATOR LOSSES
 #################################
 
+
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
     o = torch.stft(
-            x.squeeze(1),
-            n_fft,
-            hop_length,
-            win_length,
-            #nn.Parameter(getattr(torch, window_fn)(win_length), requires_grad=False),
+        x.squeeze(1),
+        n_fft,
+        hop_length,
+        win_length,
+        #nn.Parameter(getattr(torch, window_fn)(win_length), requires_grad=False),
     )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
@@ -584,10 +671,17 @@ class MultiScaleSTFTLoss(torch.nn.Module):
     to spectrograms compared with L1 and Spectral convergence losses.
     It is from ParallelWaveGAN paper https://arxiv.org/pdf/1910.11480.pdf"""
 
-    def __init__(self, n_ffts=(1024, 2048, 512), hop_lengths=(120, 240, 50), win_lengths=(600, 1200, 240)):
+    def __init__(
+        self,
+        n_ffts=(1024, 2048, 512),
+        hop_lengths=(120, 240, 50),
+        win_lengths=(600, 1200, 240),
+    ):
         super().__init__()
         self.loss_funcs = torch.nn.ModuleList()
-        for n_fft, hop_length, win_length in zip(n_ffts, hop_lengths, win_lengths):
+        for n_fft, hop_length, win_length in zip(
+            n_ffts, hop_lengths, win_lengths
+        ):
             self.loss_funcs.append(STFTLoss(n_fft, hop_length, win_length))
 
     def forward(self, y_hat, y):
@@ -606,7 +700,8 @@ class MultiScaleSTFTLoss(torch.nn.Module):
 class L1SpecLoss(nn.Module):
     """L1 Loss over Spectrograms as described in HiFiGAN paper https://arxiv.org/pdf/2010.05646.pdf"""
 
-    def __init__(self,
+    def __init__(
+        self,
         sample_rate=22050,
         hop_length=256,
         win_length=24,
@@ -617,8 +712,8 @@ class L1SpecLoss(nn.Module):
         mel_fmax=8000.0,
         mel_normalized=False,
         power=1.5,
-        dynamic_range_compression=True
-        ):
+        dynamic_range_compression=True,
+    ):
         super().__init__()
 
         self.sample_rate = sample_rate
@@ -636,35 +731,35 @@ class L1SpecLoss(nn.Module):
     def forward(self, y_hat, y):
 
         y_hat_M = mel_spectogram(
-            self.sample_rate, 
+            self.sample_rate,
             self.hop_length,
-            self.win_length, 
-            self.n_fft, 
+            self.win_length,
+            self.n_fft,
             self.n_mel_channels,
-            self.mel_fmin, 
-            self.mel_fmax, 
-            self.power, 
-            self.mel_normalized, 
-            self.dynamic_range_compression, 
+            self.mel_fmin,
+            self.mel_fmax,
+            self.power,
+            self.mel_normalized,
+            self.dynamic_range_compression,
             y_hat,
         )
         # y_M = mel_spectogram(self.mel_params, y)
         y_M = mel_spectogram(
-            self.sample_rate, 
-            self.hop_length, 
-            self.win_length, 
-            self.n_fft, 
+            self.sample_rate,
+            self.hop_length,
+            self.win_length,
+            self.n_fft,
             self.n_mel_channels,
-            self.mel_fmin, 
-            self.mel_fmax, 
-            self.power, 
-            self.mel_normalized, 
-            self.dynamic_range_compression, 
+            self.mel_fmin,
+            self.mel_fmax,
+            self.power,
+            self.mel_normalized,
+            self.dynamic_range_compression,
             y,
         )
-        
+
         # magnitude loss
-        #loss_mag = F.l1_loss(torch.log(y_M), torch.log(y_hat_M))
+        # loss_mag = F.l1_loss(torch.log(y_M), torch.log(y_hat_M))
         loss_mag = F.l1_loss(y_M, y_hat_M)
         return loss_mag
 
@@ -673,14 +768,14 @@ class MSEGLoss(nn.Module):
     """Mean Squared Generator Loss"""
 
     def forward(self, score_real):
-        loss_fake = F.mse_loss(score_real, score_real.new_ones(score_real.shape))
+        loss_fake = F.mse_loss(
+            score_real, score_real.new_ones(score_real.shape)
+        )
         return loss_fake
 
 
 class MelganFeatureLoss(nn.Module):
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -695,9 +790,11 @@ class MelganFeatureLoss(nn.Module):
         loss_feats = loss_feats / num_feats
         return loss_feats
 
+    
 ##################################
 # DISCRIMINATOR LOSSES
 ##################################
+
 
 class MSEDLoss(nn.Module):
     """Mean Squared Discriminator Loss"""
@@ -709,8 +806,12 @@ class MSEDLoss(nn.Module):
         self.loss_func = nn.MSELoss()
 
     def forward(self, score_fake, score_real):
-        loss_real = self.loss_func(score_real, score_real.new_ones(score_real.shape))
-        loss_fake = self.loss_func(score_fake, score_fake.new_zeros(score_fake.shape))
+        loss_real = self.loss_func(
+            score_real, score_real.new_ones(score_real.shape)
+        )
+        loss_fake = self.loss_func(
+            score_fake, score_fake.new_zeros(score_fake.shape)
+        )
         loss_d = loss_real + loss_fake
         return loss_d, loss_real, loss_fake
 
@@ -743,7 +844,9 @@ def _apply_D_loss(scores_fake, scores_real, loss_func):
     if isinstance(scores_fake, list):
         # multi-scale loss
         for score_fake, score_real in zip(scores_fake, scores_real):
-            total_loss, real_loss, fake_loss = loss_func(score_fake=score_fake, score_real=score_real)
+            total_loss, real_loss, fake_loss = loss_func(
+                score_fake=score_fake, score_real=score_real
+            )
             loss += total_loss
             real_loss += real_loss
             fake_loss += fake_loss
@@ -757,23 +860,25 @@ def _apply_D_loss(scores_fake, scores_real, loss_func):
         loss = total_loss
     return loss, real_loss, fake_loss
 
+
 ##################################
 # MODEL LOSSES
 ##################################
+
 
 class GeneratorLoss(nn.Module):
 
     def __init__(
         self,
-        stft_loss = None,
-        stft_loss_weight = 0,
-        mseg_loss = None,
-        mseg_loss_weight = 0,
-        feat_match_loss = None,
-        feat_match_loss_weight = 0,
-        l1_spec_loss = None,
-        l1_spec_loss_weight = 0
-        ):
+        stft_loss=None,
+        stft_loss_weight=0,
+        mseg_loss=None,
+        mseg_loss_weight=0,
+        feat_match_loss=None,
+        feat_match_loss_weight=0,
+        l1_spec_loss=None,
+        l1_spec_loss_weight=0
+    ):
         super().__init__()
         self.stft_loss = stft_loss
         self.stft_loss_weight = stft_loss_weight
@@ -791,17 +896,21 @@ class GeneratorLoss(nn.Module):
         scores_fake=None,
         feats_fake=None,
         feats_real=None,
-        ):
+    ):
         gen_loss = 0
         adv_loss = 0
         loss = {}
 
-        #STFT Loss
+        # STFT Loss
         if self.stft_loss:
-            stft_loss_mg, stft_loss_sc = self.stft_loss(y_hat[:, :, : y.size(2)].squeeze(1), y.squeeze(1))
+            stft_loss_mg, stft_loss_sc = self.stft_loss(
+                y_hat[:, :, : y.size(2)].squeeze(1), y.squeeze(1)
+            )
             loss["G_stft_loss_mg"] = stft_loss_mg
             loss["G_stft_loss_sc"] = stft_loss_sc
-            gen_loss = gen_loss + self.stft_loss_weight * (stft_loss_mg + stft_loss_sc)
+            gen_loss = gen_loss + self.stft_loss_weight * (
+                stft_loss_mg + stft_loss_sc
+            )
 
         # L1 Spec loss
         if self.l1_spec_loss:
@@ -828,7 +937,6 @@ class GeneratorLoss(nn.Module):
 
 
 class DiscriminatorLoss(nn.Module):
-
     def __init__(self, msed_loss=None):
         super().__init__()
         self.msed_loss = msed_loss
@@ -839,7 +947,9 @@ class DiscriminatorLoss(nn.Module):
 
         if self.msed_loss:
             mse_D_loss, mse_D_real_loss, mse_D_fake_loss = _apply_D_loss(
-                scores_fake=scores_fake, scores_real=scores_real, loss_func=self.msed_loss
+                scores_fake=scores_fake,
+                scores_real=scores_real,
+                loss_func=self.msed_loss,
             )
             loss["D_mse_gan_loss"] = mse_D_loss
             loss["D_mse_gan_real_loss"] = mse_D_real_loss
