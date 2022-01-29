@@ -403,7 +403,10 @@ class DiscriminatorP(torch.nn.Module):
     ):
         super().__init__()
         self.period = period
-        get_padding = lambda k, d: int((k * d - d) / 2)
+
+        def get_padding(k, d):
+            return int((k * d - d) / 2)
+
         norm_f = (
             nn.utils.spectral_norm
             if use_spectral_norm
@@ -924,7 +927,7 @@ class GeneratorLoss(nn.Module):
             adv_loss = adv_loss + self.mseg_loss_weight * mse_fake_loss
 
         # Feature Matching Loss
-        if self.feat_match_loss and not feats_fake is None:
+        if self.feat_match_loss and feats_fake is not None:
             feat_match_loss = self.feat_match_loss(feats_fake, feats_real)
             loss["G_feat_match_loss"] = feat_match_loss
             adv_loss = adv_loss + self.feat_match_loss_weight * feat_match_loss
