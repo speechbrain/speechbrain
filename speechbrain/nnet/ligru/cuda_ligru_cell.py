@@ -51,14 +51,67 @@ def transform_tensor_to_cupy(x):
     return cp.ascontiguousarray(cp.from_dlpack(torch.utils.dlpack.to_dlpack(x.detach())))
 
 
+
+class _ligru_cell_jit(torch.nn.Module):
+    """This class redefines the forward of a LiGRU cell.
+    """
+    def __init__(self, act):
+        super(_ligru_cell_jit, self).__init__()
+        self.act = act 
+
+    def forward(self, wx, u, ht, drop_mask):
+        """Compute the forward pass of a LiGRU cell.         
+        
+        Arguments
+        ---------
+        wx : torch.Tensor
+            Linearly transformed input. 
+        u  : torch.Tensor
+            Recurrent weight. 
+        ht : torch.Tensor
+            Hidden state. 
+        drop_mask : torch.Tensor
+            Dropout mask. 
+        act : nn.Module
+            Activation Function. 
+        """
+        # save values for backward
+        hiddens        = []
+        candidate_gate = []
+        update_gate    = []
+        save_at        = []
+
+        # iterate over each timesteps
+        for k in range(wx.shape[1]):
+            
+            gates  = wx[:, k] + ht @ u.T
+            at, zt = gates.chunk(2, 1)
+            zt     = torch.sigmoid(zt)
+            hcand  = self.act(at) * drop_mask
+            ht     = ht * zt + (1 - zt) * hcand
+
+            hiddens.append(ht)
+            candidate_gate.append(hcand)
+            update_gate.append(zt)
+            save_at.append(at)
+
+        # stacks values
+        ht = torch.stack(hiddens, dim=1) 
+        zt = torch.stack(update_gate, dim=1)
+        at = torch.stack(save_at, dim=1)
+        hcand = torch.stack(candidate_gate, dim=1)
+
+        return ht, zt, at, hcand
+
+
 class _ligru_cell_cupy(autograd.Function):
-    """This class redefines the forward of a LiGRU cell and implement the backward using CuPy. 
-    By doing so, we speed up the training by a factor of ~4x in comparison to the original implementation
-    and ~2.5x in comparison to the jitted version. 
+    """This class uses the jitted forward of a ligru cell and implement the backward using CuPy. 
+    By doing so, we speed up the training by a factor of ~4.7x in comparison to the original implementation
+    and ~3x in comparison to the jitted version. 
     """
 
     @staticmethod
-    def forward(ctx, wx, u, ht, drop_mask, act):
+    def forward(ctx, cell_jit, wx, u, ht, drop_mask):
         """Compute the hidden states over each timestep and save the intermediate results for the backward.
 
         The utilisation of Tanh in the LiGRU cell is not recommended because it increases the instability and can lead to 
@@ -68,6 +121,8 @@ class _ligru_cell_cupy(autograd.Function):
 
         Arguments
         ---------
+        cell_jit : _ligru_cell_jit object
+            Jitted nn.Module
         wx : torch.Tensor
             Linearly transformed input. 
         u  : torch.Tensor
@@ -83,36 +138,12 @@ class _ligru_cell_cupy(autograd.Function):
                 2) Leaky ReLU with slope_parameter of 1e-2 (default parameter of PyTorch),
                 3) Tanh. 
         """
+        h_init = ht
         
-        # save values for backward
-        hiddens        = []
-        candidate_gate = []
-        update_gate    = []
-        save_at        = []
-        h_init         = ht
-
-        # iterate over each timesteps
-        for k in range(wx.shape[1]):
-            
-            gates  = wx[:, k] + ht @ u.T
-            at, zt = gates.chunk(2, 1)
-            zt     = torch.sigmoid(zt)
-            hcand  = act(at) * drop_mask
-            ht     = ht * zt + (1 - zt) * hcand
-
-            hiddens.append(ht)
-            candidate_gate.append(hcand)
-            update_gate.append(zt)
-            save_at.append(at)
-        
-        # stacks values
-        ht    = torch.stack(hiddens, dim=1) 
-        zt    = torch.stack(update_gate, dim=1)
-        at    = torch.stack(save_at, dim=1)
-        hcand = torch.stack(candidate_gate, dim=1)
+        ht, zt, at, hcand, = cell_jit(wx, u, h_init, drop_mask)
 
         ctx.save_for_backward(h_init, u, wx, zt, at, ht, hcand, drop_mask)
-        ctx.activation_function = act
+        ctx.activation_function = cell_jit.act
 
         return ht
 
@@ -130,7 +161,7 @@ class _ligru_cell_cupy(autograd.Function):
 
         activation_function = ctx.activation_function
 
-        # we need to reshape our h_init tensor if h_init doesnt match the shape of ht.
+        # we need to reshape our h_init tensor if h_init doesnt match the shape.
         if h_init.shape[0] != ht[:, 0].shape[0]:
             h_init = h_init.repeat(ht[:, 0].shape[0], 1)
             
@@ -189,4 +220,4 @@ class _ligru_cell_cupy(autograd.Function):
             dh_prev = dh_prev + dwx[:, t].dot(u)
             du     += dwx[:, t].T.dot(ht_)   
 
-        return torch.from_dlpack(dwx), torch.from_dlpack(du), torch.from_dlpack(dh), None, None
+        return None, torch.from_dlpack(dwx), torch.from_dlpack(du), torch.from_dlpack(dh), None, None
