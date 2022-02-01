@@ -970,11 +970,6 @@ class LiGRU(torch.nn.Module):
     in IEEE Transactions on Emerging Topics in Computational Intelligence,
     2018" (https://arxiv.org/abs/1803.10225)
 
-    This is a custm RNN and to speed it up it must be compiled with
-    the torch just-in-time compiler (jit) right before using it.
-    You can compile it with:
-    compiled_model = torch.jit.script(model)
-
     It accepts in input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
     flattened as (batch, time, fea*channel).
@@ -1036,6 +1031,7 @@ class LiGRU(torch.nn.Module):
         self.re_init = re_init
         self.bidirectional = bidirectional
         self.reshape = False
+
 
         # Computing the feature dimensionality
         if len(input_shape) > 3:
@@ -1205,6 +1201,11 @@ class LiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
+        from speechbrain.nnet.ligru.cuda_ligru_cell import _ligru_cell_jit
+
+        # jit the cell to gain some speed up 
+        self._ligru_cell_jit = torch.jit.script(_ligru_cell_jit(act=self.act))
+
     def forward(self, x, hx: Optional[Tensor] = None):
         # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the liGRU layer.
@@ -1257,20 +1258,8 @@ class LiGRU_Layer(torch.nn.Module):
         drop_mask : torch.Tensor
             dropout masks.
         """
-        hiddens = []
-
-        # Loop over time axis
-        for k in range(w.shape[1]):
-            gates = w[:, k] + self.u(ht)
-            at, zt = gates.chunk(2, 1)
-            zt = torch.sigmoid(zt)
-            hcand = self.act(at) * drop_mask
-            ht = zt * ht + (1 - zt) * hcand
-            hiddens.append(ht)
-
-        # Stacking hidden states
-        h = torch.stack(hiddens, dim=1)
-        return h
+        ht, _, _, _, = self._ligru_cell_jit(w, self.u.weight, ht, drop_mask)
+        return ht
 
     def _ligru_cell(self, w, ht, drop_mask):
         """Returns the hidden states for each time step.
@@ -1287,10 +1276,10 @@ class LiGRU_Layer(torch.nn.Module):
             Dropout mask.
         """
 
-        if w.is_cuda == ht.is_cuda == drop_mask.is_cuda :
+        if w.is_cuda == ht.is_cuda == drop_mask.is_cuda == True:
             from speechbrain.nnet.ligru.cuda_ligru_cell import _ligru_cell_cupy
             
-            return _ligru_cell_cupy.apply(w, self.u.weight, ht, drop_mask, self.act)
+            return _ligru_cell_cupy.apply(self._ligru_cell_jit, w, self.u.weight, ht, drop_mask, self.act)
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
 
