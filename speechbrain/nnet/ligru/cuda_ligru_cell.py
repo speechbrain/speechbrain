@@ -130,7 +130,7 @@ class _ligru_cell_cupy(autograd.Function):
 
         activation_function = ctx.activation_function
 
-        # we need to reshape our h_init tensor if h_init doesnt match the shape.
+        # we need to reshape our h_init tensor if h_init doesnt match the shape of ht.
         if h_init.shape[0] != ht[:, 0].shape[0]:
             h_init = h_init.repeat(ht[:, 0].shape[0], 1)
             
