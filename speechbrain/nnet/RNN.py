@@ -1279,7 +1279,7 @@ class LiGRU_Layer(torch.nn.Module):
         if w.is_cuda == ht.is_cuda == drop_mask.is_cuda == True:
             from speechbrain.nnet.ligru.cuda_ligru_cell import _ligru_cell_cupy
             
-            return _ligru_cell_cupy.apply(self._ligru_cell_jit, w, self.u.weight, ht, drop_mask, self.act)
+            return _ligru_cell_cupy.apply(self._ligru_cell_jit, w, self.u.weight, ht, drop_mask)
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
 
