@@ -271,7 +271,7 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
