@@ -14,8 +14,11 @@ keep_checkpoint_interval: 10
 #################################
 data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech
 train_csv: !ref <save_folder>/train.csv
-valid_csv: !ref <save_folder>/dev.csv
+dev_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
 
+splits: ["train", "dev"]
+split_ratio: [90, 10]
 ################################
 # Audio Parameters             #
 ################################
