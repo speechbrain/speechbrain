@@ -46,7 +46,6 @@ from torch.nn import functional as F
 from collections import namedtuple
 import os
 import torchaudio
-import torchvision
 
 
 class LinearNorm(torch.nn.Module):
@@ -1902,6 +1901,8 @@ def detach(value):
 
 
 class ProgressSampleLogger:
+    import torchvision
+    
     _DEFAULT_FORMAT_DEFS = {
         "raw": {"extension": "pth", "saver": torch.save, "kwargs": {}},
         "image": {
