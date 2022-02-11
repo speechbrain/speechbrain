@@ -164,7 +164,9 @@ def split_sets(data_folder, splits, split_ratio):
     dictionary containing train, valid, and test splits.
     """
     meta_csv = os.path.join(data_folder, METADATA_CSV)
-    csv_reader = csv.reader(open(meta_csv), delimiter="|", quoting=csv.QUOTE_NONE)
+    csv_reader = csv.reader(
+        open(meta_csv), delimiter="|", quoting=csv.QUOTE_NONE
+    )
 
     meta_csv = list(csv_reader)
 
@@ -188,20 +190,22 @@ def split_sets(data_folder, splits, split_ratio):
     for i, split in enumerate(splits):
         data_split[split] = []
         for j in range(len(index_for_sessions)):
-            if split == "train" :
+            if split == "train":
                 random.shuffle(index_for_sessions[j])
                 n_snts = int(session_len[j] * split_ratio[i] / sum(split_ratio))
                 data_split[split].extend(index_for_sessions[j][0:n_snts])
                 del index_for_sessions[j][0:n_snts]
-            if split == "dev" :
-                if "test" in splits : 
+            if split == "dev":
+                if "test" in splits: 
                     random.shuffle(index_for_sessions[j])
-                    n_snts = int(session_len[j] * split_ratio[i] / sum(split_ratio))
+                    n_snts = int(
+                        session_len[j] * split_ratio[i] / sum(split_ratio)
+                    )
                     data_split[split].extend(index_for_sessions[j][0:n_snts])
                     del index_for_sessions[j][0:n_snts]
-                else :
+                else:
                     data_split[split].extend(index_for_sessions[j])
-            if split == "test" :
+            if split == "test":
                 data_split[split].extend(index_for_sessions[j])
 
     return data_split, meta_csv
