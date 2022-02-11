@@ -17,7 +17,6 @@
  * Artem Ploujnikov 2021
  * Yingzhi Wang 2022
 """
-import os
 import torch
 import speechbrain as sb
 import sys
