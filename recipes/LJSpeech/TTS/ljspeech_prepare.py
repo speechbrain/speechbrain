@@ -196,7 +196,7 @@ def split_sets(data_folder, splits, split_ratio):
                 data_split[split].extend(index_for_sessions[j][0:n_snts])
                 del index_for_sessions[j][0:n_snts]
             if split == "dev":
-                if "test" in splits: 
+                if "test" in splits:
                     random.shuffle(index_for_sessions[j])
                     n_snts = int(
                         session_len[j] * split_ratio[i] / sum(split_ratio)
