@@ -224,18 +224,6 @@ class HifiGanBrain(sb.Brain):
 
 
 def dataio_prepare(hparams):
-    data_folder = hparams["data_folder"]
-
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
-    )
-
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
-    )
-
-    datasets = [train_data, valid_data]
-
     segment_size = hparams["segment_size"]
 
     # Define audio pipeline:
@@ -259,13 +247,16 @@ def dataio_prepare(hparams):
 
         return mel, audio
 
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
+    datasets = {}
+    for dataset in hparams["splits"]:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=hparams[f"{dataset}_csv"],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline],
+            output_keys=["id", "mel", "sig"],
+        )
 
-    # Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "mel", "sig"],
-    )
-    return train_data, valid_data
+    return datasets
 
 
 if __name__ == "__main__":
@@ -283,6 +274,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    sys.path.append("../../")
     from ljspeech_prepare import prepare_ljspeech
 
     sb.utils.distributed.run_on_main(
@@ -290,14 +282,14 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
-            "splits": ["train", "dev"],
-            "split_ratio": [90, 10],
+            "splits": hparams["splits"],
+            "split_ratio": hparams["split_ratio"],
             "seed": hparams["seed"],
             "skip_prep": hparams["skip_prep"],
         },
     )
 
-    train_data, valid_data = dataio_prepare(hparams)
+    datasets = dataio_prepare(hparams)
 
     # Brain class initialization
     hifi_gan_brain = HifiGanBrain(
@@ -316,8 +308,12 @@ if __name__ == "__main__":
     # Training
     hifi_gan_brain.fit(
         hifi_gan_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
+        train_set=datasets["train"],
+        valid_set=datasets["dev"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
+
+    # Test
+    if "test" in datasets:
+        hifi_gan_brain.evaluate(datasets["test"])
