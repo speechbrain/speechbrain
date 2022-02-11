@@ -60,6 +60,8 @@ def mel_spectogram(
     f_max,
     power,
     normalized,
+    norm,
+    mel_scale,
     compression,
     audio,
 ):
@@ -73,6 +75,8 @@ def mel_spectogram(
         f_max=f_max,
         power=power,
         normalized=normalized,
+        norm=norm,
+        mel_scale=mel_scale,
     ).to(audio.device)
 
     mel = audio_to_mel(audio)
@@ -716,7 +720,9 @@ class L1SpecLoss(nn.Module):
         mel_fmin=0.0,
         mel_fmax=8000.0,
         mel_normalized=False,
-        power=1.5,
+        power=1.0,
+        norm="slaney",
+        mel_scale="slaney",
         dynamic_range_compression=True,
     ):
         super().__init__()
@@ -731,6 +737,8 @@ class L1SpecLoss(nn.Module):
         self.mel_fmax = mel_fmax
         self.mel_normalized = mel_normalized
         self.power = power
+        self.norm = norm
+        self.mel_scale = mel_scale
         self.dynamic_range_compression = dynamic_range_compression
 
     def forward(self, y_hat, y):
@@ -745,6 +753,8 @@ class L1SpecLoss(nn.Module):
             self.mel_fmax,
             self.power,
             self.mel_normalized,
+            self.norm,
+            self.mel_scale,
             self.dynamic_range_compression,
             y_hat,
         )
@@ -759,6 +769,8 @@ class L1SpecLoss(nn.Module):
             self.mel_fmax,
             self.power,
             self.mel_normalized,
+            self.norm,
+            self.mel_scale,
             self.dynamic_range_compression,
             y,
         )
