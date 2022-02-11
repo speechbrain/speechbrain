@@ -1902,7 +1902,7 @@ def detach(value):
 
 class ProgressSampleLogger:
     import torchvision
-    
+
     _DEFAULT_FORMAT_DEFS = {
         "raw": {"extension": "pth", "saver": torch.save, "kwargs": {}},
         "image": {
