@@ -1832,18 +1832,18 @@ def dynamic_range_compression(x, C=1, clip_val=1e-5):
 
 
 def mel_spectogram(
-    sample_rate, 
-    hop_length, 
-    win_length, 
-    n_fft, 
-    n_mels, 
-    f_min, 
-    f_max, 
-    power, 
+    sample_rate,
+    hop_length,
+    win_length,
+    n_fft,
+    n_mels,
+    f_min,
+    f_max,
+    power,
     normalized,
     norm,
-    mel_scale, 
-    compression, 
+    mel_scale,
+    compression,
     audio,
 ):
 
@@ -1871,7 +1871,7 @@ def mel_spectogram(
     return mel
 
 
-#Change parameter order to match ProgressSampleLogger API
+# Change parameter order to match ProgressSampleLogger API
 def save_audio(audio, filepath, sample_rate):
     torchaudio.save(filepath, audio, sample_rate)
 
@@ -1903,7 +1903,11 @@ def detach(value):
 class ProgressSampleLogger:
     _DEFAULT_FORMAT_DEFS = {
         "raw": {"extension": "pth", "saver": torch.save, "kwargs": {}},
-        "image": {"extension": "png", "saver": torchvision.utils.save_image, "kwargs": {}},
+        "image": {
+            "extension": "png",
+            "saver": torchvision.utils.save_image,
+            "kwargs": {},
+        },
     }
     DEFAULT_FORMAT = "image"
 
