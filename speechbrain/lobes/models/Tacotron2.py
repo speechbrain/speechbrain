@@ -48,6 +48,7 @@ import os
 import torchaudio
 import torchvision
 
+
 class LinearNorm(torch.nn.Module):
     """A linear layer with Xavier initialization
 
