@@ -44,7 +44,7 @@ progress_batch_sample_size: 3
 #################################
 # Data files and pre-processing #
 #################################
-data_folder:  /home/ubuntu/yingzhi/TTS/LJSpeech-1.1 #!PLACEHOLDER # e.g, /localscratch/ljspeech
+data_folder: /home/ubuntu/yingzhi/TTS/LJSpeech-1.1 #!PLACEHOLDER # e.g, /localscratch/ljspeech
 
 train_csv: !ref <save_folder>/train.csv
 dev_csv: !ref <save_folder>/dev.csv
@@ -76,7 +76,6 @@ norm: "slaney"
 mel_scale: "slaney"
 dynamic_range_compression: True
 
-
 ################################
 # Optimization Hyperparameters #
 ################################
@@ -93,10 +92,10 @@ gate_loss_weight: 1.0
 
 train_dataloader_opts:
   batch_size: !ref <batch_size>
-  drop_last: false  #True #False
+  drop_last: False  #True #False
   num_workers: 8
   collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
-  
+
 valid_dataloader_opts:
   batch_size: !ref <batch_size>
   num_workers: 8
@@ -143,7 +142,7 @@ inverse_spectrogram_n_iter: 1024
 mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
   sample_rate: !ref <sample_rate>
   hop_length: !ref <hop_length>
-  win_length : !ref <win_length>
+  win_length: !ref <win_length>
   n_fft: !ref <n_fft>
   n_mels: !ref <n_mel_channels>
   f_min: !ref <mel_fmin>
