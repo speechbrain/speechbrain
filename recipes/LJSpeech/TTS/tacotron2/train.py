@@ -305,9 +305,9 @@ class Tacotron2Brain(sb.Brain):
 
 def dataio_prepare(hparams):
     # Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav","label")
+    @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
-    def audio_pipeline(wav,label):
+    def audio_pipeline(wav, label):
         # remove the " added during csv preparation
         label = label.replace('""', '"')
 
