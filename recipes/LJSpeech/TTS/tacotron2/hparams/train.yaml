@@ -44,7 +44,7 @@ progress_batch_sample_size: 3
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: /home/ubuntu/yingzhi/TTS/LJSpeech-1.1 #!PLACEHOLDER # e.g, /localscratch/ljspeech
+data_folder: !PLACEHOLDER # e.g, /localscratch/ljspeech
 
 train_csv: !ref <save_folder>/train.csv
 dev_csv: !ref <save_folder>/dev.csv
