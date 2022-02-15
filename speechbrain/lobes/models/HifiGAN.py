@@ -43,10 +43,14 @@ LRELU_SLOPE = 0.1
 
 
 def get_padding(kernel_size, dilation=1):
+    """Computes num_padding for convolution
+    """
     return int((kernel_size * dilation - dilation) / 2)
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
+    """Limits the minimum amplitude of a piece of signal
+    """
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -357,8 +361,8 @@ class HifiganGenerator(torch.nn.Module):
 
     @torch.no_grad()
     def inference(self, c):
-        """
-        Args:
+        """Computes HifiGAN inference
+        Arguments:
             x (Tensor): conditioning input tensor.
         Returns:
             Tensor: output waveform.
