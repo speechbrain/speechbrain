@@ -284,7 +284,7 @@ class HifiganGenerator(torch.nn.Module):
         self.num_upsamples = len(upsample_factors)
         # initial upsampling layers
         self.conv_pre = weight_norm(
-            Conv1d(80, upsample_initial_channel, 7, 1, padding=3)
+            Conv1d(in_channels, upsample_initial_channel, 7, 1, padding=3)
         )
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
         # upsampling layers
