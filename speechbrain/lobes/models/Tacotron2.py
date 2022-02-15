@@ -63,7 +63,7 @@ class LinearNorm(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Tacotron2
+    >>> from speechbrain.lobes.models.Tacotron2 import Tacotron2
     >>> layer = LinearNorm(in_dim=5, out_dim=3)
     >>> x = torch.randn(3, 5)
     >>> y = layer(x)
@@ -124,7 +124,7 @@ class ConvNorm(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import ConvNorm
+    >>> from speechbrain.lobes.models.Tacotron2 import ConvNorm
     >>> layer = ConvNorm(in_channels=10, out_channels=5, kernel_size=3)
     >>> x = torch.randn(3, 10, 5)
     >>> y = layer(x)
@@ -197,7 +197,7 @@ class LocationLayer(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import LocationLayer
+    >>> from speechbrain.lobes.models.Tacotron2 import LocationLayer
     >>> layer = LocationLayer()
     >>> attention_weights_cat = torch.randn(3, 2, 64)
     >>> processed_attention = layer(attention_weights_cat)
@@ -267,7 +267,7 @@ class Attention(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import (
+    >>> from speechbrain.lobes.models.Tacotron2 import (
     ...     Attention, get_mask_from_lengths)
     >>> layer = Attention()
     >>> attention_hidden_state = torch.randn(2, 1024)
@@ -398,7 +398,7 @@ class Prenet(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Prenet
+    >>> from speechbrain.lobes.models.Tacotron2 import Prenet
     >>> layer = Prenet()
     >>> x = torch.randn(862, 2, 80)
     >>> output = layer(x)
@@ -455,7 +455,7 @@ class Postnet(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Postnet
+    >>> from speechbrain.lobes.models.Tacotron2 import Postnet
     >>> layer = Postnet()
     >>> x = torch.randn(2, 80, 861)
     >>> output = layer(x)
@@ -563,7 +563,7 @@ class Encoder(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Encoder
+    >>> from speechbrain.lobes.models.Tacotron2 import Encoder
     >>> layer = Encoder()
     >>> x = torch.randn(2, 512, 128)
     >>> input_lengths = torch.tensor([128, 83])
@@ -708,7 +708,7 @@ class Decoder(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Decoder
+    >>> from speechbrain.lobes.models.Tacotron2 import Decoder
     >>> layer = Decoder()
     >>> memory = torch.randn(2, 173, 512)
     >>> decoder_inputs = torch.randn(2, 80, 173)
@@ -1307,7 +1307,7 @@ class Tacotron2(nn.Module):
     -------
     >>> import torch
     >>> _ = torch.manual_seed(213312)
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Tacotron2
+    >>> from speechbrain.lobes.models.Tacotron2 import Tacotron2
     >>> model = Tacotron2(
     ...    mask_padding=True,
     ...    n_mel_channels=80,
@@ -1602,7 +1602,7 @@ class Loss(nn.Module):
     Example:
     >>> import torch
     >>> _ = torch.manual_seed(42)
-    >>> from speechbrain.lobes.models.synthesis.tacotron2.model import Loss
+    >>> from speechbrain.lobes.models.Tacotron2 import Loss
     >>> loss = Loss(guided_attention_sigma=0.2)
     >>> mel_target = torch.randn(2, 80, 861)
     >>> gate_target = torch.randn(1722, 1)
