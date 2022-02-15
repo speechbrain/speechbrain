@@ -1,9 +1,7 @@
 """This lobe enables the integration of huggingface pretrained wav2vec2/hubert/wavlm models.
-
 Reference: https://arxiv.org/abs/2006.11477
 Reference: https://arxiv.org/abs/1904.05862
 Reference: https://arxiv.org/abs/2110.13900
-
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
