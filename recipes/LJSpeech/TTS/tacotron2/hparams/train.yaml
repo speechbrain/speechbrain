@@ -82,7 +82,7 @@ dynamic_range_compression: True
 learning_rate: 0.001
 weight_decay: 0.000006
 grad_clip_thresh: 1.0
-batch_size: 32 #minimum 2
+batch_size: 64 #minimum 2
 mask_padding: True
 guided_attention_sigma: 0.2
 guided_attention_weight: 50.0
@@ -235,7 +235,7 @@ model_output_keys:
 
 infer: !name:speechbrain.lobes.models.Tacotron2.infer
 
-progress_sample_logger: !new:speechbrain.lobes.models.Tacotron2.ProgressSampleLogger
+progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
   output_path: !ref <progress_sample_path>
   batch_sample_size: !ref <progress_batch_sample_size>
   formats:
