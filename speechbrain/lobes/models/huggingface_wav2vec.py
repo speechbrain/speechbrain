@@ -39,9 +39,17 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-HF_models = {"wav2vec2": Wav2Vec2Model, "hubert": HubertModel, "wavlm": WavLMModel}
+HF_models = {
+    "wav2vec2": Wav2Vec2Model,
+    "hubert": HubertModel,
+    "wavlm": WavLMModel,
+}
 
-HF_config = {"wav2vec2": Wav2Vec2Config, "hubert": HubertConfig, "wavlm": WavLMConfig}
+HF_config = {
+    "wav2vec2": Wav2Vec2Config,
+    "hubert": HubertConfig,
+    "wavlm": WavLMConfig,
+}
 
 
 class HuggingFaceWav2Vec2(nn.Module):
