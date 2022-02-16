@@ -386,3 +386,7 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
+
+    # Test
+    if "test" in datasets:
+        tacotron2_brain.evaluate(datasets["test"])
