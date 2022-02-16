@@ -219,7 +219,7 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="."):
+    def load_audio(self, path):
         """Load an audio file with this model"s input spec
 
         When using a speech model, it is important to use the same type of data,
@@ -227,10 +227,7 @@ class Pretrained(torch.nn.Module):
         sampling rate and number of channels. It is, however, possible to
         convert a file from a higher sampling rate to a lower one (downsampling).
         Similarly, it is simple to downmix a stereo file to mono.
-        The path can be a local path, a web url, or a link to a huggingface repo.
         """
-        source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
