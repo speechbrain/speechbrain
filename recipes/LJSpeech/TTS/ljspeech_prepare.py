@@ -101,9 +101,13 @@ def prepare_ljspeech(
 
     # Prepare csv
     if "train" in splits:
-        prepare_json(data_split["train"], save_json_train, wavs_folder, meta_csv)
+        prepare_json(
+            data_split["train"], save_json_train, wavs_folder, meta_csv
+        )
     if "valid" in splits:
-        prepare_json(data_split["valid"], save_json_valid, wavs_folder, meta_csv)
+        prepare_json(
+            data_split["valid"], save_json_valid, wavs_folder, meta_csv
+        )
     if "test" in splits:
         prepare_json(data_split["test"], save_json_test, wavs_folder, meta_csv)
 
