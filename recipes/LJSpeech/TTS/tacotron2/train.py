@@ -307,9 +307,6 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(wav, label):
-        # remove the " added during csv preparation
-        label = label.replace('""', '"')
-
         text_seq = torch.IntTensor(
             text_to_sequence(label, hparams["text_cleaners"])
         )
@@ -323,8 +320,8 @@ def dataio_prepare(hparams):
 
     datasets = {}
     for dataset in hparams["splits"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_csv"],
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_json"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["mel_text_pair", "wav", "label"],
@@ -382,7 +379,7 @@ if __name__ == "__main__":
     tacotron2_brain.fit(
         tacotron2_brain.hparams.epoch_counter,
         train_set=datasets["train"],
-        valid_set=datasets["dev"],
+        valid_set=datasets["valid"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
