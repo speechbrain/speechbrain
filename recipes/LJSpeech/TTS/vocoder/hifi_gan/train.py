@@ -233,7 +233,7 @@ def dataio_prepare(hparams):
         audio = sb.dataio.dataio.read_audio(wav)
         audio = torch.FloatTensor(audio)
         audio = audio.unsqueeze(0)
-        if segment == "True":
+        if segment:
             if audio.size(1) >= segment_size:
                 max_audio_start = audio.size(1) - segment_size
                 audio_start = torch.randint(0, max_audio_start, (1,))
@@ -249,8 +249,8 @@ def dataio_prepare(hparams):
 
     datasets = {}
     for dataset in hparams["splits"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=hparams[f"{dataset}_csv"],
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_json"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["id", "mel", "sig"],
@@ -309,7 +309,7 @@ if __name__ == "__main__":
     hifi_gan_brain.fit(
         hifi_gan_brain.hparams.epoch_counter,
         train_set=datasets["train"],
-        valid_set=datasets["dev"],
+        valid_set=datasets["valid"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )

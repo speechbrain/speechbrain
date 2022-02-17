@@ -13,11 +13,11 @@ keep_checkpoint_interval: 10
 # Data files and pre-processing #
 #################################
 data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech
-train_csv: !ref <save_folder>/train.csv
-dev_csv: !ref <save_folder>/dev.csv
-test_csv: !ref <save_folder>/test.csv
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
 
-splits: ["train", "dev"]
+splits: ["train", "valid"]
 split_ratio: [90, 10]
 ################################
 # Audio Parameters             #
@@ -47,7 +47,7 @@ weight_decay: 0.9999
 adam_b1: 0.8
 adam_b2: 0.99
 grad_clip_thresh: 1.0
-batch_size: 16 #minimum 2
+batch_size: 32 #minimum 2
 
 train_dataloader_opts:
   batch_size: !ref <batch_size>

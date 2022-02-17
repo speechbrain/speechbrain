@@ -8,6 +8,7 @@ Authors
 
 import os
 import csv
+import json
 import logging
 import random
 from speechbrain.dataio.dataio import (
@@ -18,16 +19,16 @@ from speechbrain.dataio.dataio import (
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
 METADATA_CSV = "metadata.csv"
-TRAIN_CSV = "train.csv"
-DEV_CSV = "dev.csv"
-TEST_CSV = "test.csv"
+TRAIN_JSON = "train.json"
+VALID_JSON = "valid.json"
+TEST_JSON = "test.json"
 WAVS = "wavs"
 
 
 def prepare_ljspeech(
     data_folder,
     save_folder,
-    splits=["train", "dev"],
+    splits=["train", "valid"],
     split_ratio=[90, 10],
     seed=1234,
     skip_prep=False,
@@ -41,7 +42,7 @@ def prepare_ljspeech(
     save_folder : str
         The directory where to store the csv files.
     splits : list
-        List of splits to prepare from ['train', 'dev']
+        List of splits to prepare from ['train', 'valid']
     split_ratio : list
         List if int for train and validation splits
     skip_prep: Bool
@@ -53,7 +54,7 @@ def prepare_ljspeech(
     >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb
     >>> data_folder = 'data/LJspeech/'
     >>> save_folder = 'save/'
-    >>> splits = ['train', 'dev']
+    >>> splits = ['train', 'valid']
     >>> split_ratio = [90, 10]
     >>> seed = 1234
     >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio, seed)
@@ -80,9 +81,9 @@ def prepare_ljspeech(
     wavs_folder = os.path.join(data_folder, WAVS)
 
     save_opt = os.path.join(save_folder, OPT_FILE)
-    save_csv_train = os.path.join(save_folder, TRAIN_CSV)
-    save_csv_dev = os.path.join(save_folder, DEV_CSV)
-    save_csv_test = os.path.join(save_folder, TEST_CSV)
+    save_json_train = os.path.join(save_folder, TRAIN_JSON)
+    save_json_valid = os.path.join(save_folder, VALID_JSON)
+    save_json_test = os.path.join(save_folder, TEST_JSON)
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
@@ -93,18 +94,18 @@ def prepare_ljspeech(
     assert os.path.exists(meta_csv), "metadata.csv does not exist"
     assert os.path.exists(wavs_folder), "wavs/ folder does not exist"
 
-    msg = "\tCreating csv file for ljspeech Dataset.."
+    msg = "\tCreating json file for ljspeech Dataset.."
     logger.info(msg)
 
     data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
 
     # Prepare csv
     if "train" in splits:
-        prepare_csv(data_split["train"], save_csv_train, wavs_folder, meta_csv)
-    if "dev" in splits:
-        prepare_csv(data_split["dev"], save_csv_dev, wavs_folder, meta_csv)
+        prepare_json(data_split["train"], save_json_train, wavs_folder, meta_csv)
+    if "valid" in splits:
+        prepare_json(data_split["valid"], save_json_valid, wavs_folder, meta_csv)
     if "test" in splits:
-        prepare_csv(data_split["test"], save_csv_test, wavs_folder, meta_csv)
+        prepare_json(data_split["test"], save_json_test, wavs_folder, meta_csv)
 
     save_pkl(conf, save_opt)
 
@@ -119,13 +120,13 @@ def skip(splits, save_folder, conf):
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-    # Checking csv files
+    # Checking json files
     skip = True
 
     split_files = {
-        "train": TRAIN_CSV,
-        "dev": DEV_CSV,
-        "test": TEST_CSV,
+        "train": TRAIN_JSON,
+        "valid": VALID_JSON,
+        "test": TEST_JSON,
     }
 
     for split in splits:
@@ -195,7 +196,7 @@ def split_sets(data_folder, splits, split_ratio):
                 n_snts = int(session_len[j] * split_ratio[i] / sum(split_ratio))
                 data_split[split].extend(index_for_sessions[j][0:n_snts])
                 del index_for_sessions[j][0:n_snts]
-            if split == "dev":
+            if split == "valid":
                 if "test" in splits:
                     random.shuffle(index_for_sessions[j])
                     n_snts = int(
@@ -211,16 +212,16 @@ def split_sets(data_folder, splits, split_ratio):
     return data_split, meta_csv
 
 
-def prepare_csv(seg_lst, csv_file, wavs_folder, csv_reader):
+def prepare_json(seg_lst, json_file, wavs_folder, csv_reader):
     """
-    Creates the csv file given a list of csv indexes.
+    Creates json file given a list of indexes.
 
     Arguments
     ---------
     seg_list : list
-        The list of csv indexes of a given data split.
-    csv_file : str
-        Output csv path
+        The list of json indexes of a given data split.
+    json_file : str
+        Output json path
     wavs_folder : str
         LJspeech wavs folder
     csv_reader : _csv.reader
@@ -229,30 +230,19 @@ def prepare_csv(seg_lst, csv_file, wavs_folder, csv_reader):
     -------
     None
     """
-    csv_output_head = [["ID", "wav", "label", "segment"]]
-
-    entry = []
+    json_dict = {}
     for index in seg_lst:
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
         label = list(csv_reader)[index][2]
-        csv_line = [
-            id,
-            wav,
-            label,
-            True if "train" in csv_file else False,
-        ]
-        entry.append(csv_line)
+        json_dict[id] = {
+            "wav": wav,
+            "label": label,
+            "segment": True if "train" in json_file else False,
+        }
 
-    csv_output = csv_output_head + entry
-    # Writing the csv lines
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-        for line in csv_output:
-            csv_writer.writerow(line)
+    # Writing the dictionary to the json file
+    with open(json_file, mode="w") as json_f:
+        json.dump(json_dict, json_f, indent=2)
 
-    # Final prints
-    msg = "\t%s Sucessfully created!" % (csv_file)
-    logger.info(msg)
+    logger.info(f"{json_file} successfully created!")
