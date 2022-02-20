@@ -1032,7 +1032,6 @@ class LiGRU(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
 
-
         # Computing the feature dimensionality
         if len(input_shape) > 3:
             self.reshape = True
@@ -1203,7 +1202,7 @@ class LiGRU_Layer(torch.nn.Module):
 
         from speechbrain.nnet.ligru.cuda_ligru_cell import _ligru_cell_jit
 
-        # jit the cell to gain some speed up 
+        # jit the cell to gain some speed up
         self._ligru_cell_jit = torch.jit.script(_ligru_cell_jit(act=self.act))
 
     def forward(self, x, hx: Optional[Tensor] = None):
@@ -1263,8 +1262,8 @@ class LiGRU_Layer(torch.nn.Module):
 
     def _ligru_cell(self, w, ht, drop_mask):
         """Returns the hidden states for each time step.
-        Choose the appropriate method to call based on the device of 
-        each tensors. 
+        Choose the appropriate method to call based on the device of
+        each tensors.
 
         Arguments
         ---------
@@ -1276,14 +1275,14 @@ class LiGRU_Layer(torch.nn.Module):
             Dropout mask.
         """
 
-        if w.is_cuda == ht.is_cuda == drop_mask.is_cuda == True:
+        if w.is_cuda == ht.is_cuda == drop_mask.is_cuda is True:
             from speechbrain.nnet.ligru.cuda_ligru_cell import _ligru_cell_cupy
-            
-            return _ligru_cell_cupy.apply(self._ligru_cell_jit, w, self.u.weight, ht, drop_mask)
+
+            return _ligru_cell_cupy.apply(
+                self._ligru_cell_jit, w, self.u.weight, ht, drop_mask
+            )
         else:
             return self._ligru_cell_cpu(w, ht, drop_mask)
-
-
 
     def _init_drop(self, batch_size):
         """Initializes the recurrent dropout operation. To speed it up,
