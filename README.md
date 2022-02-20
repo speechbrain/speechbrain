@@ -12,8 +12,6 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 **News:** the call for new sponsors (2022) is open. [Take a look here if you are interested!](https://drive.google.com/file/d/1Njn_T2qLJCLPmF2LJ_X7yxxobqK3-CPW/view?usp=sharing)
 
-**News: we are looking for a full-time research engineer.** [Take a look here if you are interested!](https://drive.google.com/file/d/1m9aIvSg3KTrOVVY9fvJ_DGdIsskzkqXf/view)
-
 
 | **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
