@@ -59,6 +59,7 @@ import math
 import os
 import sys
 import speechbrain as sb
+import traceback
 from cmd import Cmd
 from argparse import ArgumentParser
 from speechbrain.pretrained.interfaces import GraphemeToPhoneme
@@ -233,9 +234,9 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
         """
         try:
             transcribe_text(self.model, inp)
-        except Exception as e:
+        except Exception:
             print(self.MSG_ERROR)
-            print(e)
+            print(traceback.format_exc())
             print(self.MSG_ERROR)
 
     def do_exit(self, inp):
@@ -265,6 +266,7 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
 
 
 def main():
+    # Parse command-line arguments
     parser = ArgumentParser(
         description="Command-line Grapheme-to-Phoneme conversion tool"
     )
@@ -294,27 +296,38 @@ def main():
         [arguments.hparams] + override_arguments
     )
 
+    # Ensure the model directory exists
     if not os.path.isdir(arguments.model):
         print(MSG_MODEL_NOT_FOUND, file=sys.stderr)
         sys.exit(1)
+
+    # Determine the path to the hyperparameters file
     hparams_file_name = os.path.join(arguments.model, arguments.hparams)
     if not os.path.isfile(hparams_file_name):
         print(MSG_HPARAMS_NOT_FILE, file=sys.stderr)
         sys.exit(1)
 
+    # Initialize the pretrained grapheme-to-phoneme model
     g2p = GraphemeToPhoneme.from_hparams(
-        hparams_file=arguments.hparams,
+        hparams_file=hparams_file_name,
         source=arguments.model,
         overrides=overrides,
         run_opts=run_opts,
+        savedir=arguments.model,
     )
+
+    # Language model adjustments
     if getattr(g2p.hparams, "use_language_model", False):
         g2p.hparams.beam_searcher = g2p.hparams.beam_searcher_lm
+
+    # Launch an interactive model
     if arguments.interactive:
         shell = InteractiveG2P(model=g2p)
         shell.cmdloop()
+    # Transcribe a single line of text
     elif arguments.text:
         transcribe_text(g2p, arguments.text)
+    # Transcribe a file
     elif arguments.text_file:
         transcribe_file(
             g2p=g2p,

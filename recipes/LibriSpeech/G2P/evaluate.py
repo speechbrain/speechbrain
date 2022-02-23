@@ -8,7 +8,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
-from train import dataio_prep, check_language_model
+from train import dataio_prep, load_dependencies
 from types import SimpleNamespace
 from tqdm.auto import tqdm
 import math
@@ -41,7 +41,12 @@ class G2PEvaluator:
         self.overrides = overrides
         self.device = device
         self.modules = torch.nn.ModuleDict(self.hparams.modules).to(self.device)
-        self.beam_searcher = self.hparams.beam_searcher.to(self.device)
+        beam_searcher = (
+            self.hparams.beam_searcher_lm
+            if self.hparams.use_language_model
+            else self.hparams.beam_searcher
+        )
+        self.beam_searcher = beam_searcher.to(self.device)
         if model_state:
             self.hparams.model.load_state_dict(model_state)
         else:
@@ -346,8 +351,9 @@ if __name__ == "__main__":
         with open(hparams_file) as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
-        # Check if a language model is available
-        check_language_model(hparams, run_opts)
+        # Load dependencies
+        if hparams.get("use_language_model"):
+            load_dependencies(hparams, run_opts)
 
         # Run the evaluation
         evaluator = G2PEvaluator(hparams, device)

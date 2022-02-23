@@ -1,7 +1,64 @@
 # Grapheme-to-phoneme (G2P).
-This folder contains the scripts to train a grapheme-to-phoneme system
-that converts characters in input to phonemes in output. It used the
-lexicon of the LibriSpeech dataset
+The following models are available:
+* RNN-based (LSTM-encoder, GRU-decoder), with an attention mechanism
+  * `hparams/hparams_attnrnn_librig2p_nostress.yaml`: LibriG2P (no stress markers)
+  * `hparams/hparams_attnrnn_librig2p_nostress_tok.yaml`: LibriG2P (no stress markers, tokenization)
+* Convolutional
+  * `hparams/hparams_conv_librig2p_nostress.yaml`
+* Transformer
+  * `hparams/hparams_transformer_librig2p_nostress.yaml`: LibriG2P (no stress markers)
+  * `hparams/hparams_transformer_librig2p_nostress_tok.yaml`: LibriG2P (no stress markers, tokenization)
+
+The datasets used here are available at the following locations:
+
+* LibriG2P (no stress markers): https://github.com/flexthink/librig2p-nostress
+* LibriG2P (no stress markers, spaces preserved, with homographs): https://github.com/flexthink/librig2p-nostress
+
+Decoding is performed with a beamsearch, optionally enhanced with language models.
+
+To run this recipe, do the following:
+> python train.py <hyperparameter file>
+Example:
+> python train.py hparams/hparams_attnrnn_librig2p_nostress.yaml
+
+RNN Model
+---------
+With the default hyperparameters, the system employs an LSTM encoder.
+The decoder is based on a standard  GRU. The neural network is trained with
+negative-log.
+
+Transformer Model
+-----------------
+With the default hyperparameters, the system employs a Conformer architecture
+with a convolutional encoder and a standard Transformer decoder.
+
+The choice of Conformer vs Transformer is controlled by the
+transformer_encoder_module parameter.
+
+Homograph Disambiguation
+------------------------
+Both RNN-based and Transformer-based models are capable of sentence-level
+hyperparameter disambiguation. Fine-tuning on homographs relies on an additional
+weighted loss computed only on the homograph and, therefore, requires a dataset
+in which the homograph is labelled, such as LibriG2P.
+
+The experiment file is flexible enough to support a large variety of
+different systems. By properly changing the parameter files, you can try
+different encoders, decoders,  and many other possible variations.
+
+Hyperparameter Optimization
+---------------------------
+This recipe supports hyperparameter optimization via Oríon or other similar tools.
+For details on how to set up hyperparameter optimization, refer to the
+"Hyperparameter Optimization" tutorial in the Advanced Tutorials section
+on the SpeechBrian website:
+
+https://speechbrain.github.io/tutorial_advanced.html
+
+A supplemental hyperparameter file is provided for hyperparameter optimiszation,
+which will turn off checkpointing and limit the number of epochs:
+
+hparams/hpfit.yaml
 
 You can download LibriSpeech at http://www.openslr.org/12
 

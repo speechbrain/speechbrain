@@ -1,6 +1,6 @@
 # ################################
-# Model: LSTM (encoder) + GRU (decoder)
-# Authors: Loren Lugosch & Mirco Ravanelli 2020
+# Model: Transformer/Conformer
+# Authors: Artem Ploujnikov 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -12,7 +12,7 @@ hpopt: False
 hpopt_mode: generic
 trial_id: null
 output_folder: !ref results/transformer/<seed>
-data_folder: /localscratch/librig2p
+data_folder: !PLACEHOLDER # e.g. /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
@@ -23,14 +23,11 @@ phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 ckpt_frequency: 1
 ckpt_enable: True
 enable_metrics: True
-revalidate: False
-retest: False
 
 pretrained_path: !ref <save_folder>/pretrained_models
 
 
-# These three files are created from lexicon.csv.
-build_lexicon: False
+dataset: flexthink/librig2p-nostress-space
 data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
 lexicon_train_data: !ref <data_folder>/lexicon_train.json
 lexicon_valid_data: !ref <data_folder>/lexicon_valid.json
@@ -85,7 +82,6 @@ lr: 0.005
 lr_min: 0.00001
 lr_dont_halve_until_epoch: 1
 lr_patience: 1
-lr_annealing_mode: epoch
 adam_beta1: 0.99
 adam_beta2: 0.998
 save_for_pretrained: True
@@ -113,10 +109,6 @@ embedding_type: regular
 grapheme_sequence_mode: eos
 phoneme_sequence_mode: bos
 
-enc_kdim: null
-enc_vdim: null
-dec_kdim: null
-dec_vdim: null
 max_length: 2500
 
 # Special Token information
@@ -330,10 +322,6 @@ model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P
     d_ffn: !ref <transformer_d_ffn>
     dropout: !ref <transformer_dropout>
     max_length: !ref <max_length>
-    encoder_kdim: !ref <enc_kdim>
-    encoder_vdim: !ref <enc_vdim>
-    decoder_kdim: !ref <dec_kdim>
-    decoder_vdim: !ref <dec_vdim>
     activation: !name:torch.nn.GELU
     normalize_before: !ref <transformer_normalize_before>
     encoder_module: !ref <transformer_encoder_module>
@@ -524,17 +512,24 @@ encode_pipeline:
         - grapheme_encoded
         - grapheme_encoded_bos
     steps:
-        - !apply:speechbrain.lobes.models.g2p.dataio.clean_pipeline
-          graphemes: !ref <graphemes>
-        - !apply:speechbrain.lobes.models.g2p.dataio.grapheme_pipeline
+        - func: !name:speechbrain.lobes.models.g2p.dataio.clean_pipeline
+              graphemes: !ref <graphemes>
+          takes: txt
+          provides: txt_cleaned
+        - func: !name:speechbrain.lobes.models.g2p.dataio.grapheme_pipeline
+              grapheme_encoder: !ref <grapheme_encoder>
+              tokens: !ref <graphemes>
           takes: txt_cleaned
-          graphemes: !ref <graphemes>
-          grapheme_encoder: !ref <grapheme_encoder>
-        - !apply:speechbrain.lobes.models.g2p.dataio.add_bos_eos
-          tokens: !ref <graphemes>
-          bos_index: !ref <bos_index>
-          eos_index: !ref <eos_index>
-          prefix: grapheme
+          provides:
+              - grpaheme_list
+              - graphme_encoded_list
+              - grapheme_encoded_raw
+        - func: !name:speechbrain.lobes.models.g2p.dataio.add_bos_eos
+              encoder: !ref <grapheme_encoder>
+          takes: grapheme_encoded_list
+          provides:
+              - grapheme_encoded_bos
+              - grapheme_encoded
 
 
 decode_pipeline:
@@ -542,13 +537,23 @@ decode_pipeline:
     output_keys:
         - phonemes
     steps:
-        - !apply:speechbrain.lobes.models.g2p.dataio.beam_search_pipeline
-          beam_searcher: !ref <beam_searcher>
-        - !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize_pipeline
-          tokenizer: !ref <phoneme_tokenizer>
-          char_map: !ref <char_phn_map>
-          token_space_index: !ref <token_space_index>
-          wordwise: !ref <phn_token_wordwise>
+        - func: !name:speechbrain.lobes.models.g2p.dataio.beam_search_pipeline
+              beam_searcher: !ref <beam_searcher>
+          takes:
+              - char_lens
+              - encoder_out
+          provides:
+              - hyps
+              - scores
+        - func: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize
+              tokenizer: !ref <phoneme_tokenizer>
+              char_map: !ref <char_phn_map>
+              token_space_index: !ref <token_space_index>
+              wordwise: !ref <phn_token_wordwise>
+          takes:
+              - hyps
+          provides:
+              - phonemes
 
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
@@ -607,3 +612,6 @@ deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         lm: !ref <lm_model>
     paths:
         lm: !ref <pretrained_path>/lm.ckpt
+    conditions:
+        lm: !ref <use_language_model>
+

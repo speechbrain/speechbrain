@@ -80,7 +80,7 @@ layers: 2 # number of hidden layers
 dropout: 0.15
 
 # Outputs
-output_neurons: !ref <model_dim> 
+output_neurons: !ref <model_dim>
 bos_index: 0
 eos_index: 1
 blank_index: !apply:speechbrain.utils.hparams.choice
@@ -93,8 +93,6 @@ unk_index: !apply:speechbrain.utils.hparams.choice
     choices:
         True: 2
         False: 0
-
-
 
 graphemes:
     - A

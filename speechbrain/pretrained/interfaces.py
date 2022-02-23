@@ -8,6 +8,7 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
 """
+import logging
 import sys
 import torch
 import torchaudio
@@ -25,6 +26,8 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
+
+logger = logging.getLogger(__name__)
 
 
 def foreign_class(
@@ -2107,6 +2110,8 @@ class EncodeDecodePipelineMixin:
         """
         Initializes the encode and decode pipeline
         """
+        self._run_init_steps(self.hparams.encode_pipeline)
+        self._run_init_steps(self.hparams.decode_pipeline)
         self.encode_pipeline = DataPipeline(
             static_data_keys=self.INPUT_STATIC_KEYS,
             dynamic_items=self.hparams.encode_pipeline["steps"],
@@ -2117,6 +2122,17 @@ class EncodeDecodePipelineMixin:
             dynamic_items=self.hparams.decode_pipeline["steps"],
             output_keys=self.OUTPUT_KEYS,
         )
+
+    def _run_init_steps(self, pipeline_definition):
+        """Encode/decode pipelines may include initialization
+        steps, such as filling text encoders with tokens. Calling
+        this method will run them, if defined"""
+        steps = pipeline_definition.get("init", [])
+        for step in steps:
+            step_func = step.get("func")
+            if not step_func or not callable(step_func):
+                raise ValueError("Invalid pipeline init definition")
+            step_func()
 
     def _run_pipeline(self, pipeline, input, batch):
         if batch:
