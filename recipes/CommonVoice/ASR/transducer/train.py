@@ -60,7 +60,7 @@ class ASR(sb.Brain):
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "augmentation"):
-                wavs = self.modules.augmentation(feats)
+                feats = self.modules.augmentation(feats)
 
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_with_bos)
@@ -300,7 +300,7 @@ def dataio_prepare(hparams, tokenizer):
         csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
     )
 
-    # We also sort the validation data so it is faster to validate
+    # We also sort the test data so it is faster to test
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
