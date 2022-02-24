@@ -199,9 +199,17 @@ class HifiGanBrain(sb.Brain):
                 else None,
             )
 
-            self.run_inference_sample()
+            self.run_inference_sample("Valid")
 
-    def run_inference_sample(self):
+        # We also write statistics about test data to stdout and to the TensorboardLogger.
+        if stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                {"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=self.last_loss_stats[sb.Stage.TEST],
+            )
+            self.run_inference_sample("Test")
+
+    def run_inference_sample(self, name):
         """Produces a sample in inference mode. This is called when producing
         samples and can be useful because"""
         with torch.no_grad():
@@ -214,13 +222,13 @@ class HifiGanBrain(sb.Brain):
             )
 
         self.hparams.train_logger.log_audio(
-            "Valid/audio_target", y.squeeze(0), self.hparams.sample_rate
+            f"{name}/audio_target", y.squeeze(0), self.hparams.sample_rate
         )
         self.hparams.train_logger.log_audio(
-            "Valid/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate
+            f"{name}/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate
         )
-        self.hparams.train_logger.log_figure("Valid/mel_target", x)
-        self.hparams.train_logger.log_figure("Valid/mel_pred", spec_out)
+        self.hparams.train_logger.log_figure(f"{name}/mel_target", x)
+        self.hparams.train_logger.log_figure(f"{name}/mel_pred", spec_out)
 
 
 def dataio_prepare(hparams):
@@ -316,4 +324,7 @@ if __name__ == "__main__":
 
     # Test
     if "test" in datasets:
-        hifi_gan_brain.evaluate(datasets["test"])
+        hifi_gan_brain.evaluate(
+            datasets["test"],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+        )

@@ -58,6 +58,9 @@ valid_dataloader_opts:
   batch_size: 1
   num_workers: 8
 
+test_dataloader_opts:
+  batch_size: 1
+  num_workers: 8
 ################################
 # Model Parameters and model   #
 ################################
