@@ -284,8 +284,11 @@ class Tacotron2Brain(sb.Brain):
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=self.last_loss_stats[sb.Stage.VALID],
+                test_stats=self.last_loss_stats[sb.Stage.TEST],
             )
+            if self.hparams.progress_samples:
+                self.run_inference_sample()
+                self.hparams.progress_sample_logger.save("test")
 
     def run_inference_sample(self):
         """Produces a sample in inference mode. This is called when producing
@@ -386,4 +389,7 @@ if __name__ == "__main__":
 
     # Test
     if "test" in datasets:
-        tacotron2_brain.evaluate(datasets["test"])
+        tacotron2_brain.evaluate(
+            datasets["test"],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+        )
