@@ -101,6 +101,11 @@ valid_dataloader_opts:
   num_workers: 8
   collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
+test_dataloader_opts:
+  batch_size: !ref <batch_size>
+  num_workers: 8
+  collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
+
 ################################
 # Model Parameters and model   #
 ################################
@@ -136,7 +141,7 @@ postnet_embedding_dim: 512
 postnet_kernel_size: 5
 postnet_n_convolutions: 5
 
-# Inverse spectrogram parameters
+# Inverse spectrogram parameters
 inverse_spectrogram_n_iter: 1024
 
 mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
