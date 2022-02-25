@@ -48,9 +48,6 @@ _URL = "http://www.openslr.org/11"
 _DL_URL = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
 
 
-
-
-
 class LibrispeechLm(datasets.GeneratorBasedBuilder):
     """Librispeech language modeling dataset."""
 
@@ -99,4 +96,4 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
                     # very long sentences (>1000 char) are removed to prevent OOM
                     if text and len(text) < 1000:
                         yield key, {"text": text}
-                        key +=1
+                        key += 1
