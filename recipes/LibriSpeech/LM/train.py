@@ -114,7 +114,6 @@ def dataio_prepare(hparams):
     """prepare data and generate datasets"""
     datasets = load_dataset(
         "dataset.py",
-        lm_corpus_path=hparams["lm_corpus_path"],
         data_files={
             "train": train_transcripts,
             "dev": dev_transcripts,

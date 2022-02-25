@@ -48,23 +48,13 @@ _URL = "http://www.openslr.org/11"
 _DL_URL = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
 
 
-class LibrispeechLmConfig(datasets.BuilderConfig):
-    """builder config for LibriSpeech LM
-    """
 
-    lm_corpus_path: Optional[str] = None
-
-    def __post_init__(self):
-        if self.lm_corpus_path is None:
-            self.lm_corpus_path = _DL_URL
 
 
 class LibrispeechLm(datasets.GeneratorBasedBuilder):
     """Librispeech language modeling dataset."""
 
     VERSION = datasets.Version("0.1.0")
-
-    BUILDER_CONFIG_CLASS = LibrispeechLmConfig
 
     def _info(self):
         return datasets.DatasetInfo(
@@ -83,7 +73,7 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
                 split_name == "train"
             ):  # concatination lm_copus and train transcripts
                 path_dic[split_name] = dl_manager.download_and_extract(
-                    [self.config.lm_corpus_path] + files
+                    [_DL_URL] + files
                 )
             else:
                 path_dic[split_name] = dl_manager.download_and_extract(files)
@@ -97,15 +87,16 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
 
     def _generate_examples(self, archive_path):
         """Yields examples."""
+        key = 0
         for p in archive_path:
             with open(p, "r", encoding="utf-8") as f:
-                for key, line in enumerate(f):
+                for line in f:
                     line = re.sub(
                         r"\d+-\d+-\d+\s", "", line
                     )  # remove ids in transcripts
                     text = line.strip()
-
                     # Skip empty lines.
                     # very long sentences (>1000 char) are removed to prevent OOM
                     if text and len(text) < 1000:
                         yield key, {"text": text}
+                        key +=1
