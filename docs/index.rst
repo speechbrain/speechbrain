@@ -38,7 +38,7 @@ Referencing SpeechBrain
       eprint={2106.04624},
       archivePrefix={arXiv},
       primaryClass={eess.AS}
-}
+  }
 
 
 .. toctree::
