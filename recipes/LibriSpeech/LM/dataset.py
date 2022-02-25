@@ -25,8 +25,6 @@ from __future__ import absolute_import, division, print_function
 
 import datasets
 import re
-from typing import Optional
-
 
 _CITATION = """\
 @inproceedings{panayotov2015librispeech,
