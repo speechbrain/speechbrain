@@ -318,8 +318,6 @@ class Conv1d(nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    groups: int
-        Number of blocked connections from input channels to output channels.
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -351,6 +349,7 @@ class Conv1d(nn.Module):
         bias=True,
         padding_mode="reflect",
         skip_transpose=False,
+        weight_norm=False,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -377,6 +376,9 @@ class Conv1d(nn.Module):
             groups=groups,
             bias=bias,
         )
+
+        if weight_norm:
+            self.conv = nn.utils.weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -530,6 +532,8 @@ class Conv2d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        skip_transpose=False,
+        weight_norm=False,
     ):
         super().__init__()
 
@@ -547,6 +551,7 @@ class Conv2d(nn.Module):
         self.padding = padding
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.skip_transpose = skip_transpose
 
         if input_shape is None and in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
@@ -566,6 +571,9 @@ class Conv2d(nn.Module):
             bias=bias,
         )
 
+        if weight_norm:
+            self.conv = nn.utils.weight_norm(self.conv)
+
     def forward(self, x):
         """Returns the output of the convolution.
 
@@ -575,7 +583,8 @@ class Conv2d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        x = x.transpose(1, -1)
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
@@ -596,7 +605,10 @@ class Conv2d(nn.Module):
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
-        wx = wx.transpose(1, -1)
+
+        if not self.skip_transpose:
+            wx = wx.transpose(1, -1)
+
         return wx
 
     def _manage_padding(
@@ -830,6 +842,7 @@ class ConvTranspose1d(nn.Module):
         groups=1,
         bias=True,
         skip_transpose=False,
+        weight_norm=False,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -882,6 +895,9 @@ class ConvTranspose1d(nn.Module):
             groups=groups,
             bias=bias,
         )
+
+        if weight_norm:
+            self.conv = nn.utils.weight_norm(self.conv)
 
     def forward(self, x, output_size=None):
         """Returns the output of the convolution.
@@ -1113,16 +1129,14 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     dilation : int
     """
     if stride > 1:
-        padding = [math.floor(kernel_size / 2), math.floor(kernel_size / 2)]
+        n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
+        L_out = stride * (n_steps - 1) + kernel_size * dilation
+        padding = [kernel_size // 2, kernel_size // 2]
 
     else:
-        L_out = (
-            math.floor((L_in - dilation * (kernel_size - 1) - 1) / stride) + 1
-        )
-        padding = [
-            math.floor((L_in - L_out) / 2),
-            math.floor((L_in - L_out) / 2),
-        ]
+        L_out = (L_in - dilation * (kernel_size - 1) - 1) // stride + 1
+
+        padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
     return padding
 
 
