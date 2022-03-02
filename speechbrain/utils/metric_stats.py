@@ -542,6 +542,68 @@ class ClassificationStats(MetricStats):
     """Computes statistics pertaining to multi-label
     classification tasks, as well as tasks that can be loosely interpreted as such for the purpose of
     evaluations
+
+    Example
+    -------
+    >>> import sys
+    >>> from speechbrain.utils.metric_stats import ClassificationStats
+    >>> cs = ClassificationStats()
+    >>> cs.append(
+    ...     ids=["ITEM1", "ITEM2", "ITEM3", "ITEM4"],
+    ...     predictions=[
+    ...         "M EY K AH",
+    ...         "T EY K",
+    ...         "B AE D",
+    ...         "M EY K",
+    ...     ],
+    ...     targets=[
+    ...         "M EY K",
+    ...         "T EY K",
+    ...         "B AE D",
+    ...         "M EY K",
+    ...     ],
+    ...     categories=[
+    ...         "make",
+    ...         "take",
+    ...         "bad",
+    ...         "make"
+    ...     ]
+    ... )
+    >>> cs.write_stats(sys.stdout)
+    Overall Accuracy: 75%
+    <BLANKLINE>
+    Class-Wise Accuracy
+    -------------------
+    bad -> B AE D : 1 / 1 (100.00%)
+    make -> M EY K: 1 / 2 (50.00%)
+    take -> T EY K: 1 / 1 (100.00%)
+    <BLANKLINE>
+    Confusion
+    ---------
+    Target: bad -> B AE D
+      -> B AE D   : 1 / 1 (100.00%)
+    Target: make -> M EY K
+      -> M EY K   : 1 / 2 (50.00%)
+      -> M EY K AH: 1 / 2 (50.00%)
+    Target: take -> T EY K
+      -> T EY K   : 1 / 1 (100.00%)
+    >>> summary = cs.summarize()
+    >>> summary['accuracy']
+    0.75
+    >>> summary['classwise_stats'][('bad', 'B AE D')]
+    {'total': 1.0, 'correct': 1.0, 'accuracy': 1.0}
+    >>> summary['classwise_stats'][('make', 'M EY K')]
+    {'total': 2.0, 'correct': 1.0, 'accuracy': 0.5}
+    >>> summary['keys']
+    [('bad', 'B AE D'), ('make', 'M EY K'), ('take', 'T EY K')]
+    >>> summary['predictions']
+    ['B AE D', 'M EY K', 'M EY K AH', 'T EY K']
+    >>> summary['classwise_total']
+    {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 2.0, ('take', 'T EY K'): 1.0}
+    >>> summary['classwise_correct']
+    {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 1.0, ('take', 'T EY K'): 1.0}
+    >>> summary['classwise_accuracy']
+    {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 0.5, ('take', 'T EY K'): 1.0}
     """
 
     def __init__(self):
@@ -554,8 +616,8 @@ class ClassificationStats(MetricStats):
         Appends inputs, predictions and targets to internal
         lists
 
-
-        Argumengts:
+        Arguments
+        ---------
         ids: list
             the string IDs for the samples
         predictions: list
@@ -567,7 +629,6 @@ class ClassificationStats(MetricStats):
             an additional way to classify training
             samples. If available, the categories will
             be combined with targets
-
         """
         self.ids.extend(ids)
         self.predictions.extend(predictions)

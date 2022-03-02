@@ -6,15 +6,47 @@ Authors
 """
 import torch
 
-# TODO: Finish teh example here
 def expand_to_chars(emb, seq, seq_len, word_separator):
     """Expands word embeddings to a sequence of character
     embeddings, assigning each character the word embedding
     of the word to which it belongs
+
+    Arguments
+    ---------
+    emb: torch.Tensor
+        a tensor of embeddings 
+
+    Example
+    -------
+    >>> import torch
     >>> emb = torch.tensor(
-    ...     [[1., 2., 3.],
-    ...      [3., 1., 2.]]
-    ...)
+    ...     [[[1., 2., 3.],
+    ...       [3., 1., 2.],
+    ...       [0., 0., 0.]],
+    ...      [[1., 3., 2.],
+    ...       [3., 2., 1.],
+    ...       [2., 3., 1.]]]
+    ... )
+    >>> seq = torch.tensor(
+    ...     [[1, 2, 0, 2, 1, 0],
+    ...      [1, 0, 1, 2, 0, 2]]
+    ... )
+    >>> seq_len = torch.tensor([4, 5])
+    >>> word_separator = 0
+    >>> expand_to_chars(emb, seq, seq_len, word_separator)
+    tensor([[[1., 2., 3.],
+             [1., 2., 3.],
+             [0., 0., 0.],
+             [3., 1., 2.],
+             [3., 1., 2.],
+             [0., 0., 0.]],
+    <BLANKLINE>
+            [[1., 3., 2.],
+             [0., 0., 0.],
+             [3., 2., 1.],
+             [3., 2., 1.],
+             [0., 0., 0.],
+             [2., 3., 1.]]])
     """
     word_boundaries = seq == word_separator
     words = word_boundaries.cumsum(dim=-1)

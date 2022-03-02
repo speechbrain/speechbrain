@@ -759,6 +759,30 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+
+    Example
+    -------
+    >>> from speechbrain.dataio.sampler import BalancingDataSampler
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> sample_data = {
+    ...   1: {"category": "A",
+    ...       "text": "This is a test"},
+    ...   2: {"category": "A",
+    ...       "text": "This is a second test"},
+    ...   3: {"category": "B",
+    ...       "text": "This is a third test"}
+    ...  }
+    >>> dataset = DynamicItemDataset(data=sample_data)
+    >>> sampler = BalancingDataSampler(
+    ...     dataset=dataset,
+    ...     key="category",
+    ...     num_samples=10   
+    ... )
+    >>> sampler.weights
+    tensor([0.5000, 0.5000, 1.0000], dtype=torch.float64)
+    >>> it = iter(sampler)
+    >>> [next(it) for _ in range(10)]
+    [2, 2, 1, 2, 2, 0, 1, 1, 1, 2]
     """
 
     def __init__(

@@ -1,6 +1,6 @@
 """
 A convenience wrapper for word embeddings retrieved out of
-HuggingFace transformers (e.g. BERTs)
+HuggingFace transformers (e.g. BERT)
 
 Authors
 * Artem Ploujnikov 2021
@@ -16,10 +16,8 @@ def _last_n_layers(count):
 
 
 class TransformerWordEmbeddings:
-    MSG_WORD = "'word' should be either a word or the index of a ord"
-
-    """
-    A wrapper to retrieve word embeddings out of a pretrained Transformer model from HuggingFace Transformers (e.g. BERT)
+    """A wrapper to retrieve word embeddings out of a pretrained Transformer model
+    from HuggingFace Transformers (e.g. BERT)
 
     Arguments
     ---------
@@ -37,8 +35,58 @@ class TransformerWordEmbeddings:
     device:
         a torch device identifier. If provided, the model
         will be transferred onto that device
+    
+    Example
+    -------
+    NOTE: Doctests are disabled because the dependency on the
+    HuggingFace transformer library is optional.
 
+    >>> from transformers import AutoTokenizer, AutoModel # doctest: +SKIP
+    >>> from speechbrain.wordemb.transformer import TransformerWordEmbeddings
+    >>> model_name = "bert-base-uncased" # doctest: +SKIP
+    >>> tokenizer = AutoTokenizer.from_pretrained(
+    ...    model_name, return_tensors='pt') # doctest: +SKIP
+    >>> model = AutoModel.from_pretrained(
+    ...     model_name,
+    ...     output_hidden_states=True) # doctest: +SKIP
+    >>> word_emb = TransformerWordEmbeddings(
+    ...     model=model,
+    ...     layers=4,
+    ...     tokenizer=tokenizer
+    ... ) # doctest: +SKIP
+    >>> embedding = word_emb.embedding(
+    ...     sentence="THIS IS A TEST SENTENCE",
+    ...     word="TEST"
+    ... ) # doctest: +SKIP
+    >>> embedding[:8] # doctest: +SKIP
+    tensor([ 3.4332, -3.6702,  0.5152, -1.9301,  0.9197,  2.1628, -0.2841, -0.3549])
+    >>> embeddings = word_emb.embeddings("This is cool") # doctest: +SKIP
+    >>> embeddings.shape # doctest: +SKIP
+    torch.Size([3, 768])
+    >>> embeddings[:, :3] # doctest: +SKIP
+    tensor([[-2.9078,  1.2496,  0.7269],
+        [-0.9940, -0.6960,  1.4350],
+        [-1.2401, -3.8237,  0.2739]])
+    >>> sentences = [
+    ...     "This is the first test sentence",
+    ...     "This is the second test sentence",
+    ...     "A quick brown fox jumped over the lazy dog"
+    ... ]
+    >>> batch_embeddings = word_emb.batch_embeddings(sentences) # doctest: +SKIP
+    >>> batch_embeddings.shape # doctest: +SKIP
+    torch.Size([3, 9, 768])
+    >>> batch_embeddings[:, :2, :3] # doctest: +SKIP
+    tensor([[[-5.0935, -1.2838,  0.7868],
+             [-4.6889, -2.1488,  2.1380]],
+    
+            [[-4.4993, -2.0178,  0.9369],
+             [-4.1760, -2.4141,  1.9474]],
+    
+            [[-1.0065,  1.4227, -2.6671],
+             [-0.3408, -0.6238,  0.1780]]])
     """
+
+    MSG_WORD = "'word' should be either a word or the index of a word"
     DEFAULT_LAYERS = 4
 
     def __init__(self, model, tokenizer=None, layers=None, device=None):
@@ -53,7 +101,7 @@ class TransformerWordEmbeddings:
             model = _get_model(model)
             if isinstance(tokenizer, str):
                 tokenizer = _get_tokenizer(tokenizer)
-        elif isinstance(tokenizer, None):
+        elif tokenizer is None:
             raise ValueError(self.MSG_)
 
         self.model = model
@@ -112,6 +160,7 @@ class TransformerWordEmbeddings:
         -------
         emb: torch.Tensor
             a tensor of dimension
+        
         """
         encoded = self.tokenizer.encode_plus(sentence, return_tensors="pt")
 
