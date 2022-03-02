@@ -113,8 +113,6 @@ generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
   upsample_factors: !ref <upsample_factors>
   inference_padding: !ref <inference_padding>
   cond_channels: !ref <cond_channels>
-  conv_pre_weight_norm: !ref <conv_pre_weight_norm>
-  conv_post_weight_norm: !ref <conv_post_weight_norm>
   conv_post_bias: !ref <conv_post_bias>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
