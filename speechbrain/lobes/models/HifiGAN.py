@@ -35,22 +35,21 @@ Authors
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-from torch.nn import Conv1d, ConvTranspose1d
-from torch.nn.utils import weight_norm, remove_weight_norm
+from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d, Conv2d
 from torchaudio import transforms
 
 LRELU_SLOPE = 0.1
 
 
+def weight_norm(x):
+    return x
+
+
 def get_padding(kernel_size, dilation=1):
-    """Computes num_padding for convolution
-    """
     return int((kernel_size * dilation - dilation) / 2)
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Limits the minimum amplitude of a piece of signal
-    """
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -110,70 +109,70 @@ class ResBlock1(torch.nn.Module):
         super().__init__()
         self.convs1 = nn.ModuleList(
             [
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[0],
-                        padding=get_padding(kernel_size, dilation[0]),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=dilation[0],
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[1],
-                        padding=get_padding(kernel_size, dilation[1]),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=dilation[1],
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[2],
-                        padding=get_padding(kernel_size, dilation[2]),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=dilation[2],
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
             ]
         )
 
         self.convs2 = nn.ModuleList(
             [
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=1,
-                        padding=get_padding(kernel_size, 1),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=1,
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=1,
-                        padding=get_padding(kernel_size, 1),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=1,
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=1,
-                        padding=get_padding(kernel_size, 1),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=1,
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
             ]
         )
@@ -195,12 +194,6 @@ class ResBlock1(torch.nn.Module):
             x = xt + x
         return x
 
-    def remove_weight_norm(self):
-        for l in self.convs1:
-            remove_weight_norm(l)
-        for l in self.convs2:
-            remove_weight_norm(l)
-
 
 class ResBlock2(torch.nn.Module):
     """Residual Block Type 1. It has 3 convolutional layers in each convolutiona block.
@@ -215,25 +208,25 @@ class ResBlock2(torch.nn.Module):
         super().__init__()
         self.convs = nn.ModuleList(
             [
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[0],
-                        padding=get_padding(kernel_size, dilation[0]),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=dilation[0],
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                weight_norm(
-                    Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[1],
-                        padding=get_padding(kernel_size, dilation[1]),
-                    )
+                Conv1d(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    dilation=dilation[1],
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
             ]
         )
@@ -244,10 +237,6 @@ class ResBlock2(torch.nn.Module):
             xt = c(xt)
             x = xt + x
         return x
-
-    def remove_weight_norm(self):
-        for l in self.convs:
-            remove_weight_norm(l)
 
 
 class HifiganGenerator(torch.nn.Module):
@@ -278,8 +267,6 @@ class HifiganGenerator(torch.nn.Module):
         upsample_factors,
         inference_padding=5,
         cond_channels=0,
-        conv_pre_weight_norm=True,
-        conv_post_weight_norm=True,
         conv_post_bias=True,
     ):
         super().__init__()
@@ -287,8 +274,14 @@ class HifiganGenerator(torch.nn.Module):
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_factors)
         # initial upsampling layers
-        self.conv_pre = weight_norm(
-            Conv1d(in_channels, upsample_initial_channel, 7, 1, padding=3)
+        self.conv_pre = Conv1d(
+            in_channels=in_channels,
+            out_channels=upsample_initial_channel,
+            kernel_size=7,
+            stride=1,
+            padding="same",
+            skip_transpose=True,
+            weight_norm=True,
         )
         resblock = ResBlock1 if resblock_type == "1" else ResBlock2
         # upsampling layers
@@ -297,14 +290,14 @@ class HifiganGenerator(torch.nn.Module):
             zip(upsample_factors, upsample_kernel_sizes)
         ):
             self.ups.append(
-                weight_norm(
-                    ConvTranspose1d(
-                        upsample_initial_channel // (2 ** i),
-                        upsample_initial_channel // (2 ** (i + 1)),
-                        k,
-                        u,
-                        padding=(k - u) // 2,
-                    )
+                ConvTranspose1d(
+                    in_channels=upsample_initial_channel // (2 ** i),
+                    out_channels=upsample_initial_channel // (2 ** (i + 1)),
+                    kernel_size=k,
+                    stride=u,
+                    padding=(k - u) // 2,
+                    skip_transpose=True,
+                    weight_norm=True,
                 )
             )
         # MRF blocks
@@ -316,19 +309,22 @@ class HifiganGenerator(torch.nn.Module):
             ):
                 self.resblocks.append(resblock(ch, k, d))
         # post convolution layer
-        self.conv_post = weight_norm(
-            Conv1d(ch, 1, 7, 1, padding=3, bias=conv_post_bias)
+        self.conv_post = Conv1d(
+            in_channels=ch,
+            out_channels=1,
+            kernel_size=7,
+            stride=1,
+            padding="same",
+            skip_transpose=True,
+            bias=conv_post_bias,
+            weight_norm=True,
         )
         if cond_channels > 0:
-            self.cond_layer = nn.Conv1d(
-                cond_channels, upsample_initial_channel, 1
+            self.cond_layer = Conv1d(
+                in_channels=cond_channels,
+                out_channels=upsample_initial_channel,
+                kernel_size=1,
             )
-
-        if not conv_pre_weight_norm:
-            remove_weight_norm(self.conv_pre)
-
-        if not conv_post_weight_norm:
-            remove_weight_norm(self.conv_post)
 
     def forward(self, x, g=None):
         """
@@ -361,8 +357,8 @@ class HifiganGenerator(torch.nn.Module):
 
     @torch.no_grad()
     def inference(self, c):
-        """Computes HifiGAN inference
-        Arguments:
+        """
+        Args:
             x (Tensor): conditioning input tensor.
         Returns:
             Tensor: output waveform.
@@ -370,20 +366,11 @@ class HifiganGenerator(torch.nn.Module):
             x: [B, C, T]
             Tensor: [B, 1, T]
         """
-        c = c.to(self.conv_pre.weight.device)
+        # c = c.to(self.conv_pre.device)
         c = torch.nn.functional.pad(
             c, (self.inference_padding, self.inference_padding), "replicate"
         )
         return self.forward(c)
-
-    def remove_weight_norm(self):
-        print("Removing weight norm...")
-        for l in self.ups:
-            remove_weight_norm(l)
-        for l in self.resblocks:
-            l.remove_weight_norm()
-        remove_weight_norm(self.conv_pre)
-        remove_weight_norm(self.conv_post)
 
 
 ##################################
@@ -407,63 +394,69 @@ class DiscriminatorP(torch.nn.Module):
     """
 
     def __init__(
-        self, period, kernel_size=5, stride=3, use_spectral_norm=False
+        self, period, kernel_size=5, stride=3
     ):
         super().__init__()
         self.period = period
 
-        def get_padding(k, d):
-            return int((k * d - d) / 2)
-
-        norm_f = (
-            nn.utils.spectral_norm
-            if use_spectral_norm
-            else nn.utils.weight_norm
-        )
         self.convs = nn.ModuleList(
             [
-                norm_f(
-                    nn.Conv2d(
-                        1,
-                        32,
-                        (kernel_size, 1),
-                        (stride, 1),
-                        padding=(get_padding(kernel_size, 1), 0),
-                    )
+                Conv2d(
+                    in_channels=1,
+                    out_channels=32,
+                    kernel_size=(kernel_size, 1),
+                    stride=(stride, 1),
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                norm_f(
-                    nn.Conv2d(
-                        32,
-                        128,
-                        (kernel_size, 1),
-                        (stride, 1),
-                        padding=(get_padding(kernel_size, 1), 0),
-                    )
+                Conv2d(
+                    in_channels=32,
+                    out_channels=128,
+                    kernel_size=(kernel_size, 1),
+                    stride=(stride, 1),
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                norm_f(
-                    nn.Conv2d(
-                        128,
-                        512,
-                        (kernel_size, 1),
-                        (stride, 1),
-                        padding=(get_padding(kernel_size, 1), 0),
-                    )
+                Conv2d(
+                    in_channels=128,
+                    out_channels=512,
+                    kernel_size=(kernel_size, 1),
+                    stride=(stride, 1),
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                norm_f(
-                    nn.Conv2d(
-                        512,
-                        1024,
-                        (kernel_size, 1),
-                        (stride, 1),
-                        padding=(get_padding(kernel_size, 1), 0),
-                    )
+                Conv2d(
+                    in_channels=512,
+                    out_channels=1024,
+                    kernel_size=(kernel_size, 1),
+                    stride=(stride, 1),
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
-                norm_f(
-                    nn.Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(2, 0))
+                Conv2d(
+                    in_channels=1024,
+                    out_channels=1024,
+                    kernel_size=(kernel_size, 1),
+                    stride=1,
+                    padding="same",
+                    skip_transpose=True,
+                    weight_norm=True,
                 ),
             ]
         )
-        self.conv_post = norm_f(nn.Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
+        self.conv_post = Conv2d(
+            in_channels=1024,
+            out_channels=1,
+            kernel_size=(3, 1),
+            stride=1,
+            padding="same",
+            skip_transpose=True,
+            weight_norm=True,
+        )
 
     def forward(self, x):
         """
@@ -502,15 +495,15 @@ class MultiPeriodDiscriminator(torch.nn.Module):
     Periods are suggested to be prime numbers to reduce the overlap between each discriminator.
     """
 
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self):
         super().__init__()
         self.discriminators = nn.ModuleList(
             [
-                DiscriminatorP(2, use_spectral_norm=use_spectral_norm),
-                DiscriminatorP(3, use_spectral_norm=use_spectral_norm),
-                DiscriminatorP(5, use_spectral_norm=use_spectral_norm),
-                DiscriminatorP(7, use_spectral_norm=use_spectral_norm),
-                DiscriminatorP(11, use_spectral_norm=use_spectral_norm),
+                DiscriminatorP(2),
+                DiscriminatorP(3),
+                DiscriminatorP(5),
+                DiscriminatorP(7),
+                DiscriminatorP(11),
             ]
         )
 
@@ -536,17 +529,14 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     """HiFiGAN Scale Discriminator.
     It is similar to `MelganDiscriminator` but with a specific architecture explained in the paper.
+    SpeechBrain CNN wrappers are not used here beacause spectral_norm is not often used
     Args:
         use_spectral_norm (bool): if `True` swith to spectral norm instead of weight norm.
     """
 
     def __init__(self, use_spectral_norm=False):
         super().__init__()
-        norm_f = (
-            nn.utils.spectral_norm
-            if use_spectral_norm
-            else nn.utils.weight_norm
-        )
+        norm_f = nn.utils.spectral_norm if use_spectral_norm else nn.utils.weight_norm
         self.convs = nn.ModuleList(
             [
                 norm_f(nn.Conv1d(1, 128, 15, 1, padding=7)),
@@ -635,8 +625,6 @@ class HifiganDiscriminator(nn.Module):
         scores, feats = self.mpd(x)
         scores_, feats_ = self.msd(x)
         return scores + scores_, feats + feats_
-        # scores, feats = self.mpd(x)
-        # return scores, feats
 
 
 #################################
@@ -650,7 +638,6 @@ def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
         n_fft,
         hop_length,
         win_length,
-        # nn.Parameter(getattr(torch, window_fn)(win_length), requires_grad=False),
     )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
