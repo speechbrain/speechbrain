@@ -393,9 +393,7 @@ class DiscriminatorP(torch.nn.Module):
         x: [B, 1, T]
     """
 
-    def __init__(
-        self, period, kernel_size=5, stride=3
-    ):
+    def __init__(self, period, kernel_size=5, stride=3):
         super().__init__()
         self.period = period
 
@@ -536,7 +534,11 @@ class DiscriminatorS(torch.nn.Module):
 
     def __init__(self, use_spectral_norm=False):
         super().__init__()
-        norm_f = nn.utils.spectral_norm if use_spectral_norm else nn.utils.weight_norm
+        norm_f = (
+            nn.utils.spectral_norm
+            if use_spectral_norm
+            else nn.utils.weight_norm
+        )
         self.convs = nn.ModuleList(
             [
                 norm_f(nn.Conv1d(1, 128, 15, 1, padding=7)),
@@ -633,12 +635,7 @@ class HifiganDiscriminator(nn.Module):
 
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
-    o = torch.stft(
-        x.squeeze(1),
-        n_fft,
-        hop_length,
-        win_length,
-    )
+    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
     S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
