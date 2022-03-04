@@ -18,7 +18,9 @@ from speechbrain.utils.data_utils import download_file
 try:
     import fairseq
 except ImportError:
-    print("Please install Fairseq to use pretrained wav2vec!")
+    MSG = "Please install Fairseq to use pretrained wav2vec\n"
+    MSG += "E.G. run: pip install fairseq"
+    raise ImportError(MSG)
 
 
 class FairseqWav2Vec2(nn.Module):

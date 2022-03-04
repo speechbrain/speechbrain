@@ -104,5 +104,6 @@ searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
     blank_index: !ref <blank_index>
+    use_torchaudio: False
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

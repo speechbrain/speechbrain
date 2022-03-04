@@ -1,6 +1,15 @@
 # CommonVoice ASR with Transducers.
 This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
 
+# Extra-Dependencies
+This recipe support two implementation of Transducer loss, see `use_torchaudio` arg in Yaml file:
+1- Transducer loss from torchaudio (if torchaudio version >= 0.10.0) (Default)
+2- Speechbrain Implementation using Numba lib. (this allow you to have a direct access in python to the Transducer loss implementation)
+Note: Before running this recipe, make sure numba is installed. Otherwise, run:
+```
+pip install numba
+```
+
 # How to run
 python train.py hparams/{hparam_file}.py
 

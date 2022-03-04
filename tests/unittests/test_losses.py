@@ -141,7 +141,12 @@ def test_transducer_loss(device):
     probs_length = torch.Tensor([1.0]).to(device)
     target_length = torch.Tensor([1.0]).to(device)
     out_cost = transducer_loss(
-        log_probs, targets, probs_length, target_length, blank_index=0
+        log_probs,
+        targets,
+        probs_length,
+        target_length,
+        blank_index=0,
+        use_torchaudio=False,
     )
     out_cost.backward()
     assert out_cost.item() == 2.247833251953125
