@@ -8,6 +8,7 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
 """
+import hashlib
 import sys
 import torch
 import torchaudio
@@ -79,7 +80,7 @@ def foreign_class(
         An instance of a class with the given classname from the given pymodule file.
     """
     if savedir is None:
-        savedir = f"./pretrained_models/{classname}-{hash(source)}"
+        savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
     hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
     pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
     sys.path.append(str(pymodule_local_path.parent))
@@ -327,7 +328,7 @@ class Pretrained(torch.nn.Module):
         """
         if savedir is None:
             clsname = cls.__name__
-            savedir = f"./pretrained_models/{clsname}-{hash(source)}"
+            savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
             hparams_file, source, savedir, use_auth_token
         )
@@ -590,6 +591,10 @@ class EncoderDecoderASR(Pretrained):
                 for token_seq in predicted_tokens
             ]
         return predicted_words, predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
 
 
 class EncoderASR(Pretrained):

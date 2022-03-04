@@ -23,7 +23,7 @@ skip_prep: False # Skip data preparation
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 8
+batch_size: 8 # Used if dynamic_batching is False
 lr: 0.0003
 ctc_weight: 0.2
 sorting: ascending
@@ -59,7 +59,7 @@ max_decode_ratio: 1.0
 beam_size: 16
 eos_threshold: 1.5
 
-# Dataloader options
+# Dataloader options (used if dynamic_batching is False)
 train_dataloader_opts:
     batch_size: !ref <batch_size>
 
@@ -68,6 +68,20 @@ valid_dataloader_opts:
 
 test_dataloader_opts:
     batch_size: !ref <batch_size>
+
+
+# Dynamic batching changes the batch size dynamically.
+# (e.g, for short sentences, the batch size will be higher)
+# For more info, see speechbrain.dataio.sampler.DynamicBatchSampler
+dynamic_batching: False
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 5000 # in terms of frames
+    num_buckets: 20
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>

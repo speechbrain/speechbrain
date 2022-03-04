@@ -129,4 +129,4 @@ def test_features_multimic(device):
     inputs_ch2 = torch.stack((inputs, inputs), -1)
     output_ch2 = compute_fbanks(inputs_ch2)
     output_ch2 = output_ch2[..., 0]
-    assert torch.sum(output - output_ch2) < 1e-05
+    assert torch.sum(output - output_ch2) < 5e-05

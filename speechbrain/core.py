@@ -256,6 +256,16 @@ def parse_arguments(arg_list=None):
         help="Amount of time between saving intra-epoch checkpoints "
         "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
     )
+    parser.add_argument(
+        "--grad_accumulation_factor",
+        type=int,
+        help="Number of batches to accumulate gradients before optimizer step",
+    )
+    parser.add_argument(
+        "--optimizer_step_limit",
+        type=int,
+        help="Number of optimizer steps to run. If not passed, all epochs are run.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -435,12 +445,18 @@ class Brain:
             "nonfinite_patience": 3,
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
+            "grad_accumulation_factor": 1,
+            "optimizer_step_limit": None,
         }
+
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: " + arg + " arg overridden by command line input"
+                        "Info: "
+                        + arg
+                        + " arg overridden by command line input to: "
+                        + str(run_opts[arg])
                     )
                 setattr(self, arg, run_opts[arg])
             else:
@@ -554,6 +570,7 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
         if self.checkpointer is not None:
@@ -700,7 +717,7 @@ class Brain:
         if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both shuffle=True "
+                    "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
             sampler = ReproducibleRandomSampler(dataset)
@@ -726,27 +743,23 @@ class Brain:
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
+                loader_kwargs["sampler"] = self.train_sampler
             elif loader_kwargs.get("batch_sampler") is None:
-                # Currently to get here, shuffle == False, so not passing it.
-                # Otherwise we'd have to handle deleting it (but it is already
-                # deleted).
+                # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset,
-                    rank=self.rank,
-                    shuffle=shuffle,
-                    drop_last=drop_last,
+                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
+                loader_kwargs["sampler"] = self.train_sampler
             else:  # batch_sampler was specified
-                # TODO: Could a DistributedSamplerWrapper actually work
-                # just fine for wrapping a BatchSampler, as well?
-                logger.warning(
-                    "Cannot automatically solve distributed sampling "
-                    "when using a BatchSampler."
+                self.train_sampler = DistributedSamplerWrapper(
+                    loader_kwargs.get("batch_sampler", None),
+                    rank=self.rank,
+                    shuffle=False,
                 )
-            loader_kwargs["sampler"] = self.train_sampler
+                loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
             logger.warning(
                 "Cannot automatically solve distributed sampling "
@@ -839,31 +852,29 @@ class Brain:
         -------
         detached loss
         """
+        should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.optimizer)
-            if self.check_gradients(loss):
-                self.scaler.step(self.optimizer)
-            self.scaler.update()
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer_step += 1
         else:
-            # start = time.time()
             outputs = self.compute_forward(batch, Stage.TRAIN)
-            # forward = time.time()
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            # loss_t = time.time()
-            loss.backward()
-            if self.check_gradients(loss):
-                self.optimizer.step()
-            self.optimizer.zero_grad()
-            # backward = time.time()
-            # print("forward " + str(forward - start))
-            # print("loss_t " + str(loss_t - start))
-            # print("backward " + str(backward - start))
+            (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.optimizer_step += 1
 
         return loss.detach().cpu()
 
@@ -1012,7 +1023,6 @@ class Brain:
 
         # Iterate epochs
         for epoch in epoch_counter:
-
             # Training stage
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
@@ -1037,6 +1047,9 @@ class Brain:
                 disable=not enable,
             ) as t:
                 for batch in t:
+                    if self._optimizer_step_limit_exceeded:
+                        logger.info("Train iteration limit exceeded")
+                        break
                     self.step += 1
                     loss = self.fit_batch(batch)
                     self.avg_train_loss = self.update_average(
@@ -1054,7 +1067,14 @@ class Brain:
                         and time.time() - last_ckpt_time
                         >= self.ckpt_interval_minutes * 60.0
                     ):
-                        run_on_main(self._save_intra_epoch_ckpt)
+                        # This should not use run_on_main, because that
+                        # includes a DDP barrier. That eventually leads to a
+                        # crash when the processes'
+                        # time.time() - last_ckpt_time differ and some
+                        # processes enter this block while others don't,
+                        # missing the barrier.
+                        if sb.utils.distributed.if_main_process():
+                            self._save_intra_epoch_ckpt()
                         last_ckpt_time = time.time()
 
             # Run train "on_stage_end" on all processes
@@ -1089,8 +1109,19 @@ class Brain:
                     )
 
             # Debug mode only runs a few epochs
-            if self.debug and epoch == self.debug_epochs:
+            if (
+                self.debug
+                and epoch == self.debug_epochs
+                or self._optimizer_step_limit_exceeded
+            ):
                 break
+
+    @property
+    def _optimizer_step_limit_exceeded(self):
+        return (
+            self.optimizer_step_limit is not None
+            and self.optimizer_step >= self.optimizer_step_limit
+        )
 
     def _save_intra_epoch_ckpt(self):
         """Saves a CKPT with specific intra-epoch flag."""
@@ -1202,6 +1233,7 @@ class Brain:
                 self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
             )
         self.step = 0
+        return avg_test_loss
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.
@@ -1225,7 +1257,11 @@ class Brain:
 
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):
-        save_dict = {"step": self.step, "avg_train_loss": self.avg_train_loss}
+        save_dict = {
+            "step": self.step,
+            "avg_train_loss": self.avg_train_loss,
+            "optimizer_step": self.optimizer_step,
+        }
         with open(path, "w") as w:
             w.write(yaml.dump(save_dict))
 
@@ -1234,6 +1270,9 @@ class Brain:
         del end_of_epoch
         del device
         with open(path) as f:
-            save_dict = yaml.safe_load(f)
+            save_dict = yaml.safe_load(
+                f
+            ).bro.bro.bro.bro.bro.bro.bro.bro.bro.bro.bro.bro
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
+        self.optimizer_step = save_dict["optimizer_step"]
