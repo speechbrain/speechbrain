@@ -1,7 +1,8 @@
-"""This lobe enables the integration of huggingface pretrained wav2vec2 models.
+"""This lobe enables the integration of huggingface pretrained wav2vec2/hubert/wavlm models.
 
 Reference: https://arxiv.org/abs/2006.11477
 Reference: https://arxiv.org/abs/1904.05862
+Reference: https://arxiv.org/abs/2110.13900
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
@@ -23,8 +24,8 @@ from speechbrain.pretrained.fetching import fetch
 # We check if transformers is installed.
 try:
     import transformers
-    from transformers import Wav2Vec2Model, HubertModel
-    from transformers import Wav2Vec2Config, HubertConfig
+    from transformers import Wav2Vec2Model, HubertModel, WavLMModel
+    from transformers import Wav2Vec2Config, HubertConfig, WavLMConfig
     from transformers import Wav2Vec2FeatureExtractor
     from transformers import Wav2Vec2ForPreTraining
     from transformers.models.wav2vec2.modeling_wav2vec2 import (
@@ -38,9 +39,17 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-HF_models = {"wav2vec2": Wav2Vec2Model, "hubert": HubertModel}
+HF_models = {
+    "wav2vec2": Wav2Vec2Model,
+    "hubert": HubertModel,
+    "wavlm": WavLMModel,
+}
 
-HF_config = {"wav2vec2": Wav2Vec2Config, "hubert": HubertConfig}
+HF_config = {
+    "wav2vec2": Wav2Vec2Config,
+    "hubert": HubertConfig,
+    "wavlm": WavLMConfig,
+}
 
 
 class HuggingFaceWav2Vec2(nn.Module):
@@ -104,6 +113,9 @@ class HuggingFaceWav2Vec2(nn.Module):
         if "hubert" in source:
             config = HF_config.get("hubert")
             model = HF_models.get("hubert")
+        elif "wavlm" in source:
+            config = HF_config.get("wavlm")
+            model = HF_models.get("wavlm")
         else:
             config = HF_config.get("wav2vec2")
             model = HF_models.get("wav2vec2")
