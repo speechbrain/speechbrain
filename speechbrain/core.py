@@ -18,6 +18,7 @@ import inspect
 import pathlib
 import argparse
 import tempfile
+import warnings
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -1273,4 +1274,12 @@ class Brain:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
-        self.optimizer_step = save_dict["optimizer_step"]
+        # Ensure compatibility with checkpoints from before optimizer_step:
+        if "optimizer_step" not in save_dict:
+            clsname = self.__class__.__name__
+            MSG = f"'optimizer_step' not found in {clsname} checkpoint."
+            MSG += " Using the saved 'step' value (BACKWARDS COMPATIBILITY)"
+            warnings.warn(MSG)
+            self.optimizer_step = self.step
+        else:
+            self.optimizer_step = save_dict["optimizer_step"]
