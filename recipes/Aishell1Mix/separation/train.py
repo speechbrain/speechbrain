@@ -67,6 +67,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
             "aishell1mix_addnoise": hparams["use_wham_noise"],
             "fs": hparams["sample_rate"],
+            "datafreqs": hparams["data_freqs"],
+            "datamodes": hparams["data_modes"],
         },
     )
     hparams["data_folder"] += f'/aishell1mix/Aishell1Mix{hparams["num_spks"]}'
