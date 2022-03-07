@@ -24,6 +24,9 @@ def prepare_aishell1mix(
     skip_prep=False,
     aishell1mix_addnoise=False,
     fs=8000,
+    datafreqs=["8k", "16k"],
+    datamodes=["max", "min"],
+    datatypes=["mix_clean", "mix_both", "mix_single"],
 ):
     """
 
@@ -138,10 +141,6 @@ def prepare_aishell1mix(
         n_spks,
     )
 
-    freqs = ["8k", "16k"]
-    modes = ["max", "min"]
-    types = ["mix_clean", "mix_both", "mix_single"]
-
     from scripts.create_aishell1mix_from_metadata import create_aishell1mix
 
     aishell1mix_outdir = os.path.join(
@@ -153,10 +152,10 @@ def prepare_aishell1mix(
         wham_dir,
         aishell1mix_outdir,
         aishell1mix_md_outdir,
-        freqs,
+        datafreqs,
         n_spks,
-        modes,
-        types,
+        datamodes,
+        datatypes,
     )
 
     if skip_prep:
