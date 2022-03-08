@@ -14,10 +14,12 @@ Here is a list of the different languages or dialects that we tested within the 
 
 # Results
 
-| Language | DVoice Release | hyperparams file | LM | Test WER |
-| ------------- |:-------------:|:---------------------------:| -----:| -----:|
-| Darija | v1.0 | train_dar_with_wav2vec.yaml | No | 30% |
-| Swahili | v1.0 | train_sw_with_wav2vec.yaml | No | 28% |
+| Language | DVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
+| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
+| Darija (Moroccan Arabic) | - | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/nairaxo/dvoice-darija) | - | - |
+| Swahili | - | train_fr_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/nairaxo/dvoice-swahili) | - | - |
+
+
 
 
 ## How to simply use pretrained models to transcribe my audio file?
