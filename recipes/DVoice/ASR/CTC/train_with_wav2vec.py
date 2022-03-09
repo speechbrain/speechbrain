@@ -11,11 +11,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 
-
-
-
-
-"""Recipe for training a sequence-to-sequence ASR system with DVoice.
+"""Recipe for training a sequence-to-sequence ASR system with CommonVoice.
 The system employs a wav2vec2 encoder and a CTC decoder.
 Decoding is performed with greedy decoding (will be extended to beam search).
 
@@ -32,7 +28,7 @@ Byte Pairwise Encoding (BPE).
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
-training languages (all DVoice languages), and many
+training languages (all CommonVoice languages), and many
 other possible variations.
 
 Authors
@@ -334,7 +330,6 @@ if __name__ == "__main__":
             "accented_letters": hparams["accented_letters"],
             "language": hparams["language"],
             "skip_prep": hparams["skip_prep"],
-            "data_augmentation": hparams["data_augmentation"],
         },
     )
 
@@ -378,4 +373,3 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_options"],
     )
-
