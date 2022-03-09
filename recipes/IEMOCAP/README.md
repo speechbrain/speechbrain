@@ -10,10 +10,10 @@ or with wav2vec2 model:
 # Results
 | Release | hyperparams file | Val. Acc. | Test Acc. | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 2021-07-04 | train.yaml |  65.3 | 65.7 | https://drive.google.com/drive/folders/1U9SiO4KkCNBKfxilXzJqBZ_k-vHz4ltV?usp=sharing | 1xV100 16GB |
-| 2021-10-17 | train_with_wav2vec2.yaml (wav2vec2 base) |  best 78.1 | best: 78.7 (avg 75.3) | https://drive.google.com/drive/u/0/folders/11iZkcxvXYPnhf1yfYO_WVfRpGbN6HmNw | 1xV100 32GB |
-| 2021-10-17 | train_with_wav2vec2.yaml (voxpopuli base) |  best 73.3 | best: 73.3 (avg 70.5) | https://drive.google.com/drive/u/0/folders/1hCL2vCQe2WS5wv5LU7JYkh7QSHNH9m4d | 1xV100 32GB |
-| 2021-10-17 | train_with_wav2vec2.yaml (hubert base) |  best 74.9  | best: 79.1 (avg 73,4) | https://drive.google.com/drive/u/0/folders/1m8xggbhbsXHedMbF6dNVkNEW1bfGTjvi | 1xV100 32GB |
+| 2021-07-04 | train.yaml |  65.3 | 65.7 | [model](https://drive.google.com/drive/folders/1U9SiO4KkCNBKfxilXzJqBZ_k-vHz4ltV?usp=sharing) | 1xV100 16GB |
+| 2021-10-17 | train_with_wav2vec2.yaml (wav2vec2 base) |  best 78.1 | best: 78.7 (avg 75.3) | [model](https://drive.google.com/drive/u/0/folders/11iZkcxvXYPnhf1yfYO_WVfRpGbN6HmNw) | 1xV100 32GB |
+| 2021-10-17 | train_with_wav2vec2.yaml (voxpopuli base) |  best 73.3 | best: 73.3 (avg 70.5) | [model](https://drive.google.com/drive/u/0/folders/1hCL2vCQe2WS5wv5LU7JYkh7QSHNH9m4d) | 1xV100 32GB |
+| 2021-10-17 | train_with_wav2vec2.yaml (hubert base) |  best 74.9  | best: 79.1 (avg 73,4) | [model](https://drive.google.com/drive/u/0/folders/1m8xggbhbsXHedMbF6dNVkNEW1bfGTjvi) | 1xV100 32GB |
 
 # Training Time
 About 40 sec for each epoch with a TESLA V100 (with ECAPA-TDNN).
