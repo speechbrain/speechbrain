@@ -416,7 +416,7 @@ class DynamicBatchSampler(Sampler):
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
         batch_ordering: str = "random",
-        max_batch_ex: int = -1,
+        max_batch_ex: int = None,
         bucket_boundaries: List[int] = [],
         lengths_list: List[int] = None,
         seed: int = 42,
@@ -480,6 +480,8 @@ class DynamicBatchSampler(Sampler):
         self._batch_ordering = batch_ordering
         self._seed = seed
         self._drop_last = drop_last
+        if max_batch_ex is None:
+            max_batch_ex = np.inf
         self._max_batch_ex = max_batch_ex
         # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
         self._bucket_lens = [
@@ -591,7 +593,7 @@ class DynamicBatchSampler(Sampler):
 
             if (
                 len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]
-                or len(bucket_batches[bucket_id]) <= self._max_batch_ex
+                or len(bucket_batches[bucket_id]) >= self._max_batch_ex
             ):
                 self._batches.append(bucket_batches[bucket_id])
                 bucket_batches[bucket_id] = []
