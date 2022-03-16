@@ -51,11 +51,20 @@ class ASR(sb.core.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, tokens_bos_lens = batch.tokens_bos
+        tokens_bos, _ = batch.tokens_bos
+
+        # Add augmentation if specified
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+                wav_lens = torch.cat([wav_lens, wav_lens])
+                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
 
         # compute features
-        feats = self.hparams.compute_features(wavs, wav_lens)
-        feats = self.modules.normalize(feats, wav_lens)
+        feats = self.hparams.compute_features(wavs)
+        current_epoch = self.hparams.epoch_counter.current
+        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
@@ -68,7 +77,7 @@ class ASR(sb.core.Brain):
             src,
             tokens_bos,
             wav_lens,
-            pad_idx=self.hparams.pad_index,  # two_pass=True
+            pad_idx=self.hparams.pad_index, 
         )
 
 
