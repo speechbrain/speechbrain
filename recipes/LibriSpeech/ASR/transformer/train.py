@@ -33,6 +33,7 @@ Authors
  * Samuele Cornell 2020, 2021
  * Titouan Parcollet 2021
 """
+
 import os
 import sys
 import torch
@@ -74,12 +75,8 @@ class ASR(sb.core.Brain):
         src = self.modules.CNN(feats)
 
         enc_out, pred = self.modules.Transformer(
-            src,
-            tokens_bos,
-            wav_lens,
-            pad_idx=self.hparams.pad_index, 
+            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
         )
-
 
         # output layer for ctc log-probabilities
         logits = self.modules.ctc_lin(enc_out)
@@ -299,7 +296,6 @@ def dataio_prepare(hparams):
         return sig
 
     sb.dataio.dataset.add_dynamic_item(valtest_datasets, audio_pipeline)
-
 
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
