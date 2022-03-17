@@ -47,8 +47,8 @@ test_csv:
 number_of_epochs: 110
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
-gradient_accumulation: 4
-gradient_clipping: 5.0
+grad_accumulation_factor: 4
+max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: ascending
 
