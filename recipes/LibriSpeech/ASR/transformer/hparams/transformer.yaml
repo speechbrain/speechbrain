@@ -49,7 +49,7 @@ number_of_epochs: 60
 batch_size: 32 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 2
-max_grad_norm: 0.0
+max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 
