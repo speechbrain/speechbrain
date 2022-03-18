@@ -151,6 +151,40 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
+    def fit_batch(self, batch):
+
+        should_step = self.step % self.grad_accumulation_factor == 0
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            self.optimizer.zero_grad()
+            with torch.cuda.amp.autocast():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer_step += 1
+
+                # anneal lr every update
+                self.hparams.noam_annealing(self.optimizer)
+        else:
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.optimizer_step += 1
+
+                # anneal lr every update
+                self.hparams.noam_annealing(self.optimizer)
+
+        return loss.detach().cpu()
+
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
         with torch.no_grad():
@@ -184,7 +218,7 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
 
             lr = self.hparams.noam_annealing.current_lr
-            steps = self.hparams.noam_annealing.n_steps
+            steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
 
             epoch_stats = {
