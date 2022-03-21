@@ -1286,12 +1286,12 @@ class VAD(Pretrained):
         prob_th[:, 0, :] = (prob_th[:, 0, :] >= 1).int()
         prob_th[:, -1, :] = (prob_th[:, -1, :] >= 1).int()
 
-        # Fix edge cases (when a new sentence starts in the last frame)
-        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 1:
-            prob_th[:, -2, :] = 2
-
-        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 0:
-            prob_th[:, -2, :] = 1
+        # Fix edge cases (when a speech starts in the last frames)
+        if (prob_th == 1).nonzero().shape[0] % 2 == 1:
+            prob_th = torch.cat(
+                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), 
+                dim=1
+                )
 
         # Where prob_th is 1 there is a change
         indexes = (prob_th == 1).nonzero()[:, 1].reshape(-1, 2)
