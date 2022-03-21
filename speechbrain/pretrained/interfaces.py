@@ -1289,9 +1289,8 @@ class VAD(Pretrained):
         # Fix edge cases (when a speech starts in the last frames)
         if (prob_th == 1).nonzero().shape[0] % 2 == 1:
             prob_th = torch.cat(
-                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), 
-                dim=1
-                )
+                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), dim=1
+            )
 
         # Where prob_th is 1 there is a change
         indexes = (prob_th == 1).nonzero()[:, 1].reshape(-1, 2)
