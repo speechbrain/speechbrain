@@ -30,8 +30,8 @@ Authors
  * Jianyuan Zhong 2020
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
- * Samuele Cornell 2020, 2021
- * Titouan Parcollet 2021
+ * Samuele Cornell 2020, 2021, 2022
+ * Titouan Parcollet 2021, 2022
 """
 
 import os
@@ -334,6 +334,8 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline_train(wav):
+        # Speed Perturb is done here so it is multi-threaded with the
+        # workers of the dataloader (faster).
         if hparams["speed_perturb"]:
             sig = sb.dataio.dataio.read_audio(wav)
             # factor = np.random.uniform(0.95, 1.05)
