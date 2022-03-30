@@ -731,6 +731,7 @@ if __name__ == "__main__":
         hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs"]
         )
+        hparams["tensorboard_train_logger"].prepare_tensorboard_logger()
 
     # Create the folder to save enhanced files (+ support for DDP)
     run_on_main(create_folder, kwargs={"folder": hparams["enhanced_folder"]})

@@ -443,6 +443,12 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
+    if hparams["use_tensorboard"]:
+        from speechbrain.utils.train_logger import TensorboardLogger
+
+        hparams["train_logger"] = TensorboardLogger(hparams["train_log"])
+        hparams["train_logger"].prepare_tensorboard_logger()
+
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],

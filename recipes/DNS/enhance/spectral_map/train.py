@@ -237,6 +237,7 @@ if __name__ == "__main__":
         hparams["hparams"]["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs"]
         )
+        hparams["tensorboard_train_logger"].prepare_tensorboard_logger()
 
     # Create the folder to save enhanced files (+ support for DDP)
     try:

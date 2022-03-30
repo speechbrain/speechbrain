@@ -14,6 +14,7 @@ output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+use_tensorboard: False
 
 # Language model (LM) pretraining
 # NB: To avoid mismatch, the speech recognizer must be trained with the same

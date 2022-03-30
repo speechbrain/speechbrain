@@ -397,6 +397,7 @@ if __name__ == "__main__":
         hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs_folder"]
         )
+        hparams["tensorboard_train_logger"].prepare_tensorboard_logger()
 
     run_on_main(
         prepare_urban_sound_8k,

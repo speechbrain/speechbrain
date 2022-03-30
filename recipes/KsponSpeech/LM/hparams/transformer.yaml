@@ -12,6 +12,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/Transformer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+use_tensorboard: False
 
 # Data files
 data_folder: ../Tokenizer/results/5K_subword_unigram_LM

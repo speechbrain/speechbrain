@@ -178,6 +178,12 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    if hparams["use_tensorboard"]:
+        from speechbrain.utils.train_logger import TensorboardLogger
+
+        hparams["train_logger"] = TensorboardLogger(hparams["train_log"])
+        hparams["train_logger"].prepare_tensorboard_logger()
+
     # here we create the dataloader objects as well as
     # tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
