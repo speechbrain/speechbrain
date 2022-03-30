@@ -8,17 +8,30 @@ This folder contains scripts necessary to run an ASR experiment with the DVoice 
 python train.py hparams/{hparam_file}.py
 
 # Languages
-Here is a list of the different languages or dialects that we tested within the DVoice dataset and CTC:
+Here is a list of the different African languages and dialects that we tested:
 - Darija
-- Swahili (upcoming soon)
+- Swahili
+- Wolof
+- Fongbe
+- Amharic
 
 # Results
 
-| Language | DVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
-| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
-| Darija (Moroccan Arabic) | - | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/nairaxo/dvoice-darija) | - | - |
-| Swahili | - | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/nairaxo/dvoice-swahili) | - | - |
+| Language | DVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link |
+| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:|
+| Darija (Moroccan Arabic) | v2.0 | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/nairaxo/dvoice-darija) | 
+| Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/nairaxo/dvoice-swahili) |
+| Multilingual (Darija, Swahili, Wolof, Fongbe, Amharic) | v2.0 | train_multi_with_wav2vec.yaml | No | 7.98 | 24.82 | 7.75 | 24.56 | [Link](https://huggingface.co/nairaxo/dvoice-multilingual) |
 
+
+## Performances of DVoice Multilingual on each language
+Dataset Link | Language | Test WER |
+|:---------------------------:| -----:| -----:|
+| [DVoice](https://zenodo.org/record/6342622) | Darija | 13.27 |
+| [DVoice/VoxLingua107](https://zenodo.org/record/6342622) + [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Swahili | 29.31 |
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Fongbe | 10.26 |
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Wolof | 21.54 |
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Amharic | 31.15 |
 
 
 
