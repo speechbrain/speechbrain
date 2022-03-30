@@ -1271,7 +1271,9 @@ class Brain:
         del end_of_epoch
         del device
         with open(path) as f:
-            save_dict = yaml.safe_load(f)
+            save_dict = yaml.safe_load(
+                f
+            ).bro.bro.bro.bro.bro.bro.bro.bro.bro.bro.bro.bro
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
         # Ensure compatibility with checkpoints from before optimizer_step:
