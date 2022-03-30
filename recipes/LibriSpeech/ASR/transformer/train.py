@@ -3,29 +3,22 @@
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
 language model.
-
 To run this recipe, do the following:
 > python train.py hparams/transformer.yaml
 > python train.py hparams/conformer.yaml
-
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
 language model is used  on the top of decoder probabilities.
-
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
-
 The best model is the average of the checkpoints from last 5 epochs.
-
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, train-clean 100 rather than the full one), and many
 other possible variations.
-
-
 Authors
  * Jianyuan Zhong 2020
  * Mirco Ravanelli 2020
@@ -153,32 +146,33 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
 
-        should_step = self.step % self.grad_accumulation_factor == 0
+        should_step = self.step % self.hparams.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            self.scaler.scale(loss / self.hparam.grad_accumulation_factor).backward()
             if should_step:
                 self.scaler.unscale_(self.optimizer)
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.scaler.update()
-                self.optimizer_step += 1
+                self.step += 1
 
                 # anneal lr every update
                 self.hparams.noam_annealing(self.optimizer)
         else:
             outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
+            (loss / self.hparams.grad_accumulation_factor).backward()
+
             if should_step:
                 if self.check_gradients(loss):
                     self.optimizer.step()
                 self.optimizer.zero_grad()
-                self.optimizer_step += 1
+                self.step += 1
 
                 # anneal lr every update
                 self.hparams.noam_annealing(self.optimizer)
@@ -218,7 +212,7 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
 
             lr = self.hparams.noam_annealing.current_lr
-            steps = self.optimizer_step
+            steps = self.step
             optimizer = self.optimizer.__class__.__name__
 
             epoch_stats = {
