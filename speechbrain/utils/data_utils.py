@@ -341,7 +341,7 @@ def pad_right_to(
     """
     assert len(target_shape) == tensor.ndim
     pads = []  # this contains the abs length of the padding for each dimension.
-    valid_vals = []  # thic contains the relative lengths for each dimension.
+    valid_vals = []  # this contains the relative lengths for each dimension.
     i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
