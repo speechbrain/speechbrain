@@ -7,7 +7,7 @@ To run this recipe, do the following:
 > python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 
 With the default hyperparameters, the system employs a pretrained wav2vec2 encoder.
-The wav2vec2 model is pretrained following the XSLR French HuggingFace model:
+The wav2vec2 model is pretrained following the XLSR French HuggingFace model:
 facebook/wav2vec2-large-xlsr-53-french
 
 The decoder is based on a standard GRU and BeamSearch (no LM).

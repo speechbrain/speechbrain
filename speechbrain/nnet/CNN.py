@@ -773,7 +773,7 @@ class ConvTranspose1d(nn.Module):
     padding : str or int
         To have in output the target dimension, we suggest tuning the kernel
         size and the padding properly. We also support the following function
-        to have some control over the padding and the corresponding ouput
+        to have some control over the padding and the corresponding output
         dimensionality.
         if "valid", no padding is applied
         if "same", padding amount is inferred so that the output size is closest

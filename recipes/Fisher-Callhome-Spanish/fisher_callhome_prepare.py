@@ -52,7 +52,7 @@ class TDF:
     end: int
         end time of utterance
     transcript: str
-        transcript of utteranc
+        transcript of utterance
     """
 
     channel: int
@@ -357,11 +357,11 @@ def concate_transcriptions_by_mapping_file(
                 need_to_be_concate_lines[0] - 1
             ].channel
             channel_symbol = "B" if channel == 1 else "A"
-            uttrance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
+            utterance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
 
             utterances.append(
                 Data(
-                    uid=uttrance_id,
+                    uid=utterance_id,
                     transcription=concated_transcripts,
                     wav=f"{speech_folder}/{uid}.sph {channel} {start} {end}",
                     duration=(end - start) / 100,
@@ -513,7 +513,7 @@ def remove_punctuation(text: str) -> str:
 def normalize_punctuation(text: str) -> str:
     """remove punctuation from given string"""
 
-    # remove brachets and inside
+    # remove brackets and inside
     text = re.sub(r"\([^)]*\)", " ", text)
     text = re.sub(r"\[[^]]+\]", " ", text)
 
@@ -672,7 +672,7 @@ def clean_transcription(transcription: str) -> str:
 
 
 def clean_translation(translation: str) -> str:
-    """clean a given translation and returne a cleaned translation"""
+    """clean a given translation and return a cleaned translation"""
     translation = translation.strip()
     translation = translation.lower()
 

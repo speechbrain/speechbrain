@@ -324,7 +324,7 @@ class TransducerLoss(Module):
     This class implements the Transduce loss computation with forward-backward algorithm.
     Sequence Transduction with naive implementation : https://arxiv.org/pdf/1211.3711.pdf
 
-    The TranducerLoss(nn.Module) use Transducer(autograd.Function)
+    The TransducerLoss(nn.Module) use Transducer(autograd.Function)
     to compute the forward-backward loss and gradients.
 
     Input tensors must be on a cuda device.

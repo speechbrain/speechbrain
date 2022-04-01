@@ -752,7 +752,7 @@ class DCT(torch.nn.Module):
                 "(n_out=%i, n_in=%i)" % (n_out, input_size)
             )
 
-        # Generate matix for DCT transformation
+        # Generate matrix for DCT transformation
         n = torch.arange(float(input_size))
         k = torch.arange(float(n_out)).unsqueeze(1)
         dct = torch.cos(math.pi / float(input_size) * (n + 0.5) * k)

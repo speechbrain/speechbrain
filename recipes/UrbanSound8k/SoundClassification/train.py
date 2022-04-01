@@ -94,19 +94,19 @@ class UrbanSound8kBrain(sb.core.Brain):
             y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
 
         if stage == sb.Stage.VALID:
-            confusion_matix = confusion_matrix(
+            confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.valid_confusion_matrix += confusion_matix
+            self.valid_confusion_matrix += confusion_matrix
         if stage == sb.Stage.TEST:
-            confusion_matix = confusion_matrix(
+            confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.test_confusion_matrix += confusion_matix
+            self.test_confusion_matrix += confusion_matrix
 
         # Compute Accuracy using MetricStats
         self.acc_metric.append(
@@ -339,7 +339,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
