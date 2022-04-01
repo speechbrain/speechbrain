@@ -95,7 +95,7 @@ You can run inference with only few lines of code:
 import torchaudio
 from speechbrain.pretrained import EncoderClassifier
 language_id = EncoderClassifier.from_hparams(source="speechbrain/lang-id-voxlingua107-ecapa", savedir="tmp")
-# Download Thai language sample from Omniglot and cvert to suitable form
+# Download Thai language sample from Omniglot and convert to suitable form
 signal = language_id.load_audio("https://omniglot.com/soundfiles/udhr/udhr_th.mp3")
 prediction =  language_id.classify_batch(signal)
 print(prediction)

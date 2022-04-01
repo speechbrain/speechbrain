@@ -33,12 +33,12 @@ class SEBrain(sb.Brain):
 
     def compute_forward_d(self, noisy_wavs, clean_wavs):
         """Forward computations from discriminator. Input denoised-noisy pair,
-        output whether denoising was properly acheived"""
+        output whether denoising was properly achieved"""
         noisy_wavs = noisy_wavs.to(self.device)
         clean_wavs = clean_wavs.to(self.device)
 
-        inpt = torch.cat((noisy_wavs, clean_wavs), -1)
-        out = self.modules["model_d"](inpt)
+        input = torch.cat((noisy_wavs, clean_wavs), -1)
+        out = self.modules["model_d"](input)
         return out
 
     def compute_objectives_d1(self, d_outs, batch):

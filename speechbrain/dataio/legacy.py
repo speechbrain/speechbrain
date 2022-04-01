@@ -51,7 +51,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
     replacements : dict
         Used for Bash-like $-prefixed substitution,
         e.g. ``{"data_folder": "/home/speechbrain/data"}``, which would
-        transform `$data_folder/utt1.wav` into `/home/speechbain/data/utt1.wav`
+        transform `$data_folder/utt1.wav` into `/home/speechbrain/data/utt1.wav`
     sorting : {"original", "ascending", "descending"}
         Keep CSV order, or sort ascending or descending by duration.
     min_duration : float, int

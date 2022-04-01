@@ -60,12 +60,12 @@ def create_rirs(output_dir, sr=8000):
         metafilesdir, "data", "reverb_params_{}.csv"
     )
 
-    for splt in SPLITS:
+    for split in SPLITS:
 
-        wsjmix_path = FILELIST_STUB.format(splt)
+        wsjmix_path = FILELIST_STUB.format(split)
         wsjmix_df = pd.read_csv(wsjmix_path)
 
-        reverb_param_path = reverb_param_stub.format(splt)
+        reverb_param_path = reverb_param_stub.format(split)
         reverb_param_df = pd.read_csv(reverb_param_path)
 
         utt_ids = wsjmix_df.output_filename.values

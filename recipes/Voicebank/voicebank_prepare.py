@@ -180,7 +180,7 @@ def prepare_voicebank(
     """
     if skip_prep:
         return
-    # Setting ouput files
+    # Setting output files
     save_json_train = os.path.join(save_folder, TRAIN_JSON)
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)

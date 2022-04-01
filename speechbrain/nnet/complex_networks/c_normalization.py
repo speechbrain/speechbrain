@@ -490,7 +490,7 @@ class CLayerNorm(torch.nn.Module):
         if input_shape[self.dim] % 2 == 0:
             return input_shape[self.dim] // 2
         else:
-            msg = "ComplexBatchNorm dim must be dividble by 2 ! Got " + str(
+            msg = "ComplexBatchNorm dim must be divisible by 2 ! Got " + str(
                 input_shape[self.dim]
             )
             raise ValueError(msg)

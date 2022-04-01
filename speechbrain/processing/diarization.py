@@ -739,7 +739,7 @@ class Spec_Clust_unorm:
      [0.961 0.977 1.    0.928 0.972]
      [0.904 0.982 0.928 1.    0.976]
      [0.966 0.997 0.972 0.976 1.   ]]
-    >>> # Prunning
+    >>> # Pruning
     >>> pruned_sim_mat = clust.p_pruning(sim_mat, 0.3)
     >>> print (np.around(pruned_sim_mat[5:,5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
@@ -990,7 +990,7 @@ def do_spec_clustering(
     k : int
         Number of speaker (None, if it has to be estimated).
     pval : float
-        `pval` for prunning affinity matrix.
+        `pval` for pruning affinity matrix.
     affinity_type : str
         Type of similarity to be used to get affinity matrix (cos or nn).
     """
@@ -1058,7 +1058,7 @@ def do_kmeans_clustering(
     k : int
         Number of speaker (None, if it has to be estimated).
     pval : float
-        `pval` for prunning affinity matrix. Used only when number of speakers
+        `pval` for pruning affinity matrix. Used only when number of speakers
         are unknown. Note that this is just for experiment. Prefer Spectral clustering
         for better clustering results.
     """
@@ -1137,7 +1137,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
     k : int
         Number of speaker (None, if it has to be estimated).
     pval : float
-        `pval` for prunning affinity matrix. Used only when number of speakers
+        `pval` for pruning affinity matrix. Used only when number of speakers
         are unknown. Note that this is just for experiment. Prefer Spectral clustering
         for better clustering results.
     """

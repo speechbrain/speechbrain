@@ -298,7 +298,7 @@ class GRU(torch.nn.Module):
         Number of layers to employ in the RNN architecture.
     bias : bool
         If True, the additive bias b is adopted.
-    dropou t: float
+    dropout: float
         It is the dropout factor (must be between 0 and 1).
     re_init : bool
         If True, orthogonal initialization is used for the recurrent weights.

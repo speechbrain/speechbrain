@@ -209,7 +209,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
 
      1. Drop chunks of the audio (zero amplitude or white noise)
      2. Drop frequency bands (with band-drop filters)
-     3. Speed peturbation (via resampling to slightly different rate)
+     3. Speed perturbation (via resampling to slightly different rate)
 
     Arguments
     ---------

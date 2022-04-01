@@ -413,7 +413,7 @@ class DynamicItemDataset(Dataset):
         cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Loading a prepared huggingface dataset"""
-        # define an unbound method to generate puesdo keys
+        # define an unbound method to generate pseudo keys
         def keys(self):
             "Returns the keys."
             return [i for i in range(dataset.__len__())]

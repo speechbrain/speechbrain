@@ -4,7 +4,7 @@ This recipe implements MetricGAN-U recipe for dereverberation as described in th
 [MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech](https://arxiv.org/abs/2110.05866)
 
 Notes:
-1- By default we use srmr as a default target metric. This requires you to install SRMRpy (see extra-dependecies.txt)
+1- By default we use srmr as a default target metric. This requires you to install SRMRpy (see extra-dependencies.txt)
 2- To use dnsmos as a target metric, you have to ask the key from the DNS organizer first: dns_challenge@microsoft.com
 
 # Dataset

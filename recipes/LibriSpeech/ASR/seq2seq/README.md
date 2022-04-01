@@ -15,7 +15,7 @@ python train.py hparams/file.yaml
 | 01-03-21 | train_BPE_5000.yaml | 2.89 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) | [Model](https://www.dropbox.com/sh/a39wq3h60luv552/AABBnCM2Uf-CNax_cgMWdqDda?dl=0) | 1xV100 32GB |
 
 # Training Time
-It takes about 5 hours for each epoch on a NVDIA V100 (32GB).
+It takes about 5 hours for each epoch on a NVIDIA V100 (32GB).
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace:

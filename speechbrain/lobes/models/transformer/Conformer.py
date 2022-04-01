@@ -141,7 +141,7 @@ class ConformerEncoderLayer(nn.Module):
     causal: bool, optional
         Whether the convolutions should be causal or not.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
 
     Example
     -------
@@ -288,7 +288,7 @@ class ConformerEncoder(nn.Module):
     causal: bool, optional
         Whether the convolutions should be causal or not.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
 
 
     Example
@@ -409,7 +409,7 @@ class ConformerDecoderLayer(nn.Module):
     causal: bool, optional
         Whether the convolutions should be causal or not.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
 
     Example
     -------
@@ -570,7 +570,7 @@ class ConformerDecoder(nn.Module):
     causal: bool, optional
         Whether the convolutions should be causal or not.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
 
 
     Example

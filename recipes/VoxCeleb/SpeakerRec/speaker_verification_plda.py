@@ -77,7 +77,7 @@ def emb_computation_loop(split, set_loader, stat_file):
         modelset = numpy.array(modelset, dtype="|O")
         segset = numpy.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0
+        # Initialize variables for start, stop and stat0
         s = numpy.array([None] * embeddings.shape[0])
         b = numpy.array([[1.0]] * embeddings.shape[0])
 
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         params["save_folder"], os.path.basename(params["verification_file"])
     )
@@ -290,7 +290,7 @@ if __name__ == "__main__":
         modelset = numpy.array(modelset, dtype="|O")
         segset = numpy.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0
+        # Initialize variables for start, stop and stat0
         s = numpy.array([None] * embeddings.shape[0])
         b = numpy.array([[1.0]] * embeddings.shape[0])
 
