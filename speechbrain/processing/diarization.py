@@ -737,16 +737,16 @@ class Spec_Clust_unorm:
      [0.961 0.977 1.    0.928 0.972]
      [0.904 0.982 0.928 1.    0.976]
      [0.966 0.997 0.972 0.976 1.   ]]
-    >>> # Prunning
-    >>> prunned_sim_mat = clust.p_pruning(sim_mat, 0.3)
-    >>> print (np.around(prunned_sim_mat[5:,5:], decimals=3))
+    >>> # Pruning
+    >>> pruned_sim_mat = clust.p_pruning(sim_mat, 0.3)
+    >>> print (np.around(pruned_sim_mat[5:,5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
      [0.    1.    0.    0.982 0.997]
      [0.    0.977 1.    0.    0.972]
      [0.    0.982 0.    1.    0.976]
      [0.    0.997 0.    0.976 1.   ]]
     >>> # Symmetrization
-    >>> sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+    >>> sym_prund_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
     >>> print (np.around(sym_prund_sim_mat[5:,5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
      [0.    1.    0.489 0.982 0.997]
@@ -796,10 +796,10 @@ class Spec_Clust_unorm:
         sim_mat = self.get_sim_mat(X)
 
         # Refining similarity matrix with p_val
-        prunned_sim_mat = self.p_pruning(sim_mat, p_val)
+        pruned_sim_mat = self.p_pruning(sim_mat, p_val)
 
         # Symmetrization
-        sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+        sym_prund_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
 
         # Laplacian calculation
         laplacian = self.get_laplacian(sym_prund_sim_mat)
@@ -845,7 +845,7 @@ class Spec_Clust_unorm:
         -------
         A : array
             (n_samples, n_samples).
-            Prunned affinity matrix based on p_val.
+            Pruned affinity matrix based on p_val.
         """
 
         n_elems = int((1 - pval) * A.shape[0])
@@ -987,7 +987,7 @@ def do_spec_clustering(
     k : int
         Number of speaker (None, if it has to be estimated).
     pval : float
-        `pval` for prunning affinity matrix.
+        `pval` for pruning affinity matrix.
     affinity_type : str
         Type of similarity to be used to get affinity matrix (cos or nn).
     """
@@ -1055,7 +1055,7 @@ def do_kmeans_clustering(
     k : int
         Number of speaker (None, if it has to be estimated).
     pval : float
-        `pval` for prunning affinity matrix. Used only when number of speakers
+        `pval` for pruning affinity matrix. Used only when number of speakers
         are unknown. Note that this is just for experiment. Prefer Spectral clustering
         for better clustering results.
     """
@@ -1074,10 +1074,10 @@ def do_kmeans_clustering(
 
         # Get sim matrix
         sim_mat = clust_obj.get_sim_mat(diary_obj.stat1)
-        prunned_sim_mat = clust_obj.p_pruning(sim_mat, p_val)
+        pruned_sim_mat = clust_obj.p_pruning(sim_mat, p_val)
 
         # Symmetrization
-        sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+        sym_prund_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
 
         # Laplacian calculation
         laplacian = clust_obj.get_laplacian(sym_prund_sim_mat)
@@ -1134,7 +1134,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
     k : int
         Number of speaker (None, if it has to be estimated).
     pval : float
-        `pval` for prunning affinity matrix. Used only when number of speakers
+        `pval` for pruning affinity matrix. Used only when number of speakers
         are unknown. Note that this is just for experiment. Prefer Spectral clustering
         for better clustering results.
     """

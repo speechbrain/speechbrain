@@ -2,7 +2,7 @@
 for training and testing a Voice Activity Detection system with the
 LibriParty dataset.
 
-The dataset contains sequences of 1-minutes of LibiSpeech sentences
+The dataset contains sequences of 1-minutes of LibriSpeech sentences
 corrupted by noise and reverberation. The dataset can be downloaded
 from here:
 
@@ -32,7 +32,7 @@ def load_data_json(path):
 
 
 def clean_dataframe(df):
-    # Drop unecessary columns
+    # Drop unnecessary columns
     df.drop(
         [
             "utt_id",

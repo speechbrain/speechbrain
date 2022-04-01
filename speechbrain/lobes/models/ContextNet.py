@@ -205,7 +205,7 @@ class ContextNetBlock(torch.nn.Module):
         Kernel size of convolution layers (default 3).
     strides : int
         Striding factor for this context block (default 1).
-    num_layersi : int
+    num_layers : int
         Number of depthwise convolution layers for this context block (default 5).
     inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).

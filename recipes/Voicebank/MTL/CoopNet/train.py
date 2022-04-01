@@ -165,7 +165,7 @@ class CoopNetBrain(sb.Brain):
 
     def compute_forward(self, batch, stage):
         """The forward pass iterates over the layers of the model,
-        accumulating enhancment and predictions at each layer.
+        accumulating enhancement and predictions at each layer.
         """
         batch = batch.to(self.device)
         self.stage = stage

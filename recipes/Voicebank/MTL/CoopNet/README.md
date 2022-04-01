@@ -38,7 +38,7 @@ Currently, the best performance is the following, with intermediate training poi
 
 
 # **Citing CoopNet**
-This recipe is insipred by this work:
+This recipe is inspired by this work:
 
 @INPROCEEDINGS{CoopNet,
   author={Ravanelli, Mirco and Brakel, Philemon and Omologo, Maurizio and Bengio, Yoshua},

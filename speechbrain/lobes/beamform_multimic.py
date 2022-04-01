@@ -39,7 +39,7 @@ class DelaySum_Beamformer(torch.nn.Module):
 
         Arguments
         ---------
-        mics_sginal : tensor
+        mics_signal : tensor
             Set of audio signals to be transformed.
         """
         with torch.no_grad():

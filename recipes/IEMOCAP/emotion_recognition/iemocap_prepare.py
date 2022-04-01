@@ -63,7 +63,7 @@ def prepare_data(
         Path where the test data specification file will be saved.
     split_ratio: list
         List composed of three integers that sets split ratios for train,
-        valid, and test sets, respecively.
+        valid, and test sets, respectively.
         For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
         to training, 10% for validation, and 10% for test.
     seed : int
@@ -102,7 +102,7 @@ def prepare_data(
             "Error: The data folder is not in the expected format. Expected <session_id>/<emo_id>/<file_name>.wav (e.g., session1/ang/psno1_ang_s084_orgn.wav)"
         )
         sys.exit(
-            "Data transformed dirctory "
+            "Data transformed directory "
             + data_transformed
             + "contains: "
             + str(
@@ -240,7 +240,7 @@ def split_sets(wav_list, split_ratio):
     same proportion of samples (e.g, spk01 should have 80% of samples in
     training, 10% validation, 10% test, the same for speaker2 etc.). This
     is the approach followed in some recipes such as the Voxceleb one. For
-    simplicity, we here simply split the full list without necessarly
+    simplicity, we here simply split the full list without necessarily
     respecting the split ratio within each class.
 
     Arguments

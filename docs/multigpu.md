@@ -9,7 +9,7 @@ The common pattern for using multi-GPU training over a single machine with Data 
 > cd recipes/<dataset>/<task>/
 > python experiment.py params.yaml --data_parallel_backend
 ```
-If you want to use a specific set of GPU devices, condiser using `CUDA_VISIBLE_DEVICES` as follow:
+If you want to use a specific set of GPU devices, consider using `CUDA_VISIBLE_DEVICES` as follow:
 ```
 > cd recipes/<dataset>/<task>/
 > CUDA_VISIBLE_DEVICES=1,5 python experiment.py params.yaml --data_parallel_backend
@@ -39,11 +39,11 @@ Running DDP over multiple servers (nodes) is quite system dependent. Let's start
 ```shell
 # Machine 1
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 
 # Machine 2
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
 ```
 
 In this case, Machine 1 will have 2 subprocesses (subprocess1: with local_rank=0, rank=0, and subprocess2: with local_rank=1, rank=1). Machine 2 will have 2 subprocess (subprocess1: with local_rank=0, rank=2, and subprocess2: with local_rank=1, rank=3).

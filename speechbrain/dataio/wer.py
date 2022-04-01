@@ -40,7 +40,7 @@ def print_wer_summary(wer_details, file=sys.stdout):
         file=file,
     )
     print(
-        "%SER {SER:.2f} [ {num_erraneous_sents} / {num_scored_sents} ]".format(
+        "%SER {SER:.2f} [ {num_erroneous_sents} / {num_scored_sents} ]".format(
             **wer_details
         ),
         file=file,

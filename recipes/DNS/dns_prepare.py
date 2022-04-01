@@ -53,7 +53,7 @@ def prepare_dns(
     valid_snr_low : float
         Lowest SNR to use when mixing the validation set.
     valid_snr_high : float
-        Highest SNR to use when mixing the validiation set.
+        Highest SNR to use when mixing the validation set.
     skip_prep: bool
         If False, skip data preparation.
 
@@ -92,7 +92,7 @@ def prepare_dns(
 
     logger.info("Creating csv files for the DNS Dataset...")
 
-    # Setting ouput files
+    # Setting output files
     save_csv_noise = os.path.join(save_folder, NOISE_CSV)
     save_csv_clean = os.path.join(save_folder, CLEAN_CSV)
     save_csv_valid = os.path.join(save_folder, VALID_CSV)

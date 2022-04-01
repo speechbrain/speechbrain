@@ -1144,7 +1144,7 @@ class VAD(Pretrained):
         small chunks have a 50% overlap."""
 
         # Weighting the frame-level probabilities with a hamming window
-        # reduces uncertainnty when overlapping chunks are used.
+        # reduces uncertainty when overlapping chunks are used.
         hamming_window = torch.hamming_window(
             small_chunks_prob.shape[1], device=self.device
         )
@@ -1328,7 +1328,7 @@ class VAD(Pretrained):
             The new boundaries with the merged segments.
         """
 
-        new_boudaries = []
+        new_boundaries = []
 
         # Single segment case
         if boundaries.shape[0] == 0:
@@ -1349,13 +1349,13 @@ class VAD(Pretrained):
 
             else:
                 # Appending new segments
-                new_boudaries.append([prev_beg_seg, prev_end_seg])
+                new_boundaries.append([prev_beg_seg, prev_end_seg])
                 prev_beg_seg = beg_seg
                 prev_end_seg = boundaries[i, 1]
 
-        new_boudaries.append([prev_beg_seg, prev_end_seg])
-        new_boudaries = torch.FloatTensor(new_boudaries).to(boundaries.device)
-        return new_boudaries
+        new_boundaries.append([prev_beg_seg, prev_end_seg])
+        new_boundaries = torch.FloatTensor(new_boundaries).to(boundaries.device)
+        return new_boundaries
 
     def remove_short_segments(self, boundaries, len_th=0.250):
         """Removes segments that are too short.
@@ -1809,7 +1809,7 @@ class VAD(Pretrained):
             The audio signal is processed in parallel within the small chunks.
             Note that large_chunk_size/small_chunk_size must be an integer.
         overlap_small_chunk: bool
-            If True, it creates overlapped small chunks (with 50% overal).
+            If True, it creates overlapped small chunks (with 50% overall).
             The probabilities of the overlapped chunks are combined using
             hamming windows.
         apply_energy_VAD: bool
@@ -1873,7 +1873,7 @@ class VAD(Pretrained):
             deactivation_th=deactivation_th,
         ).float()
 
-        # Comupute the boundaries of the speech segments
+        # Compute the boundaries of the speech segments
         boundaries = self.get_boundaries(prob_th, output_value="seconds")
 
         # Apply energy-based VAD on the detected speech segments
@@ -2174,7 +2174,7 @@ class SNREstimator(Pretrained):
 
     def gettrue_snrrange(self, inp):
         """Convert from 0-1 range to true snr range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
-        inp = inp * rnge
+        range = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * range
         inp = inp + self.hparams.snrmin
         return inp

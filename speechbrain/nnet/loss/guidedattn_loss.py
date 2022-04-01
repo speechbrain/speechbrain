@@ -20,7 +20,7 @@ class GuidedAttentionLoss(nn.Module):
     near-diagonal, imposing progressively larger penalties for paying
     attention to regions far away from the diagonal). It is useful
     for sequence-to-sequence models in which the sequence of outputs
-    is expected to corrsespond closely to the sequence of inputs,
+    is expected to correspond closely to the sequence of inputs,
     such as TTS or G2P
 
     https://arxiv.org/abs/1710.08969

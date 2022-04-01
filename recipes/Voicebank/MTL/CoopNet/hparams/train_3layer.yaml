@@ -228,7 +228,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 # before.
 p_root: !ref "https://www.dropbox.com/sh/v7myj7wc06z31rw/"
 model_path: !ref "<p_root>/AACa83zGaWCOLS4Pw8FEojL3a/3ll-mask_weight/vctk/model.ckpt?dl=1"
-norm_path: !ref "<p_root>/AAAlAHDoHvbdZC76-oRajQlla/3ll-mask_weight/vctk/normalizer.ckpt?dl=1"
+norm_path: !ref "<p_root>/AAAlAHDoHvbdZC76-oRajQlla/3ll-mask_weight/vctk/normalizer.ckpt?dl=1" # cspell:disable-line
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

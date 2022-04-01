@@ -36,10 +36,10 @@ def split_list(array, split_factors):
     np.random.shuffle(array)
     pivots = [int(len(array) * x) for x in split_factors]
     out = []
-    indx = 0
+    index = 0
     for i in pivots:
-        out.append(array[indx : i + indx])
-        indx = i
+        out.append(array[index : i + index])
+        index = i
     return out
 
 
@@ -95,7 +95,7 @@ else:
 os.makedirs(os.path.join(params["out_folder"], "metadata"), exist_ok=True)
 
 # we generate metadata for each split
-for indx, split in enumerate(["train", "dev", "eval"]):
+for index, split in enumerate(["train", "dev", "eval"]):
     print("Generating metadata for {} set".format(split))
     # we parse librispeech utterances for current split
     c_libri_folder = params["librispeech_folders"][split]
@@ -107,14 +107,14 @@ for indx, split in enumerate(["train", "dev", "eval"]):
         params,
         c_utterances,
         c_words,
-        rirs[indx],
-        noises[indx],
-        backgrounds[indx],
+        rirs[index],
+        noises[index],
+        backgrounds[index],
     )
 
 # from metadata we generate the actual mixtures
 
-for indx, split in enumerate(["train", "dev", "eval"]):
+for index, split in enumerate(["train", "dev", "eval"]):
     # load metadata
     with open(
         os.path.join(params["out_folder"], "metadata", split + ".json")

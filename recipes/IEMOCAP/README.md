@@ -28,7 +28,7 @@ e.g. ```session1/ang/psno1_ang_s084_orgn.wav```
 
 Our `iemocap_prepare.py` will:
 1- Do labelling transformation to 4 emitions [neural, happy, sad, anger]
-2- Prepare IEMOCAP data with random split. (Note for becnhmarking: you need to run 5 folds)
+2- Prepare IEMOCAP data with random split. (Note for benchmarking: you need to run 5 folds)
 
 # PreTrained Model + Easy-Inference
 You can find the wav2vec2 pre-trained model with an easy-inference function on HuggingFace:

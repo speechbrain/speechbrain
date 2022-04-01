@@ -251,6 +251,7 @@ def _get_phonemes():
 def _get_speaker():
 
     # List of test speakers
+    # cspell:disable
     test_spk = [
         "fdhc0",
         "felc0",
@@ -331,6 +332,8 @@ def _get_speaker():
         "mthc0",
         "mwjg0",
     ]
+
+    # cspell:enable
 
     return dev_spk, test_spk
 

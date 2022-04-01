@@ -371,7 +371,7 @@ class BinaryMetricStats(MetricStats):
         threshold : float
             If no threshold is provided, equal error rate is used.
         max_samples: float
-            How many samples to keep for postive/negative scores.
+            How many samples to keep for positive/negative scores.
             If no max_samples is provided, all scores are kept.
             Only effective when threshold is None.
         beta : float
@@ -476,8 +476,8 @@ def EER(positive_scores, negative_scores):
     thresholds = torch.unique(thresholds)
 
     # Adding intermediate thresholds
-    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Computing False Rejection Rate (miss detection)
     positive_scores = torch.cat(
@@ -546,8 +546,8 @@ def minDCF(
     thresholds = torch.unique(thresholds)
 
     # Adding intermediate thresholds
-    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Computing False Rejection Rate (miss detection)
     positive_scores = torch.cat(

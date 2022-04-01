@@ -710,7 +710,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 + self.beam_offset.unsqueeze(1).expand_as(candidates)
             ).view(batch_size * self.beam_size)
 
-            # Permute the memory to synchoronize with the output.
+            # Permute the memory to synchronize with the output.
             memory = self.permute_mem(memory, index=predecessors)
             if self.lm_weight > 0:
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)

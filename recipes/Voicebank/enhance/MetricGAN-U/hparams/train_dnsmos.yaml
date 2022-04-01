@@ -39,7 +39,7 @@ skip_prep: False
 
 # The target metrics that you want to optimize.
 # Right now we only support 'dnsmos', and 'srmr'.
-# (Of course, it can be any arbitary metric.)
+# (Of course, it can be any arbitrary metric.)
 target_metric: dnsmos
 calculate_dnsmos_on_validation_set: True
 target_score: 1

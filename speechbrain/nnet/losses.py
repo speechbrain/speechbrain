@@ -829,9 +829,9 @@ class AngularMargin(nn.Module):
     Arguments
     ---------
     margin : float
-        The margin for cosine similiarity
+        The margin for cosine similarity
     scale : float
-        The scale for cosine similiarity
+        The scale for cosine similarity
 
     Return
     ---------
@@ -880,9 +880,9 @@ class AdditiveAngularMargin(AngularMargin):
     Arguments
     ---------
     margin : float
-        The margin for cosine similiarity.
+        The margin for cosine similarity.
     scale: float
-        The scale for cosine similiarity.
+        The scale for cosine similarity.
 
     Returns
     -------

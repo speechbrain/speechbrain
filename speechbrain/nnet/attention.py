@@ -828,7 +828,7 @@ class PositionalwiseFeedForward(nn.Module):
         )
 
     def forward(self, x):
-        # give a tensor of shap (time, batch, fea)
+        # give a tensor of shape (time, batch, fea)
         x = x.permute(1, 0, 2)
         x = self.ffn(x)
 

@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain style.
+"""Transformer implementation in the SpeechBrain style.
 
 Authors
 * Jianyuan Zhong 2020
@@ -40,7 +40,7 @@ class TransformerInterface(nn.Module):
     dropout: int, optional
         The dropout value.
     activation: torch.nn.Module, optional
-        The activation function for Feed-Forward Netowrk layer,
+        The activation function for Feed-Forward Network layer,
         e.g., relu or gelu or swish.
     custom_src_module: torch.nn.Module, optional
         Module that processes the src features to expected feature dim.
@@ -240,7 +240,7 @@ class TransformerEncoderLayer(nn.Module):
     dropout: int, optional
         The dropout value.
     activation: torch.nn.Module, optional
-        The activation function for Feed-Forward Netowrk layer,
+        The activation function for Feed-Forward Network layer,
         e.g., relu or gelu or swish.
     normalize_before: bool, optional
         Whether normalization should be applied before or after MHA or FFN in Transformer layers.
@@ -505,7 +505,7 @@ class TransformerDecoderLayer(nn.Module):
                 vdim=vdim,
                 dropout=dropout,
             )
-            self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
+            self.multihead_attn = sb.nnet.attention.MultiheadAttention(
                 nhead=nhead,
                 d_model=d_model,
                 kdim=kdim,
@@ -517,7 +517,7 @@ class TransformerDecoderLayer(nn.Module):
             self.self_attn = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
             )
-            self.mutihead_attn = sb.nnet.attention.RelPosMHAXL(
+            self.multihead_attn = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
             )
 
@@ -592,7 +592,7 @@ class TransformerDecoderLayer(nn.Module):
 
         # multi-head attention over the target sequence and encoder states
 
-        tgt2, multihead_attention = self.mutihead_attn(
+        tgt2, multihead_attention = self.multihead_attn(
             query=tgt1,
             key=memory,
             value=memory,
@@ -796,7 +796,7 @@ def get_key_padding_mask(padded_input, pad_idx):
 
 
 def get_lookahead_mask(padded_input):
-    """Creates a binary mask for each sequence which maskes future frames.
+    """Creates a binary mask for each sequence which masks future frames.
 
     Arguments
     ---------
