@@ -116,7 +116,7 @@ class S2SBaseSearcher(torch.nn.Module):
         inp_tokens : torch.Tensor
             The input tensor of the current timestep.
         memory : No limit
-            The momory variables input for this timestep.
+            The memory variables input for this timestep.
             (e.g., RNN hidden states).
 
         Return
@@ -735,7 +735,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
                 # the attn of transformer is [batch_size*beam_size, current_step, source_len]
                 if len(cur_attn.size()) > 2:
-                    self.converage = torch.sum(cur_attn, dim=1)
+                    self.coverage = torch.sum(cur_attn, dim=1)
                 else:
                     # Update coverage
                     self.coverage = torch.index_select(
