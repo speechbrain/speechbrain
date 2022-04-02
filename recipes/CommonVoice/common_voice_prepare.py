@@ -258,7 +258,9 @@ def create_csv(
 
         if language in ["en", "fr", "it", "rw"]:
             words = re.sub(
-                "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words # cspell:disable-line
+                "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+",  # cspell:disable-line
+                " ",
+                words,
             ).upper()
 
         if language == "fr":
@@ -271,7 +273,7 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ" # cspell:disable-line
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"  # cspell:disable-line
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
@@ -280,12 +282,18 @@ def create_csv(
         elif language == "ga-IE":
             # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
             def pfxuc(a):
-                return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ" # cspell:disable-line
+                return (
+                    len(a) >= 2
+                    and a[0] in "tn"
+                    and a[1] in "AEIOUÁÉÍÓÚ"  # cspell:disable-line
+                )
 
             def galc(w):
                 return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
 
-            words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words) # cspell:disable-line
+            words = re.sub(
+                "[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words  # cspell:disable-line
+            )
             words = " ".join(map(galc, words.split(" ")))
 
         # Remove accents if specified

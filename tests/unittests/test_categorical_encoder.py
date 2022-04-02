@@ -6,7 +6,7 @@ def test_categorical_encoder(device):
 
     encoder = CategoricalEncoder()
     encoder.update_from_iterable("abcd")
-    integers = encoder.encode_sequence("dcba") # cspell:ignore dcba
+    integers = encoder.encode_sequence("dcba")  # cspell:ignore dcba
     assert all(isinstance(i, int) for i in integers)
     assert encoder.is_continuous()
     with pytest.raises(KeyError):
@@ -42,13 +42,15 @@ def test_categorical_encoder(device):
     assert result == [["a", "a"], ["b"], ["c", "c", "c"], []]
 
     encoder = CategoricalEncoder()
-    encoder.limited_labelset_from_iterable("aabbbcccd", n_most_common=3) # cspell:ignore aabbbcccd
+    encoder.limited_labelset_from_iterable(
+        "aabbbcccd", n_most_common=3  # cspell:ignore aabbbcccd
+    )
     encoder.encode_sequence("abc")
     with pytest.raises(KeyError):
         encoder.encode_label("d")
     encoder = CategoricalEncoder()
     encoder.limited_labelset_from_iterable("aabbbcccd", min_count=3)
-    encoder.encode_sequence("cbcb") # cspell:ignore cbcb
+    encoder.encode_sequence("cbcb")  # cspell:ignore cbcb
     with pytest.raises(KeyError):
         encoder.encode_label("a")
     with pytest.raises(KeyError):
@@ -184,7 +186,9 @@ def test_ctc_encoder(tmpdir):
     )
     encoder.insert_blank(blank_label="_", index=2)
     encoding_file = tmpdir / "ctc_encoding.txt"
-    encoder.update_from_iterable(["abcd", "bcdef"], sequence_input=True) # cspell:disable-line
+    encoder.update_from_iterable(
+        ["abcd", "bcdef"], sequence_input=True  # cspell:disable-line
+    )
     encoded = encoder.encode_sequence(encoder.prepend_bos_label(["a", "b"]))
     assert encoded[0] == 0
     encoder.save(encoding_file)
@@ -192,7 +196,7 @@ def test_ctc_encoder(tmpdir):
     assert encoder.load_if_possible(encoding_file)
     assert (
         "".join(encoder.collapse_labels("_bb_aaa___bbbbb_b_eeee_____"))
-        == "babbe" # cspell:disable-line
+        == "babbe"  # cspell:disable-line
     )
     assert "".join(encoder.collapse_labels("babe")) == "babe"
     assert (
@@ -201,7 +205,7 @@ def test_ctc_encoder(tmpdir):
                 "_bb_aaa___bbbbb_b_eeee_____", merge_repeats=False
             )
         )
-        == "bbaaabbbbbbeeee" # cspell:disable-line
+        == "bbaaabbbbbbeeee"  # cspell:disable-line
     )
     assert encoder.decode_ndim(
         (
