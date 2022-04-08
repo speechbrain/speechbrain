@@ -1416,9 +1416,9 @@ class Leaf(nn.Module):
             use_legacy_complex=use_legacy_complex,
             skip_transpose=True
         )
-        from .pooling import GaussianLowPass
-        self.pooling = GaussianLowPass(in_channels=self.out_channels, kernel_size=window_size,
-                                       stride=window_stride, skip_transpose=True)
+        from .pooling import GaussianLowpassPooling
+        self.pooling = GaussianLowpassPooling(in_channels=self.out_channels, kernel_size=window_size,
+                                              stride=window_stride, skip_transpose=True)
         if use_pcen:
             from .normalization import PCEN
             self.compression = PCEN(self.out_channels,

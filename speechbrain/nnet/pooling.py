@@ -374,9 +374,9 @@ class AdaptivePool(nn.Module):
             return self.pool(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
 
 
-class GaussianLowPass(nn.Module):
+class GaussianLowpassPooling(nn.Module):
     """
-    This class implements a learnable Gaussian Low Pass pooling from
+    This class implements a learnable Gaussian lowpass pooling from
 
     Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
     FOR AUDIO CLASSIFICATION", in Proc. of ICLR 2021 (https://arxiv.org/abs/2101.08596)
@@ -405,7 +405,7 @@ class GaussianLowPass(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 8000, 40])
-    >>> low_pass_pooling = GaussianLowPass(
+    >>> low_pass_pooling = GaussianLowpassPooling(
     ...     40, kernel_size=401, stride=160,
     ... )
     >>> # parameters corresponding to a window of 25 ms and stride 10 ms at 16000 kHz
@@ -421,7 +421,7 @@ class GaussianLowPass(nn.Module):
                  padding_mode="constant",
                  bias=True,
                  skip_transpose=False):
-        super(GaussianLowPass, self).__init__()
+        super(GaussianLowpassPooling, self).__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
