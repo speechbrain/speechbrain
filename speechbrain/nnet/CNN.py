@@ -5,6 +5,7 @@ Authors
  * Jianyuan Zhong 2020
  * Cem Subakan 2021
  * Davide Borra 2021
+ * Sarthak Yadav 2022
 """
 
 import math
@@ -13,6 +14,7 @@ import logging
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+import torchaudio
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
@@ -1102,6 +1104,386 @@ class DepthwiseSeparableConv2d(nn.Module):
         return out
 
 
+class GaborConv1d(nn.Module):
+    """
+    This class implements 1D Gabor Convolutions from
+
+    Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc. of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    kernel_size: int
+        Kernel size of the convolutional filters.
+    stride : int
+        Stride factor of the convolutional filters. When the stride factor > 1,
+        a decimation in time is performed.
+    padding : str
+        (same, valid). If "valid", no padding is performed.
+        If "same" and stride is 1, output shape is the same as the input shape.
+    padding_mode : str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    sample_rate : int,
+        Sampling rate of the input signals. It is only used for sinc_conv.
+    min_freq : float
+        Lowest possible frequency (in Hz) for a filter
+    max_freq : float
+        Highest possible frequency (in Hz) for a filter
+    n_fft: int
+        number of FFT bins for initialization
+    normalize_energy: bool
+        whether to normalize energy at initialization. Default is False
+    bias : bool
+        If True, the additive bias b is adopted.
+    sort_filters: bool
+        whether to sort filters by center frequencies. Default is False
+    use_legacy_complex: bool
+        If False, torch.complex64 data type is used for gabor impulse responses
+        If True, computation is performed on two real-valued tensors
+    skip_transpose: bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 8000])
+    >>> # 401 corresponds to a window of 25 ms at 16000 kHz
+    >>> gabor_conv = GaborConv1d(
+    ...     40, kernel_size=401, stride=1, in_channels=1
+    ... )
+    >>> #
+    >>> out_tensor = gabor_conv(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 8000, 40])
+    """
+    def __init__(
+            self,
+            out_channels,
+            kernel_size,
+            stride,
+            input_shape=None,
+            in_channels=None,
+            padding="same",
+            padding_mode="constant",
+            sample_rate=16000,
+            min_freq=60.0,
+            max_freq=7800.0,
+            n_fft=512,
+            normalize_energy=False,
+            bias=False,
+            sort_filters=False,
+            use_legacy_complex=False,
+            skip_transpose=False
+    ):
+        super(GaborConv1d, self).__init__()
+        self.filters = out_channels // 2
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.padding_mode = padding_mode
+        self.sort_filters = sort_filters
+        self.sample_rate = sample_rate
+        self.min_freq = min_freq
+        self.max_freq = max_freq
+        self.n_fft = n_fft
+        self.normalize_energy = normalize_energy
+        self.use_legacy_complex = use_legacy_complex
+        self.skip_transpose = skip_transpose
+
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
+
+        self.kernel = nn.Parameter(self._initialize_kernel())
+        if bias:
+            self.bias = torch.nn.Parameter(torch.ones(self.filters * 2, ))
+        else:
+            self.bias = None
+
+    def forward(self, x):
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
+        unsqueeze = x.ndim == 2
+        if unsqueeze:
+            x = x.unsqueeze(1)
+
+        kernel = self._gabor_constraint(self.kernel)
+        if self.sort_filters:
+            idxs = torch.argsort(kernel[:, 0])
+            kernel = kernel[idxs, :]
+
+        filters = self._gabor_filters(kernel)
+        if not self.use_legacy_complex:
+            temp = torch.view_as_real(filters)
+            real_filters = temp[:, :, 0]
+            img_filters = temp[:, :, 1]
+        else:
+            real_filters = filters[:, :, 0]
+            img_filters = filters[:, :, 1]
+        stacked_filters = torch.cat([real_filters.unsqueeze(1), img_filters.unsqueeze(1)], dim=1)
+        stacked_filters = torch.reshape(stacked_filters, (2 * self.filters, self.kernel_size))
+        stacked_filters = stacked_filters.unsqueeze(1)
+
+        if self.padding == "same":
+            x = self._manage_padding(x, self.kernel_size)
+        elif self.padding == "valid":
+            pass
+        else:
+            raise ValueError(
+                "Padding must be 'same' or 'valid'. Got " + self.padding
+            )
+
+        output = F.conv1d(x, stacked_filters,
+                          bias=self.bias, stride=self.stride, padding=0)
+        if not self.skip_transpose:
+            output = output.transpose(1, -1)
+        return output
+
+    def _gabor_constraint(self, kernel_data):
+        mu_lower = 0.
+        mu_upper = math.pi
+        sigma_lower = 4 * torch.sqrt(2. * torch.log(torch.tensor(2., device=kernel_data.device))) / math.pi
+        sigma_upper = self.kernel_size * torch.sqrt(
+            2. * torch.log(torch.tensor(2., device=kernel_data.device))) / math.pi
+        clipped_mu = torch.clamp(kernel_data[:, 0], mu_lower, mu_upper).unsqueeze(1)
+        clipped_sigma = torch.clamp(kernel_data[:, 1], sigma_lower, sigma_upper).unsqueeze(1)
+        return torch.cat([clipped_mu, clipped_sigma], dim=-1)
+
+    def _gabor_filters(self, kernel):
+        t = torch.arange(-(self.kernel_size // 2), (self.kernel_size + 1) // 2,
+                         dtype=kernel.dtype, device=kernel.device)
+        if not self.use_legacy_complex:
+            return gabor_impulse_response(t, center=kernel[:, 0], fwhm=kernel[:, 1])
+        else:
+            return gabor_impulse_response_legacy_complex(t, center=kernel[:, 0], fwhm=kernel[:, 1])
+
+    def _manage_padding(
+            self, x, kernel_size
+    ):
+        # this is the logic that gives correct shape that complies
+        # with the original implementation at https://github.com/google-research/leaf-audio
+
+        def get_padding_value(kernel_size):
+            kernel_sizes = (kernel_size,)
+            from functools import reduce
+            from operator import __add__
+            conv_padding = reduce(__add__, [(k // 2 + (k - 2 * (k // 2)) - 1, k // 2) for k in kernel_sizes[::-1]])
+            return conv_padding
+
+        pad_value = get_padding_value(kernel_size)
+        x = F.pad(x, pad_value, mode=self.padding_mode, value=0)
+        return x
+
+    def _mel_filters(self):
+        def _mel_filters_areas(filters):
+            peaks, _ = torch.max(filters, dim=1, keepdim=True)
+            return peaks * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2) * np.pi / self.n_fft
+
+        mel_filters = torchaudio.functional.melscale_fbanks(
+            n_freqs=self.n_fft // 2 + 1,
+            f_min=self.min_freq,
+            f_max=self.max_freq,
+            n_mels=self.filters,
+            sample_rate=self.sample_rate
+        )
+        mel_filters = mel_filters.transpose(1, 0)
+        if self.normalize_energy:
+            mel_filters = mel_filters / _mel_filters_areas(mel_filters)
+        return mel_filters
+
+    def _gabor_params_from_mels(self):
+        coeff = torch.sqrt(2. * torch.log(torch.tensor(2.))) * self.n_fft
+        sqrt_filters = torch.sqrt(self._mel_filters())
+        center_frequencies = torch.argmax(sqrt_filters, dim=1)
+        peaks, _ = torch.max(sqrt_filters, dim=1, keepdim=True)
+        half_magnitudes = peaks / 2.
+        fwhms = torch.sum((sqrt_filters >= half_magnitudes).float(), dim=1)
+        output = torch.cat([
+            (center_frequencies * 2 * np.pi / self.n_fft).unsqueeze(1),
+            (coeff / (np.pi * fwhms)).unsqueeze(1)
+        ], dim=-1)
+        return output
+
+    def _initialize_kernel(self):
+        return self._gabor_params_from_mels()
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = 1
+        else:
+            raise ValueError(
+                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
+
+
+class Leaf(nn.Module):
+    """
+    This class implements the LEAF audio frontend from
+
+    Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc. of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    window_len: float
+        length of filter window in milliseconds
+    window_stride : float
+        Stride factor of the filters in milliseconds
+    sample_rate : int,
+        Sampling rate of the input signals. It is only used for sinc_conv.
+    min_freq : float
+        Lowest possible frequency (in Hz) for a filter
+    max_freq : float
+        Highest possible frequency (in Hz) for a filter
+    use_pcen: bool
+        If True (default), a per-channel energy normalization layer is used
+    learnable_pcen: bool:
+        If True (default), the per-channel energy normalization layer is learnable
+    use_legacy_complex: bool
+        If False, torch.complex64 data type is used for gabor impulse responses
+        If True, computation is performed on two real-valued tensors
+    skip_transpose: bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 8000])
+    >>> leaf = Leaf(
+    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1
+    ... )
+    >>> out_tensor = leaf(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
+    """
+    def __init__(
+            self,
+            out_channels,
+            window_len: float = 25.,
+            window_stride: float = 10.,
+            sample_rate: int = 16000,
+            input_shape=None,
+            in_channels=None,
+            min_freq=60.,
+            max_freq=7800.,
+            use_pcen=True,
+            learnable_pcen=True,
+            use_legacy_complex=False,
+            skip_transpose=False
+    ):
+        super(Leaf, self).__init__()
+        self.out_channels = out_channels
+        window_size = int(sample_rate * window_len // 1000 + 1)
+        window_stride = int(sample_rate * window_stride // 1000)
+
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
+
+        self.complex_conv = GaborConv1d(
+            out_channels=2 * out_channels,
+            in_channels=in_channels,
+            kernel_size=window_size,
+            stride=1,
+            padding="same",
+            bias=False,
+            sample_rate=sample_rate,
+            min_freq=min_freq,
+            max_freq=max_freq,
+            use_legacy_complex=use_legacy_complex,
+            skip_transpose=True
+        )
+        from .pooling import GaussianLowPass
+        self.pooling = GaussianLowPass(in_channels=self.out_channels, kernel_size=window_size,
+                                       stride=window_stride, skip_transpose=True)
+        if use_pcen:
+            from .normalization import PCEN
+            self.compression = PCEN(self.out_channels,
+                                    alpha=0.96, smooth_coef=0.04,
+                                    delta=2.0, floor=1e-12, trainable=learnable_pcen,
+                                    per_channel_smooth_coef=True, skip_transpose=True)
+        else:
+            self.compression = None
+        self.skip_transpose = skip_transpose
+
+    def forward(self, x):
+        """
+        Returns the learned LEAF features
+
+        Arguments
+        ---------
+        x : torch.Tensor of shape (batch, time, 1) or (batch, time)
+            batch of input signals. 2d or 3d tensors are expected.
+        """
+
+        if not self.skip_transpose:
+                x = x.transpose(1, -1)
+
+        unsqueeze = x.ndim == 2
+        if unsqueeze:
+            x = x.unsqueeze(1)
+
+        outputs = self.complex_conv(x)
+        outputs = self._squared_modulus_activation(outputs)
+        outputs = self.pooling(outputs)
+        outputs = torch.maximum(outputs, torch.tensor(1e-5, device=outputs.device))
+        if self.compression:
+            outputs = self.compression(outputs)
+        if not self.skip_transpose:
+            outputs = outputs.transpose(1, -1)
+        return outputs
+
+    def _squared_modulus_activation(self, x):
+        x = x.transpose(1, 2)
+        output = 2 * F.avg_pool1d(x ** 2., kernel_size=2, stride=2)
+        output = output.transpose(1, 2)
+        return output
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = 1
+        else:
+            raise ValueError(
+                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+
+        # Kernel size must be odd
+        if self.kernel_size % 2 == 0:
+            raise ValueError(
+                "The field kernel size must be an odd number. Got %s."
+                % (self.kernel_size)
+            )
+        return in_channels
+
+
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     """This function computes the number of elements to add for zero-padding.
 
@@ -1154,3 +1536,64 @@ def get_padding_elem_transposed(
         - 1
     )
     return int(padding)
+
+
+def gabor_impulse_response(t, center, fwhm):
+    denominator = 1. / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
+    gaussian = torch.exp(torch.tensordot(1.0 / (2. * fwhm.unsqueeze(1) ** 2), (-t ** 2.).unsqueeze(0), dims=1))
+    center_frequency_complex = center.type(torch.complex64)
+    t_complex = t.type(torch.complex64)
+    sinusoid = torch.exp(
+        torch.complex(torch.tensor(0.), torch.tensor(1.))
+        * torch.tensordot(center_frequency_complex.unsqueeze(1), t_complex.unsqueeze(0), dims=1)
+    )
+    denominator = denominator.type(torch.complex64).unsqueeze(1)
+    gaussian = gaussian.type(torch.complex64)
+    return denominator * sinusoid * gaussian
+
+
+def gabor_impulse_response_legacy_complex(t, center, fwhm):
+    denominator = 1. / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
+    gaussian = torch.exp(torch.tensordot(1.0 / (2. * fwhm.unsqueeze(1) ** 2), (-t ** 2.).unsqueeze(0), dims=1))
+    temp = torch.tensordot(center.unsqueeze(1), t.unsqueeze(0), dims=1)
+    temp2 = torch.zeros(*temp.shape + (2,), device=temp.device)
+
+    # since output of torch.tensordot(..) is multiplied by 0+j
+    # output can simply be written as flipping real component of torch.tensordot(..) to the imag component
+
+    temp2[:, :, 0] *= -1 * temp2[:, :, 0]
+    temp2[:, :, 1] = temp[:, :]
+
+    # exponent of complex number c is
+    # o.real = exp(c.real) * cos(c.imag)
+    # o.imag = exp(c.real) * sin(c.imag)
+
+    sinusoid = torch.zeros_like(temp2, device=temp.device)
+    sinusoid[:, :, 0] = torch.exp(temp2[:, :, 0]) * torch.cos(temp2[:, :, 1])
+    sinusoid[:, :, 1] = torch.exp(temp2[:, :, 0]) * torch.sin(temp2[:, :, 1])
+
+    # multiplication of two complex numbers c1 and c2 -> out:
+    # out.real = c1.real * c2.real - c1.imag * c2.imag
+    # out.imag = c1.real * c2.imag + c1.imag * c2.real
+
+    denominator_sinusoid = torch.zeros(*temp.shape + (2,), device=temp.device)
+    denominator_sinusoid[:, :, 0] = (
+            (denominator.view(-1, 1) * sinusoid[:, :, 0])
+            - (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 1])
+    )
+    denominator_sinusoid[:, :, 1] = (
+            (denominator.view(-1, 1) * sinusoid[:, :, 1])
+            + (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 0])
+    )
+
+    output = torch.zeros(*temp.shape + (2,), device=temp.device)
+
+    output[:, :, 0] = (
+        (denominator_sinusoid[:, :, 0] * gaussian)
+        - (denominator_sinusoid[:, :, 1] * torch.zeros_like(gaussian))
+    )
+    output[:, :, 1] = (
+            (denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian))
+            + (denominator_sinusoid[:, :, 1] * gaussian)
+    )
+    return output

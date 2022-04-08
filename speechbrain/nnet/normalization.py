@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2020
  * Guillermo Cámbara 2021
+ * Sarthak Yadav 2022
 """
 import torch
 import torch.nn as nn
@@ -428,3 +429,88 @@ class GroupNorm(nn.Module):
         x_n = x_n.transpose(1, -1)
 
         return x_n
+
+
+class PCEN(nn.Module):
+    """
+    This class implements a learnable Per-channel energy normalization (PCEN) layer, supporting both
+    original PCEN as specified in [1] as well as sPCEN as specified in [2]
+
+    [1] Yuxuan Wang, Pascal Getreuer, Thad Hughes, Richard F. Lyon, Rif A. Saurous, "Trainable Frontend For
+    Robust and Far-Field Keyword Spotting", in Proc of ICASSP 2017 (https://arxiv.org/abs/1607.05666)
+
+    [2] Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+
+    The default argument values correspond with those used by [2].
+
+    Arguments
+    ---------
+    input_size : int
+        The expected size of the input.
+    alpha: float
+        specifies alpha coefficient for PCEN
+    smooth_coef: float
+        specified smooth coefficient for PCEN
+    delta: float
+        specifies delta coefficient for PCEN
+    root: float
+        specifies root coefficient for PCEN
+    floor: float
+        specifies floor coefficient for PCEN
+    trainable: bool
+        whether to learn the PCEN parameters or use fixed
+    per_channel_smooth_coef: bool
+        whether to learn independent smooth coefficients for every channel.
+        when True, essentially using sPCEN from [2]
+    skip_transpose : bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 50, 40])
+    >>> pcen = PCEN(40, alpha=0.96)         # sPCEN
+    >>> out_tensor = pcen(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
+    """
+    def __init__(
+            self,
+            input_size,
+            alpha: float = 0.96,
+            smooth_coef: float = 0.04,
+            delta: float = 2.0,
+            root: float = 2.0,
+            floor: float = 1e-12,
+            trainable: bool = True,
+            per_channel_smooth_coef: bool = True,
+            skip_transpose: bool = False
+    ):
+        super(PCEN, self).__init__()
+        self._smooth_coef = smooth_coef
+        self._floor = floor
+        self._per_channel_smooth_coef = per_channel_smooth_coef
+        self.skip_transpose = skip_transpose
+        self.alpha = nn.Parameter(torch.ones(input_size) * alpha, requires_grad=trainable)
+        self.delta = nn.Parameter(torch.ones(input_size) * delta, requires_grad=trainable)
+        self.root = nn.Parameter(torch.ones(input_size) * root, requires_grad=trainable)
+
+        from .ema import ExponentialMovingAverage
+        self.ema = ExponentialMovingAverage(input_size, coeff_init=self._smooth_coef,
+                                            per_channel=self._per_channel_smooth_coef,
+                                            skip_transpose=True,
+                                            trainable=trainable)
+
+    def forward(self, x):
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+        alpha = torch.min(self.alpha, torch.tensor(1.0, dtype=x.dtype, device=x.device))
+        root = torch.max(self.root, torch.tensor(1.0, dtype=x.dtype, device=x.device))
+        ema_smoother = self.ema(x)
+        one_over_root = 1. / root
+        output = ((x / (self._floor + ema_smoother) ** alpha.view(1, -1, 1) + self.delta.view(1, -1, 1))
+                  ** one_over_root.view(1, -1, 1) - self.delta.view(1, -1, 1) ** one_over_root.view(1, -1, 1))
+        if not self.skip_transpose:
+            output = output.transpose(1, -1)
+        return output
