@@ -413,14 +413,17 @@ class GaussianLowpassPooling(nn.Module):
     >>> out_tensor.shape
     torch.Size([10, 50, 40])
     """
-    def __init__(self, in_channels,
-                 kernel_size,
-                 stride=1,
-                 initialization_constant=0.4,
-                 padding="same",
-                 padding_mode="constant",
-                 bias=True,
-                 skip_transpose=False):
+    def __init__(
+        self,
+        in_channels,
+        kernel_size,
+        stride=1,
+        initialization_constant=0.4,
+        padding="same",
+        padding_mode="constant",
+        bias=True,
+        skip_transpose=False
+    ):
         super(GaussianLowpassPooling, self).__init__()
         self.kernel_size = kernel_size
         self.stride = stride
@@ -428,7 +431,9 @@ class GaussianLowpassPooling(nn.Module):
         self.padding_mode = padding_mode
         self.in_channels = in_channels
         self.skip_transpose = skip_transpose
-        self.weights = nn.Parameter(torch.ones((1, 1, in_channels, 1)) * initialization_constant)
+        self.weights = nn.Parameter(
+            torch.ones((1, 1, in_channels, 1)) * initialization_constant
+        )
 
         if bias:
             self._bias = torch.nn.Parameter(torch.ones(in_channels,))
@@ -437,7 +442,7 @@ class GaussianLowpassPooling(nn.Module):
 
     def _get_impulse_responses(self, sigma):
         filter_size = self.kernel_size
-        sigma = torch.clamp(sigma, min=(2. / filter_size), max=0.5)
+        sigma = torch.clamp(sigma, min=(2.0 / filter_size), max=0.5)
         t = torch.arange(0, filter_size, dtype=sigma.dtype, device=sigma.device)
         t = torch.reshape(t, (1, filter_size, 1, 1))
         numerator = t - 0.5 * (filter_size - 1)
@@ -458,17 +463,21 @@ class GaussianLowpassPooling(nn.Module):
             pass
         else:
             raise ValueError(
-                "Padding must be 'same' or 'valid'. Got "
-                + self.padding
+                "Padding must be 'same' or 'valid'. Got " + self.padding
             )
-        outputs = F.conv1d(x, kernel, bias=self._bias, stride=self.stride, padding=0, groups=self.in_channels)
+        outputs = F.conv1d(
+            x,
+            kernel,
+            bias=self._bias,
+            stride=self.stride,
+            padding=0,
+            groups=self.in_channels
+        )
         if not self.skip_transpose:
             outputs = outputs.transpose(1, -1)
         return outputs
 
-    def _manage_padding(
-            self, x, kernel_size
-    ):
+    def _manage_padding(self, x, kernel_size):
         # this is the logic that gives correct shape that complies
         # with the original implementation at https://github.com/google-research/leaf-audio
 
@@ -476,7 +485,13 @@ class GaussianLowpassPooling(nn.Module):
             kernel_sizes = (kernel_size,)
             from functools import reduce
             from operator import __add__
-            conv_padding = reduce(__add__, [(k // 2 + (k - 2 * (k // 2)) - 1, k // 2) for k in kernel_sizes[::-1]])
+            conv_padding = reduce(
+                __add__,
+                [
+                    (k // 2 + (k - 2 * (k // 2)) - 1, k // 2)
+                    for k in kernel_sizes[::-1]
+                ],
+            )
             return conv_padding
 
         pad_value = get_padding_value(kernel_size)

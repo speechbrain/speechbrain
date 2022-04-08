@@ -31,25 +31,29 @@ class ExponentialMovingAverage(nn.Module):
         If True, uses batch x channel x time convention.
     """
     def __init__(
-            self,
-            input_size: int,
-            coeff_init: float = 0.04,
-            per_channel: bool = False,
-            trainable: bool = True,
-            skip_transpose: bool = False
+        self,
+        input_size: int,
+        coeff_init: float = 0.04,
+        per_channel: bool = False,
+        trainable: bool = True,
+        skip_transpose: bool = False
     ):
         super(ExponentialMovingAverage, self).__init__()
         self._coeff_init = coeff_init
         self._per_channel = per_channel
         self.skip_transpose = skip_transpose
         self.trainable = trainable
-        weights = torch.ones(input_size,) if self._per_channel else torch.ones(1,)
-        self._weights = nn.Parameter(weights * self._coeff_init, requires_grad=trainable)
+        weights = (
+            torch.ones(input_size,) if self._per_channel else torch.ones(1,)
+        )
+        self._weights = nn.Parameter(
+            weights * self._coeff_init, requires_grad=trainable
+        )
 
     def forward(self, x):
         if not self.skip_transpose:
             x = x.transpose(1, -1)
-        w = torch.clamp(self._weights, min=0., max=1.)
+        w = torch.clamp(self._weights, min=0.0, max=1.0)
         initial_state = x[:, :, 0]
 
         def scan(init_state, x, w):

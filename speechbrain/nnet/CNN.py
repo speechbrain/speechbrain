@@ -1160,23 +1160,23 @@ class GaborConv1d(nn.Module):
     torch.Size([10, 8000, 40])
     """
     def __init__(
-            self,
-            out_channels,
-            kernel_size,
-            stride,
-            input_shape=None,
-            in_channels=None,
-            padding="same",
-            padding_mode="constant",
-            sample_rate=16000,
-            min_freq=60.0,
-            max_freq=7800.0,
-            n_fft=512,
-            normalize_energy=False,
-            bias=False,
-            sort_filters=False,
-            use_legacy_complex=False,
-            skip_transpose=False
+        self,
+        out_channels,
+        kernel_size,
+        stride,
+        input_shape=None,
+        in_channels=None,
+        padding="same",
+        padding_mode="constant",
+        sample_rate=16000,
+        min_freq=60.0,
+        max_freq=7800.0,
+        n_fft=512,
+        normalize_energy=False,
+        bias=False,
+        sort_filters=False,
+        use_legacy_complex=False,
+        skip_transpose=False
     ):
         super(GaborConv1d, self).__init__()
         self.filters = out_channels // 2
@@ -1201,7 +1201,7 @@ class GaborConv1d(nn.Module):
 
         self.kernel = nn.Parameter(self._initialize_kernel())
         if bias:
-            self.bias = torch.nn.Parameter(torch.ones(self.filters * 2, ))
+            self.bias = torch.nn.Parameter(torch.ones(self.filters * 2,))
         else:
             self.bias = None
 
@@ -1226,8 +1226,12 @@ class GaborConv1d(nn.Module):
         else:
             real_filters = filters[:, :, 0]
             img_filters = filters[:, :, 1]
-        stacked_filters = torch.cat([real_filters.unsqueeze(1), img_filters.unsqueeze(1)], dim=1)
-        stacked_filters = torch.reshape(stacked_filters, (2 * self.filters, self.kernel_size))
+        stacked_filters = torch.cat(
+            [real_filters.unsqueeze(1), img_filters.unsqueeze(1)], dim=1
+        )
+        stacked_filters = torch.reshape(
+            stacked_filters, (2 * self.filters, self.kernel_size)
+        )
         stacked_filters = stacked_filters.unsqueeze(1)
 
         if self.padding == "same":
@@ -1239,29 +1243,53 @@ class GaborConv1d(nn.Module):
                 "Padding must be 'same' or 'valid'. Got " + self.padding
             )
 
-        output = F.conv1d(x, stacked_filters,
-                          bias=self.bias, stride=self.stride, padding=0)
+        output = F.conv1d(
+            x, stacked_filters, bias=self.bias, stride=self.stride, padding=0
+        )
         if not self.skip_transpose:
             output = output.transpose(1, -1)
         return output
 
     def _gabor_constraint(self, kernel_data):
-        mu_lower = 0.
+        mu_lower = 0.0
         mu_upper = math.pi
-        sigma_lower = 4 * torch.sqrt(2. * torch.log(torch.tensor(2., device=kernel_data.device))) / math.pi
-        sigma_upper = self.kernel_size * torch.sqrt(
-            2. * torch.log(torch.tensor(2., device=kernel_data.device))) / math.pi
-        clipped_mu = torch.clamp(kernel_data[:, 0], mu_lower, mu_upper).unsqueeze(1)
-        clipped_sigma = torch.clamp(kernel_data[:, 1], sigma_lower, sigma_upper).unsqueeze(1)
+        sigma_lower = (
+            4
+            * torch.sqrt(
+                2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device))
+            )
+            / math.pi
+        )
+        sigma_upper = (
+            self.kernel_size
+            * torch.sqrt(
+            2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device))
+            )
+            / math.pi
+        )
+        clipped_mu = torch.clamp(
+            kernel_data[:, 0], mu_lower, mu_upper
+        ).unsqueeze(1)
+        clipped_sigma = torch.clamp(
+            kernel_data[:, 1], sigma_lower, sigma_upper
+        ).unsqueeze(1)
         return torch.cat([clipped_mu, clipped_sigma], dim=-1)
 
     def _gabor_filters(self, kernel):
-        t = torch.arange(-(self.kernel_size // 2), (self.kernel_size + 1) // 2,
-                         dtype=kernel.dtype, device=kernel.device)
+        t = torch.arange(
+            -(self.kernel_size // 2),
+            (self.kernel_size + 1) // 2,
+            dtype=kernel.dtype,
+            device=kernel.device,
+        )
         if not self.use_legacy_complex:
-            return gabor_impulse_response(t, center=kernel[:, 0], fwhm=kernel[:, 1])
+            return gabor_impulse_response(
+                t, center=kernel[:, 0], fwhm=kernel[:, 1]
+            )
         else:
-            return gabor_impulse_response_legacy_complex(t, center=kernel[:, 0], fwhm=kernel[:, 1])
+            return gabor_impulse_response_legacy_complex(
+                t, center=kernel[:, 0], fwhm=kernel[:, 1]
+            )
 
     def _manage_padding(
             self, x, kernel_size
@@ -1273,7 +1301,13 @@ class GaborConv1d(nn.Module):
             kernel_sizes = (kernel_size,)
             from functools import reduce
             from operator import __add__
-            conv_padding = reduce(__add__, [(k // 2 + (k - 2 * (k // 2)) - 1, k // 2) for k in kernel_sizes[::-1]])
+            conv_padding = reduce(
+                __add__,
+                [
+                    (k // 2 + (k - 2 * (k // 2)) - 1, k // 2)
+                    for k in kernel_sizes[::-1]
+                ],
+            )
             return conv_padding
 
         pad_value = get_padding_value(kernel_size)
@@ -1283,14 +1317,19 @@ class GaborConv1d(nn.Module):
     def _mel_filters(self):
         def _mel_filters_areas(filters):
             peaks, _ = torch.max(filters, dim=1, keepdim=True)
-            return peaks * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2) * np.pi / self.n_fft
+            return (
+                peaks
+                * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2)
+                * np.pi
+                / self.n_fft
+            )
 
         mel_filters = torchaudio.functional.melscale_fbanks(
             n_freqs=self.n_fft // 2 + 1,
             f_min=self.min_freq,
             f_max=self.max_freq,
             n_mels=self.filters,
-            sample_rate=self.sample_rate
+            sample_rate=self.sample_rate,
         )
         mel_filters = mel_filters.transpose(1, 0)
         if self.normalize_energy:
@@ -1298,16 +1337,19 @@ class GaborConv1d(nn.Module):
         return mel_filters
 
     def _gabor_params_from_mels(self):
-        coeff = torch.sqrt(2. * torch.log(torch.tensor(2.))) * self.n_fft
+        coeff = torch.sqrt(2.0 * torch.log(torch.tensor(2.0))) * self.n_fft
         sqrt_filters = torch.sqrt(self._mel_filters())
         center_frequencies = torch.argmax(sqrt_filters, dim=1)
         peaks, _ = torch.max(sqrt_filters, dim=1, keepdim=True)
-        half_magnitudes = peaks / 2.
+        half_magnitudes = peaks / 2.0
         fwhms = torch.sum((sqrt_filters >= half_magnitudes).float(), dim=1)
-        output = torch.cat([
-            (center_frequencies * 2 * np.pi / self.n_fft).unsqueeze(1),
-            (coeff / (np.pi * fwhms)).unsqueeze(1)
-        ], dim=-1)
+        output = torch.cat(
+            [
+                (center_frequencies * 2 * np.pi / self.n_fft).unsqueeze(1),
+                (coeff / (np.pi * fwhms)).unsqueeze(1)
+            ],
+            dim=-1,
+        )
         return output
 
     def _initialize_kernel(self):
@@ -1378,19 +1420,19 @@ class Leaf(nn.Module):
     torch.Size([10, 50, 40])
     """
     def __init__(
-            self,
-            out_channels,
-            window_len: float = 25.,
-            window_stride: float = 10.,
-            sample_rate: int = 16000,
-            input_shape=None,
-            in_channels=None,
-            min_freq=60.,
-            max_freq=7800.,
-            use_pcen=True,
-            learnable_pcen=True,
-            use_legacy_complex=False,
-            skip_transpose=False
+        self,
+        out_channels,
+        window_len: float = 25.,
+        window_stride: float = 10.,
+        sample_rate: int = 16000,
+        input_shape=None,
+        in_channels=None,
+        min_freq=60.,
+        max_freq=7800.,
+        use_pcen=True,
+        learnable_pcen=True,
+        use_legacy_complex=False,
+        skip_transpose=False
     ):
         super(Leaf, self).__init__()
         self.out_channels = out_channels
@@ -1417,14 +1459,24 @@ class Leaf(nn.Module):
             skip_transpose=True
         )
         from .pooling import GaussianLowpassPooling
-        self.pooling = GaussianLowpassPooling(in_channels=self.out_channels, kernel_size=window_size,
-                                              stride=window_stride, skip_transpose=True)
+        self.pooling = GaussianLowpassPooling(
+            in_channels=self.out_channels,
+            kernel_size=window_size,
+            stride=window_stride,
+            skip_transpose=True
+        )
         if use_pcen:
             from .normalization import PCEN
-            self.compression = PCEN(self.out_channels,
-                                    alpha=0.96, smooth_coef=0.04,
-                                    delta=2.0, floor=1e-12, trainable=learnable_pcen,
-                                    per_channel_smooth_coef=True, skip_transpose=True)
+            self.compression = PCEN(
+                self.out_channels,
+                alpha=0.96,
+                smooth_coef=0.04,
+                delta=2.0,
+                floor=1e-12,
+                trainable=learnable_pcen,
+                per_channel_smooth_coef=True,
+                skip_transpose=True
+            )
         else:
             self.compression = None
         self.skip_transpose = skip_transpose
@@ -1440,7 +1492,7 @@ class Leaf(nn.Module):
         """
 
         if not self.skip_transpose:
-                x = x.transpose(1, -1)
+            x = x.transpose(1, -1)
 
         unsqueeze = x.ndim == 2
         if unsqueeze:
@@ -1449,7 +1501,9 @@ class Leaf(nn.Module):
         outputs = self.complex_conv(x)
         outputs = self._squared_modulus_activation(outputs)
         outputs = self.pooling(outputs)
-        outputs = torch.maximum(outputs, torch.tensor(1e-5, device=outputs.device))
+        outputs = torch.maximum(
+            outputs, torch.tensor(1e-5, device=outputs.device)
+        )
         if self.compression:
             outputs = self.compression(outputs)
         if not self.skip_transpose:
@@ -1458,7 +1512,7 @@ class Leaf(nn.Module):
 
     def _squared_modulus_activation(self, x):
         x = x.transpose(1, 2)
-        output = 2 * F.avg_pool1d(x ** 2., kernel_size=2, stride=2)
+        output = 2 * F.avg_pool1d(x ** 2.0, kernel_size=2, stride=2)
         output = output.transpose(1, 2)
         return output
 
@@ -1539,13 +1593,23 @@ def get_padding_elem_transposed(
 
 
 def gabor_impulse_response(t, center, fwhm):
-    denominator = 1. / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
-    gaussian = torch.exp(torch.tensordot(1.0 / (2. * fwhm.unsqueeze(1) ** 2), (-t ** 2.).unsqueeze(0), dims=1))
+    denominator = 1.0 / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
+    gaussian = torch.exp(
+        torch.tensordot(
+            1.0 / (2. * fwhm.unsqueeze(1) ** 2),
+            (-t ** 2.).unsqueeze(0),
+            dims=1
+        )
+    )
     center_frequency_complex = center.type(torch.complex64)
     t_complex = t.type(torch.complex64)
     sinusoid = torch.exp(
         torch.complex(torch.tensor(0.), torch.tensor(1.))
-        * torch.tensordot(center_frequency_complex.unsqueeze(1), t_complex.unsqueeze(0), dims=1)
+        * torch.tensordot(
+            center_frequency_complex.unsqueeze(1),
+            t_complex.unsqueeze(0),
+            dims=1
+        )
     )
     denominator = denominator.type(torch.complex64).unsqueeze(1)
     gaussian = gaussian.type(torch.complex64)
@@ -1577,23 +1641,21 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
     # out.imag = c1.real * c2.imag + c1.imag * c2.real
 
     denominator_sinusoid = torch.zeros(*temp.shape + (2,), device=temp.device)
+
     denominator_sinusoid[:, :, 0] = (
-            (denominator.view(-1, 1) * sinusoid[:, :, 0])
-            - (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 1])
-    )
+        denominator.view(-1, 1) * sinusoid[:, :, 0]
+    ) - (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 1])
+
     denominator_sinusoid[:, :, 1] = (
-            (denominator.view(-1, 1) * sinusoid[:, :, 1])
-            + (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 0])
-    )
+        denominator.view(-1, 1) * sinusoid[:, :, 1]
+    ) + (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 0])
 
     output = torch.zeros(*temp.shape + (2,), device=temp.device)
 
-    output[:, :, 0] = (
-        (denominator_sinusoid[:, :, 0] * gaussian)
-        - (denominator_sinusoid[:, :, 1] * torch.zeros_like(gaussian))
+    output[:, :, 0] = (denominator_sinusoid[:, :, 0] * gaussian) - (
+        denominator_sinusoid[:, :, 1] * torch.zeros_like(gaussian)
     )
     output[:, :, 1] = (
-            (denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian))
-            + (denominator_sinusoid[:, :, 1] * gaussian)
-    )
+        denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian)
+    ) + (denominator_sinusoid[:, :, 1] * gaussian)
     return output
