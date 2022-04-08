@@ -23,7 +23,7 @@ Here is a list of the different African languages and dialects that we tested:
 | Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/nairaxo/dvoice-swahili) |
 | Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/nairaxo/dvoice-wolof) |
 | Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/nairaxo/dvoice-fongbe) |
-| Amharic | v2.0 | train_fon_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/nairaxo/dvoice-amharic) |
+| Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/nairaxo/dvoice-amharic) |
 
 
 | Multilingual (Darija, Swahili, Wolof, Fongbe, Amharic) | v2.0 | train_multi_with_wav2vec.yaml | No | 7.98 | 24.82 | 7.75 | 24.56 | [Link](https://huggingface.co/nairaxo/dvoice-multilingual) |
