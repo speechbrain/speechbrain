@@ -1,5 +1,5 @@
 # DVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset: [Link](https://zenodo.org/record/6342622)
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset : [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here : [Link](https://github.com/besacier/ALFFA_PUBLIC).
 
 # Data preparation
 [DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
@@ -21,6 +21,11 @@ Here is a list of the different African languages and dialects that we tested:
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:|
 | Darija (Moroccan Arabic) | v2.0 | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/nairaxo/dvoice-darija) | 
 | Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/nairaxo/dvoice-swahili) |
+| Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/nairaxo/dvoice-wolof) |
+| Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/nairaxo/dvoice-fongbe) |
+| Amharic | v2.0 | train_fon_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/nairaxo/dvoice-amharic) |
+
+
 | Multilingual (Darija, Swahili, Wolof, Fongbe, Amharic) | v2.0 | train_multi_with_wav2vec.yaml | No | 7.98 | 24.82 | 7.75 | 24.56 | [Link](https://huggingface.co/nairaxo/dvoice-multilingual) |
 
 
