@@ -120,10 +120,35 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
     # which requires batch_size = None in the DataLoader
     if (
         WDS_AVAILABLE
-        and isinstance(dataset, wds.dataset.Composable)
-        and "batch_size" not in loader_kwargs
+        #and isinstance(dataset, wds.compat.WebDataset)
+        #and "batch_size" not in loader_kwargs
     ):
-        loader_kwargs["batch_size"] = None
+        print(loader_kwargs)
+        if not "dataset1" in loader_kwargs:
+            number_of_batches = loader_kwargs["dataset_size"] // (loader_kwargs["batch_size"])
+            loader_kwargs["batch_size"] = None
+            del loader_kwargs["dataset_size"]
+            print(loader_kwargs)
+            loader = wds.WebLoader(dataset, shuffle=False, **loader_kwargs)
+            #loader = loader.repeat(2).slice(number_of_batches)
+            #loader = loader.repeat(1).slice(number_of_batches)
+            
+            # This only sets the value returned by the len() function; nothing else uses it,
+            # but some frameworks care about it.
+            #loader.length = number_of_batches
+            loader.length = number_of_batches
+            print("Number of batch : " +str(number_of_batches))
+            loader = loader.ddp_equalize(number_of_batches)
+        else:
+            print("TEST OK")
+            loader_kwargs["batch_size"] = None
+            number_of_batches = loader_kwargs["dataset_size"]
+            del loader_kwargs["dataset_size"]
+            del loader_kwargs["dataset1"]
+            print(loader_kwargs)
+            loader = wds.WebLoader(dataset, shuffle=False, **loader_kwargs)
+            loader.length = number_of_batches
+        return loader
     # Create the loader
     if isinstance(dataset, IterableDataset):
         dataloader = DataLoader(dataset, **loader_kwargs)

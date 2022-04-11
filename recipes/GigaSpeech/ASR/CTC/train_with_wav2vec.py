@@ -19,6 +19,7 @@ Authors
 """
 
 import os
+import io
 import sys
 import torch
 import logging
@@ -27,6 +28,9 @@ import torchaudio
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
+import webdataset as wds
+from speechbrain.dataio.batch import PaddedBatch
+import glob
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +42,6 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
@@ -75,14 +78,13 @@ class ASR(sb.Brain):
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
-
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
             predicted_words = [
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                 for utt_seq in predicted_tokens
             ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            target_words = ["".join(self.tokenizer.decode_ndim(utt_tokens[:int(utt_len*utt_tokens.shape[0])])).split(" ") for utt_tokens, utt_len in zip(tokens, tokens_lens)]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -178,90 +180,38 @@ class ASR(sb.Brain):
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
-    data_folder = hparams["data_folder"]
 
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
-    )
-
-    if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "random":
-        pass
-
-    else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
-
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
-    )
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
-    
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
-    )
-    test_data = test_data.filtered_sorted(sort_key="duration")
-
-    datasets = [train_data, valid_data, test_data]
-
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("audio", "start", "duration")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(audio, start, duration):
-        # (start and duration) are convert to frame offset in the gigaspeech prepare.
-        sig, fs = torchaudio.load(audio, num_frames=int(duration), frame_offset=int(start))
-        sig = sig.transpose(0, 1).squeeze(1)
-        return sig
-
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-    label_encoder = sb.dataio.encoder.CTCTextEncoder()
-
-    # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
-    )
-    def text_pipeline(wrd):
-        yield wrd
-        char_list = list(wrd)
-        yield char_list
-        tokens_list = label_encoder.encode_sequence(char_list)
-        yield tokens_list
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
-
-    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
-
+    train_data = wds.WebDataset(glob.glob(hparams["train_shards"]), cache_dir=hparams["shard_cache_dir"]).shuffle(hparams["shuffle_shards"])
+    valid_data = wds.WebDataset(glob.glob(hparams["valid_shards"]), cache_dir=hparams["shard_cache_dir"]).shuffle(hparams["shuffle_shards"])
+    test_data = wds.WebDataset(glob.glob(hparams["test_shards"]), cache_dir=hparams["shard_cache_dir"]).shuffle(hparams["shuffle_shards"])
+    label_encoder = sb.dataio.encoder.CategoricalEncoder()
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     special_labels = {
         "blank_label": hparams["blank_index"],
     }
+    datasets = [ train_data + valid_data + test_data]
     label_encoder.load_or_create(
         path=lab_enc_file,
-        from_didatasets=[train_data],
-        output_key="char_list",
         special_labels=special_labels,
-        sequence_input=True,
     )
+    #        from_didatasets=datasets,
+    #    output_key="text",
+    #        sequence_input=True,
 
-    # 4. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "char_list", "tokens"],
-    )
+    def shard_extractor(input_dict):
+        f_IO = io.BytesIO(input_dict["wav"])
+        sig, fs = torchaudio.load(f_IO)
+        sig = sig.transpose(0, 1).squeeze(1)
+        char_list = list(input_dict["text"].decode("utf-8"))
+        tokens_list = label_encoder.encode_sequence(char_list)
+        tokens = torch.LongTensor(tokens_list)
+        return {"id": input_dict["__key__"], "sig" : sig, "tokens": tokens}
+
+    train_data = train_data.map(shard_extractor).batched(hparams["batch_size"], collation_fn=PaddedBatch, partial=False)
+    valid_data = valid_data.map(shard_extractor).batched(hparams["batch_size"], collation_fn=PaddedBatch, partial=False)
+    test_data = test_data.map(shard_extractor).batched(hparams["test_batch_size"], collation_fn=PaddedBatch, partial=False)
+
+
     return train_data, valid_data, test_data, label_encoder
 
 
@@ -297,11 +247,25 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
+    train_data, valid_data, test_data, label_encoder = dataio_prepare(
         hparams
     )
+
+    # add collate_fn to dataloader options
+    #hparams["train_dataloader_opts"]["collate_fn"] = PaddedBatch
+    #hparams["valid_dataloader_opts"]["collate_fn"] = PaddedBatch
+    #hparams["test_dataloader_opts"]["collate_fn"] = PaddedBatch
+
+    #hparams["train_dataloader_opts"]["looped_nominal_epoch"] = (
+    #    hparams["num_train_samples"] // hparams["train_dataloader_opts"]["batch_size"]
+    #)
+    #hparams["valid_dataloader_opts"]["looped_nominal_epoch"] = (
+    #    hparams["num_valid_samples"] // hparams["valid_dataloader_opts"]["batch_size"]
+    #)
+    #hparams["test_dataloader_opts"]["looped_nominal_epoch"] = (
+    #    hparams["num_test_samples"] // hparams["test_dataloader_opts"]["batch_size"]
+    #)
 
     # Trainer initialization
     asr_brain = ASR(

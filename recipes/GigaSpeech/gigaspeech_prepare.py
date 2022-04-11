@@ -1,7 +1,7 @@
 """
 Data preparation.
 
-Download: http://www.openslr.org/12
+Download: https://github.com/SpeechColab/GigaSpeech
 
 Author
 ------
@@ -21,12 +21,18 @@ from speechbrain.dataio.dataio import (
     save_pkl,
     merge_csvs,
 )
+from tqdm.contrib import tqdm
+import subprocess
+import io
+import multiprocessing as mp
+from itertools import islice
+import webdataset as wds
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_gigaspeech_prepare.pkl"
 SAMPLERATE = 16000
 GRABAGE_UTTERANCE_TAGS = ["<SIL>", "<MUSIC>", "<NOISE>", "<OTHER>"]
-PUNCTUATION_TAGS = ["<COMMA>", "<EXCLAMATIONPOINT>", "<PERIOD>", "<QUESTIONMARK>"]
+PUNCTUATION_TAGS = ["<COMMA>", "<EXCLAMATIONPOINT>", "<PERIOD>", "<QUESTIONMARK>", "<blank>"]
 SPLITS = ["train","dev","test"]
 TRAIN_SUBSET = ["XS","S", "M", "L", "XL"]
 
@@ -40,6 +46,10 @@ def prepare_gigaspeech(
     json_file="GigaSpeech.json",
     skip_opus2wav_convertion=True,
     skip_prep=False,
+    remove_original= False,
+    maxsize = 3e9,
+    maxcount = 10000,
+    num_proc=40,
 ):
     """
     This class prepares the csv files for the GigaSpeech dataset.
@@ -72,6 +82,7 @@ def prepare_gigaspeech(
 
     if skip_prep:
         return
+    
     conf = {
         "data_folder": data_folder,
         "train_subset": train_subset,
@@ -98,77 +109,193 @@ def prepare_gigaspeech(
     # Prepare GigaSpeech
     json_metadata = os.path.join(data_folder, json_file)
     # Setting csv path for the train, dev, test subsets
-    csv_lines = [["ID", "audio", "start", "duration", "wrd"]]
-    train_csv_file = os.path.join(save_folder, "train.csv")
-    dev_csv_file = os.path.join(save_folder, "dev.csv")
-    test_csv_file = os.path.join(save_folder, "test.csv")
-    logger.info("Creating csv lists for  trai, dev, and test subsets.")
-    train_csv = list(csv_lines)
-    dev_csv = list(csv_lines)
-    test_csv = list(csv_lines)
+    logger.info("Creating train, dev, and test subsets.")
     # Create csv lists for all subsets
-    with open(json_metadata) as json_file:
+    #with open(json_metadata) as json_file:
+    with open("GigaSpeech.json") as json_file:
         logger.info("Loading GigaSpeech Meta-Data, this may take few time..")
         data = json.load(json_file)
-        logger.info("Loading complete, preparing CSV files..")
-        for meta_data in data["audios"]:
-            #try:
+        dict_train_aid = dict()
+        dict_valid_aid = dict()
+        dict_test_aid = dict()
+        for meta_data in tqdm(data["audios"], dynamic_ncols=True, disable=False):
             audio_path = os.path.join(data_folder, meta_data['path'])
             audio_path = os.path.realpath(audio_path)
-            if not skip_opus2wav_convertion:
-                audio_path = convert_opus2wav(audio_path)
             aid = meta_data["aid"]
+            list_train_aid = []
+            list_valid_aid = []
+            list_test_aid = []
             sample_rate = int(meta_data["sample_rate"])
             segments_list = meta_data["segments"]
             audio_subsets = meta_data["subsets"]
-            duration = meta_data["duration"]
-            #assert(check_file(audio_path) == True)
-            #except AssertionError:
-            #logger.info("Warning: " + aid + " something is wrong, maybe AssertionError, skipped")
-            #continue
             for segment_file in segments_list:
-                try:
-                    sid = segment_file["sid"]
-                    start_time = float(segment_file["begin_time"])
-                    end_time = float(segment_file["end_time"])
-                    duration = int((end_time - start_time) * sample_rate)
-                    text = segment_file["text_tn"]
-                    text = filter_text(text)
-                    if text == "":
-                        logger.info("Warning: " + sid + " has empty entry, skipping it..")
-                        continue
-                    segment_subsets = segment_file["subsets"]
-                    # Long audio can have different subsets
-                    if "{DEV}" in segment_file["subsets"]:
-                        dev_csv.append([sid, audio_path, start_time, duration, text])
-                    elif "{TEST}" in segment_file["subsets"]:
-                        test_csv.append([sid, audio_path, start_time, duration, text])
-                    else:
-                        if not "{%s}" % (train_subset) in segment_file["subsets"]:
-                            continue
-                        train_csv.append([sid, audio_path, start_time, duration, text])
-                except:
-                    logger.info("Warning: " + aid + "something is wrong.")
+                sid = segment_file["sid"]
+                start_time = float(segment_file["begin_time"])
+                end_time = float(segment_file["end_time"])
+                duration = (end_time - start_time)
+                text = segment_file["text_tn"]
+                text = filter_text(text)
+                if text == "":
+                    logger.warning("Warning: " + sid + " has empty entry, skipping it..")
                     continue
-    # Write CSVs...
-    write_csv(train_csv, train_csv_file)
-    write_csv(dev_csv, dev_csv_file)
-    write_csv(test_csv, test_csv_file)
+                segment_subsets = segment_file["subsets"]
+                # Long audio can have different subsets
+                if "{DEV}" in segment_file["subsets"]:
+                    list_valid_aid.append([sid, start_time, duration, text, "valid"])
+                elif "{TEST}" in segment_file["subsets"]:
+                    list_test_aid.append([sid, start_time, duration, text, "test"])
+                else:
+                    if not "{%s}" % (train_subset) in segment_file["subsets"]:
+                        continue
+                    if "{L}" in segment_file["subsets"]:
+                        continue
+                    list_train_aid.append([sid, start_time, duration, text, "train"])
+            if len(list_train_aid) > 0:
+                dict_train_aid[audio_path] = list_train_aid
+            if len(list_valid_aid) > 0:
+                dict_valid_aid[audio_path] = list_valid_aid
+            if len(list_test_aid) > 0:
+                dict_test_aid[audio_path] = list_test_aid
+    logger.info("Loading complete, preparing Shards files..")
+    # Write shards with MultiProcessing..
+    max_proc = mp.cpu_count() * 2
+    if num_proc > max_proc: 
+        logger.info("num_proc (%s) is higher than max proc (%s) of your instance " % (str(num_proc), str(max_proc)))
+        logger.info("Set num_proc to %s" % (str(max_proc)))
+        num_proc = max_proc
+    processes = []
+    # Save shards for training
+    logger.info("Preparing Shards files for Train set..")
+    split_folder = os.path.join(data_folder,"train")
+    if not os.path.exists(split_folder):
+        os.makedirs(split_folder)
+    for id_proc, dict_proc in split_dict(dict_train_aid, num_proc):
+        proc = mp.Process(
+            target=write_shards,
+            kwargs={
+                "dict_per_proc" : dict_proc,
+                "id_proc": id_proc,
+                "save_folder": split_folder,
+                "maxsize": maxsize,
+                "maxcount": maxcount,
+                "remove_original" : remove_original,
+            }
+        )
+        proc.start()
+        processes.append(proc)
+    for proc in processes:
+        proc.join()
+
+    logger.info("Preparing Shards files for Valid/Test sets..")    
+    processes = []
+    valid_folder = os.path.join(data_folder,"valid")
+    test_folder = os.path.join(data_folder,"test")
+    if not os.path.exists(valid_folder):
+        os.makedirs(valid_folder)
+    if not os.path.exists(test_folder):
+        os.makedirs(test_folder)
+    #for dict_subset, folder_subset, in zip([dict_valid_aid,dict_test_aid],[valid_folder, test_folder]):
+    #    for id_proc, dict_proc in split_dict(dict_subset, num_proc):
+    #        proc = mp.Process(
+    #            target=write_shards,
+    #            kwargs={
+    #                "dict_per_proc" : dict_proc,
+    #                "id_proc": id_proc,
+    #                "save_folder": folder_subset,
+    #                "maxsize": maxsize,
+    #                "maxcount": maxcount,
+    #                "remove_original" : remove_original,
+    #            }
+    #        )
+    #        proc.start()
+    #        processes.append(proc)
+    #for proc in processes:
+    #    proc.join()
 
     # saving options
     save_pkl(conf, save_opt)
+    
 
-def convert_opus2wav(audio_path):
-    wav_path = str(audio_path).replace(".opus", ".wav")
-    if not os.path.exists(wav_path):
-        logger.info("Convert " + audio_path + " to wav file.")
-        command = ['ffmpeg', '-i', f'{name}.opus', '-ar', '16000', f'{name}.wav']
-        try:
-            subprocess.run(command, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-        except subprocess.CalledProcessError as e:
-            raise e
-    else:
-        logger.info(wav_path + " already exist, skipping convertion.")
+def split_dict(dict_aid, num_proc=1):
+    """
+        split dict into a (num_proc * sub_dict)
+    """
+    it = iter(dict_aid)
+    num_segs = round(len(dict_aid)/num_proc)
+    for i, _ in enumerate(range(0, len(dict_aid), num_segs)):
+        i = '%03d' % (i)
+        d = {k:dict_aid[k] for k in islice(it, num_segs)}
+        yield i, d
+
+def write_shards(
+    dict_per_proc, id_proc, save_folder, maxsize=1e9, maxcount=5000, remove_original=False
+):
+    """
+    Create the dataset csv file given a list of wav files.
+
+    Arguments
+    ---------
+    list_data : str
+        The list of utterrances of a given data split.
+    csv_file : str
+        Location of the folder for storing the csv.
+
+    Returns
+    -------
+    None
+    """
+
+    # Preliminary prints
+    msg = "Creating shards for process %s in  %s..." % (id_proc, save_folder)
+    pattern = os.path.join(save_folder, f"GigaSpeech-{id_proc}-%06d.tar")
+    logger.info(msg)
+
+    # Writing the csv_lines
+    duration=0
+    with wds.ShardWriter(pattern, maxsize=int(maxsize), maxcount=int(maxcount)) as sink:
+        for audio_path, list_seg in dict_per_proc.items():
+            b_stdout = convert_opus2wav(audio_path, resampling="16000")
+            wav_buffer = io.BytesIO(b_stdout)
+            if b_stdout == -1:
+                logger.info("Error converting opus file %s, skipping it." % (audio_path))
+                continue
+            sig, sr = torchaudio.load(wav_buffer)
+            for seg_info in list_seg:
+                # GigaSpeech propose to resample sig to 16khz
+                seg_buffer = io.BytesIO()
+                duration += float(seg_info[2])/3600
+                begin = int(float(seg_info[1]) * sr)
+                end = begin + int(float(seg_info[2]) * sr)
+                sig_seg = sig[0, begin:end]
+                torchaudio.save(seg_buffer, sig_seg.unsqueeze(0), sr, format="wav")
+                seg_buffer.seek(0)
+                dict_seg = {
+                        "__key__": seg_info[0], 
+                        "wav": seg_buffer.read(), 
+                        "text": seg_info[3],
+                    }
+                # Write the sample to the sharded tar archives.
+                sink.write(dict_seg)
+            if remove_original:
+                os.remove(audio_path)
+    # Final print
+    msg = "Process %s successfully executed: %5.2f H was processed" % (id_proc, duration)
+    logger.info(msg)
+
+def convert_opus2wav(audio_path, resampling="16000", silence_stderr=True):
+    if not os.path.exists(audio_path):
+        print("problem")
+        print(audio_path)
+        exit()
+    command = ['ffmpeg', '-i', audio_path, '-ar', resampling, "-f", "wav", "pipe:1"]
+    try:
+        result = subprocess.run(command,
+                        stdout=subprocess.PIPE,
+                        stdin=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL if silence_stderr else None)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        return -1
         
 
 def filter_text(text):
@@ -188,41 +315,6 @@ def filter_text(text):
     # delete spaces
     text = " ".join(text.split())
     return text
-
-def write_csv(
-    list_data, csv_file,
-):
-    """
-    Create the dataset csv file given a list of wav files.
-
-    Arguments
-    ---------
-    list_data : str
-        The list of utterrances of a given data split.
-    csv_file : str
-        Location of the folder for storing the csv.
-
-    Returns
-    -------
-    None
-    """
-
-    # Preliminary prints
-    msg = "Creating csv lists in  %s..." % (csv_file)
-    logger.info(msg)
-
-    # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-
-        for line in list_data:
-            csv_writer.writerow(line)
-
-    # Final print
-    msg = "%s successfully created!" % (csv_file)
-    logger.info(msg)
 
 def skip(splits, save_folder, conf):
     """
