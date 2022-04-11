@@ -21,6 +21,7 @@ from speechbrain.processing.speech_augmentation import (
     AddBabble,
     AddNoise,
     AddReverb,
+    Resample,
 )
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
@@ -338,6 +339,8 @@ class EnvCorrupt(torch.nn.Module):
         If ``0 < rir_scale_factor < 1``, the impulse response is compressed
         (less reverb), while if ``rir_scale_factor > 1`` it is dilated
         (more reverb).
+    reverb_sample_rate : int
+        Sample rate of input audio signals (rirs) used for reverberation.
 
     Example
     -------
@@ -362,11 +365,15 @@ class EnvCorrupt(torch.nn.Module):
         noise_snr_low=0,
         noise_snr_high=0,
         rir_scale_factor=1.0,
+        reverb_sample_rate=16000,
+        noise_sample_rate=16000,
+        clean_sample_rate=16000,
     ):
         super().__init__()
 
         # Download and prepare openrir
         if openrir_folder and (not reverb_csv or not noise_csv):
+
             open_reverb_csv = os.path.join(openrir_folder, "reverb.csv")
             open_noise_csv = os.path.join(openrir_folder, "noise.csv")
             _prepare_openrir(
@@ -376,16 +383,22 @@ class EnvCorrupt(torch.nn.Module):
                 openrir_max_noise_len,
             )
 
-            # Override if they aren't specified
-            reverb_csv = reverb_csv or open_reverb_csv
-            noise_csv = noise_csv or open_noise_csv
+            # Specify filepath and sample rate if not specified already
+            if not reverb_csv:
+                reverb_csv = open_reverb_csv
+                reverb_sample_rate = 16000
+
+            if not noise_csv:
+                noise_csv = open_noise_csv
+                noise_sample_rate = 16000
 
         # Initialize corrupters
         if reverb_csv is not None and reverb_prob > 0.0:
             self.add_reverb = AddReverb(
                 reverb_prob=reverb_prob,
                 csv_file=reverb_csv,
-                rir_scale_factor=rir_scale_factor,
+                reverb_sample_rate=reverb_sample_rate,
+                clean_sample_rate=clean_sample_rate,
             )
 
         if babble_speaker_count > 0 and babble_prob > 0.0:
@@ -403,6 +416,8 @@ class EnvCorrupt(torch.nn.Module):
                 num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
+                noise_sample_rate=noise_sample_rate,
+                clean_sample_rate=clean_sample_rate,
             )
 
     def forward(self, waveforms, lengths):
