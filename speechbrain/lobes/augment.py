@@ -21,7 +21,6 @@ from speechbrain.processing.speech_augmentation import (
     AddBabble,
     AddNoise,
     AddReverb,
-    Resample,
 )
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 

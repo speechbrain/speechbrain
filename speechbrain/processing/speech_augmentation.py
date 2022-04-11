@@ -206,7 +206,7 @@ class AddNoise(torch.nn.Module):
         noise_len = noise_len.to(lengths.device)
 
         # Resample noise if necessary
-        if hasattr(self, resampler):
+        if hasattr(self, "resampler"):
             noise_batch = self.resampler(noise_batch)
 
         # Convert relative length to an index
@@ -393,7 +393,7 @@ class AddReverb(torch.nn.Module):
         rir_waveform = self._load_rir(waveforms)
 
         # Resample to correct rate
-        if hasattr(self, resampler):
+        if hasattr(self, "resampler"):
             rir_waveform = self.resampler(rir_waveform)
 
         # Compress or dilate RIR
