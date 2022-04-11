@@ -11,7 +11,7 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| 
-| 20-05-22 | train.yaml | (model)[https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing]  | 1xV100 32GB |
+| 20-05-22 | train.yaml | [model](https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing)  | 1xV100 32GB |
 
 
 
