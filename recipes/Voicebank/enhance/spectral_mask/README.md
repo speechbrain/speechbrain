@@ -9,9 +9,9 @@ python train.py train/train.yaml
 
 # Results
 
-| Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml |https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing | Not Available | 1xV100 32GB |
+| Release | hyperparams file | Model link | GPUs |
+|:-------------:|:---------------------------:| -----:| -----:|
+| 20-05-22 | train.yaml | [model](https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing) | 1xV100 32GB |
 
 
 

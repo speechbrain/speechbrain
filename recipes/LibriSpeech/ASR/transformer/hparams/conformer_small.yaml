@@ -8,6 +8,7 @@
 # Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
+
 seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
@@ -47,8 +48,8 @@ test_csv:
 number_of_epochs: 110
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
-gradient_accumulation: 4
-gradient_clipping: 5.0
+grad_accumulation_factor: 4
+max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: ascending
 
