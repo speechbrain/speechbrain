@@ -2320,7 +2320,7 @@ class HIFIGAN(Pretrained):
         audio can be saved by:
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save("save_path", waveform, sample_rate)
+        >>> torchaudio.save("save_path/test.wav", waveform, sample_rate)
         """
         with torch.no_grad():
             waveform = self.infer(spectrogram.unsqueeze(0))
