@@ -2208,7 +2208,9 @@ class Tacotron2(Pretrained):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.text_cleaners = getattr(self.hparams, "text_cleaners", ['english_cleaners'])
+        self.text_cleaners = getattr(
+            self.hparams, "text_cleaners", ['english_cleaners']
+        )
         self.infer = self.hparams.model.infer
 
     def import_preprocess_function(self, preprocessing_function):
@@ -2244,12 +2246,13 @@ class Tacotron2(Pretrained):
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
             lens = [self.text_to_seq(item)[1] for item in texts]
-            assert lens == sorted(lens, reverse=True), "ipnut lengths must be sorted in decreasing order"
+            assert lens == sorted(
+                lens, reverse=True
+            ), "ipnut lengths must be sorted in decreasing order"
             input_lengths = torch.tensor(lens)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
-                inputs.text_sequences.data,
-                input_lengths
+                inputs.text_sequences.data, input_lengths
             )
         return mel_outputs_postnet, mel_lengths, alignments
 
@@ -2278,6 +2281,7 @@ class HIFIGAN(Pretrained):
     >>> mel_specs = torch.rand(2, 80, 35)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.infer = self.hparams.generator.inference
@@ -2297,7 +2301,7 @@ class HIFIGAN(Pretrained):
 
         """
         with torch.no_grad():
-            waveform =  self.infer(spectrogram)
+            waveform = self.infer(spectrogram)
         return waveform
 
     def decode_spectrogram(self, spectrogram):
@@ -2315,10 +2319,10 @@ class HIFIGAN(Pretrained):
 
         audio can be saved by:
         >>> waveform = torch.rand(1, 666666)
-        >>> torchaudio.save(save_path, waveform.squeeze(0), sample_rate)            
+        >>> torchaudio.save(save_path, waveform.squeeze(0), sample_rate)
         """
         with torch.no_grad():
-            waveform =  self.infer(spectrogram.unsqueeze(0))
+            waveform = self.infer(spectrogram.unsqueeze(0))
         return waveform
 
     def forward(self, spectrogram):
