@@ -2297,7 +2297,7 @@ class HIFIGAN(Pretrained):
         Returns
         -------
         waveforms: torch.tensor
-            Batch of mel-waveforms [batch, time]
+            Batch of mel-waveforms [batch, 1, time]
 
         """
         with torch.no_grad():
@@ -2320,11 +2320,11 @@ class HIFIGAN(Pretrained):
         audio can be saved by:
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save("save_path", waveform.squeeze(0), sample_rate)
+        >>> torchaudio.save("save_path", waveform, sample_rate)
         """
         with torch.no_grad():
             waveform = self.infer(spectrogram.unsqueeze(0))
-        return waveform
+        return waveform.squeeze(0)
 
     def forward(self, spectrogram):
         return self.decode_batch(spectrogram)
