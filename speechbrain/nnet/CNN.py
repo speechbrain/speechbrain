@@ -326,6 +326,9 @@ class Conv1d(nn.Module):
     skip_transpose : bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
+    weight_norm : bool
+        If True, use weight normalization,
+        to be removed with self.remove_weight_norm() at inference
 
     Example
     -------
@@ -478,6 +481,11 @@ class Conv1d(nn.Module):
             )
         return in_channels
 
+    def remove_weight_norm(self):
+        """Removes weight normalization at inference if used during training.
+        """
+        self.conv = nn.utils.remove_weight_norm(self.conv)
+
 
 class Conv2d(nn.Module):
     """This function implements 2d convolution.
@@ -510,6 +518,12 @@ class Conv2d(nn.Module):
         documentation for more information.
     bias : bool
         If True, the additive bias b is adopted.
+    skip_transpose : bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+    weight_norm : bool
+        If True, use weight normalization,
+        to be removed with self.remove_weight_norm() at inference
 
     Example
     -------
@@ -672,6 +686,11 @@ class Conv2d(nn.Module):
 
         return in_channels
 
+    def remove_weight_norm(self):
+        """Removes weight normalization at inference if used during training.
+        """
+        self.conv = nn.utils.remove_weight_norm(self.conv)
+
 
 class Conv2dWithConstraint(Conv2d):
     """This function implements 2d convolution with kernel max-norm constaint.
@@ -783,6 +802,9 @@ class ConvTranspose1d(nn.Module):
     skip_transpose : bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
+    weight_norm : bool
+        If True, use weight normalization,
+        to be removed with self.remove_weight_norm() at inference
 
     Example
     -------
@@ -944,6 +966,11 @@ class ConvTranspose1d(nn.Module):
             )
 
         return in_channels
+
+    def remove_weight_norm(self):
+        """Removes weight normalization at inference if used during training.
+        """
+        self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
 class DepthwiseSeparableConv1d(nn.Module):
