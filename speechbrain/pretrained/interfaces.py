@@ -2209,7 +2209,7 @@ class Tacotron2(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_cleaners = getattr(
-            self.hparams, "text_cleaners", ['english_cleaners']
+            self.hparams, "text_cleaners", ["english_cleaners"]
         )
         self.infer = self.hparams.model.infer
 
