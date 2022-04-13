@@ -1,5 +1,4 @@
 """Library for Byte-pair-encoding (BPE) tokenization.
-
 Authors
  * Abdelwahab Heba 2020
  * Loren Lugosch 2020
@@ -20,13 +19,10 @@ logger = logging.getLogger(__name__)
 
 class SentencePiece:
     """BPE class call the SentencePiece unsupervised text tokenizer from Google.
-
     Reference: https://github.com/google/sentencepiece
-
     SentencePiece lib is an unsupervised text tokenizer and detokenizer.
     It implements subword units like Byte-pair-encoding (BPE),
     Unigram language model and char/word tokenizer.
-
     Arguments
     ---------
     model_dir : str
@@ -78,7 +74,6 @@ class SentencePiece:
         recovering words from the tokenizer.
     annotation_format : str
         The format of the annotation file. JSON or csv are the formats supported.
-
     Example
     -------
     >>> import torch
@@ -311,7 +306,6 @@ class SentencePiece:
 
     def _check_coverage_from_bpe(self, list_annotation_files=[]):
         """Logging the accuracy of the BPE model to recover words from the training text.
-
         Arguments
         ---------
         annotation_list_to_check : list,
@@ -395,7 +389,6 @@ class SentencePiece:
         """This __call__ function implements the tokenizer encoder and decoder
         (restoring the string of word) for BPE, Regularized BPE (with unigram),
         and char (speechbrain/nnet/RNN.py).
-
         Arguments
         ----------
         batch : tensor.IntTensor or list

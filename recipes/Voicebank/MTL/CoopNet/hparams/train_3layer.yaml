@@ -1,0 +1,257 @@
+# ################################
+# Model: Cooperative network architecture with SE and ASR joint training using
+# SE -> ASR (resynthesized signal) / ASR -> SE (Attention Mask for transformer)
+# Authors:  Sreeramadas Sai Aravind & Émile Dimas & Nicolas Duchêne 2021
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1991
+output_root: results
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref <output_root>/3layer/<seed>
+stats_file: !ref <output_folder>/stats.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+# Uncomment to save enhanced audio
+#enh_dir: !ref <output_folder>/enhanced_train/
+
+# Data files
+data_folder: !PLACEHOLDER # e.g. /path/to/vctk
+data_folder_rirs: !ref <data_folder>
+train_annotation: !ref <data_folder>/train.json
+valid_annotation: !ref <data_folder>/valid.json
+test_annotation: !ref <data_folder>/test.json
+skip_prep: False
+
+#skip connections
+skip_asr: False
+skip_se: False
+
+skip_se_type: dense_skip # input_skip , alternate_skip , dense_skip
+skip_asr_type: dense_skip #alternate_skip , dense_skip
+
+# Training parameters
+n_layers: 3
+number_of_epochs: 30
+ctc_epochs: 30
+batch_size: 8
+lr_asr: 1.0
+lr_se: 0.00001
+checkpoint_avg: 5  # average this many checkpoints for eval
+sorting: ascending
+eval_max_key: null
+eval_min_key: null
+
+# Dynamic batching for ease of use
+dynamic_batching: True
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 3500 # in terms of frames
+    left_bucket_len: 200
+    multiplier: 1.2
+    shuffle_ex: False # re-create batches at each epoch shuffling examples?
+    batch_ordering: random
+
+train_loader_options:
+    batch_size: !ref <batch_size>
+valid_loader_options:
+    batch_size: !ref <batch_size>
+    shuffle: False
+test_loader_options:
+    batch_size: !ref <batch_size>
+    shuffle: False
+epochs_before_lr_drop: 0
+
+# Loss weights
+target_type: phn
+enhance_type: masking  # null, mapping, masking, noisy, clean
+enhance_weight: [1, 1, 1, 1]
+ctc_weight: [1, 1, 1, 1]
+ctc_type: joint  # null, clean, joint
+mask_weight: 1.0
+
+# Choose fuse type
+fuse_type: att_mask # att_mask, fuse_conv, lin_att
+
+frozen_models: [] #, lm_model, src_embedding]
+unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
+unfrozen_models: []
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 512
+win_length: 32
+hop_length: 16
+n_mels: 40
+
+# Outputs
+dnn_neurons: 512
+output_neurons: 42
+blank_index: 0
+bos_index: 0
+eos_index: 0
+unk_index: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_stft: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+
+spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
+    power: 0.5
+
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+    stft: !ref <compute_stft>
+    istft: !ref <compute_istft>
+
+fbank: !new:CoopNet.ModFbank
+    n_mels: !ref <n_mels>
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+
+normalizer: !new:speechbrain.processing.features.InputNormalization
+
+# MODEL DEFINITION
+n_heads: 16
+enhance_model: !include:models/enhance_model.yaml
+    n_fft: !ref <n_fft>
+    nhead: !ref <n_heads>
+
+asr_model: !include:models/asr_model.yaml
+    n_mels: !ref <n_mels>
+    dropout_rate: 0.1
+    dnn_neurons: !ref <dnn_neurons>
+    output_neurons: !ref <output_neurons>
+
+attention_model: !include:models/attention_model.yaml
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <n_fft> // 2 + 1
+
+skip_parameters: !include:models/skip_connections.yaml
+    dnn_neurons: !ref <dnn_neurons>
+    n_fft: !ref <n_fft>
+
+asr_0: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <n_mels>]
+    asr: !ref <asr_model[asr_0]>
+    ctc: !ref <asr_model[ctc_0]>
+asr_1: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <n_mels>]
+    asr: !ref <asr_model[asr_1]>
+    ctc: !ref <asr_model[ctc_1]>
+asr_2: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <n_mels>]
+    asr: !ref <asr_model[asr_2]>
+    ctc: !ref <asr_model[ctc_2]>
+
+model: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <n_fft> // 2 + 1]
+    se_0: !ref <enhance_model[se_0]>
+    asr_0: !ref <asr_0>
+    fuse_0: !ref <attention_model[att_mask_0]>
+    se_1: !ref <enhance_model[se_1]>
+    asr_1: !ref <asr_1>
+    fuse_1: !ref <attention_model[att_mask_1]>
+    se_2: !ref <enhance_model[se_2]>
+    asr_2: !ref <asr_2>
+    fuse_2: !ref <attention_model[att_mask_2]>
+
+modules:
+    model: !ref <model>
+    se_0: !ref <enhance_model[se_0]>
+    asr_0: !ref <asr_0>
+    fuse_0: !ref <attention_model[att_mask_0]>
+    se_1: !ref <enhance_model[se_1]>
+    asr_1: !ref <asr_1>
+    fuse_1: !ref <attention_model[att_mask_1]>
+    se_2: !ref <enhance_model[se_2]>
+    asr_2: !ref <asr_2>
+    fuse_2: !ref <attention_model[att_mask_2]>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+# Multiple optimization methods
+multi_optim: True
+optim_init_keys: [asr_opt, se_opt]
+opt_class: !name:CoopNet.MultipleOptimizer
+    init_keys: !ref <optim_init_keys>
+    se_opt: !name:torch.optim.Adam
+        lr: !ref <lr_se>
+    asr_opt: !name:torch.optim.Adadelta
+        rho: 0.95
+        lr: !ref <lr_asr>
+        eps: 1.e-8
+
+update_learning_rate: !name:CoopNet.update_learning_rate
+
+lr_annealing: !new:CoopNet.MultipleOptimizerAnnealing
+    init_keys: [asr_opt]
+    asr_opt: !new:speechbrain.nnet.schedulers.NewBobScheduler
+        initial_value: !ref <lr_asr>
+        improvement_threshold: 0.0025
+        annealing_factor: 0.8
+        patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        fuse_0: !ref <attention_model[att_mask_0]>
+        fuse_1: !ref <attention_model[att_mask_1]>
+        fuse_2: !ref <attention_model[att_mask_2]>
+        asr_0: !ref <asr_0>
+        asr_1: !ref <asr_1>
+        asr_2: !ref <asr_2>
+        counter: !ref <epoch_counter>
+        normalizer: !ref <normalizer>
+        se_0: !ref <enhance_model[se_0]>
+        se_1: !ref <enhance_model[se_1]>
+        se_2: !ref <enhance_model[se_2]>
+
+# The pretrainer allows a mapping between pretrained files and instances that
+# are declared in the yaml. E.g here, we will download the file lm.ckpt
+# and it will be loaded into "lm" which is pointing to the <lm_model> defined
+# before.
+p_root: !ref "https://www.dropbox.com/sh/v7myj7wc06z31rw/"
+model_path: !ref "<p_root>/AACa83zGaWCOLS4Pw8FEojL3a/3ll-mask_weight/vctk/model.ckpt?dl=1"
+norm_path: !ref "<p_root>/AAAlAHDoHvbdZC76-oRajQlla/3ll-mask_weight/vctk/normalizer.ckpt?dl=1"
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        model: !ref <model>
+        normalizer: !ref <normalizer>
+    paths:
+        model: !ref <model_path>
+        normalizer: !ref <norm_path>
+
+enhance_loss: !name:speechbrain.nnet.losses.mse_loss
+ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
+enhance_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.mse_loss
+        reduction: batch
+estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:train.estoi_eval
+    n_jobs: 2
+pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:train.pesq_eval
+    n_jobs: 2
+err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
