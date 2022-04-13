@@ -10,6 +10,7 @@ Authors:
 """
 import hashlib
 import sys
+import speechbrain
 import torch
 import torchaudio
 from types import SimpleNamespace
@@ -2178,3 +2179,147 @@ class SNREstimator(Pretrained):
         inp = inp * rnge
         inp = inp + self.hparams.snrmin
         return inp
+
+
+class Tacotron2(Pretrained):
+    HPARAMS_NEEDED = ["model"]
+
+    """
+    A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> tacotron2 = Tacotron2.from_hparams('path/to/model')
+    >>> from customer_preprocessing import text_to_sequence
+    >>> tacotron2.import_preprocess_function(text_to_sequence)
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_cleaners = getattr(self.hparams, "text_cleaners", ['english_cleaners'])
+        self.infer = self.hparams.model.infer
+
+    def import_preprocess_function(self, preprocessing_function):
+        """imports customer text to sequence fuction, shoule be same as training
+        """
+        self.text_to_sequence = preprocessing_function
+
+    def text_to_seq(self, txt):
+        """Encodes raw text into a tensor with a customer text-to-equence fuction
+        """
+        sequence = self.text_to_sequence(txt, self.text_cleaners)
+        return sequence, len(sequence)
+
+    def encode_batch(self, texts):
+        """Computes mel-spectrogram for a list of texts
+
+        Texts must be sorted in decreasing order on their lengths
+
+        Arguments
+        ---------
+        text: List[str]
+            texts to be encoded into spectrogram
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+        with torch.no_grad():
+            inputs = [
+                {"text_sequences": torch.tensor(self.text_to_seq(item)[0])}
+                for item in texts
+            ]
+            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
+
+            lens = [self.text_to_seq(item)[1] for item in texts]
+            assert lens == sorted(lens, reverse=True), "ipnut lengths must be sorted in decreasing order"
+            input_lengths = torch.tensor(lens)
+
+            mel_outputs_postnet, mel_lengths, alignments = self.infer(
+                inputs.text_sequences.data,
+                input_lengths
+            )
+        return mel_outputs_postnet, mel_lengths, alignments
+
+    def encode_text(self, text):
+        """Runs inference for a single text str"""
+        return self.encode_batch([text])
+
+    def forward(self, texts):
+        return self.encode_batch(texts)
+
+
+class HIFIGAN(Pretrained):
+    HPARAMS_NEEDED = ["generator"]
+
+    """
+    A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> hifi_gan = HIFIGAN.from_hparams('path/to/model')
+    >>> mel_specs = torch.rand(2, 80, 35)
+    >>> waveforms = hifi_gan.decode_batch(mel_specs)
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+
+    def decode_batch(self, spectrogram):
+        """Computes waveforms from a batch of mel-spectrograms
+
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            Batch of mel-spectrograms [batch, mels, time]
+
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, time]
+
+        """
+        with torch.no_grad():
+            waveform =  self.infer(spectrogram)
+        return waveform
+
+    def decode_spectrogram(self, spectrogram):
+        """Computes waveforms from a single mel-spectrogram
+
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            mel-spectrogram [mels, time]
+
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> torchaudio.save(save_path, waveform.squeeze(0), sample_rate)            
+        """
+        with torch.no_grad():
+            waveform =  self.infer(spectrogram.unsqueeze(0))
+        return waveform
+
+    def forward(self, spectrogram):
+        return self.decode_batch(spectrogram)
