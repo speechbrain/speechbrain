@@ -1159,6 +1159,7 @@ class GaborConv1d(nn.Module):
     >>> out_tensor.shape
     torch.Size([10, 8000, 40])
     """
+
     def __init__(
         self,
         out_channels,
@@ -1176,7 +1177,7 @@ class GaborConv1d(nn.Module):
         bias=False,
         sort_filters=False,
         use_legacy_complex=False,
-        skip_transpose=False
+        skip_transpose=False,
     ):
         super(GaborConv1d, self).__init__()
         self.filters = out_channels // 2
@@ -1263,7 +1264,7 @@ class GaborConv1d(nn.Module):
         sigma_upper = (
             self.kernel_size
             * torch.sqrt(
-            2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device))
+                2.0 * torch.log(torch.tensor(2.0, device=kernel_data.device))
             )
             / math.pi
         )
@@ -1291,9 +1292,7 @@ class GaborConv1d(nn.Module):
                 t, center=kernel[:, 0], fwhm=kernel[:, 1]
             )
 
-    def _manage_padding(
-            self, x, kernel_size
-    ):
+    def _manage_padding(self, x, kernel_size):
         # this is the logic that gives correct shape that complies
         # with the original implementation at https://github.com/google-research/leaf-audio
 
@@ -1301,6 +1300,7 @@ class GaborConv1d(nn.Module):
             kernel_sizes = (kernel_size,)
             from functools import reduce
             from operator import __add__
+
             conv_padding = reduce(
                 __add__,
                 [
@@ -1346,7 +1346,7 @@ class GaborConv1d(nn.Module):
         output = torch.cat(
             [
                 (center_frequencies * 2 * np.pi / self.n_fft).unsqueeze(1),
-                (coeff / (np.pi * fwhms)).unsqueeze(1)
+                (coeff / (np.pi * fwhms)).unsqueeze(1),
             ],
             dim=-1,
         )
@@ -1419,20 +1419,21 @@ class Leaf(nn.Module):
     >>> out_tensor.shape
     torch.Size([10, 50, 40])
     """
+
     def __init__(
         self,
         out_channels,
-        window_len: float = 25.,
-        window_stride: float = 10.,
+        window_len: float = 25.0,
+        window_stride: float = 10.0,
         sample_rate: int = 16000,
         input_shape=None,
         in_channels=None,
-        min_freq=60.,
-        max_freq=7800.,
+        min_freq=60.0,
+        max_freq=7800.0,
         use_pcen=True,
         learnable_pcen=True,
         use_legacy_complex=False,
-        skip_transpose=False
+        skip_transpose=False,
     ):
         super(Leaf, self).__init__()
         self.out_channels = out_channels
@@ -1456,17 +1457,19 @@ class Leaf(nn.Module):
             min_freq=min_freq,
             max_freq=max_freq,
             use_legacy_complex=use_legacy_complex,
-            skip_transpose=True
+            skip_transpose=True,
         )
         from .pooling import GaussianLowpassPooling
+
         self.pooling = GaussianLowpassPooling(
             in_channels=self.out_channels,
             kernel_size=window_size,
             stride=window_stride,
-            skip_transpose=True
+            skip_transpose=True,
         )
         if use_pcen:
             from .normalization import PCEN
+
             self.compression = PCEN(
                 self.out_channels,
                 alpha=0.96,
@@ -1475,7 +1478,7 @@ class Leaf(nn.Module):
                 floor=1e-12,
                 trainable=learnable_pcen,
                 per_channel_smooth_coef=True,
-                skip_transpose=True
+                skip_transpose=True,
             )
         else:
             self.compression = None
@@ -1596,19 +1599,19 @@ def gabor_impulse_response(t, center, fwhm):
     denominator = 1.0 / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
     gaussian = torch.exp(
         torch.tensordot(
-            1.0 / (2. * fwhm.unsqueeze(1) ** 2),
-            (-t ** 2.).unsqueeze(0),
-            dims=1
+            1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
+            (-(t ** 2.0)).unsqueeze(0),
+            dims=1,
         )
     )
     center_frequency_complex = center.type(torch.complex64)
     t_complex = t.type(torch.complex64)
     sinusoid = torch.exp(
-        torch.complex(torch.tensor(0.), torch.tensor(1.))
+        torch.complex(torch.tensor(0.0), torch.tensor(1.0))
         * torch.tensordot(
             center_frequency_complex.unsqueeze(1),
             t_complex.unsqueeze(0),
-            dims=1
+            dims=1,
         )
     )
     denominator = denominator.type(torch.complex64).unsqueeze(1)
@@ -1617,8 +1620,14 @@ def gabor_impulse_response(t, center, fwhm):
 
 
 def gabor_impulse_response_legacy_complex(t, center, fwhm):
-    denominator = 1. / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
-    gaussian = torch.exp(torch.tensordot(1.0 / (2. * fwhm.unsqueeze(1) ** 2), (-t ** 2.).unsqueeze(0), dims=1))
+    denominator = 1.0 / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
+    gaussian = torch.exp(
+        torch.tensordot(
+            1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
+            (-(t ** 2.0)).unsqueeze(0),
+            dims=1,
+        )
+    )
     temp = torch.tensordot(center.unsqueeze(1), t.unsqueeze(0), dims=1)
     temp2 = torch.zeros(*temp.shape + (2,), device=temp.device)
 

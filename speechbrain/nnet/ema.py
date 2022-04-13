@@ -30,13 +30,14 @@ class ExponentialMovingAverage(nn.Module):
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
     """
+
     def __init__(
         self,
         input_size: int,
         coeff_init: float = 0.04,
         per_channel: bool = False,
         trainable: bool = True,
-        skip_transpose: bool = False
+        skip_transpose: bool = False,
     ):
         super(ExponentialMovingAverage, self).__init__()
         self._coeff_init = coeff_init
@@ -66,6 +67,7 @@ class ExponentialMovingAverage(nn.Module):
             results = torch.cat(results, dim=0)
             results = results.permute(1, 2, 0)
             return results
+
         output = scan(initial_state, x, w)
         if not self.skip_transpose:
             output = output.transpose(1, -1)

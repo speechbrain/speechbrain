@@ -475,6 +475,7 @@ class PCEN(nn.Module):
     >>> out_tensor.shape
     torch.Size([10, 50, 40])
     """
+
     def __init__(
         self,
         input_size,
@@ -485,7 +486,7 @@ class PCEN(nn.Module):
         floor: float = 1e-12,
         trainable: bool = True,
         per_channel_smooth_coef: bool = True,
-        skip_transpose: bool = False
+        skip_transpose: bool = False,
     ):
         super(PCEN, self).__init__()
         self._smooth_coef = smooth_coef
@@ -503,12 +504,13 @@ class PCEN(nn.Module):
         )
 
         from .ema import ExponentialMovingAverage
+
         self.ema = ExponentialMovingAverage(
             input_size,
             coeff_init=self._smooth_coef,
             per_channel=self._per_channel_smooth_coef,
             skip_transpose=True,
-            trainable=trainable
+            trainable=trainable,
         )
 
     def forward(self, x):

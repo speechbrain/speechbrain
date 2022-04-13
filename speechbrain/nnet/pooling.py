@@ -413,6 +413,7 @@ class GaussianLowpassPooling(nn.Module):
     >>> out_tensor.shape
     torch.Size([10, 50, 40])
     """
+
     def __init__(
         self,
         in_channels,
@@ -422,7 +423,7 @@ class GaussianLowpassPooling(nn.Module):
         padding="same",
         padding_mode="constant",
         bias=True,
-        skip_transpose=False
+        skip_transpose=False,
     ):
         super(GaussianLowpassPooling, self).__init__()
         self.kernel_size = kernel_size
@@ -471,7 +472,7 @@ class GaussianLowpassPooling(nn.Module):
             bias=self._bias,
             stride=self.stride,
             padding=0,
-            groups=self.in_channels
+            groups=self.in_channels,
         )
         if not self.skip_transpose:
             outputs = outputs.transpose(1, -1)
@@ -485,6 +486,7 @@ class GaussianLowpassPooling(nn.Module):
             kernel_sizes = (kernel_size,)
             from functools import reduce
             from operator import __add__
+
             conv_padding = reduce(
                 __add__,
                 [
