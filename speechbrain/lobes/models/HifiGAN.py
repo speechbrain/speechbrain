@@ -192,6 +192,7 @@ class ResBlock1(torch.nn.Module):
         for l in self.convs2:
             l.remove_weight_norm()
 
+
 class ResBlock2(torch.nn.Module):
     """Residual Block Type 1. It has 3 convolutional layers in each convolutiona block.
 
