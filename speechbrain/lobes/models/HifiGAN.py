@@ -41,14 +41,6 @@ from torchaudio import transforms
 LRELU_SLOPE = 0.1
 
 
-def weight_norm(x):
-    return x
-
-
-def get_padding(kernel_size, dilation=1):
-    return int((kernel_size * dilation - dilation) / 2)
-
-
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
@@ -194,6 +186,11 @@ class ResBlock1(torch.nn.Module):
             x = xt + x
         return x
 
+    def remove_weight_norm(self):
+        for l in self.convs1:
+            l.remove_weight_norm()
+        for l in self.convs2:
+            l.remove_weight_norm()
 
 class ResBlock2(torch.nn.Module):
     """Residual Block Type 1. It has 3 convolutional layers in each convolutiona block.
@@ -237,6 +234,10 @@ class ResBlock2(torch.nn.Module):
             xt = c(xt)
             x = xt + x
         return x
+
+    def remove_weight_norm(self):
+        for l in self.convs:
+            l.remove_weight_norm()
 
 
 class HifiganGenerator(torch.nn.Module):
@@ -355,6 +356,14 @@ class HifiganGenerator(torch.nn.Module):
         o = torch.tanh(o)
         return o
 
+    def remove_weight_norm(self):
+        for l in self.ups:
+            l.remove_weight_norm()
+        for l in self.resblocks:
+            l.remove_weight_norm()
+        self.conv_pre.remove_weight_norm()
+        self.conv_post.remove_weight_norm()
+
     @torch.no_grad()
     def inference(self, c):
         """
@@ -370,6 +379,8 @@ class HifiganGenerator(torch.nn.Module):
         c = torch.nn.functional.pad(
             c, (self.inference_padding, self.inference_padding), "replicate"
         )
+        # remove weight normalization which is used only in training
+        self.remove_weight_norm()
         return self.forward(c)
 
 
