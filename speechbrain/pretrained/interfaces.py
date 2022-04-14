@@ -939,6 +939,8 @@ class WaveformEnhancement(Pretrained):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Skip this test for coordinating changes at huggingface")
     >>> from speechbrain.pretrained import WaveformEnhancement
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
