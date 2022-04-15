@@ -5,10 +5,11 @@
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet
+# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 8886
+
+seed: 74443
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -38,6 +39,7 @@ valid_csv: !ref <data_folder>/dev-clean.csv
 test_csv:
     - !ref <data_folder>/test-clean.csv
     - !ref <data_folder>/test-other.csv
+
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Training parameters
@@ -45,18 +47,26 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 110
-batch_size: 16 # This works for 2x GPUs with 32GB
+number_of_epochs: 60
+batch_size: 32 # This works for 1x GPU with 40GB
 ctc_weight: 0.3
-gradient_accumulation: 4
-gradient_clipping: 5.0
+grad_accumulation_factor: 2
+max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 
+dynamic_batching: False
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 100000 # in terms of frames
+    num_buckets: 200
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: descending
+    max_batch_ex: -1
+
 # stages related parameters
-stage_one_epochs: 90
-lr_adam: 1.0
-lr_sgd: 0.000025
+lr_adam: 0.001
 
 # Feature parameters
 sample_rate: 16000
@@ -67,6 +77,7 @@ n_mels: 80
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    num_workers: 12
 
 valid_dataloader_opts:
     batch_size: 1
@@ -76,19 +87,19 @@ test_dataloader_opts:
 
 ####################### Model parameters ###########################
 # Transformer
-d_model: 768
-nhead: 8
+d_model: 512
+nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 6
-d_ffn: 3072
-transformer_dropout: 0.0
+d_ffn: 2048
+transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 vocab_size: 5000
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.1
+label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2
@@ -109,13 +120,13 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
     num_blocks: 3
     num_layers_per_block: 1
-    out_channels: (128, 256, 512)
-    kernel_sizes: (3, 3, 1)
+    out_channels: (64, 64, 64)
+    kernel_sizes: (5, 5, 1)
     strides: (2, 2, 1)
-    residuals: (False, False, False)
+    residuals: (False, False, True)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-    input_size: 10240
+    input_size: 1280
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: !ref <nhead>
@@ -124,7 +135,10 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
-    normalize_before: False
+    encoder_module: transformer
+    attention_type: regularMHA
+    normalize_before: True
+    causal: False
 
 # This is the TransformerLM that is used according to the Huggingface repository
 # Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
@@ -163,14 +177,10 @@ model: !new:torch.nn.ModuleList
 
 # define two optimizers here for two-stage training
 Adam: !name:torch.optim.Adam
-    lr: 0
+    lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
 
-SGD: !name:torch.optim.SGD
-    lr: !ref <lr_sgd>
-    momentum: 0.99
-    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -215,7 +225,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
-    model_size: !ref <d_model>
+    #model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -233,20 +243,18 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     update_until_epoch: 4
 
 augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
+    time_warp: False
     time_warp_window: 5
     time_warp_mode: bicubic
     freq_mask: True
-    n_freq_mask: 2
+    n_freq_mask: 4
     time_mask: True
-    n_time_mask: 2
+    n_time_mask: 4
     replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
+    freq_mask_width: 15
+    time_mask_width: 20
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
+speed_perturb: True
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
