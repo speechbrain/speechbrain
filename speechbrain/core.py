@@ -5,6 +5,7 @@ Authors
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
+ * Andreas Nautsch 2022
 """
 
 import os
@@ -405,6 +406,9 @@ class Brain:
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
+    profiler : torch.profiler.profile
+        Context manager for profiling and benchmarking of training/inference steps.
+        Default: ``None`` (skip profiling).
 
     Example
     -------
@@ -426,9 +430,11 @@ class Brain:
         hparams=None,
         run_opts=None,
         checkpointer=None,
+        profiler=None,
     ):
         self.opt_class = opt_class
         self.checkpointer = checkpointer
+        self.profiler = profiler
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
@@ -1058,6 +1064,11 @@ class Brain:
                     )
                     t.set_postfix(train_loss=self.avg_train_loss)
 
+                    # Profile only if desired (steps allow the profiler to know when all is warmed up)
+                    if self.profiler is not None:
+                        if self.profiler.record_steps:
+                            self.profiler.step()
+
                     # Debug mode only runs a few batches
                     if self.debug and self.step == self.debug_batches:
                         break
@@ -1097,6 +1108,11 @@ class Brain:
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss
                         )
+
+                        # Profile only if desired (steps allow the profiler to know when all is warmed up)
+                        if self.profiler is not None:
+                            if self.profiler.record_steps:
+                                self.profiler.step()
 
                         # Debug mode only runs a few batches
                         if self.debug and self.step == self.debug_batches:
@@ -1224,6 +1240,11 @@ class Brain:
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
+
+                # Profile only if desired (steps allow the profiler to know when all is warmed up)
+                if self.profiler is not None:
+                    if self.profiler.record_steps:
+                        self.profiler.step()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
