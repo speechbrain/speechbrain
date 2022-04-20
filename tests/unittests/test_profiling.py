@@ -19,12 +19,16 @@ def test_profile_class(device):
     valid_set = ([inputs, targets],)
 
     # Profiling: __init__ constructor.
-    brain = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
+    brain = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
     assert brain.profiler is not None
     assert brain.profiler.profiler is not None
     assert len(brain.profiler.key_averages()) == 2
     assert brain.profiler.events().total_average().count == 6
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 1  # set & filled by the @profile decorator
+    assert (
+        len(brain.profiler.speechbrain_parsed_kineto_traces) == 1
+    )  # set & filled by the @profile decorator
     """print(brain.profiler.key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
                                            Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
@@ -115,7 +119,9 @@ def test_profile_func(device):
 
     @profile
     def train(brain, train_set, valid_set):
-        brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+        brain.fit(
+            epoch_counter=range(10), train_set=train_set, valid_set=valid_set
+        )
 
     model = torch.nn.Linear(in_features=10, out_features=10, device=device)
     inputs = torch.rand(10, 10, device=device)
@@ -134,13 +140,17 @@ def test_profile_func(device):
     simple_brain_nitty_gritty = SimpleBrainNittyGritty(
         {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
     )
-    prof_nitty_gritty = train(simple_brain_nitty_gritty, training_set, validation_set)
+    prof_nitty_gritty = train(
+        simple_brain_nitty_gritty, training_set, validation_set
+    )
     # print(prof_nitty_gritty.key_averages().table(sort_by="cpu_time_total"))
     assert len(prof_nitty_gritty.events()) == 3030
     assert len(prof_nitty_gritty.key_averages()) == 74
 
     # The outputs of this diff are only for visualisation, ``simple_delta._build_tree()`` will throw an error.
-    simple_delta, nitty_gritty_delta = events_diff(prof_simple.key_averages(), prof_nitty_gritty.key_averages())
+    simple_delta, nitty_gritty_delta = events_diff(
+        prof_simple.key_averages(), prof_nitty_gritty.key_averages()
+    )
     assert len(simple_delta) == 6
     assert len(nitty_gritty_delta) == 8
     assert simple_delta.total_average().count == 582
@@ -210,7 +220,9 @@ def test_scheduler(device):
     test_set = ([inputs, targets],)
 
     # Profiling: __init__ constructor -- while scheduler: waiting --> nothing to report
-    brain = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
+    brain = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
     assert brain.profiler.profiler is None
     assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 0
     with raises(Exception) as err:
@@ -310,17 +322,25 @@ def test_scheduler(device):
     def train():
         # The step() function is executed inside speechbrain.core.brain.fit and is property of the Brain's profiler.
         # Above profiler and its scheduler are without power here, since prof.step() is not run - at all.
-        brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+        brain.fit(
+            epoch_counter=range(10), train_set=train_set, valid_set=valid_set
+        )
 
     prof = train()
     # since we used the same brain (which has its own profiler)
     assert brain.profiler.step_num == 40
     assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 2
-    assert len(brain.profiler.events()) == 293   # unchanged (overwritten with akin data)
-    assert len(brain.profiler.key_averages()) == 73   # unchanged (akin data)
+    assert (
+        len(brain.profiler.events()) == 293
+    )  # unchanged (overwritten with akin data)
+    assert len(brain.profiler.key_averages()) == 73  # unchanged (akin data)
     # now, to the train function's profiler
-    assert prof.step_num == 0  # the prof.step() operation wasn't run (not in scope) -> its scheduler is unawaken!
-    assert not hasattr(prof, "speechbrain_parsed_kineto_traces")  # no trace collection
+    assert (
+        prof.step_num == 0
+    )  # the prof.step() operation wasn't run (not in scope) -> its scheduler is unawaken!
+    assert not hasattr(
+        prof, "speechbrain_parsed_kineto_traces"
+    )  # no trace collection
     with raises(Exception) as err_prof:
         prof.events()  # No tracing started with this one.
     assert err_prof.type == AssertionError  # sparing: key_averages()
@@ -333,14 +353,37 @@ def test_scheduler(device):
         def compute_objectives(self, predictions, batch, stage):
             return torch.nn.functional.l1_loss(predictions, batch[1])
 
-    brain_or_pretrained = SimpleBrainUntracked({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
-    """no need to define an extra function
-    @scheduler
-    @profile
-    def eval():
-        brain.evaluate(test_set=test_set)
-    prof = eval()
-    """
+    brain_or_pretrained = SimpleBrainUntracked(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
+
+    # Set-up the profiler and hook it to the model.
     scheduled_profiler = schedule(profile)
-    # brain_or_pretrained = scheduled_profiler(brain_or_pretrained) # todo
-    # brain_or_pretrained.evaluate(test_set=test_set)
+    scheduled_profiler(brain_or_pretrained)
+
+    # Profiling: still too early for scheduler!
+    brain_or_pretrained.evaluate(test_set=test_set)
+    assert brain_or_pretrained.profiler.step_num == 1
+    assert brain_or_pretrained.profiler.profiler is None
+
+    # Profiling: scheduler warms-up.
+    brain_or_pretrained.evaluate(test_set=test_set)
+    assert brain_or_pretrained.profiler.step_num == 2
+    assert len(brain_or_pretrained.profiler.events()) == 0
+
+    # Profiling: scheduler warms-up...
+    brain_or_pretrained.evaluate(test_set=test_set)
+    assert brain_or_pretrained.profiler.step_num == 3
+    assert len(brain_or_pretrained.profiler.events()) == 0
+
+    # Profiling: first trace!
+    brain_or_pretrained.evaluate(test_set=test_set)
+    assert brain_or_pretrained.profiler.step_num == 4
+    assert len(brain_or_pretrained.profiler.events()) == 10
+    assert len(brain_or_pretrained.profiler.key_averages()) == 5
+    assert len(brain_or_pretrained.profiler.speechbrain_parsed_kineto_traces) == 3  # There were silent traces before.
+
+    # Profiling: let's put them together anyway!
+    short_report = brain_or_pretrained.profiler.merge_traces()
+    assert len(short_report) == 10
+    assert len(short_report.key_averages()) == 5
