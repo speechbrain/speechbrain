@@ -191,9 +191,9 @@ def test_scheduler(device):
     from pytest import raises
     from torch.optim import SGD
     from speechbrain.core import Brain
-    from speechbrain.utils.profiling import profile, scheduler
+    from speechbrain.utils.profiling import profile, schedule
 
-    @scheduler
+    @schedule
     @profile
     class SimpleBrain(Brain):
         def compute_forward(self, batch, stage):
@@ -305,7 +305,7 @@ def test_scheduler(device):
     Self CPU time total: 2.711ms  <===  above: Self CPU time total: 18.451ms (... the impact of warm-up)
     """
 
-    @scheduler
+    @schedule
     @profile
     def train():
         # The step() function is executed inside speechbrain.core.brain.fit and is property of the Brain's profiler.
@@ -341,5 +341,6 @@ def test_scheduler(device):
         brain.evaluate(test_set=test_set)
     prof = eval()
     """
-    # brain_or_pretrained = scheduler(profile(brain_or_pretrained)) # todo
+    scheduled_profiler = schedule(profile)
+    # brain_or_pretrained = scheduled_profiler(brain_or_pretrained) # todo
     # brain_or_pretrained.evaluate(test_set=test_set)

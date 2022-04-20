@@ -11,7 +11,7 @@ from torch.autograd.profiler_util import EventList
 from typing import Any, Callable, Iterable, Optional
 
 
-def scheduler(func, wait: int = 2, warmup: int = 2, active: int = 2, repeat: int = 1, skip_first: int = 0):
+def schedule(func, wait: int = 2, warmup: int = 2, active: int = 2, repeat: int = 1, skip_first: int = 0):
     """Wrapper to create a ```torch.profiler.schedule``` (sets default parameters for warm-up).
     """
     torch_scheduler = profiler.schedule(wait=wait, warmup=warmup, active=active, repeat=repeat, skip_first=skip_first)
@@ -99,99 +99,98 @@ def profile(func: object,
     >>> [len(prof.events()), len(prof.key_averages()), prof.key_averages().total_average().count]
     [25, 15, 25]
     """
+    if callable(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            class_hooks = sub_methods  # only called when func decorates a class
+            # check if there's a nested schedule decorated
+            scheduler = schedule
+            if scheduler is None:
+                if 'schedule' in kwargs:
+                    scheduler = kwargs.pop('schedule')
+            with profiler.profile(
+                    activities=activities,
+                    schedule=scheduler,
+                    on_trace_ready=on_trace_ready,
+                    record_shapes=record_shapes,
+                    profile_memory=profile_memory,
+                    with_stack=with_stack,
+                    with_flops=with_flops,
+                    with_modules=with_modules,
+            ) as prof:
+                # Adds profiler to attributes if func is not a function (implies: speechbrain.core.Brain); preserving prof.
+                if "__call__" not in dir(func):  # __init__ -or- instance of Brain class
+                    # Brain functions will be called independently -> traces will be segregated, so we aggregate them.
+                    prof.speechbrain_parsed_kineto_traces = list()
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        class_hooks = sub_methods  # only called when func decorates a class
-        # check if there's a nested schedule decorated
-        scheduler = schedule
-        if scheduler is None:
-            if 'schedule' in kwargs:
-                scheduler = kwargs.pop('schedule')
-        with profiler.profile(
-                activities=activities,
-                schedule=scheduler,
-                on_trace_ready=on_trace_ready,
-                record_shapes=record_shapes,
-                profile_memory=profile_memory,
-                with_stack=with_stack,
-                with_flops=with_flops,
-                with_modules=with_modules,
-        ) as prof:
-            # Adds profiler to attributes if func is not a function (implies: speechbrain.core.Brain); preserving prof.
-            if ("__call__" not in dir(func)) or (not callable(func)):  # __init__ -or- instance of Brain class
-                # Brain functions will be called independently -> traces will be segregated, so we aggregate them.
-                prof.speechbrain_parsed_kineto_traces = list()
+                    # Preparing the profiler to be re-used during Brain:s' lifecycles.
+                    def hook_profiler_stop(stop: Callable):
+                        @wraps(stop)
+                        def stop_wrapper():
+                            if prof.profiler is not None:
+                                stop_result = stop()
+                                prof.speechbrain_parsed_kineto_traces.append(
+                                    deepcopy(prof.profiler._parse_kineto_results(prof.profiler.kineto_results))
+                                )
+                                return stop_result
+                            else:
+                                return stop()  # will be: None
+                        return stop_wrapper
 
-                # Preparing the profiler to be re-used during Brain:s' lifecycles.
-                def hook_profiler_stop(stop: Callable):
-                    @wraps(stop)
-                    def stop_wrapper():
-                        if prof.profiler is not None:
-                            stop_result = stop()
-                            prof.speechbrain_parsed_kineto_traces.append(
-                                deepcopy(prof.profiler._parse_kineto_results(prof.profiler.kineto_results))
-                            )
-                            return stop_result
-                        else:
-                            return stop()  # will be: None
-                    return stop_wrapper
+                    # It's currently designed as hiding an Easter Egg.
+                    def merge_traces():
+                        # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
+                        trace_aggregator = "speechbrain_parsed_kineto_traces"
+                        if trace_aggregator in dir(prof):
+                            merged_events = EventList(list(chain(*getattr(prof, trace_aggregator))),
+                                                      use_cuda=prof.profiler.use_cuda,
+                                                      profile_memory=prof.profiler.profile_memory,
+                                                      with_flops=prof.profiler.with_flops)
+                            merged_events._build_tree()
+                            return merged_events
+                        else:  # not tested
+                            return prof.events()
 
-                # It's currently designed as hiding an Easter Egg.
-                def merge_traces():
-                    # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
-                    trace_aggregator = "speechbrain_parsed_kineto_traces"
-                    if trace_aggregator in dir(prof):
-                        merged_events = EventList(list(chain(*getattr(prof, trace_aggregator))),
-                                                  use_cuda=prof.profiler.use_cuda,
-                                                  profile_memory=prof.profiler.profile_memory,
-                                                  with_flops=prof.profiler.with_flops)
-                        merged_events._build_tree()
-                        return merged_events
-                    else:  # not tested
-                        return prof.events()
+                    # Augment torch's profiler.
+                    setattr(prof, "stop", hook_profiler_stop(getattr(prof, "stop")))
+                    setattr(prof, "merge_traces", merge_traces)
 
-                # Augment torch's profiler.
-                setattr(prof, "stop", hook_profiler_stop(getattr(prof, "stop")))
-                setattr(prof, "merge_traces", merge_traces)
+                    # Passing the profiler to Bain:s' __init__ constructor as an additional argument.
+                    kwargs["profiler"] = prof
 
-                # Passing the profiler to Bain:s' __init__ constructor as an additional argument.
-                kwargs["profiler"] = prof
+                    # Prepare additional hook decorators for methods of Brain:s.
+                    def hook_brain(f: Callable):
+                        @wraps(f)
+                        def hook(*f_args, **f_kwargs):
+                            # The profiler stopped after __init__ so we need to get it up again and stop it manually also.
+                            prof.start()
+                            r = f(*f_args, **f_kwargs)
+                            prof.stop()
+                            return r
+                        return hook
 
-                # Prepare additional hook decorators for methods of Brain:s.
-                def hook_brain(f: Callable):
-                    @wraps(f)
-                    def hook(*f_args, **f_kwargs):
-                        # The profiler stopped after __init__ so we need to get it up again and stop it manually also.
-                        prof.start()
-                        r = f(*f_args, **f_kwargs)
-                        prof.stop()
-                        return r
-                    return hook
+                    # Hook the crucial Brain methods.
+                    if class_hooks is None:
+                        class_hooks = ['fit', 'evaluate']
+                    for method in class_hooks:
+                        if method in dir(func):  # func is an instance of Brain
+                            setattr(func, method, hook_brain(getattr(func, method)))
 
-                # Hook the crucial Brain methods.
-                if class_hooks is None:
-                    class_hooks = ['fit', 'evaluate']
-                for method in class_hooks:
-                    if method in dir(func):  # func is an instance of Brain
-                        setattr(func, method, hook_brain(getattr(func, method)))
-
-            if callable(func):
                 # Run & trace to benchmark.
                 result = func(*args, **kwargs)
 
-                # Direct profiler post-processing if func is a function (implies: result is None); prof is lost at return.
+                # Prof is about to be lost at return.
                 if "__call__" in dir(func):
                     if result is None:
-                        return prof
-                    else:  # not tested
+                        return prof  # for void function, simply return profiling data
+                    else:  # not tested - direct profile handling
                         pass
 
                 return result
-            else:  # if it's an instance of Brain class
-                return func
 
-    return wrapper
+        return wrapper
+    else:  # Polymorph: func is an instance of Brain (assumed case)
+        return func
 
 
 def profile_details(func):
@@ -199,7 +198,8 @@ def profile_details(func):
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        wrapped_func = profile(schedule=scheduler(...),
+        scheduled_profiler = schedule(profile)
+        wrapped_func = scheduled_profiler(
                        on_trace_ready=trace_handler(...),
                        record_shapes=True,
                        profile_memory=True,
