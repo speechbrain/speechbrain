@@ -27,16 +27,16 @@ def test_profile_class(device):
     assert len(brain.profiler.key_averages()) == 2
     assert brain.profiler.events().total_average().count == 6
     assert (
-        len(brain.profiler.speechbrain_parsed_kineto_traces) == 1
+        len(brain.profiler.speechbrain_event_traces) == 1
     )  # set & filled by the @profile decorator
     """print(brain.profiler.key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
                                            Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
     -------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-        aten::_has_compatible_shallow_copy_type        76.92%      10.000us        76.92%      10.000us       2.500us             4  
-                                       aten::to        23.08%       3.000us        23.08%       3.000us       1.500us             2  
+        aten::_has_compatible_shallow_copy_type        73.33%      11.000us        73.33%      11.000us       2.750us             4  
+                                       aten::to        26.67%       4.000us        26.67%       4.000us       2.000us             2  
     -------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-    Self CPU time total: 13.000us
+    Self CPU time total: 15.000us
     """
 
     # Profiling: fit() for train operations.
@@ -45,47 +45,34 @@ def test_profile_class(device):
     assert brain.profiler is not None
     assert len(brain.profiler.key_averages()) == 72
     assert brain.profiler.events().total_average().count == 2832
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 2
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces[0]) == 6
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces[1]) == 2862
+    assert len(brain.profiler.speechbrain_event_traces) == 2
+    assert len(brain.profiler.speechbrain_event_traces[0]) == 6
+    assert len(brain.profiler.speechbrain_event_traces[1]) == 2832
     """print(brain.profiler.key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-                                              aten::l1_loss         2.33%     429.000us        27.51%       5.076ms     126.900us            40  
-    enumerate(DataLoader)#_SingleProcessDataLoaderIter._...        12.06%       2.225ms        19.05%       3.515ms      87.875us            40  
-                                               aten::linear         1.19%     220.000us        12.88%       2.376ms     118.800us            20  
-                                                   aten::to         1.76%     325.000us        11.86%       2.188ms      13.675us           160  
-                                                 aten::mean         1.12%     206.000us        10.43%       1.924ms      96.200us            20  
-                                             aten::_to_copy         6.95%       1.282ms        10.19%       1.881ms      18.810us           100  
-                                             aten::isfinite         1.95%     359.000us         9.79%       1.807ms      60.233us            30  
-                                                aten::stack         2.14%     395.000us         8.63%       1.592ms      31.840us            50  
-                                                 aten::div_         1.55%     286.000us         7.78%       1.435ms      71.750us            20  
-                                               aten::matmul         1.58%     292.000us         7.57%       1.397ms      69.850us            20  
+                                              aten::l1_loss         2.26%     341.000us        28.56%       4.316ms     107.900us            40  
+    enumerate(DataLoader)#_SingleProcessDataLoaderIter._...        11.44%       1.728ms        18.16%       2.744ms      68.600us            40  
+                                               aten::linear         1.18%     179.000us        12.86%       1.943ms      97.150us            20  
+                                                   aten::to         1.96%     296.000us        12.33%       1.863ms      11.644us           160  
+                                                 aten::mean         1.24%     187.000us        11.01%       1.664ms      83.200us            20  
+                                             aten::_to_copy         7.30%       1.103ms        10.57%       1.597ms      15.970us           100  
+                                             aten::isfinite         1.99%     301.000us        10.50%       1.587ms      52.900us            30  
+                                                aten::stack         2.06%     311.000us         8.29%       1.253ms      25.060us            50  
+                                                 aten::div_         1.52%     230.000us         8.29%       1.252ms      62.600us            20  
+                                               aten::matmul         1.69%     256.000us         7.68%       1.161ms      58.050us            20  
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-    Self CPU time total: 18.451ms
+    Self CPU time total: 15.110ms
     """
-
+    # todo aggregate events
+    """
     # Profiling: putting previous benchmark reporting together.
     full_report = brain.profiler.merge_traces()
     assert len(full_report) == 2838
     assert len(full_report.key_averages()) == 73
+    """
     """print(full_report.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-    -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-                                                       Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
-    -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-                                              aten::l1_loss         2.32%     429.000us        27.49%       5.076ms     126.900us            40  
-    enumerate(DataLoader)#_SingleProcessDataLoaderIter._...        12.05%       2.225ms        19.04%       3.515ms      87.875us            40  
-                                               aten::linear         1.19%     220.000us        12.87%       2.376ms     118.800us            20  
-                                                   aten::to         1.78%     328.000us        11.87%       2.191ms      13.525us           162  
-                                                 aten::mean         1.12%     206.000us        10.42%       1.924ms      96.200us            20  
-                                             aten::_to_copy         6.94%       1.282ms        10.19%       1.881ms      18.810us           100  
-                                             aten::isfinite         1.94%     359.000us         9.79%       1.807ms      60.233us            30  
-                                                aten::stack         2.14%     395.000us         8.62%       1.592ms      31.840us            50  
-                                                 aten::div_         1.55%     286.000us         7.77%       1.435ms      71.750us            20  
-                                               aten::matmul         1.58%     292.000us         7.57%       1.397ms      69.850us            20  
-    -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
-    Self CPU time total: 18.464ms
     """
 
 
@@ -224,7 +211,7 @@ def test_scheduler(device):
         {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
     )
     assert brain.profiler.profiler is None
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 0
+    assert len(brain.profiler.speechbrain_event_traces) == 0
     with raises(Exception) as err:
         brain.profiler.events()  # Tracing hasn't started, yet, so everything is in err. Scheduler says: wait.
     assert err.type == AssertionError
@@ -233,7 +220,7 @@ def test_scheduler(device):
     # Profiling: fit() for train operations.
     brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
     assert brain.profiler.step_num == 20
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 1
+    assert len(brain.profiler.speechbrain_event_traces) == 1
     assert len(brain.profiler.events()) == 293
     assert len(brain.profiler.key_averages()) == 73
     """print(brain.profiler.key_averages().table(sort_by="cpu_time_total"))
@@ -329,7 +316,7 @@ def test_scheduler(device):
     prof = train()
     # since we used the same brain (which has its own profiler)
     assert brain.profiler.step_num == 40
-    assert len(brain.profiler.speechbrain_parsed_kineto_traces) == 2
+    assert len(brain.profiler.speechbrain_event_traces) == 2
     assert (
         len(brain.profiler.events()) == 293
     )  # unchanged (overwritten with akin data)
@@ -339,7 +326,7 @@ def test_scheduler(device):
         prof.step_num == 0
     )  # the prof.step() operation wasn't run (not in scope) -> its scheduler is unawaken!
     assert not hasattr(
-        prof, "speechbrain_parsed_kineto_traces"
+        prof, "speechbrain_event_traces"
     )  # no trace collection
     with raises(Exception) as err_prof:
         prof.events()  # No tracing started with this one.
@@ -381,9 +368,84 @@ def test_scheduler(device):
     assert brain_or_pretrained.profiler.step_num == 4
     assert len(brain_or_pretrained.profiler.events()) == 10
     assert len(brain_or_pretrained.profiler.key_averages()) == 5
-    assert len(brain_or_pretrained.profiler.speechbrain_parsed_kineto_traces) == 3  # There were silent traces before.
+    assert len(brain_or_pretrained.profiler.speechbrain_event_traces) == 1
 
-    # Profiling: let's put them together anyway!
+    """
+    # Profiling: aggregate traces
     short_report = brain_or_pretrained.profiler.merge_traces()
     assert len(short_report) == 10
     assert len(short_report.key_averages()) == 5
+    """
+
+
+def test_tracer(device):
+    import os
+    import torch
+    import shutil
+    from torch.optim import SGD
+    from speechbrain.core import Brain
+    from speechbrain.utils.profiling import profile, export
+
+    log_dir = './log'
+    if os.path.exists(log_dir):
+        shutil.rmtree(log_dir)
+
+    @export
+    @profile
+    class SimpleBrain(Brain):
+        def compute_forward(self, batch, stage):
+            return self.modules.model(batch[0])
+
+        def compute_objectives(self, predictions, batch, stage):
+            return torch.nn.functional.l1_loss(predictions, batch[1])
+
+    model = torch.nn.Linear(in_features=10, out_features=10, device=device)
+    inputs = torch.rand(10, 10, device=device)
+    targets = torch.rand(10, 10, device=device)
+    train_set = ([inputs, targets],)
+    valid_set = ([inputs, targets],)
+    test_set = ([inputs, targets],)
+
+    # Profiling: __init__ constructor and model training.
+    assert not os.path.exists(log_dir)
+    brain = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
+    assert os.path.exists(log_dir)
+    assert len(os.listdir(log_dir)) == 1
+    brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+    assert len(os.listdir(log_dir)) == 2
+    # breakpoint -> check out on Chrome: chrome://tracing
+
+    # Pretrained example.
+    class SimpleBrainUntracked(Brain):
+        def compute_forward(self, batch, stage):
+            return self.modules.model(batch[0])
+
+        def compute_objectives(self, predictions, batch, stage):
+            return torch.nn.functional.l1_loss(predictions, batch[1])
+
+    # No tracing during __init__
+    brain_or_pretrained = SimpleBrainUntracked({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
+    assert len(os.listdir(log_dir)) == 2
+    assert brain_or_pretrained.profiler is None
+    profile(brain_or_pretrained, on_trace_ready=export(), with_stack=True)
+    assert len(os.listdir(log_dir)) == 2
+    brain_or_pretrained.evaluate(test_set=test_set)
+    assert len(os.listdir(log_dir)) == 4  # FlameGraph data is generated as well
+
+    # Set-up the profiler; hook it to the model, and benchmark inference.
+    brain_or_pretrained2 = SimpleBrainUntracked({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
+    logged_profiler = export(profile)
+    assert brain_or_pretrained2.profiler is None
+    logged_profiler(brain_or_pretrained2)
+    assert len(os.listdir(log_dir)) == 4
+    brain_or_pretrained2.evaluate(test_set=test_set)
+    assert len(os.listdir(log_dir)) == 5
+
+    # Clean-up.
+    shutil.rmtree(log_dir)
+
+
+def test_default_tracer():
+    pass  # todo

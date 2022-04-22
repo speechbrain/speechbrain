@@ -141,5 +141,8 @@ dmypy.json
 # Results folders
 **/results/
 
+# Log folders
+**/log/
+
 # Mac OS
 .DS_Store
