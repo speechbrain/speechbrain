@@ -11,8 +11,33 @@ from torch.autograd.profiler_util import EventList
 from typing import Any, Callable, Iterable, Optional
 
 
+def set_profiler_attr(func: object, set_attr: str, handler: Callable):
+    """Sets handler for profiler: scheduler or trace export.
+    """
+    assert set_attr in ["on_trace_ready", "schedule"], "Needs to be a callable profiler attribute."
+
+    if func is None:  # Polymorph: not used as decorator; func is used as e.g.: trace_export()
+        return handler
+    elif callable(func):  # Polymorph: decorates a decorator of function/class constructor
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if "__call__" not in dir(func):  # Decorator for class constructor (directly)
+                result = func(*args, **kwargs)
+                setattr(result.profiler, set_attr, handler)
+                return result  # not tested
+            else:  # Return as additional argument.
+                kwargs[set_attr] = handler
+                return func(*args, **kwargs)
+        return wrapper
+    else:  # Polymorph: func is assumed to be an instance of speechbrain.core.Brain
+        # No return: in-place edit
+        if hasattr(func, "profiler"):
+            if func.profiler is profiler.profile:
+                setattr(func.profiler, set_attr, handler)
+
+
 def schedule(
-    func,
+    func: Optional[object] = None,
     wait: int = 2,
     warmup: int = 2,
     active: int = 2,
@@ -29,26 +54,83 @@ def schedule(
         skip_first=skip_first,
     )
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        kwargs["schedule"] = torch_scheduler
-        return func(*args, **kwargs)
-
-    return wrapper
+    return set_profiler_attr(func=func, set_attr="schedule", handler=torch_scheduler)
 
 
-def trace_handler(func):
+def export(func: Optional[object] = None,
+           dir_name: str = './log/',
+           worker_name: Optional[str] = None,
+           use_gzip: bool = False):
+    """Exports current and aggregated traces for:
+    - Chrome tensorboard
+    - FlameGraph
+    (and sets default parameters for log file folder/filenames).
     """
-            def trace_handler(prof):
-            print(prof.key_averages().table(
-                sort_by="self_cuda_time_total", row_limit=-1))
-            # prof.export_chrome_trace("/tmp/test_trace_" + str(prof.step_num) + ".json")
+    import os
+    import socket
+    import time
 
-            # on_trace_ready=torch.profiler.tensorboard_trace_handler('./log') -> more rigour at chrome trace
+    # Chrome export (default handler).
+    tensorboard_handler = profiler.tensorboard_trace_handler(
+        dir_name=dir_name,
+        worker_name=worker_name,
+        use_gzip=use_gzip
+    )
 
-            # p.export_stacks("/tmp/profiler_stacks_scheduler.txt", "self_cuda_time_total") -> FlameGraph
-    """
-    pass
+    def trace_handler(prof: profiler.profile):
+
+        def log_file(export_chrome: bool = False, info: str = ""):
+            nonlocal worker_name
+            if not worker_name:
+                worker_name = "{}_{}".format(socket.gethostname(), str(os.getpid()))
+            if export_chrome:
+                ext = "pt.trace.json"
+            else:
+                ext = "txt"
+            if info:
+                pattern = "{{}}.{{}}_{}.{{}}".format(info)
+            else:
+                pattern = "{}.{}.{}"
+            file_name = pattern.format(worker_name, int(time.time() * 1000), ext)
+            if use_gzip:
+                file_name = file_name + '.gz'
+            return os.path.join(dir_name, file_name)
+
+        def export_stacks(log_path: str, metric: str):
+            prof.export_stacks(log_file(), metric)
+
+        def export_traces(aggregated_traces: bool = False):
+            if not aggregated_traces:
+                # Chrome export (also checks for dir_name existing).
+                tensorboard_handler(prof)
+
+            # FlameGraph exports.
+            if prof.with_stack or aggregated_traces:
+                log_path = log_file(info='aggregated') if aggregated_traces else log_file()
+                export_stacks(log_path=log_path, metric="self_cpu_time_total")
+                if prof.profiler is not None:
+                    if prof.profiler.use_cuda:
+                        export_stacks(log_path=log_path, metric="self_cuda_time_total")
+
+        # export last logged trace - skip if events are empty (e.g., profiler created w/o any torch.nn call)
+        if prof.events():
+            export_traces()
+
+        """
+        # check for aggregated traces -> export them (each time a Brain:s' function tracing completed)
+        func_events = "function_events"
+        if prof.profiler is not None and prof.events():
+            if hasattr(prof, "speechbrain_event_traces") and hasattr(prof, "merge_traces"):
+                # Mimic merged traces as one aggregated trace.
+                events = getattr(prof.profiler, func_events)  # Safely puts the last event trace aside.
+                setattr(prof.profiler, func_events, prof.merge_traces())
+                # Export.
+                export_traces(aggregated_traces=True)
+                # Revert.
+                setattr(prof.profiler, func_events, events)
+        """
+
+    return set_profiler_attr(func=func, set_attr="on_trace_ready", handler=trace_handler)
 
 
 def prepare_profiler_for_brain(prof: profiler.profile):
@@ -56,7 +138,7 @@ def prepare_profiler_for_brain(prof: profiler.profile):
     with ``speechbrain.core.Brain``:s and (b) hooks a method to ``merge_traces``.
     """
     # Brain functions will be called independently -> traces will be segregated, so we aggregate them.
-    prof.speechbrain_parsed_kineto_traces = list()
+    prof.speechbrain_event_traces = list()
 
     # Preparing the profiler to be re-used during Brain:s' lifecycles.
     def hook_profiler_stop(stop: Callable):
@@ -64,13 +146,8 @@ def prepare_profiler_for_brain(prof: profiler.profile):
         def stop_wrapper():
             if prof.profiler is not None:
                 stop_result = stop()
-                prof.speechbrain_parsed_kineto_traces.append(
-                    deepcopy(
-                        prof.profiler._parse_kineto_results(
-                            prof.profiler.kineto_results
-                        )
-                    )
-                )
+                if prof.events():  # kineto events are not aggregatable (sticking with parsed kineto events)
+                    prof.speechbrain_event_traces.append(deepcopy(prof.events()))
                 return stop_result
             else:
                 return stop()  # will be: None
@@ -80,8 +157,8 @@ def prepare_profiler_for_brain(prof: profiler.profile):
     # It's currently designed as hiding an Easter Egg.
     def merge_traces():
         # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
-        trace_aggregator = "speechbrain_parsed_kineto_traces"
-        if trace_aggregator in dir(prof):
+        trace_aggregator = "speechbrain_event_traces"
+        if trace_aggregator in dir(prof) and prof.events():
             merged_events = EventList(
                 list(chain(*getattr(prof, trace_aggregator))),
                 use_cuda=prof.profiler.use_cuda,
@@ -99,7 +176,7 @@ def prepare_profiler_for_brain(prof: profiler.profile):
     )
     setattr(prof, "merge_traces", merge_traces)
 
-    # return so it can be readily assigned elsewhere
+    # Return so it can be readily assigned elsewhere :)
     return prof
 
 
@@ -132,7 +209,7 @@ def hook_brain_methods(func: object,
 
 def profile(
     func: object,
-    sub_methods: Optional[Iterable[str]] = None,
+    class_hooks: Optional[Iterable[str]] = None,
     activities: Optional[Iterable[profiler.ProfilerActivity]] = None,
     schedule: Optional[Callable[[int], profiler.ProfilerAction]] = None,
     on_trace_ready: Optional[Callable[..., Any]] = None,
@@ -149,7 +226,7 @@ def profile(
     ---------
     func : object
         ``speechbrain.core.Brain``:s or a (train/eval) function to be profiled.
-    sub_methods : iterable
+    class_hooks : iterable
         List of method/function names of ``speechbrain.core.Brain``:s that should be profiled also.
         Otherwise, only the __init__ constructor will be profiled when decorating a Brain class.
         Default: ``['fit', 'evaluate']`` for classes, and ``None`` for functions.
@@ -193,18 +270,23 @@ def profile(
     >>> [len(prof.events()), len(prof.key_averages()), prof.key_averages().total_average().count]
     [25, 15, 25]
     """
-    class_hooks = sub_methods  # only called when func decorates a class
     if callable(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # check if there's a nested schedule decorated
-            scheduler = schedule
-            if scheduler is None:
+            # Binding variables.
+            nonlocal class_hooks
+            nonlocal schedule
+            nonlocal on_trace_ready
+            # Check if there's a nested decorators.
+            if schedule is None:
                 if "schedule" in kwargs:
-                    scheduler = kwargs.pop("schedule")
+                    schedule = kwargs.pop("schedule")
+            if on_trace_ready is None:
+                if "on_trace_ready" in kwargs:
+                    on_trace_ready = kwargs.pop("on_trace_ready")
             with profiler.profile(
                 activities=activities,
-                schedule=scheduler,
+                schedule=schedule,
                 on_trace_ready=on_trace_ready,
                 record_shapes=record_shapes,
                 profile_memory=profile_memory,
@@ -212,7 +294,7 @@ def profile(
                 with_flops=with_flops,
                 with_modules=with_modules,
             ) as prof:
-                # Adds profiler to attributes if func is not a function (implies: speechbrain.core.Brain); preserving prof.
+                # Preserves profiler as class attribute if func is not a function (implies: speechbrain.core.Brain).
                 if "__call__" not in dir(
                     func
                 ):
@@ -257,7 +339,7 @@ def profile_details(func):
     def wrapper(*args, **kwargs):
         scheduled_profiler = schedule(profile)
         wrapped_func = scheduled_profiler(
-            on_trace_ready=trace_handler(...),
+            on_trace_ready=export(),
             record_shapes=True,
             profile_memory=True,
             with_stack=True,
