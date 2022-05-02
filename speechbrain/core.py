@@ -1030,9 +1030,7 @@ class Brain:
                 ):
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
-                    avg_valid_loss = self.update_average(
-                        loss, avg_valid_loss
-                    )
+                    avg_valid_loss = self.update_average(loss, avg_valid_loss)
 
                     # Profile only if desired (steps allow the profiler to know when all is warmed up)
                     if self.profiler is not None:

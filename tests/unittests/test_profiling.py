@@ -903,34 +903,44 @@ def test_profile_details(device):
     """
 
     # set hook afterwards
-    brain_analyst_raw = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
-    brain_optimiser_raw = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
+    brain_analyst_raw = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
+    brain_optimiser_raw = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
     brain_analyst_raw.fit(
-        epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+        epoch_counter=range(10), train_set=train_set, valid_set=valid_set
+    )
     profile_analyst(brain_analyst_raw)
     brain_analyst_raw.evaluate(test_set=test_set)
-    assert getattr(brain_analyst_raw.profiler, 'record_shapes') is True
-    assert getattr(brain_analyst_raw.profiler, 'with_stack') is True
-    assert getattr(brain_analyst_raw.profiler, 'with_flops') is True
+    assert getattr(brain_analyst_raw.profiler, "record_shapes") is True
+    assert getattr(brain_analyst_raw.profiler, "with_stack") is True
+    assert getattr(brain_analyst_raw.profiler, "with_flops") is True
 
     brain_optimiser_raw.fit(
-        epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+        epoch_counter=range(10), train_set=train_set, valid_set=valid_set
+    )
     profile_optimiser(brain_optimiser_raw)
     brain_optimiser_raw.evaluate(test_set=test_set)
-    assert getattr(brain_optimiser_raw.profiler, 'record_shapes') is False
-    assert getattr(brain_optimiser_raw.profiler, 'with_stack') is False
-    assert getattr(brain_optimiser_raw.profiler, 'with_flops') is False
+    assert getattr(brain_optimiser_raw.profiler, "record_shapes") is False
+    assert getattr(brain_optimiser_raw.profiler, "with_stack") is False
+    assert getattr(brain_optimiser_raw.profiler, "with_flops") is False
 
     # wrap functions
     @profile_analyst
     def train_analyst(brain: SimpleBrain):
-        brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+        brain.fit(
+            epoch_counter=range(10), train_set=train_set, valid_set=valid_set
+        )
 
     @profile_optimiser
     def evaluate_optimiser(brain: SimpleBrain):
         brain.evaluate(test_set=test_set)
 
-    brain_raw = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
+    brain_raw = SimpleBrain(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
     assert brain_raw.profiler is None
     train_analyst(brain_raw)
     assert brain_raw.profiler is None
@@ -954,14 +964,20 @@ def test_profile_details(device):
         def compute_objectives(self, predictions, batch, stage):
             return torch.nn.functional.l1_loss(predictions, batch[1])
 
-    simple_brain_analyst = SimpleBrainAnalyst({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
-    assert getattr(simple_brain_analyst.profiler, 'record_shapes') is True
-    assert getattr(simple_brain_analyst.profiler, 'with_stack') is True
-    assert getattr(simple_brain_analyst.profiler, 'with_flops') is True
+    simple_brain_analyst = SimpleBrainAnalyst(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
+    assert getattr(simple_brain_analyst.profiler, "record_shapes") is True
+    assert getattr(simple_brain_analyst.profiler, "with_stack") is True
+    assert getattr(simple_brain_analyst.profiler, "with_flops") is True
     simple_brain_analyst.evaluate(test_set=test_set)
 
-    simple_brain_optimiser = SimpleBrainOptimiser({"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device})
-    assert getattr(simple_brain_optimiser.profiler, 'record_shapes') is False
-    assert getattr(simple_brain_optimiser.profiler, 'with_stack') is False
-    assert getattr(simple_brain_optimiser.profiler, 'with_flops') is False
-    simple_brain_optimiser.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
+    simple_brain_optimiser = SimpleBrainOptimiser(
+        {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
+    )
+    assert getattr(simple_brain_optimiser.profiler, "record_shapes") is False
+    assert getattr(simple_brain_optimiser.profiler, "with_stack") is False
+    assert getattr(simple_brain_optimiser.profiler, "with_flops") is False
+    simple_brain_optimiser.fit(
+        epoch_counter=range(10), train_set=train_set, valid_set=valid_set
+    )
