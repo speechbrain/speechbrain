@@ -7,10 +7,8 @@ from copy import deepcopy
 from torch import profiler
 from itertools import chain
 from functools import wraps
-from torch.autograd.profiler_util import EventList, FunctionEvent, DeviceType, _format_time
+from torch.autograd.profiler_util import EventList, FunctionEvent, _format_time
 from typing import Any, Callable, Iterable, Optional, List
-
-import speechbrain.core
 
 
 def set_profiler_attr(func: object, set_attr: str, handler: Callable):
@@ -327,14 +325,15 @@ def profile(
     ... def run(x : torch.Tensor):
     ...     y = x ** 2
     ...     z = y ** 3
-    ...     return y.backward()
+    ...     return y.backward()  # y.backward() returns None --> return value is substituted with profiler
     >>> data = torch.randn((1, 1), requires_grad=True)
     >>> prof = run(data)
     >>> [len(prof.events()), len(prof.key_averages()), prof.profiler.total_average().count]
     [26, 16, 26]
     """
     if func is None:  # return a profiler; not tested
-        return prepare_profiler_for_brain(profiler.profile(
+        return prepare_profiler_for_brain(
+            profiler.profile(
                 activities=activities,
                 schedule=schedule,
                 on_trace_ready=on_trace_ready,
@@ -343,9 +342,10 @@ def profile(
                 with_stack=with_stack,
                 with_flops=with_flops,
                 with_modules=with_modules,
-            ))
+            )
+        )
     # Polymorph: func is pretrained or an instance of Brain (assumed case)
-    if hasattr(func, 'HPARAMS_NEEDED') or not callable(func):
+    if hasattr(func, "HPARAMS_NEEDED") or not callable(func):
         with profiler.profile(
             activities=activities,
             schedule=schedule,  # scheduler needs to be set directly (fetching is here not possible as for wrappers)
@@ -399,16 +399,16 @@ def profile(
                 if "__call__" in dir(func):
                     if result is None:
                         return prof  # for void function, simply return profiling data
-                    else:  # not tested - direct profile handling
-                        pass
+                    else:  # not tested - returns both
+                        return result, prof
 
                 return result
+
         return wrapper
 
 
 def profile_analyst(
-    func: Optional[object] = None,
-    class_hooks: Optional[Iterable[str]] = None,
+    func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
     """Pre-configured profiling for a fully detailed benchmark - analyst perspective.
 
@@ -427,18 +427,19 @@ def profile_analyst(
     }
     wrapped_func = profile(func, **profiler_kwargs)
     # Polymorph: func is pretrained or an instance of Brain (assumed case)
-    if hasattr(func, 'HPARAMS_NEEDED') or not callable(func):
+    if hasattr(func, "HPARAMS_NEEDED") or not callable(func):
         return wrapped_func
     else:  # callable(func) - polymorph: __init__ Brain constructor -or- function to be wrapped
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             return wrapped_func(*args, **kwargs)
+
         return wrapper
 
 
 def profile_optimiser(
-    func: Optional[object] = None,
-    class_hooks: Optional[Iterable[str]] = None,
+    func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
     """Pre-configured profiling for a detailed benchmark (better suitable for speed-optimisation than @profile_analyst).
     """
@@ -454,12 +455,14 @@ def profile_optimiser(
     }
     wrapped_func = profile(func, **profiler_kwargs)
     # Polymorph: func is pretrained or an instance of Brain (assumed case)
-    if hasattr(func, 'HPARAMS_NEEDED') or not callable(func):
+    if hasattr(func, "HPARAMS_NEEDED") or not callable(func):
         return wrapped_func
     else:  # callable(func) - polymorph: __init__ Brain constructor -or- function to be wrapped
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             return wrapped_func(*args, **kwargs)
+
         return wrapper
 
 
@@ -515,10 +518,12 @@ def report_time(events: object, verbose=True):
         total = events.total_average()
     elif isinstance(events, profiler.profile):
         total = events.events().total_average()
-    elif hasattr(events, 'profiler'):  # assumes speechbrain.core.Brain
+    elif hasattr(events, "profiler"):  # assumes speechbrain.core.Brain
         total = events.profiler.events().total_average()
     else:
-        raise TypeError("Expected a FunctionEvent; profiler.profile, or a SpeechBrain.")
+        raise TypeError(
+            "Expected a FunctionEvent; profiler.profile, or a SpeechBrain."
+        )
     cpu_time = total.self_cpu_time_total
     cuda_time = total.self_cuda_time_total
 
