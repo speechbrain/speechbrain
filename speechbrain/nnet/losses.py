@@ -723,14 +723,6 @@ def get_snr_with_pitwrapper(source, estimate_source):
 
     estimate_source: [B, T, E, C]
         The estimated source.
-
-    Example:
-    ---------
-    >>> x = torch.arange(600).reshape(3, 100, 2)
-    >>> xhat = x[:, :, (1, 0)]
-    >>> si_snr = -get_si_snr_with_pitwrapper(x, xhat)
-    >>> print(si_snr)
-    tensor([135.2284, 135.2284, 135.2284])
     """
 
     pit_snr = PitWrapper(cal_snr)
@@ -818,18 +810,6 @@ def cal_snr(source, estimate_source):
 
     estimate_source: [T, E, B, C]
         The estimated source.
-
-    Example:
-    ---------
-    >>> import numpy as np
-    >>> x = torch.Tensor([[1, 0], [123, 45], [34, 5], [2312, 421]])
-    >>> xhat = x[:, (1, 0)]
-    >>> x = x.unsqueeze(-1).repeat(1, 1, 2)
-    >>> xhat = xhat.unsqueeze(1).repeat(1, 2, 1)
-    >>> si_snr = -cal_snr(x, xhat)
-    >>> print(snr)
-    tensor([[[ 25.2142, 144.1789],
-             [130.9283,  25.2142]]])
     """
     EPS = 1e-8
     assert source.size() == estimate_source.size()
