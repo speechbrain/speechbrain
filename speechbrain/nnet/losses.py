@@ -25,7 +25,13 @@ logger = logging.getLogger(__name__)
 
 
 def transducer_loss(
-    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
+    log_probs,
+    targets,
+    input_lens,
+    target_lens,
+    blank_index,
+    reduction="mean",
+    use_torchaudio=True,
 ):
     """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
@@ -43,14 +49,38 @@ def transducer_loss(
         The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    use_torchaudio: bool
+        If True, use Transducer loss implementation from torchaudio, otherwise,
+        use Speechbrain Numba implementation.
     """
-    from speechbrain.nnet.loss.transducer_loss import Transducer
-
     input_lens = (input_lens * log_probs.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()
-    return Transducer.apply(
-        log_probs, targets, input_lens, target_lens, blank_index, reduction
-    )
+
+    if use_torchaudio:
+        try:
+            from torchaudio.functional import rnnt_loss
+        except ImportError:
+            err_msg = "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
+            err_msg += "Cannot import torchaudio.functional.rnnt_loss.\n"
+            err_msg += "To use it, please install torchaudio >= 0.10.0\n"
+            err_msg += "==================\n"
+            err_msg += "Otherwise, you can use our numba implementation, set `use_torchaudio=False`.\n"
+            raise ImportError(err_msg)
+
+        return rnnt_loss(
+            log_probs,
+            targets.int(),
+            input_lens,
+            target_lens,
+            blank=blank_index,
+            reduction=reduction,
+        )
+    else:
+        from speechbrain.nnet.loss.transducer_loss import Transducer
+
+        return Transducer.apply(
+            log_probs, targets, input_lens, target_lens, blank_index, reduction,
+        )
 
 
 class PitWrapper(nn.Module):
@@ -140,16 +170,12 @@ class PitWrapper(nn.Module):
 
         n_sources = pred.size(-1)
 
-        pred = (
-            pred.unsqueeze(0)
-            .repeat(n_sources, *[1 for x in range(len(pred.shape))])
-            .transpose(0, 1)
-        )  # [T , B , ..., C]
-        target = (
-            target.unsqueeze(0)
-            .repeat(n_sources, *[1 for x in range(len(target.shape))])
-            .transpose(0, 1)
-        )  # [T , B , ..., C]
+        pred = pred.unsqueeze(-2).repeat(
+            *[1 for x in range(len(pred.shape) - 1)], n_sources, 1
+        )
+        target = target.unsqueeze(-1).repeat(
+            1, *[1 for x in range(len(target.shape) - 1)], n_sources
+        )
 
         loss_mat = self.base_loss(pred, target)
         assert (
@@ -698,6 +724,13 @@ def get_snr_with_pitwrapper(source, estimate_source):
     estimate_source: [B, T, E, C]
         The estimated source.
 
+    Example:
+    ---------
+    >>> x = torch.arange(600).reshape(3, 100, 2)
+    >>> xhat = x[:, :, (1, 0)]
+    >>> si_snr = -get_si_snr_with_pitwrapper(x, xhat)
+    >>> print(si_snr)
+    tensor([135.2284, 135.2284, 135.2284])
     """
 
     pit_snr = PitWrapper(cal_snr)
@@ -735,16 +768,14 @@ def cal_si_snr(source, estimate_source):
     device = estimate_source.device.type
 
     source_lengths = torch.tensor(
-        [estimate_source.shape[0]] * estimate_source.shape[1], device=device
+        [estimate_source.shape[0]] * estimate_source.shape[-2], device=device
     )
     mask = get_mask(source, source_lengths)
     estimate_source *= mask
 
     num_samples = (
-        source_lengths.contiguous()
-        .reshape(1, -1, *[1 for x in range(len(estimate_source.shape) - 2)])
-        .float()
-    )  # [1, B, ..., 1]
+        source_lengths.contiguous().reshape(1, -1, 1).float()
+    )  # [1, B, 1]
     mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
     mean_estimate = (
         torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
@@ -781,29 +812,38 @@ def cal_snr(source, estimate_source):
 
     Arguments:
     ---------
-    source: [T, B, E, C],
+    source: [T, E, B, C],
         Where B is batch size, T is the length of the sources, E is binaural channels, C is the number of sources
         the ordering is made so that this loss is compatible with the class PitWrapper.
 
-    estimate_source: [T, B, E, C]
+    estimate_source: [T, E, B, C]
         The estimated source.
 
+    Example:
+    ---------
+    >>> import numpy as np
+    >>> x = torch.Tensor([[1, 0], [123, 45], [34, 5], [2312, 421]])
+    >>> xhat = x[:, (1, 0)]
+    >>> x = x.unsqueeze(-1).repeat(1, 1, 2)
+    >>> xhat = xhat.unsqueeze(1).repeat(1, 2, 1)
+    >>> si_snr = -cal_snr(x, xhat)
+    >>> print(snr)
+    tensor([[[ 25.2142, 144.1789],
+             [130.9283,  25.2142]]])
     """
     EPS = 1e-8
     assert source.size() == estimate_source.size()
     device = estimate_source.device.type
 
     source_lengths = torch.tensor(
-        [estimate_source.shape[0]] * estimate_source.shape[1], device=device
+        [estimate_source.shape[0]] * estimate_source.shape[-2], device=device
     )
-    mask = get_mask(source, source_lengths)  # [T, B, E, 1]
+    mask = get_mask(source, source_lengths)  # [T, E, 1]
     estimate_source *= mask
 
     num_samples = (
-        source_lengths.contiguous()
-        .reshape(1, -1, *[1 for x in range(len(estimate_source.shape) - 2)])
-        .float()
-    )  # [1, B, ..., 1]
+        source_lengths.contiguous().reshape(1, -1, 1).float()
+    )  # [1, B, 1]
     mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
     mean_estimate = (
         torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
@@ -816,14 +856,14 @@ def cal_snr(source, estimate_source):
 
     # Step 2. SNR with PIT
     # reshape to use broadcast
-    s_target = zero_mean_target  # [T, B, E, C]
-    s_estimate = zero_mean_estimate  # [T, B, E, C]
+    s_target = zero_mean_target  # [T, E, B, C]
+    s_estimate = zero_mean_estimate  # [T, E, B, C]
     # SNR = 10 * log_10(||s_target||^2 / ||e_noise||^2)
     # n_dim = [x for x in range(len(s_target.shape)-2)]
     snr_beforelog = torch.sum(s_target ** 2, dim=0) / (
         torch.sum((s_estimate - s_target) ** 2, dim=0) + EPS
     )
-    snr = 10 * torch.log10(snr_beforelog + EPS)  # [B, E, C]
+    snr = 10 * torch.log10(snr_beforelog + EPS)  # [B, C]
 
     return -snr.unsqueeze(0)
 
@@ -861,11 +901,11 @@ def get_mask(source, source_lengths):
              [0.],
              [1.]]])
     """
-    B = source.size(1)
-    mask = source.new_ones(source.size()[:-1]).unsqueeze(-1)
+    mask = source.new_ones(source.size()[:-1]).unsqueeze(-1).transpose(1, -2)
+    B = source.size(-2)
     for i in range(B):
         mask[source_lengths[i] :, i] = 0
-    return mask
+    return mask.transpose(-2, 1)
 
 
 class AngularMargin(nn.Module):
