@@ -1171,7 +1171,7 @@ class GaborConv1d(nn.Module):
         padding_mode="constant",
         sample_rate=16000,
         min_freq=60.0,
-        max_freq=7800.0,
+        max_freq=None,
         n_fft=512,
         normalize_energy=False,
         bias=False,
@@ -1188,7 +1188,10 @@ class GaborConv1d(nn.Module):
         self.sort_filters = sort_filters
         self.sample_rate = sample_rate
         self.min_freq = min_freq
+        if max_freq is None:
+            max_freq = sample_rate / 2
         self.max_freq = max_freq
+        print("In GaborConv1d, max_freq:", self.max_freq)
         self.n_fft = n_fft
         self.normalize_energy = normalize_energy
         self.use_legacy_complex = use_legacy_complex
@@ -1429,11 +1432,12 @@ class Leaf(nn.Module):
         input_shape=None,
         in_channels=None,
         min_freq=60.0,
-        max_freq=7800.0,
+        max_freq=None,
         use_pcen=True,
         learnable_pcen=True,
         use_legacy_complex=False,
         skip_transpose=False,
+        n_fft=512,
     ):
         super(Leaf, self).__init__()
         self.out_channels = out_channels
@@ -1453,6 +1457,7 @@ class Leaf(nn.Module):
             stride=1,
             padding="same",
             bias=False,
+            n_fft=n_fft,
             sample_rate=sample_rate,
             min_freq=min_freq,
             max_freq=max_freq,

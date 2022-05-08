@@ -20,6 +20,8 @@ import torch
 import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain.nnet.CNN
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -63,9 +65,15 @@ class SpeakerBrain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
-        feats = self.modules.mean_var_norm(feats, lens)
+        if isinstance(self.modules.compute_features, speechbrain.nnet.CNN.Leaf):
+            # if leaf, first normalize the wavs before feeding them to leaf
+            # no normalization is needed after LEAF
+            feats = self.modules.mean_var_norm(wavs, lens)
+            feats = self.modules.compute_features(feats)
+        else:
+            # Feature extraction and normalization
+            feats = self.modules.compute_features(wavs)
+            feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + classifier
         embeddings = self.modules.embedding_model(feats)
@@ -308,6 +316,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    # with torch.autograd.detect_anomaly():
     # Training
     speaker_brain.fit(
         speaker_brain.hparams.epoch_counter,
