@@ -66,6 +66,22 @@ test_dataloader_options:
     batch_size: !ref <test_batch_size>
     num_workers: 4
 
+# IMPORTANT 2: We encourage you to use dynamic batching by setting it to True
+# Instead of the default setting. While the recipe will work directly by setting
+# it to True, you will first need to read the tutorial on dynamic batching to
+# properly adapt the hyperparameters to your GPU memory! Using Dynamic Batching
+# will drastically optimise your GPU utilization and decrease your training time.
+# Dynamic Batching parameters, if used are:
+dynamic_batching: False
+dyn_batch_len: 90 # Cumulative length of each batch, per gpu, here is seconds.
+max_batch_size: 64 # Max number of samples per batch, per gpu.
+dynamic_batch_sampler:
+    max_batch_len: !ref <dyn_batch_len>
+    max_batch_ex: !ref <max_batch_size>
+    shuffle_ex: True
+    batch_ordering: !ref <sorting>
+    num_buckets: 50
+
 #
 # Functions and classes
 #
