@@ -73,14 +73,14 @@ test_dataloader_options:
 # will drastically optimise your GPU utilization and decrease your training time.
 # Dynamic Batching parameters, if used are:
 dynamic_batching: False
-dyn_batch_len: 90 # Cumulative length of each batch, per gpu, here is seconds.
+dyn_batch_len: 90 # Cumulative length of each batch, per gpu.
 max_batch_size: 64 # Max number of samples per batch, per gpu.
 dynamic_batch_sampler:
     max_batch_len: !ref <dyn_batch_len>
     max_batch_ex: !ref <max_batch_size>
     shuffle_ex: True
     batch_ordering: !ref <sorting>
-    num_buckets: 30
+    num_buckets: 15
 
 #
 # Functions and classes
