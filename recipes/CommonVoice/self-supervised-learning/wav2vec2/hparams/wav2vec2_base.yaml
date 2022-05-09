@@ -71,6 +71,8 @@ test_dataloader_options:
 # it to True, you will first need to read the tutorial on dynamic batching to
 # properly adapt the hyperparameters to your GPU memory! Using Dynamic Batching
 # will drastically optimise your GPU utilization and decrease your training time.
+# Be careful to also adjust the gradient accumulation when using dynamic batching.
+# This setup will work with 32GB GPUs.
 # Dynamic Batching parameters, if used are:
 dynamic_batching: False
 dyn_batch_len: 90 # Cumulative length of each batch, per gpu.
