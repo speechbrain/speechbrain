@@ -80,7 +80,7 @@ dynamic_batch_sampler:
     max_batch_ex: !ref <max_batch_size>
     shuffle_ex: True
     batch_ordering: !ref <sorting>
-    num_buckets: 50
+    num_buckets: 30
 
 #
 # Functions and classes
