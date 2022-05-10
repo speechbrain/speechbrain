@@ -3,11 +3,17 @@
 Author:
     * Andreas Nautsch 2022
 """
+import pandas
 from copy import deepcopy
 from torch import profiler
 from itertools import chain
 from functools import wraps
-from torch.autograd.profiler_util import EventList, FunctionEvent, _format_time
+from torch.autograd.profiler_util import (
+    EventList,
+    FunctionEvent,
+    _format_time,
+    _format_memory,
+)
 from typing import Any, Callable, Iterable, Optional, List
 
 
@@ -510,7 +516,7 @@ def events_diff(
     return aa, bb
 
 
-def report_time(events: object, verbose=True):
+def report_time(events: object, verbose=False):
     """Summary reporting of total time - see: torch.autograd.profiler_util
     """
     # Aggregate CPU & CUDA time.
@@ -533,3 +539,79 @@ def report_time(events: object, verbose=True):
             print("Self CUDA time total: {}".format(_format_time(cuda_time)))
 
     return cpu_time, cuda_time
+
+
+def report_memory(handler: object, verbose=False, report_peak_memory_only=True):
+    """Summary reporting of total time - see: torch.autograd.profiler_util
+    """
+    # Aggregate CPU & CUDA time.
+    if isinstance(handler, FunctionEvent):
+        events = handler
+    elif isinstance(handler, profiler.profile):
+        events = handler.events()
+    elif hasattr(handler, "profiler"):  # assumes speechbrain.core.Brain
+        events = handler.profiler.events()
+    else:
+        raise TypeError(
+            "Expected a FunctionEvent; profiler.profile, or a SpeechBrain."
+        )
+
+    if report_peak_memory_only:
+        # fast aggregation of where the most memory was allocated -> less relevant: timing & lower memory allocations
+        us_starts = []
+        us_ends = []
+        cpu_memory = []
+        cuda_memory = []
+        for leaf in events:
+            # skip if there are children; they will allocate more in total
+            if leaf.cpu_children:
+                continue
+            # profiler stores data-driven: what was a function's memory allocation and its lifespan
+            us_starts.append(leaf.time_range.start)
+            us_ends.append(leaf.time_range.end)
+            cpu_bytes = leaf.cpu_memory_usage
+            cuda_bytes = leaf.cuda_memory_usage
+            parent = leaf.cpu_parent
+            # aggregate from children up to parents - top-level event: parentage by lifetime; not by function calls
+            while parent is not None:
+                cpu_bytes += parent.cpu_memory_usage
+                cuda_bytes += parent.cuda_memory_usage
+                parent = parent.cpu_parent
+            # report leaf's total memory allocation
+            cpu_memory.append(cpu_bytes)
+            cuda_memory.append(cuda_bytes)
+        memory = pandas.DataFrame(
+            zip(us_starts, cpu_memory, cuda_memory)
+        ).sort_values(by=0)
+    else:
+        # memory allocation during each time step is of relevance, e.g. for visualisation
+        mem_info = pandas.DataFrame(
+            [
+                [
+                    x.time_range.start,
+                    x.time_range.end,
+                    x.cpu_memory_usage,
+                    x.cuda_memory_usage,
+                ]
+                for x in events
+            ]
+        )
+        mem_times = pandas.concat((mem_info[0], mem_info[1])).unique()
+        cpu_memory = []
+        cuda_memory = []
+        for t in mem_times:
+            idx = (mem_info[0] <= t) & (mem_info[1] >= t)  # this takes time
+            cpu_memory.append(sum(mem_info[idx][2]))
+            cuda_memory.append(sum(mem_info[idx][3]))
+        memory = pandas.DataFrame(zip(mem_times, cpu_memory, cuda_memory))
+
+    # variable names instead of labeling pandas' columns
+    cpu_mem = memory[1]
+    cuda_mem = memory[2]
+
+    if verbose:
+        print("Peak CPU Mem: {}".format(_format_memory(cpu_mem.max())))
+        if cuda_mem > 0:
+            print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem.max())))
+
+    return cpu_mem, cuda_mem
