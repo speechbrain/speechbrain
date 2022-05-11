@@ -11,6 +11,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
+from parseXMLtoSB import prepare_media
 
 """
 Recipe for training a sequence-to-sequence SLU system with Media.
@@ -354,14 +355,14 @@ if __name__ == "__main__":
     run_on_main(
         prepare_media,
         kwargs={
-            "data_folder": hparams["data_folder"],
+            "data_folder": hparams["original_data_folder"],
             "wav_folder": hparams["wav_folder"],
             "csv_folder": hparams["csv_folder"],
             "skip_wav": hparams["skip_wav"],
             "method": hparams["method"],
             "task": hparams["task"],
-            "skip_prep": hparams["skip_prep"]
-        }
+            "skip_prep": hparams["skip_prep"],
+        },
     )
 
     # Create the datasets objects as well as tokenization and encoding.
