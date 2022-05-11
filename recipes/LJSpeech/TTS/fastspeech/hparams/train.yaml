@@ -20,10 +20,11 @@ progress_batch_sample_size: 4
 # Data files and pre-processing #
 #################################
 data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+duration_path: /home/wtc8/Sathvik/DeepForcedAligner/output_24hrs/durations/
 data_folder_rirs: !ref <data_folder>
-train_data_path: ../../../../other_tts_data/batchData/spireClippedWavs/
+train_data_path: /data/Database/LJSpeech-1.1/
 train_filter: null
-valid_data_path: ../../../../other_tts_data/batchData/spireClippedWavs/
+valid_data_path: /data/Database/LJSpeech-1.1/
 valid_filter: null
 text_cleaners: ['english_cleaners']
 
@@ -31,7 +32,7 @@ text_cleaners: ['english_cleaners']
 # Audio Parameters             #
 ################################
 sample_rate: 16000
-hop_length: 221
+hop_length: 256
 win_length: null
 n_mel_channels: 80
 n_fft: 1024
@@ -49,7 +50,7 @@ mel_normalized: False
 learning_rate: 0.0001
 weight_decay: 0.000006
 grad_clip_thresh: 1.0
-batch_size: 20 #minimum 2
+batch_size: 2 #minimum 2
 mask_padding: False
 
 ################################
@@ -146,12 +147,16 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 datasets:
     train:
         path: !ref <train_data_path>
-        loader: !name:spireCorpus.load
+        dur_path: !ref <duration_path>
+        loader: !name:recipes.LJSpeech.TTS.dataset_utils.lj.load
         filter: !ref <train_filter>
     valid:
         path: !ref <valid_data_path>
-        loader: !name:spireCorpus.load
+        dur_path: !ref <duration_path>
+        loader: !name:recipes.LJSpeech.TTS.dataset_utils.lj.load
         filter: !ref <valid_filter>
+
+input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
 model_output_keys:
     - mel

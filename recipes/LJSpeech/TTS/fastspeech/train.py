@@ -12,13 +12,13 @@
 import sys
 import torch
 import logging
-sys.path.append("../../../")
+sys.path.append("../../../../")
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.lobes.models.synthesis.fastspeech import dataio_prepare
 
 # sys.path.append("..")
-from recipes.TTS.common.utils import PretrainedModelMixin, ProgressSampleImageMixin
+from recipes.LJSpeech.TTS.common.utils import PretrainedModelMixin, ProgressSampleImageMixin
 
 logger = logging.getLogger(__name__)
 

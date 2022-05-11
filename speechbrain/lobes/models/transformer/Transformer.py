@@ -3,13 +3,15 @@
 Authors
 * Jianyuan Zhong 2020
 """
+import sys
+sys.path.append('../../../')
 import math
 import torch
 import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
-from .conformer import ConformerEncoder
+# from .conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 
 
@@ -211,19 +213,30 @@ class TransformerEncoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        ffn_type='1dcnn',
     ):
         super().__init__()
 
         self.self_att = sb.nnet.attention.MultiheadAttention(
             nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
         )
-        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
-            d_ffn=d_ffn,
-            input_size=d_model,
-            dropout=dropout,
-            activation=activation,
-        )
 
+        if ffn_type == 'ffn':
+            self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            )
+        elif ffn_type == '1dcnn':
+            self.pos_ffn = sb.nnet.attention.Positionalwise1DCNN(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            )
+        else:
+            raise NotImplementedError
         self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
@@ -275,7 +288,7 @@ class TransformerEncoderLayer(nn.Module):
         output = src + self.dropout2(output)
         if not self.normalize_before:
             output = self.norm2(output)
-
+        # print(self_attn.shape)
         return output, self_attn
 
 
@@ -326,6 +339,7 @@ class TransformerEncoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        ffn_type='1dcnn',
     ):
         super().__init__()
 
@@ -333,7 +347,7 @@ class TransformerEncoder(nn.Module):
             raise ValueError("Expected one of input_shape or d_model")
 
         if input_shape is not None and d_model is None:
-            if len(input_shape) == 3:
+            if len(input_shape) != 3:
                 msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
                 raise ValueError(msg)
             d_model = input_shape[-1]
@@ -349,6 +363,7 @@ class TransformerEncoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    ffn_type=ffn_type,
                 )
                 for i in range(num_layers)
             ]
@@ -374,6 +389,7 @@ class TransformerEncoder(nn.Module):
         output = src
         attention_lst = []
         for enc_layer in self.layers:
+
             output, attention = enc_layer(
                 output,
                 src_mask=src_mask,
@@ -423,6 +439,8 @@ class TransformerDecoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        ffn_type='1dcnn',
+
     ):
         super().__init__()
         self.self_attn = sb.nnet.attention.MultiheadAttention(
@@ -437,7 +455,22 @@ class TransformerDecoderLayer(nn.Module):
             dropout=dropout,
             activation=activation,
         )
-
+        if ffn_type == 'ffn':
+            self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            )
+        elif ffn_type == '1dcnn':
+            self.pos_ffn = sb.nnet.attention.Positionalwise1DCNN(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            )
+        else:
+            raise NotImplementedError
         # normalization layers
         self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
@@ -565,6 +598,7 @@ class TransformerDecoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
+        ffn_type='1dcnn',
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -578,6 +612,7 @@ class TransformerDecoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     normalize_before=normalize_before,
+                    ffn_type=ffn_type,
                 )
                 for _ in range(num_layers)
             ]
@@ -685,11 +720,23 @@ def get_key_padding_mask(padded_input, pad_idx):
 
     # if the input is more than 2d, mask the locations where they are silence
     # across all channels
+    # print(key_padded_mask.shape)
     if len(padded_input.shape) > 2:
         key_padded_mask = key_padded_mask.float().prod(dim=-1).bool()
+        # print(key_padded_mask.shape)
         return key_padded_mask.detach()
 
     return key_padded_mask.detach()
+
+def get_mel_mask(padded_mel_input, mel_length):
+    sizes = padded_mel_input.shape
+    if len(sizes) == 3:
+        bz, lens, feats = sizes
+        ids = torch.arange(end=lens).to(padded_mel_input.device)
+        mask = [torch.gt(ids, mel_length[idx]) for idx in range(bz)]
+        return torch.stack(mask).to(padded_mel_input.device).detach()
+    else:
+        raise NotImplementedError
 
 
 def get_lookahead_mask(padded_input):

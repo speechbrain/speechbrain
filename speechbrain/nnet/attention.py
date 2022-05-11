@@ -486,3 +486,64 @@ class PositionalwiseFeedForward(nn.Module):
         x = x.permute(1, 0, 2)
 
         return x
+class Positionalwise1DCNN(nn.Module):
+    """The class implements the positional-wise feed forward module in
+    “Attention Is All You Need”.
+
+    Arguments
+    ----------
+    d_ffn: int
+        Dimension of representation space of this positional-wise feed
+        forward module.
+    input_shape : tuple
+        Expected shape of the input. Alternatively use ``input_size``.
+    input_size : int
+        Expected size of the input. Alternatively use ``input_shape``.
+    dropout: float
+        Fraction of outputs to drop.
+    activation: torch class
+        activation functions to be applied (Recommendation: ReLU, GELU).
+
+    Example
+    -------
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> net = PositionalwiseFeedForward(256, input_size=inputs.shape[-1])
+    >>> outputs = net(inputs)
+    >>> outputs.shape
+    torch.Size([8, 60, 512])
+    """
+
+    def __init__(
+        self,
+        d_ffn,
+        input_shape=None,
+        input_size=None,
+        dropout=0.1,
+        activation=nn.ReLU,
+    ):
+        super().__init__()
+
+        if input_shape is None and input_size is None:
+            raise ValueError("Expected one of input_shape or input_size")
+
+        if input_size is None:
+            input_size = input_shape[-1]
+
+        self.ffn = nn.Sequential(
+            nn.Conv1d(input_size, d_ffn, 3, padding=1),
+            activation(),
+            nn.Dropout(dropout),
+            nn.Conv1d(d_ffn, input_size, 3, padding=1),
+        )
+
+    def forward(self, x):
+        # give a tensor of shap (time, batch, fea)
+        # print(x.shape)
+        x = x.permute(0, 2, 1)
+        #
+        x = self.ffn(x)
+
+        # reshape the output back to (batch, time, fea)
+        x = x.permute(0, 2, 1)
+        # print(x.shape)
+        return x
