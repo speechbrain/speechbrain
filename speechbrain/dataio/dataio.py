@@ -10,7 +10,6 @@ Authors
  * Gaelle Laperriere 2021
  * Sahar Ghannay 2021
 """
-
 import os
 import torch
 import logging
@@ -1073,20 +1072,99 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
         # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
         sequence = sequence.split("_")
         processed_sequence = []
-        value = []  # If previous sequence value never used because never had a tag_out
+        value = (
+            []
+        )  # If previous sequence value never used because never had a tag_out
         kept = ""  # If previous sequence kept never used because never had a tag_out
         concept_open = False
         for word in sequence:
             if word in [
-                "ǵ", "Ƕ", "Ƿ", "Ǹ", "ǹ", "Ǻ", "ǻ", "Ǽ", "ǽ", "Ǿ", 
-                "ǿ", "Ȁ", "ȁ", "Ȃ", "ȃ", "Ȅ", "ȅ", "Ȇ", "ȇ", "Ȉ", 
-                "ȉ", "Ȋ", "ȋ", "Ȍ", "ȍ", "Ȏ", "ȏ", "Ȑ", "ȑ", "Ȓ", 
-                "ȓ", "Ȕ", "ȕ", "Ȗ", "ȗ", "Ș", "ș", "Ț", "ț", "Ȝ", 
-                "ȝ", "Ȟ", "ȟ", "Ƞ", "ȡ", "Ȣ", "ȣ", "Ȥ", "ȥ", "Ȧ", 
-                "ȧ", "Ȩ", "ȩ", "Ȫ", "ȫ", "Ȭ", "ȭ", "Ȯ", "ȯ", "Ȱ", 
-                "ȱ", "Ȳ", "ȳ", "ȴ", "ȵ", "ȶ", "ȷ", "ȸ", "ȹ", "Ⱥ", 
-                "Ȼ", "ȼ", "Ƚ", "Ⱦ", "ȿ", "ɀ", "Ɂ", "ɂ", "Ƀ", "Ʉ", 
-                "Ʌ", "Ɇ", "ɇ", "Ɉ", "ɉ", "Ɋ"
+                "ǵ",
+                "Ƕ",
+                "Ƿ",
+                "Ǹ",
+                "ǹ",
+                "Ǻ",
+                "ǻ",
+                "Ǽ",
+                "ǽ",
+                "Ǿ",
+                "ǿ",
+                "Ȁ",
+                "ȁ",
+                "Ȃ",
+                "ȃ",
+                "Ȅ",
+                "ȅ",
+                "Ȇ",
+                "ȇ",
+                "Ȉ",
+                "ȉ",
+                "Ȋ",
+                "ȋ",
+                "Ȍ",
+                "ȍ",
+                "Ȏ",
+                "ȏ",
+                "Ȑ",
+                "ȑ",
+                "Ȓ",
+                "ȓ",
+                "Ȕ",
+                "ȕ",
+                "Ȗ",
+                "ȗ",
+                "Ș",
+                "ș",
+                "Ț",
+                "ț",
+                "Ȝ",
+                "ȝ",
+                "Ȟ",
+                "ȟ",
+                "Ƞ",
+                "ȡ",
+                "Ȣ",
+                "ȣ",
+                "Ȥ",
+                "ȥ",
+                "Ȧ",
+                "ȧ",
+                "Ȩ",
+                "ȩ",
+                "Ȫ",
+                "ȫ",
+                "Ȭ",
+                "ȭ",
+                "Ȯ",
+                "ȯ",
+                "Ȱ",
+                "ȱ",
+                "Ȳ",
+                "ȳ",
+                "ȴ",
+                "ȵ",
+                "ȶ",
+                "ȷ",
+                "ȸ",
+                "ȹ",
+                "Ⱥ",
+                "Ȼ",
+                "ȼ",
+                "Ƚ",
+                "Ⱦ",
+                "ȿ",
+                "ɀ",
+                "Ɂ",
+                "ɂ",
+                "Ƀ",
+                "Ʉ",
+                "Ʌ",
+                "Ɇ",
+                "ɇ",
+                "Ɉ",
+                "ɉ",
+                "Ɋ",
             ] or re.match(tag_in, word):
                 # If not close tag but new tag open
                 if concept_open and keep_values:
@@ -1095,8 +1173,8 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
                     concept_open = False
                     processed_sequence.append(kept)
                 kept = word  # 1st loop: '<reponse>'
-                value = []  # Concept's value 
-                concept_open = True # Trying to catch the concept's value
+                value = []  # Concept's value
+                concept_open = True  # Trying to catch the concept's value
                 # If we want the CER
                 if not keep_values:
                     processed_sequence.append(kept)  # Add the kept concept
@@ -1104,7 +1182,9 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
             elif re.match(tag_out, word) and concept_open and keep_values:
                 # If we have a value
                 if len(value) != 0:
-                    kept += " " + " ".join(value)  # 1st loop: '<response>' + ' ' + 'no'
+                    kept += " " + " ".join(
+                        value
+                    )  # 1st loop: '<response>' + ' ' + 'no'
                 concept_open = False  # Wait for a new tag_in to pursue
                 processed_sequence.append(kept)  # Add the kept concept + value
             elif concept_open:

@@ -4,6 +4,7 @@ Authors
  * Aku Rouhe 2020
  * Salima Mdhaffar 2021
 """
+
 import collections
 
 EDIT_SYMBOLS = {
@@ -478,7 +479,7 @@ def wer_details_by_utterance(
         # Compute edits for this utterance
         table = op_table(ref_tokens, hyp_tokens)
         ops = count_ops(table)
-        if (ref_tokens[0] == '' and hyp_tokens[0] == ''):
+        if ref_tokens[0] == "" and hyp_tokens[0] == "":
             a = 0
         else:
             a = len(ref_tokens)
@@ -559,7 +560,7 @@ def wer_summary(details_by_utterance):
                 num_erraneous_sents += 1
         if dets["hyp_absent"]:
             num_absent_sents += 1
-    if(num_scored_tokens != 0):
+    if num_scored_tokens != 0:
         wer_w = 100.0 * num_edits / num_scored_tokens
     else:
         wer_w = 0.0
