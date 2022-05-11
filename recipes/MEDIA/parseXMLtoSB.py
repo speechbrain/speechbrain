@@ -8,7 +8,6 @@ Author
 ------
 Gaelle Laperriere 2021
 """
-
 # import argparse
 import xml.dom.minidom as DOM
 from tqdm import tqdm
