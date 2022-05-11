@@ -9,25 +9,18 @@ Author
 Gaelle Laperriere 2021
 """
 
+# import argparse
 import xml.dom.minidom as DOM
 from tqdm import tqdm
 import subprocess
-import num2words
-import argparse
 import csv
 import os
 import glob
 import re
 
+
 def parse(
-    root, 
-    channels, 
-    filenames, 
-    wav_folder, 
-    csv_folder, 
-    method, 
-    task, 
-    corpus
+    root, channels, filenames, wav_folder, csv_folder, method, task, corpus
 ):
     """
     Prepares the data for the csv files of the Media dataset.
@@ -71,26 +64,19 @@ def parse(
 
                 if task == "slu":
                     sentences = parse_sentences_slu(
-                        turn, 
-                        time_beg, 
-                        time_end, 
-                        method
+                        turn, time_beg, time_end, method
                     )
                 else:
-                    sentences = parse_sentences_asr(
-                        turn, 
-                        time_beg, 
-                        time_end
-                    )
+                    sentences = parse_sentences_asr(turn, time_beg, time_end)
 
                 out = subprocess.Popen(
                     [
-                        "soxi", 
-                        "-D", 
-                        wav_folder + "/" + channel + filename + ".wav"
+                        "soxi",
+                        "-D",
+                        wav_folder + "/" + channel + filename + ".wav",
                     ],
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT
+                    stderr=subprocess.STDOUT,
                 )
                 stdout, stderr = out.communicate()
                 wav_duration = str("%.2f" % float(stdout))
@@ -103,9 +89,9 @@ def parse(
                     f2 = float(sentences[n][2])
                     duration = str("%.2f" % (f1 - f2))
                     if (
-                        float(wav_duration) >= f1 
-                        and float(duration) != 0.0 
-                        and sentences[n][0]!= ""
+                        float(wav_duration) >= f1
+                        and float(duration) != 0.0
+                        and sentences[n][0] != ""
                     ):
                         data.append(
                             [
@@ -120,7 +106,7 @@ def parse(
                                 sentences[n][0],
                                 "string",
                                 sentences[n][1],
-                                "string"
+                                "string",
                             ]
                         )
 
@@ -129,17 +115,18 @@ def parse(
 
     return data
 
+
 def parse_bis(
-    root, 
+    root,
     channels,
-    filenames, 
-    wav_folder, 
-    csv_folder, 
-    method, 
-    task, 
-    filename, 
-    concepts_full, 
-    concepts_relax
+    filenames,
+    wav_folder,
+    csv_folder,
+    method,
+    task,
+    filename,
+    concepts_full,
+    concepts_relax,
 ):
     """
     Prepares the data for the csv files of the Media dataset.
@@ -184,27 +171,26 @@ def parse_bis(
 
             if task == "slu":
                 sentences = parse_sentences_slu_bis(
-                    turn, 
-                    time_beg, 
-                    time_end, 
-                    method, 
-                    concepts_full, 
-                    concepts_relax
+                    turn,
+                    time_beg,
+                    time_end,
+                    method,
+                    concepts_full,
+                    concepts_relax,
                 )
             else:
-                sentences = parse_sentences_asr_bis(
-                    turn, 
-                    time_beg, 
-                    time_end
-                )
+                sentences = parse_sentences_asr_bis(turn, time_beg, time_end)
 
-            if filename == "70" and sentences[len(sentences)-1][3] == "344.408":
-                sentences[len(sentences)-1][3] = "321.000"
+            if (
+                filename == "70"
+                and sentences[len(sentences) - 1][3] == "344.408"
+            ):
+                sentences[len(sentences) - 1][3] = "321.000"
 
             out = subprocess.Popen(
                 ["soxi", "-D", wav_folder + "/" + channel + filename + ".wav"],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
             )
             stdout, stderr = out.communicate()
             wav_duration = str("%.2f" % float(stdout))
@@ -217,9 +203,9 @@ def parse_bis(
                 f2 = float(sentences[n][2])
                 duration = str("%.2f" % (f1 - f2))
                 if (
-                    float(wav_duration) >= f1 
-                    and float(duration) != 0.0 
-                    and sentences[n][0]!= ""
+                    float(wav_duration) >= f1
+                    and float(duration) != 0.0
+                    and sentences[n][0] != ""
                 ):
                     data.append(
                         [
@@ -234,7 +220,7 @@ def parse_bis(
                             sentences[n][0],
                             "string",
                             sentences[n][1],
-                            "string"
+                            "string",
                         ]
                     )
 
@@ -243,11 +229,8 @@ def parse_bis(
 
     return data
 
-def parse_sentences_asr(
-    turn, 
-    time_beg, 
-    time_end
-):
+
+def parse_sentences_asr(turn, time_beg, time_end):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
@@ -276,12 +259,14 @@ def parse_sentences_asr(
 
             # Check transcription
             if (
-                node.nodeType == node.TEXT_NODE 
+                node.nodeType == node.TEXT_NODE
                 and node.data.replace("\n", "").replace(" ", "") != ""
             ):
                 sentence = normalize_sentence(node.data)
                 sentences[n][0] += sentence + " "
-                sentences[n][1] += (" ".join(list(sentence.replace(" ", "_"))) + " _ ")
+                sentences[n][1] += (
+                    " ".join(list(sentence.replace(" ", "_"))) + " _ "
+                )
                 sentences[n][3] = time_end
                 has_speech = True
 
@@ -308,12 +293,8 @@ def parse_sentences_asr(
 
     return sentences
 
-def parse_sentences_slu(
-    turn, 
-    time_beg, 
-    time_end, 
-    method
-):
+
+def parse_sentences_slu(turn, time_beg, time_end, method):
     """
     Get the sentences spoken by the speaker.
 
@@ -337,6 +318,7 @@ def parse_sentences_slu(
     sentences = [["", "", time_beg, time_end]]
     concept_open = False
     sync_waiting = False
+    time = None
     n = 0  # Number of segments in the turn
 
     # For each semAnnotation in the Turn
@@ -355,8 +337,9 @@ def parse_sentences_slu(
 
                         # Check transcription
                         if (
-                            node.nodeType == node.TEXT_NODE 
-                            and node.data.replace("\n", "").replace(" ", "") != ""
+                            node.nodeType == node.TEXT_NODE
+                            and node.data.replace("\n", "").replace(" ", "")
+                            != ""
                         ):
                             # Add a new concept, when speech following
                             if concept != "null" and not concept_open:
@@ -364,12 +347,19 @@ def parse_sentences_slu(
                                     sentences[n][0] += "<" + concept + "> "
                                     sentences[n][1] += "<" + concept + "> _ "
                                 elif method == "full" and specif != "null":
-                                    sentences[n][0] += "<" + concept + specif + "> "
-                                    sentences[n][1] += "<" + concept + specif + "> _ "
+                                    sentences[n][0] += (
+                                        "<" + concept + specif + "> "
+                                    )
+                                    sentences[n][1] += (
+                                        "<" + concept + specif + "> _ "
+                                    )
                                 concept_open = True
                             sentence = normalize_sentence(node.data)
                             sentences[n][0] += sentence + " "
-                            sentences[n][1] += (" ".join(list(sentence.replace(" ", "_"))) + " _ ")
+                            sentences[n][1] += (
+                                " ".join(list(sentence.replace(" ", "_")))
+                                + " _ "
+                            )
                             sentences[n][3] = time_end
                             has_speech = True
                             sync_waiting = False
@@ -384,14 +374,16 @@ def parse_sentences_slu(
                             elif not concept_open:
                                 # Change time_end for the last segment
                                 sentences[n][3] = node.getAttribute("time")
-                                sentences.append(["", "", sentences[n][3], time_end])
+                                sentences.append(
+                                    ["", "", sentences[n][3], time_end]
+                                )
                                 has_speech = False
                                 n += 1
                             else:
                                 sync_waiting = True
                                 time = node.getAttribute("time")
 
-                # Prevent adding a closing concept 
+                # Prevent adding a closing concept
                 # If Sync followed by SemFin generate a new segment without speech yet
                 if concept_open:
                     sentences[n][0] += "> "
@@ -414,11 +406,8 @@ def parse_sentences_slu(
 
     return sentences
 
-def parse_sentences_asr_bis(
-    turn, 
-    time_beg, 
-    time_end
-):
+
+def parse_sentences_asr_bis(turn, time_beg, time_end):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
@@ -444,10 +433,15 @@ def parse_sentences_asr_bis(
     for node in turn.childNodes:
 
         # Check transcription
-        if node.nodeType == node.TEXT_NODE and node.data.replace("\n", "") != "":
+        if (
+            node.nodeType == node.TEXT_NODE
+            and node.data.replace("\n", "") != ""
+        ):
             sentence = normalize_sentence(node.data)
             sentences[n][0] += sentence + " "
-            sentences[n][1] += (" ".join(list(sentence.replace(" ", "_"))) + " _ ")
+            sentences[n][1] += (
+                " ".join(list(sentence.replace(" ", "_"))) + " _ "
+            )
             sentences[n][3] = time_end
             has_speech = True
 
@@ -473,13 +467,9 @@ def parse_sentences_asr_bis(
 
     return sentences
 
+
 def parse_sentences_slu_bis(
-    turn, 
-    time_beg, 
-    time_end, 
-    method, 
-    concepts_full, 
-    concepts_relax
+    turn, time_beg, time_end, method, concepts_full, concepts_relax
 ):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
@@ -510,6 +500,7 @@ def parse_sentences_slu_bis(
     has_speech = False
     concept_open = False
     sync_waiting = False
+    time = None
 
     # For each node in the Turn
     for node in turn.childNodes:
@@ -518,10 +509,15 @@ def parse_sentences_slu_bis(
         if node.nodeName == "SemDebut":
             concept = node.getAttribute("concept")
             if method == "relax":
-                concept = get_concept_relax(concept, concepts_full, concepts_relax)
+                concept = get_concept_relax(
+                    concept, concepts_full, concepts_relax
+                )
 
         # Check transcription
-        if node.nodeType == node.TEXT_NODE and node.data.replace("\n", "") != "":
+        if (
+            node.nodeType == node.TEXT_NODE
+            and node.data.replace("\n", "") != ""
+        ):
             # Add a new concept, when speech following
             # (useful for 'SemDeb + Sync + Speech' & 'SemDeb + Speech + Sync + Speech')
             if concept != "null" and not concept_open:
@@ -530,14 +526,16 @@ def parse_sentences_slu_bis(
                 concept_open = True
             sentence = normalize_sentence(node.data)
             sentences[n][0] += sentence + " "
-            sentences[n][1] += (" ".join(list(sentence.replace(" ", "_"))) + " _ ")
+            sentences[n][1] += (
+                " ".join(list(sentence.replace(" ", "_"))) + " _ "
+            )
             sentences[n][3] = time_end
             has_speech = True
             sync_waiting = False
 
         # Save audio segment
         if node.nodeName == "SemFin":
-            # Prevent adding a closing concept 
+            # Prevent adding a closing concept
             # If Sync followed by SemFin generate a new segment without speech yet
             if concept_open:
                 sentences[n][0] += "> "
@@ -592,9 +590,11 @@ def normalize_sentence(sentence):
     # Particular characters
     sentence = re.sub(r"^'", "", sentence)
     sentence = re.sub(r"\(.*?\)", "*", sentence)  # Replace (...) with *
-    sentence = re.sub(r"[^\w\s'-><_]", "", sentence)  # Remove punctuation except '-><_
+    sentence = re.sub(
+        r"[^\w\s'-><_]", "", sentence
+    )  # Remove punctuation except '-><_
     # Case
-    #sentence = sentence.lower()  # Lowercase letters
+    # sentence = sentence.lower()  # Lowercase letters
     # Numbers correction
     sentence = sentence.replace("dix-", "dix ")
     sentence = sentence.replace("vingt-", "vingt ")
@@ -686,37 +686,30 @@ def split_audio_channels(path, filename, channel, folder):
     path = path.replace("2 ", "'2 ")
     path = path.replace(" 2", " 2'")
     os.system(
-        "sox " 
-        + path 
-        + " " 
-        + folder 
-        + "/" 
-        + channel 
-        + filename 
-        + "_8khz.wav remix " 
+        "sox "
+        + path
+        + " "
+        + folder
+        + "/"
+        + channel
+        + filename
+        + "_8khz.wav remix "
         + channel_int
     )
     os.system(
-        "sox -G " 
-        + folder 
-        + "/" 
-        + channel 
-        + filename 
-        + "_8khz.wav -r 16000 " 
-        + folder 
-        + "/" 
-        + channel 
-        + filename 
+        "sox -G "
+        + folder
+        + "/"
+        + channel
+        + filename
+        + "_8khz.wav -r 16000 "
+        + folder
+        + "/"
+        + channel
+        + filename
         + ".wav 2>/dev/null"
     )
-    os.system(
-        "rm " 
-        + folder 
-        + "/" 
-        + channel 
-        + filename 
-        + "_8khz.wav"
-    )
+    os.system("rm " + folder + "/" + channel + filename + "_8khz.wav")
     return None
 
 
@@ -794,15 +787,15 @@ def get_concepts_full_relax(path):
 def get_unused_dialogs(data_folder):
     # Used dialogs
     proc = subprocess.Popen(
-        "egrep -a '<dialogue' " 
-        + data_folder 
+        "egrep -a '<dialogue' "
+        + data_folder
         + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/media_*.xml "
         + "| cut -d' ' -f2 "
-        + "| cut -d'" 
-        + '"' 
+        + "| cut -d'"
+        + '"'
         + "' -f2",
         stdout=subprocess.PIPE,
-        shell=True
+        shell=True,
     )
     used_dialogs = [str(i)[2:-3] for i in proc.stdout.readlines()]
     # All dialogs
@@ -824,7 +817,7 @@ def get_channel(filename, channels, filenames):
 
 def get_concept_relax(concept, concepts_full, concepts_relax):
     for c in concepts_full:
-        if (c[-1] == "*" and concept[:len(c)-1] == c[:-1]) or concept == c:
+        if (c[-1] == "*" and concept[: len(c) - 1] == c[:-1]) or concept == c:
             return concepts_relax[concepts_full.index(c)]
     return concept
 
@@ -833,73 +826,74 @@ def get_IDs(speaker_name, sentences, channel, filename):
     IDs = []
     for sentence in sentences:
         IDs.append(
-            channel 
-            + filename 
-            + "#" 
-            + speaker_name 
-            + "#" 
-            + sentence[2] 
-            + "_" 
+            channel
+            + filename
+            + "#"
+            + speaker_name
+            + "#"
+            + sentence[2]
+            + "_"
             + sentence[3]
         )
     return IDs
+
 
 """
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
-        "data_folder", 
-        type=str, 
+        "data_folder",
+        type=str,
         help="Path where folders S0272 and E0024 are stored."
     )
     parser.add_argument(
-        "wav_folder", 
-        type=str, 
+        "wav_folder",
+        type=str,
         help="Path where the wavs will be stored."
     )
     parser.add_argument(
-        "csv_folder", 
-        type=str, 
+        "csv_folder",
+        type=str,
         help="Path where the csv will be stored."
     )
     parser.add_argument(
-        "-w", 
-        "--skip_wav", 
-        action="store_true", 
-        required=False, 
+        "-w",
+        "--skip_wav",
+        action="store_true",
+        required=False,
         help="Skip the wav files storing if already done before."
     )
 
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
-        "-r", 
-        "--relax", 
-        action="store_true", 
-        required=False, 
+        "-r",
+        "--relax",
+        action="store_true",
+        required=False,
         help="Remove specifiers from concepts."
     )
     group.add_argument(
-        "-f", 
-        "--full", 
-        action="store_false", 
-        required=False, 
+        "-f",
+        "--full",
+        action="store_false",
+        required=False,
         help="Keep specifiers in concepts. Method used by default."
     )
 
     group2 = parser.add_mutually_exclusive_group(required=True)
     group2.add_argument(
-        "-s", 
-        "--slu", 
-        action="store_true", 
-        required=False, 
+        "-s",
+        "--slu",
+        action="store_true",
+        required=False,
         help="Parse SLU data."
     )
     group2.add_argument(
-        "-a", 
-        "--asr", 
-        action="store_false", 
-        required=False, 
+        "-a",
+        "--asr",
+        action="store_false",
+        required=False,
         help="Parse ASR data."
     )
     args = parser.parse_args()
@@ -927,14 +921,9 @@ if __name__ == "__main__":
 
 """
 
+
 def prepare_media(
-    data_folder,
-    wav_folder,
-    csv_folder,
-    skip_wav,
-    method,
-    task,
-    skip_prep
+    data_folder, wav_folder, csv_folder, skip_wav, method, task, skip_prep
 ):
 
     if skip_prep:
@@ -942,8 +931,8 @@ def prepare_media(
 
     if task == "slu":
         print(
-            "Processing SLU Media Dataset with " 
-            + method 
+            "Processing SLU Media Dataset with "
+            + method
             + " method for the concepts."
         )
     else:
@@ -951,7 +940,9 @@ def prepare_media(
 
     wav_paths = glob.glob(data_folder + "/S0272/**/*.wav", recursive=True)
     channels, filenames = get_channels("./channels.csv")
-    concepts_full, concepts_relax = get_concepts_full_relax("./concepts_full_relax.csv")
+    concepts_full, concepts_relax = get_concepts_full_relax(
+        "./concepts_full_relax.csv"
+    )
     unused_dialogs = get_unused_dialogs(data_folder)
     write_first_row(csv_folder)
 
@@ -961,7 +952,7 @@ def prepare_media(
         "media_lot3.xml": "train",
         "media_lot4.xml": "train",
         "media_testHC.xml": "test",
-        "media_testHC_a_blanc.xml": "dev"
+        "media_testHC_a_blanc.xml": "dev",
     }
 
     if not (skip_wav):
@@ -973,46 +964,44 @@ def prepare_media(
 
     for xml in xmls:
         print(
-            "Processing file " 
-            + str(list(xmls.keys()).index(xml)+1) 
-            + "/" 
-            + str(len(xmls)) + "."
+            "Processing file "
+            + str(list(xmls.keys()).index(xml) + 1)
+            + "/"
+            + str(len(xmls))
+            + "."
         )
         root = get_root(
-            data_folder 
-            + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" 
-            + xml,
-            0
+            data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml, 0
         )
         parse(
-            root, 
-            channels, 
-            filenames, 
-            wav_folder, 
-            csv_folder, 
-            method, 
-            task, 
-            xmls[xml]
+            root,
+            channels,
+            filenames,
+            wav_folder,
+            csv_folder,
+            method,
+            task,
+            xmls[xml],
         )
 
     print("Processing files for test_bis.")
     for filename in tqdm(unused_dialogs):
         root = get_root(
-            data_folder 
-            + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/" 
-            + filename 
+            data_folder
+            + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/"
+            + filename
             + "_HC.xml",
-            1
+            1,
         )
         parse_bis(
-            root, 
-            channels, 
-            filenames, 
-            wav_folder, 
-            csv_folder, 
-            method, 
-            task, 
-            filename, 
-            concepts_full, 
-            concepts_relax
+            root,
+            channels,
+            filenames,
+            wav_folder,
+            csv_folder,
+            method,
+            task,
+            filename,
+            concepts_full,
+            concepts_relax,
         )
