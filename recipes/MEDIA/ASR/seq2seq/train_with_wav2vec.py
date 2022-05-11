@@ -10,12 +10,14 @@ import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.distributed import run_on_main
 
 """
 Recipe for training a sequence-to-sequence SLU system with Media.
+The system employs a wav2vec model and a decoder.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml
+> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
 
 With the default hyperparameters, the system employs a VanillaNN decoder.
 
@@ -31,15 +33,14 @@ logger = logging.getLogger(__name__)
 
 
 # Define training procedure.
-class SLU(sb.core.Brain):
+class ASR(sb.core.Brain):
     def compute_forward(self, wavs, wav_lens, stage):
         """Forward computations from waveform to output probabilities."""
 
         # Forward pass.
-        feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
-        x_enc = self.modules.dnn(feats.detach())
-        x = self.modules.dec(x_enc)
+        feats = self.modules.wav2vec(wavs)
+
+        x = self.modules.dec(feats)
 
         # Output layer for seq2seq log-probabilities.
         logits = self.modules.output_lin(x)
@@ -68,32 +69,24 @@ class SLU(sb.core.Brain):
                 target_len=char_lens,
                 ind2lab=self.label_encoder.decode_ndim,
             )
-            self.coer_metric.append(
-                ids=ids,
-                predict=sequence,
-                target=chars,
-                target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim,
-            )
-            self.cver_metric.append(
-                ids=ids,
-                predict=sequence,
-                target=chars,
-                target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim,
-            )
             self.ctc_metric.append(ids, p_ctc, chars, wav_lens, char_lens)
 
         return loss
 
     def init_optimizers(self):
-        """Initializes the model optimizer"""
+        """Initializes the wav2vec2 optimizer and model optimizer"""
 
         # Join optimizers.
+        self.optimizer_wav2vec = self.hparams.opt_class_wav2vec(
+            self.hparams.model_wav2vec.parameters()
+        )
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
         # Add opitmizers to checkpoint recoverables.
         if self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "optimizer_wav2vec", self.optimizer_wav2vec
+            )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
     def fit_batch(self, batch):
@@ -118,7 +111,9 @@ class SLU(sb.core.Brain):
         # Propagate loss.
         loss.backward()
         if self.check_gradients(loss):
+            self.optimizer_wav2vec.step()
             self.optimizer.step()
+        self.optimizer_wav2vec.zero_grad()
         self.optimizer.zero_grad()
 
         return loss.detach()
@@ -150,8 +145,6 @@ class SLU(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.ctc_metric = self.hparams.ctc_computer()
-            self.coer_metric = self.hparams.coer_computer()
-            self.cver_metric = self.hparams.cver_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -162,15 +155,23 @@ class SLU(sb.core.Brain):
             self.train_stats = stage_stats
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
-            stage_stats["COER"] = self.coer_metric.summarize("error_rate")
-            stage_stats["CVER"] = self.cver_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["loss"])
+            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+                stage_stats["loss"]
+            )
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(
+                self.optimizer_wav2vec, new_lr_wav2vec
+            )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
+                stats_meta={
+                    "epoch": epoch,
+                    "lr": old_lr,
+                    "lr_wav2vec": old_lr_wav2vec,
+                },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -188,10 +189,6 @@ class SLU(sb.core.Brain):
                 self.cer_metric.write_stats(w)
             with open(hparams["ctc_file_test"], "w") as w:
                 self.ctc_metric.write_stats(w)
-            with open(hparams["coer_file_test"], "w") as w:
-                self.coer_metric.write_stats(w)
-            with open(hparams["cver_file_test"], "w") as w:
-                self.cver_metric.write_stats(w)
 
 
 # Define custom data procedure.
@@ -331,11 +328,25 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Due to DDP, we do the preparation ONLY on the main python process
+    run_on_main(
+        prepare_media,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "wav_folder": hparams["wav_folder"],
+            "csv_folder": hparams["csv_folder"],
+            "skip_wav": hparams["skip_wav"],
+            "method": hparams["method"],
+            "task": hparams["task"],
+            "skip_prep": hparams["skip_prep"]
+        }
+    )
+
     # Create the datasets objects as well as tokenization and encoding.
     train_data, valid_data, test_data, label_encoder = dataio_prepare(hparams)
 
     # Trainer initialization.
-    slu_brain = SLU(
+    asr_brain = ASR(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
@@ -343,15 +354,15 @@ if __name__ == "__main__":
     )
 
     # Adding objects to trainer.
-    slu_brain.label_encoder = label_encoder
-    slu_brain.label_encoder.add_unk()  # handle unknown SLU labels
+    asr_brain.label_encoder = label_encoder
+    asr_brain.label_encoder.add_unk()  # handle unknown SLU labels
 
     # Check for stopped training.
-    slu_brain.checkpointer.recover_if_possible()
+    asr_brain.checkpointer.recover_if_possible()
 
     # Train.
-    slu_brain.fit(
-        slu_brain.hparams.epoch_counter,
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
         progressbar=True,
@@ -360,7 +371,7 @@ if __name__ == "__main__":
     )
 
     # Test.
-    slu_brain.evaluate(
+    asr_brain.evaluate(
         test_data,
         min_key="CER",
         progressbar=True,

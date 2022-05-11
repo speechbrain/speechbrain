@@ -14,6 +14,14 @@ ctc_file_test: !ref <output_folder>/ctc_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+original_data_folder: !PLACEHOLDER # Path where folders S0272 and E0024 are stored.
+wav_folder: !PLACEHOLDER # Path where the wavs will be stored.
+csv_folder: !PLACEHOLDER # Path where the csvs will be stored.
+skip_wav: False # Skip the wav files storing if already done before.
+method: Null # Remove or keep specifiers in concepts. Method used by default. 
+task: asr # Parse SLU or ASR data.
+skip_prep: True # Skip data preparation to csv because already done.
+
 # Data files:
 data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv

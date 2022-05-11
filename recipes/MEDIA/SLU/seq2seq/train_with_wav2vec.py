@@ -10,6 +10,7 @@ import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.distributed import run_on_main
 
 """
 Recipe for training a sequence-to-sequence SLU system with Media.
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 # Define training procedure.
-class ASR(sb.core.Brain):
+class SLU(sb.core.Brain):
     def compute_forward(self, wavs, wav_lens, stage):
         """Forward computations from waveform to output probabilities."""
 
@@ -62,6 +63,20 @@ class ASR(sb.core.Brain):
             )
             # Update metrics.
             self.cer_metric.append(
+                ids=ids,
+                predict=sequence,
+                target=chars,
+                target_len=char_lens,
+                ind2lab=self.label_encoder.decode_ndim,
+            )
+            self.coer_metric.append(
+                ids=ids,
+                predict=sequence,
+                target=chars,
+                target_len=char_lens,
+                ind2lab=self.label_encoder.decode_ndim,
+            )
+            self.cver_metric.append(
                 ids=ids,
                 predict=sequence,
                 target=chars,
@@ -144,6 +159,8 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.ctc_metric = self.hparams.ctc_computer()
+            self.coer_metric = self.hparams.coer_computer()
+            self.cver_metric = self.hparams.cver_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -154,6 +171,8 @@ class ASR(sb.core.Brain):
             self.train_stats = stage_stats
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
+            stage_stats["COER"] = self.coer_metric.summarize("error_rate")
+            stage_stats["CVER"] = self.cver_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -188,6 +207,10 @@ class ASR(sb.core.Brain):
                 self.cer_metric.write_stats(w)
             with open(hparams["ctc_file_test"], "w") as w:
                 self.ctc_metric.write_stats(w)
+            with open(hparams["coer_file_test"], "w") as w:
+                self.coer_metric.write_stats(w)
+            with open(hparams["cver_file_test"], "w") as w:
+                self.cver_metric.write_stats(w)
 
 
 # Define custom data procedure.
@@ -327,11 +350,25 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Due to DDP, we do the preparation ONLY on the main python process
+    run_on_main(
+        prepare_media,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "wav_folder": hparams["wav_folder"],
+            "csv_folder": hparams["csv_folder"],
+            "skip_wav": hparams["skip_wav"],
+            "method": hparams["method"],
+            "task": hparams["task"],
+            "skip_prep": hparams["skip_prep"]
+        }
+    )
+
     # Create the datasets objects as well as tokenization and encoding.
     train_data, valid_data, test_data, label_encoder = dataio_prepare(hparams)
 
     # Trainer initialization.
-    asr_brain = ASR(
+    slu_brain = SLU(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
@@ -339,15 +376,15 @@ if __name__ == "__main__":
     )
 
     # Adding objects to trainer.
-    asr_brain.label_encoder = label_encoder
-    asr_brain.label_encoder.add_unk()  # handle unknown SLU labels
+    slu_brain.label_encoder = label_encoder
+    slu_brain.label_encoder.add_unk()  # handle unknown SLU labels
 
     # Check for stopped training.
-    asr_brain.checkpointer.recover_if_possible()
+    slu_brain.checkpointer.recover_if_possible()
 
     # Train.
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
+    slu_brain.fit(
+        slu_brain.hparams.epoch_counter,
         train_data,
         valid_data,
         progressbar=True,
@@ -356,7 +393,7 @@ if __name__ == "__main__":
     )
 
     # Test.
-    asr_brain.evaluate(
+    slu_brain.evaluate(
         test_data,
         min_key="CER",
         progressbar=True,

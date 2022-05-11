@@ -6,6 +6,8 @@
 - Bassam Jabaian, Avignon University, LIA
 - Sahar Ghannay, Paris-Saclay University, CNRS, LISN
 - Antoine Caubrière, Avignon University, LIA
+- Valentin Pelloin, Le Mans University, LIUM
+- Nathalie Camelin, Le Mans University, LIUM
 
 The `parseXMLtoSB.py` script allows to prepare the Media French dataset for experiments. You need both [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/) and [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) to run the script.
 

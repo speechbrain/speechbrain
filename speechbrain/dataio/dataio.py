@@ -1068,26 +1068,53 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     """
     results = []
     for sequence in sequences:
-        sequence = "".join(sequence) # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
-        sequence = sequence.split("_") # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
+        # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
+        sequence = "".join(sequence)
+        # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
+        sequence = sequence.split("_")
         processed_sequence = []
-        value = [] # if previous sequence value never used because never had a tag_out
-        kept = "" # if previous sequence kept never used because never had a tag_out
+        value = []  # If previous sequence value never used because never had a tag_out
+        kept = ""  # If previous sequence kept never used because never had a tag_out
         concept_open = False
         for word in sequence:
-            if re.match(tag_in, word):
-                kept = word # first row : '<reponse>'
-                value = [] # we will get the value corresponding
-                concept_open = True # we say we want to catch the value
-                if not keep_values: # if we want the CER
-                    processed_sequence.append(kept) # just add the kept concept
-            elif re.match(tag_out, word) and concept_open and keep_values: # if we have a tag_out, we had a concept, and we want the values for CVER
-                if len(value) != 0: # if we have a value
-                    kept += " " + " ".join(value) # first row : '<response>' + ' ' + 'no'
-                concept_open = False # we say we did catch the value for the current concept, we will need another tag_in to pursue
-                processed_sequence.append(kept) # add the kept concept + value if there is one
+            if word in [
+                "ǵ", "Ƕ", "Ƿ", "Ǹ", "ǹ", "Ǻ", "ǻ", "Ǽ", "ǽ", "Ǿ", 
+                "ǿ", "Ȁ", "ȁ", "Ȃ", "ȃ", "Ȅ", "ȅ", "Ȇ", "ȇ", "Ȉ", 
+                "ȉ", "Ȋ", "ȋ", "Ȍ", "ȍ", "Ȏ", "ȏ", "Ȑ", "ȑ", "Ȓ", 
+                "ȓ", "Ȕ", "ȕ", "Ȗ", "ȗ", "Ș", "ș", "Ț", "ț", "Ȝ", 
+                "ȝ", "Ȟ", "ȟ", "Ƞ", "ȡ", "Ȣ", "ȣ", "Ȥ", "ȥ", "Ȧ", 
+                "ȧ", "Ȩ", "ȩ", "Ȫ", "ȫ", "Ȭ", "ȭ", "Ȯ", "ȯ", "Ȱ", 
+                "ȱ", "Ȳ", "ȳ", "ȴ", "ȵ", "ȶ", "ȷ", "ȸ", "ȹ", "Ⱥ", 
+                "Ȼ", "ȼ", "Ƚ", "Ⱦ", "ȿ", "ɀ", "Ɂ", "ɂ", "Ƀ", "Ʉ", 
+                "Ʌ", "Ɇ", "ɇ", "Ɉ", "ɉ", "Ɋ"
+            ] or re.match(tag_in, word):
+                # If not close tag but new tag open
+                if concept_open and keep_values:
+                    if len(value) != 0:
+                        kept += " " + " ".join(value)
+                    concept_open = False
+                    processed_sequence.append(kept)
+                kept = word  # 1st loop: '<reponse>'
+                value = []  # Concept's value 
+                concept_open = True # Trying to catch the concept's value
+                # If we want the CER
+                if not keep_values:
+                    processed_sequence.append(kept)  # Add the kept concept
+            # If we have a tag_out, had a concept, and want the values for CVER
+            elif re.match(tag_out, word) and concept_open and keep_values:
+                # If we have a value
+                if len(value) != 0:
+                    kept += " " + " ".join(value)  # 1st loop: '<response>' + ' ' + 'no'
+                concept_open = False  # Wait for a new tag_in to pursue
+                processed_sequence.append(kept)  # Add the kept concept + value
             elif concept_open:
-                value.append(word) # first row : 'no'
+                value.append(word)  # 1st loop: 'no'
+        # If not close tag but end sequence
+        if concept_open and keep_values:
+            if len(value) != 0:
+                kept += " " + " ".join(value)
+            concept_open = False
+            processed_sequence.append(kept)
         if len(processed_sequence) == 0:
             processed_sequence.append("")
         results.append(processed_sequence)
