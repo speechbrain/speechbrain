@@ -623,6 +623,7 @@ def test_profile_details(device):
     from speechbrain.utils.profiling import (
         profile_analyst,
         profile_optimiser,
+        export,
         events_diff,
     )
 
@@ -934,6 +935,7 @@ def test_profile_details(device):
             epoch_counter=range(10), train_set=train_set, valid_set=valid_set
         )
 
+    @export
     @profile_optimiser
     def evaluate_optimiser(brain: SimpleBrain):
         brain.evaluate(test_set=test_set)
@@ -948,6 +950,7 @@ def test_profile_details(device):
     assert brain_raw.profiler is None
 
     # profile classes
+    @export
     @profile_analyst
     class SimpleBrainAnalyst(Brain):
         def compute_forward(self, batch, stage):
