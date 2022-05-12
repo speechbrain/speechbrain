@@ -416,7 +416,6 @@ def profile(
 def profile_analyst(
     func: Optional[object] = None,
     class_hooks: Optional[Iterable[str]] = None,
-    export_logs=False,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
     """Pre-configured profiling for a fully detailed benchmark - analyst perspective.
 
@@ -425,7 +424,7 @@ def profile_analyst(
     """
     profiler_kwargs = {
         "schedule": schedule(),
-        "on_trace_ready": export() if export_logs else None,
+        "on_trace_ready": None,
         "record_shapes": True,
         "profile_memory": True,
         "with_stack": True,
@@ -449,13 +448,12 @@ def profile_analyst(
 def profile_optimiser(
     func: Optional[object] = None,
     class_hooks: Optional[Iterable[str]] = None,
-    export_logs=False,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
     """Pre-configured profiling for a detailed benchmark (better suitable for speed-optimisation than @profile_analyst).
     """
     profiler_kwargs = {
         "schedule": schedule(),
-        "on_trace_ready": export() if export_logs else None,
+        "on_trace_ready": None,
         "record_shapes": False,  # avoid: overheads
         "profile_memory": True,
         "with_stack": False,  # avoid: overheads

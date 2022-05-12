@@ -20,6 +20,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.profiling import (
     profile_optimiser,
+    export,
     report_time,
     report_memory,
 )
@@ -59,6 +60,8 @@ def prepare_unary_input(
 def get_funcs_to_unary_input_classifier(
     cls,
     call_func: str,
+    source: str,
+    save_dir: str,
     device: torch.device,
     example_audio=None,
     batch_label="wavs",
@@ -104,6 +107,8 @@ def get_funcs_to_profile(
     if pretrained_type == "EncoderDecoderASR":
         return get_funcs_to_unary_input_classifier(
             cls=EncoderDecoderASR,
+            source=source,
+            save_dir=save_dir,
             call_func="transcribe_batch",
             example_audio=example_audio,
             device=device,
@@ -112,6 +117,8 @@ def get_funcs_to_profile(
     elif pretrained_type == "EncoderASR":
         return get_funcs_to_unary_input_classifier(
             cls=EncoderASR,
+            source=source,
+            save_dir=save_dir,
             call_func="transcribe_batch",
             example_audio=example_audio,
             device=device,
@@ -120,6 +127,8 @@ def get_funcs_to_profile(
     elif pretrained_type == "EndToEndSLU":  # untested
         return get_funcs_to_unary_input_classifier(
             cls=EndToEndSLU,
+            source=source,
+            save_dir=save_dir,
             call_func="decode_batch",
             example_audio=example_audio,
             device=device,
@@ -128,6 +137,8 @@ def get_funcs_to_profile(
     elif pretrained_type == "EncoderClassifier":  # untested
         return get_funcs_to_unary_input_classifier(
             cls=EncoderClassifier,
+            source=source,
+            save_dir=save_dir,
             call_func="classify_batch",
             example_audio=example_audio,
             device=device,
@@ -155,6 +166,8 @@ def get_funcs_to_profile(
         # VAD boundary post-processing can introduce slightly more load (ignored here)
         return get_funcs_to_unary_input_classifier(
             cls=VAD,
+            source=source,
+            save_dir=save_dir,
             call_func="get_speech_prob_chunk",
             example_audio=example_audio,
             device=device,
@@ -163,6 +176,8 @@ def get_funcs_to_profile(
     elif pretrained_type == "SepformerSeparation":  # untested
         return get_funcs_to_unary_input_classifier(
             cls=SepformerSeparation,
+            source=source,
+            save_dir=save_dir,
             call_func="separate_batch",
             example_audio=example_audio,
             device=device,
@@ -173,6 +188,8 @@ def get_funcs_to_profile(
     elif pretrained_type == "SpectralMaskEnhancement":  # untested
         return get_funcs_to_unary_input_classifier(
             cls=SpectralMaskEnhancement,
+            source=source,
+            save_dir=save_dir,
             call_func="enhance_batch",
             example_audio=example_audio,
             device=device,
@@ -274,12 +291,12 @@ def profile_pretrained(
             )  # 2 batches recorded x conversion factor x secs
 
             # Simulating batching and profiling it
-            with profile_optimiser(export_logs=export_logs) as prof:
-                for _ in range(
-                    6
-                ):  # default scheduler records in fifth and sixth step
-                    call(model=pretrained, **kwargs)
-                    prof.step()
+            prof = export(profile_optimiser()) if export_logs else profile_optimiser()
+            for _ in range(
+                6
+            ):  # default scheduler records in fifth and sixth step
+                call(model=pretrained, **kwargs)
+                prof.step()
 
             # Gathering time and memory reports
             print(
