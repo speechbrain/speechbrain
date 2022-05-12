@@ -141,7 +141,7 @@ concat_augment: True
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
-    std_norm: False
+    std_norm: True
 
 modules:
     compute_features: !ref <compute_features>
