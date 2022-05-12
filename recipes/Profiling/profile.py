@@ -8,7 +8,7 @@ be representative of a benchmark setting (duration vs batch size). The setup is 
 Run from within this directory (yaml defines an example audio w/ relative path):
 `python profile.py profile.yaml`
 
-Operational for: EncoderDecoderASR
+Operational for: EncoderDecoderASR; EncoderASR
 
 Author:
     * Andreas Nautsch 2022
@@ -23,12 +23,11 @@ from speechbrain.utils.profiling import (
     report_time,
     report_memory,
 )
-from speechbrain.pretrained import EncoderDecoderASR
-
-"""
 from speechbrain.pretrained import (
-    EndToEndSLU,
+    Pretrained,
+    EncoderDecoderASR,
     EncoderASR,
+    EndToEndSLU,
     EncoderClassifier,
     SpeakerRecognition,
     VAD,
@@ -36,10 +35,61 @@ from speechbrain.pretrained import (
     SpectralMaskEnhancement,
     SNREstimator,
 )
-"""
+from typing import Optional, Iterable
 
 
-def get_funcs_to_profile(pretrained_type, source, save_dir, example_audio=None):
+def prepare_unary_input(
+    batch_size,
+    duration,
+    batch_label="wavs",
+    lengths_label: Optional[str] = "wav_lens",
+    example=None,
+    sampling_rate=16000,
+):
+    unary_input = {
+        batch_label: example[: duration * sampling_rate].repeat(batch_size, 1)
+        if example is not None
+        else torch.rand((batch_size, duration * sampling_rate)),
+    }
+    if lengths_label is not None:
+        unary_input[lengths_label] = torch.ones(batch_size)
+    return unary_input
+
+
+def get_funcs_to_unary_input_classifier(
+    cls,
+    call_func: str,
+    device: torch.device,
+    example_audio=None,
+    batch_label="wavs",
+    lengths_label: Optional[str] = "wav_lens",
+):
+    assert issubclass(cls, Pretrained)
+    pretrained = cls.from_hparams(
+        source=source, savedir=save_dir, run_opts={"device": device}
+    )
+    if example_audio:
+        example = pretrained.load_audio(example_audio)
+
+    def prepare(batch_size, duration, sampling_rate=16000):
+        return prepare_unary_input(
+            batch_size,
+            duration,
+            batch_label=batch_label,
+            lengths_label=lengths_label,
+            example=example,
+            sampling_rate=sampling_rate,
+        )
+
+    def call(model, **kwargs):
+        getattr(model, call_func)(**kwargs)
+
+    return prepare, call, pretrained
+
+
+def get_funcs_to_profile(
+    pretrained_type, source, save_dir, example_audio=None, example=None
+):
     """Creates per pretrained interface:
 
     pretrained - loaded model, to device
@@ -52,134 +102,104 @@ def get_funcs_to_profile(pretrained_type, source, save_dir, example_audio=None):
 
     # Create prepare() and call() functions depending on model type
     if pretrained_type == "EncoderDecoderASR":
-        pretrained = EncoderDecoderASR.from_hparams(
+        return get_funcs_to_unary_input_classifier(
+            cls=EncoderDecoderASR,
+            call_func="transcribe_batch",
+            example_audio=example_audio,
+            device=device,
+        )
+
+    elif pretrained_type == "EncoderASR":
+        return get_funcs_to_unary_input_classifier(
+            cls=EncoderASR,
+            call_func="transcribe_batch",
+            example_audio=example_audio,
+            device=device,
+        )
+
+    elif pretrained_type == "EndToEndSLU":  # untested
+        return get_funcs_to_unary_input_classifier(
+            cls=EndToEndSLU,
+            call_func="decode_batch",
+            example_audio=example_audio,
+            device=device,
+        )
+
+    elif pretrained_type == "EncoderClassifier":  # untested
+        return get_funcs_to_unary_input_classifier(
+            cls=EncoderClassifier,
+            call_func="classify_batch",
+            example_audio=example_audio,
+            device=device,
+        )
+
+    elif pretrained_type == "SpeakerRecognition":  # untested
+        pretrained = SpeakerRecognition.from_hparams(
             source=source, savedir=save_dir, run_opts={"device": device}
         )
         if example_audio:
             example = pretrained.load_audio(example_audio)
 
-        def prepare(batch_size, duration, sampling_rate=16000):
+        def prepare(batch_size, duration, num_wavs2=10, sampling_rate=16000):
             return {
-                "wavs": example[: duration * sampling_rate].repeat(
-                    batch_size, 1
-                )
-                if example_audio
-                else torch.rand((batch_size, duration * sampling_rate)),
-                "wav_lens": torch.ones(batch_size),
+                "wavs1": torch.rand((batch_size, duration * sampling_rate)),
+                "wavs2": torch.rand((num_wavs2, duration * sampling_rate)),
+                "wav1_lens": torch.ones(batch_size),
+                "wav2_lens": torch.ones(num_wavs2),
             }
 
         def call(model, **kwargs):
-            model.transcribe_batch(**kwargs)
+            model.verify_batch(**kwargs)
 
-        """
-        elif pretrained_type == "EndToEndSLU":  # untested
-            pretrained = EndToEndSLU.from_hparams(source=source, savedir=save_dir)
+    elif pretrained_type == "VAD":  # untested
+        # VAD boundary post-processing can introduce slightly more load (ignored here)
+        return get_funcs_to_unary_input_classifier(
+            cls=VAD,
+            call_func="get_speech_prob_chunk",
+            example_audio=example_audio,
+            device=device,
+        )
 
-            def prepare(batch_size, duration, sampling_rate=16000):
-                return {
-                    "wavs": torch.rand((batch_size, duration * sampling_rate)),
-                    "wav_lens": torch.ones(batch_size).to(device),
-                }
+    elif pretrained_type == "SepformerSeparation":  # untested
+        return get_funcs_to_unary_input_classifier(
+            cls=SepformerSeparation,
+            call_func="separate_batch",
+            example_audio=example_audio,
+            device=device,
+            batch_label="mix",
+            lengths_label=None,
+        )
 
-            def call(model, **kwargs):
-                model.decode_batch(**kwargs)
+    elif pretrained_type == "SpectralMaskEnhancement":  # untested
+        return get_funcs_to_unary_input_classifier(
+            cls=SpectralMaskEnhancement,
+            call_func="enhance_batch",
+            example_audio=example_audio,
+            device=device,
+            batch_label="noisy",
+            lengths_label="lengths",
+        )
 
-        elif pretrained_type == "EncoderASR":  # untested
-            pretrained = EncoderASR.from_hparams(source=source, savedir=save_dir)
+    elif pretrained_type == "SNREstimator":  # untested
+        pretrained = SNREstimator.from_hparams(
+            source=source, savedir=save_dir, run_opts={"device": device}
+        )
+        if example_audio:
+            example = pretrained.load_audio(example_audio)
 
-            def prepare(batch_size, duration, sampling_rate=16000):
-                return {
-                    "wavs": torch.rand((batch_size, duration * sampling_rate)),
-                    "wav_lens": torch.ones(batch_size),
-                }
+        def prepare(batch_size, duration, num_spks=2, sampling_rate=16000):
+            return {
+                "mix": example[: duration * sampling_rate].repeat(batch_size, 1)
+                if example is not None
+                else torch.rand((batch_size, duration * sampling_rate)),
+                "predictions": torch.rand(
+                    (batch_size, duration * sampling_rate, num_spks)
+                ),
+            }
 
-            def call(model, **kwargs):
-                model.transcribe_batch(**kwargs)
+        def call(model, **kwargs):
+            model.estimate_batch(**kwargs)
 
-        elif pretrained_type == "EncoderClassifier":  # untested
-            pretrained = EncoderClassifier.from_hparams(
-                source=source, savedir=save_dir
-            )
-
-            def prepare(batch_size, duration, sampling_rate=16000):
-                return {
-                    "wavs": torch.rand((batch_size, duration * sampling_rate)),
-                    "wav_lens": torch.ones(batch_size),
-                }
-
-            def call(model, **kwargs):
-                model.classify_batch(**kwargs)
-
-        elif pretrained_type == "SpeakerRecognition":  # untested
-            pretrained = SpeakerRecognition.from_hparams(
-                source=source, savedir=save_dir
-            )
-
-            def prepare(batch_size, duration, num_wavs2=10, sampling_rate=16000):
-                return {
-                    "wavs1": torch.rand((batch_size, duration * sampling_rate)),
-                    "wavs2": torch.rand((num_wavs2, duration * sampling_rate)),
-                    "wav1_lens": torch.ones(batch_size),
-                    "wav2_lens": torch.ones(num_wavs2),
-                }
-
-            def call(model, **kwargs):
-                model.verify_batch(**kwargs)
-
-        elif pretrained_type == "VAD":  # untested
-            pretrained = VAD.from_hparams(source=source, savedir=save_dir)
-
-            def prepare(batch_size, duration, sampling_rate=16000):
-                return {
-                    "wavs": torch.rand((batch_size, duration * sampling_rate)),
-                    "wav_lens": torch.ones(batch_size),
-                }
-
-            def call(model, **kwargs):
-                # VAD boundary post-processing can introduce slightly more load (ignored here)
-                model.get_speech_prob_chunk(**kwargs)
-
-        elif pretrained_type == "SepformerSeparation":  # untested
-            pretrained = SepformerSeparation.from_hparams(
-                source=source, savedir=save_dir
-            )
-
-            def prepare(batch_size, duration, sampling_rate=16000):
-                return {
-                    "mix": torch.rand((batch_size, duration * sampling_rate)),
-                }
-
-            def call(model, **kwargs):
-                model.separate_batch(**kwargs)
-
-        elif pretrained_type == "SpectralMaskEnhancement":  # untested
-            pretrained = SpectralMaskEnhancement.from_hparams(
-                source=source, savedir=save_dir
-            )
-
-            def prepare(batch_size, duration, sampling_rate=16000):
-                return {
-                    "noisy": torch.rand((batch_size, duration * sampling_rate)),
-                    "lengths": torch.ones(batch_size),
-                }
-
-            def call(model, **kwargs):
-                model.enhance_batch(**kwargs)
-
-        elif pretrained_type == "SNREstimator":  # untested
-            pretrained = SNREstimator.from_hparams(source=source, savedir=save_dir)
-
-            def prepare(batch_size, duration, num_spks=2, sampling_rate=16000):
-                return {
-                    "mix": torch.rand((batch_size, duration * sampling_rate)),
-                    "predictions": torch.rand(
-                        (batch_size, duration * sampling_rate, num_spks)
-                    ),
-                }
-
-            def call(model, **kwargs):
-                model.estimate_batch(**kwargs)
-        """
     else:  # pretrained_type must be part of SpeechBrain
         raise TypeError("Unknown pretrained model.")
 
@@ -192,11 +212,11 @@ def profile_pretrained(
     save_dir,
     audio_mockup_secs,
     batch_sizes,
-    upper_triangule_only=True,
+    triangle_only=True,
     example_audio=None,
     export_logs=False,
-    output_format="markdown",
-    ext="md",
+    output_format: Optional[Iterable] = "markdown",
+    ext: Optional[Iterable] = "md",
 ):
     """Loops through the profiler settings and benchmarks the inference of a pretrained model.
 
@@ -230,7 +250,7 @@ def profile_pretrained(
         for b, bs in enumerate(batch_sizes):
             # skip expected heavy-loads
             if (
-                upper_triangule_only
+                triangle_only
             ):  # this is a protection mechanism, since configs might explore exponentially
                 if (
                     (b + d >= (len(audio_mockup_secs) + len(batch_sizes)) / 2)
@@ -248,52 +268,44 @@ def profile_pretrained(
             print(f"\nDuration: {duration:d}, batch_size: {bs:d}")
 
             # benchmarking
-            try:
-                kwargs = create_batch_data(batch_size=bs, duration=duration)
-                realtime = (
-                    2 * bs * us_in_s * duration
-                )  # 2 batches recorded x conversion factor x secs
+            kwargs = create_batch_data(batch_size=bs, duration=duration)
+            realtime = (
+                2 * bs * us_in_s * duration
+            )  # 2 batches recorded x conversion factor x secs
 
-                # Simulating batching and profiling it
-                with profile_optimiser(export_logs=export_logs) as prof:
-                    for _ in range(
-                        6
-                    ):  # default scheduler records in fifth and sixth step
-                        call(model=pretrained, **kwargs)
-                        prof.step()
+            # Simulating batching and profiling it
+            with profile_optimiser(export_logs=export_logs) as prof:
+                for _ in range(
+                    6
+                ):  # default scheduler records in fifth and sixth step
+                    call(model=pretrained, **kwargs)
+                    prof.step()
 
-                # Gathering time and memory reports
-                print(
-                    prof.key_averages().table(
-                        sort_by="cpu_time_total", row_limit=10
-                    )
+            # Gathering time and memory reports
+            print(
+                prof.key_averages().table(
+                    sort_by="cpu_time_total", row_limit=10
                 )
-                cpu_time, cuda_time = report_time(prof)
-                cpu_mem, cuda_mem = report_memory(prof, verbose=True)
+            )
+            cpu_time, cuda_time = report_time(prof)
+            cpu_mem, cuda_mem = report_memory(prof, verbose=True)
 
-                # Keep formatted figures for tables
-                cpu_max = cpu_mem.max()
-                cuda_max = cuda_mem.max()
+            # Keep formatted figures for tables
+            cpu_max = cpu_mem.max()
+            cuda_max = cuda_mem.max()
 
-                if cuda_time == 0:  # CPU values only
-                    realtime_factor.loc[
-                        duration, bs
-                    ] = f"{cpu_time / realtime:.2E}"
-                    memory_peaks.loc[
-                        duration, bs
-                    ] = f"{cpu_max / byte_in_GB:.2f} Gb"
-                else:  # CPU | GPU
-                    realtime_factor.loc[
-                        duration, bs
-                    ] = f"{cpu_time / realtime:.2E} | {cuda_time / realtime:.2E}"
-                    memory_peaks.loc[
-                        duration, bs
-                    ] = f"{cpu_max / byte_in_GB:.2f} | {cuda_max / byte_in_GB:.2f} Gb"
-            except Exception as exception:  # if it's out-of-memory, this one will not help ;-)
-                print("Error occurred.")
-                print(exception)
-                realtime_factor.loc[duration, bs] = "N/A"
-                memory_peaks.loc[duration, bs] = "N/A"
+            if cuda_time == 0:  # CPU values only
+                realtime_factor.loc[duration, bs] = f"{cpu_time / realtime:.2E}"
+                memory_peaks.loc[
+                    duration, bs
+                ] = f"{cpu_max / byte_in_GB:.2f} Gb"
+            else:  # CPU | GPU
+                realtime_factor.loc[
+                    duration, bs
+                ] = f"{cpu_time / realtime:.2E} + {cuda_time / realtime:.2E}"
+                memory_peaks.loc[
+                    duration, bs
+                ] = f"{cpu_max / byte_in_GB:.2f} + {cuda_max / byte_in_GB:.2f} Gb"
 
     # Store tables
     print("\n\tReal-time factor")
@@ -322,7 +334,7 @@ if __name__ == "__main__":
     profiling_setup = {
         "audio_mockup_secs": [1, 2],
         "batch_sizes": [1, 2],
-        "upper_triangule_only": True,
+        "triangle_only": True,
         "example_audio": None,
         "export_logs": False,
     }
