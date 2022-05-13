@@ -219,15 +219,22 @@ def get_funcs_to_profile(
     return prepare, call, pretrained
 
 
-def benchmark_to_markdown(benchmark: List[List[str]], columns: List[str], rows: List[str]):
+def benchmark_to_markdown(
+    benchmark: List[List[str]], columns: List[str], rows: List[str]
+):
     cell_width = max([len(x) for x in benchmark[0]])
     fmt = "{: >%d} " % cell_width
-    out = '|   ' + fmt.format('|') + '| '.join([fmt.format(x) for x in columns]) + '|\n'
-    sep = '|:' + cell_width*'-' + ':'
-    out += (1+len(columns))*sep + '|\n'
+    out = (
+        "|   "
+        + fmt.format("|")
+        + "| ".join([fmt.format(x) for x in columns])
+        + "|\n"
+    )
+    sep = "|:" + cell_width * "-" + ":"
+    out += (1 + len(columns)) * sep + "|\n"
     for i, r in enumerate(rows):
-        out += '| ' + fmt.format('%ds ' % r)
-        out += '| ' + ' | '.join(benchmark[i]) + ' |\n'
+        out += "| " + fmt.format("%ds " % r)
+        out += "| " + " | ".join(benchmark[i]) + " |\n"
     print(out)
     return out
 
@@ -296,7 +303,11 @@ def profile_pretrained(
             )  # 2 batches recorded x conversion factor x secs
 
             # Simulating batching and profiling it
-            prof = export(profile_optimiser()) if export_logs else profile_optimiser()
+            prof = (
+                export(profile_optimiser())
+                if export_logs
+                else profile_optimiser()
+            )
             for _ in range(
                 6
             ):  # default scheduler records in fifth and sixth step
@@ -320,19 +331,35 @@ def profile_pretrained(
                 realtime_factor_row.append(f"{cpu_time / realtime:.2E}")
                 memory_peaks_row.append(f"{cpu_max / byte_in_GB:.2f} Gb")
             else:  # CPU + GPU values
-                realtime_factor_row.append(f"{cpu_time / realtime:.2E} + {cuda_time / realtime:.2E}")
-                memory_peaks_row.append(f"{cpu_max / byte_in_GB:.2f} + {cuda_max / byte_in_GB:.2f} Gb")
+                realtime_factor_row.append(
+                    f"{cpu_time / realtime:.2E} + {cuda_time / realtime:.2E}"
+                )
+                memory_peaks_row.append(
+                    f"{cpu_max / byte_in_GB:.2f} + {cuda_max / byte_in_GB:.2f} Gb"
+                )
         realtime_factor.append(realtime_factor_row)
         memory_peaks.append(memory_peaks_row)
 
     # Store tables
     print("\n\tReal-time factor")
-    with open('bechmark_realtime_factors.md', 'w') as f:
-        f.write(benchmark_to_markdown(benchmark=realtime_factor, columns=batch_sizes, rows=audio_mockup_secs))
+    with open("bechmark_realtime_factors.md", "w") as f:
+        f.write(
+            benchmark_to_markdown(
+                benchmark=realtime_factor,
+                columns=batch_sizes,
+                rows=audio_mockup_secs,
+            )
+        )
 
     print("\n\tPeak memory")
-    with open('bechmark_memory_peaks.md', 'w') as f:
-        f.write(benchmark_to_markdown(benchmark=memory_peaks, columns=batch_sizes, rows=audio_mockup_secs))
+    with open("bechmark_memory_peaks.md", "w") as f:
+        f.write(
+            benchmark_to_markdown(
+                benchmark=memory_peaks,
+                columns=batch_sizes,
+                rows=audio_mockup_secs,
+            )
+        )
 
 
 if __name__ == "__main__":
