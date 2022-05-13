@@ -379,16 +379,10 @@ def test_scheduler(device):
 
 
 def test_tracer(device):
-    import os
     import torch
-    import shutil
     from torch.optim import SGD
     from speechbrain.core import Brain
     from speechbrain.utils.profiling import profile, export
-
-    log_dir = "./log"
-    if os.path.exists(log_dir):
-        shutil.rmtree(log_dir)
 
     @export
     @profile
@@ -407,15 +401,10 @@ def test_tracer(device):
     test_set = ([inputs, targets],)
 
     # Profiling: __init__ constructor and model training.
-    assert not os.path.exists(log_dir)
     brain = SimpleBrain(
         {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
     )
-    assert os.path.exists(log_dir)
-    assert len(os.listdir(log_dir)) == 1
     brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
-    assert len(os.listdir(log_dir)) == 2
-    # breakpoint -> check out on Chrome: chrome://tracing
 
     # Pretrained example.
     class SimpleBrainUntracked(Brain):
@@ -429,12 +418,8 @@ def test_tracer(device):
     brain_or_pretrained = SimpleBrainUntracked(
         {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
     )
-    assert len(os.listdir(log_dir)) == 2
-    assert brain_or_pretrained.profiler is None
     profile(brain_or_pretrained, on_trace_ready=export(), with_stack=True)
-    assert len(os.listdir(log_dir)) == 2
     brain_or_pretrained.evaluate(test_set=test_set)
-    assert len(os.listdir(log_dir)) == 4  # FlameGraph data is generated as well
 
     # Set-up the profiler; hook it to the model, and benchmark inference.
     brain_or_pretrained2 = SimpleBrainUntracked(
@@ -443,12 +428,7 @@ def test_tracer(device):
     logged_profiler = export(profile)
     assert brain_or_pretrained2.profiler is None
     logged_profiler(brain_or_pretrained2)
-    assert len(os.listdir(log_dir)) == 4
     brain_or_pretrained2.evaluate(test_set=test_set)
-    assert len(os.listdir(log_dir)) == 5
-
-    # Clean-up.
-    shutil.rmtree(log_dir)
 
 
 def test_aggregated_traces(device):
