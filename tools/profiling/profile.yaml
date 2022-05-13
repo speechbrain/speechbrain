@@ -1,14 +1,14 @@
 # ############################################################################
 # Profile: pretrained SpeechBrain model
-# Benchmark: real-time factor + memory requirements
+# Benchmark: real-time factors + memory peaks
 #
 # Authors:  Andreas Nautsch 2022
 # # ############################################################################
 
 # Which model to profile? What is its type?
 pretrained_model:
-  source: speechbrain/asr-wav2vec2-commonvoice-fr
-  type: EncoderASR
+  source: speechbrain/asr-crdnn-rnnlm-librispeech
+  type: EncoderDecoderASR
 
 # Which settings should be benchmarked?
 #   by audio duration (random values) -> simulation for nominal level of data
@@ -23,11 +23,3 @@ profiling_dimensions:
   example_audio: ../../samples/audio_samples/example2.flac
   triangle_only: False
   # export_logs: True
-
-
-# Result tables are printed - here, write out formats can be specified
-#   supported via pandas: csv, json, latex, markdown, parquet & pickle
-#   files are created in f"pretrained_models/{source}" are:
-#     benchmark_real_time.{ext}
-#     benchmark_memory.{ext}
-output_formats: ['csv', 'markdown']

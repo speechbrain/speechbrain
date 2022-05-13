@@ -34,11 +34,6 @@ profiling_dimensions:
   # Some audio_mockup_secs x batch_sizes configs can get VRAM intensive
   triangle_only: False  # True -> skip the heavy ones, e.g., 32s x 8 files
   export_logs: True  # export trace logs for visualisation
-
-# Want to export results with pandas?
-#     benchmark_real_time.{ext}
-#     benchmark_memory.{ext}
-output_formats: ['csv', 'markdown']  # default: markdown
 ```
 
 ***Note:*** The choice of a real audio over mock-up/random data is to clarify on the impact of recursive computations whose paths depend on data, e.g., beamforming. _(RNN language models are fast on noise: useful for quick inquiry on memory peaks only; not for inquiry on real-time factors.)_

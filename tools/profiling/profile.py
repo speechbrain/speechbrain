@@ -8,14 +8,11 @@ be representative of a benchmark setting (duration vs batch size). The setup is 
 Run from within this directory (yaml defines an example audio w/ relative path):
 `python profile.py profile.yaml`
 
-Operational for: EncoderDecoderASR; EncoderASR
-
 Author:
     * Andreas Nautsch 2022
 """
 import sys
 import torch
-import pandas
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.profiling import (
@@ -36,7 +33,7 @@ from speechbrain.pretrained import (
     SpectralMaskEnhancement,
     SNREstimator,
 )
-from typing import Optional, Iterable
+from typing import Optional, List
 
 
 def prepare_unary_input(
@@ -71,8 +68,7 @@ def get_funcs_to_unary_input_classifier(
     pretrained = cls.from_hparams(
         source=source, savedir=save_dir, run_opts={"device": device}
     )
-    if example_audio:
-        example = pretrained.load_audio(example_audio)
+    example = pretrained.load_audio(example_audio) if example_audio else None
 
     def prepare(batch_size, duration, sampling_rate=16000):
         return prepare_unary_input(
@@ -223,6 +219,19 @@ def get_funcs_to_profile(
     return prepare, call, pretrained
 
 
+def benchmark_to_markdown(benchmark: List[List[str]], columns: List[str], rows: List[str]):
+    cell_width = max([len(x) for x in benchmark[0]])
+    fmt = "{: >%d} " % cell_width
+    out = '|   ' + fmt.format('|') + '| '.join([fmt.format(x) for x in columns]) + '|\n'
+    sep = '|:' + cell_width*'-' + ':'
+    out += (1+len(columns))*sep + '|\n'
+    for i, r in enumerate(rows):
+        out += '| ' + fmt.format('%ds ' % r)
+        out += '| ' + ' | '.join(benchmark[i]) + ' |\n'
+    print(out)
+    return out
+
+
 def profile_pretrained(
     pretrained_type,
     source,
@@ -232,8 +241,6 @@ def profile_pretrained(
     triangle_only=True,
     example_audio=None,
     export_logs=False,
-    output_format: Optional[Iterable] = "markdown",
-    ext: Optional[Iterable] = "md",
 ):
     """Loops through the profiler settings and benchmarks the inference of a pretrained model.
 
@@ -244,8 +251,8 @@ def profile_pretrained(
     Logs:
     - shell w/ tabular profiler summary and targeted reporting
     - if export_logs: traces are stored in `log` folder
-    - benchmark_real_time (pandas.DataFrame)
-    - memory_peaks (pandas.DataFrame)
+    - benchmark_real_time (file output)
+    - memory_peaks (file output)
     """
     # Pretrained interface
     create_batch_data, call, pretrained = get_funcs_to_profile(
@@ -253,17 +260,15 @@ def profile_pretrained(
     )
 
     # Prepare table to write out profiling information
-    realtime_factor = pandas.DataFrame(
-        index=audio_mockup_secs, columns=batch_sizes
-    )
-    memory_peaks = pandas.DataFrame(
-        index=audio_mockup_secs, columns=batch_sizes
-    )
+    realtime_factor = []
+    memory_peaks = []
     us_in_s = 1000.0 ** 2
     byte_in_GB = 1024.0 ** 3
 
     # Comprehensive benchmarking
     for d, duration in enumerate(audio_mockup_secs):
+        realtime_factor_row = []
+        memory_peaks_row = []
         for b, bs in enumerate(batch_sizes):
             # skip expected heavy-loads
             if (
@@ -277,8 +282,8 @@ def profile_pretrained(
                     print(
                         f"\tskipped - duration: {duration:d}, batch_size: {bs:d}"
                     )
-                    realtime_factor.loc[duration, bs] = "N/A"
-                    memory_peaks.loc[duration, bs] = "N/A"
+                    realtime_factor.loc[duration, bs] = "_skip_"
+                    memory_peaks.loc[duration, bs] = "_skip_"
                     continue
 
             # where are we :)
@@ -312,28 +317,22 @@ def profile_pretrained(
             cuda_max = cuda_mem.max()
 
             if cuda_time == 0:  # CPU values only
-                realtime_factor.loc[duration, bs] = f"{cpu_time / realtime:.2E}"
-                memory_peaks.loc[
-                    duration, bs
-                ] = f"{cpu_max / byte_in_GB:.2f} Gb"
-            else:  # CPU | GPU
-                realtime_factor.loc[
-                    duration, bs
-                ] = f"{cpu_time / realtime:.2E} + {cuda_time / realtime:.2E}"
-                memory_peaks.loc[
-                    duration, bs
-                ] = f"{cpu_max / byte_in_GB:.2f} + {cuda_max / byte_in_GB:.2f} Gb"
+                realtime_factor_row.append(f"{cpu_time / realtime:.2E}")
+                memory_peaks_row.append(f"{cpu_max / byte_in_GB:.2f} Gb")
+            else:  # CPU + GPU values
+                realtime_factor_row.append(f"{cpu_time / realtime:.2E} + {cuda_time / realtime:.2E}")
+                memory_peaks_row.append(f"{cpu_max / byte_in_GB:.2f} + {cuda_max / byte_in_GB:.2f} Gb")
+        realtime_factor.append(realtime_factor_row)
+        memory_peaks.append(memory_peaks_row)
 
     # Store tables
     print("\n\tReal-time factor")
-    print(realtime_factor)
-    print("\n\tPeak memory")
-    print(memory_peaks)
+    with open('bechmark_realtime_factors.md', 'w') as f:
+        f.write(benchmark_to_markdown(benchmark=realtime_factor, columns=batch_sizes, rows=audio_mockup_secs))
 
-    if output_format is not None:
-        for of, e in zip(output_format, ext):
-            getattr(realtime_factor, "to_%s" % of)("benchmark_real_time.%s" % e)
-            getattr(memory_peaks, "to_%s" % of)("benchmark_memory.%s" % e)
+    print("\n\tPeak memory")
+    with open('bechmark_memory_peaks.md', 'w') as f:
+        f.write(benchmark_to_markdown(benchmark=memory_peaks, columns=batch_sizes, rows=audio_mockup_secs))
 
 
 if __name__ == "__main__":
@@ -366,34 +365,9 @@ if __name__ == "__main__":
     source = hparams["pretrained_model"]["source"]
     save_dir = f"pretrained_models/{source}"
 
-    # Lookup output formats and determine depending file extensions
-    ext = (
-        []
-    )  # a list to be filled depending on the output formats specified in hparams
-    output_format = None  # default: None - unless hparams defines one or more formats (string or a list of strings)
-    pandas_format_ext = {
-        "csv": "csv",  # key: should match a pandas.to_{key} function - value: a common extension
-        "json": "json",
-        "latex": "tex",
-        "markdown": "md",  # pip install tabulate
-        "pickle": "pkl",
-    }
-    if "output_formats" in hparams:
-        if isinstance(hparams["output_formats"], str):
-            output_format = [hparams["output_formats"]]
-        if isinstance(hparams["output_formats"], list):
-            output_format = hparams["output_formats"]
-    for of in output_format:
-        if of not in pandas_format_ext:
-            AssertionError("Unknown output format.")
-        else:
-            ext.append(pandas_format_ext[of])
-
     profile_pretrained(
         pretrained_type=pretrained_type,
         source=source,
         save_dir=save_dir,
-        output_format=output_format,
-        ext=ext,
         **profiling_setup,
     )
