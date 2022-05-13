@@ -414,8 +414,7 @@ def profile(
 
 
 def profile_analyst(
-    func: Optional[object] = None,
-    class_hooks: Optional[Iterable[str]] = None,
+    func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
     """Pre-configured profiling for a fully detailed benchmark - analyst perspective.
 
@@ -446,8 +445,7 @@ def profile_analyst(
 
 
 def profile_optimiser(
-    func: Optional[object] = None,
-    class_hooks: Optional[Iterable[str]] = None,
+    func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
     """Pre-configured profiling for a detailed benchmark (better suitable for speed-optimisation than @profile_analyst).
     """
@@ -559,11 +557,15 @@ def report_memory(handler: object, verbose=False):
         )
 
     # memory allocation during each time step is of relevance, e.g. for visualisation
-    mem_times = np.unique([[x.time_range.start, x.time_range.end] for x in events])
+    mem_times = np.unique(
+        [[x.time_range.start, x.time_range.end] for x in events]
+    )
     cpu_memory = np.zeros_like(mem_times)
     cuda_memory = np.zeros_like(mem_times)
     for x in events:
-        idx = (x.time_range.start <= mem_times) & (x.time_range.end >= mem_times)
+        idx = (x.time_range.start <= mem_times) & (
+            x.time_range.end >= mem_times
+        )
         cpu_memory[idx] += x.cpu_memory_usage
         cuda_memory[idx] += x.cuda_memory_usage
     memory = np.array((mem_times, cpu_memory, cuda_memory))
