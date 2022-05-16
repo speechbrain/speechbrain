@@ -8,7 +8,7 @@ from copy import deepcopy
 from torch import profiler
 from itertools import chain
 from functools import wraps
-from torch.autograd.profiler_util import (
+from torch.autograd.profiler_util import (  # pytorch v1.10.1
     EventList,
     FunctionEvent,
     _format_time,
@@ -472,6 +472,34 @@ def profile_optimiser(
         return wrapper
 
 
+def profile_report(  # not part of unittests
+    func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
+):
+    """Pre-configured profiling for a reporting benchmark (changed scheduler to @profile_optimiser).
+    """
+    profiler_kwargs = {
+        "schedule": schedule(wait=1, warmup=2, active=7, repeat=1, skip_first=0,),  # gives #active, avg:ed of #repeat
+        "on_trace_ready": None,
+        "record_shapes": False,  # avoid: overheads
+        "profile_memory": True,
+        "with_stack": False,  # avoid: overheads
+        "with_flops": False,  # only for: matrix multiplication & 2D conv; see: torch.autograd.profiler.profile
+        "with_modules": True,
+        "class_hooks": class_hooks,
+    }
+    wrapped_func = profile(func, **profiler_kwargs)
+    # Polymorph: func is pretrained or an instance of Brain (assumed case)
+    if hasattr(func, "HPARAMS_NEEDED") or not callable(func):
+        return wrapped_func
+    else:  # callable(func) - polymorph: __init__ Brain constructor -or- function to be wrapped
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return wrapped_func(*args, **kwargs)
+
+        return wrapper
+
+
 def events_diff(
     a: EventList, b: EventList, filter_by: str = "count",
 ):
@@ -516,27 +544,36 @@ def events_diff(
     return aa, bb
 
 
-def report_time(events: object, verbose=False):
+def report_time(events: object, verbose=False, upper_control_limit=False):
     """Summary reporting of total time - see: torch.autograd.profiler_util
     """
     # Aggregate CPU & CUDA time.
     if isinstance(events, FunctionEvent):
-        total = events.total_average()
+        function_events = events
     elif isinstance(events, profiler.profile):
-        total = events.events().total_average()
+        function_events = events.events()
     elif hasattr(events, "profiler"):  # assumes speechbrain.core.Brain
-        total = events.profiler.events().total_average()
+        function_events = events.profiler.events()
     else:
         raise TypeError(
             "Expected a FunctionEvent; profiler.profile, or a SpeechBrain."
         )
-    cpu_time = total.self_cpu_time_total
-    cuda_time = total.self_cuda_time_total
+
+    if upper_control_limit:
+        # discerns top-level event (among others) aten:zeros which is in the avg range of 10-20ms on laptop CPU
+        cpu_data = np.array([e.cpu_time for e in function_events if e.key == 'ProfilerStep*'])
+        cuda_data = np.array([e.cuda_time for e in function_events if e.key == 'ProfilerStep*'])
+        cpu_time = cpu_data.mean() + 3 * cpu_data.std()
+        cuda_time = cuda_data.mean() + 3 * cuda_data.std()
+    else:
+        total = function_events.total_average()
+        cpu_time = total.self_cpu_time_total
+        cuda_time = total.self_cuda_time_total
 
     if verbose:
-        print("Self CPU time total: {}".format(_format_time(cpu_time)))
+        print("CPU time: {}".format(_format_time(cpu_time)))
         if cuda_time > 0:
-            print("Self CUDA time total: {}".format(_format_time(cuda_time)))
+            print("CUDA time: {}".format(_format_time(cuda_time)))
 
     return cpu_time, cuda_time
 
@@ -571,12 +608,12 @@ def report_memory(handler: object, verbose=False):
     memory = np.array((mem_times, cpu_memory, cuda_memory))
 
     # variable names instead of labeling pandas' columns
-    cpu_mem = memory[1]
-    cuda_mem = memory[2]
+    cpu_mem = memory[1].max()
+    cuda_mem = memory[2].max()
 
     if verbose:
-        print("Peak CPU Mem: {}".format(_format_memory(cpu_mem.max())))
-        if cuda_mem.max() > 0:
-            print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem.max())))
+        print("Peak CPU Mem: {}".format(_format_memory(cpu_mem)))
+        if cuda_mem > 0:
+            print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem)))
 
     return cpu_mem, cuda_mem
