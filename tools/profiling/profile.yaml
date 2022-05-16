@@ -7,8 +7,8 @@
 
 # Which model to profile? What is its type?
 pretrained_model:
-  source: speechbrain/asr-crdnn-rnnlm-librispeech
-  type: EncoderDecoderASR
+  source: speechbrain/asr-wav2vec2-commonvoice-fr
+  type: EncoderASR
 
 # Which settings should be benchmarked?
 #   by audio duration (random values) -> simulation for nominal level of data

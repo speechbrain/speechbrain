@@ -16,7 +16,7 @@ import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.profiling import (
-    profile_optimiser,
+    profile_report,
     export,
     report_time,
     report_memory,
@@ -299,18 +299,17 @@ def profile_pretrained(
             # benchmarking
             kwargs = create_batch_data(batch_size=bs, duration=duration)
             realtime = (
-                2 * bs * us_in_s * duration
-            )  # 2 batches recorded x conversion factor x secs
+                bs * us_in_s * duration
+            )  # batches recorded x conversion factor x secs
 
             # Simulating batching and profiling it
             prof = (
-                export(profile_optimiser())
+                export(profile_report())
                 if export_logs
-                else profile_optimiser()
+                else profile_report()
             )
-            for _ in range(
-                6
-            ):  # default scheduler records in fifth and sixth step
+            num_steps = 10  # profile_report scheduler needs 10 steps for seven recordings
+            for _ in range(num_steps):
                 call(model=pretrained, **kwargs)
                 prof.step()
 
@@ -320,22 +319,19 @@ def profile_pretrained(
                     sort_by="cpu_time_total", row_limit=10
                 )
             )
-            cpu_time, cuda_time = report_time(prof)
-            cpu_mem, cuda_mem = report_memory(prof, verbose=True)
 
-            # Keep formatted figures for tables
-            cpu_max = cpu_mem.max()
-            cuda_max = cuda_mem.max()
+            cpu_time, cuda_time = report_time(prof, verbose=True, upper_control_limit=True)  # no need to avg #records
+            cpu_mem, cuda_mem = report_memory(prof, verbose=True)
 
             if cuda_time == 0:  # CPU values only
                 realtime_factor_row.append(f"{cpu_time / realtime:.2E}")
-                memory_peaks_row.append(f"{cpu_max / byte_in_GB:.2f} Gb")
+                memory_peaks_row.append(f"{cpu_mem / byte_in_GB:.2f} Gb")
             else:  # CPU + GPU values
                 realtime_factor_row.append(
                     f"{cpu_time / realtime:.2E} + {cuda_time / realtime:.2E}"
                 )
                 memory_peaks_row.append(
-                    f"{cpu_max / byte_in_GB:.2f} + {cuda_max / byte_in_GB:.2f} Gb"
+                    f"{cpu_mem / byte_in_GB:.2f} + {cuda_mem / byte_in_GB:.2f} Gb"
                 )
         realtime_factor.append(realtime_factor_row)
         memory_peaks.append(memory_peaks_row)
