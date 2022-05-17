@@ -289,8 +289,8 @@ def profile_pretrained(
                     print(
                         f"\tskipped - duration: {duration:d}, batch_size: {bs:d}"
                     )
-                    realtime_factor.loc[duration, bs] = "_skip_"
-                    memory_peaks.loc[duration, bs] = "_skip_"
+                    realtime_factor_row.append("_skip_")
+                    memory_peaks_row.append("_skip_")
                     continue
 
             # where are we :)
