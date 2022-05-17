@@ -478,7 +478,9 @@ def profile_report(  # not part of unittests
     """Pre-configured profiling for a reporting benchmark (changed scheduler to @profile_optimiser).
     """
     profiler_kwargs = {
-        "schedule": schedule(wait=1, warmup=2, active=7, repeat=1, skip_first=0,),  # gives #active, avg:ed of #repeat
+        "schedule": schedule(
+            wait=1, warmup=2, active=7, repeat=1, skip_first=0,
+        ),  # gives #active, avg:ed of #repeat
         "on_trace_ready": None,
         "record_shapes": False,  # avoid: overheads
         "profile_memory": True,
@@ -561,8 +563,12 @@ def report_time(events: object, verbose=False, upper_control_limit=False):
 
     if upper_control_limit:
         # discerns top-level event (among others) aten:zeros which is in the avg range of 10-20ms on laptop CPU
-        cpu_data = np.array([e.cpu_time for e in function_events if e.key == 'ProfilerStep*'])
-        cuda_data = np.array([e.cuda_time for e in function_events if e.key == 'ProfilerStep*'])
+        cpu_data = np.array(
+            [e.cpu_time for e in function_events if e.key == "ProfilerStep*"]
+        )
+        cuda_data = np.array(
+            [e.cuda_time for e in function_events if e.key == "ProfilerStep*"]
+        )
         cpu_time = cpu_data.mean() + 3 * cpu_data.std()
         cuda_time = cuda_data.mean() + 3 * cuda_data.std()
     else:
