@@ -58,8 +58,8 @@ By contrast, profiling `speechbrain/asr-crdnn-rnnlm-librispeech` (tracks 80 hypo
 
 
 
-For low-memory machines, it might be good to benchmark only a few data points of the 
-full duration vs batch size table (`triangle_only=True`). 
+For low-memory machines, it might be good to benchmark only a few data points of the
+full duration vs batch size table (`triangle_only=True`).
 More demanding settings might not be satisfiable by VRAM.
 
 # Results (inference only)
@@ -77,7 +77,7 @@ _Note: 1E0 = 1x 10^0 = 1.0 is real-time equivalent, every factor below has a neg
 > `5.15E-02 + 3.62E-02` means
 > * CPU factor: 5.15E-02 is real-time (factor: 0.0515 < 1)
 > * CUDA factor: 3.62E-02 is real-time (factor: 0.0362 < 1)
-> * Total: 1.26E-01 (0.126 < 1) -> real-time 
+> * Total: 1.26E-01 (0.126 < 1) -> real-time
 
 | 1x V100 |    batch size: 1    |         4           |         8           |
 |:-------:|:-------------------:|:-------------------:|:-------------------:|
@@ -133,12 +133,8 @@ On dual-core CPUs.
 |   8s   | 4.05E-02 |  _skip_  |  _skip_  |
 |  32s   | 2.97E-02 |  _skip_  |  _skip_  |
 
-_Note: these values report upper control limits, averages under the impact of deviation. 
-The 16x CPU benchmark appears inconsistent for this setting of durations and batch sizes; 
-a reason could be that more extensive hardware might be suited better for even heavier computations 
-(lower workloads are not processed at full efficiency)._
+_Note: these values report upper control limits, averages under the impact of deviation. The 16x CPU benchmark appears inconsistent for this setting of durations and batch sizes; a reason could be that more extensive hardware might be suited better for even heavier computations (lower workloads are not processed at full efficiency)._
 
-__
 
 ## Memory peaks
 
@@ -163,7 +159,7 @@ __
 
 ## Contrastive results
 
-For comparison on 1x V100: [speechbrain/asr-crdnn-rnnlm-librispeech](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech). 
+For comparison on 1x V100: [speechbrain/asr-crdnn-rnnlm-librispeech](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech).
 
 |  Real-time factor   |                   1 |                   4 |                   8 |
 |:-------------------:|:-------------------:|:-------------------:|:-------------------:|
@@ -172,7 +168,7 @@ For comparison on 1x V100: [speechbrain/asr-crdnn-rnnlm-librispeech](https://hug
 |         5s          | 1.32E-01 + 6.01E-02 | 4.24E-02 + 2.84E-02 | 3.65E-02 + 2.52E-02 |
 |         8s          | 1.03E-01 + 5.21E-02 | 4.18E-02 + 2.64E-02 | 3.28E-02 + 2.70E-02 |
 |         32s         | 6.81E-02 + 3.99E-02 | 3.22E-02 + 2.69E-02 | 2.77E-02 + 2.69E-02 |
-	
+
 | Memory peaks |              1 |              4 |              8 |
 |:------------:|:--------------:|:--------------:|:--------------:|
 |      1s      | 0.00 + 0.78 Gb | 0.00 + 0.78 Gb | 0.00 + 0.78 Gb |
@@ -181,8 +177,7 @@ For comparison on 1x V100: [speechbrain/asr-crdnn-rnnlm-librispeech](https://hug
 |      8s      | 0.00 + 0.78 Gb | 0.00 + 0.78 Gb | 0.00 + 1.46 Gb |
 |     32s      | 0.00 + 0.78 Gb | 0.00 + 2.87 Gb | 0.00 + 5.74 Gb |
 
-_Note: here, the RNN LM calls up to: 24,731x `aten::copy_` (882x for the model above) and 22,4940x `cudaLaunchKernel`. 
-(This could be because of tensors being created on CPU and then moved to cuda with `.to()` instead of creating them on the device right away.)_  
+_Note: here, the RNN LM calls up to: 24,731x `aten::copy_` (882x for the model above) and 22,4940x `cudaLaunchKernel`. (This could be because of tensors being created on CPU and then moved to cuda with `.to()` instead of creating them on the device right away.)_
 
 
 # Some pointers
