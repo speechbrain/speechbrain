@@ -303,11 +303,7 @@ def profile_pretrained(
             )  # batches recorded x conversion factor x secs
 
             # Simulating batching and profiling it
-            prof = (
-                export(profile_report())
-                if export_logs
-                else profile_report()
-            )
+            prof = export(profile_report()) if export_logs else profile_report()
             num_steps = 10  # profile_report scheduler needs 10 steps for seven recordings
             for _ in range(num_steps):
                 call(model=pretrained, **kwargs)
@@ -320,7 +316,9 @@ def profile_pretrained(
                 )
             )
 
-            cpu_time, cuda_time = report_time(prof, verbose=True, upper_control_limit=True)  # no need to avg #records
+            cpu_time, cuda_time = report_time(
+                prof, verbose=True, upper_control_limit=True
+            )  # no need to avg #records
             cpu_mem, cuda_mem = report_memory(prof, verbose=True)
 
             if cuda_time == 0:  # CPU values only

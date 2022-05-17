@@ -52,8 +52,8 @@ profiling_dimensions:
 
 How long one test takes depends on its configuration, the pretrained model, and on the machine.
 
-On a 1x V100 GPU, profiling `speechbrain/asr-wav2vec2-commonvoice-fr` run for ~4min.
-By contrast, profiling `speechbrain/asr-crdnn-rnnlm-librispeech` (tracks 80 hypotheses) run for ~min.
+On a 1x V100 GPU, profiling `speechbrain/asr-wav2vec2-commonvoice-fr` run for ~4 minutes.
+By contrast, profiling `speechbrain/asr-crdnn-rnnlm-librispeech` (tracks 80 hypotheses) run for ~24 minutes.
 (One might consider to track way less hypotheses.)
 
 
@@ -181,7 +181,7 @@ For comparison on 1x V100: [speechbrain/asr-crdnn-rnnlm-librispeech](https://hug
 |      8s      | 0.00 + 0.78 Gb | 0.00 + 0.78 Gb | 0.00 + 1.46 Gb |
 |     32s      | 0.00 + 0.78 Gb | 0.00 + 2.87 Gb | 0.00 + 5.74 Gb |
 
-_Note: The RNN LM calls up to: 24,731x `aten::copy_` (882x in the model above) and 22,4940x `cudaLaunchKernel`. 
+_Note: here, the RNN LM calls up to: 24,731x `aten::copy_` (882x for the model above) and 22,4940x `cudaLaunchKernel`. 
 (This could be because of tensors being created on CPU and then moved to cuda with `.to()` instead of creating them on the device right away.)_  
 
 
