@@ -593,7 +593,7 @@ def report_memory(handler: object, verbose=False):
             "Expected a FunctionEvent; profiler.profile, or a SpeechBrain."
         )
 
-    # memory allocation during each time step is of relevance, e.g. for visualisation
+    """memory allocation during each time step is of relevance, e.g. for visualisation - time intensive for lots events
     mem_times = np.unique(
         [[x.time_range.start, x.time_range.end] for x in events]
     )
@@ -605,11 +605,26 @@ def report_memory(handler: object, verbose=False):
         )
         cpu_memory[idx] += x.cpu_memory_usage
         cuda_memory[idx] += x.cuda_memory_usage
-    memory = np.array((mem_times, cpu_memory, cuda_memory))
 
     # variable names instead of labeling pandas' columns
-    cpu_mem = memory[1].max()
-    cuda_mem = memory[2].max()
+    cpu_mem = np.max(cpu_memory)
+    cuda_mem = np.max(cuda_memory)
+    """
+
+    cpu_mem = cuda_mem = 0
+    for e in events:
+        if len(e.cpu_children) == 0:
+            leaf_cpu_mem = e.cpu_memory_usage
+            leaf_cuda_mem = e.cuda_memory_usage
+            parent = e.cpu_parent
+            while parent is not None:
+                leaf_cpu_mem += parent.cpu_memory_usage
+                leaf_cuda_mem += parent.cuda_memory_usage
+                parent = parent.cpu_parent
+            if leaf_cpu_mem > cpu_mem:
+                cpu_mem = leaf_cpu_mem
+            if leaf_cuda_mem > cuda_mem:
+                cuda_mem = leaf_cuda_mem
 
     if verbose:
         print("Peak CPU Mem: {}".format(_format_memory(cpu_mem)))
