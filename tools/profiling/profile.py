@@ -36,24 +36,6 @@ from speechbrain.pretrained import (
 from typing import Optional, List
 
 
-def prepare_unary_input(
-    batch_size,
-    duration,
-    batch_label="wavs",
-    lengths_label: Optional[str] = "wav_lens",
-    example=None,
-    sampling_rate=16000,
-):
-    unary_input = {
-        batch_label: example[: duration * sampling_rate].repeat(batch_size, 1)
-        if example is not None
-        else torch.rand((batch_size, duration * sampling_rate)),
-    }
-    if lengths_label is not None:
-        unary_input[lengths_label] = torch.ones(batch_size)
-    return unary_input
-
-
 def get_funcs_to_unary_input_classifier(
     cls,
     call_func: str,
@@ -71,14 +53,18 @@ def get_funcs_to_unary_input_classifier(
     example = pretrained.load_audio(example_audio) if example_audio else None
 
     def prepare(batch_size, duration, sampling_rate=16000):
-        return prepare_unary_input(
-            batch_size,
-            duration,
-            batch_label=batch_label,
-            lengths_label=lengths_label,
-            example=example,
-            sampling_rate=sampling_rate,
-        )
+        unary_input = {
+            batch_label: example[: duration * sampling_rate].repeat(
+                batch_size, 1
+            )
+            if example is not None
+            else torch.rand(
+                (batch_size, duration * sampling_rate), device=device
+            ),
+        }
+        if lengths_label is not None:
+            unary_input[lengths_label] = torch.ones(batch_size)
+        return unary_input
 
     def call(model, **kwargs):
         getattr(model, call_func)(**kwargs)
@@ -149,8 +135,12 @@ def get_funcs_to_profile(
 
         def prepare(batch_size, duration, num_wavs2=10, sampling_rate=16000):
             return {
-                "wavs1": torch.rand((batch_size, duration * sampling_rate)),
-                "wavs2": torch.rand((num_wavs2, duration * sampling_rate)),
+                "wavs1": torch.rand(
+                    (batch_size, duration * sampling_rate), device=device
+                ),
+                "wavs2": torch.rand(
+                    (num_wavs2, duration * sampling_rate), device=device
+                ),
                 "wav1_lens": torch.ones(batch_size),
                 "wav2_lens": torch.ones(num_wavs2),
             }
@@ -204,9 +194,12 @@ def get_funcs_to_profile(
             return {
                 "mix": example[: duration * sampling_rate].repeat(batch_size, 1)
                 if example is not None
-                else torch.rand((batch_size, duration * sampling_rate)),
+                else torch.rand(
+                    (batch_size, duration * sampling_rate), device=device
+                ),
                 "predictions": torch.rand(
-                    (batch_size, duration * sampling_rate, num_spks)
+                    (batch_size, duration * sampling_rate, num_spks),
+                    device=device,
                 ),
             }
 
