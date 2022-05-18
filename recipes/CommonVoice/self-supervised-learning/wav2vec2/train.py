@@ -257,8 +257,6 @@ def dataio_prepare(hparams):
     valid_batch_sampler = None
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
-        from speechbrain.dataio.batch import PaddedBatch  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         num_buckets = dynamic_hparams["num_buckets"]
