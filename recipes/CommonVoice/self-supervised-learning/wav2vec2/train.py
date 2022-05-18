@@ -348,7 +348,7 @@ if __name__ == "__main__":
     if train_bsampler is not None:
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
-            "num_workers": hparams["dynamic_batch_sampler"]["num_workers"],
+            "num_workers": hparams["num_workers"],
         }
     if valid_bsampler is not None:
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}

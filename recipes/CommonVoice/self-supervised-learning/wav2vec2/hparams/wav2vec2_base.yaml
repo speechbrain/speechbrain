@@ -57,14 +57,15 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 batch_size: 12
 test_batch_size: 8
 gradient_accumulation: 8
+num_workers: 4
 
 dataloader_options:
     batch_size: !ref <batch_size>
-    num_workers: 4
+    num_workers: !ref <num_workers>
 
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
-    num_workers: 4
+    num_workers: !ref <num_workers>
 
 # IMPORTANT 2: We encourage you to use dynamic batching by setting it to True
 # Instead of the default setting. While the recipe will work directly by setting
@@ -83,7 +84,6 @@ dynamic_batch_sampler:
     shuffle_ex: True
     batch_ordering: !ref <sorting>
     num_buckets: 30
-    num_workers: 4
 
 #
 # Functions and classes
