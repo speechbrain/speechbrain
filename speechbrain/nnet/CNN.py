@@ -1191,7 +1191,6 @@ class GaborConv1d(nn.Module):
         if max_freq is None:
             max_freq = sample_rate / 2
         self.max_freq = max_freq
-        print("In GaborConv1d, max_freq:", self.max_freq)
         self.n_fft = n_fft
         self.normalize_energy = normalize_energy
         self.use_legacy_complex = use_legacy_complex
@@ -1368,7 +1367,7 @@ class GaborConv1d(nn.Module):
             in_channels = 1
         else:
             raise ValueError(
-                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+                "GaborConv1d expects 2d or 3d inputs. Got " + str(len(shape))
             )
 
         # Kernel size must be odd
@@ -1534,14 +1533,7 @@ class Leaf(nn.Module):
             in_channels = 1
         else:
             raise ValueError(
-                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
-            )
-
-        # Kernel size must be odd
-        if self.kernel_size % 2 == 0:
-            raise ValueError(
-                "The field kernel size must be an odd number. Got %s."
-                % (self.kernel_size)
+                "Leaf expects 2d or 3d inputs. Got " + str(len(shape))
             )
         return in_channels
 

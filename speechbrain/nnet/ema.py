@@ -61,7 +61,7 @@ class ExponentialMovingAverage(nn.Module):
             x = x.permute(2, 0, 1)
             acc = init_state
             results = []
-            for ix in range(len(x)):
+            for ix in range(x.shape[0]):
                 acc = (w * x[ix]) + ((1.0 - w) * acc)
                 results.append(acc.unsqueeze(0))
             results = torch.cat(results, dim=0)
