@@ -72,7 +72,10 @@ class W2VBrain(sb.core.Brain):
             cosine_sim = torch.cosine_similarity(
                 out.projected_states, out.projected_quantized_states, dim=-1
             )
-            acc = cosine_sim[mask_time_indices].mean()
+            acc = torch.masked_select(
+                cosine_sim,
+                mask_time_indices.type(torch.BoolTensor).to(self.device),
+            ).mean()
             self.acc_metric.append(acc)
 
         return loss
