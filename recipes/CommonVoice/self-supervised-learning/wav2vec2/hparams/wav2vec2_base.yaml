@@ -83,6 +83,7 @@ dynamic_batch_sampler:
     shuffle_ex: True
     batch_ordering: !ref <sorting>
     num_buckets: 30
+    num_workers: 4
 
 #
 # Functions and classes
